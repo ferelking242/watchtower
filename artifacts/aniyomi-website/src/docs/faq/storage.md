@@ -39,7 +39,7 @@ The following illustrates the folder structure:
             <ul>
               <li>
                 <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
-                <span class="folder dynamic">Anime title</span>
+                <span class="folder dynamic">Series title</span>
                 <ul>
                   <li>
                     <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
@@ -79,7 +79,7 @@ The following illustrates the folder structure:
       <ul>
         <li>
           <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
-          <span class="folder dynamic">Anime title</span>
+          <span class="folder dynamic">Series title</span>
           <ul>
             <li>
               <img src="/img/video.svg" alt="Video" class="tree-icon icon-video">
@@ -93,7 +93,7 @@ The following illustrates the folder structure:
         </li>
         <li>
           <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
-          <span class="folder dynamic">Other anime title</span>
+          <span class="folder dynamic">Other series title</span>
           <ul>
             <li>
               <img src="/img/video.svg" alt="Video" class="tree-icon icon-video">

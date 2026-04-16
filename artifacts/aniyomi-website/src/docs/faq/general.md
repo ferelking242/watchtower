@@ -34,7 +34,7 @@ See the [Light Novel reader guide](/docs/guides/light-novel-reader) for full ins
 
 ## What content types does Watchtower support?
 **Watchtower** supports three main content types:
-- **Anime** — stream from online sources or play local video files.
+- **Watch** — stream from online sources or play local video files.
 - **Manga** — read from online sources or local image files/archives.
 - **Light Novels** — read from LN extension sources or local `.epub`/`.txt` files.
 

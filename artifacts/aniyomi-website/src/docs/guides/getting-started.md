@@ -10,7 +10,7 @@ import { data as release } from "@theme/data/release.data"
 
 # Getting started
 
-Essential information to help you get set up with Watchtower — your all-in-one hub for **anime**, **manga**, and **light novels**.
+Essential information to help you get set up with Watchtower — your all-in-one hub for **watch**, **manga**, and **light novels**.
 
 ## Installation guide
 
@@ -34,11 +34,11 @@ Read or watch content stored locally on your device.
 
 See the local source guides for instructions:
 - [Manga](/docs/guides/local-manga-source/)
-- [Anime](/docs/guides/local-anime-source/)
+- [Watch](/docs/guides/local-anime-source/)
 - [Light Novels](/docs/guides/light-novel-reader#local-light-novels) — `.epub` or `.txt` files
 
 == External repositories
-External repositories add additional sources to **Watchtower**. You can add external repositories by going to <nav to="browse"> and tapping **Anime/Manga/LN extension repos**.
+External repositories add additional sources to **Watchtower**. You can add external repositories by going to <nav to="browse"> and tapping **Watch/Manga/LN extension repos**.
 
 Once there, you can add repositories by inputting URLs ending with `index.min.json`.
 
@@ -62,7 +62,7 @@ Watchtower will not provide resources for any unofficial extensions. Beware that
 
 ### Adding series to your library
 
-After installing the desired extension, you'll find it in the **Manga/Anime/LN Sources** tab.
+After installing the desired extension, you'll find it in the **Manga/Watch/LN Sources** tab.
 
 Here's how you can add series to your library:
 

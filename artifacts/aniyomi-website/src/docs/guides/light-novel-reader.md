@@ -78,7 +78,7 @@ Light novels are read **top-to-bottom** (like standard prose). Unlike manga, the
 
 Light novels are stored in your **Library** alongside manga series:
 
-- You can **filter** your library by content type (Anime, Manga, LN)
+- You can **filter** your library by content type (Watch, Manga, LN)
 - Use **categories** to organize your LN separately from manga
 - **Tracking** works with LN series on supported trackers (AniList, NovelUpdates via tracker integration, etc.)
 

@@ -134,4 +134,4 @@ Share the current frame as an image.
 
 ### <TitleIcon name="share_save"/> Save
 
-Save the current frame as an image. Images are saved in `Pictures/Watchtower/<anime name>/` on your phone.
+Save the current frame as an image. Images are saved in `Pictures/Watchtower/<series name>/` on your phone.

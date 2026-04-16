@@ -23,7 +23,7 @@ Exit the player.
 
 ### Title and episode text
 
-Top text is the name of the Anime and the bottom text is the name of the episode. Tap to open up the episode list as a pop-up in the player.
+Top text is the name of the series and the bottom text is the name of the episode. Tap to open up the episode list as a pop-up in the player.
 
 ### <TitleIcon name="autoplay"/> Autoplay
 

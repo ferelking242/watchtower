@@ -1,14 +1,14 @@
 ---
-title: Local anime/manga source
+title: Local watch/manga source
 titleTemplate: Browse - Frequently Asked Questions
-description: Frequently Asked Questions about the Local anime/manga source.
+description: Frequently Asked Questions about the Local watch/manga source.
 ---
 
-# Local anime/manga source
-Frequently Asked Questions about the Local anime/manga source.
+# Local watch/manga source
+Frequently Asked Questions about the Local watch/manga source.
 
 ## How can I import my downloaded series?
-For a step-by-step process, we recommend referring to [this guide for local manga source](/docs/guides/local-manga-source/) or [this guide for local anime source](/docs/guides/local-anime-source/).
+For a step-by-step process, we recommend referring to [this guide for local manga source](/docs/guides/local-manga-source/) or [this guide for local watch source](/docs/guides/local-anime-source/).
 
 ## What should I do if I can't find the Watchtower folder?
 In case the **Watchtower** folder is not visible, create one using a file manager.
@@ -22,7 +22,7 @@ Occasionally, cover images for local series might not appear.
 1. Capture a screenshot of the watched episodes/read chapters, then remove the series from your library.
 1. Navigate to <nav to="advanced"> and tap **Clear database**.
    * This action will only affect series not in your library.
-2. Return to <nav to="sources">, go to **Local anime source** or **Local manga source** and locate the series.
+2. Return to <nav to="sources">, go to **Local watch source** or **Local manga source** and locate the series.
    * The cover issue should now be resolved.
    * Re-add the series to your library, mark your watched episodes/read chapters, and re-enable tracking if necessary.
 

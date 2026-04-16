@@ -528,8 +528,8 @@ defineExpose({ openPanel })
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           <p>Enter a URL to browse</p>
           <div class="wv-quick-links">
-            <button @click="navigateTo('https://github.com/aniyomiorg/aniyomi')">GitHub</button>
-            <button @click="navigateTo('https://aniyomi.org')">aniyomi.org</button>
+            <button @click="navigateTo('https://github.com/ferelking242/watchtower')">GitHub</button>
+            <button @click="navigateTo('https://github.com/ferelking242/watchtower')">watchtower</button>
           </div>
         </div>
 

@@ -1,22 +1,22 @@
 ---
 title: Advanced editing
-titleTemplate: Local anime source - Guides
-description: Advanced local anime metadata editing for enhanced library organization.
+titleTemplate: Local watch source - Guides
+description: Advanced local watch metadata editing for enhanced library organization.
 ---
 
 # Advanced editing
-Advanced local anime metadata editing for enhanced library organization.
+Advanced local watch metadata editing for enhanced library organization.
 
-## Editing local anime details
+## Editing local watch details
 
-It is possible to add details to local anime.
-Like anime from other sources, you add information about the series such as the `author`, `artist`, `description`, and `genre` tags.
+It is possible to add details to local watch content.
+Like content from other sources, you add information about the series such as the `author`, `artist`, `description`, and `genre` tags.
 
-To import details along with your local anime, you have to create a JSON file with the name `details.json`.
-It must be placed within the **Anime** folder.
+To import details along with your local watch content, you have to create a JSON file with the name `details.json`.
+It must be placed within the **Watch** folder.
 This file will contain the extended details about the series in the `JSON` format.
 You can see the example below on how to build the file.
-Once the file is there, the app should load the data when you first open the anime or you can pull down to refresh the details.
+Once the file is there, the app should load the data when you first open the series or you can pull down to refresh the details.
 
 You can copy the following example and edit the details as needed:
 
@@ -40,7 +40,7 @@ If you don't want to create the `details.json` file manually, you can use [this 
 Similarly, the details of each episode can be customized with a JSON file.
 
 To customize the details, create a JSON file with the name `episodes.json`.
-It must be placed within the **Anime** folder.
+It must be placed within the **Watch** folder.
 The structure of this JSON file will be a list of JSON objects.
 Each JSON object must contain a `episode_number` key and optionally a `name`, `date_upload`, or `scanlator` key.
 
@@ -68,8 +68,8 @@ As Watchtower will use the `episode_number` key to match the episodes, the order
 
 It is also possible to use a custom image as a cover for each local series.
 
-To do this, you only need to place the image file, that needs to be named `cover.jpg`, in the root of the anime folder.
-The app will then use your custom image in the local anime source listing.
+To do this, you only need to place the image file, that needs to be named `cover.jpg`, in the root of the series folder.
+The app will then use your custom image in the local watch source listing.
 
 <style scoped>
   @import "../../../.vitepress/theme/styles/tree.styl"

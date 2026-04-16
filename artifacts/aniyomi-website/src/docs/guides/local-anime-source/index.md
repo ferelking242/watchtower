@@ -1,12 +1,12 @@
 ---
-title: Local anime source
+title: Local watch source
 titleTemplate: Guides
 description: For users who would like to download and organize their own media.
 ---
 
-# Local anime source
+# Local watch source
 
-If you like to download and organize your media, then you want to know how to manage your own anime in Watchtower.
+If you like to download and organize your media, then you want to know how to manage your own watch content in Watchtower.
 
 ::: warning
 This page explores some advanced features.
@@ -18,7 +18,7 @@ This page explores some advanced features.
 
     > If adding series in folders it is recommended to add a file named `.nomedia` to the local folder so images and videos do not show up in the gallery.
 
-1. You should now be able to access the series in <nav to="sources"> under **Local anime source**.
+1. You should now be able to access the series in <nav to="sources"> under **Local watch source**.
 
 If you add more episodes then you'll have to manually refresh the episode list (by pulling down the list).
 
@@ -27,9 +27,9 @@ Supported episode formats are `.mp4` and `.mkv` video files.
 ### Folder structure
 
 Watchtower requires a specific folder structure for local series to be correctly processed.
-Local anime will be read from the `localanime` folder.
-Each series must have a `Anime` folder.
-Videos will then go into the Anime folder.
+Local watch content will be read from the `localanime` folder.
+Each series must have a `Watch` folder.
+Videos will then go into the Watch folder.
 See below for more information on archive files.
 You can refer to the following example:
 
@@ -40,7 +40,7 @@ You can refer to the following example:
     <span class="folder root">[your storage location]/localanime</span>
     <li>
       <img src="/img/folder.svg" alt="Folder" class="tree-icon icon-folder">
-      <span class="folder main">[the anime title]</span>
+      <span class="folder main">[the series title]</span>
       <ul>
         <li>
           <img src="/img/jpeg.svg" alt="File" class="tree-icon icon-jpeg">

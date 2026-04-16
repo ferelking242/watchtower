@@ -127,7 +127,7 @@ function defaultSidebar(): DefaultTheme.SidebarItem[] {
           ],
         },
         {
-          text: 'Local anime source',
+          text: 'Local watch source',
           link: '/docs/guides/local-anime-source/',
           collapsed: true,
           items: [
