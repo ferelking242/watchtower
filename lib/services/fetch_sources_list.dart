@@ -116,8 +116,8 @@ Future<void> fetchSourcesList({
       .where(
         (source) =>
             source.itemType == itemType &&
-            source.appMinVerReq != null &&
-            compareVersions(info.version, source.appMinVerReq!) > -1,
+            (source.appMinVerReq == null ||
+              compareVersions(info.version, source.appMinVerReq!) > -1),
       )
       .toList();
 
