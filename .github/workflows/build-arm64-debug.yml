@@ -1,0 +1,94 @@
+name: Build Android ARMv8 Profile
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ARMv8 Profile APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter (latest stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Verify Dart SDK version
+        run: dart --version
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Download ZeusDL latest binary (arm64)
+        run: |
+          mkdir -p assets/binaries
+
+          ZEUS_URL=$(curl -sL \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/ferelking242/zeusdl/releases/latest \
+            2>/dev/null | python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              assets = data.get('assets', [])
+              arm64 = next((a['browser_download_url'] for a in assets
+                            if 'arm64' in a['name'].lower() or 'aarch64' in a['name'].lower()), '')
+              if not arm64 and assets:
+                  arm64 = assets[0]['browser_download_url']
+              print(arm64)
+          except Exception as e:
+              print('')
+          " 2>/dev/null)
+
+          if [ -n "$ZEUS_URL" ]; then
+            echo "Downloading ZeusDL from: $ZEUS_URL"
+            curl -L "$ZEUS_URL" -o assets/binaries/zeusdl
+            echo "ZeusDL downloaded: $(du -sh assets/binaries/zeusdl | cut -f1)"
+          else
+            echo "Warning: No ZeusDL release found — creating empty placeholder"
+            touch assets/binaries/zeusdl
+          fi
+
+      - name: Build APK (ARMv8 profile)
+        run: |
+          flutter build apk \
+            --profile \
+            --target-platform android-arm64 \
+            --split-per-abi \
+            --no-tree-shake-icons
+
+      - name: Show APK size
+        run: |
+          APK=build/app/outputs/apk/profile/app-arm64-v8a-profile.apk
+          if [ -f "$APK" ]; then
+            echo "APK size: $(du -sh $APK | cut -f1)"
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-arm64-profile
+          path: build/app/outputs/apk/profile/app-arm64-v8a-profile.apk
+          retention-days: 14

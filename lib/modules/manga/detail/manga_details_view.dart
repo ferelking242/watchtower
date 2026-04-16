@@ -1,0 +1,262 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar_community/isar.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/category.dart';
+import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/history.dart';
+import 'package:watchtower/modules/manga/detail/widgets/custom_floating_action_btn.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/widgets/category_selection_dialog.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/modules/manga/detail/manga_detail_view.dart';
+import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
+import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
+import 'package:watchtower/utils/extensions/chapter.dart';
+
+class MangaDetailsView extends ConsumerStatefulWidget {
+  final Manga manga;
+  final bool sourceExist;
+  final Function(bool) checkForUpdate;
+  const MangaDetailsView({
+    super.key,
+    required this.sourceExist,
+    required this.manga,
+    required this.checkForUpdate,
+  });
+
+  @override
+  ConsumerState<MangaDetailsView> createState() => _MangaDetailsViewState();
+}
+
+class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
+  Size measureText(String text, TextStyle style) {
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return textPainter.size;
+  }
+
+  double calculateDynamicButtonWidth(
+    String text,
+    TextStyle textStyle,
+    double padding,
+  ) {
+    final textSize = measureText(text, textStyle);
+    return textSize.width + padding;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    bool? isLocalArchive = widget.manga.isLocalArchive ?? false;
+    return Scaffold(
+      floatingActionButton: Consumer(
+        builder: (context, ref, child) {
+          final chaptersList = ref.watch(chaptersListttStateProvider);
+          final isExtended = ref.watch(isExtendedStateProvider);
+          return ref.watch(isLongPressedStateProvider)
+              ? Container()
+              : chaptersList.isNotEmpty &&
+                    chaptersList
+                        .where((element) => !element.isRead!)
+                        .toList()
+                        .isNotEmpty
+              ? StreamBuilder(
+                  stream: isar.historys
+                      .filter()
+                      .idIsNotNull()
+                      .and()
+                      .chapter(
+                        (q) => q.manga(
+                          (q) => q.itemTypeEqualTo(widget.manga.itemType),
+                        ),
+                      )
+                      .watch(fireImmediately: true),
+                  builder: (context, snapshot) {
+                    String buttonLabel = widget.manga.itemType != ItemType.anime
+                        ? l10n.read
+                        : l10n.watch;
+                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                      final incognitoMode = ref.watch(
+                        incognitoModeStateProvider,
+                      );
+                      final entries = snapshot.data!
+                          .where(
+                            (element) => element.mangaId == widget.manga.id,
+                          )
+                          .toList()
+                          .reversed
+                          .toList();
+
+                      if (entries.isNotEmpty && !incognitoMode) {
+                        final chap = entries.first.chapter.value!;
+                        return CustomFloatingActionBtn(
+                          isExtended: !isExtended,
+                          label: l10n.resume,
+                          onPressed: () {
+                            chap.pushToReaderView(context);
+                          },
+                        );
+                      }
+                      return CustomFloatingActionBtn(
+                        isExtended: !isExtended,
+                        label: buttonLabel,
+                        onPressed: () {
+                          widget.manga.chapters
+                              .toList()
+                              .reversed
+                              .toList()
+                              .last
+                              .pushToReaderView(context);
+                        },
+                      );
+                    }
+                    return CustomFloatingActionBtn(
+                      isExtended: !isExtended,
+                      label: buttonLabel,
+                      onPressed: () {
+                        widget.manga.chapters
+                            .toList()
+                            .reversed
+                            .toList()
+                            .last
+                            .pushToReaderView(context);
+                      },
+                    );
+                  },
+                )
+              : Container();
+        },
+      ),
+      body: MangaDetailView(
+        titleDescription: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Icon(Icons.person_outline, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  (widget.manga.author?.isEmpty ?? false)
+                      ? l10n.unknown
+                      : widget.manga.author!,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Icon(getMangaStatusIcon(widget.manga.status), size: 14),
+                const SizedBox(width: 4),
+                Text(getMangaStatusName(widget.manga.status, context)),
+                if (!isLocalArchive) const Text(' • '),
+                if (!isLocalArchive) Text(widget.manga.source!),
+                if (!isLocalArchive)
+                  Text(' (${widget.manga.lang!.toUpperCase()})'),
+                if (!isLocalArchive && !widget.sourceExist)
+                  const Padding(
+                    padding: EdgeInsets.all(3),
+                    child: Icon(
+                      Icons.warning_amber,
+                      color: Colors.deepOrangeAccent,
+                      size: 14,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        action: widget.manga.favorite!
+            ? SizedBox(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    final model = widget.manga;
+                    isar.writeTxnSync(() {
+                      model.favorite = false;
+                      model.dateAdded = 0;
+                      model.updatedAt = DateTime.now().millisecondsSinceEpoch;
+                      isar.mangas.putSync(model);
+                    });
+                  },
+                  child: Column(
+                    children: [
+                      const Icon(Icons.favorite, size: 20),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.in_library,
+                        style: const TextStyle(fontSize: 11),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  final model = widget.manga;
+                  final checkCategoryList = isar.categorys
+                      .filter()
+                      .idIsNotNull()
+                      .and()
+                      .forItemTypeEqualTo(model.itemType)
+                      .isNotEmptySync();
+                  if (checkCategoryList) {
+                    showCategorySelectionDialog(
+                      context: context,
+                      ref: ref,
+                      itemType: model.itemType,
+                      singleManga: model,
+                    );
+                  } else {
+                    isar.writeTxnSync(() {
+                      model.favorite = true;
+                      model.dateAdded = DateTime.now().millisecondsSinceEpoch;
+                      model.updatedAt = DateTime.now().millisecondsSinceEpoch;
+                      isar.mangas.putSync(model);
+                    });
+                  }
+                },
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.favorite_border_rounded,
+                      size: 20,
+                      color: context.secondaryColor,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.add_to_library,
+                      style: TextStyle(
+                        color: context.secondaryColor,
+                        fontSize: 11,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+        manga: widget.manga,
+        isExtended: (value) {
+          ref.read(isExtendedStateProvider.notifier).update(value);
+        },
+        sourceExist: widget.sourceExist,
+        checkForUpdate: widget.checkForUpdate,
+        itemType: widget.manga.itemType,
+      ),
+    );
+  }
+}

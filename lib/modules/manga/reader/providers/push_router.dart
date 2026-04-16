@@ -1,0 +1,56 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:isar_community/isar.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
+
+Future<void> pushMangaReaderView({
+  required BuildContext context,
+  required Chapter chapter,
+}) async {
+  final sourceExist = isar.sources
+      .filter()
+      .langContains(chapter.manga.value!.lang!, caseSensitive: false)
+      .and()
+      .nameContains(chapter.manga.value!.source!, caseSensitive: false)
+      .and()
+      .idIsNotNull()
+      .and()
+      .isActiveEqualTo(true)
+      .and()
+      .isAddedEqualTo(true)
+      .findAllSync()
+      .isNotEmpty;
+  if (sourceExist || chapter.manga.value!.isLocalArchive!) {
+    switch (chapter.manga.value!.itemType) {
+      case ItemType.manga:
+        await context.push('/mangaReaderView', extra: chapter.id!);
+        break;
+      case ItemType.anime:
+        await context.push('/animePlayerView', extra: chapter.id!);
+        break;
+      case ItemType.novel:
+        await context.push('/novelReaderView', extra: chapter.id!);
+        break;
+    }
+  }
+}
+
+void pushReplacementMangaReaderView({
+  required BuildContext context,
+  required Chapter chapter,
+}) {
+  switch (chapter.manga.value!.itemType) {
+    case ItemType.manga:
+      context.pushReplacement('/mangaReaderView', extra: chapter.id!);
+      break;
+    case ItemType.anime:
+      context.pushReplacement('/animePlayerView', extra: chapter.id!);
+      break;
+    case ItemType.novel:
+      context.pushReplacement('/novelReaderView', extra: chapter.id!);
+      break;
+  }
+}
