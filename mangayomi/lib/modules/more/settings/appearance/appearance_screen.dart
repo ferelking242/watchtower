@@ -19,7 +19,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 final navigationItems = {
   "/MangaLibrary": "Manga",
-  "/AnimeLibrary": "Anime",
+  "/AnimeLibrary": "Watch",
   "/NovelLibrary": "Novel",
   "/updates": "Updates",
   "/history": "History",

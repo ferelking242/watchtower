@@ -1078,7 +1078,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         final pluralEntryType = isAnime
                             ? l10n.episodes
                             : l10n.chapters;
-                        final mediaType = isAnime ? l10n.anime : l10n.manga;
+                        final mediaType = isAnime ? l10n.watch : l10n.manga;
                         final warningMessage = l10n.last_entry_delete_warning(
                           totalChapters,
                           entryType,

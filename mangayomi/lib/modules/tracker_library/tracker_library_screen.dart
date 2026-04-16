@@ -686,7 +686,7 @@ class _TrackerLibraryScreenState extends ConsumerState<TrackerLibraryScreen> {
               ? trackInfos(syncId).$2
               : isManga
               ? l10n.manga
-              : l10n.anime,
+              : l10n.watch,
         ),
         enabled: isLoggedIn,
         onTap: () {

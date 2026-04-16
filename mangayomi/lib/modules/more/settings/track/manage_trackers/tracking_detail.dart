@@ -58,7 +58,7 @@ class _TrackingDetailState extends State<TrackingDetail>
             controller: _tabBarController,
             tabs: [
               if (!isMovies) Tab(text: l10n.manga),
-              Tab(text: l10n.anime),
+              Tab(text: l10n.watch),
             ],
           ),
         ),
