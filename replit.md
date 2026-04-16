@@ -21,10 +21,10 @@ VitePress documentation website for Watchtower. Deployed at `/aniyomi-website/`.
 ## Download System (Overhauled)
 
 ### Engine Architecture
-- `mangayomi/lib/services/download_manager/download_settings_service.dart` — JSON-based settings (DownloadMode, SwipeAction enums). Avoids Isar schema migrations.
-- `mangayomi/lib/services/download_manager/engines/download_engine.dart` — Abstract `DownloadEngine` interface.
-- `mangayomi/lib/services/download_manager/engines/zeus_dl_engine.dart` — ZeusDL subprocess engine (yt-dlp fork). Calls `zeusdl`/`yt-dlp` binary via `Process.start`. Supports pause (SIGSTOP) and resume (SIGCONT) on Linux/macOS.
-- `mangayomi/lib/services/download_manager/engine_selector.dart` — `EngineSelector.select()` chooses FK/internal vs ZeusDL based on mode, URL type, and failure history.
+- `watchtower/lib/services/download_manager/download_settings_service.dart` — JSON-based settings (DownloadMode, SwipeAction enums). Avoids Isar schema migrations.
+- `watchtower/lib/services/download_manager/engines/download_engine.dart` — Abstract `DownloadEngine` interface.
+- `watchtower/lib/services/download_manager/engines/zeus_dl_engine.dart` — ZeusDL subprocess engine (yt-dlp fork). Calls `zeusdl`/`yt-dlp` binary via `Process.start`. Supports pause (SIGSTOP) and resume (SIGCONT) on Linux/macOS.
+- `watchtower/lib/services/download_manager/engine_selector.dart` — `EngineSelector.select()` chooses FK/internal vs ZeusDL based on mode, URL type, and failure history.
 
 ### Download Modes (4 modes)
 1. **Internal Downloader** — FK built-in only (manga, images, simple files)
@@ -50,20 +50,20 @@ VitePress documentation website for Watchtower. Deployed at `/aniyomi-website/`.
 
 ## Stack
 
-- **App**: Flutter (Dart) — `mangayomi/`
+- **App**: Flutter (Dart) — `watchtower/`
 - **Extensions**: JavaScript (ZeusDL / MProvider format)
 - **Extensions repo**: `ferelking242/watchtower-extensions` on GitHub
 - **Default repos seeded on first launch**: Keiyoushi (manga), Aniyomi (anime), Watchtower Extensions (NSFW anime), LNReader (novel)
 
 ## Key Files
 
-- `mangayomi/lib/main.dart` — app entry point, title "Watchtower"
-- `mangayomi/android/app/src/main/AndroidManifest.xml` — app label
-- `mangayomi/lib/modules/main_view/main_screen.dart` — dock order
-- `mangayomi/lib/modules/more/settings/reader/providers/reader_state_provider.dart` — dock items enum
-- `mangayomi/lib/modules/more/more_screen.dart` — branding
-- `mangayomi/lib/modules/more/about/about_screen.dart` — about screen branding
-- `mangayomi/lib/providers/storage_provider.dart` — default repos seeded on first run
+- `watchtower/lib/main.dart` — app entry point, title "Watchtower"
+- `watchtower/android/app/src/main/AndroidManifest.xml` — app label
+- `watchtower/lib/modules/main_view/main_screen.dart` — dock order
+- `watchtower/lib/modules/more/settings/reader/providers/reader_state_provider.dart` — dock items enum
+- `watchtower/lib/modules/more/more_screen.dart` — branding
+- `watchtower/lib/modules/more/about/about_screen.dart` — about screen branding
+- `watchtower/lib/providers/storage_provider.dart` — default repos seeded on first run
 - `extensions/index.min.json` — local mirror of GitHub extension index
 
 ## Dock Order
