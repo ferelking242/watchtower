@@ -493,3 +493,223 @@ abstract class _$DownloadQueueState extends $Notifier<DownloadQueueStateData> {
     element.handleCreate(ref, build);
   }
 }
+
+// ──────────────────────────────────────────────────────────────
+// ArchiveFormatState
+// ──────────────────────────────────────────────────────────────
+
+@ProviderFor(ArchiveFormatState)
+final archiveFormatStateProvider = ArchiveFormatStateProvider._();
+
+final class ArchiveFormatStateProvider
+    extends $NotifierProvider<ArchiveFormatState, ArchiveFormat> {
+  ArchiveFormatStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'archiveFormatStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$archiveFormatStateHash();
+
+  @$internal
+  @override
+  ArchiveFormatState create() => ArchiveFormatState();
+
+  Override overrideWithValue(ArchiveFormat value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ArchiveFormat>(value),
+    );
+  }
+}
+
+String _$archiveFormatStateHash() => r'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a901';
+
+abstract class _$ArchiveFormatState extends $Notifier<ArchiveFormat> {
+  ArchiveFormat build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<ArchiveFormat, ArchiveFormat>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<ArchiveFormat, ArchiveFormat>,
+              ArchiveFormat,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// ConcurrentMangaState
+// ──────────────────────────────────────────────────────────────
+
+@ProviderFor(ConcurrentMangaState)
+final concurrentMangaStateProvider = ConcurrentMangaStateProvider._();
+
+final class ConcurrentMangaStateProvider
+    extends $NotifierProvider<ConcurrentMangaState, int> {
+  ConcurrentMangaStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'concurrentMangaStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$concurrentMangaStateHash();
+
+  @$internal
+  @override
+  ConcurrentMangaState create() => ConcurrentMangaState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$concurrentMangaStateHash() => r'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b002';
+
+abstract class _$ConcurrentMangaState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// ConcurrentWatchState
+// ──────────────────────────────────────────────────────────────
+
+@ProviderFor(ConcurrentWatchState)
+final concurrentWatchStateProvider = ConcurrentWatchStateProvider._();
+
+final class ConcurrentWatchStateProvider
+    extends $NotifierProvider<ConcurrentWatchState, int> {
+  ConcurrentWatchStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'concurrentWatchStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$concurrentWatchStateHash();
+
+  @$internal
+  @override
+  ConcurrentWatchState create() => ConcurrentWatchState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$concurrentWatchStateHash() => r'c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c003';
+
+abstract class _$ConcurrentWatchState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// ConcurrentNovelState
+// ──────────────────────────────────────────────────────────────
+
+@ProviderFor(ConcurrentNovelState)
+final concurrentNovelStateProvider = ConcurrentNovelStateProvider._();
+
+final class ConcurrentNovelStateProvider
+    extends $NotifierProvider<ConcurrentNovelState, int> {
+  ConcurrentNovelStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'concurrentNovelStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$concurrentNovelStateHash();
+
+  @$internal
+  @override
+  ConcurrentNovelState create() => ConcurrentNovelState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$concurrentNovelStateHash() => r'd4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d004';
+
+abstract class _$ConcurrentNovelState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
