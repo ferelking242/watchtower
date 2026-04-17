@@ -1,11 +1,22 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:path/path.dart' as path;
+
+// ─── Log Settings Keys (Hive box: advanced_settings) ──────────────────────────
+const _kLogBox = 'advanced_settings';
+const kLogMinLevel = 'log_min_level';
+const kLogTagExt = 'log_tag_ext';
+const kLogTagDl = 'log_tag_dl';
+const kLogTagNet = 'log_tag_net';
+const kLogTagZeus = 'log_tag_zeus';
+const kLogTagUi = 'log_tag_ui';
+const kLogSuppressImages = 'log_suppress_images';
 
 class AppLogger {
   static final _logQueue = StreamController<String>();
@@ -13,9 +24,17 @@ class AppLogger {
   static late IOSink _sink;
   static bool _initialized = false;
 
+  // ── In-memory filter state ──────────────────────────────────────────────────
+  static int _minLevel = 1; // default: INFO
+  static Set<String> _disabledTags = {};
+  static bool _suppressImages = true;
+
   static Future<void> init() async {
     final enabled = isar.settings.getSync(227)?.enableLogs ?? false;
     if (!enabled) return;
+
+    await _loadSettings();
+
     final storage = StorageProvider();
     final directory = await storage.getDefaultDirectory();
     _logFile = File(path.join(directory!.path, 'logs.txt'));
@@ -40,6 +59,31 @@ class AppLogger {
     await _writeSessionHeader();
   }
 
+  // Call this after changing settings in the UI to update in-memory filters
+  static Future<void> reloadSettings() => _loadSettings();
+
+  static Future<void> _loadSettings() async {
+    try {
+      final box = await Hive.openBox(_kLogBox);
+      _minLevel = box.get(kLogMinLevel, defaultValue: 1) as int;
+      _suppressImages = box.get(kLogSuppressImages, defaultValue: true) as bool;
+
+      final disabled = <String>{};
+      final tagMap = {
+        LogTag.extension_: kLogTagExt,
+        LogTag.download: kLogTagDl,
+        LogTag.network: kLogTagNet,
+        LogTag.zeus: kLogTagZeus,
+        LogTag.ui: kLogTagUi,
+      };
+      for (final entry in tagMap.entries) {
+        final enabled = box.get(entry.value, defaultValue: true) as bool;
+        if (!enabled) disabled.add(entry.key);
+      }
+      _disabledTags = disabled;
+    } catch (_) {}
+  }
+
   static Future<void> _writeSessionHeader() async {
     try {
       final info = await PackageInfo.fromPlatform();
@@ -54,8 +98,14 @@ class AppLogger {
 ══════════════════════════════════════════''';
       _logQueue.add(header);
     } catch (_) {
-      _logQueue.add('[${ _timestamp()}][INFO] Logger initialized');
+      _logQueue.add('[${_timestamp()}][INFO] Logger initialized');
     }
+  }
+
+  // Returns true if this image-related error should be suppressed
+  static bool shouldSuppressImageError(String message) {
+    return _suppressImages &&
+        (message.contains('Failed to load') || message.contains('Bad state'));
   }
 
   static void log(
@@ -66,6 +116,20 @@ class AppLogger {
     StackTrace? stackTrace,
   }) {
     if (!_initialized) return;
+
+    // Filter by minimum level
+    if (logLevel.index < _minLevel) return;
+
+    // Filter by disabled tags
+    if (tag != null && _disabledTags.contains(tag)) return;
+
+    // Suppress image errors if configured
+    if (_suppressImages &&
+        logLevel == LogLevel.error &&
+        (message.contains('Failed to load') ||
+            message.contains('Bad state'))) {
+      return;
+    }
 
     final tagPart = tag != null ? '[$tag] ' : '';
     final entry = StringBuffer(
@@ -124,6 +188,19 @@ enum LogLevel {
         return 'WARN ';
       case LogLevel.error:
         return 'ERROR';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case LogLevel.debug:
+        return 'Debug';
+      case LogLevel.info:
+        return 'Info';
+      case LogLevel.warning:
+        return 'Warning';
+      case LogLevel.error:
+        return 'Error';
     }
   }
 

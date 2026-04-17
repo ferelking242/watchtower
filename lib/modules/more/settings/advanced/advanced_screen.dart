@@ -12,6 +12,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -63,6 +64,15 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   bool _noNonAscii = false;
   int _bitmapThreshold = 4096;
 
+  // ── Log settings ────────────────────────────────────────────────────────────
+  int _logMinLevel = 1; // 0=debug, 1=info, 2=warning, 3=error
+  bool _logSuppressImages = true;
+  bool _logTagExt = true;
+  bool _logTagDl = true;
+  bool _logTagNet = true;
+  bool _logTagZeus = true;
+  bool _logTagUi = true;
+
   bool _loading = true;
 
   @override
@@ -78,6 +88,14 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _getBool(_kOldDecoderKey),
       _getBool(_kNonAsciiKey),
       _getInt(_kBitmapThresholdKey, defaultValue: 4096),
+      // Log settings
+      _getInt(kLogMinLevel, defaultValue: 1),
+      _getBool(kLogSuppressImages, defaultValue: true),
+      _getBool(kLogTagExt, defaultValue: true),
+      _getBool(kLogTagDl, defaultValue: true),
+      _getBool(kLogTagNet, defaultValue: true),
+      _getBool(kLogTagZeus, defaultValue: true),
+      _getBool(kLogTagUi, defaultValue: true),
     ]);
     if (mounted) {
       setState(() {
@@ -86,9 +104,22 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         _oldDecoder = results[2] as bool;
         _noNonAscii = results[3] as bool;
         _bitmapThreshold = results[4] as int;
+        _logMinLevel = results[5] as int;
+        _logSuppressImages = results[6] as bool;
+        _logTagExt = results[7] as bool;
+        _logTagDl = results[8] as bool;
+        _logTagNet = results[9] as bool;
+        _logTagZeus = results[10] as bool;
+        _logTagUi = results[11] as bool;
         _loading = false;
       });
     }
+  }
+
+  Future<void> _saveLogSetting(String key, dynamic value) async {
+    final box = await Hive.openBox('advanced_settings');
+    await box.put(key, value);
+    await AppLogger.reloadSettings();
   }
 
   void _toast(String msg) => botToast(msg);
@@ -577,6 +608,116 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               if (confirm == true) {
                 _toast("Extensions révoquées");
               }
+            },
+          ),
+
+          // ── Section : Logs avancés ──────────────────────────────────────
+          _sectionHeader("Logs avancés"),
+
+          // Niveau minimum de log
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Niveau minimum",
+                  style: TextStyle(fontSize: 13, color: context.secondaryColor),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: LogLevel.values.map((level) {
+                    final selected = _logMinLevel == level.index;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
+                          level.displayName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: selected
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : null,
+                          ),
+                        ),
+                        selected: selected,
+                        selectedColor:
+                            Theme.of(context).colorScheme.primary,
+                        onSelected: (_) {
+                          setState(() => _logMinLevel = level.index);
+                          _saveLogSetting(kLogMinLevel, level.index);
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+
+          // Supprimer erreurs d'images
+          _toggle(
+            title: "Supprimer erreurs de chargement d'images",
+            subtitle:
+                "Ne pas enregistrer les erreurs de logos manquants (icônes d'extensions 404)",
+            value: _logSuppressImages,
+            onChanged: (v) {
+              setState(() => _logSuppressImages = v);
+              _saveLogSetting(kLogSuppressImages, v);
+            },
+          ),
+
+          // Tags actifs
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              "Catégories à enregistrer",
+              style: TextStyle(fontSize: 13, color: context.secondaryColor),
+            ),
+          ),
+          _toggle(
+            title: "Extensions [EXT]",
+            subtitle: "Installation, mise à jour, erreurs d'extensions",
+            value: _logTagExt,
+            onChanged: (v) {
+              setState(() => _logTagExt = v);
+              _saveLogSetting(kLogTagExt, v);
+            },
+          ),
+          _toggle(
+            title: "Téléchargements [DL]",
+            subtitle: "Progression, erreurs de téléchargements",
+            value: _logTagDl,
+            onChanged: (v) {
+              setState(() => _logTagDl = v);
+              _saveLogSetting(kLogTagDl, v);
+            },
+          ),
+          _toggle(
+            title: "Réseau [NET]",
+            subtitle: "Requêtes HTTP, erreurs réseau",
+            value: _logTagNet,
+            onChanged: (v) {
+              setState(() => _logTagNet = v);
+              _saveLogSetting(kLogTagNet, v);
+            },
+          ),
+          _toggle(
+            title: "ZeusDL [ZEUS]",
+            subtitle: "Moteur de téléchargement ZeusDL / yt-dlp",
+            value: _logTagZeus,
+            onChanged: (v) {
+              setState(() => _logTagZeus = v);
+              _saveLogSetting(kLogTagZeus, v);
+            },
+          ),
+          _toggle(
+            title: "Interface [UI]",
+            subtitle: "Événements et erreurs d'interface",
+            value: _logTagUi,
+            onChanged: (v) {
+              setState(() => _logTagUi = v);
+              _saveLogSetting(kLogTagUi, v);
             },
           ),
 

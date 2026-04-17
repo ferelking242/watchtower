@@ -66,17 +66,23 @@ void main(List<String> args) async {
 
       // Widget-layer errors (build / layout / paint)
       FlutterError.onError = (FlutterErrorDetails details) {
-        FlutterError.presentError(details); // keep default red-screen in debug
+        final msg = details.exceptionAsString();
+        // Suppress broken image/asset loading errors (e.g. extension icons 404)
+        if (AppLogger.shouldSuppressImageError(msg)) return;
+        FlutterError.presentError(details);
         AppLogger.log(
-          'FlutterError: ${details.exceptionAsString()}\n${details.stack}',
+          'FlutterError: $msg\n${details.stack}',
           logLevel: LogLevel.error,
         );
       };
 
       // Async errors that escape the Flutter framework (PlatformDispatcher)
       PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+        final msg = error.toString();
+        // Suppress image loading errors from polluting logs
+        if (AppLogger.shouldSuppressImageError(msg)) return true;
         AppLogger.log(
-          'PlatformDispatcher error: $error\n$stack',
+          'PlatformDispatcher error: $msg\n$stack',
           logLevel: LogLevel.error,
         );
         return true; // handled — prevent app termination
