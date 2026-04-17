@@ -11,6 +11,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 Future<void> fetchSourcesList({
   int? id,
@@ -23,6 +24,11 @@ Future<void> fetchSourcesList({
   final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
   final url = repo?.jsonUrl;
   if (url == null) return;
+
+  AppLogger.log(
+    'Fetching index | repo=${repo?.name ?? url} | type=$itemType',
+    tag: LogTag.repo,
+  );
 
   final req = await http.get(Uri.parse(url));
   final info = await PackageInfo.fromPlatform();
@@ -128,7 +134,32 @@ Future<void> fetchSourcesList({
       orElse: () => Source(),
     );
     if (matchingSource.id != null && matchingSource.sourceCodeUrl!.isNotEmpty) {
-      await _updateSource(matchingSource, androidProxyServer, repo, itemType);
+      AppLogger.log(
+        'Installing "${matchingSource.name}" v${matchingSource.version} | repo=${repo?.name}',
+        tag: LogTag.extension_,
+      );
+      try {
+        await _updateSource(matchingSource, androidProxyServer, repo, itemType);
+        AppLogger.log(
+          'Install OK: "${matchingSource.name}"',
+          tag: LogTag.extension_,
+        );
+      } catch (e, st) {
+        AppLogger.log(
+          'Install FAILED: "${matchingSource.name}"',
+          logLevel: LogLevel.error,
+          tag: LogTag.extension_,
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
+    } else {
+      AppLogger.log(
+        'Install skipped — no matching source found for id=$id',
+        logLevel: LogLevel.warning,
+        tag: LogTag.extension_,
+      );
     }
   } else {
     for (var source in sourceList) {
@@ -142,7 +173,22 @@ Future<void> fetchSourcesList({
           compareVersions(existingSource.version!, source.version!) < 0;
       if (!shouldUpdate) continue;
       if (autoUpdateExtensions) {
-        await _updateSource(source, androidProxyServer, repo, itemType);
+        AppLogger.log(
+          'Auto-updating "${source.name}" ${existingSource.version} → ${source.version}',
+          tag: LogTag.extension_,
+        );
+        try {
+          await _updateSource(source, androidProxyServer, repo, itemType);
+          AppLogger.log('Auto-update OK: "${source.name}"', tag: LogTag.extension_);
+        } catch (e, st) {
+          AppLogger.log(
+            'Auto-update FAILED: "${source.name}"',
+            logLevel: LogLevel.error,
+            tag: LogTag.extension_,
+            error: e,
+            stackTrace: st,
+          );
+        }
       } else {
         await isar.writeTxn(() async {
           isar.sources.put(existingSource..versionLast = source.version);
@@ -160,8 +206,17 @@ Future<void> _updateSource(
   Repo? repo,
   ItemType itemType,
 ) async {
+  AppLogger.log(
+    'Downloading source code for "${source.name}" | url=${source.sourceCodeUrl}',
+    tag: LogTag.extension_,
+  );
   final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
   final req = await http.get(Uri.parse(source.sourceCodeUrl!));
+  AppLogger.log(
+    'Source code downloaded | status=${req.statusCode} | size=${req.bodyBytes.length}B | "${source.name}"',
+    logLevel: req.statusCode == 200 ? LogLevel.info : LogLevel.error,
+    tag: LogTag.extension_,
+  );
   final sourceCode = source.sourceCodeLanguage == SourceCodeLanguage.mihon
       ? base64.encode(req.bodyBytes)
       : req.body;
@@ -228,6 +283,11 @@ Future<void> _updateSource(
 }
 
 Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
+  AppLogger.log(
+    'Registering new source "${source.name}" v${source.version} | lang=${source.lang}',
+    logLevel: LogLevel.debug,
+    tag: LogTag.extension_,
+  );
   final newSource = Source()
     ..sourceCodeUrl = source.sourceCodeUrl
     ..id = source.id

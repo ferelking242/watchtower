@@ -7,9 +7,7 @@ import 'package:watchtower/modules/more/settings/downloads/providers/downloads_s
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-// ──────────────────────────────────────────────────────────────
-// Main Screen
-// ──────────────────────────────────────────────────────────────
+import 'package:numberpicker/numberpicker.dart';
 
 class DownloadsScreen extends ConsumerStatefulWidget {
   const DownloadsScreen({super.key});
@@ -22,25 +20,22 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   @override
   void initState() {
     super.initState();
+    // Ensure download settings are loaded on screen open
     DownloadSettingsService.instance.load();
   }
 
   @override
   Widget build(BuildContext context) {
-    final saveAsCBZ = ref.watch(saveAsCBZArchiveStateProvider);
-    final deleteAfterReading = ref.watch(deleteDownloadAfterReadingStateProvider);
-    final onlyOnWifi = ref.watch(onlyOnWifiStateProvider);
+    final saveAsCBZArchiveState = ref.watch(saveAsCBZArchiveStateProvider);
+    final deleteDownloadAfterReading =
+        ref.watch(deleteDownloadAfterReadingStateProvider);
+    final onlyOnWifiState = ref.watch(onlyOnWifiStateProvider);
     final concurrentDownloads = ref.watch(concurrentDownloadsStateProvider);
     final localFolders = ref.watch(localFoldersStateProvider);
     final downloadMode = ref.watch(downloadModeStateProvider);
-    final archiveFormat = ref.watch(archiveFormatStateProvider);
-    final concManga = ref.watch(concurrentMangaStateProvider);
-    final concWatch = ref.watch(concurrentWatchStateProvider);
-    final concNovel = ref.watch(concurrentNovelStateProvider);
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
     final swipeRight = ref.watch(swipeRightActionStateProvider);
     final l10n = l10nLocalizations(context);
-    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n!.downloads)),
@@ -48,241 +43,189 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            // ── Download Mode ──────────────────────────────
+            // ─────────────────────────────────────────
+            // DOWNLOAD MODE
+            // ─────────────────────────────────────────
             _SectionHeader(title: 'Download Mode'),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: scheme.outlineVariant.withOpacity(0.4)),
-                ),
-                child: Column(
-                  children: DownloadMode.values.map((mode) {
-                    final selected = downloadMode == mode;
-                    final isLast = mode == DownloadMode.values.last;
-                    return Column(
-                      children: [
-                        _CompactModeRow(
-                          mode: mode,
-                          selected: selected,
-                          onTap: () => ref.read(downloadModeStateProvider.notifier).set(mode),
-                        ),
-                        if (!isLast)
-                          Divider(height: 1, indent: 52, endIndent: 12,
-                              color: scheme.outlineVariant.withOpacity(0.3)),
-                      ],
-                    );
-                  }).toList(),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Column(
+                children: DownloadMode.values.map((mode) {
+                  final selected = downloadMode == mode;
+                  return _DownloadModeCard(
+                    mode: mode,
+                    selected: selected,
+                    onTap: () {
+                      ref.read(downloadModeStateProvider.notifier).set(mode);
+                    },
+                  );
+                }).toList(),
               ),
             ),
 
-            // ── General ───────────────────────────────────
+            // ─────────────────────────────────────────
+            // GENERAL SETTINGS
+            // ─────────────────────────────────────────
             _SectionHeader(title: 'General'),
-            _SwitchRow(
-              icon: Icons.wifi_outlined,
-              title: l10n.only_on_wifi,
-              value: onlyOnWifi,
-              onChanged: (v) => ref.read(onlyOnWifiStateProvider.notifier).set(v),
+            SwitchListTile(
+              value: onlyOnWifiState,
+              title: Text(l10n.only_on_wifi),
+              onChanged: (value) {
+                ref.read(onlyOnWifiStateProvider.notifier).set(value);
+              },
             ),
-            _SwitchRow(
-              icon: Icons.delete_sweep_outlined,
-              title: l10n.delete_download_after_reading,
-              value: deleteAfterReading,
-              onChanged: (v) => ref.read(deleteDownloadAfterReadingStateProvider.notifier).set(v),
+            SwitchListTile(
+              value: saveAsCBZArchiveState,
+              title: Text(l10n.save_as_cbz_archive),
+              onChanged: (value) {
+                ref.read(saveAsCBZArchiveStateProvider.notifier).set(value);
+              },
             ),
-
-            // Archive format
-            _SectionHeader(title: 'Archive Format'),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: scheme.outlineVariant.withOpacity(0.4)),
-                ),
-                child: Column(
-                  children: ArchiveFormat.values.map((fmt) {
-                    final selected = archiveFormat == fmt;
-                    final isLast = fmt == ArchiveFormat.values.last;
-                    return Column(
-                      children: [
-                        InkWell(
-                          onTap: () => ref.read(archiveFormatStateProvider.notifier).set(fmt),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: selected
-                                        ? scheme.primary.withOpacity(0.15)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    fmt == ArchiveFormat.none
-                                        ? Icons.folder_outlined
-                                        : Icons.folder_zip_outlined,
-                                    size: 18,
-                                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(fmt.label,
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                                          color: selected ? scheme.primary : scheme.onSurface)),
-                                ),
-                                if (selected)
-                                  Icon(Icons.check_rounded, size: 18, color: scheme.primary),
-                              ],
-                            ),
+            SwitchListTile(
+              value: deleteDownloadAfterReading,
+              title: Text(l10n.delete_download_after_reading),
+              onChanged: (value) {
+                ref
+                    .read(deleteDownloadAfterReadingStateProvider.notifier)
+                    .set(value);
+              },
+            ),
+            ListTile(
+              onTap: () {
+                int currentIntValue = concurrentDownloads;
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    return AlertDialog(
+                      title: Text(context.l10n.concurrent_downloads),
+                      content: StatefulBuilder(
+                        builder: (context, setState) => SizedBox(
+                          height: 200,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              NumberPicker(
+                                value: currentIntValue,
+                                minValue: 1,
+                                maxValue: 10,
+                                step: 1,
+                                haptics: true,
+                                textMapper: (numberText) => numberText,
+                                onChanged: (value) =>
+                                    setState(() => currentIntValue = value),
+                              ),
+                            ],
                           ),
                         ),
-                        if (!isLast)
-                          Divider(height: 1, indent: 52, endIndent: 12,
-                              color: scheme.outlineVariant.withOpacity(0.3)),
+                      ),
+                      actions: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text(
+                                context.l10n.cancel,
+                                style: TextStyle(color: context.primaryColor),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                ref
+                                    .read(concurrentDownloadsStateProvider.notifier)
+                                    .set(currentIntValue);
+                                Navigator.pop(context);
+                              },
+                              child: Text(
+                                context.l10n.ok,
+                                style: TextStyle(color: context.primaryColor),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     );
-                  }).toList(),
-                ),
+                  },
+                );
+              },
+              title: Text(context.l10n.concurrent_downloads),
+              subtitle: Text(
+                '$concurrentDownloads',
+                style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
             ),
 
-            // ── Concurrent Downloads ───────────────────────
-            _SectionHeader(title: 'Concurrent Downloads'),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: scheme.outlineVariant.withOpacity(0.4)),
-                ),
-                child: Column(
-                  children: [
-                    _ConcurrentRow(
-                      icon: Icons.menu_book_outlined,
-                      label: 'Manga',
-                      value: concManga,
-                      max: 30,
-                      onChanged: (v) => ref.read(concurrentMangaStateProvider.notifier).set(v),
-                      isFirst: true,
-                    ),
-                    Divider(height: 1, indent: 52, endIndent: 12,
-                        color: scheme.outlineVariant.withOpacity(0.3)),
-                    _ConcurrentRow(
-                      icon: Icons.play_circle_outline_rounded,
-                      label: 'Watch / Anime',
-                      value: concWatch,
-                      max: 10,
-                      onChanged: (v) => ref.read(concurrentWatchStateProvider.notifier).set(v),
-                    ),
-                    Divider(height: 1, indent: 52, endIndent: 12,
-                        color: scheme.outlineVariant.withOpacity(0.3)),
-                    _ConcurrentRow(
-                      icon: Icons.auto_stories_outlined,
-                      label: 'Novel',
-                      value: concNovel,
-                      max: 30,
-                      onChanged: (v) => ref.read(concurrentNovelStateProvider.notifier).set(v),
-                      isLast: true,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Swipe Actions ─────────────────────────────
+            // ─────────────────────────────────────────
+            // SWIPE ACTIONS
+            // ─────────────────────────────────────────
             _SectionHeader(title: 'Swipe Actions (Download Queue)'),
             _SwipeActionTile(
               label: 'Swipe Left',
               icon: Icons.swipe_left_outlined,
               current: swipeLeft,
-              onChanged: (v) => ref.read(swipeLeftActionStateProvider.notifier).set(v),
+              onChanged: (v) =>
+                  ref.read(swipeLeftActionStateProvider.notifier).set(v),
             ),
             _SwipeActionTile(
               label: 'Swipe Right',
               icon: Icons.swipe_right_outlined,
               current: swipeRight,
-              onChanged: (v) => ref.read(swipeRightActionStateProvider.notifier).set(v),
+              onChanged: (v) =>
+                  ref.read(swipeRightActionStateProvider.notifier).set(v),
             ),
 
-            // ── Local Folders ─────────────────────────────
+            // ─────────────────────────────────────────
+            // LOCAL FOLDERS
+            // ─────────────────────────────────────────
             _SectionHeader(title: context.l10n.local_folder),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.refresh_rounded,
-                      label: context.l10n.rescan_local_folder,
-                      onTap: () async => ref.read(scanLocalLibraryProvider.future),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.add_rounded,
-                      label: context.l10n.add_local_folder,
-                      onTap: () async {
-                        final result = await FilePicker.getDirectoryPath();
-                        if (result != null) {
-                          final temp = localFolders.toList()..add(result);
-                          ref.read(localFoldersStateProvider.notifier).set(temp);
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _ActionButton(
-                    icon: Icons.help_outline_rounded,
-                    label: 'Structure',
-                    onTap: () => _showHelpDialog(context),
-                    isPrimary: false,
-                  ),
-                ],
-              ),
+            ListTile(
+              onTap: () async => ref.read(scanLocalLibraryProvider.future),
+              title: Text(context.l10n.rescan_local_folder),
+              leading: const Icon(Icons.refresh_outlined),
             ),
-            const SizedBox(height: 8),
+            ListTile(
+              onTap: () async {
+                final result = await FilePicker.getDirectoryPath();
+                if (result != null) {
+                  final temp = localFolders.toList();
+                  temp.add(result);
+                  ref.read(localFoldersStateProvider.notifier).set(temp);
+                }
+              },
+              title: Text(context.l10n.add_local_folder),
+              leading: const Icon(Icons.add_outlined),
+            ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 15),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8, top: 4, bottom: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showHelpDialog(context),
+                      label: const Icon(Icons.question_mark),
+                      icon: const Text('Folder Structure'),
+                    ),
+                  ),
                   FutureBuilder(
                     future: getLocalLibrary(),
                     builder: (context, snapshot) => snapshot.data?.path != null
-                        ? _FolderCard(
-                            path: snapshot.data!.path,
+                        ? _buildLocalFolder(
+                            l10n,
+                            localFolders,
+                            snapshot.data!.path,
                             isDefault: true,
-                            onDelete: null,
                           )
-                        : const SizedBox.shrink(),
+                        : Container(),
                   ),
-                  ...localFolders.map((e) => _FolderCard(
-                    path: e,
-                    isDefault: false,
-                    onDelete: () {
-                      final temp = localFolders.toList()..remove(e);
-                      ref.read(localFoldersStateProvider.notifier).set(temp);
-                    },
-                  )),
+                  ...localFolders.map(
+                    (e) => _buildLocalFolder(l10n, localFolders, e),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -293,23 +236,40 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final data = (
       "LocalFolder",
       [
-        ("MangaName", [
-          ("cover.jpg", Icons.image_outlined),
-          ("Chapter1", [
-            ("Page1.jpg", Icons.image_outlined),
-            ("Page2.jpeg", Icons.image_outlined),
-          ]),
-          ("Chapter2.cbz", Icons.folder_zip_outlined),
-        ]),
-        ("AnimeName", [
-          ("cover.jpg", Icons.image_outlined),
-          ("Episode1.mp4", Icons.video_file_outlined),
-          ("Episode1_subtitles", [("en.srt", Icons.subtitles_outlined)]),
-        ]),
-        ("NovelName", [
-          ("cover.jpg", Icons.image_outlined),
-          ("NovelName.epub", Icons.book_outlined),
-        ]),
+        (
+          "MangaName",
+          [
+            ("cover.jpg", Icons.image_outlined),
+            (
+              "Chapter1",
+              [
+                ("Page1.jpg", Icons.image_outlined),
+                ("Page2.jpeg", Icons.image_outlined),
+              ],
+            ),
+            ("Chapter2.cbz", Icons.folder_zip_outlined),
+          ],
+        ),
+        (
+          "AnimeName",
+          [
+            ("cover.jpg", Icons.image_outlined),
+            ("Episode1.mp4", Icons.video_file_outlined),
+            (
+              "Episode1_subtitles",
+              [
+                ("en.srt", Icons.subtitles_outlined),
+              ],
+            ),
+          ],
+        ),
+        (
+          "NovelName",
+          [
+            ("cover.jpg", Icons.image_outlined),
+            ("NovelName.epub", Icons.book_outlined),
+          ],
+        ),
       ],
     );
 
@@ -318,312 +278,155 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text.rich(TextSpan(children: [
-              for (int i = 1; i < level; i++) const WidgetSpan(child: SizedBox(width: 20)),
-              if (level > 0) WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
-              WidgetSpan(child: Icon(Icons.folder)),
-              const WidgetSpan(child: SizedBox(width: 5)),
-              TextSpan(text: data.$1),
-            ])),
-            ...(data.$2 as List<(String, dynamic)>).map((e) => buildSubFolder(e, level + 1)),
+            Text.rich(
+              TextSpan(
+                children: [
+                  for (int i = 1; i < level; i++)
+                    const WidgetSpan(child: SizedBox(width: 20)),
+                  if (level > 0)
+                    WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
+                  WidgetSpan(child: Icon(Icons.folder)),
+                  const WidgetSpan(child: SizedBox(width: 5)),
+                  TextSpan(text: data.$1),
+                ],
+              ),
+            ),
+            ...(data.$2 as List<(String, dynamic)>).map(
+              (e) => buildSubFolder(e, level + 1),
+            ),
           ],
         );
       }
-      return Text.rich(TextSpan(children: [
-        for (int i = 1; i < level; i++) const WidgetSpan(child: SizedBox(width: 20)),
-        if (level > 0) WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
-        WidgetSpan(child: Icon(data.$2 as IconData)),
-        const WidgetSpan(child: SizedBox(width: 5)),
-        TextSpan(text: data.$1),
-      ]));
+      return Text.rich(
+        TextSpan(
+          children: [
+            for (int i = 1; i < level; i++)
+              const WidgetSpan(child: SizedBox(width: 20)),
+            if (level > 0)
+              WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
+            WidgetSpan(child: Icon(data.$2 as IconData)),
+            const WidgetSpan(child: SizedBox(width: 5)),
+            TextSpan(text: data.$1),
+          ],
+        ),
+      );
     }
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.local_folder_structure),
-        content: SizedBox(
-          width: context.width(0.6),
-          height: context.height(0.8),
-          child: SingleChildScrollView(
+      builder: (context) {
+        return AlertDialog(
+          title: Text(context.l10n.local_folder_structure),
+          content: SizedBox(
+            width: context.width(0.6),
+            height: context.height(0.8),
             child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: buildSubFolder(data, 0),
+              padding: const EdgeInsets.all(8.0),
+              child: SingleChildScrollView(child: buildSubFolder(data, 0)),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.cancel),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Compact mode row (replaces big card)
-// ──────────────────────────────────────────────────────────────
-
-class _CompactModeRow extends StatelessWidget {
-  final DownloadMode mode;
-  final bool selected;
-  final VoidCallback onTap;
-
-  static const _icons = {
-    DownloadMode.internalDownloader: Icons.download_outlined,
-    DownloadMode.fkFallbackZeus: Icons.auto_fix_high_outlined,
-    DownloadMode.zeusDl: Icons.bolt_outlined,
-    DownloadMode.auto: Icons.smart_toy_outlined,
-  };
-
-  const _CompactModeRow({required this.mode, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: selected ? scheme.primary.withOpacity(0.15) : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(_icons[mode] ?? Icons.download_outlined,
-                  size: 18,
-                  color: selected ? scheme.primary : scheme.onSurfaceVariant),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(context.l10n.cancel),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(mode.label,
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                              color: selected ? scheme.primary : scheme.onSurface)),
-                      if (mode == DownloadMode.fkFallbackZeus) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text('Default',
-                              style: TextStyle(fontSize: 10, color: scheme.primary,
-                                  fontWeight: FontWeight.w600)),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 1),
-                  Text(mode.description,
-                      style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-            if (selected)
-              Icon(Icons.check_rounded, size: 18, color: scheme.primary),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
-}
 
-// ──────────────────────────────────────────────────────────────
-// Concurrent slider row
-// ──────────────────────────────────────────────────────────────
-
-class _ConcurrentRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final int value;
-  final int max;
-  final void Function(int) onChanged;
-  final bool isFirst;
-  final bool isLast;
-
-  const _ConcurrentRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.max,
-    required this.onChanged,
-    this.isFirst = false,
-    this.isLast = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+  Widget _buildLocalFolder(
+    AppLocalizations l10n,
+    List<String> localFolders,
+    String folder, {
+    bool isDefault = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 90,
-            child: Text(label,
-                style: TextStyle(fontSize: 14, color: scheme.onSurface)),
-          ),
-          Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              ),
-              child: Slider(
-                value: value.toDouble(),
-                min: 1,
-                max: max.toDouble(),
-                divisions: max - 1,
-                onChanged: (v) => onChanged(v.round()),
-              ),
-            ),
-          ),
-          Container(
-            width: 30,
-            alignment: Alignment.center,
-            child: Text(
-              '$value',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: scheme.primary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Switch row
-// ──────────────────────────────────────────────────────────────
-
-class _SwitchRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final bool value;
-  final void Function(bool) onChanged;
-
-  const _SwitchRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: () => onChanged(!value),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+      key: Key('folder_${folder.hashCode}'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Card(
+        child: Column(
           children: [
-            Icon(icon, size: 20, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 16),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 14))),
-            Switch(value: value, onChanged: onChanged),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Local folder card — redesigned
-// ──────────────────────────────────────────────────────────────
-
-class _FolderCard extends StatelessWidget {
-  final String path;
-  final bool isDefault;
-  final VoidCallback? onDelete;
-
-  const _FolderCard({required this.path, required this.isDefault, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDefault
-              ? scheme.primary.withOpacity(0.4)
-              : scheme.outlineVariant.withOpacity(0.4),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Icon(Icons.folder_rounded,
-                color: isDefault ? scheme.primary : scheme.onSurfaceVariant, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(0),
+                    bottomRight: Radius.circular(0),
+                    topRight: Radius.circular(10),
+                    topLeft: Radius.circular(10),
+                  ),
+                ),
+              ),
+              onPressed: null,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  const Icon(Icons.label_outline_rounded),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(folder)),
                   if (isDefault)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 3),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: scheme.primary.withOpacity(0.12),
+                        color: context.primaryColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text('Default',
-                          style: TextStyle(fontSize: 10, color: scheme.primary,
-                              fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'Default',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.primaryColor,
+                        ),
+                      ),
                     ),
-                  Text(path,
-                      style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
             if (!isDefault)
-              IconButton(
-                icon: Icon(Icons.delete_outline_rounded, size: 18, color: scheme.error),
-                tooltip: 'Remove',
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Remove folder'),
-                    content: Text(path),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel')),
-                      TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            onDelete?.call();
-                          },
-                          child: Text('Remove', style: TextStyle(color: scheme.error))),
-                    ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: Text(l10n.delete),
+                            content: Text('${l10n.delete} $folder'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: Text(l10n.cancel),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  final temp = localFolders.toList();
+                                  temp.removeAt(temp.indexOf(folder));
+                                  ref
+                                      .read(localFoldersStateProvider.notifier)
+                                      .set(temp);
+                                  Navigator.pop(context);
+                                },
+                                child: Text(l10n.ok),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.delete_outlined),
+                    tooltip: 'Remove folder',
                   ),
-                ),
+                ],
               ),
           ],
         ),
@@ -633,62 +436,7 @@ class _FolderCard extends StatelessWidget {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Action button
-// ──────────────────────────────────────────────────────────────
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool isPrimary;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.isPrimary = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isPrimary
-              ? scheme.primary.withOpacity(0.1)
-              : scheme.surfaceContainerHighest.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isPrimary
-                ? scheme.primary.withOpacity(0.3)
-                : scheme.outlineVariant.withOpacity(0.4),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16,
-                color: isPrimary ? scheme.primary : scheme.onSurfaceVariant),
-            const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: isPrimary ? scheme.primary : scheme.onSurfaceVariant)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Section header
+// Helper widgets
 // ──────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
@@ -698,23 +446,138 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
       child: Text(
-        title.toUpperCase(),
+        title,
         style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
           color: Theme.of(context).colorScheme.primary,
-          letterSpacing: 1.0,
+          letterSpacing: 0.5,
         ),
       ),
     );
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Swipe action tile
-// ──────────────────────────────────────────────────────────────
+class _DownloadModeCard extends StatelessWidget {
+  final DownloadMode mode;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DownloadModeCard({
+    required this.mode,
+    required this.selected,
+    required this.onTap,
+  });
+
+  IconData get _icon {
+    switch (mode) {
+      case DownloadMode.internalDownloader:
+        return Icons.download_outlined;
+      case DownloadMode.fkFallbackZeus:
+        return Icons.auto_fix_high_outlined;
+      case DownloadMode.zeusDl:
+        return Icons.bolt_outlined;
+      case DownloadMode.auto:
+        return Icons.smart_toy_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: selected ? 2 : 0,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected ? scheme.primary : scheme.outline.withOpacity(0.3),
+          width: selected ? 2 : 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? scheme.primary.withOpacity(0.15)
+                      : scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  _icon,
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          mode.label,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: selected
+                                ? scheme.primary
+                                : scheme.onSurface,
+                          ),
+                        ),
+                        if (mode == DownloadMode.fkFallbackZeus) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Default',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      mode.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(Icons.check_circle, color: scheme.primary, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _SwipeActionTile extends StatelessWidget {
   final String label;
@@ -734,8 +597,10 @@ class _SwipeActionTile extends StatelessWidget {
     return ListTile(
       leading: Icon(icon),
       title: Text(label),
-      subtitle: Text(current.label,
-          style: TextStyle(fontSize: 12, color: context.secondaryColor)),
+      subtitle: Text(
+        current.label,
+        style: TextStyle(fontSize: 12, color: context.secondaryColor),
+      ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         showDialog(
@@ -758,6 +623,12 @@ class _SwipeActionTile extends StatelessWidget {
                 );
               }).toList(),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+            ],
           ),
         );
       },

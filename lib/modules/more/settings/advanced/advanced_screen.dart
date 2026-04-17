@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
+import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -118,7 +119,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   Future<void> _clearDatabase() async {
     try {
-      final all = await isar.mangas.where().findAll();
+      final all = await isar.mangas.filter().findAll();
       final nonFav = all.where((m) => m.favorite != true).toList();
       if (!mounted) return;
       final confirm = await showDialog<bool>(

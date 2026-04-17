@@ -3,18 +3,21 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/services/download_manager/engines/download_engine.dart';
+import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
-/// ZeusDL engine — delegates downloads to the ZeusDL Python backend.
+/// ZeusDL engine — delegates downloads to the ZeusDL binary (fork of yt-dlp).
 ///
-/// ZeusDL is a fork of yt-dlp that specialises in:
+/// ZeusDL specialises in:
 ///   • M3U8 / HLS streams with signed tokens
 ///   • Anti-bot protected sources
 ///   • Automatic retries with refreshed headers
 ///
-/// This engine calls a local ZeusDL subprocess (if bundled) or the
-/// app's API server acting as a ZeusDL proxy.
+/// The binary is bundled in app assets at build time and extracted to internal
+/// storage on first use.  Users can also place a custom binary at:
+///   Android/data/com.Watchtower.app/files/zeusdl
 class ZeusDlEngine implements DownloadEngine {
   final String url;
   final String outputPath;
@@ -49,11 +52,14 @@ class ZeusDlEngine implements DownloadEngine {
     _cancelled = false;
     _paused = false;
 
-    // Build ZeusDL command arguments
     final args = _buildArgs();
 
+    AppLogger.log(
+      'Starting download | chapter=$chapterId | url=$url',
+      tag: LogTag.zeus,
+    );
+
     if (kDebugMode) {
-      debugPrint('[ZeusDL] Starting download: $url');
       debugPrint('[ZeusDL] Args: ${args.join(' ')}');
     }
 
@@ -61,7 +67,14 @@ class ZeusDlEngine implements DownloadEngine {
       await _runWithProcess(args, onProgress);
     } on DownloadEngineException {
       rethrow;
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.log(
+        'Unexpected error | chapter=$chapterId',
+        logLevel: LogLevel.error,
+        tag: LogTag.zeus,
+        error: e,
+        stackTrace: st,
+      );
       throw DownloadEngineException('ZeusDL failed', e, true);
     }
   }
@@ -72,21 +85,19 @@ class ZeusDlEngine implements DownloadEngine {
       '--no-playlist',
       '--newline',
       '--progress',
-      '--progress-template', '%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s',
+      '--progress-template',
+      '%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s',
     ];
 
-    // Inject headers
     for (final entry in headers.entries) {
       args.addAll(['--add-header', '${entry.key}:${entry.value}']);
     }
 
-    // Add Referer if available
     try {
       final uri = Uri.parse(url);
       args.addAll(['--referer', '${uri.scheme}://${uri.host}']);
     } catch (_) {}
 
-    // Force protocol for m3u8
     if (url.contains('.m3u8') || url.contains('.m3u')) {
       args.addAll(['--hls-prefer-native', '--format', 'best']);
     }
@@ -99,54 +110,103 @@ class ZeusDlEngine implements DownloadEngine {
     List<String> args,
     void Function(DownloadProgress) onProgress,
   ) async {
-    final executable = await _findZeusDlExecutable();
+    // Resolve the binary path using the binary manager
+    final executable = await ZeusDlBinaryManager.instance.resolveExecutable();
+
     if (executable == null) {
+      AppLogger.log(
+        'ZeusDL executable not found | chapter=$chapterId',
+        logLevel: LogLevel.error,
+        tag: LogTag.zeus,
+      );
       throw DownloadEngineException(
-        'ZeusDL executable not found. Please ensure it is installed.',
+        'ZeusDL binary not available. '
+        'Place a zeusdl binary at '
+        'Android/data/com.Watchtower.app/files/zeusdl '
+        'or reinstall the app to restore the bundled binary.',
         null,
         false,
       );
     }
+
+    AppLogger.log(
+      'Executable resolved: $executable | chapter=$chapterId',
+      logLevel: LogLevel.debug,
+      tag: LogTag.zeus,
+    );
 
     onProgress(DownloadProgress(0, 100, itemType));
 
     _process = await Process.start(executable, args);
     final completer = Completer<void>();
 
+    int lastLoggedPercent = -1;
+
     _process!.stdout
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
-      _parseProgressLine(line, onProgress);
+      _parseProgressLine(line, onProgress, (percent) {
+        final rounded = (percent / 10).floor() * 10;
+        if (rounded > lastLoggedPercent) {
+          lastLoggedPercent = rounded;
+          AppLogger.log(
+            'Progress $rounded% | chapter=$chapterId',
+            logLevel: LogLevel.debug,
+            tag: LogTag.zeus,
+          );
+        }
+      });
     });
 
     _process!.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
+      if (line.trim().isEmpty) return;
+      AppLogger.log(
+        'stderr: $line',
+        logLevel: LogLevel.warning,
+        tag: LogTag.zeus,
+      );
       if (kDebugMode) debugPrint('[ZeusDL stderr] $line');
     });
 
     _process!.exitCode.then((code) {
-      if (!completer.isCompleted) {
-        if (code == 0) {
-          onProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
-          completer.complete();
-        } else if (!_cancelled) {
-          completer.completeError(
-            DownloadEngineException('ZeusDL exited with code $code', null, true),
-          );
-        } else {
-          completer.complete();
-        }
+      if (completer.isCompleted) return;
+      if (code == 0) {
+        AppLogger.log(
+          'Completed | chapter=$chapterId | out=$outputPath',
+          tag: LogTag.zeus,
+        );
+        onProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
+        completer.complete();
+      } else if (!_cancelled) {
+        AppLogger.log(
+          'Exited with code $code | chapter=$chapterId',
+          logLevel: LogLevel.error,
+          tag: LogTag.zeus,
+        );
+        completer.completeError(
+          DownloadEngineException('ZeusDL exited with code $code', null, true),
+        );
+      } else {
+        AppLogger.log(
+          'Cancelled by user | chapter=$chapterId',
+          tag: LogTag.zeus,
+        );
+        completer.complete();
       }
     });
 
     return completer.future;
   }
 
-  void _parseProgressLine(String line, void Function(DownloadProgress) onProgress) {
-    // Format: "75.3%|1.23MiB/s|00:12"
+  void _parseProgressLine(
+    String line,
+    void Function(DownloadProgress) onProgress,
+    void Function(double) onPercent,
+  ) {
     final parts = line.split('|');
     if (parts.isNotEmpty) {
       final percentStr = parts[0].trim().replaceAll('%', '');
@@ -154,29 +214,18 @@ class ZeusDlEngine implements DownloadEngine {
       if (percent != null) {
         final completed = (percent / 100 * 100).round();
         onProgress(DownloadProgress(completed, 100, itemType));
+        onPercent(percent);
       }
     }
-  }
-
-  Future<String?> _findZeusDlExecutable() async {
-    // 1. Check for bundled zeusdl in app assets / documents
-    const bundledNames = ['zeusdl', 'zeusdl.sh', 'yt-dlp'];
-    for (final name in bundledNames) {
-      try {
-        final result = await Process.run('which', [name]);
-        if (result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty) {
-          return name;
-        }
-      } catch (_) {}
-    }
-    return null;
   }
 
   @override
   Future<void> pause() async {
     if (_process != null && !_paused) {
       _paused = true;
-      if (Platform.isLinux || Platform.isMacOS) {
+      AppLogger.log('Paused | chapter=$chapterId', tag: LogTag.zeus);
+      // SIGSTOP works on Android (Linux kernel), macOS, and Linux
+      if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS) {
         _process!.kill(ProcessSignal.sigstop);
       }
     }
@@ -186,7 +235,9 @@ class ZeusDlEngine implements DownloadEngine {
   Future<void> resume() async {
     if (_process != null && _paused) {
       _paused = false;
-      if (Platform.isLinux || Platform.isMacOS) {
+      AppLogger.log('Resumed | chapter=$chapterId', tag: LogTag.zeus);
+      // SIGCONT to resume a suspended process
+      if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS) {
         _process!.kill(ProcessSignal.sigcont);
       }
     }
@@ -195,8 +246,15 @@ class ZeusDlEngine implements DownloadEngine {
   @override
   Future<void> cancel() async {
     _cancelled = true;
+    AppLogger.log('Cancel requested | chapter=$chapterId', tag: LogTag.zeus);
+    if (_paused && (Platform.isAndroid || Platform.isLinux || Platform.isMacOS)) {
+      // Resume first so the process can receive SIGTERM
+      _process?.kill(ProcessSignal.sigcont);
+    }
     _process?.kill();
     _process = null;
-    await _controller.close();
+    if (!_controller.isClosed) {
+      await _controller.close();
+    }
   }
 }

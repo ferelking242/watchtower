@@ -15,6 +15,7 @@ import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
@@ -654,6 +655,94 @@ class _ZeusDLCard extends StatelessWidget {
             ),
           ],
 
+          // ── Custom binary path (Android only) ──────────────────────
+          if (Platform.isAndroid) ...[
+            const SizedBox(height: 12),
+            FutureBuilder<String>(
+              future: ZeusDlBinaryManager.instance.userOverrideDisplayPath(),
+              builder: (context, snap) {
+                final overridePath = snap.data ?? '';
+                if (overridePath.isEmpty) return const SizedBox.shrink();
+                return Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHigh.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: cs.outline.withOpacity(0.15),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.folder_open_rounded,
+                            size: 13,
+                            color: cs.primary.withOpacity(0.7),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Custom binary path',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: cs.primary.withOpacity(0.8),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              overridePath,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontFamily: 'monospace',
+                                color: cs.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () {
+                              Clipboard.setData(
+                                ClipboardData(text: overridePath),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.copy_rounded,
+                                size: 13,
+                                color: cs.onSurface.withOpacity(0.4),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Drop a custom zeusdl binary here to override the bundled version.',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: cs.onSurface.withOpacity(0.4),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+
           const SizedBox(height: 14),
           Row(
             children: [
@@ -680,6 +769,23 @@ class _ZeusDLCard extends StatelessWidget {
                           ),
                         ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(
+                    color: cs.outline.withOpacity(0.3),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                tooltip: 'Reset bundled binary',
+                onPressed: () async {
+                  await ZeusDlBinaryManager.instance.clearCache();
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 16),
               ),
               if (hasUpdate && latest != null) ...[
                 const SizedBox(width: 8),

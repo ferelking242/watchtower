@@ -13,6 +13,7 @@ import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 final extensionListTileWidget = Provider.family<Widget, Source>((ref, source) {
   return ExtensionListTileWidget(source: source);
@@ -45,6 +46,10 @@ class _ExtensionListTileWidgetState
 
   Future<void> _handleSourceFetch() async {
     setState(() => _isLoading = true);
+    AppLogger.log(
+      '${_updateAvailable ? "Update" : "Install"} requested: "${widget.source.name}" v${widget.source.version}',
+      tag: LogTag.extension_,
+    );
 
     try {
       final provider = fetchItemSourcesListProvider(
@@ -55,6 +60,18 @@ class _ExtensionListTileWidgetState
 
       if (!widget.source.isAdded!) ref.invalidate(provider);
       await ref.watch(provider.future);
+      AppLogger.log(
+        '${_updateAvailable ? "Update" : "Install"} completed: "${widget.source.name}"',
+        tag: LogTag.extension_,
+      );
+    } catch (e, st) {
+      AppLogger.log(
+        '${_updateAvailable ? "Update" : "Install"} FAILED: "${widget.source.name}"',
+        logLevel: LogLevel.error,
+        tag: LogTag.extension_,
+        error: e,
+        stackTrace: st,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
