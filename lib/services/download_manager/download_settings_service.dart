@@ -2,43 +2,73 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
-/// Enum for download engine mode
 enum DownloadMode {
-  internalDownloader, // 0 — internal manga/file downloader (FK)
-  fkFallbackZeus, // 1 — FK downloader with automatic ZeusDL fallback (default)
-  zeusDl, // 2 — ZeusDL only
-  auto, // 3 — intelligent automatic selection
+  internalDownloader,
+  fkFallbackZeus,
+  zeusDl,
+  auto,
 }
 
 extension DownloadModeExt on DownloadMode {
   String get label {
     switch (this) {
       case DownloadMode.internalDownloader:
-        return 'Internal Downloader';
+        return 'Internal';
       case DownloadMode.fkFallbackZeus:
-        return 'FK Fallback Zeus';
+        return 'FK + ZeusDL';
       case DownloadMode.zeusDl:
         return 'ZeusDL';
       case DownloadMode.auto:
-        return 'Auto (Recommended)';
+        return 'Auto';
     }
   }
 
   String get description {
     switch (this) {
       case DownloadMode.internalDownloader:
-        return 'Built-in downloader. Best for manga, images, and simple files.';
+        return 'Built-in downloader. Best for manga & images.';
       case DownloadMode.fkFallbackZeus:
-        return 'Uses the internal downloader. Automatically switches to ZeusDL if a download fails.';
+        return 'FK downloader with ZeusDL fallback on failure.';
       case DownloadMode.zeusDl:
-        return 'ZeusDL engine only. Best for protected streams, m3u8, and anti-bot sites.';
+        return 'ZeusDL only. Best for streams & anti-bot sites.';
       case DownloadMode.auto:
-        return 'App automatically selects the best engine based on source type.';
+        return 'Automatic engine selection based on source type.';
+    }
+  }
+
+
+}
+
+enum ArchiveFormat { cbz, cbr, zip, none }
+
+extension ArchiveFormatExt on ArchiveFormat {
+  String get label {
+    switch (this) {
+      case ArchiveFormat.cbz:
+        return 'CBZ';
+      case ArchiveFormat.cbr:
+        return 'CBR';
+      case ArchiveFormat.zip:
+        return 'ZIP';
+      case ArchiveFormat.none:
+        return 'Folder (no archive)';
+    }
+  }
+
+  String get extension {
+    switch (this) {
+      case ArchiveFormat.cbz:
+        return '.cbz';
+      case ArchiveFormat.cbr:
+        return '.cbr';
+      case ArchiveFormat.zip:
+        return '.zip';
+      case ArchiveFormat.none:
+        return '';
     }
   }
 }
 
-/// Enum for swipe left/right actions on download cards
 enum SwipeAction { pauseResume, cancel, delete, retry, none }
 
 extension SwipeActionExt on SwipeAction {
@@ -98,6 +128,44 @@ class DownloadSettingsService {
 
   Future<void> setDownloadMode(DownloadMode mode) async {
     _data['downloadMode'] = mode.index;
+    await _save();
+  }
+
+  ArchiveFormat get archiveFormat {
+    final idx = _data['archiveFormat'] as int? ?? ArchiveFormat.cbz.index;
+    return ArchiveFormat.values[idx.clamp(0, ArchiveFormat.values.length - 1)];
+  }
+
+  Future<void> setArchiveFormat(ArchiveFormat format) async {
+    _data['archiveFormat'] = format.index;
+    await _save();
+  }
+
+  // Per-category concurrent downloads
+  int get concurrentManga {
+    return (_data['concurrentManga'] as int? ?? 2).clamp(1, 30);
+  }
+
+  Future<void> setConcurrentManga(int value) async {
+    _data['concurrentManga'] = value.clamp(1, 30);
+    await _save();
+  }
+
+  int get concurrentWatch {
+    return (_data['concurrentWatch'] as int? ?? 1).clamp(1, 10);
+  }
+
+  Future<void> setConcurrentWatch(int value) async {
+    _data['concurrentWatch'] = value.clamp(1, 10);
+    await _save();
+  }
+
+  int get concurrentNovel {
+    return (_data['concurrentNovel'] as int? ?? 3).clamp(1, 30);
+  }
+
+  Future<void> setConcurrentNovel(int value) async {
+    _data['concurrentNovel'] = value.clamp(1, 30);
     await _save();
   }
 
