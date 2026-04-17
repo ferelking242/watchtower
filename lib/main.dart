@@ -423,29 +423,37 @@ class _MyAppState extends ConsumerState<MyApp>
     final dir = await provider.getMpvDirectory();
     final mpvFile = File('${dir!.path}/mpv.conf');
     final inputFile = File('${dir.path}/input.conf');
+    String shadersDir = p.join(dir.path, 'shaders');
+    String scriptsDir = p.join(dir.path, 'scripts');
+    await Directory(shadersDir).create(recursive: true);
+    await Directory(scriptsDir).create(recursive: true);
     final filesMissing =
         !(await mpvFile.exists()) && !(await inputFile.exists());
     if (filesMissing) {
-      final bytes = await rootBundle.load("assets/watchtower_mpv.zip");
-      final archive = ZipDecoder().decodeBytes(bytes.buffer.asUint8List());
-      String shadersDir = p.join(dir.path, 'shaders');
-      await Directory(shadersDir).create(recursive: true);
-      String scriptsDir = p.join(dir.path, 'scripts');
-      await Directory(scriptsDir).create(recursive: true);
-      for (final file in archive.files) {
-        if (file.name == "mpv.conf") {
-          await mpvFile.writeAsBytes(file.content);
-        } else if (file.name == "input.conf") {
-          await inputFile.writeAsBytes(file.content);
-        } else if (file.name.startsWith("shaders/") &&
-            file.name.endsWith(".glsl")) {
-          final shaderFile = File('$shadersDir/${file.name.split("/").last}');
-          await shaderFile.writeAsBytes(file.content);
-        } else if (file.name.startsWith("scripts/") &&
-            (file.name.endsWith(".js") || file.name.endsWith(".lua"))) {
-          final scriptFile = File('$scriptsDir/${file.name.split("/").last}');
-          await scriptFile.writeAsBytes(file.content);
+      try {
+        final bytes = await rootBundle.load("assets/watchtower_mpv.zip");
+        final archive = ZipDecoder().decodeBytes(bytes.buffer.asUint8List());
+        for (final file in archive.files) {
+          if (file.name == "mpv.conf") {
+            await mpvFile.writeAsBytes(file.content);
+          } else if (file.name == "input.conf") {
+            await inputFile.writeAsBytes(file.content);
+          } else if (file.name.startsWith("shaders/") &&
+              file.name.endsWith(".glsl")) {
+            final shaderFile = File(
+              '$shadersDir/${file.name.split("/").last}',
+            );
+            await shaderFile.writeAsBytes(file.content);
+          } else if (file.name.startsWith("scripts/") &&
+              (file.name.endsWith(".js") || file.name.endsWith(".lua"))) {
+            final scriptFile = File(
+              '$scriptsDir/${file.name.split("/").last}',
+            );
+            await scriptFile.writeAsBytes(file.content);
+          }
         }
+      } catch (_) {
+        // MPV zip asset not available, directories already created above
       }
     }
   }

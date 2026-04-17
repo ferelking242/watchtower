@@ -29,7 +29,9 @@ class ExtensionScreen extends ConsumerStatefulWidget {
 class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
   final ScrollController controller = ScrollController();
   bool isUpdating = false;
+  bool _installingAll = false;
   final Map<String, bool> _collapsed = {};
+  final Map<String, bool> _installingLang = {};
 
   Future<void> _refreshSources() {
     return ref.refresh(
@@ -55,6 +57,41 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
         itemType: source.itemType,
       ).future,
     );
+  }
+
+  Future<void> _installSource(Source source) async {
+    final provider = fetchItemSourcesListProvider(
+      id: source.id,
+      reFresh: true,
+      itemType: source.itemType,
+    );
+    if (!(source.isAdded ?? false)) ref.invalidate(provider);
+    await ref.read(provider.future);
+  }
+
+  Future<void> _installAll(List<Source> sources, {String? lang}) async {
+    if (lang != null) {
+      if (mounted) setState(() => _installingLang[lang] = true);
+    } else {
+      if (mounted) setState(() => _installingAll = true);
+    }
+    try {
+      for (final source in sources) {
+        if (!(source.isAdded ?? false)) {
+          await _installSource(source);
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (lang != null) {
+            _installingLang[lang] = false;
+          } else {
+            _installingAll = false;
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -304,7 +341,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
     final slivers = <Widget>[];
 
-    // Available header with total count
+    // Available header with total count + Install All button
     slivers.add(
       SliverToBoxAdapter(
         child: Padding(
@@ -320,6 +357,19 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
               ),
               const SizedBox(width: 6),
               _CountBadge(count: notInstalledEntries.length),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: _installingAll
+                    ? null
+                    : () => _installAll(notInstalledEntries),
+                child: _installingAll
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text("Installer tout", style: TextStyle(fontSize: 12)),
+              ),
             ],
           ),
         ),
@@ -330,8 +380,9 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
       final items = grouped[lang]!;
       items.sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
       final isCollapsed = _collapsed[lang] ?? false;
+      final isInstallingLang = _installingLang[lang] ?? false;
 
-      // Language section header (collapsible)
+      // Language section header (collapsible) + Install All for this lang
       slivers.add(
         SliverToBoxAdapter(
           child: InkWell(
@@ -354,6 +405,38 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                     ),
                   ),
                   _CountBadge(count: items.length),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: isInstallingLang
+                        ? null
+                        : () => _installAll(items, lang: lang),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: isInstallingLang
+                          ? const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              "Tout",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   AnimatedRotation(
                     turns: isCollapsed ? -0.25 : 0,

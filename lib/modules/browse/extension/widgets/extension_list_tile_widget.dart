@@ -58,8 +58,8 @@ class _ExtensionListTileWidgetState
         itemType: widget.source.itemType,
       );
 
-      if (!widget.source.isAdded!) ref.invalidate(provider);
-      await ref.watch(provider.future);
+      if (!(widget.source.isAdded ?? false)) ref.invalidate(provider);
+      await ref.read(provider.future);
       AppLogger.log(
         '${_updateAvailable ? "Update" : "Install"} completed: "${widget.source.name}"',
         tag: LogTag.extension_,

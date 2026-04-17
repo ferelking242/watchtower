@@ -1186,6 +1186,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     if (widget.videos.isNotEmpty) {
       for (var video in widget.videos) {
         for (var sub in video.subtitles ?? []) {
+          if (sub.file == null || sub.file!.isEmpty) continue;
           if (!subs.contains(sub.file)) {
             final file = sub.file!;
             final label = sub.label;
