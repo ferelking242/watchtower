@@ -119,15 +119,20 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   Future<void> _clearDatabase() async {
     try {
-      final all = await isar.mangas.filter().idIsNotNull().findAll();
-      final nonFav = all.where((m) => m.favorite != true).toList();
+      final nonFavIds = (await isar.mangas
+              .filter()
+              .group((q) => q.favoriteEqualTo(false).or().favoriteIsNull())
+              .idProperty()
+              .findAll())
+          .whereType<int>()
+          .toList();
       if (!mounted) return;
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text("Effacer la base de données"),
           content: Text(
-            "${nonFav.length} série(s) non enregistrées dans votre bibliothèque seront supprimées.\n\nCette action est irréversible.",
+            "${nonFavIds.length} série(s) non enregistrées dans votre bibliothèque seront supprimées.\n\nCette action est irréversible.",
           ),
           actions: [
             TextButton(
@@ -142,12 +147,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         ),
       );
       if (confirm == true) {
-        final ids = nonFav
-            .where((m) => m.id != null)
-            .map((m) => m.id!)
-            .toList();
-        await isar.writeTxn(() async => isar.mangas.deleteAll(ids));
-        _toast("Base de données nettoyée (${ids.length} supprimées)");
+        await isar.writeTxn(() async => isar.mangas.deleteAll(nonFavIds));
+        _toast("Base de données nettoyée (${nonFavIds.length} supprimées)");
       }
     } catch (e) {
       _toast("Erreur: $e");
