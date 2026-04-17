@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -121,9 +122,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     try {
       final nonFavIds = (await isar.mangas
               .filter()
-              .favoriteEqualTo(false)
-              .or()
               .favoriteIsNull()
+              .or()
+              .favoriteEqualTo(false)
               .idProperty()
               .findAll())
           .whereType<int>()
