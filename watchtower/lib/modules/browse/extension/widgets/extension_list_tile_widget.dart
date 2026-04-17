@@ -192,6 +192,9 @@ class _ExtensionListTileWidgetState
         ? l10n.update
         : l10n.settings;
 
+    final isZeus =
+        widget.source.sourceCodeLanguage == SourceCodeLanguage.javascript;
+
     return ListTile(
       onTap: _isLoading
           ? null
@@ -248,6 +251,25 @@ class _ExtensionListTileWidgetState
                 ),
                 child: const Text(
                   "NSFW",
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          if (isZeus)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  "ZEUS",
                   style: TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,

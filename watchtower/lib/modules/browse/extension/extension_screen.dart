@@ -29,6 +29,8 @@ class ExtensionScreen extends ConsumerStatefulWidget {
 class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
   final ScrollController controller = ScrollController();
   bool isUpdating = false;
+  final Map<String, bool> _collapsed = {};
+
   Future<void> _refreshSources() {
     return ref.refresh(
       fetchItemSourcesListProvider(
@@ -141,7 +143,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                   if (installedEntries.isNotEmpty)
                     _buildInstalledSection(installedEntries, l10n),
                   if (notInstalledEntries.isNotEmpty)
-                    _buildNotInstalledSection(notInstalledEntries),
+                    ..._buildAvailableSection(notInstalledEntries),
                   if (!hasAnyEntry)
                     SliverFillRemaining(
                       child: Center(
@@ -215,12 +217,18 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  l10n.update_pending,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      l10n.update_pending,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _CountBadge(count: updateEntries.length),
+                  ],
                 ),
                 ElevatedButton(
                   onPressed: isUpdating
@@ -265,9 +273,15 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
       groupBy: (_) => "",
       groupSeparatorBuilder: (_) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Text(
-          l10n.installed,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        child: Row(
+          children: [
+            Text(
+              l10n.installed,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(width: 6),
+            _CountBadge(count: installedEntries.length),
+          ],
         ),
       ),
       itemBuilder: (context, Source element) =>
@@ -279,24 +293,119 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
     );
   }
 
-  Widget _buildNotInstalledSection(List<Source> notInstalledEntries) {
-    return CustomSliverGroupedListView<Source, String>(
-      elements: notInstalledEntries,
-      groupBy: (element) =>
-          completeLanguageName(element.lang?.toLowerCase() ?? ''),
-      groupSeparatorBuilder: (String groupByValue) => Padding(
-        padding: const EdgeInsets.only(left: 12),
-        child: Text(
-          groupByValue,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+  List<Widget> _buildAvailableSection(List<Source> notInstalledEntries) {
+    // Group by language
+    final Map<String, List<Source>> grouped = {};
+    for (final src in notInstalledEntries) {
+      final lang = completeLanguageName(src.lang?.toLowerCase() ?? '');
+      grouped.putIfAbsent(lang, () => []).add(src);
+    }
+    final sortedLangs = grouped.keys.toList()..sort();
+
+    final slivers = <Widget>[];
+
+    // Available header with total count
+    slivers.add(
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4),
+          child: Row(
+            children: [
+              Text(
+                "Available",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 6),
+              _CountBadge(count: notInstalledEntries.length),
+            ],
+          ),
         ),
       ),
-      itemBuilder: (context, Source element) =>
-          ref.watch(extensionListTileWidget(element)),
-      groupComparator: (group1, group2) => group1.compareTo(group2),
-      itemComparator: (item1, item2) =>
-          item1.name?.compareTo(item2.name ?? '') ?? 0,
-      order: GroupedListOrder.ASC,
+    );
+
+    for (final lang in sortedLangs) {
+      final items = grouped[lang]!;
+      items.sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+      final isCollapsed = _collapsed[lang] ?? false;
+
+      // Language section header (collapsible)
+      slivers.add(
+        SliverToBoxAdapter(
+          child: InkWell(
+            onTap: () {
+              setState(() {
+                _collapsed[lang] = !isCollapsed;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      lang,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  _CountBadge(count: items.length),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    turns: isCollapsed ? -0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.expand_more, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Items (visible only when not collapsed)
+      if (!isCollapsed) {
+        slivers.add(
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => ref.watch(
+                extensionListTileWidget(items[index]),
+              ),
+              childCount: items.length,
+            ),
+          ),
+        );
+      }
+    }
+
+    return slivers;
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  final int count;
+  const _CountBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

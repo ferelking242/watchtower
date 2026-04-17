@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/browse/browse_screen.dart';
-import 'package:watchtower/modules/widgets/custom_sliver_grouped_list_view.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
@@ -28,6 +27,7 @@ class SourcesScreen extends ConsumerStatefulWidget {
 
 class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   final controller = ScrollController();
+  final Map<String, bool> _collapsed = {};
 
   @override
   void dispose() {
@@ -144,9 +144,22 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           final isPinnedEntries = sources
               .where((element) => element.isPinned!)
               .toList();
-          final allEntriesWithoutIspinned = sources
+          final allEntriesWithoutPinned = sources
               .where((element) => !element.isPinned!)
               .toList();
+
+          // Group by language for collapsible sections
+          final Map<String, List<Source>> grouped = {};
+          for (final src in allEntriesWithoutPinned) {
+            final lang = completeLanguageName(src.lang!.toLowerCase());
+            grouped.putIfAbsent(lang, () => []).add(src);
+          }
+          // Pre-sort each language group
+          for (final list in grouped.values) {
+            list.sort((a, b) => a.name!.compareTo(b.name!));
+          }
+          final sortedLangs = grouped.keys.toList()..sort();
+
           return Scrollbar(
             interactive: true,
             controller: controller,
@@ -155,91 +168,93 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             child: CustomScrollView(
               controller: controller,
               slivers: [
-                CustomSliverGroupedListView<Source, String>(
-                  elements: lastUsedEntries,
-                  groupBy: (element) => "",
-                  groupSeparatorBuilder: (String groupByValue) => Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Row(
-                      children: [
-                        Text(
-                          l10n.last_used,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                // Last Used section
+                if (lastUsedEntries.isNotEmpty) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 2),
+                      child: Row(
+                        children: [
+                          Text(
+                            l10n.last_used,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          _CountBadge(count: lastUsedEntries.length),
+                        ],
+                      ),
                     ),
                   ),
-                  itemBuilder: (context, Source element) {
-                    return SourceListTile(
-                      source: element,
-                      itemType: widget.itemType,
-                    );
-                  },
-                  groupComparator: (group1, group2) => group1.compareTo(group2),
-                  itemComparator: (item1, item2) =>
-                      item1.name!.compareTo(item2.name!),
-                  order: GroupedListOrder.ASC,
-                ),
-                CustomSliverGroupedListView<Source, String>(
-                  elements: isPinnedEntries,
-                  groupBy: (element) => "",
-                  groupSeparatorBuilder: (String groupByValue) => Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Row(
-                      children: [
-                        Text(
-                          l10n.pinned,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => SourceListTile(
+                        source: lastUsedEntries[index],
+                        itemType: widget.itemType,
+                      ),
+                      childCount: lastUsedEntries.length,
                     ),
                   ),
-                  itemBuilder: (context, Source element) {
-                    return SourceListTile(
-                      source: element,
-                      itemType: widget.itemType,
-                    );
-                  },
-                  groupComparator: (group1, group2) => group1.compareTo(group2),
-                  itemComparator: (item1, item2) =>
-                      item1.name!.compareTo(item2.name!),
-                  order: GroupedListOrder.ASC,
-                ),
-                CustomSliverGroupedListView<Source, String>(
-                  elements: allEntriesWithoutIspinned,
-                  groupBy: (element) =>
-                      completeLanguageName(element.lang!.toLowerCase()),
-                  groupSeparatorBuilder: (String groupByValue) => Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Row(
-                      children: [
-                        Text(
-                          groupByValue,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                ],
+
+                // Pinned section
+                if (isPinnedEntries.isNotEmpty) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 2),
+                      child: Row(
+                        children: [
+                          Text(
+                            l10n.pinned,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          _CountBadge(count: isPinnedEntries.length),
+                        ],
+                      ),
                     ),
                   ),
-                  itemBuilder: (context, Source element) {
-                    return SourceListTile(
-                      source: element,
-                      itemType: widget.itemType,
-                    );
-                  },
-                  groupComparator: (group1, group2) => group1.compareTo(group2),
-                  itemComparator: (item1, item2) =>
-                      item1.name!.compareTo(item2.name!),
-                  order: GroupedListOrder.ASC,
-                ),
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => SourceListTile(
+                        source: isPinnedEntries[index],
+                        itemType: widget.itemType,
+                      ),
+                      childCount: isPinnedEntries.length,
+                    ),
+                  ),
+                ],
+
+                // Language sections (collapsible)
+                for (final lang in sortedLangs) ...[
+                  _CollapsibleLanguageHeader(
+                    lang: lang,
+                    count: grouped[lang]!.length,
+                    isCollapsed: _collapsed[lang] ?? false,
+                    onToggle: () {
+                      setState(() {
+                        _collapsed[lang] = !(_collapsed[lang] ?? false);
+                      });
+                    },
+                  ),
+                  if (!(_collapsed[lang] ?? false))
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => SourceListTile(
+                          source: grouped[lang]![index],
+                          itemType: widget.itemType,
+                        ),
+                        childCount: grouped[lang]!.length,
+                      ),
+                    ),
+                ],
+
+                // Other (local source)
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
@@ -272,6 +287,76 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _CollapsibleLanguageHeader extends StatelessWidget {
+  final String lang;
+  final int count;
+  final bool isCollapsed;
+  final VoidCallback onToggle;
+
+  const _CollapsibleLanguageHeader({
+    required this.lang,
+    required this.count,
+    required this.isCollapsed,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: InkWell(
+        onTap: onToggle,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  lang,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              _CountBadge(count: count),
+              const SizedBox(width: 8),
+              AnimatedRotation(
+                turns: isCollapsed ? -0.25 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: const Icon(Icons.expand_more, size: 18),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  final int count;
+  const _CountBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }

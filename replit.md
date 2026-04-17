@@ -48,6 +48,34 @@ VitePress documentation website for Watchtower. Deployed at `/aniyomi-website/`.
 - `_withRetry<T>()` — Generic exponential-backoff retry helper.
 - `refererUrl` constructor param — lets the caller supply the source page URL as Referer.
 
+## Browse Page — Extensions & Sources
+
+### Tags
+- **NSFW** (rouge) — affiché pour toute extension avec `isNsfw: true`
+- **ZEUS** (bleu) — affiché pour toute extension avec `sourceCodeLanguage == SourceCodeLanguage.javascript` (extensions ZeusDL/MProvider)
+
+### Fichiers clés
+- `watchtower/lib/modules/browse/extension/widgets/extension_list_tile_widget.dart` — tile extension avec tags NSFW + ZEUS
+- `watchtower/lib/modules/browse/sources/widgets/source_list_tile.dart` — tile source avec tags NSFW + ZEUS
+- `watchtower/lib/modules/browse/extension/extension_screen.dart` — sections pliables par langue avec compteurs exacts
+- `watchtower/lib/modules/browse/sources/sources_screen.dart` — sections pliables par langue avec compteurs exacts
+
+### Fonctionnalités
+- Compteur exact sur chaque section (Updates, Installed, Available total, et chaque langue)
+- Sections par langue pliables/dépliables avec animation (InkWell + AnimatedRotation)
+- État de collapse maintenu dans `Map<String, bool> _collapsed`
+
+## Android Optimisation
+
+- `minifyEnabled true` + `shrinkResources true` en release (R8/ProGuard)
+- ABI splits : `arm64-v8a`, `armeabi-v7a`, `x86_64` + universalApk
+- `proguard-rules.pro` créé avec règles Flutter, Kotlin, Isar, OkHttp
+
+## Repos Externes
+
+- `zeusdl/` — Clone git de `ferelking242/zeusdl` (fork de ZeusDL, basé sur yt-dlp)
+- `external-projects/AnymeX/` — Clone de référence `RyanYuuki/AnymeX` (Flutter multiservice tracker)
+
 ## Stack
 
 - **App**: Flutter (Dart) — `watchtower/`

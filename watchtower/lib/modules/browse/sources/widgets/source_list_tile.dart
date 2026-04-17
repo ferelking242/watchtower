@@ -25,6 +25,9 @@ class SourceListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isZeus =
+        source.sourceCodeLanguage == SourceCodeLanguage.javascript;
+
     return Consumer(
       builder: (context, ref, child) => ListTile(
         onTap: () {
@@ -99,6 +102,28 @@ class SourceListTile extends StatelessWidget {
                   ),
                 ),
               ),
+            if (isZeus)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    "ZEUS",
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
         title: Text(
@@ -113,8 +138,6 @@ class SourceListTile extends StatelessWidget {
             children: [
               Consumer(
                 builder: (context, ref, child) {
-                  // final supportsLatest =  ref.watch(supportsLatestProvider(source: source));
-                  // if (supportsLatest) {
                   return TextButton(
                     style: const ButtonStyle(
                       padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
@@ -123,8 +146,6 @@ class SourceListTile extends StatelessWidget {
                         context.push('/mangaHome', extra: (source, true)),
                     child: Text(context.l10n.latest),
                   );
-                  // }
-                  // return const SizedBox.shrink();
                 },
               ),
               const SizedBox(width: 10),
