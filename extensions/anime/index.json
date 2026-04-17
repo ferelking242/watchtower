@@ -263,7 +263,7 @@
     "iconUrl": "https://raw.githubusercontent.com/ferelking242/watchtower/main/extensions/anime/icon/en.flixgaze.png",
     "typeSource": "single",
     "itemType": 1,
-    "version": "0.4.0",
+    "version": "0.5.0",
     "sourceCodeUrl": "https://raw.githubusercontent.com/ferelking242/watchtower/main/extensions/anime/src/en/flixgaze.js",
     "isNsfw": false,
     "hasCloudflare": false,
