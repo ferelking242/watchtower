@@ -119,7 +119,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   Future<void> _clearDatabase() async {
     try {
-      final all = await isar.mangas.filter().findAll();
+      final all = await isar.mangas.filter().idIsNotNull().findAll();
       final nonFav = all.where((m) => m.favorite != true).toList();
       if (!mounted) return;
       final confirm = await showDialog<bool>(
