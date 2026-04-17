@@ -318,6 +318,13 @@ class MihonExtensionService implements ExtensionService {
     return data.map((e) => SourcePreference.fromJson(e)).toList();
   }
 
+  @override
+  List<Map<String, dynamic>> getCustomLists() => [];
+
+  @override
+  Future<MPages> getCustomList(String id, int page) =>
+      throw UnimplementedError('Mihon does not support custom lists');
+
   List<dynamic> _convertFilters(List<dynamic> filters) {
     return filters.expand((e) sync* {
       if (e is TextFilter) {

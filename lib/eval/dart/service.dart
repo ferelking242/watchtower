@@ -155,4 +155,18 @@ class DartExtensionService implements ExtensionService {
       return const [];
     }
   }
+
+  @override
+  List<Map<String, dynamic>> getCustomLists() {
+    try {
+      final result = _interpreter!.invoke('getCustomLists', []) as List;
+      return result.cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Future<MPages> getCustomList(String id, int page) async =>
+      await _interpreter!.invoke('getCustomList', [id, page]) as MPages;
 }

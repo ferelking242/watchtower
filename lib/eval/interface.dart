@@ -38,4 +38,12 @@ abstract interface class ExtensionService {
   FilterList getFilterList();
 
   List<SourcePreference> getSourcePreferences();
+
+  /// Returns named browse tabs beyond Popular/Latest.
+  /// Each map must have "id" and "name" keys.
+  /// Default: empty list (no extra tabs).
+  List<Map<String, dynamic>> getCustomLists();
+
+  /// Fetches items for a custom browse tab identified by [id].
+  Future<MPages> getCustomList(String id, int page);
 }

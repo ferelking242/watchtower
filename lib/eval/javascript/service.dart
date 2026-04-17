@@ -76,6 +76,12 @@ class MProvider {
     getSourcePreferences() {
         throw new Error("getSourcePreferences not implemented");
     }
+    getCustomLists() {
+        return [];
+    }
+    async getCustomList(id, page) {
+        throw new Error("getCustomList not implemented for id: " + id);
+    }
 }
 async function jsonStringify(fn) {
     return JSON.stringify(await fn());
@@ -219,6 +225,28 @@ var extention = new DefaultExtension();
       'getSourcePreferences()',
       [],
     ).map((e) => SourcePreference.fromJson(e)..sourceId = source.id).toList();
+  }
+
+  @override
+  List<Map<String, dynamic>> getCustomLists() {
+    try {
+      final result = _extensionCall<List>('getCustomLists()', []);
+      return result
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Future<MPages> getCustomList(String id, int page) async {
+    return MPages.fromJson(
+      await _extensionCallAsync(
+        'getCustomList(${jsonEncode(id)},$page)',
+      ),
+    );
   }
 
   T _extensionCall<T>(String call, T def) {

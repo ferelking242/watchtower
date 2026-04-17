@@ -13,6 +13,8 @@ import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/get_custom_list.dart';
+import 'package:watchtower/services/get_custom_lists.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
@@ -67,12 +69,39 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   late bool isLocal = source.name == "local" && source.lang == "";
   late List<dynamic> filters = isLocal ? [] : getFilterList(source: source);
   final List<MManga> _mangaList = [];
+
+  // Extra browse tabs declared by the extension (e.g. Films, Séries TV …)
+  late final List<Map<String, dynamic>> _customLists =
+      isLocal ? [] : getCustomLists(source: source);
+
+  // Index 0=Popular 1=Latest 2=Filter 3+=custom lists
+  static const _kPopularIdx = 0;
+  static const _kLatestIdx = 1;
+  static const _kFilterIdx = 2;
+  static const _kCustomBase = 3;
+
+  String? get _activeCustomListId {
+    if (_selectedIndex >= _kCustomBase && !isLocal) {
+      final cIdx = _selectedIndex - _kCustomBase;
+      if (cIdx < _customLists.length) {
+        return _customLists[cIdx]['id'] as String?;
+      }
+    }
+    return null;
+  }
+
   List<TypeMangaSelector> _types(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     return [
       TypeMangaSelector(Icons.favorite, l10n.popular),
       TypeMangaSelector(Icons.new_releases_outlined, l10n.latest),
       TypeMangaSelector(Icons.filter_list_outlined, l10n.filter),
+      ..._customLists.map(
+        (cl) => TypeMangaSelector(
+          Icons.category_outlined,
+          cl['name'] as String? ?? cl['id'] as String,
+        ),
+      ),
     ];
   }
 
@@ -83,16 +112,17 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         await Future.delayed(const Duration(milliseconds: 500));
         _fullDataLength = _fullDataLength + 50;
       } else {
-        if (_selectedIndex == 0 && !_isSearch && _query.isEmpty) {
+        final customId = _activeCustomListId;
+        if (_selectedIndex == _kPopularIdx && !_isSearch && _query.isEmpty) {
           mangaRes = await ref.watch(
             getPopularProvider(source: source, page: _page + 1).future,
           );
-        } else if (_selectedIndex == 1 && !_isSearch && _query.isEmpty) {
+        } else if (_selectedIndex == _kLatestIdx && !_isSearch && _query.isEmpty) {
           mangaRes = await ref.watch(
             getLatestUpdatesProvider(source: source, page: _page + 1).future,
           );
-        } else if (_selectedIndex == 2 && (_isSearch && _query.isNotEmpty) ||
-            _isFiltering) {
+        } else if (_selectedIndex == _kFilterIdx &&
+            (_isSearch && _query.isNotEmpty) || _isFiltering) {
           mangaRes = await ref.watch(
             searchProvider(
               source: source,
@@ -101,9 +131,17 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               filterList: filters,
             ).future,
           );
+        } else if (customId != null) {
+          mangaRes = await ref.watch(
+            getCustomListProvider(
+              source: source,
+              listId: customId,
+              page: _page + 1,
+            ).future,
+          );
         }
       }
-      if (mangaRes!.list.isNotEmpty) {
+      if (mangaRes != null && mangaRes.list.isNotEmpty) {
         if (mounted) {
           setState(() {
             _page = _page + 1;
@@ -135,7 +173,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   late final filterList = isLocal ? [] : getFilterList(source: source);
   @override
   Widget build(BuildContext context) {
-    if (_selectedIndex == 2 && (_isSearch && _query.isNotEmpty) ||
+    final _activeId = _activeCustomListId;
+    if ((_selectedIndex == _kFilterIdx && (_isSearch && _query.isNotEmpty)) ||
         _isFiltering) {
       _getManga = ref.watch(
         searchProvider(
@@ -145,9 +184,13 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           filterList: filters,
         ),
       );
-    } else if (_selectedIndex == 1 && !_isSearch && _query.isEmpty) {
+    } else if (_selectedIndex == _kLatestIdx && !_isSearch && _query.isEmpty) {
       _getManga = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-    } else if (_selectedIndex == 0 && !_isSearch && _query.isEmpty) {
+    } else if (_activeId != null) {
+      _getManga = ref.watch(
+        getCustomListProvider(source: source, listId: _activeId, page: 1),
+      );
+    } else {
       _getManga = ref.watch(getPopularProvider(source: source, page: 1));
     }
     final l10n = context.l10n;
@@ -325,12 +368,12 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 child: SuperListView.builder(
                   scrollDirection: Axis.horizontal,
                   shrinkWrap: true,
-                  itemCount: 3,
+                  itemCount: 3 + _customLists.length,
                   itemBuilder: (context, index) {
-                    if (filterList.isEmpty && index == 2) {
+                    if (filterList.isEmpty && index == _kFilterIdx) {
                       return const SizedBox.shrink();
                     }
-                    if (!supportsLatest && index == 1) {
+                    if (!supportsLatest && index == _kLatestIdx) {
                       return const SizedBox.shrink();
                     }
                     return MangasCardSelector(
@@ -341,7 +384,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                         if (filters.isEmpty) {
                           filters = filterList;
                         }
-                        if (index == 2) {
+                        if (index == _kFilterIdx) {
                           final result = await showModalBottomSheet(
                             context: context,
                             builder: (context) => StatefulBuilder(

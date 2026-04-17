@@ -263,6 +263,13 @@ const extension = exports.default;
     ).map((e) => SourcePreference.fromJson(e)..sourceId = source.id).toList();
   }
 
+  @override
+  List<Map<String, dynamic>> getCustomLists() => [];
+
+  @override
+  Future<MPages> getCustomList(String id, int page) =>
+      throw UnimplementedError('LNReader does not support custom lists');
+
   T _extensionCall<T>(String call, T def) {
     _init();
 

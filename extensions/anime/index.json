@@ -253,5 +253,22 @@
     "appMinVerReq": "0.0.1",
     "dateFormat": "",
     "dateFormatLocale": ""
+  },
+  {
+    "name": "FlixGaze",
+    "id": 127384901,
+    "lang": "en",
+    "baseUrl": "https://www.flixgaze.com",
+    "apiUrl": "https://www.flixgaze.com",
+    "iconUrl": "https://raw.githubusercontent.com/ferelking242/watchtower/main/extensions/anime/icon/en.flixgaze.png",
+    "typeSource": "single",
+    "itemType": 1,
+    "version": "0.2.0",
+    "sourceCodeUrl": "https://raw.githubusercontent.com/ferelking242/watchtower/main/extensions/anime/src/en/flixgaze.js",
+    "isNsfw": false,
+    "hasCloudflare": false,
+    "appMinVerReq": "0.0.1",
+    "dateFormat": "",
+    "dateFormatLocale": ""
   }
 ]

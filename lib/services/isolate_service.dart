@@ -125,6 +125,8 @@ class GetIsolateService {
                         return await service.getLatestUpdates(page!);
                       case 'search':
                         return await service.search(query!, page!, filterList!);
+                      case 'getCustomList':
+                        return await service.getCustomList(url!, page!);
                       case 'getVideoList':
                         return await service.getVideoList(url!);
                       case 'getPageList':
