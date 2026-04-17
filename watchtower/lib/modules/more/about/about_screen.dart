@@ -30,7 +30,7 @@ class AboutScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = l10nLocalizations(context);
+    final l10n = l10nLocalizations(context)!;
     final checkForUpdates = ref.watch(checkForAppUpdatesProvider);
     final enableLogs = ref.watch(logsStateProvider);
     final zeusAsync = ref.watch(zeusLatestReleaseProvider);
