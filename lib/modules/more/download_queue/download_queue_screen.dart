@@ -5,7 +5,6 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
-import 'package:watchtower/modules/manga/detail/widgets/custom_floating_action_btn.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -34,12 +33,10 @@ class DownloadQueueScreen extends ConsumerWidget {
       builder: (context, snapshot) {
         final allEntries = snapshot.data ?? [];
 
-        // Clean orphaned downloads
         final orphanIds = <int>[];
         final entries = <Download>[];
         for (final d in allEntries) {
-          if (d.chapter.value == null ||
-              d.chapter.value?.manga.value == null) {
+          if (d.chapter.value == null || d.chapter.value?.manga.value == null) {
             if (d.id != null) orphanIds.add(d.id!);
           } else {
             entries.add(d);
@@ -60,18 +57,11 @@ class DownloadQueueScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.download_done_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  Icon(Icons.download_done_outlined, size: 64,
+                      color: Theme.of(context).colorScheme.outlineVariant),
                   const SizedBox(height: 16),
-                  Text(
-                    l10n.no_downloads,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                    ),
-                  ),
+                  Text(l10n.no_downloads,
+                      style: TextStyle(color: Theme.of(context).colorScheme.outlineVariant)),
                 ],
               ),
             ),
@@ -79,6 +69,8 @@ class DownloadQueueScreen extends ConsumerWidget {
         }
 
         final allQueueLength = entries.length;
+        final hasAnyPaused = queueState.pausedIds.isNotEmpty;
+        final allPaused = entries.every((e) => queueState.pausedIds.contains(e.id ?? -1));
 
         return Scaffold(
           appBar: AppBar(
@@ -88,108 +80,39 @@ class DownloadQueueScreen extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Badge(
                   backgroundColor: Theme.of(context).focusColor,
-                  label: Text(
-                    allQueueLength.toString(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall!.color,
-                    ),
-                  ),
+                  label: Text(allQueueLength.toString(),
+                      style: TextStyle(fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall!.color)),
                 ),
               ],
             ),
             actions: [
-              PopupMenuButton<_GlobalAction>(
-                popUpAnimationStyle: popupAnimationStyle,
-                icon: const Icon(Icons.more_vert),
-                onSelected: (action) => _handleGlobalAction(
-                  action,
-                  entries,
-                  ref,
-                  context,
-                ),
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: _GlobalAction.pauseAll,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.pause_circle_outline),
-                      title: Text('Pause All'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: _GlobalAction.resumeAll,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.play_circle_outline),
-                      title: Text('Resume All'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: _GlobalAction.stopAll,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.stop_circle_outlined),
-                      title: Text('Stop All'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: _GlobalAction.deleteCompleted,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.delete_sweep_outlined),
-                      title: Text('Delete Completed'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: _GlobalAction.retryFailed,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.replay_outlined),
-                      title: Text('Retry Failed'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
+              _PopupMenuAnchor(
+                entries: entries,
+                ref: ref,
+                context: context,
               ),
             ],
           ),
           body: GroupedListView<Download, String>(
             elements: entries,
-            groupBy: (element) =>
-                element.chapter.value?.manga.value?.source ?? "",
+            groupBy: (element) => element.chapter.value?.manga.value?.source ?? "",
             groupSeparatorBuilder: (String groupByValue) {
               final sourceQueueLength = entries
-                  .where(
-                    (element) =>
-                        (element.chapter.value?.manga.value?.source ?? "") ==
-                        groupByValue,
-                  )
+                  .where((e) => (e.chapter.value?.manga.value?.source ?? "") == groupByValue)
                   .length;
               return Padding(
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-                child: Text(
-                  '$groupByValue ($sourceQueueLength)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
+                child: Text('$groupByValue ($sourceQueueLength)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary)),
               );
             },
             itemBuilder: (context, Download element) {
-              final isPaused =
-                  queueState.pausedIds.contains(element.id ?? -1);
-              final engine =
-                  queueState.engineMap[element.id ?? -1] ?? 'FK';
-              final retryCount =
-                  queueState.retryCounts[element.id ?? -1] ?? 0;
+              final isPaused = queueState.pausedIds.contains(element.id ?? -1);
+              final engine = queueState.engineMap[element.id ?? -1] ?? 'FK';
+              final retryCount = queueState.retryCounts[element.id ?? -1] ?? 0;
+              final hasFailed = (element.failed ?? 0) > 0;
               final progress = element.total != null && element.total! > 0
                   ? (element.succeeded ?? 0) / element.total!
                   : 0.0;
@@ -199,86 +122,47 @@ class DownloadQueueScreen extends ConsumerWidget {
                 isPaused: isPaused,
                 engine: engine,
                 retryCount: retryCount,
+                hasFailed: hasFailed,
                 progress: progress,
                 swipeLeftAction: swipeLeft,
                 swipeRightAction: swipeRight,
-                onPauseResume: () {
-                  ref
-                      .read(downloadQueueStateProvider.notifier)
-                      .togglePause(element.id ?? -1);
-                },
-                onCancel: () =>
-                    _cancelDownload(element, context),
-                onDelete: () =>
-                    _deleteDownload(element, context),
-                onRetry: () =>
-                    _retryDownload(element, ref, context),
+                onPauseResume: () => ref
+                    .read(downloadQueueStateProvider.notifier)
+                    .togglePause(element.id ?? -1),
+                onCancel: () => _cancelDownload(element, context),
+                onRetry: () => _retryDownload(element, ref, context),
                 entries: entries,
               );
             },
             itemComparator: (item1, item2) =>
-                (item1.chapter.value?.manga.value?.source ?? "").compareTo(
-              item2.chapter.value?.manga.value?.source ?? "",
-            ),
+                (item1.chapter.value?.manga.value?.source ?? "")
+                    .compareTo(item2.chapter.value?.manga.value?.source ?? ""),
             order: GroupedListOrder.DESC,
           ),
-          floatingActionButton: CustomFloatingActionBtn(
-            isExtended: false,
-            label: l10n.download_queue,
+          // FAB: pause all / resume all toggle
+          floatingActionButton: FloatingActionButton.extended(
             onPressed: () {
-              ref.read(processDownloadsProvider());
+              if (allPaused || !hasAnyPaused) {
+                if (allPaused) {
+                  ref.read(downloadQueueStateProvider.notifier).resumeAll();
+                } else {
+                  final ids = entries.map((e) => e.id ?? -1).toList();
+                  ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+                }
+              } else {
+                // Some paused, some running → resume all
+                ref.read(downloadQueueStateProvider.notifier).resumeAll();
+              }
             },
+            icon: Icon(allPaused ? Icons.play_arrow_rounded : Icons.pause_rounded),
+            label: Text(allPaused ? 'Resume All' : 'Pause All'),
+            backgroundColor: allPaused
+                ? Theme.of(context).colorScheme.primary
+                : Colors.orange.shade700,
           ),
         );
       },
     );
-  }
-
-  void _handleGlobalAction(
-    _GlobalAction action,
-    List<Download> entries,
-    WidgetRef ref,
-    BuildContext context,
-  ) {
-    switch (action) {
-      case _GlobalAction.pauseAll:
-        final ids = entries.map((e) => e.id ?? -1).toList();
-        ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
-        break;
-      case _GlobalAction.resumeAll:
-        ref.read(downloadQueueStateProvider.notifier).resumeAll();
-        break;
-      case _GlobalAction.stopAll:
-        for (final e in entries) {
-          if (e.chapter.value != null) {
-            e.chapter.value!.cancelDownloads(e.id!);
-          }
-        }
-        break;
-      case _GlobalAction.deleteCompleted:
-        isar.writeTxnSync(() {
-          final completed = isar.downloads
-              .filter()
-              .isDownloadEqualTo(true)
-              .findAllSync();
-          for (final d in completed) {
-            if (d.id != null) isar.downloads.deleteSync(d.id!);
-          }
-        });
-        break;
-      case _GlobalAction.retryFailed:
-        for (final e in entries) {
-          if ((e.failed ?? 0) > 0 && e.chapter.value != null) {
-            ref
-                .read(downloadQueueStateProvider.notifier)
-                .incrementRetry(e.id ?? -1);
-            ref.read(
-              downloadChapterProvider(chapter: e.chapter.value!),
-            );
-          }
-        }
-        break;
-    }
   }
 
   void _cancelDownload(Download element, BuildContext context) {
@@ -289,35 +173,154 @@ class DownloadQueueScreen extends ConsumerWidget {
     }
   }
 
-  void _deleteDownload(Download element, BuildContext context) {
-    isar.writeTxnSync(() {
-      if (element.id != null) isar.downloads.deleteSync(element.id!);
-    });
-  }
-
-  void _retryDownload(
-    Download element,
-    WidgetRef ref,
-    BuildContext context,
-  ) {
+  void _retryDownload(Download element, WidgetRef ref, BuildContext context) {
     if (element.chapter.value != null) {
-      ref
-          .read(downloadQueueStateProvider.notifier)
-          .incrementRetry(element.id ?? -1);
-      // Delete old record and re-queue
+      ref.read(downloadQueueStateProvider.notifier).incrementRetry(element.id ?? -1);
       isar.writeTxnSync(() {
         if (element.id != null) isar.downloads.deleteSync(element.id!);
       });
-      ref.read(
-        addDownloadToQueueProvider(chapter: element.chapter.value!),
-      );
+      ref.read(addDownloadToQueueProvider(chapter: element.chapter.value!));
       ref.read(processDownloadsProvider());
     }
   }
 }
 
 // ──────────────────────────────────────────────────────────────
-// Download Card with swipe actions
+// Popup menu anchored below the 3-dot icon with triangle indicator
+// ──────────────────────────────────────────────────────────────
+
+class _PopupMenuAnchor extends StatefulWidget {
+  final List<Download> entries;
+  final WidgetRef ref;
+  final BuildContext context;
+
+  const _PopupMenuAnchor({
+    required this.entries,
+    required this.ref,
+    required this.context,
+  });
+
+  @override
+  State<_PopupMenuAnchor> createState() => _PopupMenuAnchorState();
+}
+
+class _PopupMenuAnchorState extends State<_PopupMenuAnchor> {
+  final GlobalKey _key = GlobalKey();
+
+  void _showMenu() {
+    final RenderBox button = _key.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final buttonPos = button.localToGlobal(Offset.zero, ancestor: overlay);
+    final buttonSize = button.size;
+
+    showMenu<_GlobalAction>(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      position: RelativeRect.fromLTRB(
+        buttonPos.dx - 180,
+        buttonPos.dy + buttonSize.height + 4,
+        buttonPos.dx + buttonSize.width,
+        0,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: _GlobalAction.pauseAll,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.pause_circle_outline),
+            title: Text('Pause All'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: _GlobalAction.resumeAll,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.play_circle_outline),
+            title: Text('Resume All'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: _GlobalAction.stopAll,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.stop_circle_outlined),
+            title: Text('Stop All'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: _GlobalAction.deleteCompleted,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.delete_sweep_outlined),
+            title: Text('Delete Completed'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: _GlobalAction.retryFailed,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.replay_outlined),
+            title: Text('Retry Failed'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    ).then((action) {
+      if (action != null) _handleAction(action);
+    });
+  }
+
+  void _handleAction(_GlobalAction action) {
+    switch (action) {
+      case _GlobalAction.pauseAll:
+        final ids = widget.entries.map((e) => e.id ?? -1).toList();
+        widget.ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+        break;
+      case _GlobalAction.resumeAll:
+        widget.ref.read(downloadQueueStateProvider.notifier).resumeAll();
+        break;
+      case _GlobalAction.stopAll:
+        for (final e in widget.entries) {
+          if (e.chapter.value != null) e.chapter.value!.cancelDownloads(e.id!);
+        }
+        break;
+      case _GlobalAction.deleteCompleted:
+        isar.writeTxnSync(() {
+          final completed = isar.downloads.filter().isDownloadEqualTo(true).findAllSync();
+          for (final d in completed) {
+            if (d.id != null) isar.downloads.deleteSync(d.id!);
+          }
+        });
+        break;
+      case _GlobalAction.retryFailed:
+        for (final e in widget.entries) {
+          if ((e.failed ?? 0) > 0 && e.chapter.value != null) {
+            widget.ref.read(downloadQueueStateProvider.notifier).incrementRetry(e.id ?? -1);
+            widget.ref.read(downloadChapterProvider(chapter: e.chapter.value!));
+          }
+        }
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: _key,
+      icon: const Icon(Icons.more_vert),
+      tooltip: 'More options',
+      onPressed: _showMenu,
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Download Card
 // ──────────────────────────────────────────────────────────────
 
 class _DownloadCard extends StatelessWidget {
@@ -325,12 +328,12 @@ class _DownloadCard extends StatelessWidget {
   final bool isPaused;
   final String engine;
   final int retryCount;
+  final bool hasFailed;
   final double progress;
   final SwipeAction swipeLeftAction;
   final SwipeAction swipeRightAction;
   final VoidCallback onPauseResume;
   final VoidCallback onCancel;
-  final VoidCallback onDelete;
   final VoidCallback onRetry;
   final List<Download> entries;
 
@@ -339,12 +342,12 @@ class _DownloadCard extends StatelessWidget {
     required this.isPaused,
     required this.engine,
     required this.retryCount,
+    required this.hasFailed,
     required this.progress,
     required this.swipeLeftAction,
     required this.swipeRightAction,
     required this.onPauseResume,
     required this.onCancel,
-    required this.onDelete,
     required this.onRetry,
     required this.entries,
   });
@@ -358,7 +361,7 @@ class _DownloadCard extends StatelessWidget {
         onCancel();
         break;
       case SwipeAction.delete:
-        onDelete();
+        onCancel();
         break;
       case SwipeAction.retry:
         onRetry();
@@ -368,11 +371,7 @@ class _DownloadCard extends StatelessWidget {
     }
   }
 
-  Widget _buildSwipeBackground(
-    SwipeAction action,
-    Alignment alignment,
-    BuildContext context,
-  ) {
+  Widget _buildSwipeBackground(SwipeAction action, Alignment alignment, BuildContext context) {
     if (action == SwipeAction.none) return const SizedBox.shrink();
     final color = _actionColor(action, context);
     return Container(
@@ -384,14 +383,8 @@ class _DownloadCard extends StatelessWidget {
         children: [
           Icon(_actionIcon(action), color: Colors.white, size: 24),
           const SizedBox(height: 4),
-          Text(
-            action.label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(action.label,
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -402,9 +395,8 @@ class _DownloadCard extends StatelessWidget {
       case SwipeAction.pauseResume:
         return Colors.orange.shade700;
       case SwipeAction.cancel:
-        return Colors.red.shade700;
       case SwipeAction.delete:
-        return Colors.red.shade900;
+        return Colors.red.shade700;
       case SwipeAction.retry:
         return Theme.of(context).colorScheme.primary;
       case SwipeAction.none:
@@ -436,9 +428,7 @@ class _DownloadCard extends StatelessWidget {
     Widget card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: scheme.outlineVariant.withOpacity(0.3)),
-        ),
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withOpacity(0.3))),
       ),
       child: Row(
         children: [
@@ -451,80 +441,34 @@ class _DownloadCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        manga?.name ?? "",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: Text(manga?.name ?? "",
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 8),
                     // Engine badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: engine == 'ZDL'
-                            ? Colors.purple.withOpacity(0.15)
-                            : scheme.primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        engine,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: engine == 'ZDL'
-                              ? Colors.purple.shade300
-                              : scheme.primary,
-                        ),
-                      ),
+                    _Badge(
+                      label: engine,
+                      color: engine == 'ZDL' ? Colors.purple : scheme.primary,
                     ),
                     if (isPaused) ...[
                       const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'PAUSED',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ),
+                      const _Badge(label: 'PAUSED', color: Colors.orange),
+                    ],
+                    if (hasFailed) ...[
+                      const SizedBox(width: 6),
+                      const _Badge(label: 'FAILED', color: Colors.red),
                     ],
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  chapter?.name ?? "",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
+                Text(chapter?.name ?? "",
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
                 if (retryCount > 0) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    'Retry #$retryCount',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange.shade400,
-                    ),
-                  ),
+                  Text('Retry #$retryCount',
+                      style: TextStyle(fontSize: 11, color: Colors.orange.shade400)),
                 ],
                 const SizedBox(height: 6),
                 Row(
@@ -536,86 +480,81 @@ class _DownloadCard extends StatelessWidget {
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                           tween: Tween<double>(begin: 0, end: progress),
-                          builder: (context, value, _) =>
-                              LinearProgressIndicator(
+                          builder: (context, value, _) => LinearProgressIndicator(
                             value: value,
                             minHeight: 5,
-                            backgroundColor:
-                                scheme.outlineVariant.withOpacity(0.3),
+                            backgroundColor: scheme.outlineVariant.withOpacity(0.3),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      '${(progress * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
+                    Text('${(progress * 100).toStringAsFixed(0)}%',
+                        style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ],
             ),
           ),
-          // Action buttons
+          // Action buttons: only pause/resume + retry (conditional)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Pause/Resume
               _IconBtn(
-                icon: isPaused ? Icons.play_arrow : Icons.pause,
+                icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
                 tooltip: isPaused ? 'Resume' : 'Pause',
                 color: Colors.orange,
                 onTap: onPauseResume,
               ),
-              // Retry
-              _IconBtn(
-                icon: Icons.replay,
-                tooltip: 'Retry',
-                color: scheme.primary,
-                onTap: onRetry,
-              ),
-              // Cancel
-              _IconBtn(
-                icon: Icons.close,
-                tooltip: 'Cancel',
-                color: scheme.error,
-                onTap: onCancel,
-              ),
+              if (hasFailed)
+                _IconBtn(
+                  icon: Icons.replay_rounded,
+                  tooltip: 'Retry',
+                  color: scheme.primary,
+                  onTap: onRetry,
+                ),
             ],
           ),
         ],
       ),
     );
 
-    // Wrap in swipe actions (Dismissible handles left/right)
-    if (swipeLeftAction != SwipeAction.none ||
-        swipeRightAction != SwipeAction.none) {
+    if (swipeLeftAction != SwipeAction.none || swipeRightAction != SwipeAction.none) {
       card = _Swipeable(
         key: Key('dl_swipe_${download.id}'),
-        onSwipeLeft: swipeLeftAction != SwipeAction.none
-            ? () => _executeAction(swipeLeftAction)
-            : null,
-        onSwipeRight: swipeRightAction != SwipeAction.none
-            ? () => _executeAction(swipeRightAction)
-            : null,
-        leftBackground: _buildSwipeBackground(
-          swipeLeftAction,
-          Alignment.centerLeft,
-          context,
-        ),
-        rightBackground: _buildSwipeBackground(
-          swipeRightAction,
-          Alignment.centerRight,
-          context,
-        ),
+        onSwipeLeft: swipeLeftAction != SwipeAction.none ? () => _executeAction(swipeLeftAction) : null,
+        onSwipeRight: swipeRightAction != SwipeAction.none ? () => _executeAction(swipeRightAction) : null,
+        leftBackground: _buildSwipeBackground(swipeLeftAction, Alignment.centerLeft, context),
+        rightBackground: _buildSwipeBackground(swipeRightAction, Alignment.centerRight, context),
         child: card,
       );
     }
 
     return card;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Small badge chip
+// ──────────────────────────────────────────────────────────────
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _Badge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(label,
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+    );
   }
 }
 
@@ -653,7 +592,7 @@ class _IconBtn extends StatelessWidget {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Swipeable wrapper — handles left/right gesture detection
+// Swipeable wrapper
 // ──────────────────────────────────────────────────────────────
 
 class _Swipeable extends StatefulWidget {
@@ -676,66 +615,30 @@ class _Swipeable extends StatefulWidget {
   State<_Swipeable> createState() => _SwipeableState();
 }
 
-class _SwipeableState extends State<_Swipeable>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _offsetAnim;
-  double _dragStart = 0;
-  double _currentDx = 0;
-  bool _revealed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _offsetAnim = Tween<Offset>(begin: Offset.zero, end: Offset.zero)
-        .animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onDragStart(DragStartDetails d) {
-    _dragStart = d.globalPosition.dx;
-    _currentDx = 0;
-  }
-
-  void _onDragUpdate(DragUpdateDetails d) {
-    final dx = d.globalPosition.dx - _dragStart;
-    setState(() => _currentDx = dx);
-  }
-
-  void _onDragEnd(DragEndDetails d) {
-    final threshold = 100.0;
-    if (_currentDx > threshold && widget.onSwipeRight != null) {
-      widget.onSwipeRight!();
-    } else if (_currentDx < -threshold && widget.onSwipeLeft != null) {
-      widget.onSwipeLeft!();
-    }
-    setState(() => _currentDx = 0);
-  }
+class _SwipeableState extends State<_Swipeable> {
+  double _dragOffset = 0;
+  static const double _threshold = 80;
 
   @override
   Widget build(BuildContext context) {
-    final dx = _currentDx.clamp(-120.0, 120.0);
     return GestureDetector(
-      onHorizontalDragStart: _onDragStart,
-      onHorizontalDragUpdate: _onDragUpdate,
-      onHorizontalDragEnd: _onDragEnd,
+      onHorizontalDragUpdate: (details) {
+        setState(() => _dragOffset += details.delta.dx);
+      },
+      onHorizontalDragEnd: (details) {
+        if (_dragOffset < -_threshold && widget.onSwipeLeft != null) {
+          widget.onSwipeLeft!();
+        } else if (_dragOffset > _threshold && widget.onSwipeRight != null) {
+          widget.onSwipeRight!();
+        }
+        setState(() => _dragOffset = 0);
+      },
       child: Stack(
         children: [
-          if (dx > 0)
-            Positioned.fill(child: widget.leftBackground),
-          if (dx < 0)
-            Positioned.fill(child: widget.rightBackground),
+          if (_dragOffset < 0) Positioned.fill(child: widget.leftBackground),
+          if (_dragOffset > 0) Positioned.fill(child: widget.rightBackground),
           Transform.translate(
-            offset: Offset(dx, 0),
+            offset: Offset(_dragOffset.clamp(-160, 160), 0),
             child: widget.child,
           ),
         ],
@@ -744,10 +647,8 @@ class _SwipeableState extends State<_Swipeable>
   }
 }
 
-enum _GlobalAction {
-  pauseAll,
-  resumeAll,
-  stopAll,
-  deleteCompleted,
-  retryFailed,
-}
+// ──────────────────────────────────────────────────────────────
+// Enum
+// ──────────────────────────────────────────────────────────────
+
+enum _GlobalAction { pauseAll, resumeAll, stopAll, deleteCompleted, retryFailed }
