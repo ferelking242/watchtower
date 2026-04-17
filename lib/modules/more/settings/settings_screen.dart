@@ -63,6 +63,11 @@ class SettingsScreen extends StatelessWidget {
                 onTap: () => context.push('/security'),
               ),
             ListTileWidget(
+              title: "Avancé",
+              icon: Icons.tune_rounded,
+              onTap: () => context.push('/advanced'),
+            ),
+            ListTileWidget(
               title: l10n.about,
               icon: Icons.info_outline,
               onTap: () => context.push('/about'),
