@@ -13,6 +13,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -267,18 +268,42 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     required bool value,
     required void Function(bool) onChanged,
     bool danger = false,
+    bool disabled = false,
   }) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final activeColor = danger ? Colors.orange : primary;
     return SwitchListTile(
-      title: Text(title, style: const TextStyle(fontSize: 14)),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          color: disabled ? context.secondaryColor : null,
+        ),
+      ),
       subtitle: Text(
         subtitle,
         style: TextStyle(fontSize: 12, color: context.secondaryColor),
       ),
       value: value,
-      onChanged: onChanged,
-      activeColor: danger
-          ? Colors.orange
-          : Theme.of(context).colorScheme.primary,
+      onChanged: disabled ? null : onChanged,
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return Theme.of(context).colorScheme.onSurface.withOpacity(0.3);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return Colors.white;
+        }
+        return null;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return Theme.of(context).colorScheme.onSurface.withOpacity(0.12);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return activeColor;
+        }
+        return null;
+      }),
     );
   }
 
@@ -613,109 +638,39 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
           // ── Section : Logs avancés ──────────────────────────────────────
           _sectionHeader("Logs avancés"),
-
-          // Niveau minimum de log
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Niveau minimum",
-                  style: TextStyle(fontSize: 13, color: context.secondaryColor),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: LogLevel.values.map((level) {
-                    final selected = _logMinLevel == level.index;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(
-                          level.displayName,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: selected
-                                ? Theme.of(context).colorScheme.onPrimary
-                                : null,
-                          ),
-                        ),
-                        selected: selected,
-                        selectedColor:
-                            Theme.of(context).colorScheme.primary,
-                        onSelected: (_) {
-                          setState(() => _logMinLevel = level.index);
-                          _saveLogSetting(kLogMinLevel, level.index);
-                        },
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-
-          // Supprimer erreurs d'images
-          _toggle(
-            title: "Supprimer erreurs de chargement d'images",
-            subtitle:
-                "Ne pas enregistrer les erreurs de logos manquants (icônes d'extensions 404)",
-            value: _logSuppressImages,
-            onChanged: (v) {
+          _LogAdvancedSection(
+            logMinLevel: _logMinLevel,
+            logSuppressImages: _logSuppressImages,
+            logTagExt: _logTagExt,
+            logTagDl: _logTagDl,
+            logTagNet: _logTagNet,
+            logTagZeus: _logTagZeus,
+            logTagUi: _logTagUi,
+            onLevelChanged: (level) {
+              setState(() => _logMinLevel = level);
+              _saveLogSetting(kLogMinLevel, level);
+            },
+            onSuppressImagesChanged: (v) {
               setState(() => _logSuppressImages = v);
               _saveLogSetting(kLogSuppressImages, v);
             },
-          ),
-
-          // Tags actifs
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              "Catégories à enregistrer",
-              style: TextStyle(fontSize: 13, color: context.secondaryColor),
-            ),
-          ),
-          _toggle(
-            title: "Extensions [EXT]",
-            subtitle: "Installation, mise à jour, erreurs d'extensions",
-            value: _logTagExt,
-            onChanged: (v) {
+            onTagExtChanged: (v) {
               setState(() => _logTagExt = v);
               _saveLogSetting(kLogTagExt, v);
             },
-          ),
-          _toggle(
-            title: "Téléchargements [DL]",
-            subtitle: "Progression, erreurs de téléchargements",
-            value: _logTagDl,
-            onChanged: (v) {
+            onTagDlChanged: (v) {
               setState(() => _logTagDl = v);
               _saveLogSetting(kLogTagDl, v);
             },
-          ),
-          _toggle(
-            title: "Réseau [NET]",
-            subtitle: "Requêtes HTTP, erreurs réseau",
-            value: _logTagNet,
-            onChanged: (v) {
+            onTagNetChanged: (v) {
               setState(() => _logTagNet = v);
               _saveLogSetting(kLogTagNet, v);
             },
-          ),
-          _toggle(
-            title: "ZeusDL [ZEUS]",
-            subtitle: "Moteur de téléchargement ZeusDL / yt-dlp",
-            value: _logTagZeus,
-            onChanged: (v) {
+            onTagZeusChanged: (v) {
               setState(() => _logTagZeus = v);
               _saveLogSetting(kLogTagZeus, v);
             },
-          ),
-          _toggle(
-            title: "Interface [UI]",
-            subtitle: "Événements et erreurs d'interface",
-            value: _logTagUi,
-            onChanged: (v) {
+            onTagUiChanged: (v) {
               setState(() => _logTagUi = v);
               _saveLogSetting(kLogTagUi, v);
             },
@@ -725,5 +680,348 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         ],
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Log Advanced Section — aware of whether logs are enabled
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LogAdvancedSection extends ConsumerWidget {
+  final int logMinLevel;
+  final bool logSuppressImages;
+  final bool logTagExt;
+  final bool logTagDl;
+  final bool logTagNet;
+  final bool logTagZeus;
+  final bool logTagUi;
+  final void Function(int) onLevelChanged;
+  final void Function(bool) onSuppressImagesChanged;
+  final void Function(bool) onTagExtChanged;
+  final void Function(bool) onTagDlChanged;
+  final void Function(bool) onTagNetChanged;
+  final void Function(bool) onTagZeusChanged;
+  final void Function(bool) onTagUiChanged;
+
+  const _LogAdvancedSection({
+    required this.logMinLevel,
+    required this.logSuppressImages,
+    required this.logTagExt,
+    required this.logTagDl,
+    required this.logTagNet,
+    required this.logTagZeus,
+    required this.logTagUi,
+    required this.onLevelChanged,
+    required this.onSuppressImagesChanged,
+    required this.onTagExtChanged,
+    required this.onTagDlChanged,
+    required this.onTagNetChanged,
+    required this.onTagZeusChanged,
+    required this.onTagUiChanged,
+  });
+
+  // Count how many tags are enabled
+  int get _enabledTagCount =>
+      [logTagExt, logTagDl, logTagNet, logTagZeus, logTagUi]
+          .where((v) => v)
+          .length;
+
+  // Whether the current config is performance-heavy
+  bool get _isHeavy => logMinLevel == 0 && _enabledTagCount >= 3;
+
+  // Whether to show a moderate warning (DEBUG level)
+  bool get _isDebugLevel => logMinLevel == 0;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logsEnabled = ref.watch(logsStateProvider);
+    final cs = Theme.of(context).colorScheme;
+    final secondary = Theme.of(context).textTheme.bodySmall?.color ??
+        cs.onSurface.withOpacity(0.6);
+
+    Widget _logToggle({
+      required String title,
+      required String subtitle,
+      required bool value,
+      required void Function(bool) onChanged,
+      bool danger = false,
+    }) {
+      final activeColor = danger ? Colors.orange : cs.primary;
+      return SwitchListTile(
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            color: logsEnabled ? null : secondary,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 12, color: secondary),
+        ),
+        value: value,
+        onChanged: logsEnabled ? onChanged : null,
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return cs.onSurface.withOpacity(0.3);
+          }
+          if (states.contains(WidgetState.selected)) return Colors.white;
+          return null;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return cs.onSurface.withOpacity(0.12);
+          }
+          if (states.contains(WidgetState.selected)) return activeColor;
+          return null;
+        }),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Notice: logs must be enabled ─────────────────────────────────
+        if (!logsEnabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: cs.outline.withOpacity(0.25),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: cs.onSurface.withOpacity(0.55),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Les logs sont désactivés. Activez-les dans À propos > Développeur pour que ces filtres prennent effet.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // ── Performance warning ───────────────────────────────────────────
+        if (logsEnabled && _isHeavy)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.orange.withOpacity(0.4),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 18,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Configuration lourde : niveau DEBUG + plusieurs catégories actives. Cela peut ralentir l'application. Utilisez ERROR ou WARN en production.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade800,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (logsEnabled && _isDebugLevel)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.outline.withOpacity(0.25)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: cs.onSurface.withOpacity(0.55),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Niveau DEBUG : tous les logs sont enregistrés. À utiliser uniquement en débogage — peut légèrement affecter les performances.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // ── Log level chips ───────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Niveau minimum de log",
+                style: TextStyle(fontSize: 13, color: secondary),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: LogLevel.values.map((level) {
+                  final selected = logMinLevel == level.index;
+                  Color chipColor;
+                  switch (level) {
+                    case LogLevel.debug:
+                      chipColor = Colors.grey;
+                      break;
+                    case LogLevel.info:
+                      chipColor = Colors.green;
+                      break;
+                    case LogLevel.warning:
+                      chipColor = Colors.orange;
+                      break;
+                    case LogLevel.error:
+                      chipColor = Colors.red;
+                      break;
+                  }
+                  return ChoiceChip(
+                    label: Text(
+                      level.displayName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: selected
+                            ? Colors.white
+                            : logsEnabled
+                                ? chipColor
+                                : secondary,
+                      ),
+                    ),
+                    selected: selected,
+                    selectedColor: logsEnabled ? chipColor : secondary,
+                    backgroundColor: logsEnabled
+                        ? chipColor.withOpacity(0.1)
+                        : cs.surfaceContainerHighest,
+                    side: BorderSide(
+                      color: selected
+                          ? Colors.transparent
+                          : logsEnabled
+                              ? chipColor.withOpacity(0.4)
+                              : secondary.withOpacity(0.2),
+                    ),
+                    onSelected: logsEnabled
+                        ? (_) => onLevelChanged(level.index)
+                        : null,
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _levelDescription(logMinLevel),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: secondary.withOpacity(0.7),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // ── Suppress image errors ─────────────────────────────────────────
+        _logToggle(
+          title: "Supprimer erreurs de chargement d'images",
+          subtitle:
+              "Ne pas enregistrer les erreurs de logos manquants (icônes d'extensions 404)",
+          value: logSuppressImages,
+          onChanged: onSuppressImagesChanged,
+        ),
+
+        // ── Active tags ───────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(
+            "Catégories à enregistrer",
+            style: TextStyle(fontSize: 13, color: secondary),
+          ),
+        ),
+        _logToggle(
+          title: "Extensions [EXT]",
+          subtitle: "Installation, mise à jour, erreurs d'extensions",
+          value: logTagExt,
+          onChanged: onTagExtChanged,
+        ),
+        _logToggle(
+          title: "Téléchargements [DL]",
+          subtitle: "Progression, erreurs de téléchargements",
+          value: logTagDl,
+          onChanged: onTagDlChanged,
+        ),
+        _logToggle(
+          title: "Réseau [NET]",
+          subtitle: "Requêtes HTTP, erreurs réseau",
+          value: logTagNet,
+          onChanged: onTagNetChanged,
+        ),
+        _logToggle(
+          title: "ZeusDL [ZEUS]",
+          subtitle: "Moteur de téléchargement ZeusDL / yt-dlp",
+          value: logTagZeus,
+          onChanged: onTagZeusChanged,
+        ),
+        _logToggle(
+          title: "Interface [UI]",
+          subtitle: "Événements et erreurs d'interface",
+          value: logTagUi,
+          onChanged: onTagUiChanged,
+        ),
+      ],
+    );
+  }
+
+  String _levelDescription(int level) {
+    switch (level) {
+      case 0:
+        return "DEBUG → tous les messages (verbeux, pour le débogage uniquement)";
+      case 1:
+        return "INFO → informations générales + avertissements + erreurs";
+      case 2:
+        return "WARN → avertissements + erreurs uniquement";
+      case 3:
+        return "ERROR → erreurs uniquement (le moins verbeux)";
+      default:
+        return "";
+    }
   }
 }
