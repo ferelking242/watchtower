@@ -1,64 +1,13 @@
 import 'package:d4rt/d4rt.dart' hide Logger;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
-import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
-import 'package:watchtower/eval/model/m_provider.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/log/log.dart';
 
 class MProviderBridged {
-  final mProviderBridged = BridgedClass(
-    nativeType: MProvider,
-    name: 'MProvider',
-    constructors: {
-      '': (visitor, positionalArgs, namedArgs) {
-        return MProvider;
-      },
-    },
-    getters: {
-      'supportsLatest': (visitor, target) =>
-          (target as MProvider).supportsLatest,
-      'baseUrl': (visitor, target) => (target as MProvider).baseUrl,
-      'headers': (visitor, target) => (target as MProvider).headers,
-    },
-    methods: {
-      'getLatestUpdates': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getLatestUpdates(positionalArgs[0] as int),
-      'getPopular': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getPopular(positionalArgs[0] as int),
-      'getVideoList': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getVideoList(positionalArgs[0] as String),
-      'search': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).search(
-            positionalArgs[0] as String,
-            positionalArgs[1] as int,
-            positionalArgs[2] as FilterList,
-          ),
-      'getDetail': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getDetail(positionalArgs[0] as String),
-      'getPageList': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getPageList(positionalArgs[0] as String),
-      'cleanHtmlContent': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).cleanHtmlContent(positionalArgs[0] as String),
-      'getHtmlContent': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getHtmlContent(
-            positionalArgs[0] as String,
-            positionalArgs[1] as String,
-          ),
-      'getFilterList': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getFilterList(),
-      'getSourcePreferences': (visitor, target, positionalArgs, namedArgs) =>
-          (target as MProvider).getSourcePreferences(),
-    },
-  );
-
   void registerBridgedClasses(D4rt interpreter) {
-    interpreter.registerBridgedClass(
-      mProviderBridged,
-      'package:watchtower/bridge_lib.dart',
-    );
     interpreter.registertopLevelFunction(
       'getPreferenceValue',
       (visitor, positionalArgs, namedArgs, _) => getPreferenceValue(

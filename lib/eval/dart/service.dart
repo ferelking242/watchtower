@@ -11,6 +11,30 @@ import 'package:watchtower/models/video.dart';
 
 import '../interface.dart';
 
+/// Dart source stub injected before every extension so that
+/// `class Xyz extends MProvider` resolves correctly inside d4rt.
+///
+/// d4rt cannot inherit from a BridgedClass, so MProvider must be defined
+/// as interpreted Dart code — exactly the same strategy used for JS
+/// extensions (which inline `class MProvider {}` via runtime.evaluate).
+const _mProviderStub = '''
+class MProvider {
+  bool get supportsLatest => true;
+  String? get baseUrl => null;
+  Map<String, String> get headers => {};
+  Future<dynamic> getPopular(int page) async => null;
+  Future<dynamic> getLatestUpdates(int page) async => null;
+  Future<dynamic> search(String query, int page, dynamic filterList) async => null;
+  Future<dynamic> getDetail(String url) async => null;
+  Future<List<dynamic>> getPageList(String url) async => [];
+  Future<List<dynamic>> getVideoList(String url) async => [];
+  Future<String> getHtmlContent(String name, String url) async => '';
+  Future<String> cleanHtmlContent(String html) async => '';
+  List<dynamic> getFilterList() => [];
+  List<dynamic> getSourcePreferences() => [];
+}
+''';
+
 class DartExtensionService implements ExtensionService {
   @override
   late Source source;
@@ -20,10 +44,29 @@ class DartExtensionService implements ExtensionService {
     _interpreter = D4rt();
     RegistrerBridge.registerBridge(_interpreter!);
 
+    final code =
+        source.sourceCode!.replaceAll('Client(source)', 'Client()');
     _interpreter!.execute(
-      source: source.sourceCode!.replaceAll('Client(source)', 'Client()'),
+      source: _injectMProvider(code),
       positionalArgs: [source.toMSource()],
     );
+  }
+
+  /// Inserts [_mProviderStub] after the last import statement so that the
+  /// extension class can freely do `class Xyz extends MProvider`.
+  static String _injectMProvider(String extensionCode) {
+    final importPattern = RegExp(
+      r"^import\s+'[^']+'\s*;[ \t]*$",
+      multiLine: true,
+    );
+    final matches = importPattern.allMatches(extensionCode).toList();
+    if (matches.isEmpty) {
+      return '$_mProviderStub\n$extensionCode';
+    }
+    final insertAt = matches.last.end;
+    return extensionCode.substring(0, insertAt) +
+        '\n\n$_mProviderStub' +
+        extensionCode.substring(insertAt);
   }
 
   @override
