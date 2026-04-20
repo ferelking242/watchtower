@@ -170,6 +170,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   bool _adBlockEnabled = true;
   int _blockedCount = 0;
 
+  // Footer visibility (toggled by ghost icon)
+  bool _showFooter = true;
+
   // Panel drag
   _PanelSnap _snap = _PanelSnap.full;
   double _currentFraction = 1.0;
@@ -479,12 +482,15 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                       behavior: HitTestBehavior.opaque,
                       child: _BrowserHeader(
                         url: _url,
+                        title: _title,
                         progress: _progress,
                         isDark: isDark,
                         cs: cs,
                         adEnabled: _adBlockEnabled,
                         blockedCount: _blockedCount,
-                        onClose: _dismiss,
+                        showFooter: _showFooter,
+                        onToggleFooter: () => setState(() => _showFooter = !_showFooter),
+                        onRefresh: () => _webViewController?.reload(),
                       ),
                     ),
                   ),
@@ -585,26 +591,21 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                         )
                       : const SizedBox.shrink(),
                   // ── Bottom toolbar ──────────────────────────────────────
-                  bottomNavigationBar: _BrowserToolbar(
-                    isDark: isDark,
-                    cs: cs,
-                    canGoBack: _canGoback,
-                    canGoForward: _canGoForward,
-                    onBack: () => _webViewController?.goBack(),
-                    onForward: () => _webViewController?.goForward(),
-                    onRefresh: () => _webViewController?.reload(),
-                    onShare: () {
-                      final box = context.findRenderObject() as RenderBox?;
-                      SharePlus.instance.share(
-                        ShareParams(
-                          text: _url,
-                          sharePositionOrigin:
-                              box!.localToGlobal(Offset.zero) & box.size,
-                        ),
-                      );
-                    },
-                    onMore: _showMoreMenu,
-                  ),
+                  bottomNavigationBar: _showFooter
+                      ? _BrowserToolbar(
+                          isDark: isDark,
+                          cs: cs,
+                          canGoBack: _canGoback,
+                          canGoForward: _canGoForward,
+                          onBack: () => _webViewController?.goBack(),
+                          onForward: () => _webViewController?.goForward(),
+                          onHome: () => _webViewController?.loadUrl(
+                            urlRequest: URLRequest(url: WebUri(widget.url)),
+                          ),
+                          onTabs: _showMoreMenu,
+                          onMore: _showMoreMenu,
+                        )
+                      : null,
                 ),
               ),
             ),
@@ -619,28 +620,37 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
 class _BrowserHeader extends StatelessWidget {
   final String url;
+  final String title;
   final double progress;
   final bool isDark;
   final ColorScheme cs;
   final bool adEnabled;
   final int blockedCount;
-  final VoidCallback onClose;
+  final bool showFooter;
+  final VoidCallback onToggleFooter;
+  final VoidCallback onRefresh;
 
   const _BrowserHeader({
     required this.url,
+    required this.title,
     required this.progress,
     required this.isDark,
     required this.cs,
     required this.adEnabled,
     required this.blockedCount,
-    required this.onClose,
+    required this.showFooter,
+    required this.onToggleFooter,
+    required this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context) {
     final secure = _isSecure(url);
-    final host = _displayHost(url);
     final barBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+    final displayTitle = title.isNotEmpty ? title : _displayHost(url);
+    final ghostColor = showFooter
+        ? (isDark ? Colors.white : Colors.black87)
+        : (isDark ? Colors.white.withValues(alpha: 0.35) : Colors.black38);
 
     return Container(
       color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
@@ -664,94 +674,123 @@ class _BrowserHeader extends StatelessWidget {
 
           // Address bar row
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 8, 10),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
             child: Row(
               children: [
-                // Address pill
-                Expanded(
-                  child: Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: barBg,
-                      borderRadius: BorderRadius.circular(12),
+                // Ghost icon — toggles footer
+                GestureDetector(
+                  onTap: onToggleFooter,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    child: Text(
+                      '👻',
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: ghostColor,
+                      ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        Icon(
-                          secure
-                              ? Icons.lock_rounded
-                              : Icons.info_outline_rounded,
-                          size: 13,
-                          color: secure
-                              ? (isDark
-                                    ? Colors.greenAccent.shade400
-                                    : Colors.green.shade600)
-                              : (isDark
-                                    ? Colors.grey.shade400
-                                    : Colors.grey.shade600),
+                  ),
+                ),
+                const SizedBox(width: 4),
+
+                // Address pill — shows page title, long press = copy URL
+                Expanded(
+                  child: GestureDetector(
+                    onLongPress: () {
+                      Clipboard.setData(ClipboardData(text: url));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Lien copié'),
+                          duration: Duration(seconds: 2),
                         ),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            host.isEmpty ? url : host,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: isDark ? Colors.white : Colors.black87,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            maxLines: 1,
-                          ),
-                        ),
-                        // AdBlock indicator (if active and blocked > 0)
-                        if (adEnabled && blockedCount > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade700.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.shield_rounded,
-                                  size: 10,
-                                  color: isDark
+                      );
+                    },
+                    child: Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: barBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            secure
+                                ? Icons.lock_rounded
+                                : Icons.info_outline_rounded,
+                            size: 13,
+                            color: secure
+                                ? (isDark
                                       ? Colors.greenAccent.shade400
-                                      : Colors.green.shade600,
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  blockedCount > 99 ? '99+' : '$blockedCount',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                                      : Colors.green.shade600)
+                                : (isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600),
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              displayTitle,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: isDark ? Colors.white : Colors.black87,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          // AdBlock indicator (if active and blocked > 0)
+                          if (adEnabled && blockedCount > 0) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade700.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.shield_rounded,
+                                    size: 10,
                                     color: isDark
                                         ? Colors.greenAccent.shade400
-                                        : Colors.green.shade700,
+                                        : Colors.green.shade600,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    blockedCount > 99 ? '99+' : '$blockedCount',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.greenAccent.shade400
+                                          : Colors.green.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
 
-                // Close button
+                // Refresh button (right)
                 const SizedBox(width: 4),
                 _ToolbarBtn(
-                  icon: Icons.close_rounded,
-                  size: 18,
-                  onTap: onClose,
+                  icon: Icons.refresh_rounded,
+                  size: 20,
+                  onTap: onRefresh,
                   isDark: isDark,
                 ),
               ],
@@ -793,8 +832,8 @@ class _BrowserToolbar extends StatelessWidget {
   final bool canGoForward;
   final VoidCallback onBack;
   final VoidCallback onForward;
-  final VoidCallback onRefresh;
-  final VoidCallback onShare;
+  final VoidCallback onHome;
+  final VoidCallback onTabs;
   final VoidCallback onMore;
 
   const _BrowserToolbar({
@@ -804,8 +843,8 @@ class _BrowserToolbar extends StatelessWidget {
     required this.canGoForward,
     required this.onBack,
     required this.onForward,
-    required this.onRefresh,
-    required this.onShare,
+    required this.onHome,
+    required this.onTabs,
     required this.onMore,
   });
 
@@ -846,23 +885,23 @@ class _BrowserToolbar extends StatelessWidget {
                     isDark: isDark,
                     disabledColor: inactiveColor,
                   ),
-                  // Refresh
+                  // Home
                   _ToolbarBtn(
-                    icon: Icons.refresh_rounded,
+                    icon: Icons.home_rounded,
                     size: 22,
-                    onTap: onRefresh,
+                    onTap: onHome,
                     isDark: isDark,
                   ),
-                  // Share
+                  // Tabs / onglets
                   _ToolbarBtn(
-                    icon: Icons.ios_share_rounded,
-                    size: 20,
-                    onTap: onShare,
+                    icon: Icons.tab_rounded,
+                    size: 21,
+                    onTap: onTabs,
                     isDark: isDark,
                   ),
-                  // More
+                  // Menu (3 barres / hamburger)
                   _ToolbarBtn(
-                    icon: Icons.more_horiz_rounded,
+                    icon: Icons.menu_rounded,
                     size: 22,
                     onTap: onMore,
                     isDark: isDark,
