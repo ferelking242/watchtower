@@ -73,30 +73,168 @@ bool _isAdDomain(String url) {
 
 const _kAdBlockJs = r"""
 (function() {
+  if (window.__watchtowerAdBlockActive) return;
+  window.__watchtowerAdBlockActive = true;
+
+  // ── CSS rules ───────────────────────────────────────────────────────────────
   var style = document.createElement('style');
+  style.id = '__watchtower_adblock_css';
   style.textContent = `
-    .ad,.ads,.banner,.sponsor,.popup,.advertisement,.ad-container,
-    .ad-wrapper,.ad-unit,.ads-container,
-    iframe[src*="ads"],iframe[src*="doubleclick"],
-    iframe[src*="googlesyndication"],iframe[src*="adnxs"],
-    div[id*="google_ads"],div[class*="google-ads"],
-    div[id*="advert"],div[class*="advert"],
-    #ad,#ads,#banner,#sponsor {
-      display:none!important;visibility:hidden!important;pointer-events:none!important;
+    .ad,.ads,.ad-container,.ad-wrapper,.ad-slot,.ad-unit,.ads-container,
+    .advertisement,.advert,.advertise,.advertising,.sponsor,.sponsored,
+    .popup,.pop-up,.interstitial,.overlay-ad,.ad-overlay,.modal-ad,
+    .gdpr-banner,.gdpr-overlay,.cookie-banner,.cookie-notice,.cookie-popup,
+    .consent-banner,.consent-popup,.newsletter-popup,.newsletter-modal,
+    .pushad,.push-ad,.sticky-ad,.fixed-ad,.floating-ad,.banner-ad,
+    [class*="google-ads"],[class*="google_ads"],[id*="google_ads"],
+    [class*="adsense"],[id*="adsense"],
+    [class*="adsbygoogle"],[id*="adsbygoogle"],
+    [id^="div-gpt-ad"],[id^="gpt-ad"],
+    iframe[src*="doubleclick"],iframe[src*="googlesyndication"],
+    iframe[src*="adnxs"],iframe[src*="ads."],iframe[src*="/ads/"],
+    iframe[src*="adservice"],iframe[src*="pagead"],
+    div[id^="ad_"],div[id^="ads_"],div[class^="ad_"],div[class^="ads_"],
+    ins.adsbygoogle,
+    #ad,#ads,#banner-ad,#sponsor,#sponsored,#popup,#interstitial {
+      display:none!important;
+      visibility:hidden!important;
+      opacity:0!important;
+      pointer-events:none!important;
+      height:0!important;
+      max-height:0!important;
+      overflow:hidden!important;
     }
   `;
-  if(document.head) document.head.appendChild(style);
-  function clean() {
-    ['iframe[src*="ads"]','iframe[src*="doubleclick"]',
-     'iframe[src*="googlesyndication"]','[class*="overlay"]',
-     '[class*="modal-ad"]'].forEach(function(sel){
-      try{ document.querySelectorAll(sel).forEach(function(el){el.remove();}); }catch(e){}
+  (document.head || document.documentElement).appendChild(style);
+
+  // ── Block window.open / popups ───────────────────────────────────────────────
+  try { window.open = function() { return null; }; } catch(e) {}
+  try { window.alert = function() {}; } catch(e) {}
+
+  // ── DOM cleaning ─────────────────────────────────────────────────────────────
+  var adSelectors = [
+    'iframe[src*="ads"]','iframe[src*="doubleclick"]',
+    'iframe[src*="googlesyndication"]','iframe[src*="adnxs"]',
+    'iframe[src*="adservice"]','iframe[src*="pagead"]',
+    'ins.adsbygoogle','[id^="div-gpt-ad"]',
+    '[class*="overlay-ad"]','[class*="modal-ad"]',
+    '[class*="gdpr"]','[class*="consent"]','[class*="cookie-banner"]',
+    '[class*="newsletter-popup"]','[data-ad]','[data-ads]','[data-adunit]',
+    '.adsbygoogle','#cookie-banner','#gdpr-overlay','#consent-modal'
+  ];
+
+  function removeAdNodes() {
+    adSelectors.forEach(function(sel) {
+      try {
+        document.querySelectorAll(sel).forEach(function(el) {
+          try { el.remove(); } catch(e) {}
+        });
+      } catch(e) {}
+    });
+    // Also remove by pattern matching id/class
+    document.querySelectorAll('div,section,aside').forEach(function(el) {
+      try {
+        var c = (el.className||'').toLowerCase();
+        var i = (el.id||'').toLowerCase();
+        if (/\bad\b|^ads$|advert|adsense|adsbygoogle|sponsor|popup|gdpr|consent|cookie.banner|interstitial/.test(c+' '+i)) {
+          if (el.offsetHeight < 400 || /popup|modal|interstitial/.test(c+' '+i)) {
+            el.style.cssText = 'display:none!important;height:0!important;overflow:hidden!important;';
+          }
+        }
+      } catch(e) {}
     });
   }
-  clean();
-  document.addEventListener('DOMContentLoaded',clean);
-  setTimeout(clean,1500);
-  setTimeout(clean,4000);
+
+  removeAdNodes();
+  document.addEventListener('DOMContentLoaded', removeAdNodes);
+  setTimeout(removeAdNodes, 500);
+  setTimeout(removeAdNodes, 1500);
+  setTimeout(removeAdNodes, 4000);
+  setTimeout(removeAdNodes, 8000);
+
+  // ── MutationObserver — catch dynamic ads ────────────────────────────────────
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(node) {
+        if (node.nodeType !== 1) return;
+        var c = (node.className||'').toLowerCase();
+        var i = (node.id||'').toLowerCase();
+        var src = (node.src||node.getAttribute&&node.getAttribute('src')||'').toLowerCase();
+        if (/\bad\b|^ads$|advert|adsense|adsbygoogle|sponsor|popup|gdpr|consent|doubleclick|googlesyndication/.test(c+' '+i+' '+src)) {
+          try { node.remove(); } catch(e) {
+            try { node.style.display='none'; } catch(e2) {}
+          }
+        }
+        // Recurse into added subtrees
+        try {
+          node.querySelectorAll && adSelectors.forEach(function(sel) {
+            node.querySelectorAll(sel).forEach(function(child) {
+              try { child.remove(); } catch(e) {}
+            });
+          });
+        } catch(e) {}
+      });
+    });
+  });
+  try {
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  } catch(e) {}
+})();
+""";
+
+// ── Element picker JS (injected on demand) ────────────────────────────────────
+const _kPickerJs = r"""
+(function() {
+  if (window.__watchtowerPickerActive) return;
+  window.__watchtowerPickerActive = true;
+
+  var overlay = document.createElement('div');
+  overlay.id = '__wt_picker_overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;cursor:crosshair;background:rgba(255,0,0,0.05);';
+  document.body.appendChild(overlay);
+
+  var highlight = document.createElement('div');
+  highlight.style.cssText = 'position:fixed;pointer-events:none;border:2px solid red;background:rgba(255,0,0,0.15);z-index:2147483646;transition:all 0.1s;box-sizing:border-box;';
+  document.body.appendChild(highlight);
+
+  function getBounds(el) {
+    var r = el.getBoundingClientRect();
+    return { top: r.top, left: r.left, width: r.width, height: r.height };
+  }
+
+  overlay.addEventListener('mousemove', function(e) {
+    overlay.style.pointerEvents = 'none';
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    overlay.style.pointerEvents = 'all';
+    if (!el || el === overlay || el === highlight) return;
+    var b = getBounds(el);
+    highlight.style.top = b.top + 'px';
+    highlight.style.left = b.left + 'px';
+    highlight.style.width = b.width + 'px';
+    highlight.style.height = b.height + 'px';
+  });
+
+  overlay.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    overlay.style.pointerEvents = 'none';
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    overlay.style.pointerEvents = 'all';
+    if (!el || el === overlay || el === highlight) return;
+    var tag = el.tagName || '';
+    var cls = el.className || '';
+    var id = el.id || '';
+    var src = el.src || el.getAttribute('src') || '';
+    var info = JSON.stringify({ tag: tag, cls: cls, id: id, src: src });
+    // Store for Flutter to retrieve
+    window.__watchtowerPickedInfo = info;
+    // Clean up
+    overlay.remove();
+    highlight.remove();
+    window.__watchtowerPickerActive = false;
+    // Notify Flutter
+    try { window.flutter_inappwebview.callHandler('elementPicked', info); } catch(e2) {}
+  });
 })();
 """;
 
@@ -169,6 +307,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // AdBlock
   bool _adBlockEnabled = true;
   int _blockedCount = 0;
+  bool _pickerMode = false;
+  List<String> _blockedElements = [];
 
   // Footer visibility (toggled by ghost icon)
   bool _showFooter = true;
@@ -355,6 +495,89 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     } catch (_) {}
   }
 
+  Future<void> _activatePicker() async {
+    try {
+      await _webViewController?.evaluateJavascript(source: _kPickerJs);
+    } catch (_) {}
+  }
+
+  Future<void> _injectHideRule(String css) async {
+    final js = '''
+(function(){
+  var s=document.getElementById('__wt_custom_hide')||document.createElement('style');
+  s.id='__wt_custom_hide';
+  s.textContent+='$css{display:none!important;}';
+  (document.head||document.documentElement).appendChild(s);
+})();
+''';
+    try {
+      await _webViewController?.evaluateJavascript(source: js);
+    } catch (_) {}
+  }
+
+  void _showPickedElementDialog(String info) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    String cssId = '';
+    String cssClass = '';
+    String domain = '';
+    try {
+      final m = RegExp(r'"id":"([^"]*)"').firstMatch(info);
+      final c = RegExp(r'"cls":"([^"]*)"').firstMatch(info);
+      final s = RegExp(r'"src":"([^"]*)"').firstMatch(info);
+      cssId = m?.group(1) ?? '';
+      cssClass = (c?.group(1) ?? '').split(' ').first;
+      final src = s?.group(1) ?? '';
+      if (src.isNotEmpty) {
+        final uri = Uri.tryParse(src);
+        domain = uri?.host ?? '';
+      }
+    } catch (_) {}
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+        title: Text('Élément sélectionné', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 16)),
+        content: Text('Que voulez-vous faire ?', style: TextStyle(color: isDark ? Colors.grey.shade300 : Colors.black54, fontSize: 13)),
+        actions: [
+          if (cssId.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _injectHideRule('#$cssId');
+                setState(() => _blockedElements.add('#$cssId'));
+              },
+              child: Text('Masquer #$cssId', style: const TextStyle(color: Colors.orange)),
+            ),
+          if (cssClass.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _injectHideRule('.$cssClass');
+                setState(() => _blockedElements.add('.$cssClass'));
+              },
+              child: Text('Masquer .$cssClass', style: const TextStyle(color: Colors.orange)),
+            ),
+          if (domain.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() {
+                  _blockedElements.add(domain);
+                  _blockedCount++;
+                });
+              },
+              child: Text('Bloquer $domain', style: const TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAdMenu() {
     showModalBottomSheet(
       context: context,
@@ -378,7 +601,18 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => _MoreSheet(
+        adEnabled: _adBlockEnabled,
+        blockedCount: _blockedCount,
+        blockedElements: _blockedElements,
+        onCopyUrl: () {
+          Navigator.pop(context);
+          Clipboard.setData(ClipboardData(text: _url));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('URL copiée'), duration: Duration(seconds: 2)),
+          );
+        },
         onShare: () {
           Navigator.pop(context);
           final box = context.findRenderObject() as RenderBox?;
@@ -393,24 +627,64 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           Navigator.pop(context);
           InAppBrowser.openWithSystemBrowser(url: WebUri(_url));
         },
+        onViewSource: () {
+          Navigator.pop(context);
+          _webViewController?.evaluateJavascript(
+            source: "document.documentElement.outerHTML",
+          );
+        },
+        onFindInPage: () {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Recherche dans la page non disponible'), duration: Duration(seconds: 2)),
+          );
+        },
+        onToggleAdBlock: () {
+          setState(() => _adBlockEnabled = !_adBlockEnabled);
+          if (_adBlockEnabled) _injectJs();
+          Navigator.pop(context);
+        },
+        onPickElement: () {
+          Navigator.pop(context);
+          setState(() => _pickerMode = true);
+          _activatePicker();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tap sur un élément pour le bloquer'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        },
+        onResetRules: () {
+          setState(() {
+            _blockedCount = 0;
+            _blockedElements.clear();
+          });
+          Navigator.pop(context);
+        },
         onClearCookies: () {
           Navigator.pop(context);
           CookieManager.instance().deleteAllCookies();
           MClient.deleteAllCookies(_url);
-        },
-        onCopyUrl: () {
-          Navigator.pop(context);
-          Clipboard.setData(ClipboardData(text: _url));
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('URL copiée'), duration: Duration(seconds: 2)),
+            const SnackBar(content: Text('Cookies effacés'), duration: Duration(seconds: 2)),
           );
         },
-        onAdBlock: () {
+        onFullscreen: () {
+          Navigator.pop(context);
+          _snap = _PanelSnap.full;
+          _animateTo(1.0);
+        },
+        onUserAgent: () {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Paramètre agent utilisateur dans les réglages'), duration: Duration(seconds: 2)),
+          );
+        },
+        onNetworkLog: () {
           Navigator.pop(context);
           _showAdMenu();
         },
-        adEnabled: _adBlockEnabled,
-        blockedCount: _blockedCount,
       ),
     );
   }
@@ -519,7 +793,18 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                       ? null
                                       : ref.read(userAgentStateProvider),
                             ),
-                            onWebViewCreated: (c) => _webViewController = c,
+                            onWebViewCreated: (c) {
+                              _webViewController = c;
+                              c.addJavaScriptHandler(
+                                handlerName: 'elementPicked',
+                                callback: (args) {
+                                  if (!mounted) return;
+                                  setState(() => _pickerMode = false);
+                                  final info = args.isNotEmpty ? args[0].toString() : '';
+                                  _showPickedElementDialog(info);
+                                },
+                              );
+                            },
                             onLoadStart: (c, url) {
                               if (mounted) setState(() => _url = url.toString());
                             },
@@ -951,211 +1236,278 @@ class _ToolbarBtn extends StatelessWidget {
   }
 }
 
-// ─── More options bottom sheet ────────────────────────────────────────────────
+// ─── More options sheet (Via-style, 3 swipeable pages) ────────────────────────
 
-class _MoreSheet extends StatelessWidget {
-  final VoidCallback onShare;
-  final VoidCallback onOpenBrowser;
-  final VoidCallback onClearCookies;
-  final VoidCallback onCopyUrl;
-  final VoidCallback onAdBlock;
+class _MoreSheet extends StatefulWidget {
   final bool adEnabled;
   final int blockedCount;
+  final List<String> blockedElements;
+  final VoidCallback onCopyUrl;
+  final VoidCallback onShare;
+  final VoidCallback onOpenBrowser;
+  final VoidCallback onViewSource;
+  final VoidCallback onFindInPage;
+  final VoidCallback onToggleAdBlock;
+  final VoidCallback onPickElement;
+  final VoidCallback onResetRules;
+  final VoidCallback onClearCookies;
+  final VoidCallback onFullscreen;
+  final VoidCallback onUserAgent;
+  final VoidCallback onNetworkLog;
 
   const _MoreSheet({
-    required this.onShare,
-    required this.onOpenBrowser,
-    required this.onClearCookies,
-    required this.onCopyUrl,
-    required this.onAdBlock,
     required this.adEnabled,
     required this.blockedCount,
+    required this.blockedElements,
+    required this.onCopyUrl,
+    required this.onShare,
+    required this.onOpenBrowser,
+    required this.onViewSource,
+    required this.onFindInPage,
+    required this.onToggleAdBlock,
+    required this.onPickElement,
+    required this.onResetRules,
+    required this.onClearCookies,
+    required this.onFullscreen,
+    required this.onUserAgent,
+    required this.onNetworkLog,
   });
+
+  @override
+  State<_MoreSheet> createState() => _MoreSheetState();
+}
+
+class _MoreSheetState extends State<_MoreSheet> {
+  final PageController _pageCtrl = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final iconBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+    final iconColor = isDark ? Colors.white : Colors.black87;
+    final labelColor = isDark ? Colors.grey.shade300 : Colors.grey.shade700;
+
+    Widget item(IconData icon, String label, VoidCallback onTap, {Color? accent, bool highlight = false}) {
+      return GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 62,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: highlight
+                      ? (accent ?? Colors.greenAccent).withValues(alpha: 0.18)
+                      : iconBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: highlight
+                      ? Border.all(color: accent ?? Colors.greenAccent, width: 1.5)
+                      : null,
+                ),
+                child: Icon(icon, size: 22, color: accent ?? iconColor),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                style: TextStyle(fontSize: 9.5, color: accent ?? labelColor, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ── Build pages ──────────────────────────────────────────────────────────
+    Widget buildPage(List<Widget> items) {
+      final rows = <Widget>[];
+      for (int i = 0; i < items.length; i += 5) {
+        final rowItems = items.sublist(i, (i + 5).clamp(0, items.length));
+        while (rowItems.length < 5) rowItems.add(const SizedBox(width: 62));
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: rowItems,
+            ),
+          ),
+        );
+      }
+      return Column(children: rows);
+    }
+
+    final page1 = buildPage([
+      item(Icons.search_rounded, 'Chercher', widget.onFindInPage),
+      item(Icons.copy_rounded, 'Copier URL', widget.onCopyUrl),
+      item(Icons.ios_share_rounded, 'Partager', widget.onShare),
+      item(Icons.open_in_browser_rounded, 'Navigateur', widget.onOpenBrowser),
+      item(Icons.code_rounded, 'Source', widget.onViewSource),
+      item(Icons.fullscreen_rounded, 'Plein écran', widget.onFullscreen),
+      item(Icons.delete_sweep_rounded, 'Cookies', widget.onClearCookies),
+      item(Icons.phone_android_rounded, 'User-Agent', widget.onUserAgent),
+      item(Icons.wifi_rounded, 'Réseau', widget.onNetworkLog),
+      item(Icons.info_outline_rounded, 'À propos', () => Navigator.pop(context)),
+    ]);
+
+    final page2 = buildPage([
+      item(
+        widget.adEnabled ? Icons.shield_rounded : Icons.shield_outlined,
+        widget.adEnabled
+            ? (widget.blockedCount > 0 ? '${widget.blockedCount} bloqués' : 'AdBlock ON')
+            : 'AdBlock OFF',
+        widget.onToggleAdBlock,
+        accent: widget.adEnabled ? Colors.greenAccent.shade400 : Colors.grey,
+        highlight: widget.adEnabled,
+      ),
+      item(Icons.ads_click_rounded, 'Sélect. élément', widget.onPickElement, accent: Colors.orange),
+      item(Icons.visibility_off_rounded, 'Masquer élément', widget.onPickElement),
+      item(Icons.block_rounded, 'Bloquer domaine', widget.onPickElement, accent: Colors.redAccent),
+      item(Icons.refresh_rounded, 'Réinitialiser', widget.onResetRules),
+      item(
+        Icons.list_rounded,
+        widget.blockedElements.isEmpty
+            ? 'Aucun bloqué'
+            : '${widget.blockedElements.length} règles',
+        () {},
+      ),
+      item(Icons.check_circle_outline_rounded, 'Whitelist site', () => Navigator.pop(context)),
+      item(Icons.bar_chart_rounded, 'Statistiques', () => Navigator.pop(context)),
+      item(Icons.bug_report_rounded, 'Déboguer', () => Navigator.pop(context)),
+      item(Icons.settings_rounded, 'Réglages', () => Navigator.pop(context)),
+    ]);
+
+    final page3 = buildPage([
+      item(Icons.text_fields_rounded, 'Texte', () => Navigator.pop(context)),
+      item(Icons.brightness_6_rounded, 'Luminosité', () => Navigator.pop(context)),
+      item(Icons.screen_rotation_rounded, 'Orientation', () => Navigator.pop(context)),
+      item(Icons.download_rounded, 'Télécharger', () => Navigator.pop(context)),
+      item(Icons.bookmark_rounded, 'Favoris', () => Navigator.pop(context)),
+      item(Icons.home_rounded, 'Accueil', () => Navigator.pop(context)),
+      item(Icons.qr_code_rounded, 'QR Code', () => Navigator.pop(context)),
+      item(Icons.save_rounded, 'Sauvegarder', () => Navigator.pop(context)),
+      item(Icons.translate_rounded, 'Traduction', () => Navigator.pop(context)),
+      item(Icons.build_rounded, 'Outils', () => Navigator.pop(context)),
+    ]);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-            blurRadius: 20,
+            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+            blurRadius: 24,
             offset: const Offset(0, -4),
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.2)
-                    : Colors.black.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(2),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Colors.black.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          // Quick actions row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _QuickAction(
-                  icon: Icons.copy_rounded,
-                  label: 'Copier',
-                  onTap: onCopyUrl,
-                  isDark: isDark,
-                ),
-                _QuickAction(
-                  icon: Icons.ios_share_rounded,
-                  label: 'Partager',
-                  onTap: onShare,
-                  isDark: isDark,
-                ),
-                _QuickAction(
-                  icon: Icons.open_in_browser_rounded,
-                  label: 'Navigateur',
-                  onTap: onOpenBrowser,
-                  isDark: isDark,
-                ),
-                _QuickAction(
-                  icon: adEnabled ? Icons.shield_rounded : Icons.shield_outlined,
-                  label: adEnabled
-                      ? (blockedCount > 0 ? '$blockedCount bloqués' : 'AdBlock')
-                      : 'AdBlock off',
-                  onTap: onAdBlock,
-                  isDark: isDark,
-                  accentColor: adEnabled ? Colors.greenAccent.shade400 : null,
-                ),
-              ],
-            ),
-          ),
-          // Divider
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.07),
-            indent: 16,
-            endIndent: 16,
-          ),
-          // List actions
-          _MoreTile(
-            icon: Icons.delete_sweep_rounded,
-            label: 'Effacer les cookies',
-            sublabel: 'Supprime les cookies de ce site',
-            onTap: onClearCookies,
-            isDark: isDark,
-            textColor: textColor,
-            subColor: subColor,
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-}
 
-class _QuickAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool isDark;
-  final Color? accentColor;
-
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.isDark,
-    this.accentColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final btnBg = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF2F2F7);
-    final iconColor = accentColor ?? (isDark ? Colors.white : Colors.black87);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: btnBg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, size: 22, color: iconColor),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 64,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                fontWeight: FontWeight.w500,
+            // PageView — 3 pages
+            SizedBox(
+              height: 190,
+              child: PageView(
+                controller: _pageCtrl,
+                onPageChanged: (i) => setState(() => _page = i),
+                children: [
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page1),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page2),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page3),
+                ],
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+
+            // Dots
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(3, (i) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+                  width: _page == i ? 16 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: _page == i
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : (isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.2)),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            ),
+
+            // Divider
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.07),
+            ),
+
+            // Bottom row: power + down
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Power = close WebView
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.power_settings_new_rounded,
+                      size: 26,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                  // Down = dismiss sheet
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 30,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    );
-  }
-}
-
-class _MoreTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String? sublabel;
-  final VoidCallback onTap;
-  final bool isDark;
-  final Color textColor;
-  final Color subColor;
-
-  const _MoreTile({
-    required this.icon,
-    required this.label,
-    this.sublabel,
-    required this.onTap,
-    required this.isDark,
-    required this.textColor,
-    required this.subColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, size: 20, color: textColor),
-      title: Text(label, style: TextStyle(fontSize: 14, color: textColor)),
-      subtitle: sublabel != null
-          ? Text(sublabel!, style: TextStyle(fontSize: 11, color: subColor))
-          : null,
-      onTap: onTap,
-      dense: true,
     );
   }
 }
