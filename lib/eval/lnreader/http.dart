@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:d4rt/d4rt.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -131,7 +130,7 @@ Future<String> _toHttpResponse(Client client, String method, List args) async {
     }
     String? formData;
     if (body is Map && body.containsKey("_data")) {
-      formData = (body.get("_data") as List<dynamic>)
+      formData = ((body as Map)["_data"] as List<dynamic>)
           .map(
             (e) =>
                 "${Uri.encodeQueryComponent(e[0])}"
