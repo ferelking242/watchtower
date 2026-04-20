@@ -187,7 +187,7 @@ class DownloadQueueScreen extends ConsumerWidget {
               final isPaused =
                   queueState.pausedIds.contains(element.id ?? -1);
               final engine =
-                  queueState.engineMap[element.id ?? -1] ?? 'FK';
+                  queueState.engineMap[element.id ?? -1] ?? 'HLS';
               final retryCount =
                   queueState.retryCounts[element.id ?? -1] ?? 0;
               final progress = element.total != null && element.total! > 0

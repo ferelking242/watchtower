@@ -19,6 +19,7 @@ import 'package:watchtower/modules/more/settings/downloads/providers/downloads_s
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/router/router.dart';
+import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
@@ -75,9 +76,14 @@ Future<void> downloadChapter(
       botToast(navigatorKey.currentContext!.l10n.downloads_are_limited_to_wifi);
       return;
     }
+
     final http = MClient.init(
       reqcopyWith: {'useDartHttpClient': true, 'followRedirects': false},
     );
+
+    // ── Per-type connection settings ────────────────────────────────────────
+    final mangaConnections = ref.read(mangaConnectionsStateProvider);
+    final animeConnections = ref.read(animeConnectionsStateProvider);
 
     List<PageUrl> pageUrls = [];
     PageUrl? novelPage;
@@ -110,12 +116,10 @@ Future<void> downloadChapter(
     Future<void> processConvert() async {
       if (!ref.read(saveAsCBZArchiveStateProvider)) return;
       try {
-        // Extract chapter number from name (e.g., "Chapter 5" → "5")
         final chapterNumber = ChapterRecognition().parseChapterNumber(
           chapter.manga.value!.name!,
           chapter.name!,
         );
-
         final comicInfo = ComicInfoData(
           title: chapter.name,
           series: manga.name,
@@ -127,7 +131,6 @@ Future<void> downloadChapter(
           translator: chapter.scanlator,
           publishingStatusStr: manga.status.name,
         );
-
         await ref.read(
           convertToCBZProvider(
             chapterDirectory.path,
@@ -180,6 +183,7 @@ Future<void> downloadChapter(
     }
 
     setProgress(DownloadProgress(0, 0, itemType));
+
     void savePageUrls() {
       final settings = isar.settings.getSync(227)!;
       List<ChapterPageurls>? chapterPageUrls = [];
@@ -236,7 +240,6 @@ Future<void> downloadChapter(
         if (videosUrls.isNotEmpty) {
           subtitles = videosUrls.first.subtitles;
 
-          // Derive a Referer from the video URL for anti-403 protection
           final videoUri = Uri.tryParse(videosUrls.first.originalUrl);
           final referer = videoUri != null
               ? '${videoUri.scheme}://${videoUri.host}'
@@ -251,6 +254,7 @@ Future<void> downloadChapter(
               fileName: p.join(mangaMainDirectory!.path, "$chapterName.mp4"),
               chapter: chapter,
               refererUrl: referer,
+              concurrentDownloads: animeConnections,
             );
           } else {
             pageUrls = [PageUrl(videosUrls.first.url)];
@@ -372,14 +376,27 @@ Future<void> downloadChapter(
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
       } else {
         savePageUrls();
-        await MDownloader(
-          chapter: chapter,
-          pageUrls: pages,
-          subtitles: subtitles,
-          subDownloadDir: chapterDirectory.path,
-        ).download((progress) {
-          setProgress(progress);
-        });
+
+        // Register internal task for pause/cancel support
+        final taskId = '${chapter.id}';
+        if (chapter.id != null) {
+          ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+        }
+        try {
+          await MDownloader(
+            chapter: chapter,
+            pageUrls: pages,
+            subtitles: subtitles,
+            subDownloadDir: chapterDirectory.path,
+            concurrentDownloads: mangaConnections,
+          ).download((progress) {
+            setProgress(progress);
+          });
+        } finally {
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.unregister(chapter.id!);
+          }
+        }
       }
     } else if (itemType == ItemType.novel) {
       final file = File(p.join(chapterDirectory.path, "$chapterName.html"));
@@ -402,9 +419,9 @@ Future<void> downloadChapter(
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
       }
     } else if (hasM3U8File && m3u8Downloader != null) {
-      // ── Engine selection ─────────────────────────────────────────────────
+      // ── Engine selection ────────────────────────────────────────────────
       await DownloadSettingsService.instance.load();
-      final downloadMode = DownloadSettingsService.instance.downloadMode;
+      final downloadMode = DownloadSettingsService.instance.animeDownloadMode;
       final videoUrl = m3u8Downloader!.m3u8Url;
 
       final engine = EngineSelector.select(
@@ -413,15 +430,8 @@ Future<void> downloadChapter(
         mode: downloadMode,
       );
 
-      // Update the queue state with the selected engine badge
-      final downloadRecord = isar.downloads.getSync(chapter.id!);
-      if (downloadRecord?.id != null) {
-        // Engine badge stored in-memory via DownloadQueueState
-        // (we can't call ref here in callback context, so we skip the badge update)
-      }
-
       if (engine == SelectedEngine.zeusDl) {
-        // ── ZeusDL path ──────────────────────────────────────────────────
+        // ── ZeusDL path ─────────────────────────────────────────────────
         final zeusEngine = ZeusDlEngine(
           url: videoUrl,
           outputPath: m3u8Downloader!.fileName,
@@ -430,43 +440,81 @@ Future<void> downloadChapter(
           chapterId: '${chapter.id}',
         );
 
+        if (chapter.id != null) {
+          ActiveDownloadRegistry.registerEngine(chapter.id!, zeusEngine);
+        }
+
         bool zeusFailed = false;
         try {
           await zeusEngine.start((progress) => setProgress(progress));
         } catch (e) {
           zeusFailed = true;
+        } finally {
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.unregister(chapter.id!);
+          }
         }
 
-        // Fallback to internal M3u8Downloader if ZeusDL failed and mode allows
+        // Fallback to internal if ZeusDL failed and mode allows it
         if (zeusFailed && downloadMode != DownloadMode.zeusDl) {
-          await m3u8Downloader!.download((progress) => setProgress(progress));
+          final taskId = 'm3u8_${chapter.id}';
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+          }
+          try {
+            await m3u8Downloader!.download(
+              (progress) => setProgress(progress),
+            );
+          } finally {
+            if (chapter.id != null) {
+              ActiveDownloadRegistry.unregister(chapter.id!);
+            }
+          }
         }
       } else {
-        // ── FK / Internal M3u8 path ───────────────────────────────────────
+        // ── Internal HLS path ───────────────────────────────────────────
+        final taskId = 'm3u8_${chapter.id}';
+        if (chapter.id != null) {
+          ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+        }
+
         Object? caughtError;
         try {
           await m3u8Downloader!.download((progress) => setProgress(progress));
         } catch (e) {
           caughtError = e;
+        } finally {
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.unregister(chapter.id!);
+          }
         }
 
-        if (caughtError != null) {
-          // Auto-fallback to ZeusDL if enabled and internal failed
-          if (downloadMode == DownloadMode.fkFallbackZeus) {
-            final fallbackEngine = ZeusDlEngine(
-              url: videoUrl,
-              outputPath: m3u8Downloader!.fileName,
-              headers: m3u8Downloader!.headers ?? {},
-              itemType: itemType,
-              chapterId: '${chapter.id}',
-            );
-            await fallbackEngine.start((progress) => setProgress(progress));
-          } else {
-            throw caughtError;
+        // Auto-fallback to ZeusDL on internal failure
+        if (caughtError != null &&
+            downloadMode == DownloadMode.internalFallback) {
+          final zeusEngine = ZeusDlEngine(
+            url: videoUrl,
+            outputPath: m3u8Downloader!.fileName,
+            headers: m3u8Downloader!.headers ?? {},
+            itemType: itemType,
+            chapterId: '${chapter.id}',
+          );
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.registerEngine(chapter.id!, zeusEngine);
           }
+          try {
+            await zeusEngine.start((progress) => setProgress(progress));
+          } finally {
+            if (chapter.id != null) {
+              ActiveDownloadRegistry.unregister(chapter.id!);
+            }
+          }
+        } else if (caughtError != null) {
+          throw caughtError;
         }
       }
     }
+
     if (callback != null) {
       callback();
     }
@@ -486,18 +534,31 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         .isDownloadEqualTo(false)
         .isStartDownloadEqualTo(true)
         .findAll();
+
+    // Skip chapters that are currently paused
+    final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
+    final activeDownloads = ongoingDownloads
+        .where(
+          (d) =>
+              d.chapter.value?.id == null ||
+              !pausedIds.contains(d.chapter.value!.id),
+        )
+        .toList();
+
     final maxConcurrentDownloads = ref.read(concurrentDownloadsStateProvider);
     int index = 0;
     int downloaded = 0;
     int current = 0;
+
     await Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
-      if (ongoingDownloads.length == downloaded) {
+      if (activeDownloads.length == downloaded) {
         return false;
       }
-      if (current < maxConcurrentDownloads) {
+      if (current < maxConcurrentDownloads &&
+          index < activeDownloads.length) {
         current++;
-        final downloadItem = ongoingDownloads[index++];
+        final downloadItem = activeDownloads[index++];
         final chapter = downloadItem.chapter.value!;
         chapter.cancelDownloads(downloadItem.id);
         await Future.delayed(const Duration(milliseconds: 500));

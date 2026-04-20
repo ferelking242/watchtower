@@ -16,12 +16,21 @@ class DownloadsScreen extends ConsumerStatefulWidget {
   ConsumerState<DownloadsScreen> createState() => _DownloadsScreenState();
 }
 
-class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
+class _DownloadsScreenState extends ConsumerState<DownloadsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
   @override
   void initState() {
     super.initState();
-    // Ensure download settings are loaded on screen open
+    _tabController = TabController(length: 3, vsync: this);
     DownloadSettingsService.instance.load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -33,40 +42,90 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final concurrentDownloads = ref.watch(concurrentDownloadsStateProvider);
     final localFolders = ref.watch(localFoldersStateProvider);
     final downloadMode = ref.watch(downloadModeStateProvider);
+    final mangaConnections = ref.watch(mangaConnectionsStateProvider);
+    final animeConnections = ref.watch(animeConnectionsStateProvider);
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
     final swipeRight = ref.watch(swipeRightActionStateProvider);
-    final l10n = l10nLocalizations(context);
+    final l10n = l10nLocalizations(context)!;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n!.downloads)),
+      appBar: AppBar(title: Text(l10n.downloads)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ─────────────────────────────────────────
-            // DOWNLOAD MODE
+            // TÉLÉCHARGEUR PAR MÉDIA — 3 ONGLETS
             // ─────────────────────────────────────────
-            _SectionHeader(title: 'Download Mode'),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            _SectionHeader(title: 'Téléchargeur par média'),
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Column(
-                children: DownloadMode.values.map((mode) {
-                  final selected = downloadMode == mode;
-                  return _DownloadModeCard(
-                    mode: mode,
-                    selected: selected,
-                    onTap: () {
-                      ref.read(downloadModeStateProvider.notifier).set(mode);
-                    },
-                  );
-                }).toList(),
+                children: [
+                  TabBar(
+                    controller: _tabController,
+                    tabs: const [
+                      Tab(
+                        icon: Icon(Icons.play_circle_outline),
+                        text: 'Watch',
+                      ),
+                      Tab(icon: Icon(Icons.menu_book_outlined), text: 'Manga'),
+                      Tab(icon: Icon(Icons.auto_stories_outlined), text: 'Novel'),
+                    ],
+                    labelColor: scheme.primary,
+                    unselectedLabelColor: scheme.onSurfaceVariant,
+                    indicatorColor: scheme.primary,
+                    dividerColor: Colors.transparent,
+                  ),
+                  SizedBox(
+                    height: 340,
+                    child: TabBarView(
+                      controller: _tabController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        // ── Watch (Anime) tab ───────────────────────────
+                        _AnimeTab(
+                          downloadMode: downloadMode,
+                          animeConnections: animeConnections,
+                          onModeChanged: (mode) =>
+                              ref.read(downloadModeStateProvider.notifier).set(mode),
+                          onConnectionsChanged: (v) =>
+                              ref.read(animeConnectionsStateProvider.notifier).set(v),
+                        ),
+                        // ── Manga tab ───────────────────────────────────
+                        _MangaTab(
+                          mangaConnections: mangaConnections,
+                          saveAsCBZ: saveAsCBZArchiveState,
+                          deleteAfterReading: deleteDownloadAfterReading,
+                          onConnectionsChanged: (v) =>
+                              ref.read(mangaConnectionsStateProvider.notifier).set(v),
+                          onCBZChanged: (v) =>
+                              ref.read(saveAsCBZArchiveStateProvider.notifier).set(v),
+                          onDeleteChanged: (v) =>
+                              ref
+                                  .read(
+                                    deleteDownloadAfterReadingStateProvider.notifier,
+                                  )
+                                  .set(v),
+                        ),
+                        // ── Novel tab ───────────────────────────────────
+                        const _NovelTab(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
             // ─────────────────────────────────────────
-            // GENERAL SETTINGS
+            // GÉNÉRAL
             // ─────────────────────────────────────────
-            _SectionHeader(title: 'General'),
+            _SectionHeader(title: 'Général'),
             SwitchListTile(
               value: onlyOnWifiState,
               title: Text(l10n.only_on_wifi),
@@ -74,100 +133,37 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 ref.read(onlyOnWifiStateProvider.notifier).set(value);
               },
             ),
-            SwitchListTile(
-              value: saveAsCBZArchiveState,
-              title: Text(l10n.save_as_cbz_archive),
-              onChanged: (value) {
-                ref.read(saveAsCBZArchiveStateProvider.notifier).set(value);
-              },
-            ),
-            SwitchListTile(
-              value: deleteDownloadAfterReading,
-              title: Text(l10n.delete_download_after_reading),
-              onChanged: (value) {
-                ref
-                    .read(deleteDownloadAfterReadingStateProvider.notifier)
-                    .set(value);
-              },
-            ),
             ListTile(
-              onTap: () {
-                int currentIntValue = concurrentDownloads;
-                showDialog(
-                  context: context,
-                  builder: (context) {
-                    return AlertDialog(
-                      title: Text(context.l10n.concurrent_downloads),
-                      content: StatefulBuilder(
-                        builder: (context, setState) => SizedBox(
-                          height: 200,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              NumberPicker(
-                                value: currentIntValue,
-                                minValue: 1,
-                                maxValue: 10,
-                                step: 1,
-                                haptics: true,
-                                textMapper: (numberText) => numberText,
-                                onChanged: (value) =>
-                                    setState(() => currentIntValue = value),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      actions: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text(
-                                context.l10n.cancel,
-                                style: TextStyle(color: context.primaryColor),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                ref
-                                    .read(concurrentDownloadsStateProvider.notifier)
-                                    .set(currentIntValue);
-                                Navigator.pop(context);
-                              },
-                              child: Text(
-                                context.l10n.ok,
-                                style: TextStyle(color: context.primaryColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
+              onTap: () => _showNumberPickerDialog(
+                context,
+                title: context.l10n.concurrent_downloads,
+                current: concurrentDownloads,
+                min: 1,
+                max: 10,
+                onSave: (v) =>
+                    ref.read(concurrentDownloadsStateProvider.notifier).set(v),
+              ),
               title: Text(context.l10n.concurrent_downloads),
               subtitle: Text(
-                '$concurrentDownloads',
+                '$concurrentDownloads chapitre(s) en parallèle',
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
+              trailing: const Icon(Icons.chevron_right),
             ),
 
             // ─────────────────────────────────────────
-            // SWIPE ACTIONS
+            // ACTIONS DE BALAYAGE
             // ─────────────────────────────────────────
-            _SectionHeader(title: 'Swipe Actions (Download Queue)'),
+            _SectionHeader(title: 'Actions de balayage (file de téléchargement)'),
             _SwipeActionTile(
-              label: 'Swipe Left',
+              label: 'Balayer à gauche',
               icon: Icons.swipe_left_outlined,
               current: swipeLeft,
               onChanged: (v) =>
                   ref.read(swipeLeftActionStateProvider.notifier).set(v),
             ),
             _SwipeActionTile(
-              label: 'Swipe Right',
+              label: 'Balayer à droite',
               icon: Icons.swipe_right_outlined,
               current: swipeRight,
               onChanged: (v) =>
@@ -175,7 +171,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ),
 
             // ─────────────────────────────────────────
-            // LOCAL FOLDERS
+            // DOSSIERS LOCAUX
             // ─────────────────────────────────────────
             _SectionHeader(title: context.l10n.local_folder),
             ListTile(
@@ -225,9 +221,69 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showNumberPickerDialog(
+    BuildContext context, {
+    required String title,
+    required int current,
+    required int min,
+    required int max,
+    required void Function(int) onSave,
+  }) {
+    int currentValue = current;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: StatefulBuilder(
+          builder: (context, setState) => SizedBox(
+            height: 180,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                NumberPicker(
+                  value: currentValue,
+                  minValue: min,
+                  maxValue: max,
+                  step: 1,
+                  haptics: true,
+                  textMapper: (n) => n,
+                  onChanged: (v) => setState(() => currentValue = v),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  context.l10n.cancel,
+                  style: TextStyle(color: context.primaryColor),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  onSave(currentValue);
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  context.l10n.ok,
+                  style: TextStyle(color: context.primaryColor),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -257,9 +313,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ("Episode1.mp4", Icons.video_file_outlined),
             (
               "Episode1_subtitles",
-              [
-                ("en.srt", Icons.subtitles_outlined),
-              ],
+              [("en.srt", Icons.subtitles_outlined)],
             ),
           ],
         ),
@@ -284,8 +338,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   for (int i = 1; i < level; i++)
                     const WidgetSpan(child: SizedBox(width: 20)),
                   if (level > 0)
-                    WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
-                  WidgetSpan(child: Icon(Icons.folder)),
+                    const WidgetSpan(
+                      child: Icon(Icons.subdirectory_arrow_right),
+                    ),
+                  const WidgetSpan(child: Icon(Icons.folder)),
                   const WidgetSpan(child: SizedBox(width: 5)),
                   TextSpan(text: data.$1),
                 ],
@@ -303,7 +359,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             for (int i = 1; i < level; i++)
               const WidgetSpan(child: SizedBox(width: 20)),
             if (level > 0)
-              WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
+              const WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
             WidgetSpan(child: Icon(data.$2 as IconData)),
             const WidgetSpan(child: SizedBox(width: 5)),
             TextSpan(text: data.$1),
@@ -314,25 +370,23 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(context.l10n.local_folder_structure),
-          content: SizedBox(
-            width: context.width(0.6),
-            height: context.height(0.8),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: SingleChildScrollView(child: buildSubFolder(data, 0)),
-            ),
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.local_folder_structure),
+        content: SizedBox(
+          width: context.width(0.6),
+          height: context.height(0.8),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SingleChildScrollView(child: buildSubFolder(data, 0)),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(context.l10n.cancel),
-            ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.l10n.cancel),
+          ),
+        ],
+      ),
     );
   }
 
@@ -398,33 +452,31 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     onPressed: () {
                       showDialog(
                         context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: Text(l10n.delete),
-                            content: Text('${l10n.delete} $folder'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: Text(l10n.cancel),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  final temp = localFolders.toList();
-                                  temp.removeAt(temp.indexOf(folder));
-                                  ref
-                                      .read(localFoldersStateProvider.notifier)
-                                      .set(temp);
-                                  Navigator.pop(context);
-                                },
-                                child: Text(l10n.ok),
-                              ),
-                            ],
-                          );
-                        },
+                        builder: (context) => AlertDialog(
+                          title: Text(l10n.delete),
+                          content: Text('${l10n.delete} $folder'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text(l10n.cancel),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                final temp = localFolders.toList();
+                                temp.removeAt(temp.indexOf(folder));
+                                ref
+                                    .read(localFoldersStateProvider.notifier)
+                                    .set(temp);
+                                Navigator.pop(context);
+                              },
+                              child: Text(l10n.ok),
+                            ),
+                          ],
+                        ),
                       );
                     },
                     icon: const Icon(Icons.delete_outlined),
-                    tooltip: 'Remove folder',
+                    tooltip: 'Supprimer le dossier',
                   ),
                 ],
               ),
@@ -435,9 +487,160 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Anime tab
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _AnimeTab extends StatelessWidget {
+  final DownloadMode downloadMode;
+  final int animeConnections;
+  final void Function(DownloadMode) onModeChanged;
+  final void Function(int) onConnectionsChanged;
+
+  const _AnimeTab({
+    required this.downloadMode,
+    required this.animeConnections,
+    required this.onModeChanged,
+    required this.onConnectionsChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...DownloadMode.values.map(
+            (mode) => _EngineCard(
+              mode: mode,
+              selected: downloadMode == mode,
+              onTap: () => onModeChanged(mode),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _ConnectionsTile(
+            label: 'Connexions HLS simultanées',
+            subtitle: 'Segments M3U8 téléchargés en parallèle par épisode',
+            value: animeConnections,
+            icon: Icons.cable_outlined,
+            onChanged: onConnectionsChanged,
+            scheme: scheme,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Manga tab
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _MangaTab extends StatelessWidget {
+  final int mangaConnections;
+  final bool saveAsCBZ;
+  final bool deleteAfterReading;
+  final void Function(int) onConnectionsChanged;
+  final void Function(bool) onCBZChanged;
+  final void Function(bool) onDeleteChanged;
+
+  const _MangaTab({
+    required this.mangaConnections,
+    required this.saveAsCBZ,
+    required this.deleteAfterReading,
+    required this.onConnectionsChanged,
+    required this.onCBZChanged,
+    required this.onDeleteChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ConnectionsTile(
+            label: 'Connexions simultanées',
+            subtitle: 'Images téléchargées en parallèle par chapitre',
+            value: mangaConnections,
+            icon: Icons.image_outlined,
+            onChanged: onConnectionsChanged,
+            scheme: scheme,
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            value: saveAsCBZ,
+            title: const Text('Sauvegarder en CBZ'),
+            subtitle: const Text(
+              'Archive les chapitres au format CBZ après téléchargement',
+              style: TextStyle(fontSize: 11),
+            ),
+            onChanged: onCBZChanged,
+          ),
+          SwitchListTile(
+            value: deleteAfterReading,
+            title: const Text('Supprimer après lecture'),
+            subtitle: const Text(
+              'Supprime le chapitre une fois lu',
+              style: TextStyle(fontSize: 11),
+            ),
+            onChanged: onDeleteChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Novel tab
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _NovelTab extends StatelessWidget {
+  const _NovelTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.auto_stories_outlined,
+            size: 48,
+            color: scheme.primary.withOpacity(0.7),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Téléchargeur interne',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Les chapitres de novel sont téléchargés via l\'extension source '
+            'et sauvegardés en HTML. Aucun choix de moteur requis.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Helper widgets
-// ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -460,12 +663,12 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _DownloadModeCard extends StatelessWidget {
+class _EngineCard extends StatelessWidget {
   final DownloadMode mode;
   final bool selected;
   final VoidCallback onTap;
 
-  const _DownloadModeCard({
+  const _EngineCard({
     required this.mode,
     required this.selected,
     required this.onTap,
@@ -475,7 +678,7 @@ class _DownloadModeCard extends StatelessWidget {
     switch (mode) {
       case DownloadMode.internalDownloader:
         return Icons.download_outlined;
-      case DownloadMode.fkFallbackZeus:
+      case DownloadMode.internalFallback:
         return Icons.auto_fix_high_outlined;
       case DownloadMode.zeusDl:
         return Icons.bolt_outlined;
@@ -489,9 +692,9 @@ class _DownloadModeCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Card(
       elevation: selected ? 2 : 0,
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 3),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: selected ? scheme.primary : scheme.outline.withOpacity(0.3),
           width: selected ? 2 : 1,
@@ -499,27 +702,27 @@ class _DownloadModeCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: selected
                       ? scheme.primary.withOpacity(0.15)
                       : scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   _icon,
                   color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                  size: 22,
+                  size: 18,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,26 +733,26 @@ class _DownloadModeCard extends StatelessWidget {
                           mode.label,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: selected
-                                ? scheme.primary
-                                : scheme.onSurface,
+                            fontSize: 13,
+                            color:
+                                selected ? scheme.primary : scheme.onSurface,
                           ),
                         ),
-                        if (mode == DownloadMode.fkFallbackZeus) ...[
-                          const SizedBox(width: 8),
+                        if (mode.isDefault) ...[
+                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                              horizontal: 5,
+                              vertical: 1,
                             ),
                             decoration: BoxDecoration(
                               color: scheme.primary.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'Default',
+                              'Défaut',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 9,
                                 color: scheme.primary,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -558,22 +761,124 @@ class _DownloadModeCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       mode.description,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 10,
                         color: scheme.onSurfaceVariant,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               if (selected)
-                Icon(Icons.check_circle, color: scheme.primary, size: 22),
+                Icon(Icons.check_circle, color: scheme.primary, size: 18),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ConnectionsTile extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final int value;
+  final IconData icon;
+  final void Function(int) onChanged;
+  final ColorScheme scheme;
+
+  const _ConnectionsTile({
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.icon,
+    required this.onChanged,
+    required this.scheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: scheme.primary),
+      title: Text(label, style: const TextStyle(fontSize: 13)),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+      ),
+      trailing: GestureDetector(
+        onTap: () => _showPicker(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: scheme.primary.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '$value',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: scheme.primary,
+            ),
+          ),
+        ),
+      ),
+      onTap: () => _showPicker(context),
+    );
+  }
+
+  void _showPicker(BuildContext context) {
+    int currentValue = value;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(label),
+        content: StatefulBuilder(
+          builder: (context, setState) => SizedBox(
+            height: 180,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                NumberPicker(
+                  value: currentValue,
+                  minValue: 1,
+                  maxValue: 10,
+                  step: 1,
+                  haptics: true,
+                  textMapper: (n) => n,
+                  onChanged: (v) => setState(() => currentValue = v),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  context.l10n.cancel,
+                  style: TextStyle(color: context.primaryColor),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  onChanged(currentValue);
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  context.l10n.ok,
+                  style: TextStyle(color: context.primaryColor),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -623,12 +928,6 @@ class _SwipeActionTile extends StatelessWidget {
                 );
               }).toList(),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-            ],
           ),
         );
       },

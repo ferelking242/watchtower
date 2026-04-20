@@ -274,9 +274,7 @@ abstract class _$ConcurrentDownloadsState extends $Notifier<int> {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// NEW: DownloadModeState
-// ──────────────────────────────────────────────────────────────
+// ── DownloadModeState (anime engine) ──────────────────────────────────────────
 
 @ProviderFor(DownloadModeState)
 final downloadModeStateProvider = DownloadModeStateProvider._();
@@ -329,9 +327,115 @@ abstract class _$DownloadModeState extends $Notifier<DownloadMode> {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// NEW: SwipeLeftActionState
-// ──────────────────────────────────────────────────────────────
+// ── MangaConnectionsState ─────────────────────────────────────────────────────
+
+@ProviderFor(MangaConnectionsState)
+final mangaConnectionsStateProvider = MangaConnectionsStateProvider._();
+
+final class MangaConnectionsStateProvider
+    extends $NotifierProvider<MangaConnectionsState, int> {
+  MangaConnectionsStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mangaConnectionsStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$mangaConnectionsStateHash();
+
+  @$internal
+  @override
+  MangaConnectionsState create() => MangaConnectionsState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$mangaConnectionsStateHash() =>
+    r'f1e2d3c4b5a6978869504132241516879808a1b2';
+
+abstract class _$MangaConnectionsState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+// ── AnimeConnectionsState ─────────────────────────────────────────────────────
+
+@ProviderFor(AnimeConnectionsState)
+final animeConnectionsStateProvider = AnimeConnectionsStateProvider._();
+
+final class AnimeConnectionsStateProvider
+    extends $NotifierProvider<AnimeConnectionsState, int> {
+  AnimeConnectionsStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'animeConnectionsStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$animeConnectionsStateHash();
+
+  @$internal
+  @override
+  AnimeConnectionsState create() => AnimeConnectionsState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$animeConnectionsStateHash() =>
+    r'c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1';
+
+abstract class _$AnimeConnectionsState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+// ── SwipeLeftActionState ──────────────────────────────────────────────────────
 
 @ProviderFor(SwipeLeftActionState)
 final swipeLeftActionStateProvider = SwipeLeftActionStateProvider._();
@@ -364,7 +468,8 @@ final class SwipeLeftActionStateProvider
   }
 }
 
-String _$swipeLeftActionStateHash() => r'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1';
+String _$swipeLeftActionStateHash() =>
+    r'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1';
 
 abstract class _$SwipeLeftActionState extends $Notifier<SwipeAction> {
   SwipeAction build();
@@ -384,9 +489,7 @@ abstract class _$SwipeLeftActionState extends $Notifier<SwipeAction> {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// NEW: SwipeRightActionState
-// ──────────────────────────────────────────────────────────────
+// ── SwipeRightActionState ─────────────────────────────────────────────────────
 
 @ProviderFor(SwipeRightActionState)
 final swipeRightActionStateProvider = SwipeRightActionStateProvider._();
@@ -419,7 +522,8 @@ final class SwipeRightActionStateProvider
   }
 }
 
-String _$swipeRightActionStateHash() => r'c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2';
+String _$swipeRightActionStateHash() =>
+    r'c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2';
 
 abstract class _$SwipeRightActionState extends $Notifier<SwipeAction> {
   SwipeAction build();
@@ -439,9 +543,7 @@ abstract class _$SwipeRightActionState extends $Notifier<SwipeAction> {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// NEW: DownloadQueueState
-// ──────────────────────────────────────────────────────────────
+// ── DownloadQueueState ────────────────────────────────────────────────────────
 
 @ProviderFor(DownloadQueueState)
 final downloadQueueStateProvider = DownloadQueueStateProvider._();
@@ -474,14 +576,16 @@ final class DownloadQueueStateProvider
   }
 }
 
-String _$downloadQueueStateHash() => r'd4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3';
+String _$downloadQueueStateHash() =>
+    r'd4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3';
 
 abstract class _$DownloadQueueState extends $Notifier<DownloadQueueStateData> {
   DownloadQueueStateData build();
   @$mustCallSuper
   @override
   void runBuild() {
-    final ref = this.ref as $Ref<DownloadQueueStateData, DownloadQueueStateData>;
+    final ref =
+        this.ref as $Ref<DownloadQueueStateData, DownloadQueueStateData>;
     final element =
         ref.element
             as $ClassProviderElement<

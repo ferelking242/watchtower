@@ -10,8 +10,8 @@ class EngineSelector {
     bool hasFailed = false,
     int retryCount = 0,
   }) {
-    // In fallback mode, switch to ZeusDL after first failure
-    if (mode == DownloadMode.fkFallbackZeus && hasFailed) {
+    // Fallback mode: switch to ZeusDL after first failure
+    if (mode == DownloadMode.internalFallback && hasFailed) {
       return SelectedEngine.zeusDl;
     }
 
@@ -25,7 +25,7 @@ class EngineSelector {
       return _autoSelect(url, itemType, hasFailed, retryCount);
     }
 
-    // InternalDownloader: always use internal
+    // internalDownloader: always use internal HLS
     return SelectedEngine.internal;
   }
 
@@ -37,31 +37,25 @@ class EngineSelector {
   ) {
     final lower = url.toLowerCase();
 
-    // Use ZeusDL for protected/complex streams
     final isProtectedStream =
-        lower.contains('.m3u8') ||
-        lower.contains('.m3u') ||
         lower.contains('token=') ||
         lower.contains('sig=') ||
         lower.contains('expires=') ||
         lower.contains('hmac=') ||
-        _isAdultOrProtectedDomain(lower);
+        _isProtectedDomain(lower);
 
-    // Use ZeusDL for anime (video) with complex streams
     if (itemType == ItemType.anime && isProtectedStream) {
       return SelectedEngine.zeusDl;
     }
 
-    // Fall back to ZeusDL if previous attempt failed
     if (hasFailed && retryCount >= 1) {
       return SelectedEngine.zeusDl;
     }
 
-    // Default to internal for manga, novels, and simple videos
     return SelectedEngine.internal;
   }
 
-  static bool _isAdultOrProtectedDomain(String url) {
+  static bool _isProtectedDomain(String url) {
     const protectedDomains = [
       'crunchyroll.com',
       'funimation.com',
@@ -79,7 +73,7 @@ extension SelectedEngineExt on SelectedEngine {
   String get badgeLabel {
     switch (this) {
       case SelectedEngine.internal:
-        return 'FK';
+        return 'HLS';
       case SelectedEngine.zeusDl:
         return 'ZDL';
     }
@@ -88,7 +82,7 @@ extension SelectedEngineExt on SelectedEngine {
   String get fullName {
     switch (this) {
       case SelectedEngine.internal:
-        return 'Internal (FK)';
+        return 'Interne HLS';
       case SelectedEngine.zeusDl:
         return 'ZeusDL';
     }

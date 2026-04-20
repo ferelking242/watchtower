@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as path;
@@ -121,27 +122,55 @@ class ConcurrentDownloadsState extends _$ConcurrentDownloadsState {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Download Mode — persisted via DownloadSettingsService (JSON)
-// ──────────────────────────────────────────────────────────────
+// ── Anime engine mode — JSON via DownloadSettingsService ──────────────────────
 
 @riverpod
 class DownloadModeState extends _$DownloadModeState {
   @override
   DownloadMode build() {
     DownloadSettingsService.instance.load();
-    return DownloadSettingsService.instance.downloadMode;
+    return DownloadSettingsService.instance.animeDownloadMode;
   }
 
   Future<void> set(DownloadMode mode) async {
     state = mode;
-    await DownloadSettingsService.instance.setDownloadMode(mode);
+    await DownloadSettingsService.instance.setAnimeDownloadMode(mode);
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Swipe Actions
-// ──────────────────────────────────────────────────────────────
+// ── Per-type connection settings ─────────────────────────────────────────────
+
+/// Concurrent images downloaded per manga chapter (within-chapter parallelism).
+@riverpod
+class MangaConnectionsState extends _$MangaConnectionsState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.mangaConnections;
+  }
+
+  Future<void> set(int value) async {
+    state = value;
+    await DownloadSettingsService.instance.setMangaConnections(value);
+  }
+}
+
+/// Concurrent M3U8 segments downloaded per anime episode.
+@riverpod
+class AnimeConnectionsState extends _$AnimeConnectionsState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.animeConnections;
+  }
+
+  Future<void> set(int value) async {
+    state = value;
+    await DownloadSettingsService.instance.setAnimeConnections(value);
+  }
+}
+
+// ── Swipe Actions ─────────────────────────────────────────────────────────────
 
 @riverpod
 class SwipeLeftActionState extends _$SwipeLeftActionState {
@@ -171,9 +200,7 @@ class SwipeRightActionState extends _$SwipeRightActionState {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// In-memory download queue state (paused IDs, retry counts, engines)
-// ──────────────────────────────────────────────────────────────
+// ── In-memory download queue state ────────────────────────────────────────────
 
 @riverpod
 class DownloadQueueState extends _$DownloadQueueState {
@@ -181,21 +208,28 @@ class DownloadQueueState extends _$DownloadQueueState {
   DownloadQueueStateData build() => const DownloadQueueStateData();
 
   void setPaused(int downloadId, bool paused) {
-    final paused = Set<int>.from(state.pausedIds);
-    if (paused.contains(downloadId)) {
-      paused.remove(downloadId);
+    final set = Set<int>.from(state.pausedIds);
+    if (paused) {
+      set.add(downloadId);
     } else {
-      paused.add(downloadId);
+      set.remove(downloadId);
     }
-    state = state.copyWith(pausedIds: paused);
+    state = state.copyWith(pausedIds: set);
   }
 
+  /// Toggle pause and trigger real engine pause/resume.
   void togglePause(int downloadId) {
     final set = Set<int>.from(state.pausedIds);
-    if (set.contains(downloadId)) {
+    final wasPaused = set.contains(downloadId);
+    if (wasPaused) {
       set.remove(downloadId);
+      // Resume the actual engine (ZeusDL: SIGCONT; internal: no-op here,
+      // caller must re-invoke processDownloads to restart the batch).
+      ActiveDownloadRegistry.resume(downloadId);
     } else {
       set.add(downloadId);
+      // Pause the actual engine (ZeusDL: SIGSTOP; internal: cancel batch).
+      ActiveDownloadRegistry.pause(downloadId);
     }
     state = state.copyWith(pausedIds: set);
   }
@@ -220,11 +254,19 @@ class DownloadQueueState extends _$DownloadQueueState {
 
   void pauseAll(List<int> ids) {
     final set = Set<int>.from(state.pausedIds);
-    set.addAll(ids);
+    for (final id in ids) {
+      if (!set.contains(id)) {
+        set.add(id);
+        ActiveDownloadRegistry.pause(id);
+      }
+    }
     state = state.copyWith(pausedIds: set);
   }
 
   void resumeAll() {
+    for (final id in state.pausedIds) {
+      ActiveDownloadRegistry.resume(id);
+    }
     state = state.copyWith(pausedIds: {});
   }
 }
