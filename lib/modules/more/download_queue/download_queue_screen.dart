@@ -487,7 +487,14 @@ class _DownloadTabList extends StatelessWidget {
       },
       itemBuilder: (context, Download element) {
         final isPaused = queueState.pausedIds.contains(element.id ?? -1);
-        final engine = queueState.engineMap[element.id ?? -1] ?? 'HLS';
+        final itemType = element.chapter.value?.manga.value?.itemType;
+        final defaultEngineBadge = itemType == ItemType.manga
+            ? 'IMG'
+            : itemType == ItemType.novel
+                ? 'HTML'
+                : 'HLS';
+        final engine =
+            queueState.engineMap[element.id ?? -1] ?? defaultEngineBadge;
         final retryCount = queueState.retryCounts[element.id ?? -1] ?? 0;
         final progress = element.total != null && element.total! > 0
             ? (element.succeeded ?? 0) / element.total!

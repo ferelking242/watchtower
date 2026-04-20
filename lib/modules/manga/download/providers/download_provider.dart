@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'dart:ui';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -291,6 +292,9 @@ Future<void> downloadChapter(
       return true;
     });
 
+    log('[downloadChapter] itemType=$itemType chapterId=${chapter.id} chapterName=$chapterName');
+    log('[downloadChapter] pageUrls=${pageUrls.length} novelPage=$novelPage hasM3U8=$hasM3U8File nonM3U8=$nonM3U8File');
+
     if (pageUrls.isNotEmpty) {
       bool cbzFileExist =
           await File(
@@ -381,7 +385,11 @@ Future<void> downloadChapter(
         final taskId = '${chapter.id}';
         if (chapter.id != null) {
           ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+          ref
+              .read(downloadQueueStateProvider.notifier)
+              .setEngine(chapter.id!, 'IMG');
         }
+        log('[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}');
         try {
           await MDownloader(
             chapter: chapter,
@@ -392,6 +400,10 @@ Future<void> downloadChapter(
           ).download((progress) {
             setProgress(progress);
           });
+          log('[downloadChapter][manga] completed chapterId=${chapter.id}');
+        } catch (e) {
+          log('[downloadChapter][manga] FAILED chapterId=${chapter.id} error=$e');
+          rethrow;
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
@@ -400,23 +412,56 @@ Future<void> downloadChapter(
       }
     } else if (itemType == ItemType.novel) {
       final file = File(p.join(chapterDirectory.path, "$chapterName.html"));
+      log('[downloadChapter][novel] target=${file.path} exists=${file.existsSync()} novelPage=$novelPage');
       if (!file.existsSync() && novelPage != null) {
         final source = getSource(manga.lang!, manga.source!, manga.sourceId)!;
-        p.join(chapterDirectory.path, "$chapterName.html");
-        final html = await withExtensionService(
-          source,
-          ref.read(androidProxyServerStateProvider),
-          (service) =>
-              service.getHtmlContent(chapter.manga.value!.name!, chapter.url!),
-        );
-        if (html.isNotEmpty) {
-          await file.writeAsString(html);
-          await setProgress(
-            DownloadProgress(1, 1, itemType, isCompleted: true),
+        log('[downloadChapter][novel] calling getHtmlContent url=${chapter.url}');
+        try {
+          final html = await withExtensionService(
+            source,
+            ref.read(androidProxyServerStateProvider),
+            (service) => service.getHtmlContent(
+              chapter.manga.value!.name!,
+              chapter.url!,
+            ),
           );
+          log('[downloadChapter][novel] getHtmlContent returned ${html.length} chars');
+          if (html.isNotEmpty) {
+            await file.writeAsString(html);
+            log('[downloadChapter][novel] HTML saved to ${file.path}');
+            await setProgress(
+              DownloadProgress(1, 1, itemType, isCompleted: true),
+            );
+          } else {
+            log('[downloadChapter][novel] ERROR: getHtmlContent returned empty string for ${chapter.url}');
+            // Mark as failed so the user can retry
+            final dl = isar.downloads.getSync(chapter.id!);
+            if (dl != null) {
+              isar.writeTxnSync(() {
+                isar.downloads.putSync(dl..failed = 1);
+              });
+            }
+          }
+        } catch (e, st) {
+          log('[downloadChapter][novel] EXCEPTION in getHtmlContent: $e\n$st');
+          final dl = isar.downloads.getSync(chapter.id!);
+          if (dl != null) {
+            isar.writeTxnSync(() {
+              isar.downloads.putSync(dl..failed = 1);
+            });
+          }
         }
-      } else {
+      } else if (file.existsSync()) {
+        log('[downloadChapter][novel] file already exists, marking complete');
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
+      } else {
+        log('[downloadChapter][novel] novelPage is null — nothing to download for ${chapter.url}');
+        final dl = isar.downloads.getSync(chapter.id!);
+        if (dl != null) {
+          isar.writeTxnSync(() {
+            isar.downloads.putSync(dl..failed = 1);
+          });
+        }
       }
     } else if (hasM3U8File && m3u8Downloader != null) {
       // ── Engine selection ────────────────────────────────────────────────
@@ -430,8 +475,16 @@ Future<void> downloadChapter(
         mode: downloadMode,
       );
 
+      log('[downloadChapter][anime] engine=${engine.badgeLabel} url=$videoUrl');
+      if (chapter.id != null) {
+        ref
+            .read(downloadQueueStateProvider.notifier)
+            .setEngine(chapter.id!, engine.badgeLabel);
+      }
+
       if (engine == SelectedEngine.zeusDl) {
         // ── ZeusDL path ─────────────────────────────────────────────────
+        log('[downloadChapter][anime/ZeusDL] starting chapterId=${chapter.id}');
         final zeusEngine = ZeusDlEngine(
           url: videoUrl,
           outputPath: m3u8Downloader!.fileName,
@@ -447,16 +500,24 @@ Future<void> downloadChapter(
         bool zeusFailed = false;
         try {
           await zeusEngine.start((progress) => setProgress(progress));
+          log('[downloadChapter][anime/ZeusDL] completed chapterId=${chapter.id}');
         } catch (e) {
           zeusFailed = true;
+          log('[downloadChapter][anime/ZeusDL] FAILED chapterId=${chapter.id} error=$e');
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
           }
         }
 
-        // Fallback to internal if ZeusDL failed and mode allows it
+        // Fallback to internal HLS if ZeusDL failed and mode allows it
         if (zeusFailed && downloadMode != DownloadMode.zeusDl) {
+          log('[downloadChapter][anime/ZeusDL→HLS] falling back to internal HLS chapterId=${chapter.id}');
+          if (chapter.id != null) {
+            ref
+                .read(downloadQueueStateProvider.notifier)
+                .setEngine(chapter.id!, 'HLS');
+          }
           final taskId = 'm3u8_${chapter.id}';
           if (chapter.id != null) {
             ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
@@ -473,6 +534,7 @@ Future<void> downloadChapter(
         }
       } else {
         // ── Internal HLS path ───────────────────────────────────────────
+        log('[downloadChapter][anime/HLS] starting chapterId=${chapter.id}');
         final taskId = 'm3u8_${chapter.id}';
         if (chapter.id != null) {
           ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
@@ -481,8 +543,10 @@ Future<void> downloadChapter(
         Object? caughtError;
         try {
           await m3u8Downloader!.download((progress) => setProgress(progress));
+          log('[downloadChapter][anime/HLS] completed chapterId=${chapter.id}');
         } catch (e) {
           caughtError = e;
+          log('[downloadChapter][anime/HLS] FAILED chapterId=${chapter.id} error=$e');
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
@@ -536,13 +600,17 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
 
     // Skip chapters that are currently paused
     final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
+    // Also skip downloads already actively running to avoid double-start / flicker
     final activeDownloads = ongoingDownloads
         .where(
           (d) =>
               d.chapter.value?.id == null ||
-              !pausedIds.contains(d.chapter.value!.id),
+              (!pausedIds.contains(d.chapter.value!.id) &&
+                  !ActiveDownloadRegistry.isActive(d.chapter.value!.id!)),
         )
         .toList();
+
+    log('[processDownloads] total=${ongoingDownloads.length} paused=${pausedIds.length} toStart=${activeDownloads.length}');
 
     final maxConcurrentDownloads = ref.read(concurrentDownloadsStateProvider);
     int index = 0;
@@ -559,8 +627,14 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         current++;
         final downloadItem = activeDownloads[index++];
         final chapter = downloadItem.chapter.value!;
-        chapter.cancelDownloads(downloadItem.id);
-        await Future.delayed(const Duration(milliseconds: 500));
+        // Cancel any stale pool task without deleting the Isar record.
+        // Using ActiveDownloadRegistry.cancel() avoids the flicker caused by
+        // chapter.cancelDownloads() which deletes the record from Isar.
+        if (chapter.id != null) {
+          await ActiveDownloadRegistry.cancel(chapter.id!);
+        }
+        log('[processDownloads] starting chapterId=${chapter.id} "${chapter.name}"');
+        await Future.delayed(const Duration(milliseconds: 300));
         ref.read(
           downloadChapterProvider(
             chapter: chapter,
@@ -568,6 +642,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
             callback: () {
               downloaded++;
               current--;
+              log('[processDownloads] done chapterId=${chapter.id} downloaded=$downloaded/${activeDownloads.length}');
             },
           ),
         );
