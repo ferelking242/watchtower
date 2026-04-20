@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:d4rt/d4rt.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/services/http/m_client.dart';
