@@ -44,26 +44,51 @@ class DartExtensionService implements ExtensionService {
     _interpreter = D4rt();
     RegistrerBridge.registerBridge(_interpreter!);
 
-    // Normalize Client(...) calls so they work with the bridged constructor
-    // Also fix upstream extensions that still import the old 'mangayomi' package name
-    final code = source.sourceCode!
+    final code = _normalizeExtensionCode(source.sourceCode!);
+    _interpreter!.execute(
+      source: _injectMProvider(code),
+      positionalArgs: [source.toMSource()],
+    );
+  }
+
+  /// Normalizes extension source code so it runs correctly inside d4rt:
+  ///
+  /// 1. Rewrites old `package:mangayomi*` imports to `package:watchtower/bridge_lib.dart`
+  ///    so that the registered bridged classes (Client, etc.) are resolved.
+  /// 2. Removes typed declarations of bridged classes (`final Client x`, `late Client x`)
+  ///    because d4rt resolves type annotations in class-body scope before imports are
+  ///    processed, causing "Undefined property 'Client' on <ClassName>" errors.
+  ///    Switching to `dynamic` is safe — the runtime type is still the bridged native object.
+  /// 3. Leaves all `Client(...)` constructor *calls* intact; d4rt resolves them correctly
+  ///    once the import is in place.
+  static String _normalizeExtensionCode(String raw) {
+    return raw
+        // Rewrite any mangayomi* package path to watchtower bridge
         .replaceAll(
           'package:mangayomi/bridge_lib.dart',
           'package:watchtower/bridge_lib.dart',
         )
+        .replaceAll(
+          'package:mangayomi_extensions/bridge_lib.dart',
+          'package:watchtower/bridge_lib.dart',
+        )
+        // Replace typed field/variable declarations that use bridged class names
+        // as type annotations (d4rt resolves them in instance scope and fails).
+        // We turn them into `dynamic` so only the constructor call is resolved.
+        .replaceAll('late final Client ', 'late final dynamic ')
+        .replaceAll('late Client ', 'late dynamic ')
+        .replaceAll('final Client ', 'final dynamic ')
+        .replaceAll('Client? ', 'dynamic? ')
+        // Normalize Client(...) constructor calls: strip unknown named args that
+        // the bridged constructor doesn't accept, keeping only the optional MSource.
         .replaceAllMapped(
           RegExp(r'Client\(([^)]*)\)'),
           (m) {
             final arg = m.group(1)?.trim() ?? '';
             if (arg.isEmpty) return 'Client()';
-            // If it looks like a MSource variable, keep it; otherwise strip
             return arg == 'source' ? 'Client(source)' : 'Client()';
           },
         );
-    _interpreter!.execute(
-      source: _injectMProvider(code),
-      positionalArgs: [source.toMSource()],
-    );
   }
 
   /// Inserts [_mProviderStub] after the last import statement so that the

@@ -25,8 +25,9 @@ class SourceListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZeus =
-        source.sourceCodeLanguage == SourceCodeLanguage.javascript;
+    final lang = source.sourceCodeLanguage;
+    final isJs = lang == SourceCodeLanguage.javascript;
+    final isDart = lang == SourceCodeLanguage.dart;
 
     return Consumer(
       builder: (context, ref, child) => ListTile(
@@ -102,7 +103,7 @@ class SourceListTile extends StatelessWidget {
                   ),
                 ),
               ),
-            if (isZeus)
+            if (isDart)
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Container(
@@ -111,11 +112,33 @@ class SourceListTile extends StatelessWidget {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.85),
+                    color: Colors.teal.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
-                    "ZEUS",
+                    "DART",
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            if (isJs)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade800.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    "JS",
                     style: TextStyle(
                       fontSize: 8,
                       fontWeight: FontWeight.bold,

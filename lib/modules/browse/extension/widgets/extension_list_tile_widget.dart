@@ -209,8 +209,9 @@ class _ExtensionListTileWidgetState
         ? l10n.update
         : l10n.settings;
 
-    final isZeus =
-        widget.source.sourceCodeLanguage == SourceCodeLanguage.javascript;
+    final lang = widget.source.sourceCodeLanguage;
+    final isJs = lang == SourceCodeLanguage.javascript;
+    final isDart = lang == SourceCodeLanguage.dart;
 
     return ListTile(
       onTap: _isLoading
@@ -276,17 +277,36 @@ class _ExtensionListTileWidgetState
                 ),
               ),
             ),
-          if (isZeus)
+          if (isDart)
             Padding(
               padding: const EdgeInsets.only(left: 4),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.85),
+                  color: Colors.teal.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
-                  "ZEUS",
+                  "DART",
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          if (isJs)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade800.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  "JS",
                   style: TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,

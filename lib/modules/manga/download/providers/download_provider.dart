@@ -214,13 +214,25 @@ Future<void> downloadChapter(
       );
     }
 
+    String? fetchError;
+
     if (itemType == ItemType.manga) {
-      ref.read(getChapterPagesProvider(chapter: chapter).future).then((value) {
-        if (value.pageUrls.isNotEmpty) {
-          pageUrls = value.pageUrls;
-          isOk = true;
-        }
-      });
+      ref
+          .read(getChapterPagesProvider(chapter: chapter).future)
+          .then((value) {
+            if (value.pageUrls.isNotEmpty) {
+              pageUrls = value.pageUrls;
+              isOk = true;
+            } else {
+              fetchError = 'getChapterPages returned empty list';
+              isOk = true;
+            }
+          })
+          .catchError((e, st) {
+            fetchError = e.toString();
+            isOk = true;
+            log('[downloadChapter][manga] getChapterPages error: $e', error: e, stackTrace: st);
+          });
     } else if (itemType == ItemType.anime) {
       ref.read(getVideoListProvider(episode: chapter).future).then((
         value,
@@ -262,7 +274,14 @@ Future<void> downloadChapter(
           }
           videoHeader.addAll(videosUrls.first.headers ?? {});
           isOk = true;
+        } else {
+          fetchError = 'getVideoList returned no playable URLs';
+          isOk = true;
         }
+      }).catchError((e, st) {
+        fetchError = e.toString();
+        isOk = true;
+        log('[downloadChapter][anime] getVideoList error: $e', error: e, stackTrace: st);
       });
     } else if (itemType == ItemType.novel && chapter.url != null) {
       final manga = chapter.manga.value!;
@@ -284,13 +303,38 @@ Future<void> downloadChapter(
       isOk = true;
     }
 
+    // Wait for async fetch (manga/anime) with a hard 90-second timeout so
+    // downloads never hang at 0% indefinitely.
+    const maxWaitTicks = 90;
+    var waitTicks = 0;
     await Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
-      if (isOk == true) {
+      if (isOk == true) return false;
+      waitTicks++;
+      if (waitTicks >= maxWaitTicks) {
+        fetchError = 'Fetch timed out after ${maxWaitTicks}s — source returned no data';
+        log('[downloadChapter] timeout after ${maxWaitTicks}s for chapterId=${chapter.id}');
+        isOk = true;
         return false;
       }
       return true;
     });
+
+    // If the fetch failed (exception, empty result, or timeout), mark failed and abort.
+    if (fetchError != null) {
+      log('[downloadChapter] aborting — fetch error: $fetchError');
+      await isar.writeTxn(() async {
+        final dl = isar.downloads.getSync(chapter.id!);
+        if (dl != null) {
+          isar.downloads.putSync(
+            dl
+              ..failed = (dl.failed ?? 0) + 1
+              ..isDownload = false,
+          );
+        }
+      });
+      return;
+    }
 
     log('[downloadChapter] itemType=$itemType chapterId=${chapter.id} chapterName=$chapterName');
     log('[downloadChapter] pageUrls=${pageUrls.length} novelPage=$novelPage hasM3U8=$hasM3U8File nonM3U8=$nonM3U8File');
