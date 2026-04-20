@@ -130,7 +130,7 @@ Future<String> _toHttpResponse(Client client, String method, List args) async {
     }
     String? formData;
     if (body is Map && body.containsKey("_data")) {
-      formData = (body.get("_data") as List<dynamic>)
+      formData = ((body as Map)["_data"] as List<dynamic>)
           .map(
             (e) =>
                 "${Uri.encodeQueryComponent(e[0])}"
