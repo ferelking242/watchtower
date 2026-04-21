@@ -233,7 +233,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             }
           }).toList(),
         ),
-      ),
     );
   }
 }
