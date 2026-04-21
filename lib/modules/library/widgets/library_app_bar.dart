@@ -18,6 +18,7 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 /// AppBar for the library screen.
 ///
@@ -172,7 +173,7 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
             color: isNotFiltering ? null : Colors.yellow,
           ),
         ),
-        PopupMenuButton(
+        ArrowPopupMenuButton(
           popUpAnimationStyle: popupAnimationStyle,
           itemBuilder: (context) {
             return [

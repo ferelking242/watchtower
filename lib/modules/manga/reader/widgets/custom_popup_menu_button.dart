@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/utils/global_style.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class CustomPopupMenuButton<T> extends StatelessWidget {
   final String label;
@@ -22,7 +23,7 @@ class CustomPopupMenuButton<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: PopupMenuButton(
+      child: ArrowPopupMenuButton(
         popUpAnimationStyle: popupAnimationStyle,
         tooltip: "",
         offset: Offset.fromDirection(1),

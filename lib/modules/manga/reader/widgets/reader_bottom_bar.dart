@@ -12,6 +12,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 /// The bottom bar for the manga reader.
 ///
@@ -323,7 +324,7 @@ class ReaderBottomBar extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           // Reader mode button
-          PopupMenuButton<ReaderMode>(
+          ArrowPopupMenuButton<ReaderMode>(
             popUpAnimationStyle: popupAnimationStyle,
             color: Colors.black,
             onSelected: (value) {

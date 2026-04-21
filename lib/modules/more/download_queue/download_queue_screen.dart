@@ -12,6 +12,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -162,7 +163,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               ],
             ),
             actions: [
-              PopupMenuButton<_GlobalAction>(
+              ArrowPopupMenuButton<_GlobalAction>(
                 popUpAnimationStyle: popupAnimationStyle,
                 icon: const Icon(Icons.more_vert),
                 onSelected: (action) => _handleGlobalAction(

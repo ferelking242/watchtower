@@ -30,6 +30,7 @@ import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:marquee/marquee.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class MangaHomeScreen extends ConsumerStatefulWidget {
   final Source source;
@@ -278,7 +279,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                   },
                   icon: Icon(Icons.search, color: Theme.of(context).hintColor),
                 ),
-          PopupMenuButton(
+          ArrowPopupMenuButton(
             popUpAnimationStyle: popupAnimationStyle,
             icon: Icon(displayTypeIcon),
             itemBuilder: (context) {
@@ -319,7 +320,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             onSelected: (value) {},
           ),
           if (!isLocal)
-            PopupMenuButton(
+            ArrowPopupMenuButton(
               popUpAnimationStyle: popupAnimationStyle,
               itemBuilder: (context) {
                 return [

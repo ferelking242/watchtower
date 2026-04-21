@@ -11,6 +11,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/modules/widgets/custom_draggable_tabbar.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 String _navLayoutName(int index, BuildContext context) {
   final l10n = l10nLocalizations(context)!;

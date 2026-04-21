@@ -56,6 +56,7 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import '../../../utils/constant.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:path/path.dart' as p;
 
 class MangaDetailView extends ConsumerStatefulWidget {
@@ -436,7 +437,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                             : Theme.of(context).scaffoldBackgroundColor,
                         actions: [
                           if (!isLocalArchive) ...[
-                            PopupMenuButton(
+                            ArrowPopupMenuButton(
                               popUpAnimationStyle: popupAnimationStyle,
                               icon: const Icon(Icons.download_outlined),
                               itemBuilder: (context) {
@@ -607,7 +608,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               color: isNotFiltering ? null : Colors.yellow,
                             ),
                           ),
-                          PopupMenuButton(
+                          ArrowPopupMenuButton(
                             popUpAnimationStyle: popupAnimationStyle,
                             itemBuilder: (context) {
                               return [
@@ -1578,7 +1579,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                   ),
                                   child: SizedBox(
                                     height: 30,
-                                    child: PopupMenuButton(
+                                    child: ArrowPopupMenuButton(
                                       popUpAnimationStyle: popupAnimationStyle,
                                       itemBuilder: (context) {
                                         return [
@@ -2313,7 +2314,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                       child: Icon(Icons.save_outlined),
                                     ),
                                   ),
-                                  PopupMenuButton(
+                                  ArrowPopupMenuButton(
                                     popUpAnimationStyle: popupAnimationStyle,
                                     itemBuilder: (context) {
                                       return [
