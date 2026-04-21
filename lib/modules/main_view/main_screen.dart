@@ -352,6 +352,26 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       null,
     );
 
+    if (dest.contains("/home")) {
+      destinations[dest.indexOf("/home")] = NavigationRailDestination(
+        selectedIcon: const Icon(Icons.home),
+        icon: const Icon(Icons.home_outlined),
+        label: const Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text("Home"),
+        ),
+      );
+    }
+    if (dest.contains("/Library")) {
+      destinations[dest.indexOf("/Library")] = NavigationRailDestination(
+        selectedIcon: const Icon(Icons.collections_bookmark),
+        icon: const Icon(Icons.collections_bookmark_outlined),
+        label: Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: Text(l10n.library),
+        ),
+      );
+    }
     if (dest.contains("/MangaLibrary")) {
       destinations[dest.indexOf("/MangaLibrary")] = NavigationRailDestination(
         selectedIcon: const Icon(Icons.collections_bookmark),
@@ -481,6 +501,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("_enableLibSwitch")) {
       destinations[dest.indexOf("_enableLibSwitch")] = NavigationDestination(
+        selectedIcon: const Icon(Icons.collections_bookmark),
+        icon: const Icon(Icons.collections_bookmark_outlined),
+        label: l10n.library,
+      );
+    }
+    if (dest.contains("/home")) {
+      destinations[dest.indexOf("/home")] = const NavigationDestination(
+        selectedIcon: Icon(Icons.home),
+        icon: Icon(Icons.home_outlined),
+        label: "Home",
+      );
+    }
+    if (dest.contains("/Library")) {
+      destinations[dest.indexOf("/Library")] = NavigationDestination(
         selectedIcon: const Icon(Icons.collections_bookmark),
         icon: const Icon(Icons.collections_bookmark_outlined),
         label: l10n.library,
@@ -705,6 +739,8 @@ class _TabletLayout extends StatelessWidget {
     if (isLongPressed) return 0;
 
     const validLocations = {
+      '/home',
+      '/Library',
       '/MangaLibrary',
       '/AnimeLibrary',
       '/NovelLibrary',
@@ -766,6 +802,8 @@ class _FloatingDockState extends State<_FloatingDock> {
   static const int _maxInlineItems = 5;
 
   static const _validLocations = {
+    '/home',
+    '/Library',
     '/MangaLibrary',
     '/AnimeLibrary',
     '/NovelLibrary',
@@ -798,7 +836,23 @@ class _FloatingDockState extends State<_FloatingDock> {
     final d = widget.dest;
     final items = <_DockItemData>[];
 
-    // ── Order: Watch, Manga, Novel, History, Updates, Browse, More ───────────
+    // ── Order: Home, Library, Browse, History, More + legacy fallbacks ──────
+    if (d.contains('/home')) {
+      items.add(const _DockItemData(
+        route: '/home',
+        label: 'Home',
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home,
+      ));
+    }
+    if (d.contains('/Library')) {
+      items.add(_DockItemData(
+        route: '/Library',
+        label: l10n.library,
+        icon: Icons.collections_bookmark_outlined,
+        activeIcon: Icons.collections_bookmark,
+      ));
+    }
     if (d.contains('/AnimeLibrary')) {
       items.add(_DockItemData(
         route: '/AnimeLibrary',

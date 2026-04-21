@@ -186,13 +186,15 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
   final items = [
+    '/home',
+    '/Library',
+    '/browse',
+    '/history',
+    '/more',
     '/AnimeLibrary',
     '/MangaLibrary',
     '/NovelLibrary',
-    '/history',
     '/updates',
-    '/browse',
-    '/more',
     '/trackerLibrary',
   ];
 
@@ -227,7 +229,14 @@ class NavigationOrderState extends _$NavigationOrderState {
 class HideItemsState extends _$HideItemsState {
   @override
   List<String> build() {
-    return isar.settings.getSync(227)!.hideItems ?? ['/trackerLibrary'];
+    return isar.settings.getSync(227)!.hideItems ??
+        const [
+          '/trackerLibrary',
+          '/AnimeLibrary',
+          '/MangaLibrary',
+          '/NovelLibrary',
+          '/updates',
+        ];
   }
 
   void set(List<String> values) {

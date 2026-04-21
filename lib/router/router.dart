@@ -47,6 +47,8 @@ import 'package:watchtower/modules/browse/global_search/global_search_screen.dar
 import 'package:watchtower/modules/main_view/main_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
+import 'package:watchtower/modules/library/main_library_screen.dart';
+import 'package:watchtower/modules/home/home_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
@@ -132,6 +134,11 @@ class RouterNotifier extends ChangeNotifier {
     ShellRoute(
       builder: (context, state, child) => MainScreen(child: child),
       routes: [
+        _genericRoute(name: "home", child: const HomeScreen()),
+        _genericRoute<String?>(
+          name: "Library",
+          builder: (id) => MainLibraryScreen(presetInput: id),
+        ),
         _genericRoute<String?>(
           name: "MangaLibrary",
           builder: (id) =>
