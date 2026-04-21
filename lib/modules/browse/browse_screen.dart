@@ -88,10 +88,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final isExtensionTab = currentTab.kind == BrowseTabKind.extensions;
 
     final l10n = l10nLocalizations(context)!;
-    return DefaultTabController(
-      animationDuration: Duration.zero,
-      length: 6,
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.transparent,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
+import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
@@ -16,8 +17,10 @@ class MainLibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TabController _controller;
+  late final TextEditingController _searchController;
+  bool _isSearch = false;
 
   static const _types = [ItemType.anime, ItemType.manga, ItemType.novel];
 
@@ -31,11 +34,17 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       vsync: this,
       initialIndex: initIndex,
     );
+    _searchController = TextEditingController(text: widget.presetInput ?? '');
+    if (widget.presetInput != null && widget.presetInput!.isNotEmpty) {
+      _isSearch = true;
+    }
+    _searchController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -43,34 +52,94 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
+
     return Scaffold(
-      body: Column(
-        children: [
-          Material(
-            color: theme.colorScheme.surface,
-            elevation: 0,
-            child: SafeArea(
-              bottom: false,
-              child: TabBar(
-                controller: _controller,
-                tabs: [
-                  Tab(icon: const Icon(Icons.video_collection_outlined), text: l10n.watch),
-                  Tab(icon: const Icon(Icons.collections_bookmark_outlined), text: l10n.manga),
-                  Tab(icon: const Icon(Icons.local_library_outlined), text: l10n.novel),
-                ],
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: _isSearch
+            ? null
+            : Text(
+                l10n.library,
+                style: TextStyle(color: theme.hintColor),
               ),
+        actions: [
+          _isSearch
+              ? SeachFormTextField(
+                  onChanged: (_) => setState(() {}),
+                  onSuffixPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                  },
+                  onPressed: () {
+                    setState(() {
+                      _isSearch = false;
+                      _searchController.clear();
+                    });
+                  },
+                  controller: _searchController,
+                )
+              : IconButton(
+                  splashRadius: 20,
+                  onPressed: () => setState(() => _isSearch = true),
+                  icon: Icon(
+                    Icons.search_rounded,
+                    color: theme.hintColor,
+                  ),
+                ),
+        ],
+        bottom: TabBar(
+          indicatorSize: TabBarIndicatorSize.label,
+          controller: _controller,
+          tabs: [
+            Tab(
+              child: Row(children: [
+                const Icon(Icons.live_tv_outlined, size: 16),
+                const SizedBox(width: 6),
+                Text(l10n.watch),
+              ]),
             ),
+            Tab(
+              child: Row(children: [
+                const Icon(Icons.auto_stories_outlined, size: 16),
+                const SizedBox(width: 6),
+                Text(l10n.manga),
+              ]),
+            ),
+            Tab(
+              child: Row(children: [
+                const Icon(Icons.local_library_outlined, size: 16),
+                const SizedBox(width: 6),
+                Text(l10n.novel),
+              ]),
+            ),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _controller,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          LibraryScreen(
+            itemType: ItemType.anime,
+            presetInput: null,
+            hideOwnAppBar: true,
+            externalSearchQuery: _searchController.text,
+            key: const ValueKey('anime-lib'),
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _controller,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                LibraryScreen(itemType: ItemType.anime, presetInput: widget.presetInput),
-                LibraryScreen(itemType: ItemType.manga, presetInput: widget.presetInput),
-                LibraryScreen(itemType: ItemType.novel, presetInput: widget.presetInput),
-              ],
-            ),
+          LibraryScreen(
+            itemType: ItemType.manga,
+            presetInput: null,
+            hideOwnAppBar: true,
+            externalSearchQuery: _searchController.text,
+            key: const ValueKey('manga-lib'),
+          ),
+          LibraryScreen(
+            itemType: ItemType.novel,
+            presetInput: null,
+            hideOwnAppBar: true,
+            externalSearchQuery: _searchController.text,
+            key: const ValueKey('novel-lib'),
           ),
         ],
       ),

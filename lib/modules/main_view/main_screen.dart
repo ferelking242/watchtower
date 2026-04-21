@@ -313,6 +313,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               dest: dest,
                               ref: ref,
                               onDestinationSelected: (destination) {
+                                // Always reveal dock when user actively taps a
+                                // nav item — prevents it staying hidden after
+                                // scroll-down on a previous page.
+                                ref
+                                    .read(dockHiddenProvider.notifier)
+                                    .set(false);
                                 if (destination == "_enableLibSwitch") {
                                   setState(() {
                                     isLibSwitch = true;
@@ -843,7 +849,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     final d = widget.dest;
     final items = <_DockItemData>[];
 
-    // ── Order: Home, Library, Browse, History, More + legacy fallbacks ──────
+    // ── Order: Home → Anime → Manga → Library → Browse → More (then rest) ──
     if (d.contains('/home')) {
       items.add(const _DockItemData(
         route: '/home',
@@ -852,52 +858,28 @@ class _FloatingDockState extends State<_FloatingDock> {
         activeIcon: Icons.home,
       ));
     }
-    if (d.contains('/Library')) {
-      items.add(_DockItemData(
-        route: '/Library',
-        label: l10n.library,
-        icon: Icons.collections_bookmark_outlined,
-        activeIcon: Icons.collections_bookmark,
-      ));
-    }
     if (d.contains('/AnimeLibrary')) {
       items.add(_DockItemData(
         route: '/AnimeLibrary',
-        label: 'Watch',
-        icon: Icons.video_collection_outlined,
-        activeIcon: Icons.video_collection,
+        label: l10n.watch,
+        icon: Icons.live_tv_outlined,
+        activeIcon: Icons.live_tv,
       ));
     }
     if (d.contains('/MangaLibrary')) {
       items.add(_DockItemData(
         route: '/MangaLibrary',
         label: l10n.manga,
+        icon: Icons.auto_stories_outlined,
+        activeIcon: Icons.auto_stories,
+      ));
+    }
+    if (d.contains('/Library')) {
+      items.add(_DockItemData(
+        route: '/Library',
+        label: l10n.library,
         icon: Icons.collections_bookmark_outlined,
         activeIcon: Icons.collections_bookmark,
-      ));
-    }
-    if (d.contains('/NovelLibrary')) {
-      items.add(_DockItemData(
-        route: '/NovelLibrary',
-        label: l10n.novel,
-        icon: Icons.local_library_outlined,
-        activeIcon: Icons.local_library,
-      ));
-    }
-    if (d.contains('/history')) {
-      items.add(_DockItemData(
-        route: '/history',
-        label: l10n.history,
-        icon: Icons.history_outlined,
-        activeIcon: Icons.history,
-      ));
-    }
-    if (d.contains('/updates')) {
-      items.add(_DockItemData(
-        route: '/updates',
-        label: l10n.updates,
-        icon: Icons.new_releases_outlined,
-        activeIcon: Icons.new_releases,
       ));
     }
     if (d.contains('/browse')) {
@@ -914,6 +896,31 @@ class _FloatingDockState extends State<_FloatingDock> {
         label: l10n.more,
         icon: Icons.apps_outlined,
         activeIcon: Icons.apps,
+      ));
+    }
+    // — less prominent items below —
+    if (d.contains('/history')) {
+      items.add(_DockItemData(
+        route: '/history',
+        label: l10n.history,
+        icon: Icons.history_outlined,
+        activeIcon: Icons.history,
+      ));
+    }
+    if (d.contains('/NovelLibrary')) {
+      items.add(_DockItemData(
+        route: '/NovelLibrary',
+        label: l10n.novel,
+        icon: Icons.local_library_outlined,
+        activeIcon: Icons.local_library,
+      ));
+    }
+    if (d.contains('/updates')) {
+      items.add(_DockItemData(
+        route: '/updates',
+        label: l10n.updates,
+        icon: Icons.new_releases_outlined,
+        activeIcon: Icons.new_releases,
       ));
     }
     if (d.contains('/trackerLibrary')) {

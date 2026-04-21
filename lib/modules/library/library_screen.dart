@@ -36,9 +36,18 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 class LibraryScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
   final String? presetInput;
+  /// When true the LibraryScreen renders without its own AppBar so it can be
+  /// embedded inside a parent screen that already supplies an AppBar (e.g.
+  /// [MainLibraryScreen]).
+  final bool hideOwnAppBar;
+  /// Live search query driven from a parent AppBar.  When non-null this
+  /// overrides the internal text-field value and keeps the content filtered.
+  final String? externalSearchQuery;
   const LibraryScreen({
     required this.itemType,
     required this.presetInput,
+    this.hideOwnAppBar = false,
+    this.externalSearchQuery,
     super.key,
   });
 
@@ -61,6 +70,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     if (widget.presetInput != null) {
       _isSearch = true;
       _textEditingController.text = widget.presetInput!;
+    }
+    if (widget.externalSearchQuery != null) {
+      _textEditingController.text = widget.externalSearchQuery!;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LibraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.externalSearchQuery != oldWidget.externalSearchQuery &&
+        widget.externalSearchQuery != null) {
+      _textEditingController.text = widget.externalSearchQuery!;
+      setState(() {});
     }
   }
 
@@ -252,25 +274,27 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                   }
 
                   return Scaffold(
-                    appBar: LibraryAppBar(
-                      itemType: widget.itemType,
-                      isNotFiltering: isNotFiltering,
-                      showNumbersOfItems: showNumbersOfItems,
-                      numberOfItems: numberOfItemsList.length,
-                      entries: _entries,
-                      isCategory: false,
-                      categoryId: null,
-                      settings: settings,
-                      isSearch: _isSearch,
-                      ignoreFiltersOnSearch: _ignoreFiltersOnSearch,
-                      textEditingController: _textEditingController,
-                      onSearchToggle: () =>
-                          setState(() => _isSearch = !_isSearch),
-                      onSearchClear: () => setState(() {}),
-                      onIgnoreFiltersChanged: (val) =>
-                          setState(() => _ignoreFiltersOnSearch = val),
-                      vsync: this,
-                    ),
+                    appBar: widget.hideOwnAppBar
+                        ? null
+                        : LibraryAppBar(
+                            itemType: widget.itemType,
+                            isNotFiltering: isNotFiltering,
+                            showNumbersOfItems: showNumbersOfItems,
+                            numberOfItems: numberOfItemsList.length,
+                            entries: _entries,
+                            isCategory: false,
+                            categoryId: null,
+                            settings: settings,
+                            isSearch: _isSearch,
+                            ignoreFiltersOnSearch: _ignoreFiltersOnSearch,
+                            textEditingController: _textEditingController,
+                            onSearchToggle: () =>
+                                setState(() => _isSearch = !_isSearch),
+                            onSearchClear: () => setState(() {}),
+                            onIgnoreFiltersChanged: (val) =>
+                                setState(() => _ignoreFiltersOnSearch = val),
+                            vsync: this,
+                          ),
                     body: bodyForCategory(),
                   );
                 },
@@ -330,27 +354,29 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return DefaultTabController(
       length: entr.length,
       child: Scaffold(
-        appBar: LibraryAppBar(
-          itemType: widget.itemType,
-          isNotFiltering: isNotFiltering,
-          showNumbersOfItems: showNumbersOfItems,
-          numberOfItems: numberOfItems,
-          entries: _entries,
-          isCategory: true,
-          categoryId: withoutCategory.isNotEmpty && _tabIndex == 0
-              ? null
-              : entr[withoutCategory.isNotEmpty ? _tabIndex - 1 : _tabIndex]
-                    .id!,
-          settings: settings,
-          isSearch: _isSearch,
-          ignoreFiltersOnSearch: _ignoreFiltersOnSearch,
-          textEditingController: _textEditingController,
-          onSearchToggle: () => setState(() => _isSearch = !_isSearch),
-          onSearchClear: () => setState(() {}),
-          onIgnoreFiltersChanged: (val) =>
-              setState(() => _ignoreFiltersOnSearch = val),
-          vsync: this,
-        ),
+        appBar: widget.hideOwnAppBar
+            ? null
+            : LibraryAppBar(
+                itemType: widget.itemType,
+                isNotFiltering: isNotFiltering,
+                showNumbersOfItems: showNumbersOfItems,
+                numberOfItems: numberOfItems,
+                entries: _entries,
+                isCategory: true,
+                categoryId: withoutCategory.isNotEmpty && _tabIndex == 0
+                    ? null
+                    : entr[withoutCategory.isNotEmpty ? _tabIndex - 1 : _tabIndex]
+                          .id!,
+                settings: settings,
+                isSearch: _isSearch,
+                ignoreFiltersOnSearch: _ignoreFiltersOnSearch,
+                textEditingController: _textEditingController,
+                onSearchToggle: () => setState(() => _isSearch = !_isSearch),
+                onSearchClear: () => setState(() {}),
+                onIgnoreFiltersChanged: (val) =>
+                    setState(() => _ignoreFiltersOnSearch = val),
+                vsync: this,
+              ),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

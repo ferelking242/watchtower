@@ -187,12 +187,12 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 class NavigationOrderState extends _$NavigationOrderState {
   final items = [
     '/home',
-    '/Library',
-    '/browse',
-    '/history',
-    '/more',
     '/AnimeLibrary',
     '/MangaLibrary',
+    '/Library',
+    '/browse',
+    '/more',
+    '/history',
     '/NovelLibrary',
     '/updates',
     '/trackerLibrary',
@@ -232,10 +232,9 @@ class HideItemsState extends _$HideItemsState {
     return isar.settings.getSync(227)!.hideItems ??
         const [
           '/trackerLibrary',
-          '/AnimeLibrary',
-          '/MangaLibrary',
           '/NovelLibrary',
           '/updates',
+          '/history',
         ];
   }
 
