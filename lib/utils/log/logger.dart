@@ -238,12 +238,14 @@ class AppLogger {
 
   static String _timestamp() {
     final now = DateTime.now();
-    return '${now.day.toString().padLeft(2, '0')}/'
-        '${now.month.toString().padLeft(2, '0')}/'
-        '${now.year} '
+    // Sortable ISO-like format with milliseconds: 2026-04-21 13:42:43.142
+    return '${now.year}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')} '
         '${now.hour.toString().padLeft(2, '0')}:'
         '${now.minute.toString().padLeft(2, '0')}:'
-        '${now.second.toString().padLeft(2, '0')}';
+        '${now.second.toString().padLeft(2, '0')}.'
+        '${now.millisecond.toString().padLeft(3, '0')}';
   }
 
   static Future<void> dispose() async {
@@ -303,4 +305,5 @@ abstract final class LogTag {
   static const hls = 'HLS';
   static const install = 'INSTALL';
   static const reader = 'READER';
+  static const search = 'SRCH';
 }

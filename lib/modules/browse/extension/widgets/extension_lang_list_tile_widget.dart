@@ -5,11 +5,13 @@ class ExtensionLangListTileWidget extends StatelessWidget {
   final String lang;
   final bool value;
   final Function(bool) onChanged;
+  final VoidCallback? onLongPress;
   const ExtensionLangListTileWidget({
     super.key,
     required this.lang,
     required this.value,
     required this.onChanged,
+    this.onLongPress,
   });
 
   @override
@@ -18,6 +20,7 @@ class ExtensionLangListTileWidget extends StatelessWidget {
       onTap: () {
         onChanged(!value);
       },
+      onLongPress: onLongPress,
       title: Text(completeLanguageName(lang.toLowerCase())),
       trailing: Switch(
         value: value,

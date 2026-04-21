@@ -352,18 +352,20 @@ class _LogList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      itemCount: lines.length,
-      itemBuilder: (context, i) {
-        final line = lines[i];
-        return _LogLineWidget(
-          line: line,
-          isDark: isDark,
-          searchQuery: searchQuery,
-        );
-      },
+    return SelectionArea(
+      child: ListView.builder(
+        controller: scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        itemCount: lines.length,
+        itemBuilder: (context, i) {
+          final line = lines[i];
+          return _LogLineWidget(
+            line: line,
+            isDark: isDark,
+            searchQuery: searchQuery,
+          );
+        },
+      ),
     );
   }
 }

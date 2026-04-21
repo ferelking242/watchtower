@@ -71,6 +71,46 @@ class ExtensionsLang extends ConsumerWidget {
               final lang = languages[index];
               return ExtensionLangListTileWidget(
                 lang: lang,
+                onLongPress: () {
+                  // Long-press = solo this language: disable every source
+                  // whose lang differs and enable every source matching it.
+                  // If we are already in that exclusive state, re-enable all
+                  // languages so the user can quickly toggle back.
+                  final lowerLang = lang.toLowerCase();
+                  final otherActive = entries.any(
+                    (e) =>
+                        e.lang!.toLowerCase() != lowerLang &&
+                        (e.isActive ?? false),
+                  );
+                  final thisActive = entries.any(
+                    (e) =>
+                        e.lang!.toLowerCase() == lowerLang &&
+                        (e.isActive ?? false),
+                  );
+                  final isolate = otherActive || !thisActive;
+                  isar.writeTxnSync(() {
+                    final now = DateTime.now().millisecondsSinceEpoch;
+                    for (var source in entries) {
+                      final matches =
+                          source.lang!.toLowerCase() == lowerLang;
+                      isar.sources.putSync(
+                        source
+                          ..isActive = isolate ? matches : true
+                          ..updatedAt = now,
+                      );
+                    }
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 2),
+                      content: Text(
+                        isolate
+                            ? 'Seules les sources ${lang.toUpperCase()} sont actives'
+                            : 'Toutes les langues sont actives',
+                      ),
+                    ),
+                  );
+                },
                 onChanged: (val) {
                   isar.writeTxnSync(() {
                     for (var source in entries) {
