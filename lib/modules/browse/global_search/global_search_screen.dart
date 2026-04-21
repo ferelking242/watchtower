@@ -17,6 +17,7 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/language.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/widgets/bottom_text_widget.dart';
@@ -82,6 +83,12 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 });
                 // Yield a frame so the empty state is rendered before re-querying
                 await WidgetsBinding.instance.endOfFrame;
+                AppLogger.log(
+                  'Global search started | type=${widget.itemType.name} '
+                  '| sources=${sourceList.length} | query="$value"',
+                  logLevel: LogLevel.info,
+                  tag: LogTag.search,
+                );
                 setState(() {
                   _query = value;
                 });
@@ -159,12 +166,28 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
           filterList: [],
         ).future,
       );
+      AppLogger.log(
+        'Source "${widget.source.name}" (${widget.source.lang}) '
+        '→ ${pages?.list.length ?? 0} results | query="${widget.query}"',
+        logLevel: LogLevel.debug,
+        tag: LogTag.search,
+      );
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      // Always log per-source search failures so the user can diagnose which
+      // extensions are broken during a global search.
+      AppLogger.log(
+        'Source "${widget.source.name}" (${widget.source.lang}) FAILED '
+        '| query="${widget.query}"',
+        logLevel: LogLevel.error,
+        tag: LogTag.search,
+        error: e,
+        stackTrace: st,
+      );
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
