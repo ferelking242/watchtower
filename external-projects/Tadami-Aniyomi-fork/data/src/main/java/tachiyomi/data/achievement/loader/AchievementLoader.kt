@@ -1,0 +1,203 @@
+package tachiyomi.data.achievement.loader
+
+import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import logcat.logcat
+import tachiyomi.data.achievement.handler.AchievementCalculator
+import tachiyomi.data.achievement.localization.AchievementTextResolver
+import tachiyomi.data.achievement.model.AchievementDefinitions
+import tachiyomi.data.achievement.model.AchievementJson
+import tachiyomi.domain.achievement.model.Achievement
+import tachiyomi.domain.achievement.model.AchievementCategory
+import tachiyomi.domain.achievement.model.AchievementType
+import tachiyomi.domain.achievement.repository.AchievementRepository
+import java.util.Locale
+
+class AchievementLoader(
+    private val context: Context,
+    private val repository: AchievementRepository,
+    private val textResolver: AchievementTextResolver,
+    private val calculator: AchievementCalculator? = null,
+    private val json: Json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    },
+) {
+
+    companion object {
+        private const val PREFS_NAME = "achievement_loader"
+        private const val KEY_VERSION = "json_version"
+        private const val KEY_CALCULATION_VERSION = "calculation_version"
+        private const val KEY_LOCALE_TAG = "locale_tag"
+    }
+
+    suspend fun loadAchievements(): Result<Int> {
+        return try {
+            logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Loading achievements from JSON..." }
+            val definitions = loadJsonFromAssets()
+
+            // Check version migration
+            val currentVersion = getCurrentVersion()
+            val currentLocaleTag = getCurrentLocaleTag()
+            val savedLocaleTag = getSavedLocaleTag()
+            val localeChanged = shouldRefreshAchievementTexts(savedLocaleTag, currentLocaleTag)
+            logcat(LogPriority.INFO) { "[ACHIEVEMENTS] JSON version: ${definitions.version}, current: $currentVersion" }
+            logcat(LogPriority.INFO) {
+                "[ACHIEVEMENTS] JSON definitions decoded: ${definitions.achievements.size} achievements found in file"
+            }
+
+            if (definitions.version <= currentVersion) {
+                logcat(LogPriority.INFO) {
+                    "[ACHIEVEMENTS] Achievements already up to date (version $currentVersion), skipping load"
+                }
+                if (!localeChanged) {
+                    // Check if achievements exist in database
+                    val existingCount = repository.getAll().first().size
+                    logcat(LogPriority.INFO) {
+                        "[ACHIEVEMENTS] Existing achievements in database: $existingCount, JSON has: ${definitions.achievements.size}"
+                    }
+
+                    // Force reload if counts don't match (new achievements added)
+                    if (existingCount < definitions.achievements.size) {
+                        logcat(LogPriority.WARN) {
+                            "[ACHIEVEMENTS] WARNING: Database has fewer achievements than JSON! Forcing reload..."
+                        }
+                        saveVersion(0)
+                    } else if (existingCount == 0) {
+                        logcat(LogPriority.WARN) {
+                            "[ACHIEVEMENTS] WARNING: Version says up to date but database is empty! Forcing reload..."
+                        }
+                        saveVersion(0)
+                    } else {
+                        return Result.success(0)
+                    }
+                } else {
+                    logcat(LogPriority.INFO) {
+                        "[ACHIEVEMENTS] App locale changed from '$savedLocaleTag' to '$currentLocaleTag'; refreshing achievement texts"
+                    }
+                }
+            }
+
+            // Insert achievements
+            var inserted = 0
+            definitions.achievements.forEach { achievementJson ->
+                val achievement = achievementJson.toDomainModel()
+                repository.insertAchievement(achievement)
+                inserted++
+                logcat(LogPriority.VERBOSE) {
+                    "[ACHIEVEMENTS] Inserted achievement: ${achievement.id} - ${achievement.title}"
+                }
+            }
+
+            logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Inserted $inserted achievements from JSON" }
+
+            // Verify insertion
+            val finalCount = repository.getAll().first().size
+            logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Verification: Database now contains $finalCount achievements" }
+
+            // Save version
+            saveVersion(definitions.version)
+            saveLocaleTag(currentLocaleTag)
+
+            // Trigger retroactive calculation on first load or version upgrade
+            if (shouldCalculateInitialProgress(definitions.version)) {
+                calculator?.let {
+                    logcat(LogPriority.INFO) { "[ACHIEVEMENTS] Running retroactive achievement calculation..." }
+                    val result = it.calculateInitialProgress()
+                    if (result.success) {
+                        saveCalculationVersion(definitions.version)
+                        logcat(LogPriority.INFO) {
+                            "[ACHIEVEMENTS] Retroactive calculation completed: ${result.achievementsUnlocked} achievements unlocked"
+                        }
+                    } else {
+                        logcat(LogPriority.ERROR) { "[ACHIEVEMENTS] Retroactive calculation failed: ${result.error}" }
+                    }
+                }
+            }
+
+            Result.success(inserted)
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR) { "[ACHIEVEMENTS] Failed to load achievements from JSON: ${e.message}" }
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun loadJsonFromAssets(): AchievementDefinitions = withContext(Dispatchers.IO) {
+        val jsonString = context.assets.open("achievements/achievements.json")
+            .bufferedReader()
+            .use { it.readText() }
+        val normalizedJson = jsonString.trimStart('\uFEFF')
+        json.decodeFromString<AchievementDefinitions>(normalizedJson)
+    }
+
+    private fun getCurrentVersion(): Int {
+        return getPreferences().getInt(KEY_VERSION, 0)
+    }
+
+    private fun saveVersion(version: Int) {
+        getPreferences().edit().putInt(KEY_VERSION, version).apply()
+    }
+
+    private fun getSavedLocaleTag(): String {
+        return getPreferences().getString(KEY_LOCALE_TAG, "").orEmpty()
+    }
+
+    private fun saveLocaleTag(localeTag: String) {
+        getPreferences().edit().putString(KEY_LOCALE_TAG, localeTag).apply()
+    }
+
+    private fun getCurrentLocaleTag(): String {
+        return context.resources.configuration.locales[0]
+            ?.toLanguageTag()
+            ?.takeIf { it.isNotBlank() }
+            ?: Locale.getDefault().toLanguageTag()
+    }
+
+    private fun shouldCalculateInitialProgress(jsonVersion: Int): Boolean {
+        val calculationVersion = getCalculationVersion()
+        return calculationVersion < jsonVersion
+    }
+
+    private fun getCalculationVersion(): Int {
+        return getPreferences().getInt(KEY_CALCULATION_VERSION, 0)
+    }
+
+    private fun saveCalculationVersion(version: Int) {
+        getPreferences().edit().putInt(KEY_CALCULATION_VERSION, version).apply()
+    }
+
+    private fun getPreferences(): SharedPreferences {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    private fun AchievementJson.toDomainModel(): Achievement {
+        val localizedText = textResolver.resolve(this)
+        return Achievement(
+            id = id,
+            type = AchievementType.valueOf(type.uppercase()),
+            category = AchievementCategory.valueOf(category.uppercase()),
+            threshold = threshold,
+            points = points,
+            title = localizedText.title,
+            description = localizedText.description,
+            badgeIcon = badgeIcon,
+            isHidden = isHidden,
+            isSecret = isSecret,
+            unlockableId = unlockableId,
+            version = 1,
+            createdAt = System.currentTimeMillis(),
+        )
+    }
+}
+
+internal fun shouldRefreshAchievementTexts(
+    savedLocaleTag: String?,
+    currentLocaleTag: String,
+): Boolean {
+    return savedLocaleTag.orEmpty() != currentLocaleTag
+}

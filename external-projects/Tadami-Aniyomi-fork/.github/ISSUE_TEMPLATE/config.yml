@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: ❌ Help with anything
+    url: https://t.me/TadamiSupport
+    about: For extension-related questions/issues
+  - name: 🧑‍💻 Tadami telegram group
+    url: https://t.me/TadamiSupport
+    about: Every questions could be answered here
+  - name: 🖥️ Tadami release
+    url: https://t.me/TadamiApp
+    about: Release, news
