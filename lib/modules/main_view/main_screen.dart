@@ -35,7 +35,14 @@ final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel)Library$");
 /// Whether the floating dock should be hidden because the user is scrolling
 /// down. Pages can opt-in to driving this by wrapping their scrollables in a
 /// `NotificationListener<UserScrollNotification>` that updates this provider.
-final dockHiddenProvider = StateProvider<bool>((ref) => false);
+class _DockHiddenNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool v) => state = v;
+}
+
+final dockHiddenProvider =
+    NotifierProvider<_DockHiddenNotifier, bool>(_DockHiddenNotifier.new);
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.child});
@@ -272,15 +279,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           final hidden = ref.read(dockHiddenProvider);
                           if (n.direction == ScrollDirection.reverse &&
                               !hidden) {
-                            ref.read(dockHiddenProvider.notifier).state = true;
+                            ref.read(dockHiddenProvider.notifier).set(true);
                           } else if (n.direction == ScrollDirection.forward &&
                               hidden) {
-                            ref.read(dockHiddenProvider.notifier).state = false;
+                            ref.read(dockHiddenProvider.notifier).set(false);
                           } else if (n.direction == ScrollDirection.idle &&
                               n.metrics.pixels <= 0 &&
                               hidden) {
                             // Reveal again when bouncing back to the top.
-                            ref.read(dockHiddenProvider.notifier).state = false;
+                            ref.read(dockHiddenProvider.notifier).set(false);
                           }
                           return false;
                         },

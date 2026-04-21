@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 class MainLibraryScreen extends ConsumerStatefulWidget {

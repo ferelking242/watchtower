@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:watchtower/main.dart' show botToast;
+import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 
 /// Centered, selectable error message with a discrete copy button.
 ///
@@ -49,7 +49,7 @@ class ErrorText extends StatelessWidget {
                     : () async {
                         await Clipboard.setData(ClipboardData(text: text));
                         try {
-                          botToast('Error copied');
+                          botToast('Error copied')();
                         } catch (_) {}
                       },
                 icon: Icon(
