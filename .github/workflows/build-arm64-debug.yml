@@ -2,9 +2,9 @@ name: Build Android ARMv8 Profile
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, service-dart-fix ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, service-dart-fix ]
   workflow_dispatch:
 
 jobs:
