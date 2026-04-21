@@ -29,98 +29,82 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
         child: Column(
           children: [
             SizedBox(height: AppBar().preferredSize.height),
-            // ── Hero header card (matches About screen) ──
+            // ── Hero header card ──
             Container(
               margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              height: 160,
+              height: 140,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
                     cs.primary,
-                    cs.tertiary.withOpacity(0.8),
-                    cs.secondary.withOpacity(0.6),
+                    cs.tertiary.withValues(alpha: 0.85),
+                    cs.secondary.withValues(alpha: 0.7),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    top: -20,
-                    right: -20,
-                    child: Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.06),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -16,
-                    left: -16,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.04),
-                      ),
-                    ),
-                  ),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
                     children: [
+                      // logo
                       Container(
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
-                        padding: const EdgeInsets.all(10),
-                        child: const Icon(
-                          Icons.visibility_outlined,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Watchtower',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      pkgInfoAsync.when(
-                        data: (data) => Text(
-                          'v${data.version} · Beta',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.78),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Image.asset(
+                            'assets/app_icons/icon.png',
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        loading: () => const SizedBox(height: 14),
-                        error: (_, __) => const SizedBox(height: 14),
+                      ),
+                      const SizedBox(width: 16),
+                      // text
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Watchtower',
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            pkgInfoAsync.when(
+                              data: (data) => Text(
+                                'v${data.version} · Beta',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.78),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              loading: () => const SizedBox(height: 16),
+                              error: (_, __) => const SizedBox(height: 16),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
             const Divider(),
             // ListTile(
             //   onTap: () {},

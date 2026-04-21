@@ -45,7 +45,7 @@ final darkThemeProvider = Provider<ThemeData>((ref) {
     surfaceMode: FlexSurfaceMode.level,
     blendLevel: blendLevel,
     appBarOpacity: 0.00,
-    scaffoldBackground: pureBlack ? Colors.black : null,
+    scaffoldBackground: pureBlack ? Colors.black : const Color(0xFF12141D),
     subThemesData: const FlexSubThemesData(
       blendOnLevel: 10,
       thinBorderWidth: 2.0,

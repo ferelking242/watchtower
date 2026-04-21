@@ -10,6 +10,8 @@ import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/models/track_search.dart';
 import 'package:watchtower/modules/anime/anime_player_view.dart';
+import 'package:watchtower/modules/anime/anime_discovery_screen.dart';
+import 'package:watchtower/modules/manga/manga_discovery_screen.dart';
 import 'package:watchtower/modules/browse/extension/edit_code.dart';
 import 'package:watchtower/modules/browse/extension/extension_detail.dart';
 import 'package:watchtower/modules/browse/extension/widgets/create_extension.dart';
@@ -49,6 +51,8 @@ import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/main_library_screen.dart';
 import 'package:watchtower/modules/home/home_screen.dart';
+import 'package:watchtower/modules/home/anilist_detail_screen.dart';
+import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
@@ -139,15 +143,13 @@ class RouterNotifier extends ChangeNotifier {
           name: "Library",
           builder: (id) => MainLibraryScreen(presetInput: id),
         ),
-        _genericRoute<String?>(
+        _genericRoute(
           name: "MangaLibrary",
-          builder: (id) =>
-              LibraryScreen(itemType: ItemType.manga, presetInput: id),
+          child: const MangaDiscoveryScreen(),
         ),
-        _genericRoute<String?>(
+        _genericRoute(
           name: "AnimeLibrary",
-          builder: (id) =>
-              LibraryScreen(itemType: ItemType.anime, presetInput: id),
+          child: const AnimeDiscoveryScreen(),
         ),
         _genericRoute<String?>(
           name: "NovelLibrary",
@@ -197,6 +199,10 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<(String?, ItemType)>(
       name: "globalSearch",
       builder: (data) => GlobalSearchScreen(search: data.$1, itemType: data.$2),
+    ),
+    _genericRoute<AnilistMedia>(
+      name: "anilistDetail",
+      builder: (media) => AnilistDetailScreen(media: media),
     ),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),

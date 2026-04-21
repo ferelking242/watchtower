@@ -2,7 +2,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 
-/// Compact poster card used inside horizontal discovery rows.
+/// Compact poster card — title overlaid inside the image, score pill below.
 class DiscoveryCard extends StatelessWidget {
   final AnilistMedia media;
   final VoidCallback onTap;
@@ -21,13 +21,14 @@ class DiscoveryCard extends StatelessWidget {
     return SizedBox(
       width: width,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Poster with title overlay ──
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: AspectRatio(
                 aspectRatio: 2 / 3,
                 child: Stack(
@@ -38,9 +39,8 @@ class DiscoveryCard extends StatelessWidget {
                         media.bestCover!,
                         fit: BoxFit.cover,
                         cache: true,
-                        loadStateChanged: (state) {
-                          if (state.extendedImageLoadState ==
-                              LoadState.completed) {
+                        loadStateChanged: (s) {
+                          if (s.extendedImageLoadState == LoadState.completed) {
                             return null;
                           }
                           return Container(
@@ -53,52 +53,77 @@ class DiscoveryCard extends StatelessWidget {
                         color: theme.colorScheme.surfaceContainerHighest,
                         child: const Icon(Icons.image_not_supported_outlined),
                       ),
-                    if (media.averageScore != null)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                size: 12,
-                                color: Colors.amberAccent,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                (media.averageScore! / 10).toStringAsFixed(1),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                    // bottom gradient
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 80,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.88),
                             ],
                           ),
                         ),
                       ),
+                    ),
+                    // title at bottom of image
+                    Positioned(
+                      left: 8,
+                      right: 8,
+                      bottom: 8,
+                      child: Text(
+                        media.displayTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          shadows: const [
+                            Shadow(
+                                color: Colors.black45,
+                                blurRadius: 4,
+                                offset: Offset(0, 1)),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              media.displayTitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
+            // ── Score pill below ──
+            if (media.averageScore != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded,
+                          size: 13, color: Colors.amberAccent),
+                      const SizedBox(width: 3),
+                      Text(
+                        (media.averageScore! / 10).toStringAsFixed(1),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -136,7 +161,7 @@ class DiscoveryRow extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 220,
+          height: 248,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
