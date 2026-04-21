@@ -87,7 +87,111 @@ async function jsonStringify(fn) {
     return JSON.stringify(await fn());
 }
 ''');
-    final _initResult = runtime.evaluate('''${source.sourceCode}
+    String _normalizeJsExtensionCode(String code) {
+      // Some published extensions (e.g. FlixGaze) ship a regex literal that
+      // contains a *literal* newline — JavaScript treats that as an unterminated
+      // regex and the whole extension fails to install. We escape line
+      // terminators inside `/.../flags` regex literals before evaluation.
+      final buf = StringBuffer();
+      bool inSingle = false, inDouble = false, inBack = false;
+      bool inLineComment = false, inBlockComment = false, inRegex = false;
+      bool regexInClass = false;
+      String? prev;
+      for (var i = 0; i < code.length; i++) {
+        final ch = code[i];
+        final next = i + 1 < code.length ? code[i + 1] : '';
+        if (inLineComment) {
+          buf.write(ch);
+          if (ch == '\n') inLineComment = false;
+        } else if (inBlockComment) {
+          buf.write(ch);
+          if (ch == '*' && next == '/') {
+            buf.write(next);
+            i++;
+            inBlockComment = false;
+          }
+        } else if (inSingle) {
+          buf.write(ch);
+          if (ch == '\\' && next.isNotEmpty) {
+            buf.write(next);
+            i++;
+          } else if (ch == "'") {
+            inSingle = false;
+          }
+        } else if (inDouble) {
+          buf.write(ch);
+          if (ch == '\\' && next.isNotEmpty) {
+            buf.write(next);
+            i++;
+          } else if (ch == '"') {
+            inDouble = false;
+          }
+        } else if (inBack) {
+          buf.write(ch);
+          if (ch == '\\' && next.isNotEmpty) {
+            buf.write(next);
+            i++;
+          } else if (ch == '`') {
+            inBack = false;
+          }
+        } else if (inRegex) {
+          if (ch == '\\' && next.isNotEmpty) {
+            buf.write(ch);
+            buf.write(next);
+            i++;
+          } else if (ch == '[') {
+            regexInClass = true;
+            buf.write(ch);
+          } else if (ch == ']') {
+            regexInClass = false;
+            buf.write(ch);
+          } else if (ch == '/' && !regexInClass) {
+            inRegex = false;
+            buf.write(ch);
+          } else if (ch == '\n' || ch == '\r' || ch.codeUnitAt(0) == 0x2028 || ch.codeUnitAt(0) == 0x2029) {
+            // Escape literal line terminators inside regex literal
+            buf.write('\\n');
+          } else {
+            buf.write(ch);
+          }
+        } else {
+          if (ch == '/' && next == '/') {
+            inLineComment = true;
+            buf.write(ch);
+          } else if (ch == '/' && next == '*') {
+            inBlockComment = true;
+            buf.write(ch);
+          } else if (ch == "'") {
+            inSingle = true;
+            buf.write(ch);
+          } else if (ch == '"') {
+            inDouble = true;
+            buf.write(ch);
+          } else if (ch == '`') {
+            inBack = true;
+            buf.write(ch);
+          } else if (ch == '/') {
+            // Heuristic: treat as regex if previous non-whitespace token
+            // cannot end an expression (operators / keywords / punctuation).
+            final p = prev ?? '';
+            const continuators = {
+              '', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}',
+              ';', '+', '-', '*', '%', '<', '>', '^', '~', '\n',
+            };
+            if (continuators.contains(p)) {
+              inRegex = true;
+              regexInClass = false;
+            }
+            buf.write(ch);
+          } else {
+            buf.write(ch);
+          }
+        }
+        if (ch.trim().isNotEmpty) prev = ch;
+      }
+      return buf.toString();
+    }
+    final _initResult = runtime.evaluate('''${_normalizeJsExtensionCode(source.sourceCode ?? '')}
 var extention = new DefaultExtension();
 ''');
     if (_initResult.isError) {

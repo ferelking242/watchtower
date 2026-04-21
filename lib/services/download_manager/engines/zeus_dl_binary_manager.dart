@@ -29,6 +29,19 @@ class ZeusDlBinaryManager {
   ///   2. Previously extracted internal binary
   ///   3. Extract from assets (first run)
   Future<String?> resolveExecutable() async {
+    // 0. Public folder /storage/emulated/0/watchtower/bin/zeusdl
+    if (Platform.isAndroid) {
+      final publicFile = File('/storage/emulated/0/watchtower/bin/$_binaryName');
+      if (await publicFile.exists() && await publicFile.length() > 0) {
+        await _ensureExecutable(publicFile);
+        AppLogger.log(
+          'Using public-folder ZeusDL binary: ${publicFile.path}',
+          tag: LogTag.zeus,
+        );
+        _cachedPath = publicFile.path;
+        return publicFile.path;
+      }
+    }
     // 1. Check user override (external files dir — accessible via file manager)
     final userOverride = await _userOverridePath();
     if (userOverride != null) {

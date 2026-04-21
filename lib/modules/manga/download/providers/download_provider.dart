@@ -29,7 +29,9 @@ import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/engine_selector.dart';
+import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
 import 'package:watchtower/services/download_manager/engines/zeus_dl_engine.dart';
+import 'package:watchtower/services/download_manager/stuck_watchdog.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
@@ -146,7 +148,17 @@ Future<void> downloadChapter(
       }
     }
 
+    final stuckWatchdog = DownloadStuckWatchdog(
+      label: 'chapter=${chapter.id} (${itemType.name})',
+    );
+    stuckWatchdog.start();
+
     Future<void> setProgress(DownloadProgress progress) async {
+      if (progress.total > 0) {
+        final pct = (progress.completed / progress.total * 100).toInt();
+        stuckWatchdog.notifyProgress(pct);
+      }
+      if (progress.isCompleted) stuckWatchdog.stop();
       if (progress.isCompleted && itemType == ItemType.manga) {
         await processConvert();
       }
@@ -526,7 +538,54 @@ Future<void> downloadChapter(
             .setEngine(chapter.id!, engine.badgeLabel);
       }
 
-      if (engine == SelectedEngine.zeusDl) {
+      if (engine == SelectedEngine.aria2) {
+        // ── Aria2 path ──────────────────────────────────────────────────
+        log('[downloadChapter][anime/Aria2] starting chapterId=${chapter.id}');
+        final aria2Engine = Aria2Engine(
+          url: videoUrl,
+          outputPath: m3u8Downloader!.fileName,
+          headers: m3u8Downloader!.headers ?? {},
+          itemType: itemType,
+          chapterId: '${chapter.id}',
+        );
+        if (chapter.id != null) {
+          ActiveDownloadRegistry.registerEngine(chapter.id!, aria2Engine);
+        }
+        bool aria2Failed = false;
+        try {
+          await aria2Engine.start((progress) => setProgress(progress));
+          log('[downloadChapter][anime/Aria2] completed chapterId=${chapter.id}');
+        } catch (e) {
+          aria2Failed = true;
+          log('[downloadChapter][anime/Aria2] FAILED chapterId=${chapter.id} error=$e');
+        } finally {
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.unregister(chapter.id!);
+          }
+        }
+        // Aria2 cannot do HLS — fall back to internal HLS for .m3u8 streams
+        if (aria2Failed) {
+          log('[downloadChapter][anime/Aria2→HLS] falling back to internal HLS chapterId=${chapter.id}');
+          if (chapter.id != null) {
+            ref
+                .read(downloadQueueStateProvider.notifier)
+                .setEngine(chapter.id!, 'HLS');
+          }
+          final taskId = 'm3u8_${chapter.id}';
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+          }
+          try {
+            await m3u8Downloader!.download(
+              (progress) => setProgress(progress),
+            );
+          } finally {
+            if (chapter.id != null) {
+              ActiveDownloadRegistry.unregister(chapter.id!);
+            }
+          }
+        }
+      } else if (engine == SelectedEngine.zeusDl) {
         // ── ZeusDL path ─────────────────────────────────────────────────
         log('[downloadChapter][anime/ZeusDL] starting chapterId=${chapter.id}');
         final zeusEngine = ZeusDlEngine(

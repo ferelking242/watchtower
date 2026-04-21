@@ -5,58 +5,76 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
+import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 
-class FileExplorerWidget extends StatefulWidget {
+class FileExplorerWidget extends StatelessWidget {
   const FileExplorerWidget({super.key});
-
-  @override
-  State<FileExplorerWidget> createState() => _FileExplorerWidgetState();
-}
-
-class _FileExplorerWidgetState extends State<FileExplorerWidget> {
-  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.folder_open_outlined, color: cs.primary, size: 22),
-          ),
-          title: const Text('Explorateur de fichiers'),
-          subtitle: const Text(
-            'Accès direct à Android/data/com.watchtower.app',
-            style: TextStyle(fontSize: 12),
-          ),
-          trailing: Icon(
-            _expanded ? Icons.expand_less : Icons.expand_more,
-            color: cs.onSurface.withOpacity(0.5),
-          ),
-          onTap: () => setState(() => _expanded = !_expanded),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: cs.primaryContainer,
+          borderRadius: BorderRadius.circular(8),
         ),
-        if (_expanded) const _FileExplorerBody(),
-      ],
+        child: Icon(Icons.folder_open_outlined, color: cs.primary, size: 22),
+      ),
+      title: const Text('Explorateur de fichiers'),
+      subtitle: const Text(
+        'Accès direct à Android/data/com.watchtower.app',
+        style: TextStyle(fontSize: 12),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const FileExplorerScreen()),
+      ),
     );
   }
 }
 
-class _FileExplorerBody extends StatefulWidget {
-  const _FileExplorerBody();
+class FileExplorerScreen extends StatelessWidget {
+  const FileExplorerScreen({super.key});
 
   @override
-  State<_FileExplorerBody> createState() => _FileExplorerBodyState();
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Explorateur de fichiers'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.folder_outlined), text: 'Fichiers'),
+              Tab(icon: Icon(Icons.memory_outlined), text: 'Binaires'),
+            ],
+          ),
+        ),
+        body: const SafeArea(
+          child: TabBarView(
+            children: [
+              FileExplorerBody(),
+              SingleChildScrollView(child: BinariesSection()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _FileExplorerBodyState extends State<_FileExplorerBody> {
+class FileExplorerBody extends StatefulWidget {
+  const FileExplorerBody({super.key});
+
+  @override
+  State<FileExplorerBody> createState() => _FileExplorerBodyState();
+}
+
+class _FileExplorerBodyState extends State<FileExplorerBody> {
   final List<Directory> _history = [];
   Directory? _current;
   List<FileSystemEntity> _entries = [];

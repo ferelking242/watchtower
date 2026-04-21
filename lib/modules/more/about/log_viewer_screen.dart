@@ -1,10 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 
@@ -110,6 +113,36 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     });
   }
 
+  Future<void> _downloadAs(String ext) async {
+    try {
+      final storage = StorageProvider();
+      final dir = await storage.getDefaultDirectory();
+      final src = File(path.join(dir!.path, 'logs.txt'));
+      if (!await src.exists()) {
+        botToast('Aucun fichier log trouvé');
+        return;
+      }
+      final downloadsDir = Directory('/storage/emulated/0/Download');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      final ts = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
+      final outPath = '${downloadsDir.path}/watchtower_logs_$ts.$ext';
+      String content = await src.readAsString();
+      if (ext == 'md') {
+        content = '# Watchtower logs — $ts\n\n```\n$content\n```\n';
+      }
+      await File(outPath).writeAsString(content);
+      botToast('Enregistré dans Download/${outPath.split('/').last}');
+    } catch (e) {
+      botToast('Erreur: $e');
+    }
+  }
+
   Future<void> _share() async {
     final storage = StorageProvider();
     final dir = await storage.getDefaultDirectory();
@@ -176,10 +209,48 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             icon: const Icon(Icons.copy_rounded, size: 20),
             onPressed: _loading ? null : _copyAll,
           ),
-          IconButton(
-            tooltip: 'Partager',
-            icon: const Icon(Icons.share_rounded, size: 20),
-            onPressed: _loading ? null : _share,
+          PopupMenuButton<String>(
+            tooltip: 'Télécharger / Partager',
+            icon: const Icon(Icons.download_rounded, size: 20),
+            onSelected: (v) {
+              switch (v) {
+                case 'txt':
+                  _downloadAs('txt');
+                  break;
+                case 'md':
+                  _downloadAs('md');
+                  break;
+                case 'share':
+                  _share();
+                  break;
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'txt',
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.text_snippet_outlined, size: 18),
+                  title: Text('Télécharger .txt'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'md',
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.description_outlined, size: 18),
+                  title: Text('Télécharger .md'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'share',
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.share_outlined, size: 18),
+                  title: Text('Partager'),
+                ),
+              ),
+            ],
           ),
           IconButton(
             tooltip: 'Rafraîchir',
@@ -281,6 +352,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   isDark: isDark,
                   searchQuery: _search.text,
                 ),
+      floatingActionButton: _loading
+          ? null
+          : FloatingActionButton.small(
+              tooltip: 'Aller en bas',
+              onPressed: _scrollToBottom,
+              child: const Icon(Icons.keyboard_double_arrow_down_rounded),
+            ),
       bottomNavigationBar: Container(
         color: surfaceColor,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -419,6 +497,11 @@ class _LogLineWidget extends StatelessWidget {
     }
   }
 
+  static final _urlRegex = RegExp(
+    r'(https?:\/\/[^\s<>"\)\]]+)',
+    caseSensitive: false,
+  );
+
   @override
   Widget build(BuildContext context) {
     final text = line.raw;
@@ -430,6 +513,36 @@ class _LogLineWidget extends StatelessWidget {
         text: text,
         query: searchQuery,
         baseColor: color,
+      );
+    } else if (_urlRegex.hasMatch(text)) {
+      final spans = <InlineSpan>[];
+      int last = 0;
+      for (final m in _urlRegex.allMatches(text)) {
+        if (m.start > last) {
+          spans.add(TextSpan(text: text.substring(last, m.start)));
+        }
+        final url = text.substring(m.start, m.end);
+        spans.add(TextSpan(
+          text: url,
+          style: TextStyle(
+            color: Colors.blue.shade400,
+            decoration: TextDecoration.underline,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () => _openUrl(context, url),
+        ));
+        last = m.end;
+      }
+      if (last < text.length) {
+        spans.add(TextSpan(text: text.substring(last)));
+      }
+      child = Text.rich(
+        TextSpan(children: spans),
+        style: GoogleFonts.jetBrainsMono(
+          fontSize: 11,
+          color: color,
+          height: 1.5,
+        ),
       );
     } else {
       child = Text(
@@ -449,6 +562,48 @@ class _LogLineWidget extends StatelessWidget {
           : null,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: child,
+    );
+  }
+
+  void _openUrl(BuildContext context, String url) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _LogUrlWebView(url: url)),
+    );
+  }
+}
+
+class _LogUrlWebView extends StatelessWidget {
+  final String url;
+  const _LogUrlWebView({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          url,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Ouvrir dans le navigateur',
+            icon: const Icon(Icons.open_in_new_rounded, size: 20),
+            onPressed: () => launchUrl(
+              Uri.parse(url),
+              mode: LaunchMode.externalApplication,
+            ),
+          ),
+        ],
+      ),
+      body: InAppWebView(
+        initialUrlRequest: URLRequest(url: WebUri(url)),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          mediaPlaybackRequiresUserGesture: false,
+        ),
+      ),
     );
   }
 }
