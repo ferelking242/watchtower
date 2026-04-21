@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/library/providers/file_scanner.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -1226,6 +1227,28 @@ class _ExternalAppTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (Platform.isAndroid &&
+              ExternalDownloaderLauncher.packageMap.containsKey(app.id))
+            IconButton(
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              tooltip: 'Tester (lance ${app.name})',
+              onPressed: () async {
+                final ok = await ExternalDownloaderLauncher.launch(
+                  url: 'https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4',
+                  appId: app.id,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 2),
+                      content: Text(ok
+                          ? '${app.name} lancé via intent'
+                          : 'Échec du lancement de ${app.name} (app installée ?)'),
+                    ),
+                  );
+                }
+              },
+            ),
           if (app.playStoreUrl != null)
             IconButton(
               icon: const Icon(Icons.android_outlined, size: 18),

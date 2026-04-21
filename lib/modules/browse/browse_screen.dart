@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -149,19 +151,24 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                       ),
                     ],
                   ),
-            IconButton(
-              splashRadius: 20,
-              onPressed: () {
-                context.push(
-                  isExtensionTab ? '/ExtensionLang' : '/sourceFilter',
-                  extra: currentTab.type,
-                );
-              },
-              icon: Icon(
-                !isExtensionTab
-                    ? Icons.filter_list_sharp
-                    : Icons.translate_rounded,
-                color: Theme.of(context).hintColor,
+            GestureDetector(
+              onLongPress: isExtensionTab
+                  ? () => _isolateDeviceLanguage(context, currentTab.type)
+                  : null,
+              child: IconButton(
+                splashRadius: 20,
+                onPressed: () {
+                  context.push(
+                    isExtensionTab ? '/ExtensionLang' : '/sourceFilter',
+                    extra: currentTab.type,
+                  );
+                },
+                icon: Icon(
+                  !isExtensionTab
+                      ? Icons.filter_list_sharp
+                      : Icons.translate_rounded,
+                  color: Theme.of(context).hintColor,
+                ),
               ),
             ),
           ],
@@ -232,6 +239,55 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
     );
   }
+}
+
+/// Long-press shortcut on the translate icon: keeps only the device's
+/// language active (and English as a fallback). Long-press again to restore
+/// every language.
+void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
+  String deviceLang;
+  try {
+    deviceLang = Platform.localeName.split(RegExp('[_-]')).first.toLowerCase();
+  } catch (_) {
+    deviceLang = 'en';
+  }
+  final entries = isar.sources
+      .filter()
+      .idIsNotNull()
+      .and()
+      .itemTypeEqualTo(itemType)
+      .findAllSync();
+
+  final isolated = entries.any((s) =>
+      (s.isActive ?? false) &&
+      s.lang!.toLowerCase() != deviceLang &&
+      s.lang!.toLowerCase() != 'en' &&
+      s.lang!.toLowerCase() != 'all');
+  final shouldIsolate = isolated; // if currently mixed, isolate; else restore
+
+  isar.writeTxnSync(() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final s in entries) {
+      final lang = s.lang!.toLowerCase();
+      final keep = lang == deviceLang || lang == 'en' || lang == 'all';
+      isar.sources.putSync(
+        s
+          ..isActive = shouldIsolate ? keep : true
+          ..updatedAt = now,
+      );
+    }
+  });
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      duration: const Duration(seconds: 2),
+      content: Text(
+        shouldIsolate
+            ? 'Sources limitées à ${deviceLang.toUpperCase()} + EN'
+            : 'Toutes les langues réactivées',
+      ),
+    ),
+  );
 }
 
 Widget _extensionUpdateNumbers(WidgetRef ref, ItemType itemType) {

@@ -239,7 +239,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       .read(downloadQueueStateProvider.notifier)
                       .togglePause(e.id ?? -1);
                   // If was paused → now resuming: re-trigger internal engines
-                  if (wasPaused) ref.read(processDownloadsProvider());
+                  if (wasPaused) { ref.invalidate(processDownloadsProvider); ref.read(processDownloadsProvider()); }
                 },
                 onCancel: (e) => _cancelDownload(e, context),
                 onDelete: (e) => _deleteDownload(e, context),
@@ -258,7 +258,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   ref
                       .read(downloadQueueStateProvider.notifier)
                       .togglePause(e.id ?? -1);
-                  if (wasPaused) ref.read(processDownloadsProvider());
+                  if (wasPaused) { ref.invalidate(processDownloadsProvider); ref.read(processDownloadsProvider()); }
                 },
                 onCancel: (e) => _cancelDownload(e, context),
                 onDelete: (e) => _deleteDownload(e, context),
@@ -277,7 +277,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   ref
                       .read(downloadQueueStateProvider.notifier)
                       .togglePause(e.id ?? -1);
-                  if (wasPaused) ref.read(processDownloadsProvider());
+                  if (wasPaused) { ref.invalidate(processDownloadsProvider); ref.read(processDownloadsProvider()); }
                 },
                 onCancel: (e) => _cancelDownload(e, context),
                 onDelete: (e) => _deleteDownload(e, context),
@@ -984,29 +984,31 @@ class _PauseResumeAllFab extends ConsumerWidget {
     if (entries.isEmpty) return const SizedBox.shrink();
 
     if (allPaused) {
-      // Show Resume All
-      return FloatingActionButton.extended(
+      // Show Resume All — invalidate provider first so internal HLS
+      // downloads (which were cancelled at pause) actually re-spin up.
+      return FloatingActionButton(
+        tooltip: 'Reprendre tout',
         onPressed: () {
           ref.read(downloadQueueStateProvider.notifier).resumeAll();
+          ref.invalidate(processDownloadsProvider);
           ref.read(processDownloadsProvider());
         },
-        icon: const Icon(Icons.play_circle_outline),
-        label: const Text('Reprendre tout'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
+        child: const Icon(Icons.play_arrow_rounded),
       );
     } else if (anyActive) {
       // Show Pause All
-      return FloatingActionButton.extended(
+      return FloatingActionButton(
+        tooltip: 'Tout mettre en pause',
         onPressed: () {
           ref
               .read(downloadQueueStateProvider.notifier)
               .pauseAll(activeIds);
         },
-        icon: const Icon(Icons.pause_circle_outline),
-        label: const Text('Tout mettre en pause'),
         backgroundColor: Colors.orange.shade700,
         foregroundColor: Colors.white,
+        child: const Icon(Icons.pause_rounded),
       );
     }
 

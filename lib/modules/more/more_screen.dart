@@ -199,6 +199,9 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
             //   icon: Icons.help_outline,
             //   title: l10n.help,
             // ),
+            // Bottom safe-area padding so the dock doesn't overlap the
+            // last item (About).
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 96),
           ],
         ),
       ),
