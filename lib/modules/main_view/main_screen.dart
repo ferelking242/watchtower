@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,6 +31,11 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel)Library$");
+
+/// Whether the floating dock should be hidden because the user is scrolling
+/// down. Pages can opt-in to driving this by wrapping their scrollables in a
+/// `NotificationListener<UserScrollNotification>` that updates this provider.
+final dockHiddenProvider = StateProvider<bool>((ref) => false);
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.child});
@@ -257,19 +263,41 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   Flexible(
                     child: Scaffold(
                       extendBody: true,
-                      body: context.isTablet
-                          ? _TabletLayout(
-                              isLongPressed: isLongPressed,
-                              location: location,
-                              dest: dest,
-                              currentIndex: currentIndex,
-                              route: route,
-                              ref: ref,
-                              buildNavigationWidgetsDesktop:
-                                  _buildNavigationWidgetsDesktop,
-                              child: widget.child,
-                            )
-                          : widget.child,
+                      body: NotificationListener<UserScrollNotification>(
+                        onNotification: (n) {
+                          // Only care about vertical primary scrolls so the
+                          // horizontal carousels inside the dock or pages do
+                          // not toggle visibility.
+                          if (n.metrics.axis != Axis.vertical) return false;
+                          final hidden = ref.read(dockHiddenProvider);
+                          if (n.direction == ScrollDirection.reverse &&
+                              !hidden) {
+                            ref.read(dockHiddenProvider.notifier).state = true;
+                          } else if (n.direction == ScrollDirection.forward &&
+                              hidden) {
+                            ref.read(dockHiddenProvider.notifier).state = false;
+                          } else if (n.direction == ScrollDirection.idle &&
+                              n.metrics.pixels <= 0 &&
+                              hidden) {
+                            // Reveal again when bouncing back to the top.
+                            ref.read(dockHiddenProvider.notifier).state = false;
+                          }
+                          return false;
+                        },
+                        child: context.isTablet
+                            ? _TabletLayout(
+                                isLongPressed: isLongPressed,
+                                location: location,
+                                dest: dest,
+                                currentIndex: currentIndex,
+                                route: route,
+                                ref: ref,
+                                buildNavigationWidgetsDesktop:
+                                    _buildNavigationWidgetsDesktop,
+                                child: widget.child,
+                              )
+                            : widget.child,
+                      ),
                       bottomNavigationBar: context.isTablet
                           ? null
                           : _FloatingDock(
@@ -731,10 +759,10 @@ class _FloatingDock extends StatefulWidget {
 class _FloatingDockState extends State<_FloatingDock> {
   final ScrollController _scrollController = ScrollController();
 
-  static const double _itemWidth = 62.0;
-  static const double _dockHeight = 72.0;
-  static const double _dockBottomPad = 20.0;
-  static const double _pillHPad = 14.0;
+  static const double _itemWidth = 52.0;
+  static const double _dockHeight = 58.0;
+  static const double _dockBottomPad = 16.0;
+  static const double _pillHPad = 10.0;
   static const int _maxInlineItems = 5;
 
   static const _validLocations = {
@@ -757,7 +785,10 @@ class _FloatingDockState extends State<_FloatingDock> {
   bool _isVisible() {
     if (widget.isLongPressed) return false;
     final loc = widget.location;
-    return loc == null || _validLocations.contains(loc);
+    if (loc != null && !_validLocations.contains(loc)) return false;
+    // Hide while the user is scrolling down through a feed.
+    final hidden = widget.ref.read(dockHiddenProvider);
+    return !hidden;
   }
 
   bool _isActive(String route) => widget.location == route;
@@ -877,6 +908,8 @@ class _FloatingDockState extends State<_FloatingDock> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild whenever scroll-direction-driven visibility changes.
+    widget.ref.watch(dockHiddenProvider);
     final visible = _isVisible();
     final items = visible ? _buildItems(context) : <_DockItemData>[];
     final bottomPad = MediaQuery.of(context).padding.bottom;

@@ -7,6 +7,7 @@ import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/modules/tracker_library/tracker_library_screen.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
+import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/fetch_watch_order.dart';
@@ -89,7 +90,7 @@ class _WatchOrderScreenState extends State<WatchOrderScreen> {
             : Builder(
                 builder: (context) {
                   if (_errorMessage.isNotEmpty) {
-                    return Center(child: Text(_errorMessage));
+                    return ErrorText(_errorMessage);
                   }
                   return isSequels ? _buildSequels() : _buildWatchOrder();
                 },

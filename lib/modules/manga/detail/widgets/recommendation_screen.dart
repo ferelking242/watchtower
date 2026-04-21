@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
+import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/recommendation.dart';
@@ -76,7 +77,7 @@ class _RecommendationScreenState extends State<RecommendationScreen> {
             : Builder(
                 builder: (context) {
                   if (_errorMessage.isNotEmpty) {
-                    return Center(child: Text(_errorMessage));
+                    return ErrorText(_errorMessage);
                   }
                   if (data != null && data!.isNotEmpty) {
                     return SuperListView.builder(

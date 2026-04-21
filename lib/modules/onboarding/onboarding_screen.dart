@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 
 const String _onboardingMarkerFileName = '.onboarding_complete';
@@ -37,8 +38,12 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  bool _permissionGranted = false;
-  bool _requestingPermission = false;
+
+  // Per-permission state.
+  bool _storageGranted = false;
+  bool _notificationsGranted = false;
+  bool _requestingStorage = false;
+  bool _requestingNotifications = false;
 
   static const _pages = [
     _OnboardingPage(
@@ -66,15 +71,38 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'A dedicated text reader for light novels with custom fonts, themes, and offline support.',
     ),
     _OnboardingPage(
-      icon: Icons.folder_open_rounded,
+      icon: Icons.shield_outlined,
       color: Color(0xFFFF6B6B),
-      title: 'Storage Access',
-      subtitle: 'One permission needed',
+      title: 'Permissions',
+      subtitle: 'Two quick approvals',
       description:
-          'Watchtower needs access to your storage to download content, save covers, and manage your library files.',
+          'Watchtower needs storage to download and store your library, and notifications to keep you updated on downloads, the video player, app updates and more.',
       isPermissionPage: true,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPermissionStatus();
+  }
+
+  Future<void> _refreshPermissionStatus() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      // Desktop: nothing to ask for; treat as granted so the user can continue.
+      setState(() {
+        _storageGranted = true;
+        _notificationsGranted = true;
+      });
+      return;
+    }
+    final notif = await Permission.notification.status;
+    if (mounted) {
+      setState(() {
+        _notificationsGranted = notif.isGranted;
+      });
+    }
+  }
 
   void _nextPage() {
     if (_currentPage < _pages.length - 1) {
@@ -85,14 +113,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  Future<void> _requestPermission() async {
-    if (_requestingPermission) return;
-    setState(() => _requestingPermission = true);
+  Future<void> _requestStorage() async {
+    if (_requestingStorage) return;
+    setState(() => _requestingStorage = true);
     final granted = await StorageProvider().requestPermission();
     if (mounted) {
       setState(() {
-        _permissionGranted = granted;
-        _requestingPermission = false;
+        _storageGranted = granted;
+        _requestingStorage = false;
+      });
+    }
+  }
+
+  Future<void> _requestNotifications() async {
+    if (_requestingNotifications) return;
+    setState(() => _requestingNotifications = true);
+    final status = await Permission.notification.request();
+    if (mounted) {
+      setState(() {
+        _notificationsGranted = status.isGranted;
+        _requestingNotifications = false;
       });
     }
   }
@@ -172,67 +212,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 24),
           if (_isLastPage) ...[
-            if (!_permissionGranted)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _requestingPermission ? null : _requestPermission,
-                  icon: _requestingPermission
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.folder_open_rounded),
-                  label: Text(
-                    _requestingPermission
-                        ? 'Requesting…'
-                        : 'Grant Storage Access',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    backgroundColor: page.color,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ),
-            if (_permissionGranted) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF06D6A0).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      color: Color(0xFF06D6A0),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Storage access granted',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF06D6A0),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
+            _PermissionTile(
+              icon: Icons.folder_open_rounded,
+              title: 'Storage access',
+              description:
+                  'Save downloads, covers and your library to disk.',
+              granted: _storageGranted,
+              busy: _requestingStorage,
+              accent: page.color,
+              onRequest: _requestStorage,
+            ),
             const SizedBox(height: 12),
+            _PermissionTile(
+              icon: Icons.notifications_active_outlined,
+              title: 'Notifications',
+              description:
+                  'Download progress, video playback controls, library updates and app updates.',
+              granted: _notificationsGranted,
+              busy: _requestingNotifications,
+              accent: const Color(0xFFFFB703),
+              onRequest: _requestNotifications,
+            ),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -242,12 +243,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  backgroundColor: _permissionGranted
-                      ? colorScheme.primary
-                      : colorScheme.surfaceContainerHighest,
-                  foregroundColor: _permissionGranted
-                      ? colorScheme.onPrimary
-                      : colorScheme.onSurfaceVariant,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                 ),
                 child: const Text(
                   'Get Started',
@@ -255,7 +252,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
             ),
-            if (!_permissionGranted)
+            if (!_storageGranted || !_notificationsGranted)
               TextButton(
                 onPressed: _finish,
                 child: Text(
@@ -281,6 +278,115 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PermissionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool granted;
+  final bool busy;
+  final Color accent;
+  final VoidCallback onRequest;
+
+  const _PermissionTile({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.granted,
+    required this.busy,
+    required this.accent,
+    required this.onRequest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: granted
+            ? const Color(0xFF06D6A0).withOpacity(0.10)
+            : cs.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: granted
+              ? const Color(0xFF06D6A0).withOpacity(0.45)
+              : cs.outlineVariant.withOpacity(0.6),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (granted)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF06D6A0),
+              ),
+            )
+          else
+            FilledButton.tonal(
+              onPressed: busy ? null : onRequest,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                backgroundColor: accent.withOpacity(0.18),
+                foregroundColor: accent,
+              ),
+              child: busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text(
+                      'Allow',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
             ),
         ],
       ),

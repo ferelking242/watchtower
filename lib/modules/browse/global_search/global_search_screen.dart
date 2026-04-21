@@ -21,6 +21,7 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/widgets/bottom_text_widget.dart';
+import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -233,7 +234,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
                   : Builder(
                       builder: (context) {
                         if (_errorMessage.isNotEmpty) {
-                          return Center(child: Text(_errorMessage));
+                          return ErrorText(_errorMessage);
                         }
                         if (pages!.list.isNotEmpty) {
                           return SuperListView.builder(
