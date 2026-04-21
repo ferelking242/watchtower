@@ -1,0 +1,37 @@
+1- sur la page plus l'explorateur de fichiers doit avoir sa prore page  pas juste etre deoliant ca doit etre un explorateur de fichier complet . Et avoir acces au dossier de lapp com.watchtower.app 
+Mais la si jaccede au dossier com.watchtower.app/file cest vide bordel lapp doit avoir acces a son propre dossier android/data/com.watchtower.app 
+Et avoir tout lacces dernière chose l'explorateur a aussi accès a tout les fichiers de l'appareil sur Android comme ca dans le dossier 0/watchtower ajouté des dossier dont 1 bin/ je place les binaire la (celui de zeus et de arial bref tout les binaire ensuite jappuie sur un bouton dans plus>paramètres>avance juste apres la section log tu cree une section binaire et la jappuie update binaire from.bin folder ca recupere les vinaire du 0/watchtower pour les mettre dans com.watchtower.app 
+2- dans browse sur  watch extensions manga extension novel extensions.
+Si je maintiens le bouton de langue wn haut a droite ca doit desactive tous les autre langue sauf la langue du téléphone et si je remaintien ca reactive. 
+
+3- tout les extensions js s'installe sauf ceux de zeusdl mais les dart echoue souvent fix ca verifi les log et fix.
+Assure toi ensuite que ceux qui ont le tag js sont vraiment des extension js pareil pour dart selon leur extensions ensuite ya les extensions qui sont soit js soit dart si il utilise zeusdl faut le tag zeusdl
+
+
+4-dans la page about la carte watchtower que ta fait en en-tête avec ecrit version beta v0.746 la faut le mettre aussi a la page plua car lui le sien a ete nique la ca affiche watchtower fuck
+
+
+5- bien les log sont pas aussi complet que demande ya plusieur problem 
+-les log dans about>lire log ca montre pas les log de téléchargement ya le téléchargement de lanime naruto ep 500 et 499 qui echoue c'est bloque a 0 mais ca montre pas ya aussi celui de 3 chap dun manga mais ca aussi rien n'apparaît en log fix par défaut les log doivent etre au max tout log de facon propre fait la recherche
+
+
+6- la page lire log 
+Les lien doivent etre des lien quand je clique ca me louvre sur le WebView 
+Si je suis trop loin en haut faut une fleche apparaise descendre tout en bas
+Le text doit etre copiable
+Faut mieux formate ca lopacite du text la pole le bouton download pour telecharge le fichiers. Log .txt .md
+
+
+7-notre ultime problème cest download manager il déconne le bouton pause all resume all met bien en pasue mais le resume marche pas le téléchargement reste stuck la ou il était avant la pause ensuite renomme le bouton ca doit juste etre une icone sans text ensuite lorsque un téléchargement marche pas ca doit se dire pourquoi ca le laisse stcuk a 0 depuis 15 minute fuck
+
+8- j'ai lance le téléchargement de l'épisode 488 apres avoir sélectionné arial comme downloader mais c'est toujours HLS et c'est stuck a 0  fuck dans mode de téléchargement a part arial ajoute ADM FDM 1DM pour mobile equivalent pc (IDM FDM ) etc et equivalent ios) section external downloader
+
+
+
+
+
+
+
+
+
+

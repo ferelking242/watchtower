@@ -62,7 +62,7 @@ class DartExtensionService implements ExtensionService {
   /// 3. Leaves all `Client(...)` constructor *calls* intact; d4rt resolves them correctly
   ///    once the import is in place.
   static String _normalizeExtensionCode(String raw) {
-    return raw
+    final rewritten = raw
         // Rewrite any mangayomi* package path to watchtower bridge
         .replaceAll(
           'package:mangayomi/bridge_lib.dart',
@@ -74,21 +74,56 @@ class DartExtensionService implements ExtensionService {
         )
         // Replace typed field/variable declarations that use bridged class names
         // as type annotations (d4rt resolves them in instance scope and fails).
-        // We turn them into `dynamic` so only the constructor call is resolved.
         .replaceAll('late final Client ', 'late final dynamic ')
         .replaceAll('late Client ', 'late dynamic ')
         .replaceAll('final Client ', 'final dynamic ')
-        .replaceAll('Client? ', 'dynamic? ')
-        // Normalize Client(...) constructor calls: strip unknown named args that
-        // the bridged constructor doesn't accept, keeping only the optional MSource.
-        .replaceAllMapped(
-          RegExp(r'Client\(([^)]*)\)'),
-          (m) {
-            final arg = m.group(1)?.trim() ?? '';
-            if (arg.isEmpty) return 'Client()';
-            return arg == 'source' ? 'Client(source)' : 'Client()';
-          },
-        );
+        .replaceAll('Client? ', 'dynamic? ');
+    // Strip ALL arguments from Client(...) constructor calls using a balanced
+    // paren walk (d4rt's parser chokes on nested parens like
+    // `Client(source, json.encode({"k": v}))`).
+    return _stripClientArgs(rewritten);
+  }
+
+  /// Walks `raw` and replaces every `Client(<anything>)` with `Client()`,
+  /// correctly handling nested parens, brackets, braces, and string literals.
+  static String _stripClientArgs(String raw) {
+    final out = StringBuffer();
+    int i = 0;
+    final wordChar = RegExp(r'[A-Za-z0-9_$]');
+    while (i < raw.length) {
+      final remaining = raw.length - i;
+      final isClient = remaining >= 7 &&
+          raw.substring(i, i + 6) == 'Client' &&
+          raw[i + 6] == '(' &&
+          (i == 0 || !wordChar.hasMatch(raw[i - 1]));
+      if (!isClient) {
+        out.write(raw[i]);
+        i++;
+        continue;
+      }
+      out.write('Client(');
+      i += 7; // skip 'Client('
+      int depth = 1;
+      while (i < raw.length && depth > 0) {
+        final c = raw[i];
+        if (c == '"' || c == "'") {
+          // Skip over string literal (handle escapes).
+          final quote = c;
+          i++;
+          while (i < raw.length && raw[i] != quote) {
+            if (raw[i] == '\\' && i + 1 < raw.length) i++;
+            i++;
+          }
+          if (i < raw.length) i++; // consume closing quote
+          continue;
+        }
+        if (c == '(') depth++;
+        else if (c == ')') depth--;
+        i++;
+      }
+      out.write(')');
+    }
+    return out.toString();
   }
 
   /// Inserts [_mProviderStub] after the last import statement so that the
