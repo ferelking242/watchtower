@@ -23,23 +23,32 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Configure web platform
+      - name: Flutter info
         run: |
           flutter --version
-          flutter create . --platforms=web --project-name watchtower || true
+          flutter config --enable-web
+      - name: Configure web platform
+        run: |
+          flutter create . --platforms=web --project-name watchtower
+          ls -la web
       - name: Pub get
         run: flutter pub get
       - name: Build web
         run: |
+          set -e
           set -o pipefail
-          flutter build web --release --no-tree-shake-icons --pwa-strategy=none --base-href "/watchtower/" 2>&1 | tee build.log || true
-          if [ ! -f build/web/index.html ]; then
-            echo "::error::Web build failed"
-            tail -300 build.log
-            exit 1
-          fi
-          cp build/web/index.html build/web/404.html
+          flutter build web --release --no-tree-shake-icons --pwa-strategy=none --base-href "/watchtower/" 2>&1 | tee build.log
+      - name: Verify build output
+        run: |
+          echo "=== build/web (top) ==="
           ls -lah build/web
+          echo "=== recursive ==="
+          find build/web -maxdepth 3 -type f | head -100
+          test -f build/web/index.html
+          test -f build/web/main.dart.js
+          test -f build/web/flutter_bootstrap.js
+      - name: SPA fallback
+        run: cp build/web/index.html build/web/404.html
       - name: Upload artifact (zip)
         uses: actions/upload-artifact@v4
         with:
