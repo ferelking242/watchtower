@@ -48,3 +48,13 @@ app.*.map.json
 
 /android/app/.cxx
 untranslated_messages.txt
+
+# Replit agent scratch / external reference clones — never push
+attached_assets/
+external-projects/
+node_modules/
+artifacts/
+.cache/
+.local/
+.agents/
+/tmp/
