@@ -102,7 +102,7 @@ class AppLogger {
   static bool _initialized = false;
 
   // ── In-memory filter state ──────────────────────────────────────────────────
-  static int _minLevel = 1; // default: INFO
+  static int _minLevel = 0; // default: DEBUG (max verbosity)
   static Set<String> _disabledTags = {};
   static bool _suppressImages = true;
 
@@ -142,7 +142,7 @@ class AppLogger {
   static Future<void> _loadSettings() async {
     try {
       final box = await Hive.openBox(_kLogBox);
-      _minLevel = box.get(kLogMinLevel, defaultValue: 1) as int;
+      _minLevel = box.get(kLogMinLevel, defaultValue: 0) as int;
       _suppressImages = box.get(kLogSuppressImages, defaultValue: true) as bool;
 
       final disabled = <String>{};

@@ -96,19 +96,19 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _getBool(_kNonAsciiKey),
       _getInt(_kBitmapThresholdKey, defaultValue: 4096),
       // Log settings
-      _getInt(kLogMode, defaultValue: 1),
-      _getInt(kLogMinLevel, defaultValue: 1),
+      _getInt(kLogMode, defaultValue: 3),
+      _getInt(kLogMinLevel, defaultValue: 0),
       _getBool(kLogSuppressImages, defaultValue: true),
       _getBool(kLogTagExt, defaultValue: true),
       _getBool(kLogTagDl, defaultValue: true),
       _getBool(kLogTagNet, defaultValue: true),
       _getBool(kLogTagZeus, defaultValue: true),
       _getBool(kLogTagUi, defaultValue: true),
-      _getBool(kLogTagManga, defaultValue: false),
-      _getBool(kLogTagPage, defaultValue: false),
-      _getBool(kLogTagHls, defaultValue: false),
+      _getBool(kLogTagManga, defaultValue: true),
+      _getBool(kLogTagPage, defaultValue: true),
+      _getBool(kLogTagHls, defaultValue: true),
       _getBool(kLogTagInstall, defaultValue: true),
-      _getBool(kLogTagReader, defaultValue: false),
+      _getBool(kLogTagReader, defaultValue: true),
     ]);
     if (mounted) {
       setState(() {
