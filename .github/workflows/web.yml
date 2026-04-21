@@ -33,11 +33,16 @@ jobs:
           ls -la web
       - name: Pub get
         run: flutter pub get
-      - name: Build web
+      - name: Build web (lib/main_web.dart - native libs stubbed)
         run: |
           set -e
           set -o pipefail
-          flutter build web --release --no-tree-shake-icons --pwa-strategy=none --base-href "/watchtower/" 2>&1 | tee build.log
+          flutter build web \
+            --release \
+            --target lib/main_web.dart \
+            --no-tree-shake-icons \
+            --pwa-strategy=none \
+            --base-href "/watchtower/" 2>&1 | tee build.log
       - name: Verify build output
         run: |
           echo "=== build/web (top) ==="
