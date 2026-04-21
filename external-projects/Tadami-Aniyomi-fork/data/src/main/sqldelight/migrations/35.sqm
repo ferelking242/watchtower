@@ -1,3 +1,0 @@
-UPDATE mangas
-SET rating = -1.0
-WHERE rating = 0.0;
