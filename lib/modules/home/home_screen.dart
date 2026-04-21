@@ -1,52 +1,119 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:go_router/go_router.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/home/widgets/discovery_card.dart';
+import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 
-/// Placeholder Home screen — Phase B will populate this with AnymeX-style
-/// AniList discovery (trending / popular / upcoming carousels) wired through
-/// Riverpod + dio.
+/// AnymeX-style discovery home: trending / popular / upcoming AniList content
+/// shown without requiring any extension. Tapping an item routes to the
+/// global search so the user can pick an extension to actually play / read.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  void _openSearch(BuildContext context, AnilistMedia media) {
+    final type = media.type == 'MANGA' ? ItemType.manga : ItemType.anime;
+    context.push('/globalSearch', extra: (media.displayTitle, type));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final asyncHome = ref.watch(anilistHomeProvider);
     final theme = Theme.of(context);
-    final l10n = context.l10n;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        title: const Text('Discover'),
         centerTitle: false,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+      body: RefreshIndicator(
+        onRefresh: () async => ref.refresh(anilistHomeProvider.future),
+        child: asyncHome.when(
+          loading: () => ListView(
+            children: const [
+              SizedBox(height: 240),
+              Center(child: CircularProgressIndicator()),
+            ],
+          ),
+          error: (e, _) => ListView(
             children: [
-              Icon(Icons.auto_awesome, size: 64, color: theme.colorScheme.primary),
+              const SizedBox(height: 80),
+              Icon(
+                Icons.cloud_off_outlined,
+                size: 56,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
-              Text(
-                'Discover (Coming soon)',
-                style: theme.textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Trending, popular & seasonal anime/manga from AniList — '
-                'no extension required to browse. Extensions are only used '
-                'when you press play or read.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'Could not reach AniList.\n$e',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
-              FilledButton.tonalIcon(
-                icon: const Icon(Icons.collections_bookmark_outlined),
-                label: Text(l10n.library),
-                onPressed: () {
-                  // Navigate to library — handled by dock.
-                },
+              const SizedBox(height: 16),
+              Center(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => ref.invalidate(anilistHomeProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ),
+            ],
+          ),
+          data: (home) => ListView(
+            padding: const EdgeInsets.only(bottom: 120),
+            children: [
+              const SizedBox(height: 8),
+              HeroCarousel(
+                items: home.trendingAnimes.take(8).toList(),
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Trending Anime',
+                items: home.trendingAnimes,
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Popular Anime',
+                items: home.popularAnimes,
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Upcoming Anime',
+                items: home.upcomingAnimes,
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Recently Updated',
+                items: home.recentlyUpdatedAnimes,
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Recently Completed',
+                items: home.latestAnimes,
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Trending Manga',
+                items: home.trendingMangas,
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Popular Manga',
+                items: home.popularMangas,
+                onItemTap: (m) => _openSearch(context, m),
+              ),
+              DiscoveryRow(
+                title: 'Latest Manga',
+                items: home.latestMangas,
+                onItemTap: (m) => _openSearch(context, m),
               ),
             ],
           ),
