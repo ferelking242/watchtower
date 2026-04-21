@@ -54,6 +54,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:window_manager/window_manager.dart' show windowManager;
 
 import 'widgets/search_subtitles.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 bool _isDesktop = Platform.isMacOS || Platform.isLinux || Platform.isWindows;
 
@@ -1553,7 +1554,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
         child: ValueListenableBuilder(
           valueListenable: _currentChapterMark,
           builder: (context, value, child) => value != null
-              ? PopupMenuButton<int>(
+              ? ArrowPopupMenuButton<int>(
                   tooltip: '',
                   itemBuilder: (context) => _chapterMarks.value
                       .map(
@@ -1755,7 +1756,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
 
   List<Widget> _buildMpvSettingsButton(BuildContext context) {
     return [
-      PopupMenuButton<String>(
+      ArrowPopupMenuButton<String>(
         tooltip: 'Shaders',
         icon: const Icon(Icons.high_quality, color: Colors.white),
         itemBuilder: (context) =>
@@ -1799,7 +1800,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                 )
                 .toList(),
       ),
-      PopupMenuButton<String>(
+      ArrowPopupMenuButton<String>(
         tooltip: 'Stats',
         icon: const Icon(Icons.memory, color: Colors.white),
         itemBuilder: (context) =>
@@ -1835,7 +1836,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
       ValueListenableBuilder(
         valueListenable: _customButtons,
         builder: (context, value, child) => value != null
-            ? PopupMenuButton<String>(
+            ? ArrowPopupMenuButton<String>(
                 tooltip: context.l10n.custom_buttons,
                 icon: const Icon(Icons.terminal, color: Colors.white),
                 itemBuilder: (context) => value
@@ -1869,7 +1870,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           icon: const Icon(Icons.video_settings, color: Colors.white),
         ),
         if (useMpvConfig) ..._buildMpvSettingsButton(context),
-        PopupMenuButton<double>(
+        ArrowPopupMenuButton<double>(
           tooltip: '', // Remove default tooltip "Show menu" for consistency
           icon: const Icon(Icons.speed, color: Colors.white),
           itemBuilder: (context) =>

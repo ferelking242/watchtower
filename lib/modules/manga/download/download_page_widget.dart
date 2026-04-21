@@ -14,6 +14,7 @@ import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class ChapterPageDownload extends ConsumerWidget {
   final Chapter chapter;
@@ -119,7 +120,7 @@ class ChapterPageDownload extends ConsumerWidget {
               final entries = snapshot.data!;
               final download = entries.first;
               return download.isDownload!
-                  ? PopupMenuButton(
+                  ? ArrowPopupMenuButton(
                       popUpAnimationStyle: popupAnimationStyle,
                       child: Icon(
                         size: 25,
@@ -144,7 +145,7 @@ class ChapterPageDownload extends ConsumerWidget {
                   ? SizedBox(
                       height: 41,
                       width: 35,
-                      child: PopupMenuButton(
+                      child: ArrowPopupMenuButton(
                         popUpAnimationStyle: popupAnimationStyle,
                         child: _downloadWidget(context, true),
                         onSelected: (value) {
@@ -167,7 +168,7 @@ class ChapterPageDownload extends ConsumerWidget {
                   ? SizedBox(
                       height: 41,
                       width: 35,
-                      child: PopupMenuButton(
+                      child: ArrowPopupMenuButton(
                         popUpAnimationStyle: popupAnimationStyle,
                         child: Stack(
                           children: [
@@ -240,7 +241,7 @@ class ChapterPageDownload extends ConsumerWidget {
                   : SizedBox(
                       height: 50,
                       width: 50,
-                      child: PopupMenuButton(
+                      child: ArrowPopupMenuButton(
                         popUpAnimationStyle: popupAnimationStyle,
                         child: const Icon(
                           Icons.error_outline_outlined,

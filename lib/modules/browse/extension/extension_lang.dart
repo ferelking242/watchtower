@@ -8,6 +8,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/browse/extension/widgets/extension_lang_list_tile_widget.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class ExtensionsLang extends ConsumerWidget {
   final ItemType itemType;
@@ -20,7 +21,7 @@ class ExtensionsLang extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.extensions),
         actions: [
-          PopupMenuButton(
+          ArrowPopupMenuButton(
             popUpAnimationStyle: popupAnimationStyle,
             itemBuilder: (context) {
               return [

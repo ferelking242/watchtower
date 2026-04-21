@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -209,7 +210,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             icon: const Icon(Icons.copy_rounded, size: 20),
             onPressed: _loading ? null : _copyAll,
           ),
-          PopupMenuButton<String>(
+          ArrowPopupMenuButton<String>(
             tooltip: 'Télécharger / Partager',
             icon: const Icon(Icons.download_rounded, size: 20),
             onSelected: (v) {
