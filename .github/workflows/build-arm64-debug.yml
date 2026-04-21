@@ -28,9 +28,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify Dart SDK version
-        run: dart --version
-
       - name: Cache pub packages
         uses: actions/cache@v4
         with:
@@ -41,35 +38,15 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Download ZeusDL latest binary (arm64)
+      - name: Compute build number
+        id: ver
         run: |
-          mkdir -p assets/binaries
-
-          ZEUS_URL=$(curl -sL \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/ferelking242/zeusdl/releases/latest \
-            2>/dev/null | python3 -c "
-          import sys, json
-          try:
-              data = json.load(sys.stdin)
-              assets = data.get('assets', [])
-              arm64 = next((a['browser_download_url'] for a in assets
-                            if 'arm64' in a['name'].lower() or 'aarch64' in a['name'].lower()), '')
-              if not arm64 and assets:
-                  arm64 = assets[0]['browser_download_url']
-              print(arm64)
-          except Exception as e:
-              print('')
-          " 2>/dev/null)
-
-          if [ -n "$ZEUS_URL" ]; then
-            echo "Downloading ZeusDL from: $ZEUS_URL"
-            curl -L "$ZEUS_URL" -o assets/binaries/zeusdl
-            echo "ZeusDL downloaded: $(du -sh assets/binaries/zeusdl | cut -f1)"
-          else
-            echo "Warning: No ZeusDL release found — creating empty placeholder"
-            touch assets/binaries/zeusdl
-          fi
+          # versionName from pubspec, versionCode = GITHUB_RUN_NUMBER (auto-increments per build)
+          VNAME=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9.]+).*/\1/')
+          VCODE=${GITHUB_RUN_NUMBER}
+          echo "name=$VNAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VCODE" >> "$GITHUB_OUTPUT"
+          echo "Building $VNAME ($VCODE)"
 
       - name: Build APK (ARMv8 profile)
         run: |
@@ -77,18 +54,21 @@ jobs:
             --profile \
             --target-platform android-arm64 \
             --split-per-abi \
-            --no-tree-shake-icons
+            --no-tree-shake-icons \
+            --build-name=${{ steps.ver.outputs.name }} \
+            --build-number=${{ steps.ver.outputs.code }}
 
       - name: Show APK size
         run: |
           APK=build/app/outputs/apk/profile/app-arm64-v8a-profile.apk
           if [ -f "$APK" ]; then
             echo "APK size: $(du -sh $APK | cut -f1)"
+            echo "Version: ${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})"
           fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-arm64-profile
+          name: app-arm64-profile-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}
           path: build/app/outputs/apk/profile/app-arm64-v8a-profile.apk
           retention-days: 14
