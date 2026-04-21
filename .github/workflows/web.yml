@@ -1,54 +1,38 @@
 name: Build Web
 
-  on:
-    push:
-      branches:
-        - main
-        - service-dart-fix
-    workflow_dispatch:
+on:
+  push:
+    branches: [main, service-dart-fix]
+  workflow_dispatch:
 
-  concurrency:
-    group: ${{ github.workflow }}-${{ github.ref_name }}
-    cancel-in-progress: true
-
-  jobs:
-    build-web:
-      runs-on: ubuntu-latest
-      permissions:
-        contents: read
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-
-        - name: Setup Flutter
-          uses: subosito/flutter-action@v2
-          with:
-            channel: "stable"
-
-        - name: Configure web platform
-          run: |
-            flutter --version
-            flutter create . --platforms=web --project-name watchtower || true
-            ls web
-
-        - name: Flutter pub get
-          run: flutter pub get
-
-        - name: Build web
-          run: |
-            flutter build web --release --no-tree-shake-icons --pwa-strategy=none 2>&1 | tee build.log
-            if [ ! -f build/web/index.html ]; then
-              echo "::error::Web build failed — see log above"
-              tail -200 build.log
-              exit 1
-            fi
-            ls -lah build/web
-
-        - name: Upload web artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: watchtower-web
-            path: build/web
-            if-no-files-found: error
-            retention-days: 14
-  
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Configure web platform
+        run: |
+          flutter --version
+          flutter create . --platforms=web --project-name watchtower || true
+          ls -la web || true
+      - name: Pub get
+        run: flutter pub get
+      - name: Build web
+        run: |
+          set -o pipefail
+          flutter build web --release --no-tree-shake-icons --pwa-strategy=none 2>&1 | tee build.log || true
+          if [ ! -f build/web/index.html ]; then
+            echo "::error::Web build failed"
+            tail -300 build.log
+            exit 1
+          fi
+          ls -lah build/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-web
+          path: build/web
+          if-no-files-found: error
+          retention-days: 14
