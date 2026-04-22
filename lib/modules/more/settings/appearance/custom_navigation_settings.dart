@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
@@ -15,11 +16,9 @@ class CustomNavigationSettings extends ConsumerStatefulWidget {
 
 class _CustomNavigationSettingsState
     extends ConsumerState<CustomNavigationSettings> {
-  double _iconSize = 24;
   double _spacing = 8;
   int _animationSpeed = 1;
   bool _hapticEnabled = true;
-  bool _labelsVisible = true;
 
   static const List<String> _animationSpeeds = ['Off', 'Normal', 'Fast'];
 
@@ -29,6 +28,8 @@ class _CustomNavigationSettingsState
     final navigationOrder = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
     final mergeLibraryNavMobile = ref.watch(mergeLibraryNavMobileStateProvider);
+    final showLabels = ref.watch(navShowLabelsProvider);
+    final iconSize = ref.watch(navIconSizeProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -55,7 +56,7 @@ class _CustomNavigationSettingsState
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15),
               child: SizedBox(
-                height: navigationOrder.length * 60.0,
+                height: navigationOrder.length * 52.0,
                 child: ReorderableListView.builder(
                   physics: const NeverScrollableScrollPhysics(),
                   buildDefaultDragHandles: false,
@@ -162,14 +163,13 @@ class _CustomNavigationSettingsState
                       _SliderRow(
                         icon: Icons.photo_size_select_small_rounded,
                         label: 'Icon size',
-                        value: _iconSize,
+                        value: iconSize,
                         min: 18,
                         max: 32,
-                        displayValue:
-                            '${_iconSize.toStringAsFixed(0)}px',
+                        displayValue: '${iconSize.toStringAsFixed(0)}px',
                         onChanged: (v) {
                           HapticFeedback.selectionClick();
-                          setState(() => _iconSize = v);
+                          ref.read(navIconSizeProvider.notifier).state = v;
                         },
                       ),
                       const SizedBox(height: 12),
@@ -250,8 +250,10 @@ class _CustomNavigationSettingsState
                           'Show labels',
                           style: TextStyle(fontSize: 13),
                         ),
-                        value: _labelsVisible,
-                        onChanged: (v) => setState(() => _labelsVisible = v),
+                        value: showLabels,
+                        onChanged: (v) {
+                          ref.read(navShowLabelsProvider.notifier).state = v;
+                        },
                       ),
                     ],
                   ),
