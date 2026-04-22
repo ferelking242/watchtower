@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -132,6 +134,61 @@ class Aria2BinaryManager {
       return '${dir?.path ?? 'Android/data/com.watchtower.app/files'}/$_binaryName';
     } catch (_) {
       return 'Android/data/com.watchtower.app/files/$_binaryName';
+    }
+  }
+
+  /// Download a binary from a remote URL and install it as the active
+  /// internal aria2 binary. [onProgress] streams (received, total).
+  Future<bool> downloadFromUrl(
+    String url, {
+    void Function(int received, int total)? onProgress,
+  }) async {
+    try {
+      final internalPath = await _internalBinaryPath();
+      final tmpFile = File('$internalPath.part');
+      await tmpFile.parent.create(recursive: true);
+      if (await tmpFile.exists()) await tmpFile.delete();
+
+      final req = http.Request('GET', Uri.parse(url));
+      final res = await http.Client().send(req);
+      if (res.statusCode != 200) {
+        AppLogger.log(
+          'aria2 download failed (${res.statusCode}) — $url',
+          logLevel: LogLevel.error,
+          tag: LogTag.download,
+        );
+        return false;
+      }
+      final total = res.contentLength ?? 0;
+      var received = 0;
+      final sink = tmpFile.openWrite();
+      await for (final chunk in res.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        onProgress?.call(received, total);
+      }
+      await sink.flush();
+      await sink.close();
+
+      final finalFile = File(internalPath);
+      if (await finalFile.exists()) await finalFile.delete();
+      await tmpFile.rename(internalPath);
+      await _ensureExecutable(finalFile);
+      _cachedPath = internalPath;
+      AppLogger.log(
+        'aria2 downloaded ($received bytes) → $internalPath',
+        tag: LogTag.download,
+      );
+      return true;
+    } catch (e, st) {
+      AppLogger.log(
+        'aria2 downloadFromUrl error',
+        logLevel: LogLevel.error,
+        tag: LogTag.download,
+        error: e,
+        stackTrace: st,
+      );
+      return false;
     }
   }
 

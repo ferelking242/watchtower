@@ -56,8 +56,8 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import '../../../utils/constant.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:path/path.dart' as p;
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class MangaDetailView extends ConsumerStatefulWidget {
   final Function(bool) isExtended;

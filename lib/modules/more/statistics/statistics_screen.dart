@@ -47,9 +47,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
       );
     }
     final l10n = context.l10n;
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(l10n.statistics),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.insights_rounded,
+                  size: 18, color: cs.primary),
+            ),
+            const SizedBox(width: 10),
+            Text(l10n.statistics),
+          ],
+        ),
         bottom: TabBar(
           controller: _tabController,
           indicatorSize: TabBarIndicatorSize.label,
@@ -58,12 +76,108 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
           }).toList(),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: _visibleTabTypes.map((type) {
-          return _StatisticsTabView(itemType: type);
-        }).toList(),
+      body: _AnimatedStatsBackground(
+        child: TabBarView(
+          controller: _tabController,
+          children: _visibleTabTypes.map((type) {
+            return _StatisticsTabView(itemType: type);
+          }).toList(),
+        ),
       ),
+    );
+  }
+}
+
+class _AnimatedStatsBackground extends StatefulWidget {
+  final Widget child;
+  const _AnimatedStatsBackground({required this.child});
+
+  @override
+  State<_AnimatedStatsBackground> createState() =>
+      _AnimatedStatsBackgroundState();
+}
+
+class _AnimatedStatsBackgroundState extends State<_AnimatedStatsBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final t = _ctrl.value;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment(-1 + t, -1),
+                  end: Alignment(1 - t, 1),
+                  colors: [
+                    cs.primary.withValues(alpha: 0.10),
+                    cs.tertiary.withValues(alpha: 0.06),
+                    cs.surface,
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 60 + 30 * t,
+              right: -40 + 20 * t,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      cs.primary.withValues(alpha: 0.18),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 80 - 40 * t,
+              left: -60 + 30 * t,
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      cs.tertiary.withValues(alpha: 0.14),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            child!,
+          ],
+        );
+      },
+      child: widget.child,
     );
   }
 }

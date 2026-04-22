@@ -89,7 +89,14 @@ class _ExtensionListTileWidgetState
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextButton(
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+                splashRadius: 20,
                 onPressed: _isLoading
                     ? null
                     : () {
@@ -102,17 +109,25 @@ class _ExtensionListTileWidgetState
                           _handleSourceFetch();
                         }
                       },
-                child: Icon(
+                icon: Icon(
                   isInstall
                       ? Icons.download_outlined
                       : isUpdate
                       ? Icons.system_update_alt_outlined
                       : Icons.settings_outlined,
-                  size: 24,
+                  size: 22,
                 ),
               ),
               if (_sourceNotEmpty)
-                TextButton(
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  splashRadius: 20,
+                  icon: const Icon(Icons.delete_outline, size: 22),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -194,7 +209,6 @@ class _ExtensionListTileWidgetState
                       },
                     );
                   },
-                  child: Icon(Icons.delete_outline, size: 24),
                 ),
             ],
           );
@@ -218,6 +232,12 @@ class _ExtensionListTileWidgetState
           ? null
           : () {
               if (_sourceNotEmpty) {
+                AppLogger.log(
+                  'Open extension detail: "${widget.source.name}" '
+                  '[${widget.source.lang}] v${widget.source.version} '
+                  '· id=${widget.source.id} · type=${widget.source.itemType.name}',
+                  tag: LogTag.extension_,
+                );
                 context.push('/extension_detail', extra: widget.source);
               } else {
                 _handleSourceFetch();

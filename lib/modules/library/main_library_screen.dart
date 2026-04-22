@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
@@ -34,6 +35,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       vsync: this,
       initialIndex: initIndex,
     );
+    _controller.addListener(() {
+      if (mounted) setState(() {});
+    });
     _searchController = TextEditingController(text: widget.presetInput ?? '');
     if (widget.presetInput != null && widget.presetInput!.isNotEmpty) {
       _isSearch = true;
@@ -47,6 +51,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     _searchController.dispose();
     super.dispose();
   }
+
+  ItemType get _currentType => _types[_controller.index];
 
   @override
   Widget build(BuildContext context) {
@@ -64,61 +70,99 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 style: TextStyle(color: theme.hintColor),
               ),
         actions: [
-          _isSearch
-              ? SeachFormTextField(
-                  onChanged: (_) => setState(() {}),
-                  onSuffixPressed: () {
-                    _searchController.clear();
-                    setState(() {});
-                  },
-                  onPressed: () {
-                    setState(() {
-                      _isSearch = false;
-                      _searchController.clear();
-                    });
-                  },
-                  controller: _searchController,
-                )
-              : IconButton(
-                  splashRadius: 20,
-                  onPressed: () => setState(() => _isSearch = true),
-                  icon: Icon(
-                    Icons.search_rounded,
-                    color: theme.hintColor,
-                  ),
-                ),
+          if (_isSearch)
+            SeachFormTextField(
+              onChanged: (_) => setState(() {}),
+              onSuffixPressed: () {
+                _searchController.clear();
+                setState(() {});
+              },
+              onPressed: () {
+                setState(() {
+                  _isSearch = false;
+                  _searchController.clear();
+                });
+              },
+              controller: _searchController,
+            )
+          else ...[
+            IconButton(
+              tooltip: 'Filter sources',
+              splashRadius: 20,
+              onPressed: () {
+                context.push('/sourceFilter', extra: _currentType);
+              },
+              icon: Icon(
+                Icons.public_rounded,
+                color: theme.hintColor,
+              ),
+            ),
+            IconButton(
+              tooltip: l10n.search,
+              splashRadius: 20,
+              onPressed: () => setState(() => _isSearch = true),
+              icon: Icon(
+                Icons.search_rounded,
+                color: theme.hintColor,
+              ),
+            ),
+          ],
         ],
         bottom: TabBar(
-          indicatorSize: TabBarIndicatorSize.label,
           controller: _controller,
+          indicatorSize: TabBarIndicatorSize.tab,
+          tabAlignment: TabAlignment.fill,
+          dividerColor: Colors.transparent,
+          labelColor: theme.colorScheme.primary,
+          unselectedLabelColor: theme.hintColor,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
           tabs: [
             Tab(
-              child: Row(children: [
-                const Icon(Icons.live_tv_outlined, size: 16),
-                const SizedBox(width: 6),
-                Text(l10n.watch),
-              ]),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.live_tv_outlined, size: 16),
+                  const SizedBox(width: 6),
+                  Text(l10n.watch),
+                ],
+              ),
             ),
             Tab(
-              child: Row(children: [
-                const Icon(Icons.auto_stories_outlined, size: 16),
-                const SizedBox(width: 6),
-                Text(l10n.manga),
-              ]),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.auto_stories_outlined, size: 16),
+                  const SizedBox(width: 6),
+                  Text(l10n.manga),
+                ],
+              ),
             ),
             Tab(
-              child: Row(children: [
-                const Icon(Icons.local_library_outlined, size: 16),
-                const SizedBox(width: 6),
-                Text(l10n.novel),
-              ]),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.local_library_outlined, size: 16),
+                  const SizedBox(width: 6),
+                  Text(l10n.novel),
+                ],
+              ),
             ),
           ],
         ),
       ),
       body: TabBarView(
         controller: _controller,
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const BouncingScrollPhysics(),
         children: [
           LibraryScreen(
             itemType: ItemType.anime,

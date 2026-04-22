@@ -13,8 +13,8 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:path/path.dart' as p;
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class ChapterPageDownload extends ConsumerWidget {
   final Chapter chapter;

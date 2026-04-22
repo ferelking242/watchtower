@@ -16,7 +16,9 @@ import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
 import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
@@ -739,8 +741,16 @@ class _Aria2Card extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton.icon(
+                icon: const Icon(Icons.download_rounded, size: 14),
+                label: const Text('Importer URL',
+                    style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(foregroundColor: cs.tertiary),
+                onPressed: () => _promptAria2Download(context),
+              ),
+              TextButton.icon(
                 icon: const Icon(Icons.open_in_new, size: 14),
-                label: const Text('aria2.github.io', style: TextStyle(fontSize: 12)),
+                label: const Text('aria2.github.io',
+                    style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(foregroundColor: cs.tertiary),
                 onPressed: () => launchUrl(
                   Uri.parse('https://aria2.github.io'),
@@ -1099,6 +1109,18 @@ class _ZeusDLCard extends StatelessWidget {
               ),
               if (hasUpdate && latest != null) ...[
                 const SizedBox(width: 8),
+                IconButton.filled(
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  tooltip: 'Télécharger ce binaire',
+                  onPressed: () => _startZeusDownload(context, latest),
+                  icon: const Icon(Icons.download_rounded, size: 16),
+                ),
+                const SizedBox(width: 8),
                 IconButton.outlined(
                   style: IconButton.styleFrom(
                     shape: RoundedRectangleBorder(
@@ -1196,5 +1218,232 @@ class _SocialButton extends StatelessWidget {
 Future<void> _launchInBrowser(Uri url) async {
   if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
     throw 'Could not launch $url';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Binary download helpers (ZeusDL + Aria2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+Future<void> _startZeusDownload(
+  BuildContext context,
+  ZeusRelease release,
+) async {
+  if (release.assets.isEmpty) {
+    botToast('Aucun binaire disponible dans cette release');
+    return;
+  }
+  String? abi;
+  if (Platform.isAndroid) {
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      abi = info.supportedAbis.firstOrNull;
+    } catch (_) {}
+  }
+  ZeusReleaseAsset? picked;
+  if (abi != null) {
+    for (final a in release.assets) {
+      if (a.name.contains(abi)) {
+        picked = a;
+        break;
+      }
+    }
+  }
+  picked ??= release.assets.first;
+
+  if (release.assets.length > 1 && context.mounted) {
+    final selected = await showModalBottomSheet<ZeusReleaseAsset>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Choisir l\'ABI',
+                  style:
+                      TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            ),
+            for (final a in release.assets)
+              ListTile(
+                leading: const Icon(Icons.memory_rounded),
+                title: Text(a.name, style: const TextStyle(fontSize: 13)),
+                subtitle: a.size > 0
+                    ? Text('${(a.size / (1024 * 1024)).toStringAsFixed(1)} MB',
+                        style: const TextStyle(fontSize: 11))
+                    : null,
+                trailing: a == picked
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : null,
+                onTap: () => Navigator.pop(context, a),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null) picked = selected;
+  }
+
+  if (!context.mounted) return;
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _BinaryDownloadDialog(
+      title: 'Télécharger ZeusDL',
+      subtitle: picked!.name,
+      url: picked.downloadUrl,
+      installer: (url, onProgress) =>
+          ZeusDlBinaryManager.instance.downloadFromUrl(url, onProgress: onProgress),
+    ),
+  );
+}
+
+Future<void> _promptAria2Download(BuildContext context) async {
+  final ctrl = TextEditingController();
+  final url = await showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Télécharger un binaire aria2c'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Coller l\'URL d\'un binaire aria2c compatible Android :',
+            style: TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'https://…/aria2c',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+          child: const Text('Télécharger'),
+        ),
+      ],
+    ),
+  );
+  if (url == null || url.isEmpty || !context.mounted) return;
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _BinaryDownloadDialog(
+      title: 'Télécharger aria2c',
+      subtitle: url.split('/').last,
+      url: url,
+      installer: (u, onProgress) =>
+          Aria2BinaryManager.instance.downloadFromUrl(u, onProgress: onProgress),
+    ),
+  );
+}
+
+class _BinaryDownloadDialog extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final String url;
+  final Future<bool> Function(
+    String url,
+    void Function(int received, int total) onProgress,
+  ) installer;
+
+  const _BinaryDownloadDialog({
+    required this.title,
+    required this.subtitle,
+    required this.url,
+    required this.installer,
+  });
+
+  @override
+  State<_BinaryDownloadDialog> createState() => _BinaryDownloadDialogState();
+}
+
+class _BinaryDownloadDialogState extends State<_BinaryDownloadDialog> {
+  int _received = 0;
+  int _total = 0;
+  bool _running = false;
+  bool _done = false;
+  bool _success = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+  }
+
+  Future<void> _start() async {
+    setState(() => _running = true);
+    final ok = await widget.installer(widget.url, (r, t) {
+      if (mounted) setState(() { _received = r; _total = t; });
+    });
+    if (mounted) {
+      setState(() {
+        _running = false;
+        _done = true;
+        _success = ok;
+      });
+    }
+  }
+
+  String _mb(num b) => (b / (1024 * 1024)).toStringAsFixed(2);
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = _total > 0 ? _received / _total : null;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.subtitle,
+              style: const TextStyle(fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 16),
+          if (!_done) ...[
+            LinearProgressIndicator(value: pct),
+            const SizedBox(height: 8),
+            Text(
+              _total > 0
+                  ? '${_mb(_received)} / ${_mb(_total)} MB'
+                  : '${_mb(_received)} MB',
+              style: const TextStyle(fontSize: 11),
+            ),
+          ] else
+            Row(
+              children: [
+                Icon(
+                  _success ? Icons.check_circle : Icons.error_outline,
+                  color: _success ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Text(_success
+                    ? 'Téléchargement terminé'
+                    : 'Échec du téléchargement'),
+              ],
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _running
+              ? null
+              : () => Navigator.of(context).pop(),
+          child: Text(_done ? 'Fermer' : 'Annuler'),
+        ),
+      ],
+    );
   }
 }

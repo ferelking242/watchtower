@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:watchtower/modules/more/about/providers/get_package_info.dart';
-import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/widgets/downloaded_only_widget.dart';
 import 'package:watchtower/modules/more/widgets/file_explorer_widget.dart';
 import 'package:watchtower/modules/more/widgets/incognito_mode_widget.dart';
@@ -21,7 +20,6 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context);
-    final hiddenItems = ref.watch(hideItemsStateProvider);
     final cs = Theme.of(context).colorScheme;
     final pkgInfoAsync = ref.watch(getPackageInfoProvider);
     return Scaffold(
@@ -120,20 +118,26 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
             const IncognitoModeWidget(),
             const FileExplorerWidget(),
             const Divider(),
-            if (hiddenItems.contains("/history"))
-              ListTileWidget(
-                onTap: () {
-                  context.push('/history');
-                },
-                icon: Icons.history,
-                title: l10n!.history,
-              ),
+            ListTileWidget(
+              onTap: () {
+                context.push('/history');
+              },
+              icon: Icons.history,
+              title: l10n!.history,
+            ),
+            ListTileWidget(
+              onTap: () {
+                context.push('/updates');
+              },
+              icon: Icons.new_releases_outlined,
+              title: l10n.updates,
+            ),
             ListTileWidget(
               onTap: () {
                 context.push('/downloadQueue');
               },
               icon: Icons.download_outlined,
-              title: l10n!.download_queue,
+              title: l10n.download_queue,
             ),
             ListTileWidget(
               onTap: () {

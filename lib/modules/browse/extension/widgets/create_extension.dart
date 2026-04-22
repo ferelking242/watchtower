@@ -34,13 +34,69 @@ class _CreateExtensionState extends State<CreateExtension> {
   SourceCodeLanguage _sourceCodeLanguage = SourceCodeLanguage.dart;
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text("Create Extension")),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.extension_rounded, size: 18, color: cs.primary),
+            ),
+            const SizedBox(width: 10),
+            const Text("Create Extension"),
+          ],
+        ),
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Column(
             children: [
+              Container(
+                margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      cs.primary.withValues(alpha: 0.16),
+                      cs.tertiary.withValues(alpha: 0.10),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: cs.primary.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.tips_and_updates_rounded,
+                        color: cs.primary, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Build your own source. After creation, open the '
+                        'extension to edit its code and publish it to the '
+                        'community marketplace.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurface.withValues(alpha: 0.85),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _SectionHeader(label: 'LANGUAGE', icon: Icons.code_rounded),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 17),
                 child: Row(
@@ -197,10 +253,53 @@ class _CreateExtensionState extends State<CreateExtension> {
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
               Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Consumer(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              content: Text(
+                                'Save your extension first, then open it '
+                                'and tap "Publish" to share to the marketplace.',
+                              ),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(
+                              color: cs.primary.withValues(alpha: 0.5)),
+                        ),
+                        icon: Icon(Icons.public_rounded,
+                            color: cs.primary, size: 18),
+                        label: Text(
+                          'Publish',
+                          style: TextStyle(color: cs.primary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: Consumer(
                   builder: (context, ref, child) => ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     onPressed: () {
                       if (_name.isNotEmpty &&
                           _lang.isNotEmpty &&
@@ -256,10 +355,42 @@ class _CreateExtensionState extends State<CreateExtension> {
                     child: Text(context.l10n.save),
                   ),
                 ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _SectionHeader({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: cs.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: cs.primary,
+            ),
+          ),
+        ],
       ),
     );
   }

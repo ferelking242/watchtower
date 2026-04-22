@@ -18,6 +18,29 @@ class MangaDiscoveryScreen extends ConsumerWidget {
     context.push('/anilistDetail', extra: media);
   }
 
+  List<AnilistMedia> _byGenre(List<AnilistMedia> all, String genre) {
+    final seen = <int>{};
+    final out = <AnilistMedia>[];
+    for (final m in all) {
+      if (seen.contains(m.id)) continue;
+      if (m.genres.any((g) => g.toLowerCase() == genre.toLowerCase())) {
+        seen.add(m.id);
+        out.add(m);
+      }
+    }
+    return out;
+  }
+
+  List<AnilistMedia> _byScore(List<AnilistMedia> all) {
+    final seen = <int>{};
+    final out = <AnilistMedia>[];
+    for (final m in all) {
+      if (seen.add(m.id)) out.add(m);
+    }
+    out.sort((a, b) => (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+    return out.take(15).toList();
+  }
+
   void _seeAll(BuildContext context, String label,
       {String? country, String? genre}) {
     context.push(
@@ -106,6 +129,36 @@ class MangaDiscoveryScreen extends ConsumerWidget {
                             onItemTap: (m) => _openDetail(context, m),
                             onSeeAll: () =>
                                 _seeAll(context, 'Manga', country: 'JP'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Top Rated',
+                            items: _byScore(home.popularMangas + home.trendingMangas),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAll(context, 'Top Rated Manga'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Action',
+                            items: _byGenre(home.popularMangas + home.trendingMangas + home.trendingManhwa, 'Action'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAll(context, 'Action', genre: 'Action'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Romance',
+                            items: _byGenre(home.popularMangas + home.trendingMangas + home.trendingManhwa, 'Romance'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAll(context, 'Romance', genre: 'Romance'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Fantasy',
+                            items: _byGenre(home.popularMangas + home.trendingMangas + home.trendingManhwa, 'Fantasy'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAll(context, 'Fantasy', genre: 'Fantasy'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Slice of Life',
+                            items: _byGenre(home.popularMangas + home.trendingMangas, 'Slice of Life'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAll(context, 'Slice of Life', genre: 'Slice of Life'),
                           ),
                         ]),
                       ),

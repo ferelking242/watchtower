@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -160,6 +162,62 @@ class ZeusDlBinaryManager {
       return '${dir?.path ?? 'Android/data/com.Watchtower.app/files'}/$_binaryName';
     } catch (_) {
       return 'Android/data/com.Watchtower.app/files/$_binaryName';
+    }
+  }
+
+  /// Download a binary from a remote URL and install it as the active
+  /// internal binary (replacing any cached/extracted copy). [onProgress]
+  /// receives (received, total) pairs while bytes stream in.
+  Future<bool> downloadFromUrl(
+    String url, {
+    void Function(int received, int total)? onProgress,
+  }) async {
+    try {
+      final internalPath = await _internalBinaryPath();
+      final tmpFile = File('$internalPath.part');
+      await tmpFile.parent.create(recursive: true);
+      if (await tmpFile.exists()) await tmpFile.delete();
+
+      final req = http.Request('GET', Uri.parse(url));
+      final res = await http.Client().send(req);
+      if (res.statusCode != 200) {
+        AppLogger.log(
+          'ZeusDL download failed (${res.statusCode}) — $url',
+          logLevel: LogLevel.error,
+          tag: LogTag.zeus,
+        );
+        return false;
+      }
+      final total = res.contentLength ?? 0;
+      var received = 0;
+      final sink = tmpFile.openWrite();
+      await for (final chunk in res.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        onProgress?.call(received, total);
+      }
+      await sink.flush();
+      await sink.close();
+
+      final finalFile = File(internalPath);
+      if (await finalFile.exists()) await finalFile.delete();
+      await tmpFile.rename(internalPath);
+      await _ensureExecutable(finalFile);
+      _cachedPath = internalPath;
+      AppLogger.log(
+        'ZeusDL downloaded ($received bytes) → $internalPath',
+        tag: LogTag.zeus,
+      );
+      return true;
+    } catch (e, st) {
+      AppLogger.log(
+        'ZeusDL downloadFromUrl error',
+        logLevel: LogLevel.error,
+        tag: LogTag.zeus,
+        error: e,
+        stackTrace: st,
+      );
+      return false;
     }
   }
 

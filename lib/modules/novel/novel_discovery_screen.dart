@@ -18,14 +18,38 @@ class NovelDiscoveryScreen extends ConsumerWidget {
     context.push('/anilistDetail', extra: media);
   }
 
-  void _seeAllNovels(BuildContext context) {
+  void _seeAllNovels(BuildContext context, {String? genre}) {
     context.push(
       '/anilistBrowse',
       extra: (
-        const AnilistBrowseFilter(mediaType: 'MANGA', format: 'NOVEL'),
-        'Light Novels',
+        AnilistBrowseFilter(
+            mediaType: 'MANGA', format: 'NOVEL', genre: genre),
+        genre == null ? 'Light Novels' : '$genre Novels',
       ),
     );
+  }
+
+  List<AnilistMedia> _byGenre(List<AnilistMedia> all, String genre) {
+    final seen = <int>{};
+    final out = <AnilistMedia>[];
+    for (final m in all) {
+      if (seen.contains(m.id)) continue;
+      if (m.genres.any((g) => g.toLowerCase() == genre.toLowerCase())) {
+        seen.add(m.id);
+        out.add(m);
+      }
+    }
+    return out;
+  }
+
+  List<AnilistMedia> _byScore(List<AnilistMedia> all) {
+    final seen = <int>{};
+    final out = <AnilistMedia>[];
+    for (final m in all) {
+      if (seen.add(m.id)) out.add(m);
+    }
+    out.sort((a, b) => (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+    return out.take(15).toList();
   }
 
   @override
@@ -80,6 +104,30 @@ class NovelDiscoveryScreen extends ConsumerWidget {
                             items: home.latestNovels,
                             onItemTap: (m) => _openDetail(context, m),
                             onSeeAll: () => _seeAllNovels(context),
+                          ),
+                          DiscoveryRow(
+                            title: 'Top Rated',
+                            items: _byScore(home.popularNovels + home.trendingNovels),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAllNovels(context),
+                          ),
+                          DiscoveryRow(
+                            title: 'Fantasy',
+                            items: _byGenre(home.popularNovels + home.trendingNovels, 'Fantasy'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAllNovels(context, genre: 'Fantasy'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Romance',
+                            items: _byGenre(home.popularNovels + home.trendingNovels, 'Romance'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAllNovels(context, genre: 'Romance'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Action',
+                            items: _byGenre(home.popularNovels + home.trendingNovels, 'Action'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => _seeAllNovels(context, genre: 'Action'),
                           ),
                           const _NovelSourcesHint(),
                         ]),

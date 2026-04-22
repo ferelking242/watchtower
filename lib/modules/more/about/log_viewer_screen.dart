@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
@@ -27,6 +28,15 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   bool _autoScroll = true;
   final ScrollController _scroll = ScrollController();
   final TextEditingController _search = TextEditingController();
+
+  // Active filter sets — empty set means "all levels / all tags".
+  final Set<_LineType> _levelFilter = {};
+  final Set<String> _tagFilter = {};
+  bool _filterBarOpen = true;
+  // Collapsed session header indexes (use original line index)
+  final Set<int> _collapsedSessions = {};
+
+  static final _tagRegex = RegExp(r'\]\[[^\]]+\] \[([A-Z_]+)\]');
 
   @override
   void initState() {
@@ -67,39 +77,115 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   List<_LogLine> _parse(String content) {
     final result = <_LogLine>[];
+    int sessionId = -1;
     for (final raw in content.split('\n')) {
       if (raw.isEmpty) continue;
+      _LineType type;
       if (raw.startsWith('══') || raw.startsWith('  WATCHTOWER')) {
-        result.add(_LogLine(raw: raw, type: _LineType.session));
+        type = _LineType.session;
+        if (raw.startsWith('══')) sessionId = result.length;
       } else if (raw.contains('][ERROR]')) {
-        result.add(_LogLine(raw: raw, type: _LineType.error));
+        type = _LineType.error;
       } else if (raw.contains('][WARN ')) {
-        result.add(_LogLine(raw: raw, type: _LineType.warning));
+        type = _LineType.warning;
       } else if (raw.contains('][DEBUG]')) {
-        result.add(_LogLine(raw: raw, type: _LineType.debug));
+        type = _LineType.debug;
       } else if (raw.contains('][INFO ')) {
-        result.add(_LogLine(raw: raw, type: _LineType.info));
+        type = _LineType.info;
       } else if (raw.startsWith('  ')) {
-        result.add(_LogLine(raw: raw, type: _LineType.continuation));
+        type = _LineType.continuation;
       } else {
-        result.add(_LogLine(raw: raw, type: _LineType.info));
+        type = _LineType.info;
       }
+      String? tag;
+      final m = _tagRegex.firstMatch(raw);
+      if (m != null) tag = m.group(1);
+      result.add(_LogLine(
+        raw: raw,
+        type: type,
+        tag: tag,
+        sessionId: sessionId,
+      ));
     }
     return result;
+  }
+
+  Set<String> get _availableTags {
+    final tags = <String>{};
+    for (final l in _lines) {
+      if (l.tag != null) tags.add(l.tag!);
+    }
+    return tags;
   }
 
   void _applyFilter() {
     final q = _search.text.toLowerCase();
     setState(() {
-      if (q.isEmpty) {
-        _filtered = List.from(_lines);
-      } else {
-        _filtered = _lines
-            .where((l) => l.raw.toLowerCase().contains(q))
-            .toList();
-      }
+      _filtered = _lines.where((l) {
+        if (_collapsedSessions.isNotEmpty &&
+            l.type != _LineType.session &&
+            _collapsedSessions.contains(l.sessionId)) {
+          return false;
+        }
+        if (_levelFilter.isNotEmpty &&
+            l.type != _LineType.session &&
+            l.type != _LineType.continuation &&
+            !_levelFilter.contains(l.type)) {
+          return false;
+        }
+        if (_tagFilter.isNotEmpty &&
+            l.type != _LineType.session &&
+            l.type != _LineType.continuation) {
+          if (l.tag == null || !_tagFilter.contains(l.tag)) return false;
+        }
+        if (q.isNotEmpty && !l.raw.toLowerCase().contains(q)) return false;
+        return true;
+      }).toList();
     });
     if (_autoScroll) _scrollToBottom();
+  }
+
+  void _toggleLevel(_LineType t) {
+    setState(() {
+      if (_levelFilter.contains(t)) {
+        _levelFilter.remove(t);
+      } else {
+        _levelFilter.add(t);
+      }
+    });
+    _applyFilter();
+  }
+
+  void _toggleTag(String t) {
+    setState(() {
+      if (_tagFilter.contains(t)) {
+        _tagFilter.remove(t);
+      } else {
+        _tagFilter.add(t);
+      }
+    });
+    _applyFilter();
+  }
+
+  void _toggleSessionCollapse(int sessionId) {
+    setState(() {
+      if (_collapsedSessions.contains(sessionId)) {
+        _collapsedSessions.remove(sessionId);
+      } else {
+        _collapsedSessions.add(sessionId);
+      }
+    });
+    _applyFilter();
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _levelFilter.clear();
+      _tagFilter.clear();
+      _collapsedSessions.clear();
+      _search.clear();
+    });
+    _applyFilter();
   }
 
   void _scrollToBottom() {
@@ -123,24 +209,56 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         botToast('Aucun fichier log trouvé');
         return;
       }
-      final downloadsDir = Directory('/storage/emulated/0/Download');
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
       final ts = DateTime.now()
           .toIso8601String()
           .replaceAll(':', '-')
           .split('.')
           .first;
-      final outPath = '${downloadsDir.path}/watchtower_logs_$ts.$ext';
+      final fileName = 'watchtower_logs_$ts.$ext';
       String content = await src.readAsString();
       if (ext == 'md') {
         content = '# Watchtower logs — $ts\n\n```\n$content\n```\n';
       }
-      await File(outPath).writeAsString(content);
-      botToast('Enregistré dans Download/${outPath.split('/').last}');
+
+      Directory? target;
+      if (Platform.isAndroid) {
+        final candidate = Directory('/storage/emulated/0/Download');
+        try {
+          if (!await candidate.exists()) {
+            await candidate.create(recursive: true);
+          }
+          final probe = File('${candidate.path}/.wt_probe');
+          await probe.writeAsString('ok');
+          await probe.delete();
+          target = candidate;
+        } catch (_) {
+          target = await getExternalStorageDirectory();
+        }
+      } else {
+        target = await getApplicationDocumentsDirectory();
+      }
+      target ??= await getApplicationDocumentsDirectory();
+
+      final outFile = File(path.join(target.path, fileName));
+      await outFile.writeAsString(content);
+
+      botToast('Enregistré : ${outFile.path}');
+
+      if (!Platform.isAndroid ||
+          !outFile.path.startsWith('/storage/emulated/0/Download')) {
+        if (!mounted) return;
+        final box = context.findRenderObject() as RenderBox?;
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(outFile.path)],
+            text: fileName,
+            sharePositionOrigin:
+                box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+          ),
+        );
+      }
     } catch (e) {
-      botToast('Erreur: $e');
+      botToast('Erreur téléchargement : $e');
     }
   }
 
@@ -272,53 +390,38 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           const SizedBox(width: 4),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: TextField(
-              controller: _search,
-              style: GoogleFonts.jetBrainsMono(fontSize: 12),
-              decoration: InputDecoration(
-                hintText: 'Filtrer les logs…',
-                hintStyle: TextStyle(
-                  fontSize: 12,
-                  color: cs.onSurface.withOpacity(0.4),
-                ),
-                prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                suffixIcon: _search.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 16),
-                        onPressed: () {
-                          _search.clear();
-                          _applyFilter();
-                        },
-                      )
-                    : null,
-                isDense: true,
-                filled: true,
-                fillColor: bgColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: cs.outline.withOpacity(0.2),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: cs.outline.withOpacity(0.2),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: cs.primary, width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+          preferredSize:
+              Size.fromHeight(_filterBarOpen ? 132.0 : 56.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_filterBarOpen) _buildFilterBar(cs, bgColor),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: _filterBarOpen
+                          ? 'Cacher filtres'
+                          : 'Afficher filtres',
+                      icon: Icon(
+                        _filterBarOpen
+                            ? Icons.filter_alt_rounded
+                            : Icons.filter_alt_outlined,
+                        size: 20,
+                        color: (_levelFilter.isNotEmpty ||
+                                _tagFilter.isNotEmpty)
+                            ? cs.primary
+                            : null,
+                      ),
+                      onPressed: () => setState(
+                          () => _filterBarOpen = !_filterBarOpen),
+                    ),
+                    Expanded(child: _buildSearchField(cs, bgColor)),
+                  ],
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -338,12 +441,22 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       Text(
                         _lines.isEmpty
                             ? 'Aucun log enregistré'
-                            : 'Aucun résultat pour "${_search.text}"',
+                            : 'Aucun résultat',
                         style: TextStyle(
                           color: cs.onSurface.withOpacity(0.4),
                           fontSize: 14,
                         ),
                       ),
+                      if (_levelFilter.isNotEmpty ||
+                          _tagFilter.isNotEmpty ||
+                          _search.text.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _clearFilters,
+                          icon: const Icon(Icons.clear_all_rounded, size: 16),
+                          label: const Text('Effacer les filtres'),
+                        ),
+                      ],
                     ],
                   ),
                 )
@@ -352,6 +465,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   scrollController: _scroll,
                   isDark: isDark,
                   searchQuery: _search.text,
+                  collapsedSessions: _collapsedSessions,
+                  onToggleSession: _toggleSessionCollapse,
                 ),
       floatingActionButton: _loading
           ? null
@@ -412,6 +527,154 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       ),
     );
   }
+
+  Widget _buildFilterBar(ColorScheme cs, Color bgColor) {
+    final tags = _availableTags.toList()..sort();
+    return Container(
+      height: 76,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 32,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              children: [
+                _LevelChip(
+                    type: _LineType.error,
+                    label: 'Errors',
+                    color: Colors.red,
+                    selected: _levelFilter.contains(_LineType.error),
+                    onTap: () => _toggleLevel(_LineType.error)),
+                _LevelChip(
+                    type: _LineType.warning,
+                    label: 'Warn',
+                    color: Colors.orange,
+                    selected: _levelFilter.contains(_LineType.warning),
+                    onTap: () => _toggleLevel(_LineType.warning)),
+                _LevelChip(
+                    type: _LineType.info,
+                    label: 'Info',
+                    color: Colors.green,
+                    selected: _levelFilter.contains(_LineType.info),
+                    onTap: () => _toggleLevel(_LineType.info)),
+                _LevelChip(
+                    type: _LineType.debug,
+                    label: 'Debug',
+                    color: Colors.grey,
+                    selected: _levelFilter.contains(_LineType.debug),
+                    onTap: () => _toggleLevel(_LineType.debug)),
+                if (_levelFilter.isNotEmpty ||
+                    _tagFilter.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: ActionChip(
+                      visualDensity: VisualDensity.compact,
+                      labelPadding:
+                          const EdgeInsets.symmetric(horizontal: 4),
+                      label: const Text('Reset',
+                          style: TextStyle(fontSize: 10)),
+                      avatar: const Icon(Icons.clear_rounded, size: 12),
+                      onPressed: _clearFilters,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 30,
+            child: tags.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text(
+                      'Aucun tag détecté dans les logs',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: cs.onSurface.withOpacity(0.4)),
+                    ),
+                  )
+                : ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    itemCount: tags.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 4),
+                    itemBuilder: (_, i) {
+                      final t = tags[i];
+                      final selected = _tagFilter.contains(t);
+                      return FilterChip(
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        labelPadding: const EdgeInsets.symmetric(
+                            horizontal: 4),
+                        label: Text(t,
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'monospace')),
+                        selected: selected,
+                        onSelected: (_) => _toggleTag(t),
+                        selectedColor: cs.primary.withValues(alpha: 0.25),
+                        showCheckmark: false,
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchField(ColorScheme cs, Color bgColor) {
+    return TextField(
+              controller: _search,
+              style: GoogleFonts.jetBrainsMono(fontSize: 12),
+              decoration: InputDecoration(
+                hintText: 'Filtrer les logs…',
+                hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurface.withOpacity(0.4),
+                ),
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                suffixIcon: _search.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 16),
+                        onPressed: () {
+                          _search.clear();
+                          _applyFilter();
+                        },
+                      )
+                    : null,
+                isDense: true,
+                filled: true,
+                fillColor: bgColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: cs.outline.withOpacity(0.2),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: cs.outline.withOpacity(0.2),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: cs.primary, width: 1.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+            );
+  }
+
 }
 
 // ─── Log list ──────────────────────────────────────────────────────────────────
@@ -421,12 +684,16 @@ class _LogList extends StatelessWidget {
   final ScrollController scrollController;
   final bool isDark;
   final String searchQuery;
+  final Set<int> collapsedSessions;
+  final void Function(int sessionId) onToggleSession;
 
   const _LogList({
     required this.lines,
     required this.scrollController,
     required this.isDark,
     required this.searchQuery,
+    required this.collapsedSessions,
+    required this.onToggleSession,
   });
 
   @override
@@ -438,12 +705,90 @@ class _LogList extends StatelessWidget {
         itemCount: lines.length,
         itemBuilder: (context, i) {
           final line = lines[i];
+          if (line.type == _LineType.session && line.raw.startsWith('══')) {
+            final collapsed = collapsedSessions.contains(line.sessionId);
+            return InkWell(
+              onTap: () => onToggleSession(line.sessionId),
+              child: Row(
+                children: [
+                  Icon(
+                    collapsed
+                        ? Icons.chevron_right_rounded
+                        : Icons.expand_more_rounded,
+                    size: 18,
+                    color: Colors.blue.shade400,
+                  ),
+                  Expanded(
+                    child: _LogLineWidget(
+                      line: line,
+                      isDark: isDark,
+                      searchQuery: searchQuery,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
           return _LogLineWidget(
             line: line,
             isDark: isDark,
             searchQuery: searchQuery,
           );
         },
+      ),
+    );
+  }
+}
+
+class _LevelChip extends StatelessWidget {
+  final _LineType type;
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _LevelChip({
+    required this.type,
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: FilterChip(
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        avatar: Icon(
+          type == _LineType.error
+              ? Icons.error_outline_rounded
+              : type == _LineType.warning
+                  ? Icons.warning_amber_rounded
+                  : type == _LineType.info
+                      ? Icons.info_outline_rounded
+                      : Icons.bug_report_outlined,
+          size: 13,
+          color: color,
+        ),
+        label: Text(label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: selected ? color : null,
+            )),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        selectedColor: color.withValues(alpha: 0.18),
+        side: BorderSide(
+          color: selected
+              ? color.withValues(alpha: 0.7)
+              : Colors.transparent,
+        ),
+        showCheckmark: false,
       ),
     );
   }
@@ -691,5 +1036,12 @@ enum _LineType { session, error, warning, info, debug, continuation }
 class _LogLine {
   final String raw;
   final _LineType type;
-  const _LogLine({required this.raw, required this.type});
+  final String? tag;
+  final int sessionId;
+  const _LogLine({
+    required this.raw,
+    required this.type,
+    this.tag,
+    this.sessionId = -1,
+  });
 }

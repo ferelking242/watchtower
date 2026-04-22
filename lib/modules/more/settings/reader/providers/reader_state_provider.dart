@@ -186,16 +186,15 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
   final items = [
-    '/home',
     '/AnimeLibrary',
     '/MangaLibrary',
+    '/NovelLibrary',
     '/Library',
     '/browse',
-    '/more',
     '/history',
-    '/NovelLibrary',
     '/updates',
     '/trackerLibrary',
+    '/more',
   ];
 
   @override
@@ -232,9 +231,8 @@ class HideItemsState extends _$HideItemsState {
     return isar.settings.getSync(227)!.hideItems ??
         const [
           '/trackerLibrary',
-          '/NovelLibrary',
           '/updates',
-          '/history',
+          '/home',
         ];
   }
 

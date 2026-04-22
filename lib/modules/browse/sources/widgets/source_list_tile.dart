@@ -10,6 +10,7 @@ import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:watchtower/utils/language.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 class SourceListTile extends StatelessWidget {
   final ItemType itemType;
@@ -49,6 +50,11 @@ class SourceListTile extends StatelessWidget {
               }
             });
           }
+          AppLogger.log(
+            'Open source: "${source.name}" [${source.lang}] '
+            '· type=${source.itemType.name} · id=${source.id}',
+            tag: LogTag.extension_,
+          );
           context.push('/mangaHome', extra: (source, false));
         },
         leading: Container(

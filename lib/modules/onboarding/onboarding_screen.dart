@@ -42,8 +42,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Per-permission state.
   bool _storageGranted = false;
   bool _notificationsGranted = false;
+  bool _installGranted = false;
   bool _requestingStorage = false;
   bool _requestingNotifications = false;
+  bool _requestingInstall = false;
 
   static const _pages = [
     _OnboardingPage(
@@ -97,9 +99,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
     final notif = await Permission.notification.status;
+    final install = await Permission.requestInstallPackages.status;
     if (mounted) {
       setState(() {
         _notificationsGranted = notif.isGranted;
+        _installGranted = install.isGranted;
+      });
+    }
+  }
+
+  Future<void> _requestInstall() async {
+    if (_requestingInstall) return;
+    setState(() => _requestingInstall = true);
+    final status = await Permission.requestInstallPackages.request();
+    if (mounted) {
+      setState(() {
+        _installGranted = status.isGranted;
+        _requestingInstall = false;
       });
     }
   }
@@ -233,6 +249,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               accent: const Color(0xFFFFB703),
               onRequest: _requestNotifications,
             ),
+            const SizedBox(height: 12),
+            _PermissionTile(
+              icon: Icons.system_update_alt_rounded,
+              title: 'Installation de paquets',
+              description:
+                  'Installer les mises à jour APK directement depuis l\'application.',
+              granted: _installGranted,
+              busy: _requestingInstall,
+              accent: const Color(0xFF8338EC),
+              onRequest: _requestInstall,
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -252,7 +279,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
             ),
-            if (!_storageGranted || !_notificationsGranted)
+            if (!_storageGranted || !_notificationsGranted || !_installGranted)
               TextButton(
                 onPressed: _finish,
                 child: Text(

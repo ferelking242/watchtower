@@ -1,0 +1,34 @@
+Catégorie,Composant,Utilité,Poids estimé (Mo),% APK,Optimisation possible
+Moteur natif,libflutter.so (moteur Flutter + Skia),Rendu UI Flutter / moteur graphique Skia,11,13.8%,Inévitable (fourni par Flutter)
+Moteur natif,libmpv.so + media_kit_libs (libass, ffmpeg),Lecture vidéo (anime / streaming) via mpv,18,22.5%,Énorme. Construire mpv minimal (sans formats inutiles) ou splits ABI
+Code Dart,libapp.so (code Dart AOT compilé),Toute la logique de l'app (modules, providers, UI),12,15.0%,Tree-shaking + retirer modules non utilisés
+Native FFI,librust_lib_watchtower.so (Rust + flutter_rust_bridge),Pont Rust pour parsers / extensions natives,4,5.0%,Compiler en release + strip + LTO
+WebView,flutter_inappwebview (fork) + Chromium glue,WebView pour sources / login / Cloudflare,4,5.0%,Limité (dépend du Chromium système)
+Base de données,libisar.so (Isar Community),Stockage local de la bibliothèque manga/anime,3,3.8%,Inévitable
+JS Engine,flutter_qjs (QuickJS) + js_packer,Exécution des extensions JavaScript Aniyomi/Tachiyomi,2,2.5%,Inévitable (cœur des extensions)
+Assets,assets/fonts/ (polices embarquées),Polices custom de l'app,6,7.5%,Passer à google_fonts en téléchargement runtime
+Assets,assets/mangayomi_mpv.zip,Config / scripts mpv embarqués,1.2,1.5%,Garder
+Assets,assets/app_icons/,Icônes de l'app (plusieurs variantes de couleurs),1.4,1.8%,Garder seulement les icônes utilisées
+Assets,assets/trackers_icons/,Logos AniList, MAL, Kitsu, Shikimori...,0.05,0.1%,OK
+Bibliothèques Dart,extended_image + photo_view,Affichage / zoom des pages de manga,1.5,1.9%,Inévitable
+Bibliothèques Dart,flutter_html + html + xpath_selector,Parsing HTML des sources web,1,1.3%,OK
+Bibliothèques Dart,go_router + flutter_riverpod + freezed,Navigation et state management,1,1.3%,Inévitable
+Bibliothèques Dart,flex_color_scheme + font_awesome_flutter,Thèmes + 7000 icônes FontAwesome,2.5,3.1%,Tree-shake les icônes (économise ~2 Mo)
+Bibliothèques Dart,bot_toast + munchtoast + draggable_menu + numberpicker,Composants UI divers,0.6,0.8%,OK
+Bibliothèques Dart,d4rt (interpréteur Dart),Exécution de code Dart pour extensions,1.5,1.9%,Garder si extensions Dart utilisées
+Bibliothèques Dart,protobuf + proto/,Sérialisation gRPC / extensions,0.8,1.0%,OK
+Bibliothèques Dart,re_editor + re_highlight + json_view,Éditeur de code (debug extensions),1,1.3%,Retirer en build release utilisateur
+Bibliothèques Dart,table_calendar + grouped_list + scrollable_positioned_list + super_sliver_list,Listes / calendrier de sortie,0.8,1.0%,OK
+Bibliothèques Dart,flutter_tts,Lecture text-to-speech,0.5,0.6%,Retirer si non utilisé
+Bibliothèques Dart,flutter_discord_rpc_fork,Rich Presence Discord (desktop surtout),0.4,0.5%,Exclure du build Android
+Bibliothèques Dart,local_auth + permission_handler + wakelock_plus + screen_brightness + connectivity_plus + app_links + device_info_plus,Plugins système Android,2,2.5%,Inévitable
+Bibliothèques Dart,share_plus + url_launcher + file_picker + path_provider + package_info_plus,Intégration OS (partage, fichiers...),1,1.3%,Inévitable
+Bibliothèques Dart,archive + crypto + encrypt + convert,Compression et chiffrement,0.7,0.9%,OK
+Bibliothèques Dart,http + http_interceptor + flutter_web_auth_2,Réseau HTTP et OAuth,0.5,0.6%,OK
+Bibliothèques Dart,hive + hive_flutter,Stockage clé/valeur secondaire,0.4,0.5%,Doublon avec Isar — supprimable si non utilisé
+Bibliothèques Dart,marquee + pseudom + js_packer (utilitaires),Petits utilitaires UI/JS,0.3,0.4%,OK
+Android natif,Kotlin stdlib + AndroidX (core, appcompat, lifecycle...),Runtime Android obligatoire,3,3.8%,Activer R8 / minification
+Android natif,resources.arsc + drawables + mipmaps,Ressources Android (icônes adaptatives, splash),1.5,1.9%,Vector drawables au lieu de PNG multi-densités
+Android natif,ICU / i18n data (l10n.yaml = ~50 langues),Traductions et données Unicode,1.5,1.9%,Limiter aux langues utilisées
+Android natif,META-INF + signatures + DEX overhead,Signature APK + bytecode résiduel,0.8,1.0%,Inévitable
+Total,,,~83,100%,

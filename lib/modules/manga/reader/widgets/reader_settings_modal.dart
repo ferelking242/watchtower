@@ -144,7 +144,7 @@ class _ReadingModeTab extends ConsumerWidget {
         child: Column(
           children: [
             // Reader Mode
-            CustomPopupMenuButton<ReaderMode>(
+            CustomArrowPopupMenuButton<ReaderMode>(
               label: l10n.reading_mode,
               title: getReaderModeName(readerMode!, context),
               onSelected: (value) {
@@ -327,7 +327,7 @@ class _GeneralTab extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Background Color
-            CustomPopupMenuButton<BackgroundColor>(
+            CustomArrowPopupMenuButton<BackgroundColor>(
               label: l10n.background_color,
               title: getBackgroundColorName(backgroundColor, context),
               onSelected: (value) {
@@ -339,7 +339,7 @@ class _GeneralTab extends ConsumerWidget {
             ),
 
             // Scale Type
-            CustomPopupMenuButton<ScaleType>(
+            CustomArrowPopupMenuButton<ScaleType>(
               label: l10n.scale_type,
               title: getScaleTypeNames(context)[scaleType.index],
               onSelected: (value) {
@@ -617,7 +617,7 @@ class _CustomFilterTab extends ConsumerWidget {
               }, context),
 
               // Blend Mode
-              CustomPopupMenuButton<ColorFilterBlendMode>(
+              CustomArrowPopupMenuButton<ColorFilterBlendMode>(
                 label: l10n.color_filter_blend_mode,
                 title: getColorFilterBlendModeName(
                   colorFilterBlendMode,

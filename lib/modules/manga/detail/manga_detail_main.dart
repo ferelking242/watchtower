@@ -8,6 +8,7 @@ import 'package:watchtower/modules/manga/detail/providers/update_manga_detail_pr
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 class MangaReaderDetail extends ConsumerStatefulWidget {
   final int mangaId;
@@ -27,9 +28,27 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
   Future<void> _init() async {
     // Wait for the widget tree to settle before loading detail
     await WidgetsBinding.instance.endOfFrame;
-    await ref.read(
-      updateMangaDetailProvider(mangaId: widget.mangaId, isInit: true).future,
+    AppLogger.log(
+      'Open detail page · mangaId=${widget.mangaId}',
+      tag: LogTag.manga,
     );
+    try {
+      await ref.read(
+        updateMangaDetailProvider(mangaId: widget.mangaId, isInit: true).future,
+      );
+      AppLogger.log(
+        'Detail loaded · mangaId=${widget.mangaId}',
+        tag: LogTag.manga,
+      );
+    } catch (e, st) {
+      AppLogger.log(
+        'Detail load FAILED · mangaId=${widget.mangaId}',
+        logLevel: LogLevel.error,
+        tag: LogTag.manga,
+        error: e,
+        stackTrace: st,
+      );
+    }
     if (mounted) {
       setState(() {
         _isLoading = false;

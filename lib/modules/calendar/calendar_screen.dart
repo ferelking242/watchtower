@@ -54,18 +54,56 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final l10n = context.l10n;
     final data = ref.watch(getCalendarStreamProvider(itemType: itemType));
 
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.calendar),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                cs.primary.withValues(alpha: 0.10),
+                Colors.transparent,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.event_rounded,
+                  size: 18, color: cs.primary),
+            ),
+            const SizedBox(width: 10),
+            Text(l10n.calendar),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
-            tooltip: l10n.calendar_info,
+            tooltip: 'About predictions',
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  content: Text(l10n.calendar_info),
+                  title: const Text('Smart predictions'),
+                  content: const Text(
+                    'Upcoming chapters/episodes are estimated using a '
+                    'smart interval based on the gap between recent '
+                    'releases, the source\'s typical cadence and your '
+                    'last update. Accuracy improves as more chapters '
+                    'are tracked. Long-running titles with regular '
+                    'weekly releases are usually within ±1 day; '
+                    'irregular series may drift by a few days.',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(),

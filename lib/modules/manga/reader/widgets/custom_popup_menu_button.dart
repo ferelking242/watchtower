@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
-class CustomPopupMenuButton<T> extends StatelessWidget {
+class CustomArrowPopupMenuButton<T> extends StatelessWidget {
   final String label;
   final String title;
   final ValueChanged<T> onSelected;
   final T value;
   final List<T> list;
   final String Function(T) itemText;
-  const CustomPopupMenuButton({
+  const CustomArrowPopupMenuButton({
     super.key,
     required this.label,
     required this.title,

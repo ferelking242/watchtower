@@ -16,6 +16,29 @@ class AnimeDiscoveryScreen extends ConsumerWidget {
     context.push('/anilistDetail', extra: media);
   }
 
+  List<AnilistMedia> _byGenre(List<AnilistMedia> all, String genre) {
+    final seen = <int>{};
+    final out = <AnilistMedia>[];
+    for (final m in all) {
+      if (seen.contains(m.id)) continue;
+      if (m.genres.any((g) => g.toLowerCase() == genre.toLowerCase())) {
+        seen.add(m.id);
+        out.add(m);
+      }
+    }
+    return out;
+  }
+
+  List<AnilistMedia> _byScore(List<AnilistMedia> all) {
+    final seen = <int>{};
+    final out = <AnilistMedia>[];
+    for (final m in all) {
+      if (seen.add(m.id)) out.add(m);
+    }
+    out.sort((a, b) => (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+    return out.take(15).toList();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncHome = ref.watch(anilistHomeProvider);
@@ -90,6 +113,66 @@ class AnimeDiscoveryScreen extends ConsumerWidget {
                             onItemTap: (m) => _openDetail(context, m),
                             onSeeAll: () => context.push('/globalSearch',
                                 extra: (null, ItemType.anime)),
+                          ),
+                          DiscoveryRow(
+                            title: 'Top Rated',
+                            items: _byScore(home.popularAnimes + home.trendingAnimes),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => context.push(
+                              '/anilistBrowse',
+                              extra: (
+                                const AnilistBrowseFilter(mediaType: 'ANIME'),
+                                'Top Rated Anime'
+                              ),
+                            ),
+                          ),
+                          DiscoveryRow(
+                            title: 'Action',
+                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Action'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => context.push(
+                              '/anilistBrowse',
+                              extra: (
+                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Action'),
+                                'Action Anime'
+                              ),
+                            ),
+                          ),
+                          DiscoveryRow(
+                            title: 'Romance',
+                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Romance'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => context.push(
+                              '/anilistBrowse',
+                              extra: (
+                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Romance'),
+                                'Romance Anime'
+                              ),
+                            ),
+                          ),
+                          DiscoveryRow(
+                            title: 'Comedy',
+                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Comedy'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => context.push(
+                              '/anilistBrowse',
+                              extra: (
+                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Comedy'),
+                                'Comedy Anime'
+                              ),
+                            ),
+                          ),
+                          DiscoveryRow(
+                            title: 'Fantasy',
+                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Fantasy'),
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () => context.push(
+                              '/anilistBrowse',
+                              extra: (
+                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Fantasy'),
+                                'Fantasy Anime'
+                              ),
+                            ),
                           ),
                         ]),
                       ),
