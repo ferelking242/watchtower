@@ -3,7 +3,8 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:ui';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/lib.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
@@ -41,6 +42,112 @@ import 'package:watchtower/utils/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'download_provider.g.dart';
+
+/// User-chosen quality, keyed by chapter.id. Set by the quality-picker
+/// dialog (showAnimeQualityPickerAndQueue). When `downloadChapter` runs
+/// for an anime episode, it consults this map to honour the user's pick
+/// instead of blindly downloading `videosUrls.first`.
+final Map<int, String> chapterPreferredOriginalUrl = {};
+
+/// Show a dialog letting the user pick which quality to download for an
+/// anime episode, then enqueue and start the download with that pick.
+///
+/// Returns `true` if a download was queued, `false` if the user
+/// cancelled or nothing playable was found.
+Future<bool> showAnimeQualityPickerAndQueue({
+  required BuildContext context,
+  required WidgetRef ref,
+  required Chapter chapter,
+}) async {
+  // Loading sheet while we fetch the playable URLs.
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
+
+  List<Video> videos = [];
+  String? errorMsg;
+  try {
+    final result = await ref.read(getVideoListProvider(episode: chapter).future);
+    videos = result.$1;
+  } catch (e) {
+    errorMsg = e.toString();
+  }
+
+  if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+
+  if (errorMsg != null) {
+    if (context.mounted) {
+      botToast('Failed to fetch qualities: $errorMsg');
+    }
+    return false;
+  }
+  if (videos.isEmpty) {
+    if (context.mounted) {
+      botToast('No playable URL found for this episode.');
+    }
+    return false;
+  }
+
+  // De-duplicate by originalUrl so we don't show the same quality twice
+  // (e.g. xnxx Low/High both pointing at mp4_sd.mp4).
+  final seen = <String>{};
+  final uniqueVideos = <Video>[];
+  for (final v in videos) {
+    if (seen.add(v.originalUrl)) uniqueVideos.add(v);
+  }
+
+  if (!context.mounted) return false;
+  Video? selected;
+  await showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Choose download quality'),
+      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: uniqueVideos.length,
+          itemBuilder: (_, i) {
+            final v = uniqueVideos[i];
+            return ListTile(
+              dense: true,
+              leading: const Icon(Icons.high_quality_outlined),
+              title: Text(v.quality.isNotEmpty ? v.quality : 'Unknown'),
+              subtitle: Text(
+                v.originalUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11),
+              ),
+              onTap: () {
+                selected = v;
+                Navigator.of(ctx).pop();
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+
+  if (selected == null) return false;
+
+  if (chapter.id != null) {
+    chapterPreferredOriginalUrl[chapter.id!] = selected!.originalUrl;
+  }
+  await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+  ref.read(processDownloadsProvider());
+  return true;
+}
 
 @riverpod
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
@@ -268,7 +375,22 @@ Future<void> downloadChapter(
             .toList();
         nonM3U8File = nonM3u8Urls.isNotEmpty;
         hasM3U8File = nonM3U8File ? false : m3u8Urls.isNotEmpty;
-        final videosUrls = nonM3U8File ? nonM3u8Urls : m3u8Urls;
+        var videosUrls = nonM3U8File ? nonM3u8Urls : m3u8Urls;
+        // Honour the user's quality pick from the picker dialog (if any):
+        // move the chosen Video to the front of the list so that
+        // `videosUrls.first` below picks it.
+        final preferredOriginal =
+            chapter.id != null ? chapterPreferredOriginalUrl[chapter.id!] : null;
+        if (preferredOriginal != null && videosUrls.isNotEmpty) {
+          final idx = videosUrls
+              .indexWhere((v) => v.originalUrl == preferredOriginal);
+          if (idx > 0) {
+            final picked = videosUrls.removeAt(idx);
+            videosUrls = [picked, ...videosUrls];
+          }
+          // One-shot: clear so a future re-download asks again.
+          chapterPreferredOriginalUrl.remove(chapter.id!);
+        }
         if (videosUrls.isNotEmpty) {
           subtitles = videosUrls.first.subtitles;
 

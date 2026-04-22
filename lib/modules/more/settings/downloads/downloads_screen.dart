@@ -1547,7 +1547,7 @@ class _ConnectionsTile extends StatelessWidget {
                 NumberPicker(
                   value: currentValue,
                   minValue: 1,
-                  maxValue: 10,
+                  maxValue: 16,
                   step: 1,
                   haptics: true,
                   textMapper: (n) => n,

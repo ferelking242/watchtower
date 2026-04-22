@@ -6,6 +6,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
@@ -262,8 +263,17 @@ class ChapterPageDownload extends ConsumerWidget {
             return IconButton(
               splashRadius: 5,
               iconSize: 17,
-              onPressed: () {
-                _startDownload(null, null, ref);
+              onPressed: () async {
+                if (chapter.manga.value?.itemType == ItemType.anime) {
+                  final ok = await showAnimeQualityPickerAndQueue(
+                    context: context,
+                    ref: ref,
+                    chapter: chapter,
+                  );
+                  if (!ok) return;
+                } else {
+                  _startDownload(null, null, ref);
+                }
               },
               icon: _downloadWidget(context, false),
             );
