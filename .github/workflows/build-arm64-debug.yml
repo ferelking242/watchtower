@@ -35,6 +35,20 @@ jobs:
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-pub-
 
+      - name: Generate debug keystore
+        run: |
+          keytool -genkeypair \
+            -alias watchtower \
+            -keypass watchtower \
+            -storepass watchtower \
+            -keystore android/app/watchtower-debug.keystore \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Watchtower, OU=Dev, O=Watchtower, L=Unknown, S=Unknown, C=US" \
+            -storetype JKS \
+            -noprompt
+
       - name: Install dependencies
         run: flutter pub get
 
