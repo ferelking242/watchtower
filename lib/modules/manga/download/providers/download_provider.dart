@@ -249,15 +249,22 @@ Future<void> downloadChapter(
       ref.read(getVideoListProvider(episode: chapter).future).then((
         value,
       ) async {
-        final m3u8Urls = value.$1
-            .where(
-              (element) =>
-                  element.originalUrl.endsWith(".m3u8") ||
-                  element.originalUrl.endsWith(".m3u"),
-            )
-            .toList();
+        // Detect HLS streams smarter: not every HLS URL ends in .m3u8
+        // (e.g. xnxx CDN URLs are tokenized). We also flag a URL as HLS
+        // when its host or path hints at HLS, when its quality label
+        // mentions HLS, or when the explicit .m3u8 extension is present.
+        bool _looksLikeHls(dynamic v) {
+          final u = (v.originalUrl ?? '').toString().toLowerCase();
+          if (u.endsWith('.m3u8') || u.endsWith('.m3u')) return true;
+          if (u.contains('.m3u8') || u.contains('/hls/') ||
+              u.contains('hls-cdn') || u.contains('hls.')) return true;
+          final q = (v.quality ?? '').toString().toLowerCase();
+          if (q.contains('hls') || q.contains('auto')) return true;
+          return false;
+        }
+        final m3u8Urls = value.$1.where(_looksLikeHls).toList();
         final nonM3u8Urls = value.$1
-            .where((element) => element.originalUrl.isMediaVideo())
+            .where((element) => !_looksLikeHls(element) && element.originalUrl.isMediaVideo())
             .toList();
         nonM3U8File = nonM3u8Urls.isNotEmpty;
         hasM3U8File = nonM3U8File ? false : m3u8Urls.isNotEmpty;
