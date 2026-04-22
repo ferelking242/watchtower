@@ -253,7 +253,7 @@ class HideItemsState extends _$HideItemsState {
 class MergeLibraryNavMobileState extends _$MergeLibraryNavMobileState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.mergeLibraryNavMobile ?? false;
+    return isar.settings.getSync(227)!.mergeLibraryNavMobile ?? true;
   }
 
   void set(bool value) {
