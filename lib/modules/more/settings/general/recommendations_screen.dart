@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/providers/algorithm_weights_state_provider.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 class RecommendationsScreen extends ConsumerStatefulWidget {
