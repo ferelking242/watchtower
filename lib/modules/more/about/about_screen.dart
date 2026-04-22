@@ -193,45 +193,6 @@ class AboutScreen extends ConsumerWidget {
                                   ref.invalidate(checkForAppUpdatesProvider);
                                 },
                               ),
-                              const Divider(height: 1, indent: 14),
-                              ListTile(
-                                contentPadding:
-                                    const EdgeInsets.fromLTRB(14, 0, 14, 0),
-                                dense: true,
-                                leading: Icon(
-                                  Icons.system_update_alt_rounded,
-                                  size: 20,
-                                  color: cs.primary,
-                                ),
-                                title: Text(
-                                  l10n.check_for_update,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  'App + ZeusDL engine',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: cs.onSurface.withOpacity(0.5),
-                                  ),
-                                ),
-                                trailing: Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: cs.onSurface.withOpacity(0.3),
-                                  size: 18,
-                                ),
-                                onTap: () {
-                                  ref.read(
-                                    checkForUpdateProvider(
-                                      context: context,
-                                      manualUpdate: true,
-                                    ),
-                                  );
-                                  ref.invalidate(zeusLatestReleaseProvider);
-                                },
-                              ),
                             ],
                           ),
                         ),
@@ -418,17 +379,6 @@ class AboutScreen extends ConsumerWidget {
                           ),
                         ),
 
-                        const SizedBox(height: 12),
-                        Center(
-                          child: Text(
-                            'Built with ♥ · ZeusDL fork',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: cs.onSurface.withOpacity(0.35),
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                        ),
                         const SizedBox(height: 32),
                       ],
                     ),
@@ -558,7 +508,7 @@ class _BinaryEnginesSectionState extends State<_BinaryEnginesSection> {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 200,
+          height: 270,
           child: PageView(
             controller: _pageController,
             onPageChanged: (p) => setState(() => _currentPage = p),
