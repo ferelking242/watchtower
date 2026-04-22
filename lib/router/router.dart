@@ -50,7 +50,6 @@ import 'package:watchtower/modules/main_view/main_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/main_library_screen.dart';
-import 'package:watchtower/modules/home/home_screen.dart';
 import 'package:watchtower/modules/home/anilist_detail_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
@@ -138,7 +137,6 @@ class RouterNotifier extends ChangeNotifier {
     ShellRoute(
       builder: (context, state, child) => MainScreen(child: child),
       routes: [
-        _genericRoute(name: "home", child: const HomeScreen()),
         _genericRoute<String?>(
           name: "Library",
           builder: (id) => MainLibraryScreen(presetInput: id),

@@ -15,7 +15,7 @@ class FileExplorerWidget extends StatelessWidget {
 
   Future<void> _pickFiles(BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         allowMultiple: true,
         withReadStream: false,
         withData: false,
