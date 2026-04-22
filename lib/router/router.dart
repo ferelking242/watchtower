@@ -50,8 +50,10 @@ import 'package:watchtower/modules/main_view/main_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/main_library_screen.dart';
+import 'package:watchtower/modules/home/anilist_browse_screen.dart';
 import 'package:watchtower/modules/home/anilist_detail_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
@@ -149,10 +151,9 @@ class RouterNotifier extends ChangeNotifier {
           name: "AnimeLibrary",
           child: const AnimeDiscoveryScreen(),
         ),
-        _genericRoute<String?>(
+        _genericRoute(
           name: "NovelLibrary",
-          builder: (id) =>
-              LibraryScreen(itemType: ItemType.novel, presetInput: id),
+          child: const NovelDiscoveryScreen(),
         ),
         _genericRoute<String?>(
           name: "trackerLibrary",
@@ -201,6 +202,11 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<AnilistMedia>(
       name: "anilistDetail",
       builder: (media) => AnilistDetailScreen(media: media),
+    ),
+    _genericRoute<(AnilistBrowseFilter, String)>(
+      name: "anilistBrowse",
+      builder: (data) =>
+          AnilistBrowseScreen(filter: data.$1, title: data.$2),
     ),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/library_header_bar.dart';
@@ -50,8 +51,17 @@ class AnimeDiscoveryScreen extends ConsumerWidget {
                             title: 'Recommended Anime',
                             items: home.trendingAnimes,
                             onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.anime)),
+                            onSeeAll: () => context.push(
+                              '/anilistBrowse',
+                              extra: (
+                                const AnilistBrowseFilter(mediaType: 'ANIME'),
+                                'Anime'
+                              ),
+                            ),
+                          ),
+                          CategoryRow(
+                            title: 'Genres',
+                            categories: animeCategories(),
                           ),
                           DiscoveryRow(
                             title: 'Popular Anime',

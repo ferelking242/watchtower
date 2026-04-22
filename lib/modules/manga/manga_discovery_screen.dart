@@ -1,20 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
+    show AniListErrorView;
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/library_header_bar.dart';
-import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
-    show AniListErrorView;
 
-/// Manga tab — AniList-powered discover page (trending, popular, latest).
+/// Manga tab — AniList-powered discover page with origin sub-rows
+/// (manga / manhwa / manhua) and genre category cards.
 class MangaDiscoveryScreen extends ConsumerWidget {
   const MangaDiscoveryScreen({super.key});
 
   void _openDetail(BuildContext context, AnilistMedia media) {
     context.push('/anilistDetail', extra: media);
+  }
+
+  void _seeAll(BuildContext context, String label,
+      {String? country, String? genre}) {
+    context.push(
+      '/anilistBrowse',
+      extra: (
+        AnilistBrowseFilter(
+          mediaType: 'MANGA',
+          country: country,
+          genre: genre,
+        ),
+        label
+      ),
+    );
   }
 
   @override
@@ -49,25 +65,47 @@ class MangaDiscoveryScreen extends ConsumerWidget {
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           DiscoveryRow(
-                            title: 'Recommended Manga',
+                            title: 'Trending Manga',
                             items: home.trendingMangas,
                             onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.manga)),
+                            onSeeAll: () =>
+                                _seeAll(context, 'Manga', country: 'JP'),
+                          ),
+                          CategoryRow(
+                            title: 'Origines',
+                            categories: mangaOrigins(),
                           ),
                           DiscoveryRow(
                             title: 'Popular Manga',
                             items: home.popularMangas,
                             onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.manga)),
+                            onSeeAll: () =>
+                                _seeAll(context, 'Popular Manga', country: 'JP'),
+                          ),
+                          CategoryRow(
+                            title: 'Genres',
+                            categories: mangaCategories(),
                           ),
                           DiscoveryRow(
-                            title: 'Latest Manga',
+                            title: 'Trending Manhwa',
+                            items: home.trendingManhwa,
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () =>
+                                _seeAll(context, 'Manhwa', country: 'KR'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Trending Manhua',
+                            items: home.trendingManhua,
+                            onItemTap: (m) => _openDetail(context, m),
+                            onSeeAll: () =>
+                                _seeAll(context, 'Manhua', country: 'CN'),
+                          ),
+                          DiscoveryRow(
+                            title: 'Highly Rated Completed',
                             items: home.latestMangas,
                             onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.manga)),
+                            onSeeAll: () =>
+                                _seeAll(context, 'Manga', country: 'JP'),
                           ),
                         ]),
                       ),
