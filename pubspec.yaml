@@ -1,7 +1,7 @@
 name: watchtower
 description: Free and open source manga reader and anime streaming cross-plateform app inspired by Tachiyomi and Aniyomi.
 publish_to: "none"
-version: 0.7.47+103
+version: 0.7.48+104
 
 environment:
   sdk: ^3.11.3
