@@ -130,6 +130,26 @@ class BrowseSScreen extends ConsumerWidget {
                           .set(value);
                     },
                   ),
+                  SwitchListTile(
+                    value: autoUpdateExtensions && checkForExtensionUpdates,
+                    title: Text(l10n.auto_extensions_updates),
+                    subtitle: Text(
+                      l10n.auto_extensions_updates_subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.secondaryColor,
+                      ),
+                    ),
+                    onChanged: checkForExtensionUpdates
+                        ? (value) {
+                            ref
+                                .read(
+                                  autoUpdateExtensionsStateProvider.notifier,
+                                )
+                                .set(value);
+                          }
+                        : null,
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 15,
@@ -179,23 +199,6 @@ class BrowseSScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  if (checkForExtensionUpdates)
-                    SwitchListTile(
-                      value: autoUpdateExtensions,
-                      title: Text(l10n.auto_extensions_updates),
-                      subtitle: Text(
-                        l10n.auto_extensions_updates_subtitle,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: context.secondaryColor,
-                        ),
-                      ),
-                      onChanged: (value) {
-                        ref
-                            .read(autoUpdateExtensionsStateProvider.notifier)
-                            .set(value);
-                      },
-                    ),
                 ],
               ),
             ),

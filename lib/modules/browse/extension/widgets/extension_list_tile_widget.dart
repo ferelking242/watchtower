@@ -275,8 +275,16 @@ class _ExtensionListTileWidgetState
           ),
           const SizedBox(width: 4),
           Text(
-            widget.source.version!,
-            style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 12),
+            _updateAvailable
+                ? '${widget.source.version!} → ${widget.source.versionLast!}'
+                : widget.source.version!,
+            style: TextStyle(
+              fontWeight: FontWeight.w300,
+              fontSize: 12,
+              color: _updateAvailable
+                  ? Colors.orange.shade400
+                  : null,
+            ),
           ),
           if (widget.source.isNsfw ?? false)
             Padding(
