@@ -8,6 +8,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/extension/extension_screen.dart';
@@ -399,8 +400,6 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
       case BrowseSection.sources:
         return SourcesScreen(
           itemType: widget.itemType,
-          tabs: const [],
-          tabIndex: (_) {},
         );
       case BrowseSection.extensions:
         return ExtensionScreen(

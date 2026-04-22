@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///
 /// Returns a tuple of `(ok, failed, total)`.
 Future<(int ok, int failed, int total)> runExtensionDiagnostics(
-  Ref ref, {
+  WidgetRef ref, {
   required ItemType itemType,
 }) async {
   final sources = isar.sources
@@ -57,7 +57,7 @@ Future<(int ok, int failed, int total)> runExtensionDiagnostics(
   return (ok, failed, ok + failed);
 }
 
-Future<bool> _diagnose(Ref ref, Source src) async {
+Future<bool> _diagnose(WidgetRef ref, Source src) async {
   final start = DateTime.now();
   try {
     AppLogger.log(

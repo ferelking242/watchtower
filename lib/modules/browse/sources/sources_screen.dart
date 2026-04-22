@@ -11,13 +11,9 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/language.dart';
 
 class SourcesScreen extends ConsumerStatefulWidget {
-  final Function(int) tabIndex;
-  final List<BrowseTab> tabs;
   final ItemType itemType;
   const SourcesScreen({
-    required this.tabIndex,
     required this.itemType,
-    required this.tabs,
     super.key,
   });
 
@@ -100,14 +96,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   const SizedBox(height: 28),
                   FilledButton.icon(
                     onPressed: () {
-                      final extensionIndex = widget.tabs.indexWhere(
-                        (t) =>
-                            t.type == widget.itemType &&
-                            t.kind == BrowseTabKind.extensions,
-                      );
-                      if (extensionIndex != -1) {
-                        widget.tabIndex(extensionIndex);
-                      }
+                      DefaultTabController.of(context).animateTo(1);
                     },
                     icon: const Icon(Icons.extension_rounded, size: 18),
                     label: Text(context.l10n.show_extensions),
