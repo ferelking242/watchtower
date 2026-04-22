@@ -150,7 +150,7 @@ class StorageProvider {
     final itemTypePath = itemType == ItemType.manga
         ? "Manga"
         : itemType == ItemType.anime
-        ? "Anime"
+        ? "Watch"
         : "Novel";
     final dir = await getDirectory();
     return Directory(
