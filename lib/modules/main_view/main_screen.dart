@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
@@ -807,10 +806,10 @@ class _FloatingDock extends StatefulWidget {
 class _FloatingDockState extends State<_FloatingDock> {
   final ScrollController _scrollController = ScrollController();
 
-  static const double _itemWidth = 52.0;
-  static const double _dockHeight = 58.0;
-  static const double _dockBottomPad = 16.0;
-  static const double _pillHPad = 10.0;
+  static const double _itemWidth = 64.0;
+  static const double _dockHeight = 64.0;
+  static const double _dockBottomPad = 14.0;
+  static const double _pillHPad = 6.0;
   static const int _maxInlineItems = 5;
 
   static const _validLocations = {
@@ -1048,19 +1047,13 @@ class _DockPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
-    final activeIdx = _activeIndex();
 
-    // Neon violet/blue glow color
-    const neonColor = Color(0xFF7C3AED);
-
-    Widget _buildItem(int index) {
+    Widget buildItem(int index) {
       final item = items[index];
       final active = isActive(item.route);
-      final dist = activeIdx < 0 ? 99 : (index - activeIdx).abs();
       return _DockItemWidget(
         item: item,
         active: active,
-        distanceFromActive: dist,
         ref: ref,
         onTap: () => onTap(item.route),
       );
@@ -1081,7 +1074,7 @@ class _DockPill extends StatelessWidget {
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
-              itemBuilder: (context, index) => _buildItem(index),
+              itemBuilder: (context, index) => buildItem(index),
             ),
           )
         : Row(
@@ -1089,54 +1082,33 @@ class _DockPill extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: List.generate(
               items.length,
-              (index) => SizedBox(width: itemWidth, child: _buildItem(index)),
+              (index) => SizedBox(width: itemWidth, child: buildItem(index)),
             ),
           );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(46),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          decoration: BoxDecoration(
-            // Glassmorphism: low opacity, high blur
-            color: isDark
-                ? cs.surface.withOpacity(0.18)
-                : cs.surface.withOpacity(0.78),
-            borderRadius: BorderRadius.circular(46),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withOpacity(0.18)
-                  : Colors.white.withOpacity(0.60),
-              width: 1.0,
-            ),
-            boxShadow: [
-              // Deep shadow
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.55 : 0.18),
-                blurRadius: 40,
-                spreadRadius: -4,
-                offset: const Offset(0, 12),
-              ),
-              // Neon violet glow
-              BoxShadow(
-                color: neonColor.withOpacity(isDark ? 0.30 : 0.12),
-                blurRadius: 28,
-                spreadRadius: -2,
-                offset: const Offset(0, 4),
-              ),
-              // Neon blue inner shimmer
-              BoxShadow(
-                color: const Color(0xFF2563EB).withOpacity(isDark ? 0.18 : 0.07),
-                blurRadius: 16,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: itemsWidget,
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1B1B1E)
+            : cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.06),
+          width: 1.0,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+            blurRadius: 16,
+            spreadRadius: -2,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: itemsWidget,
     );
   }
 }
@@ -1147,34 +1119,29 @@ class _DockItemWidget extends StatelessWidget {
     required this.active,
     required this.ref,
     required this.onTap,
-    this.distanceFromActive = 99,
   });
 
   final _DockItemData item;
   final bool active;
   final WidgetRef ref;
   final VoidCallback onTap;
-  final int distanceFromActive;
-
-  double get _scale {
-    if (active) return 1.20;
-    if (distanceFromActive == 1) return 0.90;
-    return 1.0;
-  }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeColor = colorScheme.primary;
-    const neonViolet = Color(0xFF7C3AED);
-    final inactiveColor = colorScheme.onSurface.withOpacity(0.48);
-    final color = active ? activeColor : inactiveColor;
+    final accent = cs.primary;
+    final inactiveColor = isDark
+        ? Colors.white.withValues(alpha: 0.62)
+        : Colors.black.withValues(alpha: 0.55);
+
+    final iconColor = active ? accent : inactiveColor;
+    final labelColor = active ? accent : inactiveColor;
 
     Widget iconWidget = Icon(
       active ? item.activeIcon : item.icon,
-      color: color,
-      size: 21,
+      color: iconColor,
+      size: 22,
     );
 
     if (item.route == '/updates') {
@@ -1186,70 +1153,36 @@ class _DockItemWidget extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: active
+              ? (isDark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.05))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon bubble with neon glow when active
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              width: 40,
-              height: 28,
-              decoration: BoxDecoration(
-                color: active
-                    ? neonViolet.withOpacity(isDark ? 0.22 : 0.12)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: neonViolet.withOpacity(isDark ? 0.55 : 0.30),
-                          blurRadius: 14,
-                          spreadRadius: -1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Center(child: iconWidget),
-            ),
-            const SizedBox(height: 2),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 220),
+            iconWidget,
+            const SizedBox(height: 4),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-                color: active ? activeColor : inactiveColor,
-                letterSpacing: active ? 0.15 : 0.0,
-                overflow: TextOverflow.ellipsis,
-              ),
-              child: Text(item.label, textAlign: TextAlign.center),
-            ),
-            // Active neon dot indicator
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              width: active ? 16 : 4,
-              height: 2.5,
-              margin: const EdgeInsets.only(top: 2),
-              decoration: BoxDecoration(
-                color: active
-                    ? neonViolet
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(2),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: neonViolet.withOpacity(0.70),
-                          blurRadius: 6,
-                          spreadRadius: 0,
-                        ),
-                      ]
-                    : null,
+                fontSize: 10.5,
+                height: 1.0,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                color: labelColor,
+                letterSpacing: 0.1,
               ),
             ),
           ],
