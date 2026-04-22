@@ -110,11 +110,28 @@ class M3u8Downloader {
 
   Future<(List<TsInfo>, Uint8List?, Uint8List?, int?)> _getTsList() async {
     try {
-      final uri = Uri.parse(m3u8Url);
-      final m3u8Host = "${uri.scheme}://${uri.host}${path.dirname(uri.path)}";
+      var effectiveUrl = m3u8Url;
+      var uri = Uri.parse(effectiveUrl);
+      var m3u8Host = "${uri.scheme}://${uri.host}${path.dirname(uri.path)}";
 
       // Fetch with full headers (anti-403)
-      final m3u8Body = await _withRetry(() => _getM3u8Body(m3u8Url));
+      var m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
+
+      // If this is a master playlist (variant streams listed via
+      // #EXT-X-STREAM-INF), follow the highest-bandwidth variant first,
+      // otherwise we'd "download" the variant playlist URLs as if they were
+      // TS segments (which produced a few-KB invalid mp4 file).
+      if (m3u8Body.contains('#EXT-X-STREAM-INF')) {
+        final variantUrl = _pickBestVariant(m3u8Host, m3u8Body);
+        if (variantUrl != null) {
+          _log('Master playlist detected, switching to variant: $variantUrl');
+          effectiveUrl = variantUrl;
+          uri = Uri.parse(effectiveUrl);
+          m3u8Host = "${uri.scheme}://${uri.host}${path.dirname(uri.path)}";
+          m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
+        }
+      }
+
       final tsList = _parseTsList(m3u8Host, m3u8Body);
       final mediaSequence = _extractMediaSequence(m3u8Body);
 
@@ -332,6 +349,38 @@ class M3u8Downloader {
       );
     }
     return response.body;
+  }
+
+  /// Parse a master playlist and return the absolute URL of the variant
+  /// stream with the highest BANDWIDTH (best quality available).
+  String? _pickBestVariant(String host, String body) {
+    final lines = body.split('\n');
+    int bestBw = -1;
+    String? bestUrl;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (!line.startsWith('#EXT-X-STREAM-INF')) continue;
+      final bwMatch = RegExp(r'BANDWIDTH=(\d+)', caseSensitive: false)
+          .firstMatch(line);
+      final bw = bwMatch != null ? int.tryParse(bwMatch.group(1) ?? '') ?? 0 : 0;
+      // The next non-comment, non-empty line is the variant URL.
+      String? variant;
+      for (var j = i + 1; j < lines.length; j++) {
+        final cand = lines[j].trim();
+        if (cand.isEmpty || cand.startsWith('#')) continue;
+        variant = cand;
+        break;
+      }
+      if (variant == null) continue;
+      final absolute = variant.startsWith('http')
+          ? variant
+          : '$host/${variant.replaceFirst(RegExp(r'^/'), '')}';
+      if (bw > bestBw) {
+        bestBw = bw;
+        bestUrl = absolute;
+      }
+    }
+    return bestUrl;
   }
 
   List<TsInfo> _parseTsList(String host, String body) {
