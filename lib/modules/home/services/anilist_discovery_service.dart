@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
@@ -157,24 +160,56 @@ List<AnilistMedia> _parseList(dynamic page) {
 }
 
 /// Fetches the AniList home payload in one round-trip. Throws on non-200.
+/// Surfaces friendly errors for offline/timeout/rate-limit cases.
 Future<AnilistHome> _fetchAnilistHome() async {
-  final response = await http
-      .post(
-        Uri.parse(_anilistEndpoint),
-        headers: const {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'query': _anilistHomeQuery,
-          'variables': {'perPage': 15},
-        }),
-      )
-      .timeout(const Duration(seconds: 20));
+  // Connectivity preflight — gives a clean "no network" message before we
+  // wait 20s on a doomed request.
+  try {
+    final conn = await Connectivity().checkConnectivity();
+    final list = conn is List<ConnectivityResult>
+        ? conn
+        : <ConnectivityResult>[conn as ConnectivityResult];
+    if (list.isEmpty || list.every((c) => c == ConnectivityResult.none)) {
+      throw const SocketException('No network connection');
+    }
+  } catch (_) {
+    // ignore connectivity probe errors — fall through to actual request
+  }
 
+  late final http.Response response;
+  try {
+    response = await http
+        .post(
+          Uri.parse(_anilistEndpoint),
+          headers: const {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'query': _anilistHomeQuery,
+            'variables': {'perPage': 15},
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+  } on TimeoutException {
+    throw Exception('AniList timeout — server is slow to respond.');
+  } on SocketException {
+    throw Exception('No network connection — check your Wi-Fi or data.');
+  } on http.ClientException catch (e) {
+    throw Exception('Network error reaching AniList: ${e.message}');
+  }
+
+  if (response.statusCode == 429) {
+    throw Exception('AniList is rate-limiting (HTTP 429). Please wait a bit.');
+  }
+  if (response.statusCode >= 500) {
+    throw Exception(
+      'AniList is down (HTTP ${response.statusCode}). Try again later.',
+    );
+  }
   if (response.statusCode != 200) {
     throw Exception(
-      'AniList request failed (${response.statusCode}): ${response.body}',
+      'AniList request failed (HTTP ${response.statusCode}).',
     );
   }
   final body = jsonDecode(response.body) as Map<String, dynamic>;

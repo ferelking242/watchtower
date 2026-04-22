@@ -365,16 +365,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       null,
     );
 
-    if (dest.contains("/home")) {
-      destinations[dest.indexOf("/home")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.home),
-        icon: const Icon(Icons.home_outlined),
-        label: const Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text("Home"),
-        ),
-      );
-    }
     if (dest.contains("/Library")) {
       destinations[dest.indexOf("/Library")] = NavigationRailDestination(
         selectedIcon: const Icon(Icons.collections_bookmark),
@@ -519,13 +509,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.library,
       );
     }
-    if (dest.contains("/home")) {
-      destinations[dest.indexOf("/home")] = const NavigationDestination(
-        selectedIcon: Icon(Icons.home),
-        icon: Icon(Icons.home_outlined),
-        label: "Home",
-      );
-    }
     if (dest.contains("/Library")) {
       destinations[dest.indexOf("/Library")] = NavigationDestination(
         selectedIcon: const Icon(Icons.collections_bookmark),
@@ -654,33 +637,50 @@ class _IncognitoModeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      child: AnimatedContainer(
-        height: incognitoMode
-            ? Platform.isAndroid || Platform.isIOS
-                  ? MediaQuery.of(context).padding.top * 2
-                  : 50
-            : 0,
-        curve: Curves.easeIn,
-        duration: const Duration(milliseconds: 150),
-        color: context.primaryColor,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                l10n.incognito_mode,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: GoogleFonts.aBeeZee().fontFamily,
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: incognitoMode
+          ? SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: cs.primary.withValues(alpha: 0.35),
+                        width: 0.6,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.visibility_off_rounded,
+                            size: 11, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.incognito_mode,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: cs.primary,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
+            )
+          : const SizedBox(width: double.infinity, height: 0),
     );
   }
 }
@@ -752,7 +752,6 @@ class _TabletLayout extends StatelessWidget {
     if (isLongPressed) return 0;
 
     const validLocations = {
-      '/home',
       '/Library',
       '/MangaLibrary',
       '/AnimeLibrary',
@@ -815,7 +814,6 @@ class _FloatingDockState extends State<_FloatingDock> {
   static const int _maxInlineItems = 5;
 
   static const _validLocations = {
-    '/home',
     '/Library',
     '/MangaLibrary',
     '/AnimeLibrary',
@@ -849,15 +847,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     final d = widget.dest;
     final items = <_DockItemData>[];
 
-    // ── Order: Home → Anime → Manga → Library → Browse → More (then rest) ──
-    if (d.contains('/home')) {
-      items.add(const _DockItemData(
-        route: '/home',
-        label: 'Home',
-        icon: Icons.home_outlined,
-        activeIcon: Icons.home,
-      ));
-    }
+    // ── Order: Anime (Watch) → Manga → Novel → Library → Browse → More ──
     if (d.contains('/AnimeLibrary')) {
       items.add(_DockItemData(
         route: '/AnimeLibrary',
@@ -872,6 +862,14 @@ class _FloatingDockState extends State<_FloatingDock> {
         label: l10n.manga,
         icon: Icons.auto_stories_outlined,
         activeIcon: Icons.auto_stories,
+      ));
+    }
+    if (d.contains('/NovelLibrary')) {
+      items.add(_DockItemData(
+        route: '/NovelLibrary',
+        label: l10n.novel,
+        icon: Icons.local_library_outlined,
+        activeIcon: Icons.local_library,
       ));
     }
     if (d.contains('/Library')) {
@@ -890,15 +888,6 @@ class _FloatingDockState extends State<_FloatingDock> {
         activeIcon: Icons.explore,
       ));
     }
-    if (d.contains('/more')) {
-      items.add(_DockItemData(
-        route: '/more',
-        label: l10n.more,
-        icon: Icons.apps_outlined,
-        activeIcon: Icons.apps,
-      ));
-    }
-    // — less prominent items below —
     if (d.contains('/history')) {
       items.add(_DockItemData(
         route: '/history',
@@ -907,12 +896,12 @@ class _FloatingDockState extends State<_FloatingDock> {
         activeIcon: Icons.history,
       ));
     }
-    if (d.contains('/NovelLibrary')) {
+    if (d.contains('/more')) {
       items.add(_DockItemData(
-        route: '/NovelLibrary',
-        label: l10n.novel,
-        icon: Icons.local_library_outlined,
-        activeIcon: Icons.local_library,
+        route: '/more',
+        label: l10n.more,
+        icon: Icons.apps_outlined,
+        activeIcon: Icons.apps,
       ));
     }
     if (d.contains('/updates')) {

@@ -55,7 +55,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
       height: 270,
       child: Stack(
         children: [
-          // ── Pages ──
+          // ── Pages with scale transform on adjacent items ──
           PageView.builder(
             controller: _controller,
             itemCount: widget.items.length,
@@ -63,13 +63,28 @@ class _HeroCarouselState extends State<HeroCarousel> {
             itemBuilder: (_, i) {
               final m = widget.items[i];
               final image = m.bannerImage ?? m.bestCover;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: GestureDetector(
-                  onTap: () => widget.onItemTap(m),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Stack(
+              return AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  double page = i.toDouble();
+                  if (_controller.position.haveDimensions) {
+                    page = _controller.page ?? _controller.initialPage.toDouble();
+                  }
+                  final delta = (page - i).abs();
+                  final scale = (1 - (delta * 0.08)).clamp(0.88, 1.0);
+                  final opacity = (1 - (delta * 0.4)).clamp(0.55, 1.0);
+                  return Transform.scale(
+                    scale: scale,
+                    child: Opacity(opacity: opacity, child: child),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: GestureDetector(
+                    onTap: () => widget.onItemTap(m),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Stack(
                       fit: StackFit.expand,
                       children: [
                         if (image != null)
@@ -151,6 +166,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
                     ),
                   ),
                 ),
+              ),
               );
             },
           ),

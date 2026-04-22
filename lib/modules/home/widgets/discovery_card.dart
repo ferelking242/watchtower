@@ -131,17 +131,20 @@ class DiscoveryCard extends StatelessWidget {
   }
 }
 
-/// Horizontal scrolling row of [DiscoveryCard]s with a section title.
+/// Horizontal scrolling row of [DiscoveryCard]s with a section title and
+/// an optional "See all" link on the right.
 class DiscoveryRow extends StatelessWidget {
   final String title;
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
+  final VoidCallback? onSeeAll;
 
   const DiscoveryRow({
     super.key,
     required this.title,
     required this.items,
     required this.onItemTap,
+    this.onSeeAll,
   });
 
   @override
@@ -152,12 +155,43 @@ class DiscoveryRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (onSeeAll != null)
+                TextButton(
+                  onPressed: onSeeAll,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'See all',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 16, color: theme.colorScheme.primary),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ),
         SizedBox(
