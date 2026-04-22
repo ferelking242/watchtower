@@ -28,6 +28,7 @@ import 'package:watchtower/services/sync_server.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel)Library$");
 
@@ -260,12 +261,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               return Column(
                 children: [
                   if (!isReadingScreen)
-                    _DownloadedOnlyBar(
+                    _StatusBar(
                       downloadedOnly: downloadedOnly,
+                      incognitoMode: incognitoMode,
                       l10n: l10n,
                     ),
-                  if (!isReadingScreen)
-                    _IncognitoModeBar(incognitoMode: incognitoMode, l10n: l10n),
                   Flexible(
                     child: Scaffold(
                       extendBody: true,
@@ -589,93 +589,96 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 }
 
-class _DownloadedOnlyBar extends StatelessWidget {
-  const _DownloadedOnlyBar({required this.downloadedOnly, required this.l10n});
+class _StatusBar extends StatelessWidget {
+  const _StatusBar({
+    required this.downloadedOnly,
+    required this.incognitoMode,
+    required this.l10n,
+  });
 
   final bool downloadedOnly;
-  final dynamic l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      child: AnimatedContainer(
-        height: downloadedOnly
-            ? Platform.isAndroid || Platform.isIOS
-                  ? MediaQuery.of(context).padding.top * 2
-                  : 50
-            : 0,
-        curve: Curves.easeIn,
-        duration: const Duration(milliseconds: 150),
-        color: context.secondaryColor,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                l10n.downloaded_only,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: GoogleFonts.aBeeZee().fontFamily,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _IncognitoModeBar extends StatelessWidget {
-  const _IncognitoModeBar({required this.incognitoMode, required this.l10n});
-
   final bool incognitoMode;
   final dynamic l10n;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bool show = downloadedOnly || incognitoMode;
+
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-      child: incognitoMode
+      child: show
           ? SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: cs.primary.withValues(alpha: 0.35),
-                        width: 0.6,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.visibility_off_rounded,
-                            size: 11, color: cs.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          l10n.incognito_mode,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: cs.primary,
-                            letterSpacing: 0.2,
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                child: Row(
+                  children: [
+                    if (downloadedOnly)
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: context.secondaryColor.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.download_done_rounded,
+                                  size: 12, color: Colors.white),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  l10n.downloaded_only,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                    fontFamily: GoogleFonts.aBeeZee().fontFamily,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    if (downloadedOnly && incognitoMode)
+                      const SizedBox(width: 8),
+                    if (incognitoMode)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: cs.primary.withValues(alpha: 0.35),
+                            width: 0.6,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.visibility_off_rounded,
+                                size: 11, color: cs.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              l10n.incognito_mode,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: cs.primary,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
             )
@@ -1137,11 +1140,13 @@ class _DockItemWidget extends StatelessWidget {
 
     final iconColor = active ? accent : inactiveColor;
     final labelColor = active ? accent : inactiveColor;
+    final showLabels = ref.watch(navShowLabelsProvider);
+    final iconSize = ref.watch(navIconSizeProvider);
 
     Widget iconWidget = Icon(
       active ? item.activeIcon : item.icon,
       color: iconColor,
-      size: 22,
+      size: iconSize,
     );
 
     if (item.route == '/updates') {
@@ -1171,20 +1176,22 @@ class _DockItemWidget extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             iconWidget,
-            const SizedBox(height: 4),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10.5,
-                height: 1.0,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                color: labelColor,
-                letterSpacing: 0.1,
+            if (showLabels) ...[
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  height: 1.0,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: labelColor,
+                  letterSpacing: 0.1,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
