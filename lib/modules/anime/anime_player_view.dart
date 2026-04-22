@@ -55,6 +55,7 @@ import 'package:window_manager/window_manager.dart' show windowManager;
 
 import 'widgets/search_subtitles.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/utils/widgets/error_box.dart';
 
 bool _isDesktop = Platform.isMacOS || Platform.isLinux || Platform.isWindows;
 
@@ -137,7 +138,11 @@ class _AnimePlayerViewState extends riv.ConsumerState<AnimePlayerView> {
             },
           ),
         ),
-        body: Center(child: Text(error.toString())),
+        body: ErrorBox(
+          error: error,
+          stackTrace: stackTrace,
+          title: 'Failed to load video',
+        ),
       ),
       loading: () {
         return Scaffold(
