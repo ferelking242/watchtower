@@ -12,7 +12,18 @@ import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/ffi/torrent_server_ffi.dart' as libmtorrentserver_ffi;
 
 class MTorrentServer {
-  final http = MClient.init();
+  // Magnet → playable HTTP requires libtorrent to:
+  //   1) handshake with the DHT,
+  //   2) fetch the .torrent metadata from a peer,
+  //   3) build the master playlist.
+  // For sparsely-seeded magnets that easily takes 30–90s. The default
+  // RHTTP/InterceptedClient timeout (≈30s) is too aggressive and was
+  // causing `RhttpTimeoutException: Request timed out. URL:
+  // http://127.0.0.1:.../torrent/play?magnet=...` for any magnet that
+  // wasn't already cached. Bump to 3 min for the torrent server only.
+  final http = MClient.init(
+    reqcopyWith: const {"timeout": 180, "connectTimeout": 30},
+  );
   Future<bool> removeTorrent(String? inforHash) async {
     if (inforHash == null || inforHash.isEmpty) return false;
     try {
