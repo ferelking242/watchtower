@@ -503,8 +503,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("_enableLibSwitch")) {
       destinations[dest.indexOf("_enableLibSwitch")] = NavigationDestination(
-        selectedIcon: const Icon(Icons.collections_bookmark),
-        icon: const Icon(Icons.collections_bookmark_outlined),
+        selectedIcon: const Icon(Icons.apps),
+        icon: const Icon(Icons.apps_outlined),
         label: l10n.library,
       );
     }
@@ -925,13 +925,16 @@ class _FloatingDockState extends State<_FloatingDock> {
 
     // ── Library switch items ──────────────────────────────────────────────────
     if (d.contains('_enableLibSwitch')) {
+      // Distinct icon when manga/anime/novel libraries are merged into a
+      // single "Library" entry — otherwise it'd look identical to a
+      // standalone library tab.
       items.insert(
         0,
         _DockItemData(
           route: '_enableLibSwitch',
           label: l10n.library,
-          icon: Icons.collections_bookmark_outlined,
-          activeIcon: Icons.collections_bookmark,
+          icon: Icons.apps_outlined,
+          activeIcon: Icons.apps,
         ),
       );
     }

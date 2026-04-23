@@ -111,52 +111,49 @@ class FilterWidget extends StatelessWidget {
             }).toList(),
           );
         } else if (filterState is SelectFilter) {
-          widget = SizedBox(
-            width: context.width(1),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Expanded(
-                  child: ListTile(dense: true, title: Text(filterState.name)),
-                ),
-                Expanded(
-                  child: DropdownButtonHideUnderline(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 25,
-                      ),
-                      child: DropdownButton(
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                        isExpanded: true,
-                        value: filterState.values[filterState.state],
-                        hint: Text(
-                          filterState.name,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        items: filterState.values
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e,
-                                child: Text(
-                                  e.name,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          filterState.state = filterState.values.indexWhere(
-                            (element) => element == value,
-                          );
-                          onChanged(filterList);
-                        },
-                      ),
-                    ),
+          // Replace the cramped DropdownButton (which used to overflow
+          // off-screen for filters with many values, e.g. xnxx Category
+          // with 170+ entries) with a tile that opens a centred,
+          // scrollable, searchable picker sheet.
+          final current = filterState.values[filterState.state];
+          widget = ListTile(
+            dense: true,
+            title: Text(filterState.name, style: const TextStyle(fontSize: 13)),
+            subtitle: Text(
+              current.name,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: const Icon(Icons.keyboard_arrow_down, size: 18),
+            onTap: () async {
+              final picked = await showModalBottomSheet<int>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                showDragHandle: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(20),
                   ),
                 ),
-              ],
-            ),
+                builder: (_) => _SelectFilterPickerSheet(
+                  title: filterState.name,
+                  values: filterState.values
+                      .map<String>((e) => e.name as String)
+                      .toList(),
+                  selected: filterState.state,
+                ),
+              );
+              if (picked != null) {
+                filterState.state = picked;
+                onChanged(filterList);
+              }
+            },
           );
         }
         return widget ?? const SizedBox.shrink();
@@ -212,6 +209,134 @@ class _SeachFormTextFieldWidgetState extends State<SeachFormTextFieldWidget> {
           labelText: widget.labelText,
         ),
       ),
+    );
+  }
+}
+
+/// Centered, scrollable, searchable picker for SelectFilter values.
+/// Returns the selected index when the user taps an item.
+class _SelectFilterPickerSheet extends StatefulWidget {
+  final String title;
+  final List<String> values;
+  final int selected;
+  const _SelectFilterPickerSheet({
+    required this.title,
+    required this.values,
+    required this.selected,
+  });
+
+  @override
+  State<_SelectFilterPickerSheet> createState() =>
+      _SelectFilterPickerSheetState();
+}
+
+class _SelectFilterPickerSheetState extends State<_SelectFilterPickerSheet> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final query = _query.trim().toLowerCase();
+    final filtered = <(int, String)>[];
+    for (var i = 0; i < widget.values.length; i++) {
+      final name = widget.values[i];
+      if (query.isEmpty || name.toLowerCase().contains(query)) {
+        filtered.add((i, name));
+      }
+    }
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.65,
+      minChildSize: 0.35,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${filtered.length}/${widget.values.length}',
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: TextField(
+                  autofocus: false,
+                  decoration: InputDecoration(
+                    hintText: 'Search…',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No match',
+                          style: TextStyle(color: cs.onSurfaceVariant),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: filtered.length,
+                        itemBuilder: (_, i) {
+                          final (idx, name) = filtered[i];
+                          final selected = idx == widget.selected;
+                          return ListTile(
+                            dense: true,
+                            leading: Icon(
+                              selected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              size: 20,
+                              color: selected ? cs.primary : null,
+                            ),
+                            title: Text(
+                              name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: selected ? cs.primary : null,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            onTap: () => Navigator.of(context).pop(idx),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

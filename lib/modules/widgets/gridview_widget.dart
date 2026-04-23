@@ -27,7 +27,11 @@ class GridViewWidget extends StatelessWidget {
         gridDelegate: (gridSize == null || gridSize == 0)
             ? SliverGridDelegateWithMaxCrossAxisExtent(
                 childAspectRatio: childAspectRatio!,
-                maxCrossAxisExtent: 220,
+                // Tighter cell size so the default grid is 3 columns on
+                // a typical phone (~360–420dp wide) and 4–5 columns on
+                // tablets, instead of the previous 2-column behaviour
+                // produced by maxCrossAxisExtent: 220.
+                maxCrossAxisExtent: 140,
               )
             : SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: gridSize!,

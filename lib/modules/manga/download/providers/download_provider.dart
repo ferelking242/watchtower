@@ -845,19 +845,52 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
     log('[processDownloads] total=${ongoingDownloads.length} paused=${pausedIds.length} toStart=${activeDownloads.length}');
 
     final maxConcurrentDownloads = ref.read(concurrentDownloadsStateProvider);
-    int index = 0;
+
+    // ── Cross-source round-robin scheduling ─────────────────────────────────
+    // The previous implementation walked `activeDownloads` linearly which
+    // meant: queue 3 xnxx + 4 pornhub + 2 redtube → all 3 xnxx start, then
+    // pornhub, then redtube. We instead group by source name and pull one
+    // download from each non-empty source per pick — so different sites
+    // download in parallel from their first chapter, instead of one site
+    // hogging the global cap.
+    final perSourceQueues = <String, List<Download>>{};
+    for (final d in activeDownloads) {
+      final src = d.chapter.value?.manga.value?.source ?? '_unknown';
+      (perSourceQueues[src] ??= <Download>[]).add(d);
+    }
+    final sourceOrder = perSourceQueues.keys.toList();
+    int rrIdx = 0;
+    Download? nextPick() {
+      if (sourceOrder.isEmpty) return null;
+      for (var attempts = 0; attempts < sourceOrder.length; attempts++) {
+        final src = sourceOrder[rrIdx % sourceOrder.length];
+        rrIdx++;
+        final queue = perSourceQueues[src];
+        if (queue != null && queue.isNotEmpty) {
+          return queue.removeAt(0);
+        }
+      }
+      return null;
+    }
+
     int downloaded = 0;
     int current = 0;
+    bool exhausted = false;
 
     await Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
       if (activeDownloads.length == downloaded) {
         return false;
       }
-      if (current < maxConcurrentDownloads &&
-          index < activeDownloads.length) {
+      if (current < maxConcurrentDownloads && !exhausted) {
         current++;
-        final downloadItem = activeDownloads[index++];
+        final downloadItem = nextPick();
+        if (downloadItem == null) {
+          // Nothing left to enqueue; just wait for the in-flight ones.
+          exhausted = true;
+          current--;
+          return true;
+        }
         final chapter = downloadItem.chapter.value!;
         // Cancel any stale pool task without deleting the Isar record.
         // Using ActiveDownloadRegistry.cancel() avoids the flicker caused by
