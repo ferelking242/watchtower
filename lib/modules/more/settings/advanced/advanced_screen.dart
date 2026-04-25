@@ -79,6 +79,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   bool _logTagHls = false;
   bool _logTagInstall = true;
   bool _logTagReader = false;
+  bool _logTagWatch = true;
+  bool _logTagMaint = true;
 
   bool _loading = true;
 
@@ -109,6 +111,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _getBool(kLogTagHls, defaultValue: true),
       _getBool(kLogTagInstall, defaultValue: true),
       _getBool(kLogTagReader, defaultValue: true),
+      _getBool(kLogTagWatch, defaultValue: true),
+      _getBool(kLogTagMaint, defaultValue: true),
     ]);
     if (mounted) {
       setState(() {
@@ -130,6 +134,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         _logTagHls = results[15] as bool;
         _logTagInstall = results[16] as bool;
         _logTagReader = results[17] as bool;
+        _logTagWatch = results[18] as bool;
+        _logTagMaint = results[19] as bool;
         _loading = false;
       });
     }
@@ -156,6 +162,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _logTagHls = tags[kLogTagHls]!;
       _logTagInstall = tags[kLogTagInstall]!;
       _logTagReader = tags[kLogTagReader]!;
+      _logTagWatch = tags[kLogTagWatch]!;
+      _logTagMaint = tags[kLogTagMaint]!;
     });
     final box = await Hive.openBox('advanced_settings');
     await box.put(kLogMode, mode.index);
@@ -179,24 +187,42 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _clearCookies() async {
+    AppLogger.log('MAINT clearCookies: début',
+        tag: LogTag.maintenance, logLevel: LogLevel.info);
     try {
       await CookieManager.instance().deleteAllCookies();
       MClient.deleteAllCookies("");
+      AppLogger.log('MAINT clearCookies: ok',
+          tag: LogTag.maintenance, logLevel: LogLevel.info);
       _toast("Cookies effacés");
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.log('MAINT clearCookies: ÉCHEC $e',
+          tag: LogTag.maintenance,
+          logLevel: LogLevel.error,
+          error: e,
+          stackTrace: st);
       _toast("Erreur lors de la suppression des cookies");
     }
   }
 
   Future<void> _clearWebViewData() async {
+    AppLogger.log('MAINT clearWebViewData: début',
+        tag: LogTag.maintenance, logLevel: LogLevel.info);
     try {
       final mgr = CookieManager.instance();
       await mgr.deleteAllCookies();
       if (Platform.isAndroid) {
         await InAppWebViewController.clearAllCache();
       }
+      AppLogger.log('MAINT clearWebViewData: ok',
+          tag: LogTag.maintenance, logLevel: LogLevel.info);
       _toast("Données WebView effacées");
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.log('MAINT clearWebViewData: ÉCHEC $e',
+          tag: LogTag.maintenance,
+          logLevel: LogLevel.error,
+          error: e,
+          stackTrace: st);
       _toast("Erreur lors de la suppression des données WebView");
     }
   }
@@ -702,6 +728,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             logTagHls: _logTagHls,
             logTagInstall: _logTagInstall,
             logTagReader: _logTagReader,
+            logTagWatch: _logTagWatch,
+            logTagMaint: _logTagMaint,
             onModeChanged: (mode) => _applyMode(mode),
             onSuppressImagesChanged: (v) {
               setState(() => _logSuppressImages = v);
@@ -720,6 +748,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   case kLogTagHls: _logTagHls = v; break;
                   case kLogTagInstall: _logTagInstall = v; break;
                   case kLogTagReader: _logTagReader = v; break;
+                  case kLogTagWatch: _logTagWatch = v; break;
+                  case kLogTagMaint: _logTagMaint = v; break;
                 }
               });
               _saveLogSetting(key, v);
@@ -750,6 +780,8 @@ class _LogAdvancedSection extends ConsumerWidget {
   final bool logTagHls;
   final bool logTagInstall;
   final bool logTagReader;
+  final bool logTagWatch;
+  final bool logTagMaint;
   final void Function(LogMode) onModeChanged;
   final void Function(bool) onSuppressImagesChanged;
   final void Function(String, bool) onTagChanged;
@@ -767,6 +799,8 @@ class _LogAdvancedSection extends ConsumerWidget {
     required this.logTagHls,
     required this.logTagInstall,
     required this.logTagReader,
+    required this.logTagWatch,
+    required this.logTagMaint,
     required this.onModeChanged,
     required this.onSuppressImagesChanged,
     required this.onTagChanged,
@@ -1024,6 +1058,18 @@ class _LogAdvancedSection extends ConsumerWidget {
           tagKey: kLogTagPage,
           value: logTagPage,
           danger: true,
+        ),
+        _logToggle(
+          title: "Lecture vidéo [WATCH]",
+          subtitle: "Ouverture épisode, buffering, watchdog 60 s",
+          tagKey: kLogTagWatch,
+          value: logTagWatch,
+        ),
+        _logToggle(
+          title: "Maintenance [MAINT]",
+          subtitle: "Nettoyage cookies, BDD, réindexation, tâches d'arrière-plan",
+          tagKey: kLogTagMaint,
+          value: logTagMaint,
         ),
         _logToggle(
           title: "Interface [UI]",

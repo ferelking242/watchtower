@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/utils/log/log_overlay.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -375,6 +376,27 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             tooltip: 'Rafraîchir',
             icon: const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _loadLogs,
+          ),
+          // ── Floating live-log overlay toggle ───────────────────────────────
+          // Shows a draggable, always-on-top panel that streams every log line
+          // in real time on top of any screen — useful for diagnosing UI bugs
+          // without leaving the screen where the bug occurs.
+          ValueListenableBuilder<bool>(
+            valueListenable:
+                LogOverlayController.instance.visibleListenable,
+            builder: (_, visible, __) => IconButton(
+              tooltip: visible
+                  ? 'Cacher l\'overlay temps réel'
+                  : 'Afficher l\'overlay temps réel',
+              icon: Icon(
+                visible
+                    ? Icons.picture_in_picture_alt_rounded
+                    : Icons.picture_in_picture_outlined,
+                size: 20,
+                color: visible ? Colors.greenAccent : null,
+              ),
+              onPressed: () => LogOverlayController.instance.toggle(),
+            ),
           ),
           IconButton(
             tooltip: _autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF',

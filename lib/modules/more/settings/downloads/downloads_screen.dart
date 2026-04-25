@@ -850,17 +850,113 @@ class _WatchTab extends StatelessWidget {
             value: alwaysUseExternal,
             onChanged: onAlwaysExternalChanged,
           ),
-          ListTile(
-            dense: true,
-            leading: const Icon(Icons.apps_outlined),
-            title: const Text('App de téléchargement préférée'),
-            subtitle: Text(
-              preferredExternal ?? 'Aucune',
-              style: const TextStyle(fontSize: 11),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showExternalDownloaderPicker(context),
-          ),
+          // ── Preferred external app card ────────────────────────────────────
+          // Old `dense: true` ListTile + size-11 subtitle was illegible. The
+          // value (a raw package id) was hard to read, the row felt cramped,
+          // and the icon was the same as the toggle above. We now show the
+          // app's full display name, a description, and a clear "Changer"
+          // affordance inside a card so the tap target is obvious.
+          Builder(builder: (context) {
+            final selected = _ExternalDownloaderRegistry.all
+                .firstWhere(
+                  (a) => a.id == preferredExternal,
+                  orElse: () => const _ExternalDownloaderApp(
+                    id: '',
+                    name: 'Aucune app sélectionnée',
+                    description:
+                        'L\'application demandera à chaque téléchargement.',
+                  ),
+                );
+            final hasSelection = preferredExternal != null && selected.id.isNotEmpty;
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Card(
+                elevation: 0,
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: scheme.outline.withOpacity(0.25),
+                  ),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => _showExternalDownloaderPicker(context),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: hasSelection
+                                ? scheme.primary.withOpacity(0.12)
+                                : scheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            hasSelection
+                                ? Icons.open_in_new_rounded
+                                : Icons.apps_outlined,
+                            color: hasSelection
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'App de téléchargement préférée',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                selected.name,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: hasSelection
+                                      ? scheme.onSurface
+                                      : scheme.onSurface.withOpacity(0.55),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                selected.description,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: scheme.onSurfaceVariant,
+                                  height: 1.25,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: scheme.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -1386,6 +1482,8 @@ class _EngineCard extends StatelessWidget {
         return Icons.bolt_outlined;
       case DownloadMode.aria2:
         return Icons.account_tree_outlined;
+      case DownloadMode.external:
+        return Icons.open_in_new_outlined;
     }
   }
 

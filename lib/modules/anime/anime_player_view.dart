@@ -42,6 +42,7 @@ import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/torrent_server.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
 import 'package:media_kit_video/media_kit_video.dart';
@@ -936,13 +937,87 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
   }
 
   Future<void> _openMedia(VideoPrefs prefs, [Duration? position]) {
+    final url = prefs.videoTrack!.id;
+    final ext = widget.episode.manga.value?.source ?? '?';
+    final title = widget.episode.name ?? '?';
+    final isHls = url.contains('.m3u8') || url.contains('m3u8');
+    AppLogger.log(
+      'WATCH open · ext=$ext · ep="$title" · ${isHls ? 'HLS' : 'direct'} · '
+      'start=${(position ?? _currentPosition.value).inSeconds}s',
+      tag: LogTag.watch,
+      logLevel: LogLevel.info,
+    );
+    AppLogger.log('WATCH url=$url', tag: LogTag.watch, logLevel: LogLevel.debug);
+    _armBufferingWatchdog();
     return _player.open(
       Media(
-        prefs.videoTrack!.id,
+        url,
         httpHeaders: prefs.headers,
         start: position ?? _currentPosition.value,
       ),
     );
+  }
+
+  // ── Buffering watchdog ───────────────────────────────────────────────────
+  // The user reported videos stuck "loading" for ~20 minutes with no error.
+  // We listen to the player's buffering stream: each time it flips to true,
+  // arm a 60-second timer. If buffering is still true when the timer fires,
+  // we log an error and bubble it through the existing error sink so the UI
+  // stops pretending everything's fine.
+  StreamSubscription<bool>? _bufferingSub;
+  Timer? _bufferingWatchdog;
+  DateTime? _bufferingStartedAt;
+
+  void _armBufferingWatchdog() {
+    _bufferingSub ??= _player.stream.buffering.listen((isBuffering) {
+      if (isBuffering) {
+        _bufferingStartedAt = DateTime.now();
+        _bufferingWatchdog?.cancel();
+        AppLogger.log(
+          'WATCH buffering: started',
+          tag: LogTag.watch,
+          logLevel: LogLevel.debug,
+        );
+        _bufferingWatchdog = Timer(const Duration(seconds: 60), () {
+          if (!mounted) return;
+          // Still buffering after 60 s with no progress at all → call it.
+          final secs = _bufferingStartedAt == null
+              ? 60
+              : DateTime.now().difference(_bufferingStartedAt!).inSeconds;
+          AppLogger.log(
+            'WATCH buffering: bloqué depuis ${secs}s sans progression → '
+            'arrêt forcé du chargement.',
+            tag: LogTag.watch,
+            logLevel: LogLevel.error,
+          );
+          try {
+            _player.stop();
+          } catch (_) {}
+          if (mounted) {
+            try {
+              botToast(
+                'Lecture bloquée — la source ne répond pas (${secs}s sans données). '
+                'Essaie une autre source.',
+                second: 6,
+              );
+            } catch (_) {}
+          }
+        });
+      } else {
+        if (_bufferingWatchdog != null && _bufferingStartedAt != null) {
+          final secs =
+              DateTime.now().difference(_bufferingStartedAt!).inSeconds;
+          AppLogger.log(
+            'WATCH buffering: terminé après ${secs}s',
+            tag: LogTag.watch,
+            logLevel: LogLevel.debug,
+          );
+        }
+        _bufferingWatchdog?.cancel();
+        _bufferingWatchdog = null;
+        _bufferingStartedAt = null;
+      }
+    });
   }
 
   Future<void> _loadAndroidFont() async {
@@ -998,6 +1073,8 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     _setCurrentPosition(true, saveWatchTime: true);
     _player.stop();
     _completed.cancel();
+    _bufferingSub?.cancel();
+    _bufferingWatchdog?.cancel();
     _currentPositionSub.cancel();
     _currentTotalDurationSub.cancel();
     _currentPosition.dispose();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
@@ -22,6 +23,8 @@ const kLogTagPage = 'log_tag_page';
 const kLogTagHls = 'log_tag_hls';
 const kLogTagInstall = 'log_tag_install';
 const kLogTagReader = 'log_tag_reader';
+const kLogTagWatch = 'log_tag_watch';
+const kLogTagMaint = 'log_tag_maint';
 const kLogSuppressImages = 'log_suppress_images';
 
 // ─── Log Modes ─────────────────────────────────────────────────────────────────
@@ -68,28 +71,28 @@ enum LogMode {
           kLogTagExt: true, kLogTagDl: false, kLogTagNet: false,
           kLogTagZeus: false, kLogTagUi: false, kLogTagManga: false,
           kLogTagPage: false, kLogTagHls: false, kLogTagInstall: true,
-          kLogTagReader: false,
+          kLogTagReader: false, kLogTagWatch: false, kLogTagMaint: true,
         };
       case LogMode.verbose:
         return {
           kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
           kLogTagZeus: true, kLogTagUi: true, kLogTagManga: true,
           kLogTagPage: false, kLogTagHls: true, kLogTagInstall: true,
-          kLogTagReader: false,
+          kLogTagReader: false, kLogTagWatch: true, kLogTagMaint: true,
         };
       case LogMode.debug:
         return {
           kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
           kLogTagZeus: true, kLogTagUi: true, kLogTagManga: true,
           kLogTagPage: false, kLogTagHls: true, kLogTagInstall: true,
-          kLogTagReader: true,
+          kLogTagReader: true, kLogTagWatch: true, kLogTagMaint: true,
         };
       case LogMode.extreme:
         return {
           kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
           kLogTagZeus: true, kLogTagUi: true, kLogTagManga: true,
           kLogTagPage: true, kLogTagHls: true, kLogTagInstall: true,
-          kLogTagReader: true,
+          kLogTagReader: true, kLogTagWatch: true, kLogTagMaint: true,
         };
     }
   }
@@ -105,6 +108,38 @@ class AppLogger {
   static int _minLevel = 0; // default: DEBUG (max verbosity)
   static Set<String> _disabledTags = {};
   static bool _suppressImages = true;
+
+  // ── Live broadcast + ring buffer for the in-app overlay viewer ───────────
+  // The broadcast stream re-emits every formatted log line so any UI (the
+  // Logs screen or the floating Log Overlay) can subscribe and render in
+  // real time. The ring buffer keeps the last N lines so a freshly opened
+  // overlay shows recent context immediately.
+  static final StreamController<String> _liveCtrl =
+      StreamController<String>.broadcast();
+  static const int _ringSize = 500;
+  static final Queue<String> _ring = ListQueue<String>(_ringSize);
+
+  /// Subscribe to live log entries. Always available, even before init() —
+  /// so the overlay can be opened immediately at app startup.
+  static Stream<String> get liveStream => _liveCtrl.stream;
+
+  /// Snapshot of the most recent in-memory log lines (oldest → newest).
+  static List<String> recentEntries() => List<String>.unmodifiable(_ring);
+
+  /// Wipe the in-memory ring buffer (used by the overlay's "clear" action).
+  static void clearRing() => _ring.clear();
+
+  /// Always log — even before init() — to the in-memory ring + live stream.
+  /// Useful for very-early startup messages (DB open, migrations, etc.) that
+  /// should still be visible in the overlay even if the file logger isn't
+  /// ready yet.
+  static void _emitToLive(String entry) {
+    if (_ring.length >= _ringSize) _ring.removeFirst();
+    _ring.add(entry);
+    if (!_liveCtrl.isClosed) {
+      _liveCtrl.add(entry);
+    }
+  }
 
   static Future<void> init() async {
     final enabled = isar.settings.getSync(227)?.enableLogs ?? false;
@@ -157,6 +192,8 @@ class AppLogger {
         LogTag.hls: kLogTagHls,
         LogTag.install: kLogTagInstall,
         LogTag.reader: kLogTagReader,
+        LogTag.watch: kLogTagWatch,
+        LogTag.maintenance: kLogTagMaint,
         LogTag.repo: kLogTagExt, // REPO shares the EXT toggle
       };
       for (final entry in tagMap.entries) {
@@ -232,8 +269,11 @@ class AppLogger {
       }
     }
 
-    if (kDebugMode) debugPrint(entry.toString());
-    _logQueue.add(entry.toString());
+    final formatted = entry.toString();
+    if (kDebugMode) debugPrint(formatted);
+    _logQueue.add(formatted);
+    // Mirror to in-memory ring + live broadcast for the overlay viewer.
+    _emitToLive(formatted);
   }
 
   static String _timestamp() {
@@ -251,6 +291,7 @@ class AppLogger {
   static Future<void> dispose() async {
     if (!_initialized) return;
     await _logQueue.close();
+    await _liveCtrl.close();
     await _sink.flush();
     await _sink.close();
     _initialized = false;
@@ -306,4 +347,9 @@ abstract final class LogTag {
   static const install = 'INSTALL';
   static const reader = 'READER';
   static const search = 'SRCH';
+  // ── Added: cover playback (anime/watch player) and house-keeping tasks
+  // (DB cleanup, cookie clearing, reindexing, etc.) so users can filter
+  // them in the log viewer.
+  static const watch = 'WATCH';
+  static const maintenance = 'MAINT';
 }

@@ -8,6 +8,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/others.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/manga/reader/widgets/circular_progress_indicator_animate_rotate.dart';
 
 class ImageViewVertical extends ConsumerWidget {
@@ -25,6 +26,46 @@ class ImageViewVertical extends ConsumerWidget {
     required this.isHorizontal,
   });
 
+  // ── Per-page tracking so we don't spam the log on every loading-tick.
+  // Keyed by (chapter URL + page index) so a chapter swap resets state.
+  static final Set<String> _loggedLoaded = <String>{};
+  static final Set<String> _loggedFailed = <String>{};
+
+  String _key() {
+    final chap = data.chapter?.url ?? data.chapter?.name ?? '?';
+    return '$chap#${data.index ?? -1}';
+  }
+
+  String _label() {
+    final n = (data.index ?? 0) + 1;
+    final chapName = data.chapter?.name ?? '';
+    return 'page $n${chapName.isEmpty ? '' : ' ($chapName)'}';
+  }
+
+  void _logLoaded() {
+    final k = _key();
+    if (_loggedLoaded.add(k)) {
+      _loggedFailed.remove(k); // any subsequent retry that succeeds clears err
+      AppLogger.log(
+        'manga ${_label()} chargée',
+        tag: LogTag.page,
+        logLevel: LogLevel.debug,
+      );
+    }
+  }
+
+  void _logFailed() {
+    final k = _key();
+    if (_loggedFailed.add(k)) {
+      _loggedLoaded.remove(k);
+      AppLogger.log(
+        'manga ${_label()} ÉCHEC — retry proposé à l\'utilisateur',
+        tag: LogTag.page,
+        logLevel: LogLevel.warning,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final (colorBlendMode, color) = chapterColorFIlterValues(context, ref);
@@ -39,6 +80,7 @@ class ImageViewVertical extends ConsumerWidget {
       loadStateChanged: (state) {
         if (state.extendedImageLoadState == LoadState.completed) {
           failedToLoadImage(false);
+          _logLoaded();
           final rawSize = state.extendedImageInfo?.image;
           if (rawSize != null && data.loadedHeight == null) {
             final screenWidth = isHorizontal
@@ -68,6 +110,7 @@ class ImageViewVertical extends ConsumerWidget {
         }
         if (state.extendedImageLoadState == LoadState.failed) {
           failedToLoadImage(true);
+          _logFailed();
           return Container(
             color: Colors.black,
             height: placeholderHeight,

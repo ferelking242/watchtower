@@ -9,6 +9,7 @@ enum DownloadMode {
   internalDownloader, // 0 — internal HLS/M3U8 downloader
   zeusDl,             // 1 — ZeusDL (yt-dlp based binary)
   aria2,              // 2 — aria2c binary downloader
+  external,           // 3 — hand off to ADM/1DM/FDM/IDM via intent
 }
 
 extension DownloadModeExt on DownloadMode {
@@ -20,6 +21,8 @@ extension DownloadModeExt on DownloadMode {
         return 'ZeusDL';
       case DownloadMode.aria2:
         return 'Aria2';
+      case DownloadMode.external:
+        return 'Externe';
     }
   }
 
@@ -31,6 +34,8 @@ extension DownloadModeExt on DownloadMode {
         return 'Moteur ZeusDL (basé sur yt-dlp). Idéal pour les streams protégés.';
       case DownloadMode.aria2:
         return 'Moteur aria2c haute performance. Connexions multiples et reprise des téléchargements.';
+      case DownloadMode.external:
+        return 'Délègue à une app externe (ADM, 1DM, FDM, IDM…). Le téléchargement quitte l\'application.';
     }
   }
 
