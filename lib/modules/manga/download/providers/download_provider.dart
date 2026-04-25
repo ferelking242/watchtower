@@ -263,6 +263,7 @@ Future<void> downloadChapter(
     Future<void> setProgress(DownloadProgress progress) async {
       if (progress.total > 0) {
         final pct = (progress.completed / progress.total * 100).toInt();
+        stuckWatchdog.markDownloading();
         stuckWatchdog.notifyProgress(pct);
       }
       if (progress.isCompleted) stuckWatchdog.stop();
@@ -778,15 +779,47 @@ Future<void> downloadChapter(
           log('[downloadChapter][anime/HLS] completed chapterId=${chapter.id}');
         } catch (e) {
           caughtError = e;
-          log('[downloadChapter][anime/HLS] FAILED chapterId=${chapter.id} error=$e');
+          log(
+            '[downloadChapter][anime/HLS] FAILED chapterId=${chapter.id} '
+            'error=$e — will try ZeusDL fallback if mode allows',
+          );
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
           }
         }
 
-        // Fallback to ZeusDL on internal failure (legacy — kept for ZeusDL mode)
-        if (caughtError != null && false) {
+        // Fallback to ZeusDL on internal failure. The previous version
+        // had `if (caughtError != null && false)` which made this branch
+        // dead code — that's why HLS failures were never recovered. We
+        // re-enable the fallback unconditionally for `auto` mode (any
+        // mode other than the user explicitly choosing HLS-only).
+        if (caughtError != null) {
+          if (downloadMode == DownloadMode.internalDownloader) {
+            // User pinned the internal HLS engine — surface the error
+            // so the chapter is marked failed and the user can retry.
+            log(
+              '[downloadChapter][anime/HLS→fail] mode=internalDownloader, '
+              'no fallback. chapterId=${chapter.id}',
+            );
+            // Mark the Isar record as failed so the UI can offer retry.
+            final dl = isar.downloads.getSync(chapter.id!);
+            if (dl != null) {
+              isar.writeTxnSync(() {
+                isar.downloads.putSync(dl..failed = 1);
+              });
+            }
+            throw caughtError;
+          }
+          log(
+            '[downloadChapter][anime/HLS→ZeusDL] internal HLS failed, '
+            'falling back to ZeusDL chapterId=${chapter.id}',
+          );
+          if (chapter.id != null) {
+            ref
+                .read(downloadQueueStateProvider.notifier)
+                .setEngine(chapter.id!, 'ZDL');
+          }
           final zeusEngine = ZeusDlEngine(
             url: videoUrl,
             outputPath: m3u8Downloader!.fileName,
@@ -799,13 +832,27 @@ Future<void> downloadChapter(
           }
           try {
             await zeusEngine.start((progress) => setProgress(progress));
+            log(
+              '[downloadChapter][anime/HLS→ZeusDL] fallback succeeded '
+              'chapterId=${chapter.id}',
+            );
+          } catch (e) {
+            log(
+              '[downloadChapter][anime/HLS→ZeusDL] fallback ALSO failed '
+              'chapterId=${chapter.id} error=$e',
+            );
+            final dl = isar.downloads.getSync(chapter.id!);
+            if (dl != null) {
+              isar.writeTxnSync(() {
+                isar.downloads.putSync(dl..failed = 1);
+              });
+            }
+            rethrow;
           } finally {
             if (chapter.id != null) {
               ActiveDownloadRegistry.unregister(chapter.id!);
             }
           }
-        } else if (caughtError != null) {
-          throw caughtError;
         }
       }
     }

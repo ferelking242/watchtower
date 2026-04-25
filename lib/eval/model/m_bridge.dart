@@ -13,6 +13,7 @@ import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/router/router.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/services/anime_extractors/dood_extractor.dart';
 import 'package:watchtower/services/anime_extractors/filemoon.dart';
 import 'package:watchtower/services/anime_extractors/gogocdn_extractor.dart';
@@ -697,8 +698,26 @@ void Function() botToast(
   bool? themeDark,
   bool showIcon = true,
 }) {
-  final context = navigatorKey.currentState?.context;
-  if (context == null) return () {};
+  // Resolve a context that has an active Overlay. Without an Overlay,
+  // MunchToast.show internally calls `Overlay.of(context)!` and the bang
+  // operator throws a "Null check operator used on a null value", which
+  // bubbled up through runZonedGuarded and crashed the app.
+  // We try the navigator's context first, then any registered global
+  // context, and finally bail out silently if none has an Overlay.
+  final navContext = navigatorKey.currentState?.context;
+  BuildContext? context;
+  if (navContext != null && Overlay.maybeOf(navContext) != null) {
+    context = navContext;
+  }
+  if (context == null) {
+    // No live UI to host the toast — fall back to a log so the message
+    // is not lost, but never crash the app over a notification.
+    AppLogger.log(
+      'botToast(no overlay): $title',
+      logLevel: LogLevel.warning,
+    );
+    return () {};
+  }
 
   MunchToastType type = MunchToastType.info;
   if (title.toLowerCase().contains('error') ||
@@ -718,35 +737,46 @@ void Function() botToast(
     type = MunchToastType.success;
   }
 
-  MunchToast.show(
-    context,
-    message: hasCloudFlare ? '$title – Cloudflare' : title,
-    type: type,
-    position: MunchToastPosition.top,
-    duration: Duration(seconds: second),
-    textStyle: fontSize != null
-        ? TextStyle(fontSize: fontSize, color: Colors.white)
-        : null,
-    margin: const EdgeInsets.only(top: 8, right: 12, left: 12),
-    borderRadius: 12,
-    elevation: 6,
-  );
-
-  if (hasCloudFlare && url != null) {
+  // Wrap MunchToast in try/catch as a last-resort safety net: if the
+  // Overlay disappears between our check and MunchToast.show (e.g. a
+  // page transition just popped), we swallow the error rather than
+  // crash the entire app.
+  try {
     MunchToast.show(
       context,
-      message: 'Appuyez pour résoudre Cloudflare',
-      type: MunchToastType.warning,
+      message: hasCloudFlare ? '$title – Cloudflare' : title,
+      type: type,
       position: MunchToastPosition.top,
       duration: Duration(seconds: second),
-      action: MunchToastAction(
-        label: 'Ouvrir',
-        onPressed: () {
-          context.push('/mangawebview', extra: {'url': url, 'title': ''});
-        },
-      ),
+      textStyle: fontSize != null
+          ? TextStyle(fontSize: fontSize, color: Colors.white)
+          : null,
       margin: const EdgeInsets.only(top: 8, right: 12, left: 12),
       borderRadius: 12,
+      elevation: 6,
+    );
+
+    if (hasCloudFlare && url != null) {
+      MunchToast.show(
+        context,
+        message: 'Appuyez pour résoudre Cloudflare',
+        type: MunchToastType.warning,
+        position: MunchToastPosition.top,
+        duration: Duration(seconds: second),
+        action: MunchToastAction(
+          label: 'Ouvrir',
+          onPressed: () {
+            context!.push('/mangawebview', extra: {'url': url, 'title': ''});
+          },
+        ),
+        margin: const EdgeInsets.only(top: 8, right: 12, left: 12),
+        borderRadius: 12,
+      );
+    }
+  } catch (e, st) {
+    AppLogger.log(
+      'botToast failed silently: $e\n$st\n(message="$title")',
+      logLevel: LogLevel.warning,
     );
   }
 

@@ -10,6 +10,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'check_for_update.g.dart';
@@ -32,7 +33,9 @@ Future<void> checkForUpdate(
   if (kDebugMode) {
     log(info.data.toString());
   }
-  final updateAvailable = await _checkUpdate();
+  // Manual update bypasses the cache so the user always gets the freshest
+  // answer; automatic background checks honour the cache to avoid spam.
+  final updateAvailable = await _checkUpdate(forceRefresh: manualUpdate);
 
   // Sentinel '0.0.0' = no releases found or error → treat as up to date
   if (updateAvailable.$1 == '0.0.0' || updateAvailable.$1.isEmpty) {
@@ -67,7 +70,41 @@ bool checkForAppUpdates(Ref ref) {
   return isar.settings.getSync(227)?.checkForAppUpdates ?? true;
 }
 
-Future<(String, String, String, List<dynamic>)> _checkUpdate() async {
+// ── Caching ──────────────────────────────────────────────────────────────────
+//
+// Automatic background calls used to hammer api.github.com on every
+// rebuild of the About / Settings screens. Cache the result for 5 minutes
+// to slash request volume and stay well under GitHub's 60-req/hour
+// anonymous rate limit.
+const Duration _appUpdateCacheTtl = Duration(minutes: 5);
+(String, String, String, List<dynamic>)? _appUpdateCache;
+DateTime? _appUpdateCachedAt;
+Future<(String, String, String, List<dynamic>)>? _appUpdateInflight;
+
+Future<(String, String, String, List<dynamic>)> _checkUpdate({
+  bool forceRefresh = false,
+}) async {
+  final now = DateTime.now();
+  if (!forceRefresh &&
+      _appUpdateCache != null &&
+      _appUpdateCachedAt != null &&
+      now.difference(_appUpdateCachedAt!) < _appUpdateCacheTtl) {
+    return _appUpdateCache!;
+  }
+  if (_appUpdateInflight != null) return _appUpdateInflight!;
+
+  _appUpdateInflight = _fetchAppUpdate();
+  try {
+    final result = await _appUpdateInflight!;
+    _appUpdateCache = result;
+    _appUpdateCachedAt = DateTime.now();
+    return result;
+  } finally {
+    _appUpdateInflight = null;
+  }
+}
+
+Future<(String, String, String, List<dynamic>)> _fetchAppUpdate() async {
   final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
   try {
     final res = await http.get(
@@ -91,8 +128,15 @@ Future<(String, String, String, List<dynamic>)> _checkUpdate() async {
           .map((asset) => asset["browser_download_url"])
           .toList(),
     );
-  } catch (e) {
-    // Network error or no releases: treat as up to date
-    return ('0.0.0', '', '', []);
+  } catch (e, st) {
+    AppLogger.log(
+      'checkForUpdate fetch failed: $e\n$st',
+      logLevel: LogLevel.warning,
+      tag: LogTag.network,
+    );
+    // Surface the previous successful answer when available so the UI
+    // doesn't oscillate between "update available" and "up to date" on
+    // transient network blips.
+    return _appUpdateCache ?? ('0.0.0', '', '', []);
   }
 }

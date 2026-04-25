@@ -13,6 +13,52 @@ import 'package:watchtower/services/isolate_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
+// ── Index response cache ─────────────────────────────────────────────────────
+//
+// `fetchSourcesList` is called from many places (browse screen rebuilds,
+// settings open, manual refresh). Without coalescing, opening the
+// extensions tab fires 2-3 identical requests within seconds. We cache
+// the raw index body for [_indexCacheTtl] and de-duplicate concurrent
+// in-flight requests so only one HTTP call hits the network at a time.
+const Duration _indexCacheTtl = Duration(seconds: 30);
+final Map<String, _IndexCacheEntry> _indexCache = {};
+final Map<String, Future<String>> _indexInflight = {};
+
+class _IndexCacheEntry {
+  final String body;
+  final DateTime fetchedAt;
+  _IndexCacheEntry(this.body, this.fetchedAt);
+}
+
+Future<String> _fetchIndexBody({
+  required String url,
+  required dynamic http,
+  required bool forceRefresh,
+}) async {
+  final now = DateTime.now();
+  final cached = _indexCache[url];
+  if (!forceRefresh &&
+      cached != null &&
+      now.difference(cached.fetchedAt) < _indexCacheTtl) {
+    return cached.body;
+  }
+  final inflight = _indexInflight[url];
+  if (inflight != null) return inflight;
+
+  final future = () async {
+    final req = await http.get(Uri.parse(url));
+    final body = req.body as String;
+    _indexCache[url] = _IndexCacheEntry(body, DateTime.now());
+    return body;
+  }();
+  _indexInflight[url] = future;
+  try {
+    return await future;
+  } finally {
+    _indexInflight.remove(url);
+  }
+}
+
 Future<void> fetchSourcesList({
   int? id,
   required bool refresh,
@@ -26,11 +72,20 @@ Future<void> fetchSourcesList({
   if (url == null) return;
 
   AppLogger.log(
-    'Fetching index | repo=${repo?.name ?? url} | type=$itemType',
+    'Fetching index | repo=${repo?.name ?? url} | type=$itemType '
+    '(refresh=$refresh)',
     tag: LogTag.repo,
   );
 
-  final req = await http.get(Uri.parse(url));
+  final body = await _fetchIndexBody(
+    url: url,
+    http: http,
+    forceRefresh: refresh,
+  );
+  // Mimic the original `req.body`-based decode below by wrapping the
+  // cached/freshly-fetched string into a minimal shim with the same
+  // call site shape.
+  final req = _BodyShim(body);
   final info = await PackageInfo.fromPlatform();
 
   final sourceList = (jsonDecode(req.body) as List)
@@ -575,3 +630,11 @@ String _convertLang(dynamic e) {
   }
   return "all";
 }
+
+/// Lightweight shim so we can pass a `String` body through the same
+/// `req.body`-based decode path used by the original code.
+class _BodyShim {
+  final String body;
+  _BodyShim(this.body);
+}
+

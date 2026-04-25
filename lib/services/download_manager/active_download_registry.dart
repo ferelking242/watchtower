@@ -37,24 +37,39 @@ class ActiveDownloadRegistry {
 
   // ── Control ───────────────────────────────────────────────────────────────
 
-  /// Pause the download.  For ZeusDL: SIGSTOP.  For internal: cancel current
-  /// batch (files already on disk are preserved; re-queuing restarts cleanly).
+  /// Pause the download.
+  ///
+  /// * ZeusDL: SIGSTOP — the process is left registered so [resume]
+  ///   can SIGCONT it back to life.
+  /// * Internal (HLS/manga pool): cancel the current isolate task AND
+  ///   unregister the chapter so [processDownloads] can re-pick it on
+  ///   resume. Without unregistering, the chapter would still appear
+  ///   "active" to the scheduler and resume would silently do nothing.
   static Future<void> pause(int downloadId) async {
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.pause();
-    } else if (_internalTaskIds.containsKey(downloadId)) {
+      return;
+    }
+    if (_internalTaskIds.containsKey(downloadId)) {
       final taskId = _internalTaskIds[downloadId]!;
-      // Cancel isolate pool task — the download loop exits gracefully.
-      // The Isar record keeps isStartDownload=true so processDownloads can
-      // re-pick it when resumed.
+      // Cancel both the bare and m3u8-prefixed variants — historically
+      // both shapes have been registered depending on the call site.
       DownloadIsolatePool.instance.cancelTask(taskId);
       DownloadIsolatePool.instance.cancelTask('m3u8_$taskId');
+      // Drop the entry so the scheduler considers this chapter idle on
+      // resume and re-enqueues it via processDownloads. Already-downloaded
+      // segments stay on disk and are skipped on the next attempt.
+      _internalTaskIds.remove(downloadId);
     }
   }
 
-  /// Resume a paused download.  For ZeusDL: SIGCONT.  For internal: the
-  /// caller (UI) should re-invoke processDownloads after removing from
-  /// pausedIds, which will restart the download from where it left off.
+  /// Resume a paused download.
+  ///
+  /// * ZeusDL: SIGCONT — engine resumes in place.
+  /// * Internal: the caller (UI) should re-invoke processDownloads after
+  ///   removing the chapter from pausedIds. Because [pause] unregistered
+  ///   the chapter, the scheduler will see it as idle and start a fresh
+  ///   download which skips any files already on disk.
   static Future<void> resume(int downloadId) async {
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.resume();

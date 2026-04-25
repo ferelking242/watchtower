@@ -15,6 +15,9 @@ import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:path/path.dart' as path;
 import 'package:encrypt/encrypt.dart' as encrypt;
 
+/// Cancellation flags visible from the *main* isolate. Used to short-circuit
+/// the receivePort listener and to ignore late progress messages from a
+/// cancelled task.
 final downloadTaskCancellation = <String, bool>{};
 
 /// Shared Isolate pool to optimize performance
@@ -175,9 +178,15 @@ class DownloadIsolatePool {
     _enqueueTask(task);
   }
 
-  /// Cancel a download task
+  /// Cancel a download task. Sets the main-isolate cancel flag *and*
+  /// broadcasts a cancellation message to every worker so the in-flight
+  /// download loop exits at its next checkpoint instead of running to
+  /// completion.
   void cancelTask(String taskId) {
     downloadTaskCancellation[taskId] = true;
+    for (final worker in _workers) {
+      worker.cancel(taskId);
+    }
   }
 
   /// Add a task to the queue and try to process it
@@ -291,6 +300,7 @@ class _PoolWorker {
   late Isolate _isolate;
   late SendPort _sendPort;
   late ReceivePort _receivePort;
+  SendPort? _cancelPort;
   final Completer<void> _ready = Completer();
 
   _PoolWorker._(this.id);
@@ -309,15 +319,27 @@ class _PoolWorker {
       _WorkerInit(id, _receivePort.sendPort),
     );
 
-    // Wait for the worker to be ready and get its SendPort
-    final completer = Completer<SendPort>();
+    // The worker first sends back its task SendPort, then its cancel
+    // SendPort. We complete the ready future once both are received.
+    final taskPortCompleter = Completer<SendPort>();
+    final cancelPortCompleter = Completer<SendPort>();
     _receivePort.listen((message) {
-      if (message is SendPort) {
-        completer.complete(message);
+      if (message is _WorkerHandshake) {
+        if (!taskPortCompleter.isCompleted) {
+          taskPortCompleter.complete(message.taskPort);
+        }
+        if (!cancelPortCompleter.isCompleted) {
+          cancelPortCompleter.complete(message.cancelPort);
+        }
+      } else if (message is SendPort && !taskPortCompleter.isCompleted) {
+        // Backwards-compatible path (old worker entry point sent a bare
+        // SendPort). Should not be hit but keeps things robust.
+        taskPortCompleter.complete(message);
       }
     });
 
-    _sendPort = await completer.future;
+    _sendPort = await taskPortCompleter.future;
+    _cancelPort = await cancelPortCompleter.future;
     _ready.complete();
   }
 
@@ -336,7 +358,7 @@ class _PoolWorker {
 
       if (message is DownloadComplete || message is Exception) {
         taskPort.close();
-        completer.complete();
+        if (!completer.isCompleted) completer.complete();
       }
     });
 
@@ -353,6 +375,14 @@ class _PoolWorker {
     return completer.future;
   }
 
+  /// Tell the worker isolate to abort the named task at its next checkpoint.
+  void cancel(String taskId) {
+    final port = _cancelPort;
+    if (port != null) {
+      port.send(_CancelMessage(taskId));
+    }
+  }
+
   void dispose() {
     _isolate.kill();
     _receivePort.close();
@@ -364,6 +394,21 @@ class _WorkerInit {
   final int workerId;
   final SendPort mainPort;
   _WorkerInit(this.workerId, this.mainPort);
+}
+
+/// Sent from the worker back to the main isolate once both SendPorts
+/// are ready. Replaces the old "send raw SendPort" pattern so cancellation
+/// can be wired up before any task is dispatched.
+class _WorkerHandshake {
+  final SendPort taskPort;
+  final SendPort cancelPort;
+  _WorkerHandshake(this.taskPort, this.cancelPort);
+}
+
+/// Sent from the main isolate to a worker over its dedicated cancel port.
+class _CancelMessage {
+  final String taskId;
+  _CancelMessage(this.taskId);
 }
 
 /// Task sent to the worker
@@ -381,6 +426,11 @@ class _WorkerTask {
   });
 }
 
+/// Per-isolate set of cancelled task IDs. Updated by the cancellation
+/// listener (non-blocking) and consulted by the download loops between
+/// segments/files so they can short-circuit cleanly.
+final Set<String> _workerCancelledTasks = <String>{};
+
 /// Isolate worker entry point
 void _workerEntryPoint(_WorkerInit init) async {
   // Initialize dependencies in the Isolate
@@ -393,11 +443,21 @@ void _workerEntryPoint(_WorkerInit init) async {
     ),
   );
 
-  // Create the receive port for this worker
+  // Create the receive ports for this worker: one for tasks, one for
+  // cancel messages. The cancel port uses listen() so it processes
+  // messages even while the task port's await-for is busy.
   final receivePort = ReceivePort();
+  final cancelPort = ReceivePort();
+  cancelPort.listen((message) {
+    if (message is _CancelMessage) {
+      _workerCancelledTasks.add(message.taskId);
+    }
+  });
 
-  // Send the SendPort to the main isolate
-  init.mainPort.send(receivePort.sendPort);
+  // Send both SendPorts back to the main isolate via a single handshake.
+  init.mainPort.send(
+    _WorkerHandshake(receivePort.sendPort, cancelPort.sendPort),
+  );
 
   if (kDebugMode) {
     print('[Worker ${init.workerId}] Ready');
@@ -406,15 +466,19 @@ void _workerEntryPoint(_WorkerInit init) async {
   // Listen for tasks
   await for (final message in receivePort) {
     if (message is _WorkerTask) {
+      // Reset cancellation state for this taskId in case it was reused.
+      _workerCancelledTasks.remove(message.taskId);
       try {
         if (message.type == _TaskType.fileDownload) {
           await _processFileDownload(
+            message.taskId,
             message.params as FileDownloadParams,
             message.replyPort,
             httpClient,
           );
         } else if (message.type == _TaskType.m3u8Download) {
           await _processM3u8Download(
+            message.taskId,
             message.params as M3u8DownloadParams,
             message.replyPort,
             httpClient,
@@ -422,13 +486,18 @@ void _workerEntryPoint(_WorkerInit init) async {
         }
       } catch (e) {
         message.replyPort.send(DownloadPoolException('Task failed', e));
+      } finally {
+        _workerCancelledTasks.remove(message.taskId);
       }
     }
   }
 }
 
+bool _isCancelled(String taskId) => _workerCancelledTasks.contains(taskId);
+
 /// Process a file download
 Future<void> _processFileDownload(
+  String taskId,
   FileDownloadParams params,
   SendPort replyPort,
   Client client,
@@ -440,8 +509,23 @@ Future<void> _processFileDownload(
 
   try {
     while (queue.isNotEmpty || activeTasks.isNotEmpty) {
+      if (_isCancelled(taskId)) {
+        // Wait for in-flight downloads to settle so we don't leave
+        // dangling sinks/file handles, then exit gracefully.
+        if (activeTasks.isNotEmpty) {
+          await Future.wait(activeTasks.toList()).catchError((_) => <void>[]);
+        }
+        replyPort.send(
+          DownloadPoolException(
+            'Task $taskId cancelled by user',
+            null,
+          ),
+        );
+        return;
+      }
       while (queue.isNotEmpty &&
           activeTasks.length < params.concurrentDownloads) {
+        if (_isCancelled(taskId)) break;
         final pageUrl = queue.removeFirst();
         final task = _downloadFile(pageUrl, client, params.itemType, replyPort)
             .then((_) {
@@ -550,6 +634,7 @@ Future<void> _downloadFile(
 
 /// Process an M3U8 download
 Future<void> _processM3u8Download(
+  String taskId,
   M3u8DownloadParams params,
   SendPort replyPort,
   Client client,
@@ -561,8 +646,21 @@ Future<void> _processM3u8Download(
 
   try {
     while (queue.isNotEmpty || activeTasks.isNotEmpty) {
+      if (_isCancelled(taskId)) {
+        if (activeTasks.isNotEmpty) {
+          await Future.wait(activeTasks.toList()).catchError((_) => <void>[]);
+        }
+        replyPort.send(
+          DownloadPoolException(
+            'M3U8 task $taskId cancelled by user',
+            null,
+          ),
+        );
+        return;
+      }
       while (queue.isNotEmpty &&
           activeTasks.length < params.concurrentDownloads) {
+        if (_isCancelled(taskId)) break;
         final segment = queue.removeFirst();
         final task = _downloadSegment(segment, params, client)
             .then((_) {
@@ -671,22 +769,27 @@ Uint8List _aesDecrypt(
   }
 }
 
-/// Helper for retry
+/// Helper for retry. Now uses bounded exponential backoff (200ms, 500ms,
+/// 1000ms…) so transient network blips don't immediately fail a download
+/// and so we don't hot-loop and burn CPU when a server is briefly unhappy.
 Future<T> _withRetry<T>(Future<T> Function() operation, int maxRetries) async {
   int attempts = 0;
-  while (true) {
+  Object? lastError;
+  while (attempts < maxRetries) {
+    attempts++;
     try {
-      attempts++;
       return await operation();
     } catch (e) {
-      if (attempts >= maxRetries) {
-        throw DownloadPoolException(
-          'Operation failed after $maxRetries attempts',
-          e,
-        );
-      }
+      lastError = e;
+      if (attempts >= maxRetries) break;
+      final backoffMs = 200 * (1 << (attempts - 1)); // 200, 400, 800, …
+      await Future.delayed(Duration(milliseconds: backoffMs.clamp(200, 2000)));
     }
   }
+  throw DownloadPoolException(
+    'Operation failed after $maxRetries attempts',
+    lastError,
+  );
 }
 
 /// Pool exception

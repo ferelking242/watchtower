@@ -154,8 +154,12 @@ class AboutScreen extends ConsumerWidget {
                           zeusAsync: zeusAsync,
                           colorScheme: cs,
                           isDark: isDark,
-                          onZeusCheckTap: () =>
-                              ref.invalidate(zeusLatestReleaseProvider),
+                          onZeusCheckTap: () {
+                            // User explicitly requested a fresh check —
+                            // bypass the in-memory 5-minute cache.
+                            invalidateZeusReleaseCache();
+                            ref.invalidate(zeusLatestReleaseProvider);
+                          },
                         ),
 
                         const SizedBox(height: 20),

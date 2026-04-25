@@ -58,3 +58,6 @@ artifacts/
 .local/
 .agents/
 /tmp/
+
+# External reference projects (not pushed)
+external_project/
