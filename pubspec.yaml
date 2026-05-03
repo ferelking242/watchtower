@@ -125,6 +125,10 @@ dependency_overrides:
     path: web_stubs/desktop_webview_window
   flutter_discord_rpc_fork:
     path: web_stubs/flutter_discord_rpc_fork
+  permission_handler:
+    path: web_stubs/permission_handler
+  local_auth:
+    path: web_stubs/local_auth
 
 dev_dependencies:
   flutter_test:
