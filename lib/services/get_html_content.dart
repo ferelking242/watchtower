@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/src/rust/api/epub.dart';
 import 'package:path/path.dart' as p;
 import 'package:html/parser.dart';

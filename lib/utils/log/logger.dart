@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -101,7 +101,8 @@ enum LogMode {
 class AppLogger {
   static final _logQueue = StreamController<String>();
   static late File _logFile;
-  static late IOSink _sink;
+  // dynamic to accept both dart:io.IOSink (native) and stub IOSink (web)
+  static late dynamic _sink;
   static bool _initialized = false;
 
   // ── In-memory filter state ──────────────────────────────────────────────────

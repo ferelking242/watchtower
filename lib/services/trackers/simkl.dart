@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_qjs/quickjs/ffi.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';

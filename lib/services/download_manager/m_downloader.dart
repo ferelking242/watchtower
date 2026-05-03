@@ -1,5 +1,5 @@
 import 'dart:developer';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/models/chapter.dart';

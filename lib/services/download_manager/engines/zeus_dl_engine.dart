@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/services/download_manager/engines/download_engine.dart';
 import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';

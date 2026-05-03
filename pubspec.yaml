@@ -83,7 +83,6 @@ dependencies:
       url: https://github.com/kodjodevf/desktop_webview_window.git
       path: packages/desktop_webview_window
       ref: main
-  volume_controller: ^3.4.4
   screen_brightness: ^2.1.1
   flutter_html: ^3.0.0
   convert: ^3.1.2
@@ -119,6 +118,12 @@ dependency_overrides:
       path: flutter_web_auth_2
   flutter_qjs:
     path: web_stubs/flutter_qjs
+  media_kit:
+    path: web_stubs/media_kit
+  media_kit_video:
+    path: web_stubs/media_kit_video
+  media_kit_libs_video:
+    path: web_stubs/media_kit_libs_video
   window_manager:
     path: web_stubs/window_manager
   desktop_webview_window:

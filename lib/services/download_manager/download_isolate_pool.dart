@@ -1,7 +1,7 @@
 import 'dart:collection';
 import 'dart:isolate';
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart';
 import 'package:watchtower/models/manga.dart';

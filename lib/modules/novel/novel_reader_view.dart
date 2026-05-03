@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:extended_image/extended_image.dart';

@@ -4,13 +4,14 @@ import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/eval/model/m_source.dart';
 import 'package:watchtower/main.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart'
     as flutter_inappwebview;
 import 'package:watchtower/models/settings.dart';
-import 'package:http/io_client.dart';
+import 'package:watchtower/services/http/io_client_stub.dart'
+    if (dart.library.io) 'package:http/io_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/utils/log/log.dart';
 import 'package:watchtower/utils/log/logger.dart';

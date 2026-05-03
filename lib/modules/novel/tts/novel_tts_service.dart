@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) '../../../utils/io_stub.dart';
 import 'dart:math' as math;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:html/parser.dart' as html_parser;

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:isolate';
 import 'package:flutter/services.dart';
 import 'package:http_interceptor/http_interceptor.dart';

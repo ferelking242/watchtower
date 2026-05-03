@@ -261,8 +261,7 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
     ItemType.manga => ".zip, .cbz",
     ItemType.anime => ".mp4, .mkv, .avi, and more",
     ItemType.novel => ".epub",
-    ItemType.music => "",
-    ItemType.game => "",
+    _ => "",
   };
   bool isLoading = false;
   bool splitChapters = true;

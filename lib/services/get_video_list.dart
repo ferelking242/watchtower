@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/utils/log/logger.dart';
 

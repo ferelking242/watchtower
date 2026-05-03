@@ -8,9 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_inappwebview_windows
   flutter_tts
   isar_community_flutter_libs
-  local_auth_windows
   m_extension_server
-  permission_handler_windows
   screen_brightness_windows
   share_plus
   url_launcher_windows
