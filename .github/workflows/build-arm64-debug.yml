@@ -1,0 +1,89 @@
+name: Build Android ARMv8 Profile
+
+  on:
+    push:
+      branches: [ main, master, service-dart-fix ]
+    pull_request:
+      branches: [ main, master, service-dart-fix ]
+    workflow_dispatch:
+
+  jobs:
+    build:
+      name: Build ARMv8 Profile APK
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Set up Java 17
+          uses: actions/setup-java@v4
+          with:
+            distribution: temurin
+            java-version: '17'
+
+        - name: Set up Flutter (latest stable)
+          uses: subosito/flutter-action@v2
+          with:
+            channel: stable
+            cache: true
+
+        - name: Cache pub packages
+          uses: actions/cache@v4
+          with:
+            path: ~/.pub-cache
+            key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+            restore-keys: ${{ runner.os }}-pub-
+
+        - name: Generate debug keystore
+          run: |
+            keytool -genkeypair \
+              -alias watchtower \
+              -keypass watchtower \
+              -storepass watchtower \
+              -keystore android/app/watchtower-debug.keystore \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Watchtower, OU=Dev, O=Watchtower, L=Unknown, S=Unknown, C=US" \
+              -storetype JKS \
+              -noprompt
+
+        - name: Install dependencies
+          run: flutter pub get
+
+        - name: Compute build number
+          id: ver
+          run: |
+            # versionName from pubspec, versionCode = GITHUB_RUN_NUMBER (auto-increments per build)
+            VNAME=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9.]+).*/\1/')
+            VCODE=${GITHUB_RUN_NUMBER}
+            echo "name=$VNAME" >> "$GITHUB_OUTPUT"
+            echo "code=$VCODE" >> "$GITHUB_OUTPUT"
+            echo "Building $VNAME ($VCODE)"
+
+        - name: Build APK (ARMv8 profile)
+          run: |
+            flutter build apk \
+              --profile \
+              --target-platform android-arm64 \
+              --split-per-abi \
+              --no-tree-shake-icons \
+              --build-name=${{ steps.ver.outputs.name }} \
+              --build-number=${{ steps.ver.outputs.code }}
+
+        - name: Show APK size
+          run: |
+            APK=build/app/outputs/apk/profile/app-arm64-v8a-profile.apk
+            if [ -f "$APK" ]; then
+              echo "APK size: $(du -sh $APK | cut -f1)"
+              echo "Version: ${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})"
+            fi
+
+        - name: Upload APK artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: app-arm64-profile-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}
+            path: build/app/outputs/apk/profile/app-arm64-v8a-profile.apk
+            retention-days: 14
+  
