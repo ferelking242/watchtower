@@ -538,9 +538,14 @@ class _HistoryListItem extends ConsumerWidget {
         typeIcon = Icons.auto_stories_outlined;
         typeColor = Colors.green;
         break;
-      default:
-        typeIcon = Icons.help_outline;
-        typeColor = Colors.grey;
+      case ItemType.music:
+        typeIcon = Icons.music_note_outlined;
+        typeColor = Colors.orange;
+        break;
+      case ItemType.game:
+        typeIcon = Icons.sports_esports_outlined;
+        typeColor = Colors.red;
+        break;
     }
 
     return ElevatedButton(
@@ -712,9 +717,14 @@ class _HistoryGrid extends ConsumerWidget {
             typeIcon = Icons.auto_stories_outlined;
             typeColor = Colors.green;
             break;
-          default:
-            typeIcon = Icons.help_outline;
-            typeColor = Colors.grey;
+          case ItemType.music:
+            typeIcon = Icons.music_note_outlined;
+            typeColor = Colors.orange;
+            break;
+          case ItemType.game:
+            typeIcon = Icons.sports_esports_outlined;
+            typeColor = Colors.red;
+            break;
         }
 
         return GestureDetector(
