@@ -7,7 +7,7 @@ import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_p
 
 /// Auto-cycling banner carousel with page indicator dots and optional synopsis.
 /// Set [forceFullWidth] to true to bypass the carousel style setting and always
-/// display cinematic edge-to-edge mode (used on the home screen).
+/// display cinematic edge-to-edge mode (used on the home screen hero).
 class HeroCarousel extends ConsumerStatefulWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
@@ -25,18 +25,19 @@ class HeroCarousel extends ConsumerStatefulWidget {
 }
 
 class _HeroCarouselState extends ConsumerState<HeroCarousel> {
-  final PageController _controller = PageController(viewportFraction: 0.92);
+  late final PageController _pageController;
   Timer? _timer;
   int _index = 0;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _timer = Timer.periodic(const Duration(seconds: 6), (_) {
       if (!mounted || widget.items.isEmpty) return;
       final next = (_index + 1) % widget.items.length;
-      if (_controller.hasClients) {
-        _controller.animateToPage(
+      if (_pageController.hasClients) {
+        _pageController.animateToPage(
           next,
           duration: const Duration(milliseconds: 600),
           curve: Curves.easeOutCubic,
@@ -48,7 +49,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   @override
   void dispose() {
     _timer?.cancel();
-    _controller.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -59,22 +60,17 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     final carouselStyle = ref.watch(carouselStyleProvider);
     final showSynopsis = ref.watch(carouselSynopsisProvider);
     final theme = Theme.of(context);
-    // forceFullWidth overrides user carousel style preference
+    final screenH = MediaQuery.sizeOf(context).height;
+
     final isCinematic = widget.forceFullWidth || carouselStyle == 1;
     final isCompact = !widget.forceFullWidth && carouselStyle == 2;
 
-    // Full-width carousel is taller to work as a hero banner
+    // Home hero: tall enough to reach the top status bar and fill the cinematic
+    // zone. Non-home carousels stay shorter.
     final cardHeight = widget.forceFullWidth
-        ? MediaQuery.sizeOf(context).height * 0.50
+        ? screenH * 0.62
         : (isCompact ? 190.0 : 270.0);
     final viewportFraction = isCinematic ? 1.0 : (isCompact ? 0.88 : 0.92);
-
-    // Rebuild controller if style changed
-    if ((_controller.viewportFraction - viewportFraction).abs() > 0.01) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
-      });
-    }
 
     return SizedBox(
       height: showSynopsis && !isCompact ? cardHeight + 86 : cardHeight,
@@ -94,14 +90,15 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                   itemBuilder: (_, i) {
                     final m = widget.items[i];
                     final image = m.bannerImage ?? m.bestCover;
+
                     return AnimatedBuilder(
-                      animation: _controller,
+                      animation: _pageController,
                       builder: (context, child) {
                         double page = i.toDouble();
                         try {
-                          if (_controller.hasClients &&
-                              _controller.position.haveDimensions) {
-                            page = _controller.page ?? page;
+                          if (_pageController.hasClients &&
+                              _pageController.position.haveDimensions) {
+                            page = _pageController.page ?? page;
                           }
                         } catch (_) {}
                         final delta = (page - i).abs();
@@ -122,11 +119,12 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                         child: GestureDetector(
                           onTap: () => widget.onItemTap(m),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(
-                                isCinematic ? 0 : 20),
+                            borderRadius:
+                                BorderRadius.circular(isCinematic ? 0 : 20),
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
+                                // ── Cover / banner image ──────────────────
                                 if (image != null)
                                   ExtendedImage.network(
                                     image,
@@ -135,33 +133,37 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   )
                                 else
                                   Container(
-                                    color: theme.colorScheme
-                                        .surfaceContainerHighest,
+                                    color: theme
+                                        .colorScheme.surfaceContainerHighest,
                                   ),
-                                // gradient overlay
+
+                                // ── Top-to-bottom dark scrim
+                                // (darker at bottom so the info overlay pops) ──
                                 DecoratedBox(
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
+                                      stops: const [0.0, 0.45, 1.0],
                                       colors: [
+                                        Colors.black.withValues(alpha: 0.10),
                                         Colors.transparent,
-                                        Colors.black.withValues(alpha: 0.85),
+                                        Colors.black.withValues(alpha: 0.88),
                                       ],
                                     ),
                                   ),
                                 ),
-                                // bottom info
+
+                                // ── Bottom info ───────────────────────────
                                 Positioned(
                                   left: 16,
                                   right: 16,
-                                  bottom: 22,
+                                  bottom: 28,
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      // type badge
                                       Row(
                                         children: [
                                           _TypeBadge(m.type, m.format,
@@ -173,7 +175,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                         ],
                                       ),
                                       const SizedBox(height: 8),
-                                      // title
                                       Text(
                                         m.displayTitle,
                                         maxLines: 2,
@@ -184,7 +185,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
-                                      // genres
                                       if (m.genres.isNotEmpty) ...[
                                         const SizedBox(height: 6),
                                         SingleChildScrollView(
@@ -192,17 +192,51 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                           child: Row(
                                             children: m.genres
                                                 .take(3)
-                                                .map((g) => Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              right: 6),
-                                                      child: _GenrePill(g),
-                                                    ))
+                                                .map(
+                                                  (g) => Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            right: 6),
+                                                    child: _GenrePill(g),
+                                                  ),
+                                                )
                                                 .toList(),
                                           ),
                                         ),
                                       ],
                                     ],
+                                  ),
+                                ),
+
+                                // ── Page indicator dots ───────────────────
+                                Positioned(
+                                  bottom: 10,
+                                  left: 0,
+                                  right: 0,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(
+                                      widget.items.length > 8
+                                          ? 8
+                                          : widget.items.length,
+                                      (di) => AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 300),
+                                        curve: Curves.easeOut,
+                                        width: _index == di ? 18 : 6,
+                                        height: 6,
+                                        margin: const EdgeInsets.symmetric(
+                                            horizontal: 2),
+                                        decoration: BoxDecoration(
+                                          color: _index == di
+                                              ? Colors.white
+                                              : Colors.white
+                                                  .withValues(alpha: 0.35),
+                                          borderRadius:
+                                              BorderRadius.circular(3),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -213,43 +247,18 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                     );
                   },
                 ),
-
-                // page indicator dots (bottom center)
-                Positioned(
-                  bottom: 8,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      widget.items.length > 8 ? 8 : widget.items.length,
-                      (i) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOut,
-                        width: _index == i ? 18 : 6,
-                        height: 6,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(
-                          color: _index == i
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
 
-          // ── Synopsis row ─────────────────────────────────────────────────
+          // ── Optional synopsis strip ─────────────────────────────────────
           if (showSynopsis && !isCompact && widget.items.isNotEmpty)
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: _SynopsisRow(
                 key: ValueKey(_index),
-                media: widget.items[_index.clamp(0, widget.items.length - 1)],
+                media:
+                    widget.items[_index.clamp(0, widget.items.length - 1)],
                 onTap: () => widget.onItemTap(
                     widget.items[_index.clamp(0, widget.items.length - 1)]),
               ),
@@ -281,7 +290,6 @@ class _SynopsisRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // mini poster
             if (media.bestCover != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -302,9 +310,8 @@ class _SynopsisRow extends StatelessWidget {
                     media.displayTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   if (desc != null && desc.isNotEmpty) ...[
                     const SizedBox(height: 3),
