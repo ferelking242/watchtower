@@ -41,6 +41,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   double _scrollOffset = 0;
   int _selectedTab = 0;
 
+  // Mini série filter: 0=Dernière  1=Le plus chaud  2=Toute
+  int _miniSerieFilter = 0;
+
   @override
   void initState() {
     super.initState();
@@ -119,7 +122,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
               scrollOffset: _scrollOffset,
               selectedTab: _selectedTab,
               onTabChanged: _onTabChanged,
-              onSearchTap: () => context.push('/globalSearch'),
+              onSearchTap: () => context.push('/watchtowerSearch'),
             ),
           ),
         ],
@@ -181,7 +184,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           ...home.trendingManhua.where(withImage).take(5),
         ]..shuffle();
       case _HomeTab.miniSerie:
-        // Use trending anime shuffled – OVA/mini filtering not available from AniList
         final all = home.trendingAnimes.where(withImage).toList()..shuffle();
         return all.take(10).toList();
       case _HomeTab.anime:
@@ -192,7 +194,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       case _HomeTab.football:
       case _HomeTab.musique:
       case _HomeTab.jeux:
-        // No AniList feed — show trending as backdrop
         return home.trendingAnimes.where(withImage).take(5).toList();
     }
   }
@@ -411,29 +412,109 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Mini série tab
+  // Mini série tab — MovieBox TV Courte style
+  // Filter chips: Dernière | Le plus chaud | Toute
+  // Ma liste section + category rows by origin
   // ──────────────────────────────────────────────────────────────────────────
 
   List<Widget> _buildMiniSerieTab(BuildContext context, AnilistHome home) {
-    final items = [
-      ...home.trendingAnimes,
-      ...home.popularAnimes,
-    ]..shuffle();
+    // Determine content based on active filter
+    final List<AnilistMedia> featured;
+    final String featuredTitle;
+    switch (_miniSerieFilter) {
+      case 0:
+        featured = home.recentlyUpdatedAnimes.isNotEmpty
+            ? home.recentlyUpdatedAnimes
+            : home.trendingAnimes;
+        featuredTitle = 'Dernières mises à jour';
+        break;
+      case 1:
+        featured = home.trendingAnimes;
+        featuredTitle = 'Les plus chaudes';
+        break;
+      default:
+        final all = [...home.trendingAnimes, ...home.popularAnimes];
+        featured = all.take(20).toList();
+        featuredTitle = 'Toutes les mini-séries';
+    }
+
+    // Category rows by origin (using AniList data as proxy)
+    final japanese = home.trendingAnimes
+        .where((m) => m.countryOfOrigin == 'JP' || m.countryOfOrigin == null)
+        .take(12)
+        .toList();
+    final chinese = home.trendingManhua.take(12).toList();
+    final american = home.animeMovies.take(12).toList();
+
     return [
-      if (items.isNotEmpty)
+      // ── Filter chips ───────────────────────────────────────────────────────
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+          child: Row(
+            children: [
+              _MiniSerieFilterChip(
+                label: 'Dernière',
+                selected: _miniSerieFilter == 0,
+                onTap: () => setState(() => _miniSerieFilter = 0),
+              ),
+              const SizedBox(width: 8),
+              _MiniSerieFilterChip(
+                label: 'Le plus chaud',
+                selected: _miniSerieFilter == 1,
+                onTap: () => setState(() => _miniSerieFilter = 1),
+              ),
+              const SizedBox(width: 8),
+              _MiniSerieFilterChip(
+                label: 'Toute',
+                selected: _miniSerieFilter == 2,
+                onTap: () => setState(() => _miniSerieFilter = 2),
+              ),
+            ],
+          ),
+        ),
+      ),
+
+      // ── Ma liste ───────────────────────────────────────────────────────────
+      const SliverToBoxAdapter(child: _MaListeSection()),
+
+      // ── Featured / filtered row ────────────────────────────────────────────
+      if (featured.isNotEmpty)
         _MixedRow(
-          title: 'Mini séries populaires',
+          title: featuredTitle,
           icon: Icons.video_collection_rounded,
           iconColor: Colors.teal,
-          items: items.take(20).toList(),
+          items: featured.take(16).toList(),
           onTap: (m) => _openDetail(context, m),
         ),
-      if (home.upcomingAnimes.isNotEmpty)
+
+      // ── Américaines ────────────────────────────────────────────────────────
+      if (american.isNotEmpty)
         _StandardRow(
-          title: 'Bientôt disponible',
-          icon: Icons.schedule_rounded,
-          iconColor: Colors.green,
-          items: home.upcomingAnimes,
+          title: 'Américaines',
+          icon: Icons.flag_rounded,
+          iconColor: const Color(0xFF3B5BDB),
+          items: american,
+          onTap: (m) => _openDetail(context, m),
+        ),
+
+      // ── Japonaises ────────────────────────────────────────────────────────
+      if (japanese.isNotEmpty)
+        _StandardRow(
+          title: 'Japonaises',
+          icon: Icons.flag_rounded,
+          iconColor: Colors.pinkAccent,
+          items: japanese,
+          onTap: (m) => _openDetail(context, m),
+        ),
+
+      // ── Chinoises ─────────────────────────────────────────────────────────
+      if (chinese.isNotEmpty)
+        _StandardRow(
+          title: 'Chinoises',
+          icon: Icons.flag_rounded,
+          iconColor: Colors.red,
+          items: chinese,
           onTap: (m) => _openDetail(context, m),
         ),
     ];
@@ -617,6 +698,136 @@ class _AsiaOriginChips extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mini série filter chip (avoids naming conflict with Flutter's FilterChip)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MiniSerieFilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MiniSerieFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? cs.primary
+                : cs.outlineVariant.withValues(alpha: 0.50),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? cs.onPrimary : cs.onSurface.withValues(alpha: 0.70),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "Ma liste" section — empty state placeholder for mini série tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MaListeSection extends StatelessWidget {
+  const _MaListeSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Ma liste',
+                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: const Size(0, 32),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Voir tout',
+                      style: tt.labelMedium?.copyWith(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 16, color: cs.primary),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.35),
+                width: 1,
+                strokeAlign: BorderSide.strokeAlignInside,
+              ),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_circle_outline_rounded,
+                      size: 32, color: cs.primary.withValues(alpha: 0.70)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ajoute tes mini-séries favorites ici',
+                    style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.50)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+      ),
     );
   }
 }
@@ -833,7 +1044,42 @@ class _LandscapeRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Row header
+// Brush stroke painter — paints an organic ink-stroke behind section titles
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BrushStrokePainter extends CustomPainter {
+  final Color color;
+  _BrushStrokePainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+
+    final w = size.width;
+    final h = size.height;
+
+    final path = Path();
+    // Organic hand-painted stroke shape
+    path.moveTo(-3, h * 0.35);
+    path.cubicTo(w * 0.05, h * 0.02, w * 0.50, -h * 0.05, w * 0.82, h * 0.10);
+    path.cubicTo(w * 0.92, h * 0.14, w + 4, h * 0.20, w + 3, h * 0.28);
+    path.lineTo(w + 2, h * 0.75);
+    path.cubicTo(w * 0.88, h * 0.96, w * 0.58, h * 1.06, w * 0.28, h * 0.92);
+    path.cubicTo(w * 0.14, h * 0.86, w * 0.04, h * 0.98, -4, h * 0.78);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_BrushStrokePainter old) => old.color != color;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Row header — title + optional icon + optional trailing + brush accent
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RowHeader extends StatelessWidget {
@@ -848,18 +1094,42 @@ class _RowHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final accentColor = (iconColor ?? cs.primary).withValues(alpha: 0.18);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 22, 8, 10),
       child: Row(
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 18, color: iconColor ?? theme.colorScheme.primary),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            title,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+          // Brush stroke wrapped around icon + title
+          Flexible(
+            child: CustomPaint(
+              painter: _BrushStrokePainter(accentColor),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon,
+                          size: 17,
+                          color: iconColor ?? cs.primary),
+                      const SizedBox(width: 5),
+                    ],
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           const Spacer(),
           if (trailing != null) trailing!,

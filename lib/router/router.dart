@@ -58,6 +58,7 @@ import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
+import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
@@ -325,6 +326,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) => WatchOrderScreen(name: data.$1, track: data.$2),
     ),
     _genericRoute(name: "onboarding", child: const OnboardingScreen()),
+    _genericRoute(name: "watchtowerSearch", child: const WatchtowerSearchScreen()),
   ];
 
   GoRoute _genericRoute<T>({

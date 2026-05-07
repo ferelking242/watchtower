@@ -17,10 +17,11 @@ const kHomeTabs = [
 
 /// MovieBox-style home header.
 ///
-/// • Fully transparent at scroll offset 0 (hero carousel shows through).
-/// • Fades to blurred surface color as the user scrolls past 130 px.
+/// • In dark theme: fully transparent at scroll offset 0 (hero shows through),
+///   fades to blurred surface on scroll. Text starts white then lerps to onSurface.
+/// • In light theme: always semi-opaque background, text always uses onSurface
+///   (dark) so it is readable in all conditions.
 /// • Always sticky — never hides.
-/// • Colors lerp from white (good on dark images) to cs.onSurface (light theme safe).
 class HomeHeader extends StatelessWidget {
   final double scrollOffset;
   final int selectedTab;
@@ -38,32 +39,44 @@ class HomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 0.0 → transparent at top; 1.0 → opaque after 130 px scroll.
+    // 0.0 → top of page; 1.0 → scrolled past 130 px.
     final t = (scrollOffset / 130).clamp(0.0, 1.0);
 
-    // Background fades from fully-transparent to surface color.
-    final bgColor = cs.surface.withValues(alpha: t * 0.96);
+    // Dark theme: transparent at top, opaque when scrolled.
+    // Light theme: always show a background so dark text is readable.
+    final bgAlpha = isDark ? t * 0.96 : 0.88 + t * 0.08;
+    final bgColor = cs.surface.withValues(alpha: bgAlpha);
 
-    // Text color: white at t=0 (good on dark image), cs.onSurface at t=1 (theme-safe).
-    final textColor = Color.lerp(Colors.white, cs.onSurface, t)!;
-    final textFaded = Color.lerp(
-      Colors.white.withValues(alpha: 0.60),
-      cs.onSurface.withValues(alpha: 0.55),
-      t,
-    )!;
+    // Dark theme: white at top → onSurface when scrolled.
+    // Light theme: always onSurface (dark).
+    final textColor = isDark
+        ? Color.lerp(Colors.white, cs.onSurface, t)!
+        : cs.onSurface;
+    final textFaded = isDark
+        ? Color.lerp(
+            Colors.white.withValues(alpha: 0.60),
+            cs.onSurface.withValues(alpha: 0.55),
+            t,
+          )!
+        : cs.onSurface.withValues(alpha: 0.52);
 
-    // Search bar fill: ghosted glass at top → proper container when scrolled.
-    final searchFill = Color.lerp(
-      Colors.white.withValues(alpha: 0.13),
-      cs.surfaceContainerHighest.withValues(alpha: 0.72),
-      t,
-    )!;
-    final searchBorder = Color.lerp(
-      Colors.white.withValues(alpha: 0.22),
-      cs.outlineVariant.withValues(alpha: 0.50),
-      t,
-    )!;
+    // Search bar fill.
+    final searchFill = isDark
+        ? Color.lerp(
+            Colors.white.withValues(alpha: 0.13),
+            cs.surfaceContainerHighest.withValues(alpha: 0.72),
+            t,
+          )!
+        : cs.surfaceContainerHighest.withValues(alpha: 0.80);
+    final searchBorder = isDark
+        ? Color.lerp(
+            Colors.white.withValues(alpha: 0.22),
+            cs.outlineVariant.withValues(alpha: 0.50),
+            t,
+          )!
+        : cs.outlineVariant.withValues(alpha: 0.50);
 
     return ClipRect(
       child: BackdropFilter(
@@ -207,11 +220,11 @@ class _PlainTab extends StatelessWidget {
 
   const _PlainTab({
     required this.label,
-    required this.active,
     required this.onTap,
     required this.textColor,
     required this.textFaded,
     required this.activeAccent,
+    this.active = false,
     this.isLive = false,
   });
 
