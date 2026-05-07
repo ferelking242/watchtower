@@ -190,6 +190,8 @@ class AnilistHome {
   final List<AnilistMedia> upcomingAnimes;
   final List<AnilistMedia> latestAnimes;
   final List<AnilistMedia> recentlyUpdatedAnimes;
+  final List<AnilistMedia> topRatedAnimes;
+  final List<AnilistMedia> animeMovies;
   final List<AnilistMedia> trendingMangas;
   final List<AnilistMedia> popularMangas;
   final List<AnilistMedia> latestMangas;
@@ -205,6 +207,8 @@ class AnilistHome {
     this.upcomingAnimes = const [],
     this.latestAnimes = const [],
     this.recentlyUpdatedAnimes = const [],
+    this.topRatedAnimes = const [],
+    this.animeMovies = const [],
     this.trendingMangas = const [],
     this.popularMangas = const [],
     this.latestMangas = const [],
@@ -222,42 +226,56 @@ const _anilistEndpoint = 'https://graphql.anilist.co';
 // Home query
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Combined AniList query — anime, manga, manhwa/manhua origin, light novels.
+/// Combined AniList query — 15 sections in one request.
 const _anilistHomeQuery = r'''
-query Home($perPage: Int = 15) {
+query Home($perPage: Int = 20) {
   trendingAnimes: Page(page: 1, perPage: $perPage) {
-    media(type: ANIME, sort: TRENDING_DESC) {
+    media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
       id type format countryOfOrigin averageScore episodes bannerImage description genres
       title { romaji english native }
       coverImage { large extraLarge }
     }
   }
   popularAnimes: Page(page: 1, perPage: $perPage) {
-    media(type: ANIME, sort: POPULARITY_DESC) {
+    media(type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
       id type format averageScore episodes genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   upcomingAnimes: Page(page: 1, perPage: $perPage) {
-    media(type: ANIME, status: NOT_YET_RELEASED, sort: [POPULARITY_DESC, TRENDING_DESC]) {
-      id type format averageScore genres
+    media(type: ANIME, status: NOT_YET_RELEASED, sort: [POPULARITY_DESC, TRENDING_DESC], isAdult: false) {
+      id type format averageScore genres bannerImage
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   latestAnimes: Page(page: 1, perPage: $perPage) {
-    media(type: ANIME, status: FINISHED, sort: [END_DATE_DESC, SCORE_DESC, POPULARITY_DESC], averageScore_greater: 70, popularity_greater: 10000) {
+    media(type: ANIME, status: FINISHED, sort: [SCORE_DESC, POPULARITY_DESC], averageScore_greater: 75, popularity_greater: 20000, isAdult: false) {
       id type format averageScore genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   recentlyUpdatedAnimes: Page(page: 1, perPage: $perPage) {
     media(type: ANIME, sort: [UPDATED_AT_DESC, POPULARITY_DESC], status: RELEASING, isAdult: false, countryOfOrigin: "JP") {
       id type format averageScore genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
+    }
+  }
+  topRatedAnimes: Page(page: 1, perPage: $perPage) {
+    media(type: ANIME, sort: SCORE_DESC, isAdult: false, averageScore_greater: 80) {
+      id type format averageScore genres episodes
+      title { romaji english native }
+      coverImage { large extraLarge }
+    }
+  }
+  animeMovies: Page(page: 1, perPage: $perPage) {
+    media(type: ANIME, format: MOVIE, sort: [POPULARITY_DESC, SCORE_DESC], isAdult: false) {
+      id type format averageScore genres bannerImage
+      title { romaji english native }
+      coverImage { large extraLarge }
     }
   }
   trendingMangas: Page(page: 1, perPage: $perPage) {
@@ -271,28 +289,28 @@ query Home($perPage: Int = 15) {
     media(type: MANGA, format_not: NOVEL, countryOfOrigin: "JP", sort: POPULARITY_DESC) {
       id type format countryOfOrigin averageScore chapters genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   latestMangas: Page(page: 1, perPage: $perPage) {
-    media(type: MANGA, format_not: NOVEL, countryOfOrigin: "JP", status: FINISHED, sort: [END_DATE_DESC, SCORE_DESC, POPULARITY_DESC], averageScore_greater: 70, popularity_greater: 10000) {
+    media(type: MANGA, format_not: NOVEL, countryOfOrigin: "JP", status: FINISHED, sort: [SCORE_DESC, POPULARITY_DESC], averageScore_greater: 75, popularity_greater: 10000) {
       id type format countryOfOrigin averageScore chapters genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   trendingManhwa: Page(page: 1, perPage: $perPage) {
     media(type: MANGA, format_not: NOVEL, countryOfOrigin: "KR", sort: TRENDING_DESC) {
       id type format countryOfOrigin averageScore chapters genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   trendingManhua: Page(page: 1, perPage: $perPage) {
     media(type: MANGA, format_not: NOVEL, countryOfOrigin: "CN", sort: TRENDING_DESC) {
       id type format countryOfOrigin averageScore chapters genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   trendingNovels: Page(page: 1, perPage: $perPage) {
@@ -306,14 +324,14 @@ query Home($perPage: Int = 15) {
     media(type: MANGA, format: NOVEL, sort: POPULARITY_DESC) {
       id type format averageScore chapters genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
   latestNovels: Page(page: 1, perPage: $perPage) {
-    media(type: MANGA, format: NOVEL, status: FINISHED, sort: [END_DATE_DESC, SCORE_DESC, POPULARITY_DESC], averageScore_greater: 65) {
+    media(type: MANGA, format: NOVEL, status: FINISHED, sort: [SCORE_DESC, POPULARITY_DESC], averageScore_greater: 65) {
       id type format averageScore chapters genres
       title { romaji english native }
-      coverImage { large }
+      coverImage { large extraLarge }
     }
   }
 }
@@ -382,6 +400,8 @@ Future<AnilistHome> _fetchAnilistHome() async {
     upcomingAnimes: _parseList(data['upcomingAnimes']),
     latestAnimes: _parseList(data['latestAnimes']),
     recentlyUpdatedAnimes: _parseList(data['recentlyUpdatedAnimes']),
+    topRatedAnimes: _parseList(data['topRatedAnimes']),
+    animeMovies: _parseList(data['animeMovies']),
     trendingMangas: _parseList(data['trendingMangas']),
     popularMangas: _parseList(data['popularMangas']),
     latestMangas: _parseList(data['latestMangas']),
@@ -393,7 +413,12 @@ Future<AnilistHome> _fetchAnilistHome() async {
   );
 }
 
-final anilistHomeProvider = FutureProvider.autoDispose<AnilistHome>((ref) {
+/// Persistent (non-autoDispose) provider with 8-minute keepAlive.
+/// Navigating away and back won't re-fetch; after 8 min the cache auto-expires
+/// so the user always gets fresh data on the next cold open.
+final anilistHomeProvider = FutureProvider<AnilistHome>((ref) async {
+  final link = ref.keepAlive();
+  Timer(const Duration(minutes: 8), link.close);
   return _fetchAnilistHome();
 });
 

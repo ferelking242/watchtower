@@ -6,14 +6,18 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 
 /// Auto-cycling banner carousel with page indicator dots and optional synopsis.
+/// Set [forceFullWidth] to true to bypass the carousel style setting and always
+/// display cinematic edge-to-edge mode (used on the home screen).
 class HeroCarousel extends ConsumerStatefulWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
+  final bool forceFullWidth;
 
   const HeroCarousel({
     super.key,
     required this.items,
     required this.onItemTap,
+    this.forceFullWidth = false,
   });
 
   @override
@@ -55,10 +59,14 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     final carouselStyle = ref.watch(carouselStyleProvider);
     final showSynopsis = ref.watch(carouselSynopsisProvider);
     final theme = Theme.of(context);
-    final isCinematic = carouselStyle == 1;
-    final isCompact = carouselStyle == 2;
+    // forceFullWidth overrides user carousel style preference
+    final isCinematic = widget.forceFullWidth || carouselStyle == 1;
+    final isCompact = !widget.forceFullWidth && carouselStyle == 2;
 
-    final cardHeight = isCompact ? 190.0 : 270.0;
+    // Full-width carousel is taller to work as a hero banner
+    final cardHeight = widget.forceFullWidth
+        ? MediaQuery.sizeOf(context).height * 0.50
+        : (isCompact ? 190.0 : 270.0);
     final viewportFraction = isCinematic ? 1.0 : (isCompact ? 0.88 : 0.92);
 
     // Rebuild controller if style changed

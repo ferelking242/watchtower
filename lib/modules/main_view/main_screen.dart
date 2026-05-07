@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
@@ -823,34 +824,92 @@ class _TabletLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final destinations = buildNavigationWidgetsDesktop(ref, dest, context);
+    final railWidth = _getNavigationRailWidth(isLongPressed, location);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Row(
       children: [
         AnimatedContainer(
-          duration: const Duration(milliseconds: 0),
-          width: _getNavigationRailWidth(isLongPressed, location),
-          child: Stack(
-            children: [
-              NavigationRailTheme(
-                data: NavigationRailThemeData(
-                  indicatorShape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOutCubic,
+          width: railWidth,
+          child: railWidth == 0
+              ? const SizedBox.shrink()
+              : ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? cs.surface.withValues(alpha: 0.72)
+                            : cs.surface.withValues(alpha: 0.82),
+                        border: Border(
+                          right: BorderSide(
+                            color: cs.outlineVariant.withValues(alpha: 0.35),
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          NavigationRailTheme(
+                            data: NavigationRailThemeData(
+                              backgroundColor: Colors.transparent,
+                              indicatorShape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              indicatorColor:
+                                  cs.primaryContainer.withValues(alpha: 0.85),
+                              selectedIconTheme: IconThemeData(
+                                color: cs.onPrimaryContainer,
+                                size: 22,
+                              ),
+                              unselectedIconTheme: IconThemeData(
+                                color: cs.onSurfaceVariant,
+                                size: 22,
+                              ),
+                              selectedLabelTextStyle: TextStyle(
+                                color: cs.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                              unselectedLabelTextStyle: TextStyle(
+                                color: cs.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 11,
+                              ),
+                            ),
+                            child: NavigationRail(
+                              labelType: NavigationRailLabelType.all,
+                              useIndicator: true,
+                              backgroundColor: Colors.transparent,
+                              minWidth: railWidth,
+                              leading: Padding(
+                                padding: const EdgeInsets.only(
+                                    top: 24, bottom: 12),
+                                child: Icon(
+                                  Icons.watch_later_rounded,
+                                  size: 28,
+                                  color: cs.primary,
+                                ),
+                              ),
+                              destinations: destinations,
+                              selectedIndex:
+                                  (currentIndex >= 0 &&
+                                          currentIndex < destinations.length)
+                                      ? currentIndex
+                                      : 0,
+                              onDestinationSelected: (newIndex) {
+                                route.go(dest[newIndex]);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                child: NavigationRail(
-                  labelType: NavigationRailLabelType.all,
-                  useIndicator: true,
-                  destinations: destinations,
-                  selectedIndex:
-                      (currentIndex >= 0 && currentIndex < destinations.length)
-                      ? currentIndex
-                      : 0,
-                  onDestinationSelected: (newIndex) {
-                    route.go(dest[newIndex]);
-                  },
-                ),
-              ),
-            ],
-          ),
         ),
         Expanded(child: child),
       ],
@@ -875,7 +934,7 @@ class _TabletLayout extends StatelessWidget {
       '/trackerLibrary',
     };
 
-    return (location == null || validLocations.contains(location)) ? 100 : 0;
+    return (location == null || validLocations.contains(location)) ? 120 : 0;
   }
 }
 
