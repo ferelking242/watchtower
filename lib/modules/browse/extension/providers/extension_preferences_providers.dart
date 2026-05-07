@@ -2,17 +2,38 @@ import 'dart:convert';
 
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
-import 'package:watchtower/main.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/get_source_preference.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Safe Isar accessor
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The global `isar` from main.dart is a `late` variable that is only assigned
+// in the *main* isolate.  Extension services run inside a background isolate
+// (GetIsolateService) where `late isar` has never been assigned → accessing it
+// directly throws LateInitializationError and crashes every extension.
+//
+// Using Isar.getInstance() is safe from any isolate: it returns the already-open
+// instance when available, or null if the DB has not been opened in this isolate.
+// When null (background isolate), all write operations become no-ops and read
+// operations return their default values so the extension can still run.
+
+Isar? get _db => Isar.getInstance('watchtowerDb');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Write helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
 void setPreferenceSetting(SourcePreference sourcePreference, Source source) {
-  final sourcePref = isar.sourcePreferences
+  final db = _db;
+  if (db == null) return; // no-op in isolate
+  final sourcePref = db.sourcePreferences
       .filter()
       .sourceIdEqualTo(source.id)
       .keyEqualTo(sourcePreference.key)
       .findFirstSync();
-  isar.writeTxnSync(() {
+  db.writeTxnSync(() {
     if (source.sourceCodeLanguage == SourceCodeLanguage.mihon &&
         source.preferenceList != null) {
       final prefs = (jsonDecode(source.preferenceList!) as List)
@@ -21,7 +42,7 @@ void setPreferenceSetting(SourcePreference sourcePreference, Source source) {
       final idx = prefs.indexWhere((e) => e.key == sourcePreference.key);
       if (idx != -1) {
         prefs[idx] = sourcePreference..id = null;
-        isar.sources.putSync(
+        db.sources.putSync(
           source
             ..preferenceList = jsonEncode(
               prefs.map((e) => e.toJson()).toList(),
@@ -30,12 +51,16 @@ void setPreferenceSetting(SourcePreference sourcePreference, Source source) {
       }
     }
     if (sourcePref != null) {
-      isar.sourcePreferences.putSync(sourcePreference);
+      db.sourcePreferences.putSync(sourcePreference);
     } else {
-      isar.sourcePreferences.putSync(sourcePreference..sourceId = source.id);
+      db.sourcePreferences.putSync(sourcePreference..sourceId = source.id);
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Read helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 dynamic getPreferenceValue(int sourceId, String key) {
   final sourcePreference = getSourcePreferenceEntry(key, sourceId);
@@ -50,17 +75,32 @@ dynamic getPreferenceValue(int sourceId, String key) {
   } else if (sourcePreference.editTextPreference != null) {
     return sourcePreference.editTextPreference!.value;
   }
-  return sourcePreference.multiSelectListPreference!.values;
+  return sourcePreference.multiSelectListPreference?.values;
 }
 
 SourcePreference getSourcePreferenceEntry(String key, int sourceId) {
-  SourcePreference? sourcePreference = isar.sourcePreferences
+  final db = _db;
+
+  // ── Isolate path: no DB → try to resolve from source.preferenceList only ──
+  if (db == null) {
+    // We cannot look up the source from Isar here; return an empty preference
+    // so JS preferences.get() returns null rather than crashing with a
+    // LateInitializationError.
+    return SourcePreference()..key = key;
+  }
+
+  // ── Main-isolate path: normal DB lookup ───────────────────────────────────
+  SourcePreference? sourcePreference = db.sourcePreferences
       .filter()
       .sourceIdEqualTo(sourceId)
       .keyEqualTo(key)
       .findFirstSync();
+
   if (sourcePreference == null) {
-    final source = isar.sources.getSync(sourceId)!;
+    final source = db.sources.getSync(sourceId);
+    if (source == null) {
+      return SourcePreference()..key = key;
+    }
     sourcePreference = getSourcePreference(source: source).firstWhere(
       (element) => element.key == key,
       orElse: () => throw "Error when getting source preference",
@@ -76,12 +116,16 @@ String getSourcePreferenceStringValue(
   String key,
   String defaultValue,
 ) {
-  SourcePreferenceStringValue? sourcePreferenceStringValue = isar
+  final db = _db;
+  if (db == null) return defaultValue; // isolate: return default safely
+
+  SourcePreferenceStringValue? sourcePreferenceStringValue = db
       .sourcePreferenceStringValues
       .filter()
       .sourceIdEqualTo(sourceId)
       .keyEqualTo(key)
       .findFirstSync();
+
   if (sourcePreferenceStringValue == null) {
     setSourcePreferenceStringValue(sourceId, key, defaultValue);
     return defaultValue;
@@ -91,16 +135,20 @@ String getSourcePreferenceStringValue(
 }
 
 void setSourcePreferenceStringValue(int sourceId, String key, String value) {
-  final sourcePref = isar.sourcePreferenceStringValues
+  final db = _db;
+  if (db == null) return; // no-op in isolate
+
+  final sourcePref = db.sourcePreferenceStringValues
       .filter()
       .sourceIdEqualTo(sourceId)
       .keyEqualTo(key)
       .findFirstSync();
-  isar.writeTxnSync(() {
+
+  db.writeTxnSync(() {
     if (sourcePref != null) {
-      isar.sourcePreferenceStringValues.putSync(sourcePref..value = value);
+      db.sourcePreferenceStringValues.putSync(sourcePref..value = value);
     } else {
-      isar.sourcePreferenceStringValues.putSync(
+      db.sourcePreferenceStringValues.putSync(
         SourcePreferenceStringValue()
           ..key = key
           ..sourceId = sourceId

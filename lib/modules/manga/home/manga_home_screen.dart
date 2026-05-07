@@ -25,6 +25,7 @@ import 'package:watchtower/services/supports_latest.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/manga/home/widget/mangas_card_selector.dart';
+import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/gridview_widget.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/utils/global_style.dart';
@@ -651,7 +652,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 );
               },
               error: (error, stackTrace) => Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Padding(
@@ -726,44 +726,44 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                     ),
                   ),
                   if (isCloudflareError(error.toString()))
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: CloudflareErrorWidget(
-                        errorText: error.toString(),
-                        url: source.baseUrl ?? '',
-                        onRetry: () {
-                          if (_selectedIndex == 2 &&
-                                  (_isSearch && _query.isNotEmpty) ||
-                              _isFiltering) {
-                            ref.invalidate(searchProvider(
-                              source: source,
-                              query: _query,
-                              page: 1,
-                              filterList: filters,
-                            ));
-                          } else if (_selectedIndex == 1 &&
-                              !_isSearch &&
-                              _query.isEmpty) {
-                            ref.invalidate(getLatestUpdatesProvider(
-                              source: source,
-                              page: 1,
-                            ));
-                          } else {
-                            ref.invalidate(
-                                getPopularProvider(source: source, page: 1));
-                          }
-                        },
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: CloudflareErrorWidget(
+                            errorText: error.toString(),
+                            url: source.baseUrl ?? '',
+                            onRetry: () {
+                              if (_selectedIndex == 2 &&
+                                      (_isSearch && _query.isNotEmpty) ||
+                                  _isFiltering) {
+                                ref.invalidate(searchProvider(
+                                  source: source,
+                                  query: _query,
+                                  page: 1,
+                                  filterList: filters,
+                                ));
+                              } else if (_selectedIndex == 1 &&
+                                  !_isSearch &&
+                                  _query.isEmpty) {
+                                ref.invalidate(getLatestUpdatesProvider(
+                                  source: source,
+                                  page: 1,
+                                ));
+                              } else {
+                                ref.invalidate(
+                                    getPopularProvider(source: source, page: 1));
+                              }
+                            },
+                          ),
+                        ),
                       ),
                     )
                   else
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child:
-                          Text(error.toString(), textAlign: TextAlign.center),
-                    ),
+                    Expanded(child: ErrorText(error)),
                 ],
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
