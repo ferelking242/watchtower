@@ -216,7 +216,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               // Guard isLibSwitch with mergeLibraryNavMobile so that disabling
               // the Hub toggle instantly collapses back to the normal item list.
               List<String> dest =
-                  !context.isTablet && isLibSwitch && mergeLibraryNavMobile
+                  isLibSwitch && mergeLibraryNavMobile
                   ? [
                       "_disableLibSwitch",
                       ...navigationOrder.where(
@@ -227,7 +227,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         .where((nav) => !hideItems.contains(nav))
                         .toList();
 
-              if (mergeLibraryNavMobile && !context.isTablet && !isLibSwitch) {
+              if (mergeLibraryNavMobile && !isLibSwitch) {
                 dest = dest
                     .map((nav) {
                       if ([
@@ -246,7 +246,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               }
 
               // Insert /Library on dock when Library toggle is ON
-              if (mergeLibraryDock && !context.isTablet && !isLibSwitch) {
+              if (mergeLibraryDock && !isLibSwitch) {
                 if (!dest.contains('/Library')) {
                   final insertIdx = dest.indexWhere(
                     (e) =>
@@ -268,7 +268,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               } else {
                 String? libLocation;
                 if (mergeLibraryNavMobile &&
-                    !context.isTablet &&
                     !isLibSwitch) {
                   libLocation = location?.replaceAll(
                     libLocationRegex,

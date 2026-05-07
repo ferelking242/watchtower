@@ -65,14 +65,14 @@ class StorageProvider {
   Future<Directory?> getMpvDirectory() async {
     final defaultDirectory = await getDefaultDirectory();
     String dbDir = path.join(defaultDirectory!.path, 'mpv');
-    await Directory(dbDir).create(recursive: true);
+    await createDirectorySafely(dbDir);
     return Directory(dbDir);
   }
 
   Future<Directory?> getExtensionServerDirectory() async {
     final defaultDirectory = await getDefaultDirectory();
     String dbDir = path.join(defaultDirectory!.path, 'extension_server');
-    await Directory(dbDir).create(recursive: true);
+    await createDirectorySafely(dbDir);
     return Directory(dbDir);
   }
 

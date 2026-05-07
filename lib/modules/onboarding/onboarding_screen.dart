@@ -136,7 +136,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _requestStorage() async {
     if (_requestingStorage) return;
     setState(() => _requestingStorage = true);
-    final granted = await StorageProvider().requestPermission();
+
+    // On Android 11+ MANAGE_EXTERNAL_STORAGE opens a special system settings
+    // page — we must detect that case and send the user there via openAppSettings().
+    bool granted = false;
+    if (!kIsWeb && Platform.isAndroid) {
+      final perm = Permission.manageExternalStorage;
+      final status = await perm.status;
+      if (status.isGranted) {
+        granted = true;
+      } else if (status.isPermanentlyDenied) {
+        // Already denied — send user to settings
+        await openAppSettings();
+        // Re-check after returning from settings
+        granted = (await perm.status).isGranted;
+      } else {
+        // First request — will show system dialog
+        granted = (await perm.request()).isGranted;
+        if (!granted && (await perm.status).isPermanentlyDenied) {
+          // User checked "don't ask again" — open settings
+          await openAppSettings();
+          granted = (await perm.status).isGranted;
+        }
+      }
+    } else {
+      granted = await StorageProvider().requestPermission();
+    }
+
     if (mounted) {
       setState(() {
         _storageGranted = granted;
