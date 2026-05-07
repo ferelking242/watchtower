@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
     show AniListErrorView;
-import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
+    show AnilistHome, AnilistMedia, AnilistBrowseFilter, anilistHomeProvider;
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
@@ -137,7 +138,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context, AnilistHomeData home) {
+  Widget _buildContent(BuildContext context, AnilistHome home) {
     final tab = _HomeTab.values[_selectedTab.clamp(0, _HomeTab.values.length - 1)];
 
     // ── Hero items based on tab ───────────────────────────────────────────────
@@ -170,7 +171,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   // ── Hero items per tab ────────────────────────────────────────────────────
 
-  List<AnilistMedia> _heroItemsForTab(AnilistHomeData home, _HomeTab tab) {
+  List<AnilistMedia> _heroItemsForTab(AnilistHome home, _HomeTab tab) {
     final withImage = (AnilistMedia m) => m.bannerImage != null || m.bestCover != null;
     switch (tab) {
       case _HomeTab.tendance:
@@ -203,7 +204,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   List<Widget> _sliverSectionsForTab(
     BuildContext context,
-    AnilistHomeData home,
+    AnilistHome home,
     _HomeTab tab,
   ) {
     switch (tab) {
@@ -224,7 +225,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // Tendance tab
   // ──────────────────────────────────────────────────────────────────────────
 
-  List<Widget> _buildTendanceTab(BuildContext context, AnilistHomeData home) {
+  List<Widget> _buildTendanceTab(BuildContext context, AnilistHome home) {
     final trendingAll = [
       ...home.trendingAnimes.take(10),
       ...home.trendingMangas.take(6),
@@ -399,7 +400,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // Anime tab
   // ──────────────────────────────────────────────────────────────────────────
 
-  List<Widget> _buildAnimeTab(BuildContext context, AnilistHomeData home) {
+  List<Widget> _buildAnimeTab(BuildContext context, AnilistHome home) {
     return [
       // Category row with images
       SliverToBoxAdapter(
@@ -470,7 +471,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // Film tab
   // ──────────────────────────────────────────────────────────────────────────
 
-  List<Widget> _buildFilmTab(BuildContext context, AnilistHomeData home) {
+  List<Widget> _buildFilmTab(BuildContext context, AnilistHome home) {
     return [
       if (home.animeMovies.isNotEmpty) ...[
         // Landscape movies
@@ -512,7 +513,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // Manga tab
   // ──────────────────────────────────────────────────────────────────────────
 
-  List<Widget> _buildMangaTab(BuildContext context, AnilistHomeData home) {
+  List<Widget> _buildMangaTab(BuildContext context, AnilistHome home) {
     return [
       // Origins row
       SliverToBoxAdapter(
@@ -579,7 +580,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // Romans tab
   // ──────────────────────────────────────────────────────────────────────────
 
-  List<Widget> _buildRomansTab(BuildContext context, AnilistHomeData home) {
+  List<Widget> _buildRomansTab(BuildContext context, AnilistHome home) {
     return [
       SliverToBoxAdapter(
         child: CategoryRow(
