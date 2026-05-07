@@ -5,6 +5,72 @@ const _kBox = 'ui_prefs';
 
 Box? get _box => Hive.isBoxOpen(_kBox) ? Hive.box(_kBox) : null;
 
+// ── Nav-bar blur (translucent bar) ────────────────────────────────────────────
+
+class NavBarBlurNotifier extends Notifier<bool> {
+  @override
+  bool build() =>
+      _box?.get('navbar_blur', defaultValue: true) as bool? ?? true;
+
+  void set(bool v) {
+    _box?.put('navbar_blur', v);
+    state = v;
+  }
+}
+
+final navBarBlurProvider =
+    NotifierProvider<NavBarBlurNotifier, bool>(NavBarBlurNotifier.new);
+
+// ── Header scroll blur ────────────────────────────────────────────────────────
+
+class HeaderBlurNotifier extends Notifier<bool> {
+  @override
+  bool build() =>
+      _box?.get('header_blur', defaultValue: true) as bool? ?? true;
+
+  void set(bool v) {
+    _box?.put('header_blur', v);
+    state = v;
+  }
+}
+
+final headerBlurProvider =
+    NotifierProvider<HeaderBlurNotifier, bool>(HeaderBlurNotifier.new);
+
+// ── Bottom sheet blur ─────────────────────────────────────────────────────────
+
+class BottomSheetBlurNotifier extends Notifier<bool> {
+  @override
+  bool build() =>
+      _box?.get('bottom_sheet_blur', defaultValue: true) as bool? ?? true;
+
+  void set(bool v) {
+    _box?.put('bottom_sheet_blur', v);
+    state = v;
+  }
+}
+
+final bottomSheetBlurProvider =
+    NotifierProvider<BottomSheetBlurNotifier, bool>(BottomSheetBlurNotifier.new);
+
+// ── Blur intensity multiplier (0.5 → 2.0) ────────────────────────────────────
+
+class BlurIntensityNotifier extends Notifier<double> {
+  @override
+  double build() =>
+      (_box?.get('blur_intensity', defaultValue: 1.0) as num?)?.toDouble() ??
+      1.0;
+
+  void set(double v) {
+    final clamped = v.clamp(0.2, 2.0);
+    _box?.put('blur_intensity', clamped);
+    state = clamped;
+  }
+}
+
+final blurIntensityProvider =
+    NotifierProvider<BlurIntensityNotifier, double>(BlurIntensityNotifier.new);
+
 // ── Carousel Style ────────────────────────────────────────────────────────────
 // 0 = classic (cards scale), 1 = cinematic (full width), 2 = compact
 

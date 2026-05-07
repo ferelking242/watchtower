@@ -244,6 +244,129 @@ class AppearanceScreen extends ConsumerWidget {
               ],
             ),
 
+            // ── Blur & Glass Effects ──────────────────────────────────────
+            SettingsSection(
+              title: 'Blur & Glass Effects',
+              children: [
+                // Header scroll blur toggle
+                SwitchListTile(
+                  secondary: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.blur_on_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text('Frosted Header'),
+                  subtitle: Text(
+                    'Blur the app header when scrolling',
+                    style:
+                        TextStyle(fontSize: 11, color: context.secondaryColor),
+                  ),
+                  value: ref.watch(headerBlurProvider),
+                  onChanged: (v) =>
+                      ref.read(headerBlurProvider.notifier).set(v),
+                ),
+
+                // Bottom sheet blur toggle
+                SwitchListTile(
+                  secondary: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.layers_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text('Frosted Sheets'),
+                  subtitle: Text(
+                    'Blur background behind bottom sheets',
+                    style:
+                        TextStyle(fontSize: 11, color: context.secondaryColor),
+                  ),
+                  value: ref.watch(bottomSheetBlurProvider),
+                  onChanged: (v) =>
+                      ref.read(bottomSheetBlurProvider.notifier).set(v),
+                ),
+
+                // Blur intensity slider
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.tune_rounded,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Blur Intensity',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 15),
+                                ),
+                                Text(
+                                  '${(ref.watch(blurIntensityProvider) * 100).round()}%',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: context.secondaryColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: ref.watch(blurIntensityProvider),
+                        min: 0.2,
+                        max: 2.0,
+                        divisions: 18,
+                        onChanged: (v) =>
+                            ref.read(blurIntensityProvider.notifier).set(v),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
             SettingsSection(
               title: l10n.timestamp,
               children: [

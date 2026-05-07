@@ -9,8 +9,35 @@ import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 
 /// MovieBox-style home screen — AnymeX-style header + hero banner + curated rows.
-class WatchtowerHomeScreen extends ConsumerWidget {
+/// Le header devient progressivement un frosted-glass quand on scrolle.
+class WatchtowerHomeScreen extends ConsumerStatefulWidget {
   const WatchtowerHomeScreen({super.key});
+
+  @override
+  ConsumerState<WatchtowerHomeScreen> createState() =>
+      _WatchtowerHomeScreenState();
+}
+
+class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      final offset = _scrollController.offset;
+      if ((offset - _scrollOffset).abs() > 1) {
+        setState(() => _scrollOffset = offset.clamp(0.0, double.infinity));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   void _openDetail(BuildContext context, AnilistMedia media) {
     context.push('/anilistDetail', extra: media);
@@ -27,45 +54,47 @@ class WatchtowerHomeScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final asyncHome = ref.watch(anilistHomeProvider);
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: asyncHome.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => AniListErrorView(
-            error: e,
-            onRetry: () => ref.invalidate(anilistHomeProvider),
-          ),
-          data: (home) {
-            final heroItems = [
-              ...home.trendingAnimes.take(4),
-              ...home.trendingMangas.take(4),
-            ]..shuffle();
+      body: Stack(
+        children: [
+          // ── Scrollable content ─────────────────────────────────────────────
+          asyncHome.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => AniListErrorView(
+              error: e,
+              onRetry: () => ref.invalidate(anilistHomeProvider),
+            ),
+            data: (home) {
+              final heroItems = [
+                ...home.trendingAnimes.take(4),
+                ...home.trendingMangas.take(4),
+              ]..shuffle();
 
-            final trendingAll = [
-              ...home.trendingAnimes.take(10),
-              ...home.trendingMangas.take(10),
-            ]..sort((a, b) =>
-                (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+              final trendingAll = [
+                ...home.trendingAnimes.take(10),
+                ...home.trendingMangas.take(10),
+              ]..sort((a, b) =>
+                  (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
 
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                // ── AnymeX-style header ─────────────────────────────────────
-                const SliverToBoxAdapter(child: HomeHeader()),
+              return CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  // ── Space reserved for the floating header ────────────
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
 
-                // ── Hero carousel ───────────────────────────────────────────
-                if (heroItems.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: HeroCarousel(
-                      items: heroItems.take(8).toList(),
-                      onItemTap: (m) => _openDetail(context, m),
+                  // ── Hero carousel ─────────────────────────────────────
+                  if (heroItems.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: HeroCarousel(
+                        items: heroItems.take(8).toList(),
+                        onItemTap: (m) => _openDetail(context, m),
+                      ),
                     ),
-                  ),
 
                 // ── Explore chips ───────────────────────────────────────────
                 SliverToBoxAdapter(
@@ -216,11 +245,20 @@ class WatchtowerHomeScreen extends ConsumerWidget {
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
-            );
-          },
-        ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              );
+            },
+          ),
+
+          // ── Floating frosted header — always on top ───────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: HomeHeader(scrollOffset: _scrollOffset),
+          ),
+        ],
       ),
     );
   }
