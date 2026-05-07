@@ -17,17 +17,14 @@ const kHomeTabs = [
 
 /// MovieBox-style home header.
 ///
-/// • Fully transparent when the scroll position is at the very top
-///   (the hero carousel image shows through).
-/// • Fades to a solid/blurred surface as the user scrolls down.
-/// • Contains a search bar (top row) + horizontal category tabs (bottom row).
+/// • Fully transparent at scroll offset 0 (hero carousel shows through).
+/// • Fades to blurred surface color as the user scrolls past 130 px.
+/// • Always sticky — never hides.
+/// • Colors lerp from white (good on dark images) to cs.onSurface (light theme safe).
 class HomeHeader extends StatelessWidget {
-  /// Raw pixel scroll offset from the parent scroll controller.
   final double scrollOffset;
   final int selectedTab;
   final ValueChanged<int> onTabChanged;
-
-  /// Called when the user taps the search bar.
   final VoidCallback? onSearchTap;
 
   const HomeHeader({
@@ -42,11 +39,31 @@ class HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // 0.0 at top → 1.0 after 130 px of scroll.
+    // 0.0 → transparent at top; 1.0 → opaque after 130 px scroll.
     final t = (scrollOffset / 130).clamp(0.0, 1.0);
 
-    // Background becomes the surface color only once scrolled.
+    // Background fades from fully-transparent to surface color.
     final bgColor = cs.surface.withValues(alpha: t * 0.96);
+
+    // Text color: white at t=0 (good on dark image), cs.onSurface at t=1 (theme-safe).
+    final textColor = Color.lerp(Colors.white, cs.onSurface, t)!;
+    final textFaded = Color.lerp(
+      Colors.white.withValues(alpha: 0.60),
+      cs.onSurface.withValues(alpha: 0.55),
+      t,
+    )!;
+
+    // Search bar fill: ghosted glass at top → proper container when scrolled.
+    final searchFill = Color.lerp(
+      Colors.white.withValues(alpha: 0.13),
+      cs.surfaceContainerHighest.withValues(alpha: 0.72),
+      t,
+    )!;
+    final searchBorder = Color.lerp(
+      Colors.white.withValues(alpha: 0.22),
+      cs.outlineVariant.withValues(alpha: 0.50),
+      t,
+    )!;
 
     return ClipRect(
       child: BackdropFilter(
@@ -69,91 +86,97 @@ class HomeHeader extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ── Search bar ─────────────────────────────────────────────
+                // ── Search bar row ────────────────────────────────────────────
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-                  child: GestureDetector(
-                    onTap: onSearchTap ?? () {},
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        // Stays semi-transparent at the top; darkens slightly when
-                        // the background is opaque so the bar stays readable.
-                        color: Colors.white.withValues(alpha: 0.12 + t * 0.05),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          width: 0.8,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 14, 6),
+                  child: Row(
+                    children: [
+                      // ── Account button (left of search bar) ───────────────
+                      Account3DButton(
+                        size: 38,
+                        onTap: () => showAccountSheet(context),
+                      ),
+                      const SizedBox(width: 10),
+
+                      // ── Search bar ────────────────────────────────────────
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: onSearchTap ?? () {},
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: searchFill,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: searchBorder, width: 0.8),
+                            ),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 12),
+                                Icon(Icons.search_rounded,
+                                    color: textFaded, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Rechercher un film, série, audio…',
+                                    style: TextStyle(
+                                      color: textFaded,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                // ── "Recherche" green button ─────────────────
+                                Container(
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 7),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 0),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2DCE6C),
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'Recherche',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.search_rounded,
-                            color: Colors.white.withValues(alpha: 0.60),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Rechercher un film/une série/un audio',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.52),
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w400,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          // ── "Recherche" button ────────────────────────────
-                          Container(
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 7),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 0),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2DCE6C),
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              'Recherche',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 ),
 
-                // ── Category tabs ──────────────────────────────────────────
+                // ── Category tabs — plain text, no chips ──────────────────────
                 SizedBox(
-                  height: 36,
+                  height: 34,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                     itemCount: kHomeTabs.length,
                     itemBuilder: (context, i) {
                       final active = selectedTab == i;
                       final isLive = i == 0;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: _TabChip(
-                          label: kHomeTabs[i],
-                          active: active,
-                          isLive: isLive,
-                          onTap: () => onTabChanged(i),
-                        ),
+                      return _PlainTab(
+                        label: kHomeTabs[i],
+                        active: active,
+                        isLive: isLive,
+                        textColor: textColor,
+                        textFaded: textFaded,
+                        activeAccent: isLive ? Colors.red : cs.primary,
+                        onTap: () => onTabChanged(i),
                       );
                     },
                   ),
@@ -169,80 +192,80 @@ class HomeHeader extends StatelessWidget {
   }
 }
 
-// ── Tab chip ──────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Plain text tab — no chip, no background, just bold text + underline dot
+// ─────────────────────────────────────────────────────────────────────────────
 
-class _TabChip extends StatelessWidget {
+class _PlainTab extends StatelessWidget {
   final String label;
   final bool active;
   final bool isLive;
+  final Color textColor;
+  final Color textFaded;
+  final Color activeAccent;
   final VoidCallback onTap;
 
-  const _TabChip({
+  const _PlainTab({
     required this.label,
     required this.active,
     required this.onTap,
+    required this.textColor,
+    required this.textFaded,
+    required this.activeAccent,
     this.isLive = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: EdgeInsets.symmetric(
-          horizontal: isLive ? 10 : 14,
-          vertical: 6,
-        ),
-        decoration: BoxDecoration(
-          color: active
-              ? (isLive ? Colors.red : cs.primary)
-              : Colors.white.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(999),
-          border: active
-              ? null
-              : Border.all(
-                  color: Colors.white.withValues(alpha: 0.20),
-                  width: 0.8,
-                ),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: (isLive ? Colors.red : cs.primary)
-                        .withValues(alpha: 0.40),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (isLive) ...[
-              Container(
-                width: 7,
-                height: 7,
-                margin: const EdgeInsets.only(right: 5),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Live dot indicator
+                if (isLive) ...[
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 180),
+                  style: TextStyle(
+                    color: active ? textColor : textFaded,
+                    fontSize: active ? 13.5 : 13.0,
+                    fontWeight:
+                        active ? FontWeight.w800 : FontWeight.w500,
+                    letterSpacing: active ? 0.2 : 0.0,
+                    decoration: TextDecoration.none,
+                  ),
+                  child: Text(label),
                 ),
-              ),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                color: active
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.75),
-                fontSize: 13,
-                fontWeight:
-                    active ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: 0.1,
+              ],
+            ),
+
+            // Underline accent for active tab
+            const SizedBox(height: 2),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              width: active ? 18.0 : 0.0,
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: active ? activeAccent : Colors.transparent,
+                borderRadius: BorderRadius.circular(99),
               ),
             ),
           ],
@@ -252,7 +275,9 @@ class _TabChip extends StatelessWidget {
   }
 }
 
-// ── 3-D gradient account button ───────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 3-D gradient account button
+// ─────────────────────────────────────────────────────────────────────────────
 
 class Account3DButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -318,7 +343,8 @@ class Account3DButton extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(Icons.person_rounded, color: Colors.white, size: size * 0.50),
+              Icon(Icons.person_rounded,
+                  color: Colors.white, size: size * 0.50),
             ],
           ),
         ),
@@ -327,7 +353,18 @@ class Account3DButton extends StatelessWidget {
   }
 }
 
-// ── Account bottom sheet ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Account bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+void showAccountSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const _AccountSheet(),
+  );
+}
 
 class _AccountSheet extends StatelessWidget {
   const _AccountSheet();
@@ -344,7 +381,8 @@ class _AccountSheet extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: cs.surface.withValues(alpha: 0.88),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(28)),
             border: Border(
               top: BorderSide(
                   color: cs.outline.withValues(alpha: 0.12), width: 0.8),
@@ -397,13 +435,13 @@ class _AccountSheet extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Guest',
-                                style: tt.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800)),
+                                style: tt.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800)),
                             Text(
                               'Connecte un tracker pour synchroniser tes listes',
                               style: tt.bodySmall?.copyWith(
-                                  color:
-                                      cs.onSurface.withValues(alpha: 0.52)),
+                                  color: cs.onSurface
+                                      .withValues(alpha: 0.52)),
                             ),
                           ],
                         ),
@@ -411,7 +449,8 @@ class _AccountSheet extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Divider(color: cs.outlineVariant.withValues(alpha: 0.40)),
+                  Divider(
+                      color: cs.outlineVariant.withValues(alpha: 0.40)),
                   const SizedBox(height: 4),
                   _SheetTile(
                     icon: Icons.settings_outlined,
@@ -485,21 +524,11 @@ class _SheetTile extends StatelessWidget {
         child: Icon(icon, color: cs.primary, size: 20),
       ),
       title: Text(label,
-          style:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          style: const TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 14)),
       trailing: Icon(Icons.chevron_right_rounded,
           color: cs.onSurface.withValues(alpha: 0.30)),
       onTap: onTap,
     );
   }
-}
-
-// Exported so the account sheet can be shown from the home screen if needed.
-void showAccountSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => const _AccountSheet(),
-  );
 }

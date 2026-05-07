@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 
-/// Auto-cycling banner carousel with page indicator dots and optional synopsis.
-/// Set [forceFullWidth] to true to bypass the carousel style setting and always
-/// display cinematic edge-to-edge mode (used on the home screen hero).
+/// Auto-cycling banner carousel.
+///
+/// [forceFullWidth] = true → cinematic edge-to-edge mode used on the home
+/// screen hero.  In this mode the description text is rendered **on the
+/// image** (there is enough room), the synopsis strip below is suppressed,
+/// and the card height is set to 62 % of the screen.
 class HeroCarousel extends ConsumerStatefulWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
@@ -65,200 +68,211 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     final isCinematic = widget.forceFullWidth || carouselStyle == 1;
     final isCompact = !widget.forceFullWidth && carouselStyle == 2;
 
-    // Home hero: tall enough to reach the top status bar and fill the cinematic
-    // zone. Non-home carousels stay shorter.
     final cardHeight = widget.forceFullWidth
         ? screenH * 0.62
         : (isCompact ? 190.0 : 270.0);
     final viewportFraction = isCinematic ? 1.0 : (isCompact ? 0.88 : 0.92);
 
+    // For the home hero carousel we use an inner PageController that is
+    // separate from the outer one used for animation tracking so we don't
+    // get "position not attached" errors.
+    final innerController = PageController(viewportFraction: viewportFraction);
+
     return SizedBox(
-      height: showSynopsis && !isCompact ? cardHeight + 86 : cardHeight,
+      // When forceFullWidth we put the synopsis INSIDE the image, so no
+      // extra height is needed below the card.
+      height: (!widget.forceFullWidth && showSynopsis && !isCompact)
+          ? cardHeight + 86
+          : cardHeight,
       child: Column(
         children: [
           SizedBox(
             height: cardHeight,
-            child: Stack(
-              children: [
-                PageView.builder(
-                  controller: PageController(
-                    viewportFraction: viewportFraction,
-                    initialPage: _index,
-                  ),
-                  itemCount: widget.items.length,
-                  onPageChanged: (i) => setState(() => _index = i),
-                  itemBuilder: (_, i) {
-                    final m = widget.items[i];
-                    final image = m.bannerImage ?? m.bestCover;
+            child: PageView.builder(
+              controller: innerController,
+              itemCount: widget.items.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (_, i) {
+                final m = widget.items[i];
+                final image = m.bannerImage ?? m.bestCover;
 
-                    return AnimatedBuilder(
-                      animation: _pageController,
-                      builder: (context, child) {
-                        double page = i.toDouble();
-                        try {
-                          if (_pageController.hasClients &&
-                              _pageController.position.haveDimensions) {
-                            page = _pageController.page ?? page;
-                          }
-                        } catch (_) {}
-                        final delta = (page - i).abs();
-                        final scale = isCinematic
-                            ? 1.0
-                            : (1 - (delta * 0.08)).clamp(0.88, 1.0);
-                        final opacity = isCinematic
-                            ? 1.0
-                            : (1 - (delta * 0.4)).clamp(0.55, 1.0);
-                        return Transform.scale(
-                          scale: scale,
-                          child: Opacity(opacity: opacity, child: child),
-                        );
-                      },
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: isCinematic ? 0 : 6),
-                        child: GestureDetector(
-                          onTap: () => widget.onItemTap(m),
-                          child: ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(isCinematic ? 0 : 20),
-                            child: Stack(
-                              fit: StackFit.expand,
+                return Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: isCinematic ? 0 : 6),
+                  child: GestureDetector(
+                    onTap: () => widget.onItemTap(m),
+                    child: ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(isCinematic ? 0 : 20),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // ── Cover / banner image ──────────────────────────
+                          if (image != null)
+                            ExtendedImage.network(
+                              image,
+                              fit: BoxFit.cover,
+                              cache: true,
+                            )
+                          else
+                            Container(
+                              color: theme
+                                  .colorScheme.surfaceContainerHighest,
+                            ),
+
+                          // ── Gradient scrim: subtle at top, heavy at bottom
+                          //    so the info overlay pops ──────────────────────
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                stops: const [0.0, 0.38, 1.0],
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.08),
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.92),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // ── Info overlay — always on the image ───────────
+                          Positioned(
+                            left: 16,
+                            right: 16,
+                            bottom: isCinematic ? 36 : 28,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                // ── Cover / banner image ──────────────────
-                                if (image != null)
-                                  ExtendedImage.network(
-                                    image,
-                                    fit: BoxFit.cover,
-                                    cache: true,
-                                  )
-                                else
-                                  Container(
-                                    color: theme
-                                        .colorScheme.surfaceContainerHighest,
-                                  ),
-
-                                // ── Top-to-bottom dark scrim
-                                // (darker at bottom so the info overlay pops) ──
-                                DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      stops: const [0.0, 0.45, 1.0],
-                                      colors: [
-                                        Colors.black.withValues(alpha: 0.10),
-                                        Colors.transparent,
-                                        Colors.black.withValues(alpha: 0.88),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-
-                                // ── Bottom info ───────────────────────────
-                                Positioned(
-                                  left: 16,
-                                  right: 16,
-                                  bottom: 28,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          _TypeBadge(m.type, m.format,
-                                              m.countryOfOrigin),
-                                          if (m.averageScore != null) ...[
-                                            const SizedBox(width: 8),
-                                            _ScoreBadge(m.averageScore!),
-                                          ],
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        m.displayTitle,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleLarge
-                                            ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      if (m.genres.isNotEmpty) ...[
-                                        const SizedBox(height: 6),
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            children: m.genres
-                                                .take(3)
-                                                .map(
-                                                  (g) => Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                            right: 6),
-                                                    child: _GenrePill(g),
-                                                  ),
-                                                )
-                                                .toList(),
-                                          ),
-                                        ),
-                                      ],
+                                // Badges row
+                                Row(
+                                  children: [
+                                    _TypeBadge(m.type, m.format,
+                                        m.countryOfOrigin),
+                                    if (m.averageScore != null) ...[
+                                      const SizedBox(width: 8),
+                                      _ScoreBadge(m.averageScore!),
                                     ],
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Title
+                                Text(
+                                  m.displayTitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleLarge
+                                      ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
 
-                                // ── Page indicator dots ───────────────────
-                                Positioned(
-                                  bottom: 10,
-                                  left: 0,
-                                  right: 0,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: List.generate(
-                                      widget.items.length > 8
-                                          ? 8
-                                          : widget.items.length,
-                                      (di) => AnimatedContainer(
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        curve: Curves.easeOut,
-                                        width: _index == di ? 18 : 6,
-                                        height: 6,
-                                        margin: const EdgeInsets.symmetric(
-                                            horizontal: 2),
-                                        decoration: BoxDecoration(
-                                          color: _index == di
-                                              ? Colors.white
-                                              : Colors.white
-                                                  .withValues(alpha: 0.35),
-                                          borderRadius:
-                                              BorderRadius.circular(3),
+                                // ── Description text ON the image ─────────
+                                // Shown when there is enough vertical space
+                                // (forceFullWidth / cinematic mode).
+                                if (isCinematic &&
+                                    m.description != null &&
+                                    m.description!.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    m.description!,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12.5,
+                                      height: 1.45,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black87,
+                                          blurRadius: 6,
                                         ),
-                                      ),
+                                      ],
                                     ),
                                   ),
-                                ),
+                                ],
+
+                                // Genres
+                                if (m.genres.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: m.genres
+                                          .take(3)
+                                          .map(
+                                            (g) => Padding(
+                                              padding:
+                                                  const EdgeInsets.only(
+                                                      right: 6),
+                                              child: _GenrePill(g),
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
-                        ),
+
+                          // ── Page indicator dots ───────────────────────────
+                          Positioned(
+                            bottom: isCinematic ? 16 : 10,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                widget.items.length > 8
+                                    ? 8
+                                    : widget.items.length,
+                                (di) => AnimatedContainer(
+                                  duration:
+                                      const Duration(milliseconds: 300),
+                                  curve: Curves.easeOut,
+                                  width: _index == di ? 18 : 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 2),
+                                  decoration: BoxDecoration(
+                                    color: _index == di
+                                        ? Colors.white
+                                        : Colors.white
+                                            .withValues(alpha: 0.35),
+                                    borderRadius:
+                                        BorderRadius.circular(3),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
-          // ── Optional synopsis strip ─────────────────────────────────────
-          if (showSynopsis && !isCompact && widget.items.isNotEmpty)
+          // ── Optional synopsis strip below carousel ──────────────────────
+          // Only shown when NOT forceFullWidth (description is on the image
+          // in that mode so no need for a strip below).
+          if (!widget.forceFullWidth &&
+              showSynopsis &&
+              !isCompact &&
+              widget.items.isNotEmpty)
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: _SynopsisRow(
                 key: ValueKey(_index),
-                media:
-                    widget.items[_index.clamp(0, widget.items.length - 1)],
+                media: widget
+                    .items[_index.clamp(0, widget.items.length - 1)],
                 onTap: () => widget.onItemTap(
                     widget.items[_index.clamp(0, widget.items.length - 1)]),
               ),
@@ -269,7 +283,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   }
 }
 
-// ── Synopsis strip below carousel ─────────────────────────────────────────────
+// ── Synopsis strip (non-forceFullWidth only) ──────────────────────────────────
 
 class _SynopsisRow extends StatelessWidget {
   final AnilistMedia media;
@@ -330,7 +344,8 @@ class _SynopsisRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: cs.onSurface.withValues(alpha: 0.35)),
+                size: 14,
+                color: cs.onSurface.withValues(alpha: 0.35)),
           ],
         ),
       ),

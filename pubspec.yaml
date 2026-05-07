@@ -108,6 +108,7 @@ dependencies:
       url: https://github.com/kodjodevf/m_extension_server.git
   flutter_tts: ^4.2.5
   flutter_local_notifications: ^18.0.1
+  skeletonizer: ^1.4.2
 
 dependency_overrides:
   ffi: ^2.1.3

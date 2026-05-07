@@ -319,23 +319,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           }
                           return false;
                         },
-                        child: context.isTablet
-                            ? _TabletLayout(
-                                isLongPressed: isLongPressed,
-                                location: location,
-                                dest: dest,
-                                currentIndex: currentIndex,
-                                route: route,
-                                ref: ref,
-                                buildNavigationWidgetsDesktop:
-                                    _buildNavigationWidgetsDesktop,
-                                child: widget.child,
-                              )
-                            : widget.child,
+                        child: widget.child,
                       ),
-                      bottomNavigationBar: context.isTablet
-                          ? null
-                          : dockStyle == 'classic'
+                      bottomNavigationBar: dockStyle == 'classic'
                               ? _ClassicDock(
                                   dest: dest,
                                   currentIndex: currentIndex,
