@@ -2,12 +2,21 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// AnymeX-style home header with scroll-aware frosted-glass effect.
-/// Passe scrollOffset depuis le parent pour activer le BackdropFilter
-/// progressivement (comme AnymeX transculentBar).
+const _kTabs = ['Tendance', 'Anime', 'Film', 'Manga', 'Romans'];
+
+/// AnymeX-style home header with MovieBox-style category tabs.
+/// Passe scrollOffset depuis le parent pour activer le BackdropFilter.
 class HomeHeader extends StatelessWidget {
   final double scrollOffset;
-  const HomeHeader({super.key, this.scrollOffset = 0});
+  final int selectedTab;
+  final ValueChanged<int> onTabChanged;
+
+  const HomeHeader({
+    super.key,
+    this.scrollOffset = 0,
+    required this.selectedTab,
+    required this.onTabChanged,
+  });
 
   void _showAccountSheet(BuildContext context) {
     showModalBottomSheet(
@@ -29,12 +38,12 @@ class HomeHeader extends StatelessWidget {
       curve: Curves.easeOut,
       decoration: BoxDecoration(
         color: isBlurred
-            ? cs.surface.withValues(alpha: blurProgress * 0.60)
+            ? cs.surface.withValues(alpha: blurProgress * 0.72)
             : Colors.transparent,
         border: isBlurred
             ? Border(
                 bottom: BorderSide(
-                  color: cs.outline.withValues(alpha: blurProgress * 0.10),
+                  color: cs.outline.withValues(alpha: blurProgress * 0.12),
                   width: 0.8,
                 ),
               )
@@ -43,52 +52,76 @@ class HomeHeader extends StatelessWidget {
       child: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: isBlurred ? 18 * blurProgress : 0,
-            sigmaY: isBlurred ? 18 * blurProgress : 0,
+            sigmaX: isBlurred ? 22 * blurProgress : 0,
+            sigmaY: isBlurred ? 22 * blurProgress : 0,
           ),
           child: SafeArea(
             bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 16, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // ── Logo + greeting ────────────────────────────────────
-                  Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Logo row ──────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 16, 6),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      _AppIcon(cs: cs),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            'Hey, Guest 👋',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: cs.onSurface,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          Text(
-                            'What are we doing today?',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurface.withValues(alpha: 0.50),
-                            ),
+                          _AppIcon(cs: cs),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Hey, Guest 👋',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: cs.onSurface,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              Text(
+                                'Qu\'est-ce qu\'on regarde aujourd\'hui ?',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurface.withValues(alpha: 0.50),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
+                      const Spacer(),
+                      Account3DButton(onTap: () => _showAccountSheet(context)),
                     ],
                   ),
-                  const Spacer(),
-                  // ── Account 3-D button ──────────────────────────────────
-                  Account3DButton(onTap: () => _showAccountSheet(context)),
-                ],
-              ),
+                ),
+                // ── Category tabs ─────────────────────────────────────────
+                SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _kTabs.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 4),
+                    itemBuilder: (context, i) {
+                      final active = selectedTab == i;
+                      return _TabChip(
+                        label: _kTabs[i],
+                        active: active,
+                        onTap: () => onTabChanged(i),
+                        cs: cs,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
             ),
           ),
         ),
@@ -97,7 +130,65 @@ class HomeHeader extends StatelessWidget {
   }
 }
 
-// ── App icon with subtle glow ─────────────────────────────────────────────────
+// ── Tab chip ──────────────────────────────────────────────────────────────────
+
+class _TabChip extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+
+  const _TabChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: active
+              ? cs.primary
+              : cs.onSurface.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(999),
+          border: active
+              ? null
+              : Border.all(
+                  color: cs.onSurface.withValues(alpha: 0.12),
+                  width: 0.8,
+                ),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: cs.primary.withValues(alpha: 0.40),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : cs.onSurface.withValues(alpha: 0.70),
+            fontSize: 13,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            letterSpacing: 0.1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── App icon ──────────────────────────────────────────────────────────────────
 
 class _AppIcon extends StatelessWidget {
   final ColorScheme cs;
@@ -111,10 +202,7 @@ class _AppIcon extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(
-            color: cs.primary.withValues(alpha: 0.22),
-            blurRadius: 12,
-          ),
+          BoxShadow(color: cs.primary.withValues(alpha: 0.22), blurRadius: 12),
         ],
       ),
       child: Image.asset(
@@ -132,15 +220,14 @@ class _AppIcon extends StatelessWidget {
               colors: [cs.primary, cs.tertiary],
             ),
           ),
-          child: const Icon(Icons.visibility_rounded,
-              color: Colors.white, size: 20),
+          child: const Icon(Icons.visibility_rounded, color: Colors.white, size: 20),
         ),
       ),
     );
   }
 }
 
-// ── 3-D gradient account button — partagé avec LibraryHeaderBar ───────────────
+// ── 3-D gradient account button ───────────────────────────────────────────────
 
 class Account3DButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -181,15 +268,11 @@ class Account3DButton extends StatelessWidget {
                 offset: const Offset(0, 2),
               ),
             ],
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.24),
-              width: 1.2,
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.24), width: 1.2),
           ),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Sheen gloss
               Positioned(
                 top: 4,
                 left: size * 0.17,
@@ -209,8 +292,7 @@ class Account3DButton extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(Icons.person_rounded,
-                  color: Colors.white, size: size * 0.50),
+              Icon(Icons.person_rounded, color: Colors.white, size: size * 0.50),
             ],
           ),
         ),
@@ -219,7 +301,7 @@ class Account3DButton extends StatelessWidget {
   }
 }
 
-// ── Account bottom sheet — frosted glass ──────────────────────────────────────
+// ── Account bottom sheet ──────────────────────────────────────────────────────
 
 class _AccountSheet extends StatelessWidget {
   const _AccountSheet();
@@ -238,10 +320,7 @@ class _AccountSheet extends StatelessWidget {
             color: cs.surface.withValues(alpha: 0.88),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             border: Border(
-              top: BorderSide(
-                color: cs.outline.withValues(alpha: 0.12),
-                width: 0.8,
-              ),
+              top: BorderSide(color: cs.outline.withValues(alpha: 0.12), width: 0.8),
             ),
           ),
           child: SafeArea(
@@ -282,8 +361,7 @@ class _AccountSheet extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.person_rounded,
-                            color: Colors.white, size: 28),
+                        child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -291,13 +369,11 @@ class _AccountSheet extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Guest',
-                                style: tt.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800)),
+                                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                             Text(
-                              'Connect a tracker to sync your lists',
+                              'Connecte un tracker pour synchroniser tes listes',
                               style: tt.bodySmall?.copyWith(
-                                  color:
-                                      cs.onSurface.withValues(alpha: 0.52)),
+                                  color: cs.onSurface.withValues(alpha: 0.52)),
                             ),
                           ],
                         ),
@@ -309,43 +385,28 @@ class _AccountSheet extends StatelessWidget {
                   const SizedBox(height: 4),
                   _SheetTile(
                     icon: Icons.settings_outlined,
-                    label: 'Settings',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/more');
-                    },
+                    label: 'Paramètres',
+                    onTap: () { Navigator.pop(context); context.push('/more'); },
                   ),
                   _SheetTile(
                     icon: Icons.track_changes_outlined,
                     label: 'Tracking',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/trackerLibrary');
-                    },
+                    onTap: () { Navigator.pop(context); context.push('/trackerLibrary'); },
                   ),
                   _SheetTile(
                     icon: Icons.history_outlined,
-                    label: 'History',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/history');
-                    },
+                    label: 'Historique',
+                    onTap: () { Navigator.pop(context); context.push('/history'); },
                   ),
                   _SheetTile(
                     icon: Icons.download_outlined,
-                    label: 'Downloads',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/more');
-                    },
+                    label: 'Téléchargements',
+                    onTap: () { Navigator.pop(context); context.push('/more'); },
                   ),
                   _SheetTile(
                     icon: Icons.info_outline_rounded,
-                    label: 'About Watchtower',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/more');
-                    },
+                    label: 'À propos de Watchtower',
+                    onTap: () { Navigator.pop(context); context.push('/more'); },
                   ),
                 ],
               ),
@@ -361,8 +422,7 @@ class _SheetTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _SheetTile(
-      {required this.icon, required this.label, required this.onTap});
+  const _SheetTile({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -378,10 +438,8 @@ class _SheetTile extends StatelessWidget {
         ),
         child: Icon(icon, color: cs.primary, size: 20),
       ),
-      title: Text(label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      trailing: Icon(Icons.chevron_right_rounded,
-          color: cs.onSurface.withValues(alpha: 0.30)),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: 0.30)),
       onTap: onTap,
     );
   }

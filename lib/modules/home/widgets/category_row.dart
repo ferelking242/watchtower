@@ -1,16 +1,18 @@
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 
-/// A single category descriptor (genre/origin), rendered as a gradient card.
+/// A single category descriptor (genre/origin), rendered as a rich image card.
 class CategoryDef {
   final String label;
   final IconData icon;
   final List<Color> gradient;
-  final String mediaType; // ANIME / MANGA
-  final String? format;   // NOVEL / null
-  final String? country;  // JP / KR / CN / null
-  final String? genre;    // AniList genre or null
+  final String mediaType;
+  final String? format;
+  final String? country;
+  final String? genre;
+  final String? imageUrl;
 
   const CategoryDef({
     required this.label,
@@ -20,40 +22,73 @@ class CategoryDef {
     this.format,
     this.country,
     this.genre,
+    this.imageUrl,
   });
+
+  CategoryDef withImage(String? url) => CategoryDef(
+        label: label,
+        icon: icon,
+        gradient: gradient,
+        mediaType: mediaType,
+        format: format,
+        country: country,
+        genre: genre,
+        imageUrl: url ?? imageUrl,
+      );
 }
 
-/// Horizontal scrolling row of [CategoryDef] cards. Each card pushes
-/// `/anilistBrowse` with the appropriate filter applied.
+/// Horizontal scrolling row of [CategoryDef] cards with background images.
 class CategoryRow extends StatelessWidget {
   final String title;
   final List<CategoryDef> categories;
-  const CategoryRow({super.key, required this.title, required this.categories});
+  final List<AnilistMedia>? mediaForImages;
+
+  const CategoryRow({
+    super.key,
+    required this.title,
+    required this.categories,
+    this.mediaForImages,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
+
+    // Enrich categories with cover images from media list if available
+    final enriched = <CategoryDef>[];
+    for (var i = 0; i < categories.length; i++) {
+      final cat = categories[i];
+      if (mediaForImages != null && cat.imageUrl == null) {
+        // Find a media item whose genres contain this category label
+        final match = mediaForImages!.firstWhere(
+          (m) => m.genres.any((g) => g.toLowerCase() == cat.genre?.toLowerCase()),
+          orElse: () => mediaForImages![i % mediaForImages!.length],
+        );
+        enriched.add(cat.withImage(match.bestCover));
+      } else {
+        enriched.add(cat);
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
           child: Text(
             title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         SizedBox(
-          height: 96,
+          height: 110,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: categories.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => _CategoryCard(def: categories[i]),
+            itemCount: enriched.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (_, i) => _CategoryCard(def: enriched[i]),
           ),
         ),
       ],
@@ -68,11 +103,11 @@ class _CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 150,
+      width: 160,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: () {
             final filter = AnilistBrowseFilter(
               mediaType: def.mediaType,
@@ -82,54 +117,88 @@ class _CategoryCard extends StatelessWidget {
             );
             context.push('/anilistBrowse', extra: (filter, def.label));
           },
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: def.gradient,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: def.gradient.last.withValues(alpha: 0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -4,
-                  bottom: -10,
-                  child: Icon(
-                    def.icon,
-                    size: 64,
-                    color: Colors.white.withValues(alpha: 0.18),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Icon(def.icon, size: 22, color: Colors.white),
-                    const Spacer(),
-                    Text(
-                      def.label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        letterSpacing: 0.2,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              width: 160,
+              height: 110,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Background image if available
+                  if (def.imageUrl != null)
+                    ExtendedImage.network(
+                      def.imageUrl!,
+                      fit: BoxFit.cover,
+                      cache: true,
+                      loadStateChanged: (s) {
+                        if (s.extendedImageLoadState == LoadState.completed) return null;
+                        return _GradientBg(gradient: def.gradient);
+                      },
+                    )
+                  else
+                    _GradientBg(gradient: def.gradient),
+
+                  // Always-on dark overlay for legibility
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          def.gradient.first.withValues(alpha: 0.55),
+                          def.gradient.last.withValues(alpha: 0.75),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+
+                  // Background large icon watermark
+                  Positioned(
+                    right: -8,
+                    bottom: -12,
+                    child: Icon(
+                      def.icon,
+                      size: 72,
+                      color: Colors.white.withValues(alpha: 0.15),
+                    ),
+                  ),
+
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.20),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(def.icon, size: 18, color: Colors.white),
+                        ),
+                        Text(
+                          def.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            letterSpacing: 0.1,
+                            shadows: [
+                              Shadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -138,7 +207,25 @@ class _CategoryCard extends StatelessWidget {
   }
 }
 
-// ─── Static catalogues per media type ────────────────────────────────────────
+class _GradientBg extends StatelessWidget {
+  final List<Color> gradient;
+  const _GradientBg({required this.gradient});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Static catalogues ────────────────────────────────────────────────────────
 
 const _animeGradients = [
   [Color(0xFFff6a88), Color(0xFFff99ac)],
@@ -210,13 +297,11 @@ List<CategoryDef> mangaCategories() {
         icon: items[i].$2,
         gradient: _animeGradients[i % _animeGradients.length],
         mediaType: 'MANGA',
-        format: null,
         genre: items[i].$1,
       ),
   ];
 }
 
-/// Origin-based subcategories for the Manga tab (Manhwa, Manhua, etc.).
 List<CategoryDef> mangaOrigins() {
   return const [
     CategoryDef(

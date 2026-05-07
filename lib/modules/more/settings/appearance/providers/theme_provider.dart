@@ -32,22 +32,24 @@ final lightThemeProvider = Provider<ThemeData>((ref) {
   );
 });
 
-/// Provides the dark theme for the app, recomputed only when
-/// flex scheme colors, blend level, font family, or pure-black toggle change.
+/// Provides the dark theme for the app — cinematic deep dark palette.
 final darkThemeProvider = Provider<ThemeData>((ref) {
   final colors = ref.watch(flexSchemeColorStateProvider);
   final blendLevel = ref.watch(blendLevelStateProvider).toInt();
   final fontFamily = ref.watch(appFontFamilyProvider);
   final pureBlack = ref.watch(pureBlackDarkModeStateProvider);
 
+  // Cinematic deep background: near-black with a faint blue-indigo tint
+  const cinematicBg = Color(0xFF080A14);
+
   return FlexThemeData.dark(
     colors: colors,
-    surfaceMode: FlexSurfaceMode.level,
+    surfaceMode: FlexSurfaceMode.highScaffoldLevelSurface,
     blendLevel: blendLevel,
     appBarOpacity: 0.00,
-    scaffoldBackground: pureBlack ? Colors.black : const Color(0xFF12141D),
+    scaffoldBackground: pureBlack ? Colors.black : cinematicBg,
     subThemesData: const FlexSubThemesData(
-      blendOnLevel: 10,
+      blendOnLevel: 14,
       thinBorderWidth: 2.0,
       unselectedToggleIsColored: true,
       inputDecoratorRadius: 24.0,

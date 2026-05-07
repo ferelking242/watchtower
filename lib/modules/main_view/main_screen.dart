@@ -795,7 +795,7 @@ class _StatusBar extends StatelessWidget {
   }
 }
 
-class _TabletLayout extends StatelessWidget {
+class _TabletLayout extends StatefulWidget {
   const _TabletLayout({
     required this.isLongPressed,
     required this.location,
@@ -822,120 +822,468 @@ class _TabletLayout extends StatelessWidget {
   buildNavigationWidgetsDesktop;
 
   @override
+  State<_TabletLayout> createState() => _TabletLayoutState();
+}
+
+class _TabletLayoutState extends State<_TabletLayout>
+    with SingleTickerProviderStateMixin {
+  bool _collapsed = false;
+
+  // Widths
+  static const double _expandedWidth = 200.0;
+  static const double _collapsedWidth = 72.0;
+
+  static const _validLocations = {
+    '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
+    '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
+    '/updates', '/browse', '/more', '/trackerLibrary',
+  };
+
+  double _railWidth() {
+    if (widget.isLongPressed) return 0;
+    final loc = widget.location;
+    if (loc != null && !_validLocations.contains(loc)) return 0;
+    return _collapsed ? _collapsedWidth : _expandedWidth;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final destinations = buildNavigationWidgetsDesktop(ref, dest, context);
-    final railWidth = _getNavigationRailWidth(isLongPressed, location);
+    final destinations = widget.buildNavigationWidgetsDesktop(
+      widget.ref, widget.dest, context);
+    final railWidth = _railWidth();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final safeIdx = (widget.currentIndex >= 0 &&
+            widget.currentIndex < destinations.length)
+        ? widget.currentIndex
+        : 0;
 
     return Row(
       children: [
+        // ── Sidebar ──────────────────────────────────────────────────────
         AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 260),
           curve: Curves.easeInOutCubic,
           width: railWidth,
           child: railWidth == 0
               ? const SizedBox.shrink()
               : ClipRect(
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                     child: Container(
+                      width: railWidth,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? cs.surface.withValues(alpha: 0.72)
-                            : cs.surface.withValues(alpha: 0.82),
+                            ? const Color(0xFF0E1020).withValues(alpha: 0.88)
+                            : cs.surface.withValues(alpha: 0.90),
                         border: Border(
                           right: BorderSide(
-                            color: cs.outlineVariant.withValues(alpha: 0.35),
-                            width: 0.5,
+                            color: cs.outlineVariant.withValues(alpha: 0.28),
+                            width: 0.6,
                           ),
                         ),
                       ),
-                      child: Stack(
+                      child: Column(
                         children: [
-                          NavigationRailTheme(
-                            data: NavigationRailThemeData(
-                              backgroundColor: Colors.transparent,
-                              indicatorShape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          // ── App logo + toggle button ──────────────────
+                          SafeArea(
+                            bottom: false,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                              child: Row(
+                                mainAxisAlignment: _collapsed
+                                    ? MainAxisAlignment.center
+                                    : MainAxisAlignment.spaceBetween,
+                                children: [
+                                  if (!_collapsed) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: [cs.primary, cs.tertiary],
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              Icons.visibility_rounded,
+                                              color: Colors.white,
+                                              size: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Watchtower',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: cs.onSurface,
+                                              letterSpacing: -0.3,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  // Toggle button
+                                  _SidebarToggle(
+                                    collapsed: _collapsed,
+                                    cs: cs,
+                                    onTap: () => setState(() => _collapsed = !_collapsed),
+                                  ),
+                                ],
                               ),
-                              indicatorColor:
-                                  cs.primaryContainer.withValues(alpha: 0.85),
-                              selectedIconTheme: IconThemeData(
-                                color: cs.onPrimaryContainer,
-                                size: 22,
-                              ),
-                              unselectedIconTheme: IconThemeData(
-                                color: cs.onSurfaceVariant,
-                                size: 22,
-                              ),
-                              selectedLabelTextStyle: TextStyle(
-                                color: cs.primary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                              ),
-                              unselectedLabelTextStyle: TextStyle(
-                                color: cs.onSurfaceVariant,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 11,
-                              ),
-                            ),
-                            child: NavigationRail(
-                              labelType: NavigationRailLabelType.all,
-                              useIndicator: true,
-                              backgroundColor: Colors.transparent,
-                              minWidth: railWidth,
-                              leading: Padding(
-                                padding: const EdgeInsets.only(
-                                    top: 24, bottom: 12),
-                                child: Icon(
-                                  Icons.watch_later_rounded,
-                                  size: 28,
-                                  color: cs.primary,
-                                ),
-                              ),
-                              destinations: destinations,
-                              selectedIndex:
-                                  (currentIndex >= 0 &&
-                                          currentIndex < destinations.length)
-                                      ? currentIndex
-                                      : 0,
-                              onDestinationSelected: (newIndex) {
-                                route.go(dest[newIndex]);
-                              },
                             ),
                           ),
+
+                          const SizedBox(height: 8),
+
+                          // ── Navigation items ──────────────────────────
+                          Expanded(
+                            child: _collapsed
+                                ? _CollapsedRail(
+                                    destinations: destinations,
+                                    selectedIndex: safeIdx,
+                                    dest: widget.dest,
+                                    route: widget.route,
+                                    cs: cs,
+                                  )
+                                : _ExpandedRail(
+                                    destinations: destinations,
+                                    selectedIndex: safeIdx,
+                                    dest: widget.dest,
+                                    route: widget.route,
+                                    cs: cs,
+                                    railWidth: _expandedWidth,
+                                  ),
+                          ),
+
+                          // ── Bottom divider ────────────────────────────
+                          Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            color: cs.outlineVariant.withValues(alpha: 0.30),
+                            indent: 16,
+                            endIndent: 16,
+                          ),
+                          const SizedBox(height: 12),
+                          // Version / settings shortcut
+                          _SidebarFooter(cs: cs, collapsed: _collapsed),
+                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
                   ),
                 ),
         ),
-        Expanded(child: child),
+
+        // ── Content area ─────────────────────────────────────────────────
+        Expanded(child: widget.child),
       ],
     );
   }
+}
 
-  static double _getNavigationRailWidth(bool isLongPressed, String? location) {
-    if (isLongPressed) return 0;
+// ── Toggle button ─────────────────────────────────────────────────────────────
 
-    const validLocations = {
-      '/Library',
-      '/MangaLibrary',
-      '/AnimeLibrary',
-      '/NovelLibrary',
-      '/MusicLibrary',
-      '/GameLibrary',
-      '/WatchtowerHome',
-      '/history',
-      '/updates',
-      '/browse',
-      '/more',
-      '/trackerLibrary',
-    };
+class _SidebarToggle extends StatelessWidget {
+  final bool collapsed;
+  final ColorScheme cs;
+  final VoidCallback onTap;
 
-    return (location == null || validLocations.contains(location)) ? 120 : 0;
+  const _SidebarToggle({
+    required this.collapsed,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: collapsed ? 'Déplier le menu' : 'Replier le menu',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: cs.onSurface.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.25),
+              width: 0.8,
+            ),
+          ),
+          child: Center(
+            child: AnimatedRotation(
+              turns: collapsed ? 0.0 : 0.5,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeInOutCubic,
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: cs.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
+}
+
+// ── Collapsed rail (icon-only) ────────────────────────────────────────────────
+
+class _CollapsedRail extends StatelessWidget {
+  final List<NavigationRailDestination> destinations;
+  final int selectedIndex;
+  final List<String> dest;
+  final GoRouter route;
+  final ColorScheme cs;
+
+  const _CollapsedRail({
+    required this.destinations,
+    required this.selectedIndex,
+    required this.dest,
+    required this.route,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      itemCount: destinations.length,
+      itemBuilder: (context, i) {
+        final active = selectedIndex == i;
+        final d = destinations[i];
+        return Tooltip(
+          message: _extractLabel(d),
+          preferBelow: false,
+          child: _SidebarItem(
+            icon: active ? d.selectedIcon : d.icon,
+            label: null,
+            active: active,
+            cs: cs,
+            onTap: () => route.go(dest[i]),
+          ),
+        );
+      },
+    );
+  }
+
+  String _extractLabel(NavigationRailDestination d) {
+    final w = d.label;
+    if (w is Padding) {
+      final child = w.child;
+      if (child is Text) return child.data ?? '';
+    }
+    if (w is Text) return w.data ?? '';
+    return '';
+  }
+}
+
+// ── Expanded rail (icon + label) ──────────────────────────────────────────────
+
+class _ExpandedRail extends StatelessWidget {
+  final List<NavigationRailDestination> destinations;
+  final int selectedIndex;
+  final List<String> dest;
+  final GoRouter route;
+  final ColorScheme cs;
+  final double railWidth;
+
+  const _ExpandedRail({
+    required this.destinations,
+    required this.selectedIndex,
+    required this.dest,
+    required this.route,
+    required this.cs,
+    required this.railWidth,
+  });
+
+  String _extractLabel(NavigationRailDestination d) {
+    final w = d.label;
+    if (w is Padding) {
+      final child = w.child;
+      if (child is Text) return child.data ?? '';
+    }
+    if (w is Text) return w.data ?? '';
+    return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+      itemCount: destinations.length,
+      itemBuilder: (context, i) {
+        final active = selectedIndex == i;
+        final d = destinations[i];
+        return _SidebarItem(
+          icon: active ? d.selectedIcon : d.icon,
+          label: _extractLabel(d),
+          active: active,
+          cs: cs,
+          onTap: () => route.go(dest[i]),
+        );
+      },
+    );
+  }
+}
+
+// ── Single sidebar item ───────────────────────────────────────────────────────
+
+class _SidebarItem extends StatelessWidget {
+  final Widget icon;
+  final String? label;
+  final bool active;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  const _SidebarItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: label != null
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 10)
+                : const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+            decoration: BoxDecoration(
+              color: active
+                  ? cs.primary.withValues(alpha: isDark ? 0.18 : 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: active
+                  ? Border.all(
+                      color: cs.primary.withValues(alpha: 0.25),
+                      width: 0.8,
+                    )
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: label != null
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
+              children: [
+                IconTheme(
+                  data: IconThemeData(
+                    color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55),
+                    size: 22,
+                  ),
+                  child: icon,
+                ),
+                if (label != null) ...[
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      label!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                        color: active
+                            ? cs.primary
+                            : cs.onSurface.withValues(alpha: 0.70),
+                      ),
+                    ),
+                  ),
+                  if (active) ...[
+                    const Spacer(),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sidebar footer ────────────────────────────────────────────────────────────
+
+class _SidebarFooter extends StatelessWidget {
+  final ColorScheme cs;
+  final bool collapsed;
+
+  const _SidebarFooter({required this.cs, required this.collapsed});
+
+  @override
+  Widget build(BuildContext context) {
+    if (collapsed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Icon(
+          Icons.info_outline_rounded,
+          size: 18,
+          color: cs.onSurface.withValues(alpha: 0.30),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Icon(Icons.watch_later_outlined, size: 14, color: cs.onSurface.withValues(alpha: 0.28)),
+          const SizedBox(width: 6),
+          Text(
+            'Watchtower',
+            style: TextStyle(
+              fontSize: 11,
+              color: cs.onSurface.withValues(alpha: 0.30),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Legacy static helper kept for reference (no longer called directly)
+double _getNavigationRailWidthLegacy(bool isLongPressed, String? location) {
+  if (isLongPressed) return 0;
+  const validLocations = {
+    '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
+    '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
+    '/updates', '/browse', '/more', '/trackerLibrary',
+  };
+  return (location == null || validLocations.contains(location)) ? 200 : 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
