@@ -31,7 +31,7 @@ class CustomNavigationSettings extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Hub toggle ─────────────────────────────────────────────────
+            // ââ Hub toggle âââââââââââââââââââââââââââââââââââââââââââââââââ
             Tooltip(
               message: 'When ON: Manga/Watch/Novel are hidden behind a single Hub button on the dock.',
               child: Padding(
@@ -40,7 +40,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   value: mergeHubNavMobile,
                   title: const Text('Hub navigation on mobile'),
                   subtitle: const Text(
-                    'Merges Manga · Watch · Novel under one Hub button',
+                    'Merges Manga Â· Watch Â· Novel under one Hub button',
                     style: TextStyle(fontSize: 12),
                   ),
                   secondary: const Icon(Icons.apps_rounded),
@@ -60,15 +60,15 @@ class CustomNavigationSettings extends ConsumerWidget {
                     }
                     botToast(
                       value
-                          ? 'Hub enabled — Manga, Watch & Novel are now behind the Hub button'
-                          : 'Hub disabled — Manga, Watch & Novel appear separately on the dock',
+                          ? 'Hub enabled â Manga, Watch & Novel are now behind the Hub button'
+                          : 'Hub disabled â Manga, Watch & Novel appear separately on the dock',
                     );
                   },
                 ),
               ),
             ),
 
-            // ── Library toggle ─────────────────────────────────────────────
+            // ââ Library toggle âââââââââââââââââââââââââââââââââââââââââââââ
             Tooltip(
               message: 'When ON: a unified Library tab appears on the dock (all types in one page).',
               child: Padding(
@@ -85,8 +85,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                     ref.read(mergeLibraryOnDockProvider.notifier).set(value);
                     botToast(
                       value
-                          ? 'Library tab enabled — a unified Library page is now on the dock'
-                          : 'Library tab disabled — removed from dock',
+                          ? 'Library tab enabled â a unified Library page is now on the dock'
+                          : 'Library tab disabled â removed from dock',
                     );
                   },
                 ),
@@ -95,7 +95,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             const Divider(height: 16),
 
-            // ── Reorderable navigation items ───────────────────────────────
+            // ââ Reorderable navigation items âââââââââââââââââââââââââââââââ
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15),
               child: SizedBox(
@@ -171,7 +171,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             const Divider(height: 24),
 
-            // ── Dock style picker ──────────────────────────────────────────
+            // ââ Dock style picker ââââââââââââââââââââââââââââââââââââââââââ
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
@@ -205,7 +205,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                               .read(navDockStyleProvider.notifier)
                               .set('floating');
                           botToast(
-                              'Dock style: Floating pill — the dock hovers above the screen edge');
+                              'Dock style: Floating pill â the dock hovers above the screen edge');
                         },
                       ),
                       const SizedBox(width: 10),
@@ -219,7 +219,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                               .read(navDockStyleProvider.notifier)
                               .set('classic');
                           botToast(
-                              'Dock style: Classic — standard full-width bottom navigation bar');
+                              'Dock style: Classic â standard full-width bottom navigation bar');
                         },
                       ),
                       const SizedBox(width: 10),
@@ -233,9 +233,37 @@ class CustomNavigationSettings extends ConsumerWidget {
                               .read(navDockStyleProvider.notifier)
                               .set('minimal');
                           botToast(
-                              'Dock style: Minimal — icon-only with subtle dot indicator, no labels');
+                              'Dock style: Minimal â icon-only with subtle dot indicator, no labels');
                         },
-                      ),
+                      ),,
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _DockPreviewCard(
+                            label: 'Rounded',
+                            description: 'Wide pill bar',
+                            isSelected: dockStyle == 'rounded_full',
+                            child: _RoundedFullDockPreview(cs: colorScheme),
+                            onTap: () { ref.read(navDockStyleProvider.notifier).set('rounded_full'); botToast('Dock style: Rounded — full-width pill with rounded caps'); },
+                          ),
+                          const SizedBox(width: 10),
+                          _DockPreviewCard(
+                            label: 'Compact',
+                            description: 'Icons only, slim',
+                            isSelected: dockStyle == 'compact',
+                            child: _CompactDockPreview(cs: colorScheme),
+                            onTap: () { ref.read(navDockStyleProvider.notifier).set('compact'); botToast('Dock style: Compact — slim icon-only bar'); },
+                          ),
+                          const SizedBox(width: 10),
+                          _DockPreviewCard(
+                            label: 'Immersive',
+                            description: 'Glass overlay',
+                            isSelected: dockStyle == 'immersive',
+                            child: _ImmersiveDockPreview(cs: colorScheme),
+                            onTap: () { ref.read(navDockStyleProvider.notifier).set('immersive'); botToast('Dock style: Immersive — translucent glass dock'); },
+                          ),
+                        ],
+                      )
                     ],
                   ),
                 ],
@@ -244,7 +272,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             const Divider(height: 28),
 
-            // ── Advanced customisation (flat, no gray card) ────────────────
+            // ââ Advanced customisation (flat, no gray card) ââââââââââââââââ
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -357,8 +385,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                   onChanged: (v) {
                     ref.read(navShowLabelsProvider.notifier).set(v);
                     botToast(v
-                        ? 'Labels visible — text shown below each dock icon'
-                        : 'Labels hidden — icon only mode');
+                        ? 'Labels visible â text shown below each dock icon'
+                        : 'Labels hidden â icon only mode');
                   },
                 ),
               ),
@@ -381,7 +409,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   onChanged: (v) {
                     ref.read(navHapticProvider.notifier).set(v);
                     botToast(v
-                        ? 'Haptic feedback enabled — subtle vibration on tab change'
+                        ? 'Haptic feedback enabled â subtle vibration on tab change'
                         : 'Haptic feedback disabled');
                   },
                 ),
@@ -396,7 +424,7 @@ class CustomNavigationSettings extends ConsumerWidget {
   }
 }
 
-// ── Dock preview cards ────────────────────────────────────────────────────────
+// ââ Dock preview cards ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _DockPreviewCard extends StatelessWidget {
   final String label;
@@ -622,9 +650,90 @@ const _previewIcons = [
   Icons.more_horiz_outlined,
 ];
 
-// ── Slider tile ───────────────────────────────────────────────────────────────
+// ââ Slider tile âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-class _SettingSliderTile extends StatelessWidget {
+class _RoundedFullDockPreview extends StatelessWidget {
+    final ColorScheme cs;
+    const _RoundedFullDockPreview({required this.cs});
+
+    @override
+    Widget build(BuildContext context) {
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          height: 36,
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 4),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainer,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.14), blurRadius: 8, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(4, (i) => Icon(_previewIcons[i], size: 14,
+              color: i == 0 ? cs.primary : cs.onSurface.withValues(alpha: 0.4))),
+          ),
+        ),
+      );
+    }
+  }
+
+  class _CompactDockPreview extends StatelessWidget {
+    final ColorScheme cs;
+    const _CompactDockPreview({required this.cs});
+
+    @override
+    Widget build(BuildContext context) {
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          height: 26,
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 2),
+          color: cs.surface,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(4, (i) => Icon(_previewIcons[i], size: 12,
+              color: i == 0 ? cs.primary : cs.onSurface.withValues(alpha: 0.35))),
+          ),
+        ),
+      );
+    }
+  }
+
+  class _ImmersiveDockPreview extends StatelessWidget {
+    final ColorScheme cs;
+    const _ImmersiveDockPreview({required this.cs});
+
+    @override
+    Widget build(BuildContext context) {
+      return Center(
+        child: Container(
+          height: 36,
+          decoration: BoxDecoration(
+            color: cs.surface.withValues(alpha: 0.52),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.22), width: 0.8),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 2))],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(4, (i) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              child: Icon(_previewIcons[i], size: 14,
+                color: i == 0 ? cs.primary : cs.onSurface.withValues(alpha: 0.45)),
+            )),
+          ),
+        ),
+      );
+    }
+  }
+
+  class _SettingSliderTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String tooltip;

@@ -2,9 +2,9 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Standard poster card (2:3 ratio)
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class DiscoveryCard extends StatelessWidget {
   final AnilistMedia media;
@@ -118,9 +118,9 @@ class DiscoveryCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Ranked card — poster with a big rank number on the left side
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ranked card â poster with a big rank number on the left side
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class RankedDiscoveryCard extends StatelessWidget {
   final AnilistMedia media;
@@ -241,9 +241,9 @@ class RankedDiscoveryCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Landscape card — wider 16:9 banner card for movies / episodes
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Landscape card â wider 16:9 banner card for movies / episodes
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class LandscapeDiscoveryCard extends StatelessWidget {
   final AnilistMedia media;
@@ -370,9 +370,9 @@ class LandscapeDiscoveryCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Featured card — tall hero card (first item in trending row)
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Featured card â tall hero card (first item in trending row)
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class FeaturedDiscoveryCard extends StatelessWidget {
   final AnilistMedia media;
@@ -450,7 +450,7 @@ class FeaturedDiscoveryCard extends StatelessWidget {
                     children: [
                       if (media.genres.isNotEmpty)
                         Text(
-                          media.genres.take(2).join(' • '),
+                          media.genres.take(2).join(' â¢ '),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.70),
                             fontSize: 10,
@@ -495,9 +495,9 @@ class FeaturedDiscoveryCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Legacy DiscoveryRow (kept for backwards compat)
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class DiscoveryRow extends StatelessWidget {
   final String title;
@@ -573,3 +573,75 @@ class DiscoveryRow extends StatelessWidget {
     );
   }
 }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Animated wrapper — staggered fade-in + slide for horizontal card lists
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /// Drop-in replacement for [DiscoveryCard] that plays a staggered
+  /// fade-in + upward slide animation when the card is first mounted.
+  /// Use [delay] to offset successive cards in a row.
+  class AnimatedDiscoveryCard extends StatefulWidget {
+    final AnilistMedia media;
+    final VoidCallback onTap;
+    final double width;
+    final Duration delay;
+
+    const AnimatedDiscoveryCard({
+      super.key,
+      required this.media,
+      required this.onTap,
+      this.width = 120,
+      this.delay = Duration.zero,
+    });
+
+    @override
+    State<AnimatedDiscoveryCard> createState() => _AnimatedDiscoveryCardState();
+  }
+
+  class _AnimatedDiscoveryCardState extends State<AnimatedDiscoveryCard>
+      with SingleTickerProviderStateMixin {
+    late final AnimationController _ctrl;
+    late final Animation<double> _fade;
+    late final Animation<Offset> _slide;
+
+    @override
+    void initState() {
+      super.initState();
+      _ctrl = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 420),
+      );
+      _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+      _slide = Tween<Offset>(
+        begin: const Offset(0.0, 0.12),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+
+      Future.delayed(widget.delay, () {
+        if (mounted) _ctrl.forward();
+      });
+    }
+
+    @override
+    void dispose() {
+      _ctrl.dispose();
+      super.dispose();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return FadeTransition(
+        opacity: _fade,
+        child: SlideTransition(
+          position: _slide,
+          child: DiscoveryCard(
+            media: widget.media,
+            onTap: widget.onTap,
+            width: widget.width,
+          ),
+        ),
+      );
+    }
+  }
+  

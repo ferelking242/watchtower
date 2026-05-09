@@ -86,7 +86,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         case 'it':
           return "Aggiorna-\nmenti";
         case 'tr':
-          return "Güncel-\nlemeler";
+          return "GÃ¼ncel-\nlemeler";
         default:
           return defaultLabel;
       }
@@ -320,8 +320,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         },
                         child: widget.child,
                       ),
-                      bottomNavigationBar: dockStyle == 'classic'
-                              ? _ClassicDock(
+                      bottomNavigationBar: (dockStyle == 'classic' || dockStyle == 'rounded_full')
+                              ? _RoundedOrClassicDock(
+                                  isRounded: dockStyle == 'rounded_full',
                                   dest: dest,
                                   currentIndex: currentIndex,
                                   buildDestinations:
@@ -330,7 +331,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                   onDestinationSelected: (idx) {
                                     final destination = dest[idx];
                                     AppLogger.log(
-                                      'Nav → $destination',
+                                      'Nav â $destination',
                                       logLevel: LogLevel.debug,
                                       tag: LogTag.ui,
                                     );
@@ -352,10 +353,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                   location: location,
                                   dest: dest,
                                   ref: ref,
-                                  showPill: dockStyle != 'minimal',
+                                  showPill: dockStyle != 'minimal' && dockStyle != 'compact',
                                   onDestinationSelected: (destination) {
                                     AppLogger.log(
-                                      'Nav → $destination',
+                                      'Nav â $destination',
                                       logLevel: LogLevel.debug,
                                       tag: LogTag.ui,
                                     );
@@ -845,7 +846,7 @@ class _TabletLayoutState extends State<_TabletLayout>
 
     return Row(
       children: [
-        // ── Sidebar ──────────────────────────────────────────────────────
+        // ââ Sidebar ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeInOutCubic,
@@ -870,7 +871,7 @@ class _TabletLayoutState extends State<_TabletLayout>
                       ),
                       child: Column(
                         children: [
-                          // ── App logo + toggle button ──────────────────
+                          // ââ App logo + toggle button ââââââââââââââââââ
                           SafeArea(
                             bottom: false,
                             child: Padding(
@@ -930,7 +931,7 @@ class _TabletLayoutState extends State<_TabletLayout>
 
                           const SizedBox(height: 8),
 
-                          // ── Navigation items ──────────────────────────
+                          // ââ Navigation items ââââââââââââââââââââââââââ
                           Expanded(
                             child: _collapsed
                                 ? _CollapsedRail(
@@ -950,7 +951,7 @@ class _TabletLayoutState extends State<_TabletLayout>
                                   ),
                           ),
 
-                          // ── Bottom divider ────────────────────────────
+                          // ââ Bottom divider ââââââââââââââââââââââââââââ
                           Divider(
                             height: 1,
                             thickness: 0.5,
@@ -969,14 +970,14 @@ class _TabletLayoutState extends State<_TabletLayout>
                 ),
         ),
 
-        // ── Content area ─────────────────────────────────────────────────
+        // ââ Content area âââââââââââââââââââââââââââââââââââââââââââââââââ
         Expanded(child: widget.child),
       ],
     );
   }
 }
 
-// ── Toggle button ─────────────────────────────────────────────────────────────
+// ââ Toggle button âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _SidebarToggle extends StatelessWidget {
   final bool collapsed;
@@ -992,7 +993,7 @@ class _SidebarToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: collapsed ? 'Déplier le menu' : 'Replier le menu',
+      message: collapsed ? 'DÃ©plier le menu' : 'Replier le menu',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
@@ -1026,7 +1027,7 @@ class _SidebarToggle extends StatelessWidget {
   }
 }
 
-// ── Collapsed rail (icon-only) ────────────────────────────────────────────────
+// ââ Collapsed rail (icon-only) ââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _CollapsedRail extends StatelessWidget {
   final List<NavigationRailDestination> destinations;
@@ -1077,7 +1078,7 @@ class _CollapsedRail extends StatelessWidget {
   }
 }
 
-// ── Expanded rail (icon + label) ──────────────────────────────────────────────
+// ââ Expanded rail (icon + label) ââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _ExpandedRail extends StatelessWidget {
   final List<NavigationRailDestination> destinations;
@@ -1126,7 +1127,7 @@ class _ExpandedRail extends StatelessWidget {
   }
 }
 
-// ── Single sidebar item ───────────────────────────────────────────────────────
+// ââ Single sidebar item âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _SidebarItem extends StatelessWidget {
   final Widget icon;
@@ -1220,7 +1221,7 @@ class _SidebarItem extends StatelessWidget {
   }
 }
 
-// ── Sidebar footer ────────────────────────────────────────────────────────────
+// ââ Sidebar footer ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _SidebarFooter extends StatelessWidget {
   final ColorScheme cs;
@@ -1271,9 +1272,9 @@ double _getNavigationRailWidthLegacy(bool isLongPressed, String? location) {
   return (location == null || validLocations.contains(location)) ? 200 : 0;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Floating Glass Dock (replaces classic NavigationBar)
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _DockItemData {
   final String route;
@@ -1356,7 +1357,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     final d = widget.dest;
     final items = <_DockItemData>[];
 
-    // ── Respect the user-configured navigation order from dest ──────────────
+    // ââ Respect the user-configured navigation order from dest ââââââââââââââ
     // dest already carries the correct order (from navigationOrderStateProvider)
     // including any _enableLibSwitch / _disableLibSwitch replacements.
     // Iterate it directly so the floating dock matches the classic dock and rail.
@@ -1637,7 +1638,7 @@ class _DockPill extends StatelessWidget {
   }
 }
 
-// ── Classic NavigationBar dock ────────────────────────────────────────────────
+// ââ Classic NavigationBar dock ââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _ClassicDock extends StatelessWidget {
   const _ClassicDock({
@@ -1668,7 +1669,49 @@ class _ClassicDock extends StatelessWidget {
   }
 }
 
-class _DockItemWidget extends StatelessWidget {
+// ─── Rounded variant wrapper for _ClassicDock ────────────────────────────────
+  /// When [isRounded] is true, clips the [NavigationBar] with large top-corner
+  /// radii to produce the "Rounded Full" style.
+  class _RoundedOrClassicDock extends StatelessWidget {
+    const _RoundedOrClassicDock({
+      required this.isRounded,
+      required this.dest,
+      required this.currentIndex,
+      required this.buildDestinations,
+      required this.ref,
+      required this.onDestinationSelected,
+    });
+
+    final bool isRounded;
+    final List<String> dest;
+    final int currentIndex;
+    final List<Widget> Function(WidgetRef, List<String>, BuildContext)
+        buildDestinations;
+    final WidgetRef ref;
+    final void Function(int) onDestinationSelected;
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final base = _ClassicDock(
+        dest: dest,
+        currentIndex: currentIndex,
+        buildDestinations: buildDestinations,
+        ref: ref,
+        onDestinationSelected: onDestinationSelected,
+      );
+      if (!isRounded) return base;
+      return ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(22),
+          topRight: Radius.circular(22),
+        ),
+        child: base,
+      );
+    }
+  }
+
+  class _DockItemWidget extends StatelessWidget {
   const _DockItemWidget({
     required this.item,
     required this.active,
@@ -1712,20 +1755,20 @@ class _DockItemWidget extends StatelessWidget {
     final animSpeed = ref.watch(navAnimSpeedProvider);
     final itemAnimMs = animSpeed == 0 ? 0 : animSpeed == 2 ? 80 : 180;
     const _descriptions = {
-      '_enableLibSwitch': 'Hub — tap to expand Manga, Watch & Novel tabs',
+      '_enableLibSwitch': 'Hub â tap to expand Manga, Watch & Novel tabs',
       '_disableLibSwitch': 'Tap to go back to Hub view',
-      '/Library': 'Library — all your content unified in one page',
-      '/AnimeLibrary': 'Watch — your anime & video library',
-      '/MangaLibrary': 'Manga — your manga & comic library',
-      '/NovelLibrary': 'Novel — your light novel library',
-      '/MusicLibrary': 'Music — stream & download music',
-      '/GameLibrary': 'Games — browse & download ROMs',
-      '/WatchtowerHome': 'Accueil — discover trending content',
-      '/browse': 'Browse — explore & install sources and extensions',
-      '/history': 'History — recently read or watched items',
-      '/more': 'More — settings, about & advanced options',
-      '/updates': 'Updates — new chapters & episodes available',
-      '/trackerLibrary': 'Tracking — sync progress with external trackers',
+      '/Library': 'Library â all your content unified in one page',
+      '/AnimeLibrary': 'Watch â your anime & video library',
+      '/MangaLibrary': 'Manga â your manga & comic library',
+      '/NovelLibrary': 'Novel â your light novel library',
+      '/MusicLibrary': 'Music â stream & download music',
+      '/GameLibrary': 'Games â browse & download ROMs',
+      '/WatchtowerHome': 'Accueil â discover trending content',
+      '/browse': 'Browse â explore & install sources and extensions',
+      '/history': 'History â recently read or watched items',
+      '/more': 'More â settings, about & advanced options',
+      '/updates': 'Updates â new chapters & episodes available',
+      '/trackerLibrary': 'Tracking â sync progress with external trackers',
     };
 
     return GestureDetector(

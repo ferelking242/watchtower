@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
+import 'package:palette_generator/palette_generator.dart';
 
 /// Auto-cycling banner carousel.
 ///
-/// [forceFullWidth] = true → cinematic edge-to-edge mode used on the home
+/// [forceFullWidth] = true â cinematic edge-to-edge mode used on the home
 /// screen hero.  In this mode the description text is rendered **on the
 /// image** (there is enough room), the synopsis strip below is suppressed,
 /// and the card height is set to 62 % of the screen.
@@ -31,6 +32,8 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   late final PageController _pageController;
   Timer? _timer;
   int _index = 0;
+  Color? _dominantColor;
+  String? _lastExtractedUrl;
 
   @override
   void initState() {
@@ -47,6 +50,27 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
         );
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.items.isNotEmpty) _extractDominantColor(widget.items[0]);
+    });
+  }
+
+  Future<void> _extractDominantColor(AnilistMedia media) async {
+    final url = media.bannerImage ?? media.bestCover;
+    if (url == null || url == _lastExtractedUrl) return;
+    _lastExtractedUrl = url;
+    try {
+      final generator = await PaletteGenerator.fromImageProvider(
+        NetworkImage(url),
+        size: const Size(300, 168),
+        maximumColorCount: 8,
+        timeout: const Duration(seconds: 4),
+      );
+      final color = generator.darkVibrantColor?.color ??
+          generator.darkMutedColor?.color ??
+          generator.dominantColor?.color;
+      if (color != null && mounted) setState(() => _dominantColor = color);
+    } catch (_) {}
   }
 
   @override
@@ -91,7 +115,10 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
             child: PageView.builder(
               controller: innerController,
               itemCount: widget.items.length,
-              onPageChanged: (i) => setState(() => _index = i),
+              onPageChanged: (i) {
+                setState(() => _index = i);
+                if (i < widget.items.length) _extractDominantColor(widget.items[i]);
+              },
               itemBuilder: (_, i) {
                 final m = widget.items[i];
                 final image = m.bannerImage ?? m.bestCover;
@@ -107,7 +134,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // ── Cover / banner image ──────────────────────────
+                          // ââ Cover / banner image ââââââââââââââââââââââââââ
                           if (image != null)
                             ExtendedImage.network(
                               image,
@@ -120,8 +147,8 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   .colorScheme.surfaceContainerHighest,
                             ),
 
-                          // ── Gradient scrim: subtle at top, heavy at bottom
-                          //    so the info overlay pops ──────────────────────
+                          // ââ Gradient scrim: subtle at top, heavy at bottom
+                          //    so the info overlay pops ââââââââââââââââââââââ
                           DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -129,15 +156,19 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                 end: Alignment.bottomCenter,
                                 stops: const [0.0, 0.38, 1.0],
                                 colors: [
-                                  Colors.black.withValues(alpha: 0.08),
+                                  (_dominantColor != null
+                                      ? Color.lerp(_dominantColor!, Colors.black, 0.3)!.withValues(alpha: 0.20)
+                                      : Colors.black.withValues(alpha: 0.08)),
                                   Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.92),
+                                  (_dominantColor != null
+                                      ? Color.lerp(_dominantColor!, Colors.black, 0.5)!.withValues(alpha: 0.95)
+                                      : Colors.black.withValues(alpha: 0.92)),
                                 ],
                               ),
                             ),
                           ),
 
-                          // ── Info overlay — always on the image ───────────
+                          // ââ Info overlay â always on the image âââââââââââ
                           Positioned(
                             left: 16,
                             right: 16,
@@ -171,7 +202,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   ),
                                 ),
 
-                                // ── Description text ON the image ─────────
+                                // ââ Description text ON the image âââââââââ
                                 // Shown when there is enough vertical space
                                 // (forceFullWidth / cinematic mode).
                                 if (isCinematic &&
@@ -220,7 +251,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                             ),
                           ),
 
-                          // ── Page indicator dots ───────────────────────────
+                          // ââ Page indicator dots âââââââââââââââââââââââââââ
                           Positioned(
                             bottom: isCinematic ? 16 : 10,
                             left: 0,
@@ -260,7 +291,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
             ),
           ),
 
-          // ── Optional synopsis strip below carousel ──────────────────────
+          // ââ Optional synopsis strip below carousel ââââââââââââââââââââââ
           // Only shown when NOT forceFullWidth (description is on the image
           // in that mode so no need for a strip below).
           if (!widget.forceFullWidth &&
@@ -283,7 +314,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   }
 }
 
-// ── Synopsis strip (non-forceFullWidth only) ──────────────────────────────────
+// ââ Synopsis strip (non-forceFullWidth only) ââââââââââââââââââââââââââââââââââ
 
 class _SynopsisRow extends StatelessWidget {
   final AnilistMedia media;
@@ -353,7 +384,7 @@ class _SynopsisRow extends StatelessWidget {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _TypeBadge extends StatelessWidget {
   final String type;

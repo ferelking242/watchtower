@@ -11,23 +11,23 @@ import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Tab definitions
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Must stay in sync with kHomeTabs in home_header.dart.
-// 0=Live 1=Film 2=Série 3=Asia 4=Mini série 5=Anime 6=Football 7=Musique 8=Jeux
+// 0=Live 1=Film 2=SÃ©rie 3=Asia 4=Mini sÃ©rie 5=Anime 6=Football 7=Musique 8=Jeux
 
 enum _HomeTab { live, film, serie, asia, miniSerie, anime, football, musique, jeux }
 
 /// MovieBox-style home screen.
 ///
 /// Layout:
-///   ┌────────────────────────────────────────┐
-///   │  HomeHeader (always visible, floating)  │  opacity 0→1 on scroll
-///   ├────────────────────────────────────────┤
-///   │  Hero carousel  (starts at y=0)         │  60 % of screen height
-///   │  Section rows …                         │
-///   └────────────────────────────────────────┘
+///   ââââââââââââââââââââââââââââââââââââââââââ
+///   â  HomeHeader (always visible, floating)  â  opacity 0â1 on scroll
+///   ââââââââââââââââââââââââââââââââââââââââââ¤
+///   â  Hero carousel  (starts at y=0)         â  60 % of screen height
+///   â  Section rows â¦                         â
+///   ââââââââââââââââââââââââââââââââââââââââââ
 class WatchtowerHomeScreen extends ConsumerStatefulWidget {
   const WatchtowerHomeScreen({super.key});
 
@@ -41,7 +41,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   double _scrollOffset = 0;
   int _selectedTab = 0;
 
-  // Mini série filter: 0=Dernière  1=Le plus chaud  2=Toute
+  // Mini sÃ©rie filter: 0=DerniÃ¨re  1=Le plus chaud  2=Toute
   int _miniSerieFilter = 0;
 
   @override
@@ -103,7 +103,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       extendBody: true,
       body: Stack(
         children: [
-          // ── Content scroll view ──────────────────────────────────────────
+          // ââ Content scroll view ââââââââââââââââââââââââââââââââââââââââââ
           asyncHome.when(
             loading: () => const SkeletonHomeScreen(),
             error: (e, _) => AniListErrorView(
@@ -113,7 +113,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
             data: (home) => _buildContent(context, home),
           ),
 
-          // ── Sticky floating header (always at top) ───────────────────────
+          // ââ Sticky floating header (always at top) âââââââââââââââââââââââ
           Positioned(
             top: 0,
             left: 0,
@@ -135,12 +135,21 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         _HomeTab.values[_selectedTab.clamp(0, _HomeTab.values.length - 1)];
     final heroItems = _heroItemsForTab(home, tab);
 
-    return CustomScrollView(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        // ── Hero carousel — starts at scroll offset 0 (behind the transparent
-        //    header). No top spacer. ─────────────────────────────────────────
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(anilistHomeProvider);
+        await Future.delayed(const Duration(milliseconds: 700));
+      },
+      displacement: 80,
+      strokeWidth: 2.5,
+      color: Theme.of(context).colorScheme.primary,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+        slivers: [
+        // ââ Hero carousel â starts at scroll offset 0 (behind the transparent
+        //    header). No top spacer. âââââââââââââââââââââââââââââââââââââââââ
         if (heroItems.isNotEmpty)
           SliverToBoxAdapter(
             child: HeroCarousel(
@@ -150,19 +159,20 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
             ),
           ),
 
-        // ── After carousel: push content below the now-opaque header ────────
+        // ââ After carousel: push content below the now-opaque header ââââââââ
         const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-        // ── Tab-specific section rows ────────────────────────────────────────
+        // ââ Tab-specific section rows ââââââââââââââââââââââââââââââââââââââââ
         ..._sliverSectionsForTab(context, home, tab),
 
         // Bottom padding (nav bar)
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
-      ],
+        ],
+      ),
     );
   }
 
-  // ── Hero items per tab ────────────────────────────────────────────────────
+  // ââ Hero items per tab ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<AnilistMedia> _heroItemsForTab(AnilistHome home, _HomeTab tab) {
     bool withImage(AnilistMedia m) =>
@@ -198,7 +208,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     }
   }
 
-  // ── Section slivers per tab ───────────────────────────────────────────────
+  // ââ Section slivers per tab âââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _sliverSectionsForTab(
     BuildContext context,
@@ -223,7 +233,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           context,
           icon: Icons.sports_soccer_rounded,
           title: 'Football',
-          subtitle: 'Matches & résumés',
+          subtitle: 'Matches & rÃ©sumÃ©s',
           color: Colors.green,
           routePath: '/globalSearch',
         );
@@ -232,7 +242,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           context,
           icon: Icons.music_note_rounded,
           title: 'Musique',
-          subtitle: 'Stream & télécharge',
+          subtitle: 'Stream & tÃ©lÃ©charge',
           color: Colors.purple,
           routePath: '/MusicLibrary',
         );
@@ -241,16 +251,16 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           context,
           icon: Icons.sports_esports_rounded,
           title: 'Jeux',
-          subtitle: 'Bibliothèque ROM',
+          subtitle: 'BibliothÃ¨que ROM',
           color: Colors.indigo,
           routePath: '/GameLibrary',
         );
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Live tab — currently airing / recently updated anime
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // Live tab â currently airing / recently updated anime
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _buildLiveTab(BuildContext context, AnilistHome home) {
     return [
@@ -276,7 +286,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ),
       if (home.upcomingAnimes.isNotEmpty)
         _StandardRow(
-          title: 'Bientôt disponible',
+          title: 'BientÃ´t disponible',
           icon: Icons.schedule_rounded,
           iconColor: Colors.green,
           items: home.upcomingAnimes,
@@ -285,9 +295,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     ];
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // Film tab
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _buildFilmTab(BuildContext context, AnilistHome home) {
     if (home.animeMovies.isEmpty) {
@@ -307,14 +317,14 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     }
     return [
       _LandscapeRow(
-        title: 'Films à l\'affiche',
+        title: 'Films Ã  l\'affiche',
         icon: Icons.movie_filter_rounded,
         iconColor: Colors.blueAccent,
         items: home.animeMovies,
         onTap: (m) => _openDetail(context, m),
       ),
       _RankedRow(
-        title: 'Films les mieux notés',
+        title: 'Films les mieux notÃ©s',
         icon: Icons.emoji_events_rounded,
         iconColor: Colors.amber,
         items: (List<AnilistMedia>.from(home.animeMovies)
@@ -327,9 +337,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     ];
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Série tab
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SÃ©rie tab
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _buildSerieTab(BuildContext context, AnilistHome home) {
     return [
@@ -342,7 +352,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       ),
       if (home.trendingAnimes.isNotEmpty)
         _MixedRow(
-          title: 'Séries en tendance',
+          title: 'SÃ©ries en tendance',
           icon: Icons.local_fire_department_rounded,
           iconColor: Colors.orange,
           items: home.trendingAnimes,
@@ -362,7 +372,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ),
       if (home.topRatedAnimes.isNotEmpty)
         _RankedRow(
-          title: 'Mieux notées de tous les temps',
+          title: 'Mieux notÃ©es de tous les temps',
           icon: Icons.workspace_premium_rounded,
           iconColor: Colors.yellow.shade700,
           items: home.topRatedAnimes.take(10).toList(),
@@ -371,9 +381,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     ];
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Asia tab — K-drama / C-drama / J-drama (Manhwa + Manhua as proxy)
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // Asia tab â K-drama / C-drama / J-drama (Manhwa + Manhua as proxy)
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _buildAsiaTab(BuildContext context, AnilistHome home) {
     return [
@@ -411,11 +421,11 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     ];
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Mini série tab — MovieBox TV Courte style
-  // Filter chips: Dernière | Le plus chaud | Toute
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // Mini sÃ©rie tab â MovieBox TV Courte style
+  // Filter chips: DerniÃ¨re | Le plus chaud | Toute
   // Ma liste section + category rows by origin
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _buildMiniSerieTab(BuildContext context, AnilistHome home) {
     // Determine content based on active filter
@@ -426,7 +436,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         featured = home.recentlyUpdatedAnimes.isNotEmpty
             ? home.recentlyUpdatedAnimes
             : home.trendingAnimes;
-        featuredTitle = 'Dernières mises à jour';
+        featuredTitle = 'DerniÃ¨res mises Ã  jour';
         break;
       case 1:
         featured = home.trendingAnimes;
@@ -435,7 +445,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       default:
         final all = [...home.trendingAnimes, ...home.popularAnimes];
         featured = all.take(20).toList();
-        featuredTitle = 'Toutes les mini-séries';
+        featuredTitle = 'Toutes les mini-sÃ©ries';
     }
 
     // Category rows by origin (using AniList data as proxy)
@@ -447,14 +457,14 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     final american = home.animeMovies.take(12).toList();
 
     return [
-      // ── Filter chips ───────────────────────────────────────────────────────
+      // ââ Filter chips âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
           child: Row(
             children: [
               _MiniSerieFilterChip(
-                label: 'Dernière',
+                label: 'DerniÃ¨re',
                 selected: _miniSerieFilter == 0,
                 onTap: () => setState(() => _miniSerieFilter = 0),
               ),
@@ -475,10 +485,10 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ),
       ),
 
-      // ── Ma liste ───────────────────────────────────────────────────────────
+      // ââ Ma liste âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
       const SliverToBoxAdapter(child: _MaListeSection()),
 
-      // ── Featured / filtered row ────────────────────────────────────────────
+      // ââ Featured / filtered row ââââââââââââââââââââââââââââââââââââââââââââ
       if (featured.isNotEmpty)
         _MixedRow(
           title: featuredTitle,
@@ -488,17 +498,17 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           onTap: (m) => _openDetail(context, m),
         ),
 
-      // ── Américaines ────────────────────────────────────────────────────────
+      // ââ AmÃ©ricaines ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
       if (american.isNotEmpty)
         _StandardRow(
-          title: 'Américaines',
+          title: 'AmÃ©ricaines',
           icon: Icons.flag_rounded,
           iconColor: const Color(0xFF3B5BDB),
           items: american,
           onTap: (m) => _openDetail(context, m),
         ),
 
-      // ── Japonaises ────────────────────────────────────────────────────────
+      // ââ Japonaises ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
       if (japanese.isNotEmpty)
         _StandardRow(
           title: 'Japonaises',
@@ -508,7 +518,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           onTap: (m) => _openDetail(context, m),
         ),
 
-      // ── Chinoises ─────────────────────────────────────────────────────────
+      // ââ Chinoises âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
       if (chinese.isNotEmpty)
         _StandardRow(
           title: 'Chinoises',
@@ -520,9 +530,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     ];
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // Anime tab
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _buildAnimeTab(BuildContext context, AnilistHome home) {
     return [
@@ -563,7 +573,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ),
       if (home.topRatedAnimes.isNotEmpty)
         _RankedRow(
-          title: 'Mieux notés',
+          title: 'Mieux notÃ©s',
           icon: Icons.emoji_events_rounded,
           iconColor: Colors.yellow.shade700,
           items: home.topRatedAnimes.take(10).toList(),
@@ -571,7 +581,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ),
       if (home.upcomingAnimes.isNotEmpty)
         _StandardRow(
-          title: 'Bientôt disponible',
+          title: 'BientÃ´t disponible',
           icon: Icons.schedule_rounded,
           iconColor: Colors.green,
           items: home.upcomingAnimes,
@@ -580,9 +590,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     ];
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // Generic promo tab (Football / Musique / Jeux)
-  // ──────────────────────────────────────────────────────────────────────────
+  // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   List<Widget> _buildPromoTab(
     BuildContext context, {
@@ -643,9 +653,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Asia origin chips
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _AsiaOriginChips extends StatelessWidget {
   final void Function(String type, String? genre) browseTo;
@@ -702,9 +712,9 @@ class _AsiaOriginChips extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mini série filter chip (avoids naming conflict with Flutter's FilterChip)
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Mini sÃ©rie filter chip (avoids naming conflict with Flutter's FilterChip)
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _MiniSerieFilterChip extends StatelessWidget {
   final String label;
@@ -748,9 +758,9 @@ class _MiniSerieFilterChip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// "Ma liste" section — empty state placeholder for mini série tab
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// "Ma liste" section â empty state placeholder for mini sÃ©rie tab
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _MaListeSection extends StatelessWidget {
   const _MaListeSection();
@@ -817,7 +827,7 @@ class _MaListeSection extends StatelessWidget {
                       size: 32, color: cs.primary.withValues(alpha: 0.70)),
                   const SizedBox(height: 8),
                   Text(
-                    'Ajoute tes mini-séries favorites ici',
+                    'Ajoute tes mini-sÃ©ries favorites ici',
                     style: tt.bodySmall?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.50)),
                   ),
@@ -832,9 +842,9 @@ class _MaListeSection extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Standard horizontal row (poster cards)
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _StandardRow extends StatelessWidget {
   final String title;
@@ -872,9 +882,11 @@ class _StandardRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, i) => DiscoveryCard(
+              itemBuilder: (context, i) => AnimatedDiscoveryCard(
+                key: ValueKey(items[i].id ?? i),
                 media: items[i],
                 onTap: () => onTap(items[i]),
+                delay: Duration(milliseconds: i * 40),
               ),
             ),
           ),
@@ -884,9 +896,9 @@ class _StandardRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mixed row — FEATURED first card + standard rest
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Mixed row â FEATURED first card + standard rest
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _MixedRow extends StatelessWidget {
   final String title;
@@ -944,9 +956,9 @@ class _MixedRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Ranked row — cards with rank number
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ranked row â cards with rank number
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _RankedRow extends StatelessWidget {
   final String title;
@@ -997,9 +1009,9 @@ class _RankedRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Landscape row — wide 16:9 cards
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Landscape row â wide 16:9 cards
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _LandscapeRow extends StatelessWidget {
   final String title;
@@ -1043,9 +1055,9 @@ class _LandscapeRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Brush stroke painter — paints an organic ink-stroke behind section titles
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Brush stroke painter â paints an organic ink-stroke behind section titles
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _BrushStrokePainter extends CustomPainter {
   final Color color;
@@ -1078,9 +1090,9 @@ class _BrushStrokePainter extends CustomPainter {
   bool shouldRepaint(_BrushStrokePainter old) => old.color != color;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Row header — title + optional icon + optional trailing + brush accent
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Row header â title + optional icon + optional trailing + brush accent
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _RowHeader extends StatelessWidget {
   final String title;

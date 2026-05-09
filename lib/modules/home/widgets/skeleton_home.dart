@@ -4,7 +4,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 /// Skeleton loading screen that mirrors the WatchtowerHomeScreen layout.
 ///
 /// Uses the `skeletonizer` package so the shapes perfectly match real content.
-/// No spinning circles — the structure is visible immediately with a shimmer.
+/// No spinning circles â the structure is visible immediately with a shimmer.
 /// Only dynamic (data-driven) elements are wrapped; static chrome is not.
 class SkeletonHomeScreen extends StatelessWidget {
   const SkeletonHomeScreen({super.key});
@@ -13,20 +13,25 @@ class SkeletonHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenH = MediaQuery.sizeOf(context).height;
 
-    return Skeletonizer(
-      enabled: true,
-      enableSwitchAnimation: true,
-      child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOut,
+      builder: (context, v, child) => Opacity(opacity: v, child: child!),
+      child: Skeletonizer(
+        enabled: true,
+        enableSwitchAnimation: true,
+        child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Hero carousel bone ────────────────────────────────────────
+            // ââ Hero carousel bone ââââââââââââââââââââââââââââââââââââââââ
             _FakeHeroBanner(height: screenH * 0.62),
 
             const SizedBox(height: 8),
 
-            // ── Section rows (3 fake rows) ────────────────────────────────
+            // ââ Section rows (3 fake rows) ââââââââââââââââââââââââââââââââ
             _FakeCardRow(
               rowLabel: 'En cours de diffusion',
               cardHeight: 198,
@@ -56,9 +61,9 @@ class SkeletonHomeScreen extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Fake hero banner
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _FakeHeroBanner extends StatelessWidget {
   final double height;
@@ -177,9 +182,9 @@ class _FakeHeroBanner extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Fake card row
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _FakeCardRow extends StatelessWidget {
   final String rowLabel;
@@ -219,7 +224,7 @@ class _FakeCardRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              // Title text — Skeletonizer will shimmer this
+              // Title text â Skeletonizer will shimmer this
               Text(
                 rowLabel,
                 style: const TextStyle(
@@ -268,9 +273,9 @@ class _FakeCardRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Individual fake card shapes
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _FakeCard extends StatelessWidget {
   final double width;
@@ -370,6 +375,8 @@ class _FakePill extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
+      ),
+        ),
       ),
     );
   }

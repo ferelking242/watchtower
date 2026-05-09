@@ -33,7 +33,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   late final hideItems = ref.read(hideItemsStateProvider);
   late TabController _tabBarController;
 
-  /// Outer tab order — Watch first as requested.
+  /// Outer tab order â Watch first as requested.
   late final List<ItemType> _types = [
     if (!hideItems.contains("/AnimeLibrary")) ItemType.anime,
     if (!hideItems.contains("/MangaLibrary")) ItemType.manga,
@@ -98,7 +98,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Lancement du diagnostic sur toutes les extensions…',
+              'Lancement du diagnostic sur toutes les extensionsâ¦',
             ),
           ),
         ]),
@@ -116,7 +116,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           behavior: SnackBarBehavior.floating,
           backgroundColor: failed > 0 ? Colors.red.shade700 : null,
           content: Text(
-            'Diagnostic terminé · $ok OK · $failed erreur(s) sur $total. '
+            'Diagnostic terminÃ© Â· $ok OK Â· $failed erreur(s) sur $total. '
             'Voir Logs.',
           ),
           action: SnackBarAction(
@@ -147,7 +147,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         GestureDetector(
           onLongPress: () => context.push('/extensionDiagnostic', extra: type),
           child: IconButton(
-            tooltip: 'Global search · long-press to diagnose',
+            tooltip: 'Global search Â· long-press to diagnose',
             splashRadius: 20,
             onPressed: () => context.push(
               '/globalSearch',
@@ -243,26 +243,43 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         backgroundColor: Colors.transparent,
-        title: (_isSearch[_activeType] ?? false) &&
-                _activeSection == BrowseSection.extensions
-            ? SeachFormTextField(
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                onSuffixPressed: () {
-                  _searchControllers[_activeType]?.clear();
-                  setState(() {});
-                },
-                onPressed: () => setState(() {
-                  _isSearch[_activeType] = false;
-                  _searchControllers[_activeType]?.clear();
-                }),
-                controller: _searchControllers[_activeType]!,
-              )
-            : Text(
-                l10n.browse,
-                style: TextStyle(color: theme.hintColor),
-              ),
+        title: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.18),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+              child: child,
+            ),
+          ),
+          child: (_isSearch[_activeType] ?? false) &&
+                  _activeSection == BrowseSection.extensions
+              ? SeachFormTextField(
+                  key: const ValueKey('search_field'),
+                  autofocus: true,
+                  onChanged: (_) => setState(() {}),
+                  onSuffixPressed: () {
+                    _searchControllers[_activeType]?.clear();
+                    setState(() {});
+                  },
+                  onPressed: () => setState(() {
+                    _isSearch[_activeType] = false;
+                    _searchControllers[_activeType]?.clear();
+                  }),
+                  controller: _searchControllers[_activeType]!,
+                )
+              : Text(
+                  key: const ValueKey('browse_title'),
+                  l10n.browse,
+                  style: TextStyle(color: theme.hintColor),
+                ),
+        ),
         actions: _appBarActions(context),
         bottom: TabBar(
           controller: _tabBarController,
@@ -506,8 +523,8 @@ void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
       duration: const Duration(seconds: 2),
       content: Text(
         shouldIsolate
-            ? 'Sources limitées à ${deviceLang.toUpperCase()} + EN'
-            : 'Toutes les langues réactivées',
+            ? 'Sources limitÃ©es Ã  ${deviceLang.toUpperCase()} + EN'
+            : 'Toutes les langues rÃ©activÃ©es',
       ),
     ),
   );

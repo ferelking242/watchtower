@@ -88,7 +88,7 @@ class CategoryRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: enriched.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, i) => _CategoryCard(def: enriched[i]),
+            itemBuilder: (_, i) => _AnimatedCategoryCard(index: i, def: enriched[i]),
           ),
         ),
       ],
@@ -225,7 +225,7 @@ class _GradientBg extends StatelessWidget {
   }
 }
 
-// ─── Static catalogues ────────────────────────────────────────────────────────
+// âââ Static catalogues ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const _animeGradients = [
   [Color(0xFFff6a88), Color(0xFFff99ac)],
@@ -365,3 +365,50 @@ List<CategoryDef> novelCategories() {
       ),
   ];
 }
+
+  /// Staggered fade-in + slide wrapper for [_CategoryCard].
+  class _AnimatedCategoryCard extends StatefulWidget {
+    final int index;
+    final CategoryDef def;
+    const _AnimatedCategoryCard({required this.index, required this.def});
+
+    @override
+    State<_AnimatedCategoryCard> createState() => _AnimatedCategoryCardState();
+  }
+
+  class _AnimatedCategoryCardState extends State<_AnimatedCategoryCard>
+      with SingleTickerProviderStateMixin {
+    late final AnimationController _ctrl;
+    late final Animation<double> _fade;
+    late final Animation<Offset> _slide;
+
+    @override
+    void initState() {
+      super.initState();
+      _ctrl = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 380),
+      );
+      _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+      _slide = Tween<Offset>(
+        begin: const Offset(0.08, 0.0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      Future.delayed(Duration(milliseconds: widget.index * 45), () {
+        if (mounted) _ctrl.forward();
+      });
+    }
+
+    @override
+    void dispose() {
+      _ctrl.dispose();
+      super.dispose();
+    }
+
+    @override
+    Widget build(BuildContext context) => FadeTransition(
+          opacity: _fade,
+          child: SlideTransition(position: _slide, child: _CategoryCard(def: widget.def)),
+        );
+  }
+  
