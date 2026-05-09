@@ -31,7 +31,7 @@ Future<void> markOnboardingComplete() async {
   } catch (_) {}
 }
 
-// âââ Data ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Data Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 class _MediaItem {
   final String title;
@@ -43,7 +43,7 @@ class _MediaItem {
 const _animeItems = [
   _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00)),
   _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703)),
-  _MediaItem('Hunter Ã Hunter', 'Anime', Color(0xFF06D6A0)),
+  _MediaItem('Hunter ÃÂ Hunter', 'Anime', Color(0xFF06D6A0)),
   _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF)),
   _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D)),
   _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC)),
@@ -62,16 +62,16 @@ const _mangaItems = [
 ];
 
 const _showItems = [
-  _MediaItem('Breaking Bad', 'SÃ©rie', Color(0xFF2DC653)),
-  _MediaItem('Arcane', 'SÃ©rie', Color(0xFF7B2FBE)),
-  _MediaItem('The Bear', 'Film/SÃ©rie', Color(0xFFE63946)),
+  _MediaItem('Breaking Bad', 'SÃÂ©rie', Color(0xFF2DC653)),
+  _MediaItem('Arcane', 'SÃÂ©rie', Color(0xFF7B2FBE)),
+  _MediaItem('The Bear', 'Film/SÃÂ©rie', Color(0xFFE63946)),
   _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C)),
   _MediaItem('Dune', 'Film', Color(0xFFD4A017)),
-  _MediaItem('Shogun', 'SÃ©rie', Color(0xFFBC4749)),
-  _MediaItem('Severance', 'SÃ©rie', Color(0xFF0077B6)),
+  _MediaItem('Shogun', 'SÃÂ©rie', Color(0xFFBC4749)),
+  _MediaItem('Severance', 'SÃÂ©rie', Color(0xFF0077B6)),
 ];
 
-// âââ Main Screen âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Main Screen Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -130,35 +130,30 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _requestStorage() async {
-    if (_requestingStorage) return;
-    setState(() => _requestingStorage = true);
-    bool granted = false;
-    if (!kIsWeb && Platform.isAndroid) {
-      final perm = Permission.manageExternalStorage;
-      final status = await perm.status;
-      if (status.isGranted) {
-        granted = true;
-      } else if (status.isPermanentlyDenied) {
-        await openAppSettings();
-        granted = (await perm.status).isGranted;
-      } else {
-        granted = (await perm.request()).isGranted;
-        if (!granted && (await perm.status).isPermanentlyDenied) {
+      if (_requestingStorage) return;
+      setState(() => _requestingStorage = true);
+      bool granted = false;
+      if (!kIsWeb && Platform.isAndroid) {
+        final perm = Permission.manageExternalStorage;
+        final status = await perm.status;
+        if (status.isGranted) {
+          granted = true;
+        } else {
+          // MANAGE_EXTERNAL_STORAGE must go through settings — direct request() is ignored on Android 11+
           await openAppSettings();
           granted = (await perm.status).isGranted;
         }
+      } else {
+        granted = await StorageProvider().requestPermission();
       }
-    } else {
-      granted = await StorageProvider().requestPermission();
+      if (mounted) {
+        setState(() {
+          _storageGranted = granted;
+          _requestingStorage = false;
+        });
+      }
     }
-    if (mounted) {
-      setState(() {
-        _storageGranted = granted;
-        _requestingStorage = false;
-      });
-    }
-  }
-
+  
   Future<void> _requestNotifications() async {
     if (_requestingNotifications) return;
     setState(() => _requestingNotifications = true);
@@ -266,7 +261,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 }
 
-// âââ Page 1 : Showcase âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Page 1 : Showcase Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 class _ShowcasePage extends StatelessWidget {
   final VoidCallback onNext;
@@ -301,7 +296,7 @@ class _ShowcasePage extends StatelessWidget {
           ),
         ),
 
-        // Gradient overlay â fades top & bottom for depth
+        // Gradient overlay Ã¢ÂÂ fades top & bottom for depth
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -345,7 +340,7 @@ class _ShowcasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Anime Â· Manga Â· Films Â· SÃ©ries',
+                    'Anime ÃÂ· Manga ÃÂ· Films ÃÂ· SÃÂ©ries',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.55),
                       fontSize: 14,
@@ -355,7 +350,7 @@ class _ShowcasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Tout ce que vous regardez et lisez,\nau mÃªme endroit.',
+                    'Tout ce que vous regardez et lisez,\nau mÃÂªme endroit.',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 17,
@@ -393,7 +388,7 @@ class _ShowcasePage extends StatelessWidget {
   }
 }
 
-// âââ Animated Lane âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Animated Lane Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 class _AnimatedLane extends StatefulWidget {
   final List<_MediaItem> items;
@@ -480,7 +475,7 @@ class _AnimatedLaneState extends State<_AnimatedLane>
   }
 }
 
-// âââ Media Card ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Media Card Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 class _MediaCard extends StatelessWidget {
   final _MediaItem item;
@@ -542,7 +537,7 @@ class _MediaCard extends StatelessWidget {
   }
 }
 
-// âââ Page 2 : Permissions ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Page 2 : Permissions Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 class _PermissionsPage extends StatelessWidget {
   final bool storageGranted;
@@ -591,7 +586,7 @@ class _PermissionsPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Watchtower a besoin de quelques accÃ¨s\npour fonctionner correctement.',
+              'Watchtower a besoin de quelques accÃÂ¨s\npour fonctionner correctement.',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.55),
                 fontSize: 15,
@@ -603,7 +598,7 @@ class _PermissionsPage extends StatelessWidget {
             _PermissionRow(
               icon: Icons.folder_open_rounded,
               title: 'Stockage',
-              subtitle: 'Sauvegarder tÃ©lÃ©chargements, covers et bibliothÃ¨que.',
+              subtitle: 'Sauvegarder tÃÂ©lÃÂ©chargements, covers et bibliothÃÂ¨que.',
               granted: storageGranted,
               busy: requestingStorage,
               onTap: onRequestStorage,
@@ -613,7 +608,7 @@ class _PermissionsPage extends StatelessWidget {
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle:
-                  'Progression des tÃ©lÃ©chargements, mises Ã  jour de la bibliothÃ¨que.',
+                  'Progression des tÃÂ©lÃÂ©chargements, mises ÃÂ  jour de la bibliothÃÂ¨que.',
               granted: notificationsGranted,
               busy: requestingNotifications,
               onTap: onRequestNotifications,
@@ -623,7 +618,7 @@ class _PermissionsPage extends StatelessWidget {
               icon: Icons.system_update_alt_rounded,
               title: 'Installation d\'apps',
               subtitle:
-                  'Installer les mises Ã  jour APK directement depuis l\'application.',
+                  'Installer les mises ÃÂ  jour APK directement depuis l\'application.',
               granted: installGranted,
               busy: requestingInstall,
               onTap: onRequestInstall,
@@ -647,7 +642,7 @@ class _PermissionsPage extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                child: Text(allGranted ? 'AccÃ©der Ã  l\'app' : 'Passer pour l\'instant'),
+                child: Text(allGranted ? 'AccÃÂ©der ÃÂ  l\'app' : 'Passer pour l\'instant'),
               ),
             ),
           ],
@@ -657,7 +652,7 @@ class _PermissionsPage extends StatelessWidget {
   }
 }
 
-// âââ Permission Row âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Permission Row Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 class _PermissionRow extends StatelessWidget {
   final IconData icon;
