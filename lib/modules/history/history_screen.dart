@@ -24,13 +24,13 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 
-// ── Layout mode for the history list ─────────────────────────────────────────
+// ââ Layout mode for the history list âââââââââââââââââââââââââââââââââââââââââ
 enum _HistoryLayout { list, grid }
 
-// ── Sort mode ────────────────────────────────────────────────────────────────
+// ââ Sort mode ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 enum _HistorySort { date, title }
 
-// ── Filter mode ──────────────────────────────────────────────────────────────
+// ââ Filter mode ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 enum _HistoryFilter { all, today, thisWeek, thisMonth }
 
 class HistoryScreen extends ConsumerStatefulWidget {
@@ -131,156 +131,177 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
   }
 
   void _showFilterMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          final primary = Theme.of(ctx).colorScheme.primary;
-          void updateBoth(VoidCallback fn) {
-            setState(fn);
-            setModalState(() {});
-          }
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final cs = Theme.of(ctx).colorScheme;
+            void updateBoth(VoidCallback fn) {
+              setState(fn);
+              setModalState(() {});
+            }
 
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Disposition ─────────────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Row(
-                      children: [
-                        Icon(Icons.grid_view_rounded, size: 18, color: primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Disposition',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: primary,
-                          ),
-                        ),
-                        const Spacer(),
-                        ToggleButtons(
-                          isSelected: [
-                            _layout == _HistoryLayout.list,
-                            _layout == _HistoryLayout.grid,
-                          ],
-                          onPressed: (i) => updateBoth(() {
-                            _layout = i == 0
-                                ? _HistoryLayout.list
-                                : _HistoryLayout.grid;
-                          }),
-                          borderRadius: BorderRadius.circular(10),
-                          constraints: const BoxConstraints(
-                            minWidth: 44,
-                            minHeight: 36,
-                          ),
-                          children: const [
-                            Icon(Icons.view_list_rounded, size: 18),
-                            Icon(Icons.grid_view_rounded, size: 18),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 8),
-
-                  // ── Trier par ────────────────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-                    child: Row(
-                      children: [
-                        Icon(Icons.sort_rounded, size: 18, color: primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Trier par',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  RadioListTile<_HistorySort>(
-                    title: const Text('Date de lecture'),
-                    secondary: const Icon(Icons.access_time_rounded),
-                    value: _HistorySort.date,
-                    groupValue: _sort,
-                    onChanged: (v) => updateBoth(() => _sort = v!),
-                  ),
-                  RadioListTile<_HistorySort>(
-                    title: const Text('Titre'),
-                    secondary: const Icon(Icons.sort_by_alpha_rounded),
-                    value: _HistorySort.title,
-                    groupValue: _sort,
-                    onChanged: (v) => updateBoth(() => _sort = v!),
-                  ),
-                  const Divider(height: 8),
-
-                  // ── Filtrer par période ──────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-                    child: Row(
-                      children: [
-                        Icon(Icons.filter_list_sharp,
-                            size: 18, color: primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Filtrer par période',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  RadioListTile<_HistoryFilter>(
-                    title: const Text('Tout'),
-                    secondary: const Icon(Icons.all_inclusive_rounded),
-                    value: _HistoryFilter.all,
-                    groupValue: _filter,
-                    onChanged: (v) => updateBoth(() => _filter = v!),
-                  ),
-                  RadioListTile<_HistoryFilter>(
-                    title: const Text("Aujourd'hui"),
-                    secondary: const Icon(Icons.today_rounded),
-                    value: _HistoryFilter.today,
-                    groupValue: _filter,
-                    onChanged: (v) => updateBoth(() => _filter = v!),
-                  ),
-                  RadioListTile<_HistoryFilter>(
-                    title: const Text('Cette semaine'),
-                    secondary: const Icon(Icons.date_range_rounded),
-                    value: _HistoryFilter.thisWeek,
-                    groupValue: _filter,
-                    onChanged: (v) => updateBoth(() => _filter = v!),
-                  ),
-                  RadioListTile<_HistoryFilter>(
-                    title: const Text('Ce mois-ci'),
-                    secondary: const Icon(Icons.calendar_month_rounded),
-                    value: _HistoryFilter.thisMonth,
-                    groupValue: _filter,
-                    onChanged: (v) => updateBoth(() => _filter = v!),
-                  ),
-                ],
+            return Container(
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Drag handle
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 24),
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: cs.onSurface.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ),
 
-  Future<void> _clearHistory() async {
+                      // DISPOSITION
+                      Text(
+                        'DISPOSITION',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: cs.onSurface.withOpacity(0.45),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _LayoutCard(
+                              label: 'Liste',
+                              icon: Icons.view_list_rounded,
+                              selected: _layout == _HistoryLayout.list,
+                              onTap: () => updateBoth(
+                                  () => _layout = _HistoryLayout.list),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _LayoutCard(
+                              label: 'Grille',
+                              icon: Icons.grid_view_rounded,
+                              selected: _layout == _HistoryLayout.grid,
+                              onTap: () => updateBoth(
+                                  () => _layout = _HistoryLayout.grid),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // TRIER PAR
+                      Text(
+                        'TRIER PAR',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: cs.onSurface.withOpacity(0.45),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _SelectChip(
+                            label: 'Date',
+                            icon: Icons.access_time_rounded,
+                            selected: _sort == _HistorySort.date,
+                            onTap: () =>
+                                updateBoth(() => _sort = _HistorySort.date),
+                          ),
+                          const SizedBox(width: 8),
+                          _SelectChip(
+                            label: 'Titre',
+                            icon: Icons.sort_by_alpha_rounded,
+                            selected: _sort == _HistorySort.title,
+                            onTap: () =>
+                                updateBoth(() => _sort = _HistorySort.title),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // PERIODE
+                      Text(
+                        'PERIODE',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: cs.onSurface.withOpacity(0.45),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _SelectChip(
+                              label: 'Tout',
+                              icon: Icons.all_inclusive_rounded,
+                              selected: _filter == _HistoryFilter.all,
+                              onTap: () => updateBoth(
+                                  () => _filter = _HistoryFilter.all),
+                            ),
+                            const SizedBox(width: 8),
+                            _SelectChip(
+                              label: "Aujourd'hui",
+                              icon: Icons.today_rounded,
+                              selected: _filter == _HistoryFilter.today,
+                              onTap: () => updateBoth(
+                                  () => _filter = _HistoryFilter.today),
+                            ),
+                            const SizedBox(width: 8),
+                            _SelectChip(
+                              label: 'Cette semaine',
+                              icon: Icons.date_range_rounded,
+                              selected: _filter == _HistoryFilter.thisWeek,
+                              onTap: () => updateBoth(
+                                  () => _filter = _HistoryFilter.thisWeek),
+                            ),
+                            const SizedBox(width: 8),
+                            _SelectChip(
+                              label: 'Ce mois-ci',
+                              icon: Icons.calendar_month_rounded,
+                              selected: _filter == _HistoryFilter.thisMonth,
+                              onTap: () => updateBoth(
+                                  () => _filter = _HistoryFilter.thisMonth),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Future<void> _clearHistory() async {
     final List<History> histories = await isar.historys
         .filter()
         .itemTypeEqualTo(getCurrentItemType())
@@ -290,7 +311,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
   }
 }
 
-// ── History Tab ───────────────────────────────────────────────────────────────
+// ââ History Tab âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class HistoryTab extends ConsumerStatefulWidget {
   final String query;
@@ -505,7 +526,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
   }
 }
 
-// ── List item ─────────────────────────────────────────────────────────────────
+// ââ List item âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _HistoryListItem extends ConsumerWidget {
   final History element;
@@ -678,7 +699,7 @@ class _HistoryListItem extends ConsumerWidget {
   }
 }
 
-// ── Grid view ─────────────────────────────────────────────────────────────────
+// ââ Grid view âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _HistoryGrid extends ConsumerWidget {
   final List<History> entries;
@@ -800,3 +821,128 @@ class _HistoryGrid extends ConsumerWidget {
     );
   }
 }
+
+  // ── Layout card (card-preview for disposition picker) ──────────────────────
+
+  class _LayoutCard extends StatelessWidget {
+    final String label;
+    final IconData icon;
+    final bool selected;
+    final VoidCallback onTap;
+
+    const _LayoutCard({
+      required this.label,
+      required this.icon,
+      required this.selected,
+      required this.onTap,
+    });
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? cs.primary : cs.outline.withOpacity(0.3),
+            width: selected ? 2 : 1,
+          ),
+          color: selected
+              ? cs.primary.withOpacity(0.08)
+              : cs.surfaceVariant.withOpacity(0.4),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 32,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ── Select chip (for sort and period pickers) ──────────────────────────────
+
+  class _SelectChip extends StatelessWidget {
+    final String label;
+    final IconData icon;
+    final bool selected;
+    final VoidCallback onTap;
+
+    const _SelectChip({
+      required this.label,
+      required this.icon,
+      required this.selected,
+      required this.onTap,
+    });
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: selected ? cs.primary : cs.outline.withOpacity(0.3),
+            width: selected ? 1.5 : 1,
+          ),
+          color: selected
+              ? cs.primary.withOpacity(0.12)
+              : cs.surfaceVariant.withOpacity(0.5),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 15,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+  

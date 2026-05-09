@@ -15,7 +15,10 @@
         android:label="Watchtower"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:allowBackup="true"
+        android:hasFragileUserData="true"
+        android:fullBackupOnly="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -71,7 +74,7 @@
             android:value="2" />
         <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
         <!-- Disable Impeller/Vulkan at APPLICATION level (Flutter reads ApplicationInfo.metaData,
-             NOT ActivityInfo.metaData — placing it inside <activity> is silently ignored).
+             NOT ActivityInfo.metaData â placing it inside <activity> is silently ignored).
              Impeller on Samsung Exynos/Mali GPU causes ~3s black screen before surfaceCreated. -->
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"

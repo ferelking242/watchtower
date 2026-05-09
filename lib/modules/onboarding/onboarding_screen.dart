@@ -31,7 +31,7 @@ Future<void> markOnboardingComplete() async {
   } catch (_) {}
 }
 
-// ─── Data ────────────────────────────────────────────────────────────────────
+// âââ Data ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _MediaItem {
   final String title;
@@ -43,7 +43,7 @@ class _MediaItem {
 const _animeItems = [
   _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00)),
   _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703)),
-  _MediaItem('Hunter × Hunter', 'Anime', Color(0xFF06D6A0)),
+  _MediaItem('Hunter Ã Hunter', 'Anime', Color(0xFF06D6A0)),
   _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF)),
   _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D)),
   _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC)),
@@ -62,16 +62,16 @@ const _mangaItems = [
 ];
 
 const _showItems = [
-  _MediaItem('Breaking Bad', 'Série', Color(0xFF2DC653)),
-  _MediaItem('Arcane', 'Série', Color(0xFF7B2FBE)),
-  _MediaItem('The Bear', 'Film/Série', Color(0xFFE63946)),
+  _MediaItem('Breaking Bad', 'SÃ©rie', Color(0xFF2DC653)),
+  _MediaItem('Arcane', 'SÃ©rie', Color(0xFF7B2FBE)),
+  _MediaItem('The Bear', 'Film/SÃ©rie', Color(0xFFE63946)),
   _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C)),
   _MediaItem('Dune', 'Film', Color(0xFFD4A017)),
-  _MediaItem('Shogun', 'Série', Color(0xFFBC4749)),
-  _MediaItem('Severance', 'Série', Color(0xFF0077B6)),
+  _MediaItem('Shogun', 'SÃ©rie', Color(0xFFBC4749)),
+  _MediaItem('Severance', 'SÃ©rie', Color(0xFF0077B6)),
 ];
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
+// âââ Main Screen âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -80,7 +80,8 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with WidgetsBindingObserver {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
@@ -94,7 +95,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshPermissionStatus();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermissionStatus();
+    }
   }
 
   Future<void> _refreshPermissionStatus() async {
@@ -190,6 +199,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
   }
@@ -256,7 +266,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-// ─── Page 1 : Showcase ───────────────────────────────────────────────────────
+// âââ Page 1 : Showcase âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _ShowcasePage extends StatelessWidget {
   final VoidCallback onNext;
@@ -291,7 +301,7 @@ class _ShowcasePage extends StatelessWidget {
           ),
         ),
 
-        // Gradient overlay — fades top & bottom for depth
+        // Gradient overlay â fades top & bottom for depth
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -335,7 +345,7 @@ class _ShowcasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Anime · Manga · Films · Séries',
+                    'Anime Â· Manga Â· Films Â· SÃ©ries',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.55),
                       fontSize: 14,
@@ -345,7 +355,7 @@ class _ShowcasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Tout ce que vous regardez et lisez,\nau même endroit.',
+                    'Tout ce que vous regardez et lisez,\nau mÃªme endroit.',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 17,
@@ -383,7 +393,7 @@ class _ShowcasePage extends StatelessWidget {
   }
 }
 
-// ─── Animated Lane ───────────────────────────────────────────────────────────
+// âââ Animated Lane âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _AnimatedLane extends StatefulWidget {
   final List<_MediaItem> items;
@@ -470,7 +480,7 @@ class _AnimatedLaneState extends State<_AnimatedLane>
   }
 }
 
-// ─── Media Card ──────────────────────────────────────────────────────────────
+// âââ Media Card ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _MediaCard extends StatelessWidget {
   final _MediaItem item;
@@ -532,7 +542,7 @@ class _MediaCard extends StatelessWidget {
   }
 }
 
-// ─── Page 2 : Permissions ────────────────────────────────────────────────────
+// âââ Page 2 : Permissions ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _PermissionsPage extends StatelessWidget {
   final bool storageGranted;
@@ -581,7 +591,7 @@ class _PermissionsPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Watchtower a besoin de quelques accès\npour fonctionner correctement.',
+              'Watchtower a besoin de quelques accÃ¨s\npour fonctionner correctement.',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.55),
                 fontSize: 15,
@@ -593,7 +603,7 @@ class _PermissionsPage extends StatelessWidget {
             _PermissionRow(
               icon: Icons.folder_open_rounded,
               title: 'Stockage',
-              subtitle: 'Sauvegarder téléchargements, covers et bibliothèque.',
+              subtitle: 'Sauvegarder tÃ©lÃ©chargements, covers et bibliothÃ¨que.',
               granted: storageGranted,
               busy: requestingStorage,
               onTap: onRequestStorage,
@@ -603,7 +613,7 @@ class _PermissionsPage extends StatelessWidget {
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle:
-                  'Progression des téléchargements, mises à jour de la bibliothèque.',
+                  'Progression des tÃ©lÃ©chargements, mises Ã  jour de la bibliothÃ¨que.',
               granted: notificationsGranted,
               busy: requestingNotifications,
               onTap: onRequestNotifications,
@@ -613,7 +623,7 @@ class _PermissionsPage extends StatelessWidget {
               icon: Icons.system_update_alt_rounded,
               title: 'Installation d\'apps',
               subtitle:
-                  'Installer les mises à jour APK directement depuis l\'application.',
+                  'Installer les mises Ã  jour APK directement depuis l\'application.',
               granted: installGranted,
               busy: requestingInstall,
               onTap: onRequestInstall,
@@ -637,7 +647,7 @@ class _PermissionsPage extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                child: Text(allGranted ? 'Accéder à l\'app' : 'Passer pour l\'instant'),
+                child: Text(allGranted ? 'AccÃ©der Ã  l\'app' : 'Passer pour l\'instant'),
               ),
             ),
           ],
@@ -647,7 +657,7 @@ class _PermissionsPage extends StatelessWidget {
   }
 }
 
-// ─── Permission Row ───────────────────────────────────────────────────────────
+// âââ Permission Row âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class _PermissionRow extends StatelessWidget {
   final IconData icon;
