@@ -179,7 +179,13 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   if (!kIsWeb) {
     await storage.deleteBtDirectory();
     await cfResolutionWebviewServer();
-    unawaited(BypassNotificationService.instance.init());
+      // Only init notification service AFTER onboarding is complete.
+      // During onboarding the user grants notification permission manually.
+      // Calling init() here on first launch would trigger the system dialog
+      // immediately without user interaction.
+      if (!needsOnboarding) {
+        unawaited(BypassNotificationService.instance.init());
+      }
   }
 }
 

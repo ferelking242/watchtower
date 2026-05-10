@@ -1,4 +1,5 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -30,47 +31,70 @@ Future<void> markOnboardingComplete() async {
   } catch (_) {}
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Data Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ─── Data ─────────────────────────────────────────────────────────────────
 
 class _MediaItem {
   final String title;
   final String label;
   final Color color;
-  const _MediaItem(this.title, this.label, this.color);
+  final String imageUrl;
+  const _MediaItem(this.title, this.label, this.color, this.imageUrl);
 }
 
 const _animeItems = [
-  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00)),
-  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703)),
-  _MediaItem('Hunter × Hunter', 'Anime', Color(0xFF06D6A0)),
-  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF)),
-  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D)),
-  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC)),
-  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6)),
-  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4)),
+  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00),
+      'https://cdn.myanimelist.net/images/anime/1141/142503.jpg'),
+  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703),
+      'https://cdn.myanimelist.net/images/anime/1277/142240.jpg'),
+  _MediaItem('Hunter x Hunter', 'Anime', Color(0xFF06D6A0),
+      'https://cdn.myanimelist.net/images/anime/1337/99013.jpg'),
+  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF),
+      'https://cdn.myanimelist.net/images/anime/6/73245.jpg'),
+  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D),
+      'https://cdn.myanimelist.net/images/anime/10/47347.jpg'),
+  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC),
+      'https://cdn.myanimelist.net/images/anime/1286/99889.jpg'),
+  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6),
+      'https://cdn.myanimelist.net/images/anime/1171/109222.jpg'),
+  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4),
+      'https://cdn.myanimelist.net/images/anime/3/40451.jpg'),
 ];
 
 const _mangaItems = [
-  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D)),
-  _MediaItem('Vagabond', 'Manga', Color(0xFF495057)),
-  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F)),
-  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD)),
-  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828)),
-  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557)),
-  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D)),
+  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D),
+      'https://cdn.myanimelist.net/images/manga/1/157931.jpg'),
+  _MediaItem('Vagabond', 'Manga', Color(0xFF495057),
+      'https://cdn.myanimelist.net/images/manga/2/286785.jpg'),
+  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F),
+      'https://cdn.myanimelist.net/images/manga/2/188925.jpg'),
+  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD),
+      'https://cdn.myanimelist.net/images/manga/3/214566.jpg'),
+  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828),
+      'https://cdn.myanimelist.net/images/manga/3/216464.jpg'),
+  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557),
+      'https://cdn.myanimelist.net/images/manga/3/208225.jpg'),
+  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D),
+      'https://cdn.myanimelist.net/images/manga/3/117681.jpg'),
 ];
 
 const _showItems = [
-  _MediaItem('Breaking Bad', 'Série', Color(0xFF2DC653)),
-  _MediaItem('Arcane', 'Série', Color(0xFF7B2FBE)),
-  _MediaItem('The Bear', 'Film/Série', Color(0xFFE63946)),
-  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C)),
-  _MediaItem('Dune', 'Film', Color(0xFFD4A017)),
-  _MediaItem('Shogun', 'Série', Color(0xFFBC4749)),
-  _MediaItem('Severance', 'Série', Color(0xFF0077B6)),
+  _MediaItem('Breaking Bad', 'Serie', Color(0xFF2DC653),
+      'https://image.tmdb.org/t/p/w342/ggFHVNu6YYI5L9pCfOacjizRGt.jpg'),
+  _MediaItem('Arcane', 'Serie', Color(0xFF7B2FBE),
+      'https://image.tmdb.org/t/p/w342/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg'),
+  _MediaItem('The Bear', 'Serie', Color(0xFFE63946),
+      'https://image.tmdb.org/t/p/w342/sHFlbKS3WLqMnp9t2ghADIJFnuQ.jpg'),
+  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C),
+      'https://image.tmdb.org/t/p/w342/8Gxv8giaFIelhEDznpaHCT4OMWJ.jpg'),
+  _MediaItem('Dune', 'Film', Color(0xFFD4A017),
+      'https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV61Dis7BXj5.jpg'),
+  _MediaItem('Shogun', 'Serie', Color(0xFFBC4749),
+      'https://image.tmdb.org/t/p/w342/7O4iVfOMQmdCSXhopOlTXVQ6tRF.jpg'),
+  _MediaItem('Severance', 'Serie', Color(0xFF0077B6),
+      'https://image.tmdb.org/t/p/w342/gBsPCDW0HjWtqO1f2D4GjZETZ2n.jpg'),
 ];
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Main Screen Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ─── Main Screen ───────────────────────────────────────────────────────────
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -129,8 +153,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _requestStorage() async {
-      if (_requestingStorage) return;
-      setState(() => _requestingStorage = true);
+    if (_requestingStorage) return;
+    setState(() => _requestingStorage = true);
+    try {
       bool granted = false;
       if (!kIsWeb && Platform.isAndroid) {
         final perm = Permission.manageExternalStorage;
@@ -138,8 +163,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         if (status.isGranted) {
           granted = true;
         } else {
-          // MANAGE_EXTERNAL_STORAGE must go through settings — direct request() is ignored on Android 11+
+          // MANAGE_EXTERNAL_STORAGE requires Settings on Android 11+
           await openAppSettings();
+          // Status will be refreshed when the user returns via didChangeAppLifecycleState
           granted = (await perm.status).isGranted;
         }
       } else {
@@ -151,29 +177,40 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _requestingStorage = false;
         });
       }
+    } catch (_) {
+      if (mounted) setState(() => _requestingStorage = false);
     }
-  
+  }
+
   Future<void> _requestNotifications() async {
     if (_requestingNotifications) return;
     setState(() => _requestingNotifications = true);
-    final status = await Permission.notification.request();
-    if (mounted) {
-      setState(() {
-        _notificationsGranted = status.isGranted;
-        _requestingNotifications = false;
-      });
+    try {
+      final status = await Permission.notification.request();
+      if (mounted) {
+        setState(() {
+          _notificationsGranted = status.isGranted;
+          _requestingNotifications = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _requestingNotifications = false);
     }
   }
 
   Future<void> _requestInstall() async {
     if (_requestingInstall) return;
     setState(() => _requestingInstall = true);
-    final status = await Permission.requestInstallPackages.request();
-    if (mounted) {
-      setState(() {
-        _installGranted = status.isGranted;
-        _requestingInstall = false;
-      });
+    try {
+      final status = await Permission.requestInstallPackages.request();
+      if (mounted) {
+        setState(() {
+          _installGranted = status.isGranted;
+          _requestingInstall = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _requestingInstall = false);
     }
   }
 
@@ -183,7 +220,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _nextPage() {
-    if (_currentPage < 1) {
+    if (_currentPage < 2) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -211,6 +248,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               onPageChanged: (i) => setState(() => _currentPage = i),
               children: [
                 _ShowcasePage(onNext: _nextPage),
+                _SloganPage(onNext: _nextPage),
                 _PermissionsPage(
                   storageGranted: _storageGranted,
                   notificationsGranted: _notificationsGranted,
@@ -235,7 +273,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(2, (i) {
+                    children: List.generate(3, (i) {
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -260,11 +298,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Page 1 : Showcase Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ─── Page 1 : Showcase ────────────────────────────────────────────────────
+// Shared single AnimationController → all 3 lanes strictly synchronized.
 
-class _ShowcasePage extends StatelessWidget {
+class _ShowcasePage extends StatefulWidget {
   final VoidCallback onNext;
   const _ShowcasePage({required this.onNext});
+
+  @override
+  State<_ShowcasePage> createState() => _ShowcasePageState();
+}
+
+class _ShowcasePageState extends State<_ShowcasePage>
+    with TickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -272,21 +334,24 @@ class _ShowcasePage extends StatelessWidget {
 
     return Stack(
       children: [
-        // Animated lanes
+        // Animated lanes — ALL share the SAME controller → perfectly synced
         Positioned.fill(
           child: Row(
             children: [
-              _AnimatedLane(
+              _Lane(
+                animation: _controller,
                 items: _animeItems,
                 direction: 1,
                 width: size.width / 3,
               ),
-              _AnimatedLane(
+              _Lane(
+                animation: _controller,
                 items: _mangaItems,
                 direction: -1,
                 width: size.width / 3,
               ),
-              _AnimatedLane(
+              _Lane(
+                animation: _controller,
                 items: _showItems,
                 direction: 1,
                 width: size.width / 3,
@@ -295,7 +360,7 @@ class _ShowcasePage extends StatelessWidget {
           ),
         ),
 
-        // Gradient overlay Ã¢ÂÂ fades top & bottom for depth
+        // Gradient overlay — top & bottom fade
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -339,7 +404,7 @@ class _ShowcasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Anime · Manga · Films · Séries',
+                    'Anime · Manga · Films · Series',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.55),
                       fontSize: 14,
@@ -348,10 +413,10 @@ class _ShowcasePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Tout ce que vous regardez et lisez,\nau même endroit.',
+                  Text(
+                    'Tout ce que tu regardes et lis,\nau meme endroit.',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(0.85),
                       fontSize: 17,
                       fontWeight: FontWeight.w400,
                       height: 1.5,
@@ -361,7 +426,7 @@ class _ShowcasePage extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: onNext,
+                      onPressed: widget.onNext,
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
@@ -374,7 +439,7 @@ class _ShowcasePage extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      child: const Text('Commencer'),
+                      child: const Text('Suivant'),
                     ),
                   ),
                 ],
@@ -387,33 +452,30 @@ class _ShowcasePage extends StatelessWidget {
   }
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Animated Lane Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ─── Page 2 : Slogan ──────────────────────────────────────────────────────
+// Diagonal animated card lanes (top-right → bottom-left) + slogan overlay.
 
-class _AnimatedLane extends StatefulWidget {
-  final List<_MediaItem> items;
-  final int direction;
-  final double width;
-
-  const _AnimatedLane({
-    required this.items,
-    required this.direction,
-    required this.width,
-  });
+class _SloganPage extends StatefulWidget {
+  final VoidCallback onNext;
+  const _SloganPage({required this.onNext});
 
   @override
-  State<_AnimatedLane> createState() => _AnimatedLaneState();
+  State<_SloganPage> createState() => _SloganPageState();
 }
 
-class _AnimatedLaneState extends State<_AnimatedLane>
+class _SloganPageState extends State<_SloganPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+
+  // Merge all items for diagonal lanes
+  static const _allItems = [..._animeItems, ..._mangaItems, ..._showItems];
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 22),
+      duration: const Duration(seconds: 25),
     )..repeat();
   }
 
@@ -425,17 +487,190 @@ class _AnimatedLaneState extends State<_AnimatedLane>
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+
+    // We tile the full item list across 5 diagonal lanes
+    final laneWidth = size.width / 3.5;
+    const laneCount = 5;
+    final totalWidth = laneWidth * laneCount;
+
+    return Stack(
+      children: [
+        // ── Diagonal card lanes ──────────────────────────────────────────
+        Positioned.fill(
+          child: ClipRect(
+            child: OverflowBox(
+              maxWidth: totalWidth + size.height,
+              maxHeight: size.height + totalWidth,
+              child: Transform.rotate(
+                angle: -math.pi / 7, // ~-25 degrees: top-right → bottom-left
+                child: SizedBox(
+                  width: totalWidth + size.height,
+                  height: size.height + totalWidth,
+                  child: Row(
+                    children: List.generate(laneCount, (i) {
+                      // Stagger item offsets per lane so they don't all show
+                      // the same card at the same height
+                      final itemCount = _allItems.length;
+                      final staggeredItems = [
+                        ..._allItems.sublist(
+                            (i * 3) % itemCount, itemCount),
+                        ..._allItems.sublist(0, (i * 3) % itemCount),
+                      ];
+                      return _Lane(
+                        animation: _controller,
+                        items: staggeredItems,
+                        direction: 1, // all go up together
+                        width: laneWidth,
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // ── Dark gradient overlay ────────────────────────────────────────
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.center,
+                radius: 0.9,
+                colors: [
+                  Colors.black.withOpacity(0.55),
+                  Colors.black.withOpacity(0.88),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.75),
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.75),
+                ],
+                stops: const [0.0, 0.2, 0.8, 1.0],
+              ),
+            ),
+          ),
+        ),
+
+        // ── Slogan text ──────────────────────────────────────────────────
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 36),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSloganWord('Regarde.'),
+                const SizedBox(height: 4),
+                _buildSloganWord('Lis.'),
+                const SizedBox(height: 4),
+                _buildSloganWord('Ecoute.'),
+                const SizedBox(height: 16),
+                Text(
+                  'Tout.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.95),
+                    fontSize: 64,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -2.5,
+                    height: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Next button ──────────────────────────────────────────────────
+        Positioned(
+          left: 28,
+          right: 28,
+          bottom: 0,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 56),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: widget.onNext,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('Commencer'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSloganWord(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: Colors.white.withOpacity(0.45),
+        fontSize: 48,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -2,
+        height: 1.05,
+      ),
+    );
+  }
+}
+
+// ─── Shared Lane widget ────────────────────────────────────────────────────
+// Receives an external Animation<double> — does NOT own a controller.
+// This guarantees multiple lanes are frame-perfectly synchronized.
+
+class _Lane extends StatelessWidget {
+  final Animation<double> animation;
+  final List<_MediaItem> items;
+  final int direction; // 1 = scroll up, -1 = scroll down
+  final double width;
+
+  const _Lane({
+    required this.animation,
+    required this.items,
+    required this.direction,
+    required this.width,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     const cardH = 160.0;
     const gap = 10.0;
-    final totalH = (cardH + gap) * widget.items.length;
+    final totalH = (cardH + gap) * items.length;
 
     return SizedBox(
-      width: widget.width,
+      width: width,
       child: AnimatedBuilder(
-        animation: _controller,
+        animation: animation,
         builder: (context, _) {
-          final t = _controller.value;
-          final offset = widget.direction == 1
+          final t = animation.value;
+          final offset = direction == 1
               ? -(t * totalH) % totalH
               : -((1 - t) * totalH) % totalH;
 
@@ -466,15 +701,16 @@ class _AnimatedLaneState extends State<_AnimatedLane>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
-        children: widget.items.map((item) {
-          return _MediaCard(item: item, width: widget.width - 8);
+        children: items.map((item) {
+          return _MediaCard(item: item, width: width - 8);
         }).toList(),
       ),
     );
   }
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Media Card Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ─── Media Card ────────────────────────────────────────────────────────────
+// Full-bleed cover image with gradient overlay + label/title at bottom.
 
 class _MediaCard extends StatelessWidget {
   final _MediaItem item;
@@ -487,56 +723,96 @@ class _MediaCard extends StatelessWidget {
       width: width,
       height: 160,
       margin: const EdgeInsets.only(bottom: 10),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: item.color.withOpacity(0.15),
+        color: item.color.withOpacity(0.25),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: item.color.withOpacity(0.25),
+          color: item.color.withOpacity(0.20),
           width: 1,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Cover image
+          Image.network(
+            item.imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: item.color.withOpacity(0.15),
+            ),
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Container(color: item.color.withOpacity(0.15));
+            },
+          ),
+
+          // Gradient overlay so text is always readable
+          Positioned.fill(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: item.color.withOpacity(0.20),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                item.label,
-                style: TextStyle(
-                  color: item.color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.75),
+                  ],
+                  stops: const [0.3, 1.0],
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              item.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          ),
+
+          // Label + title
+          Positioned(
+            left: 10,
+            right: 10,
+            bottom: 10,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.30),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    item.label,
+                    style: TextStyle(
+                      color: item.color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Page 2 : Permissions Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ─── Page 3 : Permissions ──────────────────────────────────────────────────
 
 class _PermissionsPage extends StatelessWidget {
   final bool storageGranted;
@@ -585,7 +861,7 @@ class _PermissionsPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Watchtower a besoin de quelques accès\npour fonctionner correctement.',
+              'Watchtower a besoin de quelques acces\npour fonctionner correctement.',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.55),
                 fontSize: 15,
@@ -597,7 +873,8 @@ class _PermissionsPage extends StatelessWidget {
             _PermissionRow(
               icon: Icons.folder_open_rounded,
               title: 'Stockage',
-              subtitle: 'Sauvegarder téléchargements, covers et bibliothèque.',
+              subtitle:
+                  'Sauvegarder telechargements, covers et bibliotheque.',
               granted: storageGranted,
               busy: requestingStorage,
               onTap: onRequestStorage,
@@ -607,7 +884,7 @@ class _PermissionsPage extends StatelessWidget {
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle:
-                  'Progression des téléchargements, mises à jour de la bibliothèque.',
+                  'Progression des telechargements, mises a jour.',
               granted: notificationsGranted,
               busy: requestingNotifications,
               onTap: onRequestNotifications,
@@ -615,9 +892,9 @@ class _PermissionsPage extends StatelessWidget {
             const SizedBox(height: 16),
             _PermissionRow(
               icon: Icons.system_update_alt_rounded,
-              title: 'Installation d\'apps',
+              title: "Installation d'apps",
               subtitle:
-                  'Installer les mises à jour APK directement depuis l\'application.',
+                  "Installer les mises a jour APK depuis l'application.",
               granted: installGranted,
               busy: requestingInstall,
               onTap: onRequestInstall,
@@ -641,7 +918,8 @@ class _PermissionsPage extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                child: Text(allGranted ? 'Accéder à l\'app' : 'Passer pour l\'instant'),
+                child: Text(
+                    allGranted ? "Acceder a l'app" : 'Passer pour l\'instant'),
               ),
             ),
           ],
@@ -651,7 +929,7 @@ class _PermissionsPage extends StatelessWidget {
   }
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Permission Row Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ─── Permission Row ────────────────────────────────────────────────────────
 
 class _PermissionRow extends StatelessWidget {
   final IconData icon;
