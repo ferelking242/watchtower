@@ -372,16 +372,29 @@ class AboutScreen extends ConsumerWidget {
                               ),
                               const SizedBox(width: 10),
                               _SocialButton(
-                                icon: Icon(
-                                  Icons.rocket_launch_outlined,
+                                icon: const FaIcon(
+                                  FontAwesomeIcons.telegram,
                                   size: 18,
-                                  color: cs.onSurface.withOpacity(0.75),
                                 ),
-                                label: 'ZeusDL',
+                                label: 'Telegram',
                                 cs: cs,
                                 isDark: isDark,
-                                onTap: () =>
-                                    _launchInBrowser(Uri.parse(_zeusReleasesUrl)),
+                                onTap: () => _launchInBrowser(
+                                  Uri.parse('https://t.me/watchtowerapp'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              _SocialButton(
+                                icon: const Icon(
+                                  Icons.email_outlined,
+                                  size: 18,
+                                ),
+                                label: 'Email',
+                                cs: cs,
+                                isDark: isDark,
+                                onTap: () => _launchInBrowser(
+                                  Uri.parse('mailto:contact@watchtowerapp.dev'),
+                                ),
                               ),
                             ],
                           ),

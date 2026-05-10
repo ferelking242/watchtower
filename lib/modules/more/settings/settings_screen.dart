@@ -28,12 +28,12 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => context.push('/appearance'),
             ),
             ListTileWidget(
-              title: l10n.reader,
+              title: 'Lecteur Manga',
               icon: Icons.chrome_reader_mode_rounded,
               onTap: () => context.push('/readerMode'),
             ),
             ListTileWidget(
-              title: l10n.player,
+              title: 'Lecteur Vidéo',
               icon: Icons.play_circle_outline_outlined,
               onTap: () => context.push('/playerOverview'),
             ),

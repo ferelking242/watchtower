@@ -20,6 +20,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 final navigationItems = {
   "/WatchtowerHome": "Accueil",
+  "/Library": "Bibliothèque",
   "/MangaLibrary": "Manga",
   "/AnimeLibrary": "Watch",
   "/NovelLibrary": "Novel",
@@ -73,11 +74,6 @@ class AppearanceScreen extends ConsumerWidget {
     final isDarkTheme = ref.watch(themeModeStateProvider);
     bool followSystemTheme = ref.watch(followSystemThemeStateProvider);
 
-    // UI prefs
-    final carouselStyle = ref.watch(carouselStyleProvider);
-    final showSynopsis = ref.watch(carouselSynopsisProvider);
-    final glowEffects = ref.watch(glowEffectsProvider);
-    final kenBurns = ref.watch(kenBurnsProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n!.appearance)),
@@ -122,14 +118,6 @@ class AppearanceScreen extends ConsumerWidget {
                     context.push("/customNavigationSettings");
                   },
                 ),
-              ],
-            ),
-
-            // ── UI & Discovery ─────────────────────────────────────────────
-            SettingsSection(
-              title: 'UI & Discovery',
-              children: [
-                // Carousel style
                 ListTile(
                   leading: Container(
                     width: 36,
@@ -142,227 +130,18 @@ class AppearanceScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      Icons.view_carousel_outlined,
+                      Icons.auto_awesome_rounded,
                       color: Theme.of(context).colorScheme.primary,
                       size: 20,
                     ),
                   ),
-                  title: const Text('Carousel Style'),
+                  title: const Text('Interface & Effets'),
                   subtitle: Text(
-                    carouselStyleLabels[carouselStyle],
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.secondaryColor,
-                    ),
-                  ),
-                  onTap: () => _showCarouselStyleDialog(context, ref),
-                ),
-
-                // Show synopsis in carousel
-                SwitchListTile(
-                  secondary: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.subject_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: const Text('Show Synopsis in Carousel'),
-                  subtitle: Text(
-                    'Display description below the hero banner',
+                    'Carousel, flou, animations et effets visuels',
                     style: TextStyle(fontSize: 11, color: context.secondaryColor),
                   ),
-                  value: showSynopsis,
-                  onChanged: (v) =>
-                      ref.read(carouselSynopsisProvider.notifier).set(v),
-                ),
-
-                // Glow effects
-                SwitchListTile(
-                  secondary: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.flare_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: const Text('Glow Effects'),
-                  subtitle: Text(
-                    'Enable glowing shadows on cover images',
-                    style: TextStyle(fontSize: 11, color: context.secondaryColor),
-                  ),
-                  value: glowEffects,
-                  onChanged: (v) =>
-                      ref.read(glowEffectsProvider.notifier).set(v),
-                ),
-
-                // Ken Burns (detail screen)
-                SwitchListTile(
-                  secondary: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.animation_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: const Text('Animated Detail Backgrounds'),
-                  subtitle: Text(
-                    'Ken Burns pan/zoom on detail screen banners',
-                    style: TextStyle(fontSize: 11, color: context.secondaryColor),
-                  ),
-                  value: kenBurns,
-                  onChanged: (v) =>
-                      ref.read(kenBurnsProvider.notifier).set(v),
-                ),
-              ],
-            ),
-
-            // ── Blur & Glass Effects ──────────────────────────────────────
-            SettingsSection(
-              title: 'Blur & Glass Effects',
-              children: [
-                // Header scroll blur toggle
-                SwitchListTile(
-                  secondary: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.blur_on_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: const Text('Frosted Header'),
-                  subtitle: Text(
-                    'Blur the app header when scrolling',
-                    style:
-                        TextStyle(fontSize: 11, color: context.secondaryColor),
-                  ),
-                  value: ref.watch(headerBlurProvider),
-                  onChanged: (v) =>
-                      ref.read(headerBlurProvider.notifier).set(v),
-                ),
-
-                // Bottom sheet blur toggle
-                SwitchListTile(
-                  secondary: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.layers_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: const Text('Frosted Sheets'),
-                  subtitle: Text(
-                    'Blur background behind bottom sheets',
-                    style:
-                        TextStyle(fontSize: 11, color: context.secondaryColor),
-                  ),
-                  value: ref.watch(bottomSheetBlurProvider),
-                  onChanged: (v) =>
-                      ref.read(bottomSheetBlurProvider.notifier).set(v),
-                ),
-
-                // Blur intensity slider
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer
-                                  .withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.tune_rounded,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Blur Intensity',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 15),
-                                ),
-                                Text(
-                                  '${(ref.watch(blurIntensityProvider) * 100).round()}%',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: context.secondaryColor),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      Slider(
-                        value: ref.watch(blurIntensityProvider),
-                        min: 0.2,
-                        max: 2.0,
-                        divisions: 18,
-                        onChanged: (v) =>
-                            ref.read(blurIntensityProvider.notifier).set(v),
-                      ),
-                    ],
-                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/uiSettings'),
                 ),
               ],
             ),

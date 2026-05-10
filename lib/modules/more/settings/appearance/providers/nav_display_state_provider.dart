@@ -127,7 +127,7 @@ final navDockStyleProvider = NotifierProvider<NavDockStyleNotifier, String>(
 class MergeLibraryOnDockNotifier extends Notifier<bool> {
   @override
   bool build() =>
-      _box?.get('merge_library_dock', defaultValue: false) as bool? ?? false;
+      _box?.get('merge_library_dock', defaultValue: true) as bool? ?? true;
 
   void set(bool v) {
     _box?.put('merge_library_dock', v);

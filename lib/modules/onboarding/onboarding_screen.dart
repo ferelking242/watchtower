@@ -1,5 +1,4 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +42,7 @@ class _MediaItem {
 const _animeItems = [
   _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00)),
   _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703)),
-  _MediaItem('Hunter ÃÂ Hunter', 'Anime', Color(0xFF06D6A0)),
+  _MediaItem('Hunter × Hunter', 'Anime', Color(0xFF06D6A0)),
   _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF)),
   _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D)),
   _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC)),
@@ -62,13 +61,13 @@ const _mangaItems = [
 ];
 
 const _showItems = [
-  _MediaItem('Breaking Bad', 'SÃÂ©rie', Color(0xFF2DC653)),
-  _MediaItem('Arcane', 'SÃÂ©rie', Color(0xFF7B2FBE)),
-  _MediaItem('The Bear', 'Film/SÃÂ©rie', Color(0xFFE63946)),
+  _MediaItem('Breaking Bad', 'Série', Color(0xFF2DC653)),
+  _MediaItem('Arcane', 'Série', Color(0xFF7B2FBE)),
+  _MediaItem('The Bear', 'Film/Série', Color(0xFFE63946)),
   _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C)),
   _MediaItem('Dune', 'Film', Color(0xFFD4A017)),
-  _MediaItem('Shogun', 'SÃÂ©rie', Color(0xFFBC4749)),
-  _MediaItem('Severance', 'SÃÂ©rie', Color(0xFF0077B6)),
+  _MediaItem('Shogun', 'Série', Color(0xFFBC4749)),
+  _MediaItem('Severance', 'Série', Color(0xFF0077B6)),
 ];
 
 // Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Main Screen Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
@@ -340,7 +339,7 @@ class _ShowcasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Anime ÃÂ· Manga ÃÂ· Films ÃÂ· SÃÂ©ries',
+                    'Anime · Manga · Films · Séries',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.55),
                       fontSize: 14,
@@ -350,7 +349,7 @@ class _ShowcasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Tout ce que vous regardez et lisez,\nau mÃÂªme endroit.',
+                    'Tout ce que vous regardez et lisez,\nau même endroit.',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 17,
@@ -414,7 +413,7 @@ class _AnimatedLaneState extends State<_AnimatedLane>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: Duration(seconds: 18 + math.Random().nextInt(8)),
+      duration: const Duration(seconds: 22),
     )..repeat();
   }
 
@@ -586,7 +585,7 @@ class _PermissionsPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Watchtower a besoin de quelques accÃÂ¨s\npour fonctionner correctement.',
+              'Watchtower a besoin de quelques accès\npour fonctionner correctement.',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.55),
                 fontSize: 15,
@@ -598,7 +597,7 @@ class _PermissionsPage extends StatelessWidget {
             _PermissionRow(
               icon: Icons.folder_open_rounded,
               title: 'Stockage',
-              subtitle: 'Sauvegarder tÃÂ©lÃÂ©chargements, covers et bibliothÃÂ¨que.',
+              subtitle: 'Sauvegarder téléchargements, covers et bibliothèque.',
               granted: storageGranted,
               busy: requestingStorage,
               onTap: onRequestStorage,
@@ -608,7 +607,7 @@ class _PermissionsPage extends StatelessWidget {
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle:
-                  'Progression des tÃÂ©lÃÂ©chargements, mises ÃÂ  jour de la bibliothÃÂ¨que.',
+                  'Progression des téléchargements, mises à jour de la bibliothèque.',
               granted: notificationsGranted,
               busy: requestingNotifications,
               onTap: onRequestNotifications,
@@ -618,7 +617,7 @@ class _PermissionsPage extends StatelessWidget {
               icon: Icons.system_update_alt_rounded,
               title: 'Installation d\'apps',
               subtitle:
-                  'Installer les mises ÃÂ  jour APK directement depuis l\'application.',
+                  'Installer les mises à jour APK directement depuis l\'application.',
               granted: installGranted,
               busy: requestingInstall,
               onTap: onRequestInstall,
@@ -642,7 +641,7 @@ class _PermissionsPage extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                child: Text(allGranted ? 'AccÃÂ©der ÃÂ  l\'app' : 'Passer pour l\'instant'),
+                child: Text(allGranted ? 'Accéder à l\'app' : 'Passer pour l\'instant'),
               ),
             ),
           ],

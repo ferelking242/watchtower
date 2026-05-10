@@ -288,14 +288,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
               return Column(
                 children: [
-                  if (!isReadingScreen)
-                    _StatusBar(
-                      downloadedOnly: downloadedOnly,
-                      incognitoMode: incognitoMode,
-                      l10n: l10n,
-                    ),
                   Flexible(
-                    child: Scaffold(
+                    child: Stack(
+                      children: [
+                    Scaffold(
                       extendBody: true,
                       body: NotificationListener<UserScrollNotification>(
                         onNotification: (n) {
@@ -374,9 +370,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                   },
                                 ),
                     ),
-                  ),
+                    if (!isReadingScreen && (downloadedOnly || incognitoMode))
+                      _SideBanners(
+                        downloadedOnly: downloadedOnly,
+                        incognitoMode: incognitoMode,
+                        l10n: l10n,
+                      ),
+                  ],
+                ),
+              ),
                 ],
               );
+
             },
           ),
           error: (error, _) => const LoadingIcon(),
@@ -683,8 +688,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 }
 
-class _StatusBar extends StatelessWidget {
-  const _StatusBar({
+class _SideBanners extends StatelessWidget {
+  const _SideBanners({
     required this.downloadedOnly,
     required this.incognitoMode,
     required this.l10n,
@@ -697,86 +702,85 @@ class _StatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bool show = downloadedOnly || incognitoMode;
-
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      child: show
-          ? SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                child: Row(
-                  children: [
-                    if (downloadedOnly)
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: context.secondaryColor.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.download_done_rounded,
-                                  size: 12, color: Colors.white),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  l10n.downloaded_only,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                    fontFamily: GoogleFonts.aBeeZee().fontFamily,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            if (downloadedOnly)
+              Positioned(
+                left: 0,
+                top: 80,
+                bottom: 80,
+                child: Center(
+                  child: RotatedBox(
+                    quarterTurns: 3,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cs.secondary.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                    if (downloadedOnly && incognitoMode)
-                      const SizedBox(width: 8),
-                    if (incognitoMode)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: cs.primary.withValues(alpha: 0.35),
-                            width: 0.6,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.visibility_off_rounded,
-                                size: 11, color: cs.primary),
-                            const SizedBox(width: 4),
-                            Text(
-                              l10n.incognito_mode,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: cs.primary,
-                                letterSpacing: 0.2,
-                              ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.download_done_rounded, size: 11, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(
+                            l10n.downloaded_only,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              fontFamily: GoogleFonts.aBeeZee().fontFamily,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                  ],
+                    ),
+                  ),
                 ),
               ),
-            )
-          : const SizedBox(width: double.infinity, height: 0),
+            if (incognitoMode)
+              Positioned(
+                right: 0,
+                top: 80,
+                bottom: 80,
+                child: Center(
+                  child: RotatedBox(
+                    quarterTurns: 1,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.45),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.visibility_off_rounded, size: 11, color: cs.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            l10n.incognito_mode,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: cs.primary,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -67,6 +67,7 @@ import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_screen.dart';
 import 'package:watchtower/modules/more/more_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart';
+import 'package:watchtower/modules/more/settings/appearance/ui_settings_screen.dart';
 import 'package:watchtower/modules/more/settings/browse/browse_screen.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_server_screen.dart';
 import 'package:watchtower/modules/more/settings/general/general_screen.dart';
@@ -210,6 +211,7 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute(name: "settings", child: const SettingsScreen()),
     _genericRoute(name: "appearance", child: const AppearanceScreen()),
+    _genericRoute(name: "uiSettings", child: const UiSettingsScreen()),
     _genericRoute<Source>(
       name: "extension_detail",
       builder: (source) => ExtensionDetail(source: source),

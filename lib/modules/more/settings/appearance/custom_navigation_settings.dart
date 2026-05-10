@@ -40,7 +40,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   value: mergeHubNavMobile,
                   title: const Text('Hub navigation on mobile'),
                   subtitle: const Text(
-                    'Merges Manga Â· Watch Â· Novel under one Hub button',
+                    'Regroupe Manga · Watch · Novel sous un bouton Hub',
                     style: TextStyle(fontSize: 12),
                   ),
                   secondary: const Icon(Icons.apps_rounded),
@@ -60,8 +60,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                     }
                     botToast(
                       value
-                          ? 'Hub enabled â Manga, Watch & Novel are now behind the Hub button'
-                          : 'Hub disabled â Manga, Watch & Novel appear separately on the dock',
+                          ? 'Hub enabled → Manga, Watch & Novel are now behind the Hub button'
+                          : 'Hub disabled → Manga, Watch & Novel appear separately on the dock',
                     );
                   },
                 ),
@@ -75,33 +75,50 @@ class CustomNavigationSettings extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
                 child: SwitchListTile(
                   value: mergeLibraryDock,
-                  title: const Text('Library navigation on mobile'),
+                  title: const Text('Merge librairie'),
                   subtitle: const Text(
-                    'Shows a unified Library page on the dock',
+                    'Regroupe toutes les bibliothèques dans un seul onglet',
                     style: TextStyle(fontSize: 12),
                   ),
                   secondary: const Icon(Icons.collections_bookmark_rounded),
                   onChanged: (value) {
                     ref.read(mergeLibraryOnDockProvider.notifier).set(value);
+                    const libs = ['/MangaLibrary', '/AnimeLibrary', '/NovelLibrary', '/MusicLibrary', '/GameLibrary'];
+                    final hidden = ref.read(hideItemsStateProvider);
+                    if (value) {
+                      final updated = hidden.toList();
+                      for (final lib in libs) {
+                        if (!updated.contains(lib)) updated.add(lib);
+                      }
+                      ref.read(hideItemsStateProvider.notifier).set(updated);
+                    } else {
+                      final updated = hidden.toList()..removeWhere(libs.contains);
+                      ref.read(hideItemsStateProvider.notifier).set(updated);
+                    }
                     botToast(
                       value
-                          ? 'Library tab enabled â a unified Library page is now on the dock'
-                          : 'Library tab disabled â removed from dock',
+                          ? 'Merge librairie activé → bibliothèques regroupées'
+                          : 'Merge librairie désactivé → bibliothèques séparées',
                     );
                   },
                 ),
               ),
-            ),
 
             const Divider(height: 16),
 
             // ââ Reorderable navigation items âââââââââââââââââââââââââââââââ
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                'Éléments du dock',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: SizedBox(
-                height: navigationOrder.length * 52.0,
-                child: ReorderableListView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                   buildDefaultDragHandles: false,
                   itemCount: navigationOrder.length,
                   itemBuilder: (context, index) {
@@ -205,7 +222,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                               .read(navDockStyleProvider.notifier)
                               .set('floating');
                           botToast(
-                              'Dock style: Floating pill â the dock hovers above the screen edge');
+                              'Dock style: Floating pill → the dock hovers above the screen edge');
                         },
                       ),
                       const SizedBox(width: 10),
@@ -219,7 +236,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                               .read(navDockStyleProvider.notifier)
                               .set('classic');
                           botToast(
-                              'Dock style: Classic â standard full-width bottom navigation bar');
+                              'Dock style: Classic → standard full-width bottom navigation bar');
                         },
                       ),
                       const SizedBox(width: 10),
@@ -233,7 +250,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                               .read(navDockStyleProvider.notifier)
                               .set('minimal');
                           botToast(
-                              'Dock style: Minimal â icon-only with subtle dot indicator, no labels');
+                              'Dock style: Minimal → icon-only with subtle dot indicator, no labels');
                         },
                       ),
                       const SizedBox(height: 10),
@@ -385,8 +402,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                   onChanged: (v) {
                     ref.read(navShowLabelsProvider.notifier).set(v);
                     botToast(v
-                        ? 'Labels visible â text shown below each dock icon'
-                        : 'Labels hidden â icon only mode');
+                        ? 'Labels visible → text shown below each dock icon'
+                        : 'Labels hidden → icon only mode');
                   },
                 ),
               ),
@@ -409,7 +426,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   onChanged: (v) {
                     ref.read(navHapticProvider.notifier).set(v);
                     botToast(v
-                        ? 'Haptic feedback enabled â subtle vibration on tab change'
+                        ? 'Haptic feedback enabled → subtle vibration on tab change'
                         : 'Haptic feedback disabled');
                   },
                 ),
