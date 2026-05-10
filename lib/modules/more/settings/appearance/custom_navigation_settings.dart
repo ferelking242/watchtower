@@ -235,7 +235,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                           botToast(
                               'Dock style: Minimal â icon-only with subtle dot indicator, no labels');
                         },
-                      ),,
+                      ),
                       const SizedBox(height: 10),
                       Row(
                         children: [

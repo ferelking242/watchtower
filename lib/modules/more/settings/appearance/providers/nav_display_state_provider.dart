@@ -109,13 +109,13 @@ class NavDockStyleNotifier extends Notifier<String> {
       'floating';
 
   /// Valid values: floating, classic, minimal, rounded_full, compact, immersive
-    void set(String v) {
+  void set(String v) {
       const valid = {'floating', 'classic', 'minimal', 'rounded_full', 'compact', 'immersive'};
       final safe = valid.contains(v) ? v : 'floating';
       _box?.put('dock_style', safe);
       state = safe;
-      _navLog('dock_style', v$safe');
-    }}
+      _navLog('dock_style changed to $safe');
+  }
 
 final navDockStyleProvider = NotifierProvider<NavDockStyleNotifier, String>(
   NavDockStyleNotifier.new,
