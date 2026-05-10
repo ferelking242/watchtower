@@ -116,6 +116,7 @@ class NavDockStyleNotifier extends Notifier<String> {
       state = safe;
       _navLog('dock_style changed to $safe');
   }
+}
 
 final navDockStyleProvider = NotifierProvider<NavDockStyleNotifier, String>(
   NavDockStyleNotifier.new,
