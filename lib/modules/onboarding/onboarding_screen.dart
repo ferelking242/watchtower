@@ -31,7 +31,9 @@ Future<void> markOnboardingComplete() async {
   } catch (_) {}
 }
 
-// ─── Data ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Data
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _MediaItem {
   final String title;
@@ -94,123 +96,131 @@ const _showItems = [
       'https://image.tmdb.org/t/p/w342/gBsPCDW0HjWtqO1f2D4GjZETZ2n.jpg'),
 ];
 
-// ─── Main Screen ───────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// OnboardingScreen  (3 pages: showcase → slogan → permissions)
+// ─────────────────────────────────────────────────────────────────────────────
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
-
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen>
     with WidgetsBindingObserver {
-  final PageController _pageController = PageController();
+  final _page = PageController();
   int _currentPage = 0;
 
   bool _storageGranted = false;
-  bool _notificationsGranted = false;
+  bool _notifGranted = false;
   bool _installGranted = false;
-  bool _requestingStorage = false;
-  bool _requestingNotifications = false;
-  bool _requestingInstall = false;
+  bool _busyStorage = false;
+  bool _busyNotif = false;
+  bool _busyInstall = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _refreshPermissionStatus();
+    _refresh();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _refreshPermissionStatus();
-    }
+    if (state == AppLifecycleState.resumed) _refresh();
   }
 
-  Future<void> _refreshPermissionStatus() async {
+  Future<void> _refresh() async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
       if (mounted) {
         setState(() {
           _storageGranted = true;
-          _notificationsGranted = true;
+          _notifGranted = true;
           _installGranted = true;
         });
       }
       return;
     }
-    final storage = await Permission.manageExternalStorage.status;
-    final notif = await Permission.notification.status;
-    final install = await Permission.requestInstallPackages.status;
-    if (mounted) {
-      setState(() {
-        _storageGranted = storage.isGranted;
-        _notificationsGranted = notif.isGranted;
-        _installGranted = install.isGranted;
-      });
-    }
+    final s = await Permission.manageExternalStorage.status;
+    final n = await Permission.notification.status;
+    final i = await Permission.requestInstallPackages.status;
+    if (!mounted) return;
+    setState(() {
+      _storageGranted = s.isGranted;
+      _notifGranted = n.isGranted;
+      _installGranted = i.isGranted;
+    });
   }
 
-  Future<void> _requestStorage() async {
-    if (_requestingStorage) return;
-    setState(() => _requestingStorage = true);
+  // ── Permission requests ──────────────────────────────────────────────────
+
+  Future<void> _reqStorage() async {
+    if (_busyStorage) return;
+    setState(() => _busyStorage = true);
+    bool granted = false;
     try {
-      bool granted = false;
       if (!kIsWeb && Platform.isAndroid) {
-        final perm = Permission.manageExternalStorage;
-        final status = await perm.status;
-        if (status.isGranted) {
+        // Call request() first — works with the stub and real handler on Android < 11.
+        // On Android 11+ the real handler might return denied; we then fall back to
+        // openAppSettings() and pick up the result via didChangeAppLifecycleState.
+        final result = await Permission.manageExternalStorage.request();
+        if (result.isGranted) {
           granted = true;
         } else {
-          // MANAGE_EXTERNAL_STORAGE requires Settings on Android 11+
           await openAppSettings();
-          // Status will be refreshed when the user returns via didChangeAppLifecycleState
-          granted = (await perm.status).isGranted;
+          // Status will be refreshed by didChangeAppLifecycleState when user returns.
+          // We set granted from the current status; lifecycle will update if needed.
+          granted =
+              (await Permission.manageExternalStorage.status).isGranted;
         }
       } else {
         granted = await StorageProvider().requestPermission();
       }
-      if (mounted) {
-        setState(() {
-          _storageGranted = granted;
-          _requestingStorage = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _requestingStorage = false);
-    }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _storageGranted = granted;
+      _busyStorage = false;
+    });
   }
 
-  Future<void> _requestNotifications() async {
-    if (_requestingNotifications) return;
-    setState(() => _requestingNotifications = true);
+  Future<void> _reqNotif() async {
+    if (_busyNotif) return;
+    setState(() => _busyNotif = true);
+    bool granted = false;
     try {
-      final status = await Permission.notification.request();
-      if (mounted) {
-        setState(() {
-          _notificationsGranted = status.isGranted;
-          _requestingNotifications = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _requestingNotifications = false);
-    }
+      final result = await Permission.notification.request();
+      granted = result.isGranted;
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _notifGranted = granted;
+      _busyNotif = false;
+    });
   }
 
-  Future<void> _requestInstall() async {
-    if (_requestingInstall) return;
-    setState(() => _requestingInstall = true);
+  Future<void> _reqInstall() async {
+    if (_busyInstall) return;
+    setState(() => _busyInstall = true);
+    bool granted = false;
     try {
-      final status = await Permission.requestInstallPackages.request();
-      if (mounted) {
-        setState(() {
-          _installGranted = status.isGranted;
-          _requestingInstall = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _requestingInstall = false);
+      final result = await Permission.requestInstallPackages.request();
+      granted = result.isGranted;
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _installGranted = granted;
+      _busyInstall = false;
+    });
+  }
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+
+  void _next() {
+    if (_currentPage < 2) {
+      _page.nextPage(
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeInOut);
     }
   }
 
@@ -219,19 +229,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (mounted) context.go('/MangaLibrary');
   }
 
-  void _nextPage() {
-    if (_currentPage < 2) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pageController.dispose();
+    _page.dispose();
     super.dispose();
   }
 
@@ -244,45 +245,46 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         body: Stack(
           children: [
             PageView(
-              controller: _pageController,
+              controller: _page,
               onPageChanged: (i) => setState(() => _currentPage = i),
               children: [
-                _ShowcasePage(onNext: _nextPage),
-                _SloganPage(onNext: _nextPage),
+                _ShowcasePage(onNext: _next),
+                _SloganPage(onNext: _next),
                 _PermissionsPage(
                   storageGranted: _storageGranted,
-                  notificationsGranted: _notificationsGranted,
+                  notifGranted: _notifGranted,
                   installGranted: _installGranted,
-                  requestingStorage: _requestingStorage,
-                  requestingNotifications: _requestingNotifications,
-                  requestingInstall: _requestingInstall,
-                  onRequestStorage: _requestStorage,
-                  onRequestNotifications: _requestNotifications,
-                  onRequestInstall: _requestInstall,
+                  busyStorage: _busyStorage,
+                  busyNotif: _busyNotif,
+                  busyInstall: _busyInstall,
+                  onStorage: _reqStorage,
+                  onNotif: _reqNotif,
+                  onInstall: _reqInstall,
                   onFinish: _finish,
                 ),
               ],
             ),
-            // Page dots
+            // Page indicator dots
             Positioned(
-              bottom: 0,
               left: 0,
               right: 0,
+              bottom: 0,
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(3, (i) {
+                      final active = i == _currentPage;
                       return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
+                        duration: const Duration(milliseconds: 280),
                         margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: i == _currentPage ? 20 : 6,
+                        width: active ? 22 : 6,
                         height: 6,
                         decoration: BoxDecoration(
-                          color: i == _currentPage
+                          color: active
                               ? Colors.white
-                              : Colors.white.withOpacity(0.3),
+                              : Colors.white.withOpacity(0.28),
                           borderRadius: BorderRadius.circular(3),
                         ),
                       );
@@ -298,69 +300,56 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 }
 
-// ─── Page 1 : Showcase ────────────────────────────────────────────────────
-// Shared single AnimationController → all 3 lanes strictly synchronized.
+// ─────────────────────────────────────────────────────────────────────────────
+// Page 1 — Showcase
+// ONE shared AnimationController → all 3 lanes are frame-perfectly synced.
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _ShowcasePage extends StatefulWidget {
   final VoidCallback onNext;
   const _ShowcasePage({required this.onNext});
-
   @override
   State<_ShowcasePage> createState() => _ShowcasePageState();
 }
 
 class _ShowcasePageState extends State<_ShowcasePage>
     with TickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 20),
+      duration: const Duration(seconds: 18),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
+    final w = MediaQuery.sizeOf(context).width;
+    final lw = w / 3;
 
     return Stack(
       children: [
-        // Animated lanes — ALL share the SAME controller → perfectly synced
+        // ── 3 card lanes, ALL share _ctrl → strictly synchronized ──────
         Positioned.fill(
           child: Row(
             children: [
-              _Lane(
-                animation: _controller,
-                items: _animeItems,
-                direction: 1,
-                width: size.width / 3,
-              ),
-              _Lane(
-                animation: _controller,
-                items: _mangaItems,
-                direction: -1,
-                width: size.width / 3,
-              ),
-              _Lane(
-                animation: _controller,
-                items: _showItems,
-                direction: 1,
-                width: size.width / 3,
-              ),
+              _Lane(animation: _ctrl, items: _animeItems, goUp: true, width: lw),
+              _Lane(animation: _ctrl, items: _mangaItems, goUp: false, width: lw),
+              _Lane(animation: _ctrl, items: _showItems, goUp: true, width: lw),
             ],
           ),
         ),
 
-        // Gradient overlay — top & bottom fade
+        // ── Gradient vignette — top & bottom fade ───────────────────────
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -369,25 +358,23 @@ class _ShowcasePageState extends State<_ShowcasePage>
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.black,
-                  Colors.black.withOpacity(0.0),
-                  Colors.black.withOpacity(0.0),
-                  Colors.black.withOpacity(0.85),
+                  Colors.black.withOpacity(0),
+                  Colors.black.withOpacity(0),
+                  Colors.black.withOpacity(0.88),
                   Colors.black,
                 ],
-                stops: const [0.0, 0.18, 0.55, 0.82, 1.0],
+                stops: const [0.0, 0.15, 0.52, 0.80, 1.0],
               ),
             ),
           ),
         ),
 
-        // Bottom content
+        // ── Bottom text + button ────────────────────────────────────────
         Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
+          left: 0, right: 0, bottom: 0,
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 56),
+              padding: const EdgeInsets.fromLTRB(28, 0, 28, 60),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -396,9 +383,9 @@ class _ShowcasePageState extends State<_ShowcasePage>
                     'Watchtower',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 38,
+                      fontSize: 40,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: -1.5,
+                      letterSpacing: -1.8,
                       height: 1.0,
                     ),
                   ),
@@ -406,42 +393,23 @@ class _ShowcasePageState extends State<_ShowcasePage>
                   Text(
                     'Anime · Manga · Films · Series',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.55),
-                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Text(
                     'Tout ce que tu regardes et lis,\nau meme endroit.',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.85),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
+                      color: Colors.white.withOpacity(0.82),
+                      fontSize: 16,
+                      height: 1.55,
                     ),
                   ),
                   const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: widget.onNext,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: const Text('Suivant'),
-                    ),
-                  ),
+                  _WhiteButton(label: 'Suivant', onTap: widget.onNext),
                 ],
               ),
             ),
@@ -452,78 +420,83 @@ class _ShowcasePageState extends State<_ShowcasePage>
   }
 }
 
-// ─── Page 2 : Slogan ──────────────────────────────────────────────────────
-// Diagonal animated card lanes (top-right → bottom-left) + slogan overlay.
+// ─────────────────────────────────────────────────────────────────────────────
+// Page 2 — Slogan
+// Diagonal lanes (top-right → bottom-left) with slogan text overlay.
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SloganPage extends StatefulWidget {
   final VoidCallback onNext;
   const _SloganPage({required this.onNext});
-
   @override
   State<_SloganPage> createState() => _SloganPageState();
 }
 
 class _SloganPageState extends State<_SloganPage>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  late final AnimationController _ctrl;
 
-  // Merge all items for diagonal lanes
-  static const _allItems = [..._animeItems, ..._mangaItems, ..._showItems];
+  static const _pool = [..._animeItems, ..._mangaItems, ..._showItems];
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 25),
+      duration: const Duration(seconds: 28),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
+  }
+
+  List<_MediaItem> _stagger(int lane) {
+    final n = _pool.length;
+    final start = (lane * 4) % n;
+    return [..._pool.sublist(start), ..._pool.sublist(0, start)];
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-
-    // We tile the full item list across 5 diagonal lanes
-    final laneWidth = size.width / 3.5;
-    const laneCount = 5;
-    final totalWidth = laneWidth * laneCount;
+    // Wider + taller than screen to fill after rotation
+    final diagonal = math.sqrt(
+            size.width * size.width + size.height * size.height)
+        .ceil()
+        .toDouble();
+    const laneW = 130.0;
+    const laneCount = 7;
 
     return Stack(
       children: [
-        // ── Diagonal card lanes ──────────────────────────────────────────
+        // ── Diagonal lanes ──────────────────────────────────────────────
         Positioned.fill(
           child: ClipRect(
             child: OverflowBox(
-              maxWidth: totalWidth + size.height,
-              maxHeight: size.height + totalWidth,
-              child: Transform.rotate(
-                angle: -math.pi / 7, // ~-25 degrees: top-right → bottom-left
-                child: SizedBox(
-                  width: totalWidth + size.height,
-                  height: size.height + totalWidth,
-                  child: Row(
-                    children: List.generate(laneCount, (i) {
-                      // Stagger item offsets per lane so they don't all show
-                      // the same card at the same height
-                      final itemCount = _allItems.length;
-                      final staggeredItems = [
-                        ..._allItems.sublist(
-                            (i * 3) % itemCount, itemCount),
-                        ..._allItems.sublist(0, (i * 3) % itemCount),
-                      ];
-                      return _Lane(
-                        animation: _controller,
-                        items: staggeredItems,
-                        direction: 1, // all go up together
-                        width: laneWidth,
-                      );
-                    }),
+              maxWidth: diagonal * 1.6,
+              maxHeight: diagonal * 1.6,
+              child: Center(
+                child: Transform.rotate(
+                  angle: -math.pi / 7, // ~-25.7 deg: top-right → bottom-left
+                  child: SizedBox(
+                    width: laneCount * laneW,
+                    height: diagonal * 1.6,
+                    child: Row(
+                      children: List.generate(
+                        laneCount,
+                        (i) => _Lane(
+                          animation: _ctrl,
+                          items: _stagger(i),
+                          goUp: i.isEven,
+                          width: laneW,
+                          cardHeight: 150,
+                          gap: 8,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -531,21 +504,7 @@ class _SloganPageState extends State<_SloganPage>
           ),
         ),
 
-        // ── Dark gradient overlay ────────────────────────────────────────
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 0.9,
-                colors: [
-                  Colors.black.withOpacity(0.55),
-                  Colors.black.withOpacity(0.88),
-                ],
-              ),
-            ),
-          ),
-        ),
+        // ── Dark overlay ────────────────────────────────────────────────
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -553,18 +512,17 @@ class _SloganPageState extends State<_SloganPage>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.75),
-                  Colors.transparent,
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.75),
+                  Colors.black.withOpacity(0.72),
+                  Colors.black.withOpacity(0.54),
+                  Colors.black.withOpacity(0.72),
                 ],
-                stops: const [0.0, 0.2, 0.8, 1.0],
+                stops: const [0.0, 0.5, 1.0],
               ),
             ),
           ),
         ),
 
-        // ── Slogan text ──────────────────────────────────────────────────
+        // ── Slogan ──────────────────────────────────────────────────────
         Positioned.fill(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 36),
@@ -572,54 +530,25 @@ class _SloganPageState extends State<_SloganPage>
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSloganWord('Regarde.'),
-                const SizedBox(height: 4),
-                _buildSloganWord('Lis.'),
-                const SizedBox(height: 4),
-                _buildSloganWord('Ecoute.'),
-                const SizedBox(height: 16),
-                Text(
-                  'Tout.',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.95),
-                    fontSize: 64,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -2.5,
-                    height: 1.0,
-                  ),
-                ),
+                _sloganLine('Regarde.', dim: true),
+                const SizedBox(height: 2),
+                _sloganLine('Lis.', dim: true),
+                const SizedBox(height: 2),
+                _sloganLine('Ecoute.', dim: true),
+                const SizedBox(height: 14),
+                _sloganLine('Tout.', dim: false),
               ],
             ),
           ),
         ),
 
-        // ── Next button ──────────────────────────────────────────────────
+        // ── Button ──────────────────────────────────────────────────────
         Positioned(
-          left: 28,
-          right: 28,
-          bottom: 0,
+          left: 28, right: 28, bottom: 0,
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 56),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: widget.onNext,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: const Text('Commencer'),
-                ),
-              ),
+              padding: const EdgeInsets.only(bottom: 60),
+              child: _WhiteButton(label: 'Commencer', onTap: widget.onNext),
             ),
           ),
         ),
@@ -627,68 +556,74 @@ class _SloganPageState extends State<_SloganPage>
     );
   }
 
-  Widget _buildSloganWord(String text) {
+  Widget _sloganLine(String text, {required bool dim}) {
     return Text(
       text,
       style: TextStyle(
-        color: Colors.white.withOpacity(0.45),
-        fontSize: 48,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -2,
+        color: dim
+            ? Colors.white.withOpacity(0.38)
+            : Colors.white,
+        fontSize: dim ? 46 : 64,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -2.5,
         height: 1.05,
       ),
     );
   }
 }
 
-// ─── Shared Lane widget ────────────────────────────────────────────────────
-// Receives an external Animation<double> — does NOT own a controller.
-// This guarantees multiple lanes are frame-perfectly synchronized.
+// ─────────────────────────────────────────────────────────────────────────────
+// _Lane — pure stateless, receives an external Animation<double>.
+//
+// Animation math:
+//   progress = (t * totalH) % totalH  → always in [0, totalH), no negative
+//   goUp  → offset = -progress         (cards scroll upward)
+//   !goUp → offset = +progress         (cards scroll downward)
+//   Second copy fills the gap seamlessly.
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _Lane extends StatelessWidget {
   final Animation<double> animation;
   final List<_MediaItem> items;
-  final int direction; // 1 = scroll up, -1 = scroll down
+  final bool goUp;
   final double width;
+  final double cardHeight;
+  final double gap;
 
   const _Lane({
     required this.animation,
     required this.items,
-    required this.direction,
+    required this.goUp,
     required this.width,
+    this.cardHeight = 160,
+    this.gap = 10,
   });
 
   @override
   Widget build(BuildContext context) {
-    const cardH = 160.0;
-    const gap = 10.0;
-    final totalH = (cardH + gap) * items.length;
+    final totalH = (cardHeight + gap) * items.length;
 
     return SizedBox(
       width: width,
       child: AnimatedBuilder(
         animation: animation,
-        builder: (context, _) {
-          final t = animation.value;
-          final offset = direction == 1
-              ? -(t * totalH) % totalH
-              : -((1 - t) * totalH) % totalH;
-
+        builder: (_, __) {
+          // progress is always in [0, totalH) — no jumps, seamlessly loops
+          final progress = (animation.value * totalH) % totalH;
+          final double top1, top2;
+          if (goUp) {
+            top1 = -progress;         // moves upward
+            top2 = -progress + totalH; // second copy fills from below
+          } else {
+            top1 = progress;          // moves downward
+            top2 = progress - totalH; // second copy fills from above
+          }
           return ClipRect(
             child: Stack(
+              clipBehavior: Clip.hardEdge,
               children: [
-                Positioned(
-                  top: offset,
-                  left: 0,
-                  right: 0,
-                  child: _buildColumn(),
-                ),
-                Positioned(
-                  top: offset + totalH,
-                  left: 0,
-                  right: 0,
-                  child: _buildColumn(),
-                ),
+                Positioned(top: top1, left: 0, right: 0, child: _col()),
+                Positioned(top: top2, left: 0, right: 0, child: _col()),
               ],
             ),
           );
@@ -697,40 +632,48 @@ class _Lane extends StatelessWidget {
     );
   }
 
-  Widget _buildColumn() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        children: items.map((item) {
-          return _MediaCard(item: item, width: width - 8);
-        }).toList(),
-      ),
-    );
-  }
+  Widget _col() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          children: items
+              .map((item) => _Card(
+                    item: item,
+                    width: width - 8,
+                    height: cardHeight,
+                    gap: gap,
+                  ))
+              .toList(),
+        ),
+      );
 }
 
-// ─── Media Card ────────────────────────────────────────────────────────────
-// Full-bleed cover image with gradient overlay + label/title at bottom.
+// ─────────────────────────────────────────────────────────────────────────────
+// _Card — cover image with gradient overlay + label/title.
+// Falls back to a rich gradient card when image fails.
+// ─────────────────────────────────────────────────────────────────────────────
 
-class _MediaCard extends StatelessWidget {
+class _Card extends StatelessWidget {
   final _MediaItem item;
   final double width;
-  const _MediaCard({required this.item, required this.width});
+  final double height;
+  final double gap;
+  const _Card({
+    required this.item,
+    required this.width,
+    required this.height,
+    required this.gap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      height: 160,
-      margin: const EdgeInsets.only(bottom: 10),
+      height: height,
+      margin: EdgeInsets.only(bottom: gap),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: item.color.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: item.color.withOpacity(0.20),
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(11),
+        color: item.color.withOpacity(0.3),
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -739,16 +682,15 @@ class _MediaCard extends StatelessWidget {
           Image.network(
             item.imageUrl,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              color: item.color.withOpacity(0.15),
-            ),
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(color: item.color.withOpacity(0.15));
+            headers: const {
+              'User-Agent': 'Mozilla/5.0 (compatible; Watchtower/1.0)',
             },
+            errorBuilder: (_, __, ___) => _fallback(),
+            loadingBuilder: (_, child, progress) =>
+                progress == null ? child : _fallback(),
           ),
 
-          // Gradient overlay so text is always readable
+          // Gradient overlay for text legibility
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -757,9 +699,9 @@ class _MediaCard extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.75),
+                    Colors.black.withOpacity(0.72),
                   ],
-                  stops: const [0.3, 1.0],
+                  stops: const [0.35, 1.0],
                 ),
               ),
             ),
@@ -767,19 +709,19 @@ class _MediaCard extends StatelessWidget {
 
           // Label + title
           Positioned(
-            left: 10,
-            right: 10,
-            bottom: 10,
+            left: 9,
+            right: 9,
+            bottom: 9,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: item.color.withOpacity(0.30),
-                    borderRadius: BorderRadius.circular(6),
+                    color: item.color.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(5),
                   ),
                   child: Text(
                     item.label,
@@ -787,7 +729,7 @@ class _MediaCard extends StatelessWidget {
                       color: item.color,
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ),
@@ -796,7 +738,7 @@ class _MediaCard extends StatelessWidget {
                   item.title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
                   ),
@@ -810,43 +752,63 @@ class _MediaCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _fallback() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            item.color.withOpacity(0.55),
+            item.color.withOpacity(0.18),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        item.title,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.75),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          height: 1.3,
+        ),
+      ),
+    );
+  }
 }
 
-// ─── Page 3 : Permissions ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Page 3 — Permissions
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _PermissionsPage extends StatelessWidget {
-  final bool storageGranted;
-  final bool notificationsGranted;
-  final bool installGranted;
-  final bool requestingStorage;
-  final bool requestingNotifications;
-  final bool requestingInstall;
-  final VoidCallback onRequestStorage;
-  final VoidCallback onRequestNotifications;
-  final VoidCallback onRequestInstall;
-  final VoidCallback onFinish;
+  final bool storageGranted, notifGranted, installGranted;
+  final bool busyStorage, busyNotif, busyInstall;
+  final VoidCallback onStorage, onNotif, onInstall, onFinish;
 
   const _PermissionsPage({
     required this.storageGranted,
-    required this.notificationsGranted,
+    required this.notifGranted,
     required this.installGranted,
-    required this.requestingStorage,
-    required this.requestingNotifications,
-    required this.requestingInstall,
-    required this.onRequestStorage,
-    required this.onRequestNotifications,
-    required this.onRequestInstall,
+    required this.busyStorage,
+    required this.busyNotif,
+    required this.busyInstall,
+    required this.onStorage,
+    required this.onNotif,
+    required this.onInstall,
     required this.onFinish,
   });
 
   @override
   Widget build(BuildContext context) {
-    final allGranted =
-        storageGranted && notificationsGranted && installGranted;
+    final all = storageGranted && notifGranted && installGranted;
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 48, 24, 56),
+        padding: const EdgeInsets.fromLTRB(24, 52, 24, 60),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -854,73 +816,53 @@ class _PermissionsPage extends StatelessWidget {
               'Autorisations',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 30,
+                fontSize: 32,
                 fontWeight: FontWeight.w800,
-                letterSpacing: -1,
+                letterSpacing: -1.2,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Watchtower a besoin de quelques acces\npour fonctionner correctement.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.55),
+                color: Colors.white.withOpacity(0.52),
                 fontSize: 15,
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 40),
-
-            _PermissionRow(
+            const SizedBox(height: 44),
+            _PermRow(
               icon: Icons.folder_open_rounded,
               title: 'Stockage',
               subtitle:
                   'Sauvegarder telechargements, covers et bibliotheque.',
               granted: storageGranted,
-              busy: requestingStorage,
-              onTap: onRequestStorage,
+              busy: busyStorage,
+              onTap: onStorage,
             ),
-            const SizedBox(height: 16),
-            _PermissionRow(
+            const SizedBox(height: 18),
+            _PermRow(
               icon: Icons.notifications_outlined,
               title: 'Notifications',
-              subtitle:
-                  'Progression des telechargements, mises a jour.',
-              granted: notificationsGranted,
-              busy: requestingNotifications,
-              onTap: onRequestNotifications,
+              subtitle: 'Telechargements, mises a jour de la bibliotheque.',
+              granted: notifGranted,
+              busy: busyNotif,
+              onTap: onNotif,
             ),
-            const SizedBox(height: 16),
-            _PermissionRow(
+            const SizedBox(height: 18),
+            _PermRow(
               icon: Icons.system_update_alt_rounded,
               title: "Installation d'apps",
               subtitle:
                   "Installer les mises a jour APK depuis l'application.",
               granted: installGranted,
-              busy: requestingInstall,
-              onTap: onRequestInstall,
+              busy: busyInstall,
+              onTap: onInstall,
             ),
-
             const Spacer(),
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onFinish,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                child: Text(
-                    allGranted ? "Acceder a l'app" : 'Passer pour l\'instant'),
-              ),
+            _WhiteButton(
+              label: all ? "Acceder a Watchtower" : "Passer pour l'instant",
+              onTap: onFinish,
             ),
           ],
         ),
@@ -929,17 +871,17 @@ class _PermissionsPage extends StatelessWidget {
   }
 }
 
-// ─── Permission Row ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// _PermRow
+// ─────────────────────────────────────────────────────────────────────────────
 
-class _PermissionRow extends StatelessWidget {
+class _PermRow extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool granted;
-  final bool busy;
+  final String title, subtitle;
+  final bool granted, busy;
   final VoidCallback onTap;
 
-  const _PermissionRow({
+  const _PermRow({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -951,96 +893,106 @@ class _PermissionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          width: 44,
-          height: 44,
+          width: 46,
+          height: 46,
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            icon,
-            color: Colors.white.withOpacity(0.75),
-            size: 22,
-          ),
+          child: Icon(icon, color: Colors.white.withOpacity(0.7), size: 22),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(title,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.45),
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
+              Text(subtitle,
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.42),
+                      fontSize: 12,
+                      height: 1.4)),
             ],
           ),
         ),
         const SizedBox(width: 12),
         if (granted)
           Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: const Color(0xFF06D6A0).withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: Color(0xFF06D6A0),
-              size: 18,
-            ),
+            child: const Icon(Icons.check_rounded,
+                color: Color(0xFF06D6A0), size: 18),
           )
         else
           GestureDetector(
             onTap: busy ? null : onTap,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 180),
               padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(busy ? 0.05 : 0.10),
+                color:
+                    Colors.white.withOpacity(busy ? 0.04 : 0.10),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 1,
-                ),
+                    color: Colors.white.withOpacity(0.15), width: 1),
               ),
               child: busy
                   ? const SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+                          strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text(
-                      'Autoriser',
+                  : const Text('Autoriser',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _WhiteButton — shared CTA button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WhiteButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _WhiteButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14)),
+          textStyle: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        child: Text(label),
+      ),
     );
   }
 }
