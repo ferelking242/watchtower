@@ -184,7 +184,6 @@ class CustomNavigationSettings extends ConsumerWidget {
                         .set(order);
                   },
                 ),
-              ),
             ),
 
             const Divider(height: 24),
