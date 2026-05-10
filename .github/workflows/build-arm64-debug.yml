@@ -61,35 +61,30 @@ jobs:
           echo "code=$VCODE" >> "$GITHUB_OUTPUT"
           echo "Building $VNAME ($VCODE)"
 
-      - name: Configure Gradle network resilience
-          run: |
-            mkdir -p ~/.gradle
-            printf 'systemProp.http.connectionTimeout=120000\nsystemProp.http.socketTimeout=120000\n' >> ~/.gradle/gradle.properties
-
-        - name: Build APK (ARMv8 profile)
-          env:
-            GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
-          run: |
-            for attempt in 1 2 3; do
-              echo "--- Build attempt $attempt/3 ---"
-              if flutter build apk \
-                --profile \
-                --target-platform android-arm64 \
-                --split-per-abi \
-                --no-tree-shake-icons \
-                --build-name=${{ steps.ver.outputs.name }} \
-                --build-number=${{ steps.ver.outputs.code }}; then
-                echo "Build succeeded on attempt $attempt"
-                break
-              fi
-              if [ $attempt -lt 3 ]; then
-                echo "Build failed, waiting 45s before retry..."
-                sleep 45
-              else
-                echo "All 3 attempts failed."
-                exit 1
-              fi
-            done
+      - name: Build APK (ARMv8 profile)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+        run: |
+          for attempt in 1 2 3; do
+            echo "--- Build attempt $attempt/3 ---"
+            if flutter build apk \
+              --profile \
+              --target-platform android-arm64 \
+              --split-per-abi \
+              --no-tree-shake-icons \
+              --build-name=${{ steps.ver.outputs.name }} \
+              --build-number=${{ steps.ver.outputs.code }}; then
+              echo "Build succeeded on attempt $attempt"
+              break
+          fi
+          if [ $attempt -lt 3 ]; then
+              echo "Build failed, waiting 45s..."
+              sleep 45
+          else
+              echo "All 3 attempts failed."
+              exit 1
+          fi
+          done
 
       - name: Show APK size
         run: |

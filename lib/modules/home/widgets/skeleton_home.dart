@@ -377,8 +377,6 @@ class _FakePill extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
       ),
-        ),
-      ),
     );
   }
 }
