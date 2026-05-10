@@ -103,6 +103,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   },
                 ),
               ),
+            ),
 
             const Divider(height: 16),
 
