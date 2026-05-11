@@ -234,6 +234,48 @@ class _AccountIconButton extends StatelessWidget {
 // Account bottom sheet (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// 3-D gradient account button — used by LibraryHeaderBar.
+class Account3DButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final double size;
+
+  const Account3DButton({super.key, required this.onTap, this.size = 42});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cs.primary.withValues(alpha: 0.90),
+              cs.tertiary.withValues(alpha: 0.85),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: cs.primary.withValues(alpha: 0.30),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.22), width: 1.2),
+        ),
+        child: Icon(Icons.person_rounded,
+            color: Colors.white, size: size * 0.44),
+      ),
+    );
+  }
+}
+
 void showAccountSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
