@@ -327,17 +327,17 @@ class StorageProvider {
     const _wtBase =
         'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
     final mangaRepo = Repo(
-      jsonUrl: '$_wtBase/manga.min.json',
+      jsonUrl: '$_wtBase/manga/index.json',
       name: 'Watchtower – Manga',
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
     final watchRepo = Repo(
-      jsonUrl: '$_wtBase/watch.min.json',
-      name: 'Watchtower – Watch / Anime',
+      jsonUrl: '$_wtBase/watch/index.json',
+      name: 'Watchtower – Watch',
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
     final novelRepo = Repo(
-      jsonUrl: '$_wtBase/novel.min.json',
+      jsonUrl: '$_wtBase/novel/index.json',
       name: 'Watchtower – Novels',
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
@@ -365,11 +365,11 @@ class StorageProvider {
 
         if (settings.mangaExtensionsRepo == null ||
             settings.mangaExtensionsRepo!.isEmpty ||
-            !_hasCorrectRepo(settings.mangaExtensionsRepo, 'manga.min.json')) {
+            !_hasCorrectRepo(settings.mangaExtensionsRepo, 'manga/index.json')) {
           settings.mangaExtensionsRepo = [
             ...?settings.mangaExtensionsRepo?.where((r) =>
                 _isWatchtowerRepo(r) &&
-                r.jsonUrl?.contains('manga.min.json') == true),
+                r.jsonUrl?.contains('manga/index.json') == true),
             mangaRepo,
           ].toSet().toList();
           if (settings.mangaExtensionsRepo!.isEmpty) {
@@ -380,11 +380,11 @@ class StorageProvider {
 
         if (settings.animeExtensionsRepo == null ||
             settings.animeExtensionsRepo!.isEmpty ||
-            !_hasCorrectRepo(settings.animeExtensionsRepo, 'watch.min.json')) {
+            !_hasCorrectRepo(settings.animeExtensionsRepo, 'watch/index.json')) {
           settings.animeExtensionsRepo = [
             ...?settings.animeExtensionsRepo?.where((r) =>
                 _isWatchtowerRepo(r) &&
-                r.jsonUrl?.contains('watch.min.json') == true),
+                r.jsonUrl?.contains('watch/index.json') == true),
             watchRepo,
           ].toSet().toList();
           if (settings.animeExtensionsRepo!.isEmpty) {
@@ -395,11 +395,11 @@ class StorageProvider {
 
         if (settings.novelExtensionsRepo == null ||
             settings.novelExtensionsRepo!.isEmpty ||
-            !_hasCorrectRepo(settings.novelExtensionsRepo, 'novel.min.json')) {
+            !_hasCorrectRepo(settings.novelExtensionsRepo, 'novel/index.json')) {
           settings.novelExtensionsRepo = [
             ...?settings.novelExtensionsRepo?.where((r) =>
                 _isWatchtowerRepo(r) &&
-                r.jsonUrl?.contains('novel.min.json') == true),
+                r.jsonUrl?.contains('novel/index.json') == true),
             novelRepo,
           ].toSet().toList();
           if (settings.novelExtensionsRepo!.isEmpty) {
