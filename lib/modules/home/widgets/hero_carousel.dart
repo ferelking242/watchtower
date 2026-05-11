@@ -6,17 +6,13 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:palette_generator/palette_generator.dart';
 
-/// Auto-cycling banner carousel.
+/// Auto-cycling hero carousel — Disney+-style.
 ///
-/// [forceFullWidth] = true → cinematic hero mode used on the home screen.
-/// In this mode the card extends nearly edge-to-edge with generous rounded
-/// corners (Disney+/streaming-app style).  Description text is rendered on
-/// the image and the synopsis strip below is suppressed.
-///
-/// Card sizing:
-///   forceFullWidth → 62 % of screen height, h-padding 14, radius 22
-///   compact        → 190 px, h-padding 6,  radius 16
-///   standard       → 270 px, h-padding 6,  radius 20
+/// Layout (forceFullWidth = true):
+///   • viewportFraction = 0.88 → main card ~88 % wide, 6 % of next card peeks
+///   • Rounded corners always (radius 18)
+///   • Card height = 54 % of screen height
+///   • Info text + genre pills + page dots rendered on the image
 class HeroCarousel extends ConsumerStatefulWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
@@ -39,13 +35,13 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   Color? _dominantColor;
   String? _lastExtractedUrl;
 
-  // Stable PageController — only recreated when viewportFraction changes.
   late PageController _ctrl;
-  double _viewportFraction = 1.0;
+  double _viewportFraction = 0.88;
 
   @override
   void initState() {
     super.initState();
+    _viewportFraction = widget.forceFullWidth ? 0.88 : 0.92;
     _ctrl = PageController(viewportFraction: _viewportFraction);
     _startTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -61,7 +57,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
       if (_ctrl.hasClients) {
         _ctrl.animateToPage(
           next,
-          duration: const Duration(milliseconds: 600),
+          duration: const Duration(milliseconds: 550),
           curve: Curves.easeOutCubic,
         );
       }
@@ -73,16 +69,16 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     if (url == null || url == _lastExtractedUrl) return;
     _lastExtractedUrl = url;
     try {
-      final generator = await PaletteGenerator.fromImageProvider(
+      final gen = await PaletteGenerator.fromImageProvider(
         NetworkImage(url),
         size: const Size(300, 168),
         maximumColorCount: 8,
         timeout: const Duration(seconds: 4),
       );
-      final color = generator.darkVibrantColor?.color ??
-          generator.darkMutedColor?.color ??
-          generator.dominantColor?.color;
-      if (color != null && mounted) setState(() => _dominantColor = color);
+      final c = gen.darkVibrantColor?.color ??
+          gen.darkMutedColor?.color ??
+          gen.dominantColor?.color;
+      if (c != null && mounted) setState(() => _dominantColor = c);
     } catch (_) {}
   }
 
@@ -91,25 +87,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     _timer?.cancel();
     _ctrl.dispose();
     super.dispose();
-  }
-
-  double _computeVpFraction(bool isCinematic, bool isCompact) {
-    if (isCinematic) return 1.0;
-    if (isCompact) return 0.88;
-    return 0.92;
-  }
-
-  void _maybeRebuildController(double newFraction) {
-    if (newFraction == _viewportFraction) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final old = _ctrl;
-      setState(() {
-        _viewportFraction = newFraction;
-        _ctrl = PageController(viewportFraction: newFraction);
-      });
-      old.dispose();
-    });
   }
 
   @override
@@ -121,41 +98,29 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     final theme = Theme.of(context);
     final screenH = MediaQuery.sizeOf(context).height;
 
+    // forceFullWidth always uses cinematic mode (Disney+ hero style)
     final isCinematic = widget.forceFullWidth || carouselStyle == 1;
     final isCompact = !widget.forceFullWidth && carouselStyle == 2;
 
-    // ── Controller lifecycle ──────────────────────────────────────────────────
-    final desiredFraction = _computeVpFraction(isCinematic, isCompact);
-    _maybeRebuildController(desiredFraction);
-
-    // ── Sizing & rounding ─────────────────────────────────────────────────────
-    // forceFullWidth: large hero — rounded corners + side padding (streaming style)
-    final cardHeight = widget.forceFullWidth
-        ? screenH * 0.62
+    // Card sizing
+    final double cardHeight = widget.forceFullWidth
+        ? screenH * 0.54     // Disney+ hero: ~54 % screen height
         : (isCompact ? 190.0 : 270.0);
 
-    final double hPadding = widget.forceFullWidth
-        ? 14.0
-        : (isCompact ? 6.0 : 6.0);
+    // Always rounded — radius 18 in hero mode
+    const double cardRadius = 18.0;
 
-    final double cardRadius = widget.forceFullWidth
-        ? 22.0
-        : (isCompact ? 16.0 : 20.0);
-
-    final totalHeight = (!widget.forceFullWidth && showSynopsis && !isCompact)
-        ? cardHeight + 86
-        : cardHeight;
-
-    // Dominant-color for top scrim
-    final brushColor = _dominantColor != null
-        ? Color.lerp(_dominantColor!, Colors.black, 0.45)!
-        : Colors.black;
+    // Bottom total height
+    final totalHeight =
+        (!widget.forceFullWidth && showSynopsis && !isCompact)
+            ? cardHeight + 86
+            : cardHeight;
 
     return SizedBox(
       height: totalHeight,
       child: Column(
         children: [
-          // ── Card PageView ─────────────────────────────────────────────────
+          // ── PageView ───────────────────────────────────────────────────────
           SizedBox(
             height: cardHeight,
             child: PageView.builder(
@@ -163,174 +128,179 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
               itemCount: widget.items.length,
               onPageChanged: (i) {
                 setState(() => _index = i);
-                if (i < widget.items.length) {
-                  _extractDominantColor(widget.items[i]);
-                }
+                if (i < widget.items.length) _extractDominantColor(widget.items[i]);
               },
               itemBuilder: (_, i) {
                 final m = widget.items[i];
                 final image = m.bannerImage ?? m.bestCover;
+                // Slight scale-down for non-focused cards
+                final isActive = i == _index;
 
-                return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: hPadding),
-                  child: GestureDetector(
-                    onTap: () => widget.onItemTap(m),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(cardRadius),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // ── Cover / banner image ────────────────────────
-                          if (image != null)
-                            ExtendedImage.network(
-                              image,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                              cache: true,
-                            )
-                          else
-                            Container(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                            ),
-
-                          // ── BOTTOM gradient scrim — title legibility ────
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  stops: const [0.30, 0.62, 1.0],
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withValues(alpha: 0.45),
-                                    (_dominantColor != null
-                                        ? Color.lerp(_dominantColor!,
-                                                Colors.black, 0.5)!
-                                            .withValues(alpha: 0.97)
-                                        : Colors.black
-                                            .withValues(alpha: 0.95)),
-                                  ],
-                                ),
+                return AnimatedScale(
+                  scale: isActive ? 1.0 : 0.96,
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOut,
+                  child: Padding(
+                    // Side padding creates the gap between cards + shows peek
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: GestureDetector(
+                      onTap: () => widget.onItemTap(m),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(cardRadius),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // ── Image ─────────────────────────────────────
+                            if (image != null)
+                              ExtendedImage.network(
+                                image,
+                                fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
+                                cache: true,
+                              )
+                            else
+                              Container(
+                                color: theme.colorScheme.surfaceContainerHighest,
                               ),
-                            ),
-                          ),
 
-                          // ── TOP brush-stroke scrim — header always legible
-                          if (isCinematic)
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: 165,
-                              child: CustomPaint(
-                                painter: _TopBrushScrim(brushColor),
-                              ),
-                            ),
-
-                          // ── Info overlay ────────────────────────────────
-                          Positioned(
-                            left: 16,
-                            right: 16,
-                            bottom: isCinematic ? 36 : 28,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    _TypeBadge(
-                                        m.type, m.format, m.countryOfOrigin),
-                                    if (m.averageScore != null) ...[
-                                      const SizedBox(width: 8),
-                                      _ScoreBadge(m.averageScore!),
+                            // ── Bottom gradient scrim ─────────────────────
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    stops: const [0.35, 0.65, 1.0],
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withValues(alpha: 0.40),
+                                      (_dominantColor != null
+                                              ? Color.lerp(
+                                                  _dominantColor!,
+                                                  Colors.black,
+                                                  0.55)!
+                                              : Colors.black)
+                                          .withValues(alpha: 0.96),
                                     ],
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  m.displayTitle,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                if (isCinematic &&
-                                    m.description != null &&
-                                    m.description!.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
+                              ),
+                            ),
+
+                            // ── Info overlay ──────────────────────────────
+                            Positioned(
+                              left: 14,
+                              right: 14,
+                              bottom: 30,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Badge row
+                                  Row(
+                                    children: [
+                                      _TypeBadge(
+                                          m.type, m.format, m.countryOfOrigin),
+                                      if (m.averageScore != null) ...[
+                                        const SizedBox(width: 8),
+                                        _ScoreBadge(m.averageScore!),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Title
                                   Text(
-                                    m.description!,
-                                    maxLines: 3,
+                                    m.displayTitle,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12.5,
-                                      height: 1.45,
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.2,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.black87,
-                                          blurRadius: 6,
-                                        ),
+                                            color: Colors.black54,
+                                            blurRadius: 8),
                                       ],
                                     ),
                                   ),
-                                ],
-                                if (m.genres.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Row(
-                                      children: m.genres
-                                          .take(3)
-                                          .map(
-                                            (g) => Padding(
-                                              padding: const EdgeInsets.only(
-                                                  right: 6),
-                                              child: _GenrePill(g),
-                                            ),
-                                          )
-                                          .toList(),
+                                  // Description (cinematic only)
+                                  if (isCinematic &&
+                                      m.description != null &&
+                                      m.description!.isNotEmpty) ...[
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      m.description!,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                        shadows: [
+                                          Shadow(
+                                              color: Colors.black87,
+                                              blurRadius: 6),
+                                        ],
+                                      ),
                                     ),
-                                  ),
+                                  ],
+                                  // Genre pills
+                                  if (m.genres.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        children: m.genres
+                                            .take(3)
+                                            .map((g) => Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          right: 6),
+                                                  child: _GenrePill(g),
+                                                ))
+                                            .toList(),
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
 
-                          // ── Page indicator dots ─────────────────────────
-                          Positioned(
-                            bottom: isCinematic ? 14 : 10,
-                            left: 0,
-                            right: 0,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(
-                                widget.items.length > 8
-                                    ? 8
-                                    : widget.items.length,
-                                (di) => AnimatedContainer(
-                                  duration:
-                                      const Duration(milliseconds: 300),
-                                  curve: Curves.easeOut,
-                                  width: _index == di ? 20 : 6,
-                                  height: 5,
-                                  margin: const EdgeInsets.symmetric(
-                                      horizontal: 2.5),
-                                  decoration: BoxDecoration(
-                                    color: _index == di
-                                        ? Colors.white
-                                        : Colors.white
-                                            .withValues(alpha: 0.30),
-                                    borderRadius: BorderRadius.circular(99),
+                            // ── Page indicator dots ───────────────────────
+                            Positioned(
+                              bottom: 10,
+                              left: 0,
+                              right: 0,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(
+                                  widget.items.length > 8
+                                      ? 8
+                                      : widget.items.length,
+                                  (di) => AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 280),
+                                    curve: Curves.easeOut,
+                                    width: _index == di ? 20 : 5,
+                                    height: 4,
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 2),
+                                    decoration: BoxDecoration(
+                                      color: _index == di
+                                          ? Colors.white
+                                          : Colors.white
+                                              .withValues(alpha: 0.30),
+                                      borderRadius:
+                                          BorderRadius.circular(99),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -361,62 +331,12 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Top brush-stroke scrim
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TopBrushScrim extends CustomPainter {
-  final Color color;
-  _TopBrushScrim(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(w, 0)
-      ..lineTo(w, h * 0.72)
-      ..cubicTo(
-        w * 0.80, h * 0.95,
-        w * 0.62, h * 0.68,
-        w * 0.44, h * 0.84,
-      )
-      ..cubicTo(
-        w * 0.30, h * 0.97,
-        w * 0.14, h * 0.66,
-        0, h * 0.80,
-      )
-      ..close();
-
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          color.withValues(alpha: 0.88),
-          color.withValues(alpha: 0.52),
-          color.withValues(alpha: 0.0),
-        ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_TopBrushScrim old) => old.color != color;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Synopsis strip (non-forceFullWidth only)
+// Synopsis strip
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SynopsisRow extends StatelessWidget {
   final AnilistMedia media;
   final VoidCallback onTap;
-
   const _SynopsisRow({super.key, required this.media, required this.onTap});
 
   @override
@@ -482,7 +402,7 @@ class _SynopsisRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
+// Badges / pills
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TypeBadge extends StatelessWidget {
@@ -503,7 +423,7 @@ class _TypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: Colors.white.withValues(alpha: 0.20),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -532,7 +452,7 @@ class _ScoreBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star_rounded, size: 12, color: Colors.amberAccent),
+          const Icon(Icons.star_rounded, size: 11, color: Colors.amberAccent),
           const SizedBox(width: 3),
           Text(
             (score / 10).toStringAsFixed(1),
