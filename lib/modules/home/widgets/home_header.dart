@@ -15,12 +15,10 @@ const kHomeTabs = [
   'Jeux',
 ];
 
-/// MovieBox-style home header.
+/// Disney+-style home header.
 ///
-/// • In dark theme: fully transparent at scroll offset 0 (hero shows through),
-///   fades to blurred surface on scroll. Text starts white then lerps to onSurface.
-/// • In light theme: always semi-opaque background, text always uses onSurface
-///   (dark) so it is readable in all conditions.
+/// • Transparent at top, blurs + tints on scroll (dark mode).
+/// • Tabs are pill chips: selected = filled white/primary pill, unselected = ghost text.
 /// • Always sticky — never hides.
 class HomeHeader extends StatelessWidget {
   final double scrollOffset;
@@ -44,25 +42,23 @@ class HomeHeader extends StatelessWidget {
     // 0.0 → top of page; 1.0 → scrolled past 130 px.
     final t = (scrollOffset / 130).clamp(0.0, 1.0);
 
-    // Dark theme: transparent at top, opaque when scrolled.
-    // Light theme: always show a background so dark text is readable.
-    final bgAlpha = isDark ? t * 0.96 : 0.88 + t * 0.08;
+    // Background: transparent at top → frosted surface on scroll
+    final bgAlpha = isDark ? t * 0.94 : 0.90 + t * 0.06;
     final bgColor = cs.surface.withValues(alpha: bgAlpha);
 
-    // Dark theme: white at top → onSurface when scrolled.
-    // Light theme: always onSurface (dark).
+    // Text colors
     final textColor = isDark
         ? Color.lerp(Colors.white, cs.onSurface, t)!
         : cs.onSurface;
     final textFaded = isDark
         ? Color.lerp(
-            Colors.white.withValues(alpha: 0.60),
-            cs.onSurface.withValues(alpha: 0.55),
+            Colors.white.withValues(alpha: 0.55),
+            cs.onSurface.withValues(alpha: 0.50),
             t,
           )!
-        : cs.onSurface.withValues(alpha: 0.52);
+        : cs.onSurface.withValues(alpha: 0.48);
 
-    // Search bar fill.
+    // Search bar fill
     final searchFill = isDark
         ? Color.lerp(
             Colors.white.withValues(alpha: 0.13),
@@ -78,17 +74,33 @@ class HomeHeader extends StatelessWidget {
           )!
         : cs.outlineVariant.withValues(alpha: 0.50);
 
+    // Pill chip colors — adapts to light/dark and scroll position
+    // Selected: white pill in dark (at top), primary pill when scrolled; in light always primary
+    final pillSelected = isDark
+        ? Color.lerp(Colors.white, cs.primary, t * 0.5)!
+        : cs.primary;
+    final pillSelectedText = isDark
+        ? Color.lerp(Colors.black, cs.onPrimary, t * 0.5)!
+        : cs.onPrimary;
+    final pillUnselectedBg = isDark
+        ? Color.lerp(
+            Colors.white.withValues(alpha: 0.12),
+            cs.surfaceContainerHighest.withValues(alpha: 0.55),
+            t,
+          )!
+        : cs.surfaceContainerHighest.withValues(alpha: 0.55);
+
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: t * 18, sigmaY: t * 18),
+        filter: ImageFilter.blur(sigmaX: t * 20, sigmaY: t * 20),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           decoration: BoxDecoration(
             color: bgColor,
-            border: t > 0.6
+            border: t > 0.55
                 ? Border(
                     bottom: BorderSide(
-                      color: cs.outline.withValues(alpha: (t - 0.6) * 0.25),
+                      color: cs.outline.withValues(alpha: (t - 0.55) * 0.22),
                       width: 0.8,
                     ),
                   )
@@ -98,20 +110,21 @@ class HomeHeader extends StatelessWidget {
             bottom: false,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Search bar row ────────────────────────────────────────────
+                // ── Search bar row ──────────────────────────────────────────
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 14, 6),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 14, 8),
                   child: Row(
                     children: [
-                      // ── Account button (left of search bar) ───────────────
+                      // ── Account button ─────────────────────────────────
                       Account3DButton(
                         size: 38,
                         onTap: () => showAccountSheet(context),
                       ),
                       const SizedBox(width: 10),
 
-                      // ── Search bar ────────────────────────────────────────
+                      // ── Search bar ─────────────────────────────────────
                       Expanded(
                         child: GestureDetector(
                           onTap: onSearchTap ?? () {},
@@ -142,7 +155,7 @@ class HomeHeader extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                // ── "Recherche" green button ─────────────────
+                                // ── "Recherche" green button ───────────
                                 Container(
                                   margin: const EdgeInsets.symmetric(
                                       horizontal: 6, vertical: 7),
@@ -171,24 +184,30 @@ class HomeHeader extends StatelessWidget {
                   ),
                 ),
 
-                // ── Category tabs — plain text, no chips ──────────────────────
+                // ── Category pills — Disney+ chip style ──────────────────────
                 SizedBox(
-                  height: 34,
+                  height: 38,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                    padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4),
                     itemCount: kHomeTabs.length,
                     itemBuilder: (context, i) {
                       final active = selectedTab == i;
                       final isLive = i == 0;
-                      return _PlainTab(
+                      return _PillTab(
                         label: kHomeTabs[i],
                         active: active,
                         isLive: isLive,
+                        pillSelectedColor: isLive
+                            ? (isDark
+                                ? Colors.red.shade400
+                                : Colors.red.shade600)
+                            : pillSelected,
+                        pillSelectedTextColor:
+                            isLive ? Colors.white : pillSelectedText,
+                        pillUnselectedBg: pillUnselectedBg,
                         textColor: textColor,
                         textFaded: textFaded,
-                        activeAccent: isLive ? Colors.red : cs.primary,
                         onTap: () => onTabChanged(i),
                       );
                     },
@@ -206,24 +225,30 @@ class HomeHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Plain text tab — no chip, no background, just bold text + underline dot
+// Pill chip tab — Disney+ style
+// Selected  → filled pill (white/primary) with bold label
+// Unselected → subtle ghost pill with faded label
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _PlainTab extends StatelessWidget {
+class _PillTab extends StatelessWidget {
   final String label;
   final bool active;
   final bool isLive;
+  final Color pillSelectedColor;
+  final Color pillSelectedTextColor;
+  final Color pillUnselectedBg;
   final Color textColor;
   final Color textFaded;
-  final Color activeAccent;
   final VoidCallback onTap;
 
-  const _PlainTab({
+  const _PillTab({
     required this.label,
     required this.onTap,
+    required this.pillSelectedColor,
+    required this.pillSelectedTextColor,
+    required this.pillUnselectedBg,
     required this.textColor,
     required this.textFaded,
-    required this.activeAccent,
     this.active = false,
     this.isLive = false,
   });
@@ -233,55 +258,99 @@ class _PlainTab extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Column(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.only(right: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+        decoration: BoxDecoration(
+          color: active ? pillSelectedColor : pillUnselectedBg,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: pillSelectedColor.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Live dot indicator
-                if (isLive) ...[
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(right: 4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 180),
-                  style: TextStyle(
-                    color: active ? textColor : textFaded,
-                    fontSize: active ? 13.5 : 13.0,
-                    fontWeight:
-                        active ? FontWeight.w800 : FontWeight.w500,
-                    letterSpacing: active ? 0.2 : 0.0,
-                    decoration: TextDecoration.none,
-                  ),
-                  child: Text(label),
-                ),
-              ],
-            ),
-
-            // Underline accent for active tab
-            const SizedBox(height: 2),
-            AnimatedContainer(
+            // Live pulsing dot
+            if (isLive) ...[
+              _LiveDot(active: active),
+              const SizedBox(width: 4),
+            ],
+            AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              width: active ? 18.0 : 0.0,
-              height: 2.5,
-              decoration: BoxDecoration(
-                color: active ? activeAccent : Colors.transparent,
-                borderRadius: BorderRadius.circular(99),
+              style: TextStyle(
+                color: active
+                    ? pillSelectedTextColor
+                    : textFaded,
+                fontSize: 13.0,
+                fontWeight:
+                    active ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: active ? 0.1 : 0.0,
+                decoration: TextDecoration.none,
               ),
+              child: Text(label),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pulsing live dot
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LiveDot extends StatefulWidget {
+  final bool active;
+  const _LiveDot({required this.active});
+
+  @override
+  State<_LiveDot> createState() => _LiveDotState();
+}
+
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(
+          color: widget.active ? Colors.white : Colors.red,
+          shape: BoxShape.circle,
         ),
       ),
     );

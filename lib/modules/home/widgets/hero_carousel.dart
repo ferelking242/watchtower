@@ -8,15 +8,15 @@ import 'package:palette_generator/palette_generator.dart';
 
 /// Auto-cycling banner carousel.
 ///
-/// [forceFullWidth] = true → cinematic edge-to-edge mode used on the home
-/// screen hero.  In this mode the description text is rendered **on the
-/// image** (there is enough room), the synopsis strip below is suppressed,
-/// and the card height is set to 62 % of the screen.
+/// [forceFullWidth] = true → cinematic hero mode used on the home screen.
+/// In this mode the card extends nearly edge-to-edge with generous rounded
+/// corners (Disney+/streaming-app style).  Description text is rendered on
+/// the image and the synopsis strip below is suppressed.
 ///
-/// FIX (2026-05-11):
-///   • PageController now lives in State (not recreated every build).
-///   • Top brush-stroke scrim keeps the header readable on bright images.
-///   • viewportFraction is tracked; controller is only rebuilt when it changes.
+/// Card sizing:
+///   forceFullWidth → 62 % of screen height, h-padding 14, radius 22
+///   compact        → 190 px, h-padding 6,  radius 16
+///   standard       → 270 px, h-padding 6,  radius 20
 class HeroCarousel extends ConsumerStatefulWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
@@ -93,16 +93,12 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     super.dispose();
   }
 
-  /// Returns the viewport fraction that should be used given the current style.
   double _computeVpFraction(bool isCinematic, bool isCompact) {
     if (isCinematic) return 1.0;
     if (isCompact) return 0.88;
     return 0.92;
   }
 
-  /// Rebuilds [_ctrl] with a new viewportFraction when the style changes.
-  /// Called inside build() — safe because we defer to the next frame via
-  /// addPostFrameCallback so we never call setState during a build.
   void _maybeRebuildController(double newFraction) {
     if (newFraction == _viewportFraction) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -132,16 +128,25 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     final desiredFraction = _computeVpFraction(isCinematic, isCompact);
     _maybeRebuildController(desiredFraction);
 
-    // ── Fixed heights ─────────────────────────────────────────────────────────
+    // ── Sizing & rounding ─────────────────────────────────────────────────────
+    // forceFullWidth: large hero — rounded corners + side padding (streaming style)
     final cardHeight = widget.forceFullWidth
         ? screenH * 0.62
         : (isCompact ? 190.0 : 270.0);
+
+    final double hPadding = widget.forceFullWidth
+        ? 14.0
+        : (isCompact ? 6.0 : 6.0);
+
+    final double cardRadius = widget.forceFullWidth
+        ? 22.0
+        : (isCompact ? 16.0 : 20.0);
 
     final totalHeight = (!widget.forceFullWidth && showSynopsis && !isCompact)
         ? cardHeight + 86
         : cardHeight;
 
-    // Dominant-color for the brush scrim (darkened toward black)
+    // Dominant-color for top scrim
     final brushColor = _dominantColor != null
         ? Color.lerp(_dominantColor!, Colors.black, 0.45)!
         : Colors.black;
@@ -167,13 +172,11 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                 final image = m.bannerImage ?? m.bestCover;
 
                 return Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: isCinematic ? 0 : 6),
+                  padding: EdgeInsets.symmetric(horizontal: hPadding),
                   child: GestureDetector(
                     onTap: () => widget.onItemTap(m),
                     child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(isCinematic ? 0 : 20),
+                      borderRadius: BorderRadius.circular(cardRadius),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -182,7 +185,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                             ExtendedImage.network(
                               image,
                               fit: BoxFit.cover,
-                              // Portrait manga covers: align top so faces show
                               alignment: Alignment.topCenter,
                               cache: true,
                             )
@@ -215,17 +217,16 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                           ),
 
                           // ── TOP brush-stroke scrim — header always legible
-                          // Organic wavy bottom edge (brush/pinceaux effect).
-                          // Height covers the floating HomeHeader (≈160 px).
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: 165,
-                            child: CustomPaint(
-                              painter: _TopBrushScrim(brushColor),
+                          if (isCinematic)
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: 165,
+                              child: CustomPaint(
+                                painter: _TopBrushScrim(brushColor),
+                              ),
                             ),
-                          ),
 
                           // ── Info overlay ────────────────────────────────
                           Positioned(
@@ -301,7 +302,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
 
                           // ── Page indicator dots ─────────────────────────
                           Positioned(
-                            bottom: isCinematic ? 16 : 10,
+                            bottom: isCinematic ? 14 : 10,
                             left: 0,
                             right: 0,
                             child: Row(
@@ -314,16 +315,16 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   duration:
                                       const Duration(milliseconds: 300),
                                   curve: Curves.easeOut,
-                                  width: _index == di ? 18 : 6,
-                                  height: 6,
+                                  width: _index == di ? 20 : 6,
+                                  height: 5,
                                   margin: const EdgeInsets.symmetric(
-                                      horizontal: 2),
+                                      horizontal: 2.5),
                                   decoration: BoxDecoration(
                                     color: _index == di
                                         ? Colors.white
                                         : Colors.white
-                                            .withValues(alpha: 0.35),
-                                    borderRadius: BorderRadius.circular(3),
+                                            .withValues(alpha: 0.30),
+                                    borderRadius: BorderRadius.circular(99),
                                   ),
                                 ),
                               ),
@@ -361,10 +362,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Top brush-stroke scrim
-//
-// Organic wavy bottom edge mimics a paint-brush stroke.  Filled with a strong
-// top-to-transparent gradient so the floating header is always legible even
-// over bright/white images.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TopBrushScrim extends CustomPainter {
@@ -376,7 +373,6 @@ class _TopBrushScrim extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Organic wavy path — the "pinceaux" / brush-stroke shape
     final path = Path()
       ..moveTo(0, 0)
       ..lineTo(w, 0)
