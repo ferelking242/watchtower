@@ -15,5 +15,4 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.baseflow.permissionhandler
-        pluginClass: PermissionHandlerPlugin
+        default_package: permission_handler_android
