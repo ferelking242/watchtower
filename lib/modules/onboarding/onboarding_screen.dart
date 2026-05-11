@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 const String _onboardingMarkerFileName = '.onboarding_complete';
 
@@ -488,8 +489,8 @@ class _SloganPageState extends State<_SloganPage>
                           items: _stagger(i),
                           goUp: i.isEven,
                           width: laneW,
-                          cardHeight: 150,
-                          gap: 8,
+                          cardHeight: 130,
+                          gap: 6,
                         ),
                       ),
                     ),
@@ -527,12 +528,23 @@ class _SloganPageState extends State<_SloganPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _sloganLine('Regarde.', dim: true),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 _sloganLine('Lis.', dim: true),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 _sloganLine('Ecoute.', dim: true),
-                const SizedBox(height: 14),
+                const SizedBox(height: 20),
                 _sloganLine('Tout.', dim: false),
+                const SizedBox(height: 16),
+                Text(
+                  'Un seul endroit pour tout ce\nque tu aimes.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.55),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                    letterSpacing: 0.1,
+                  ),
+                ),
               ],
             ),
           ),
@@ -557,12 +569,12 @@ class _SloganPageState extends State<_SloganPage>
       text,
       style: TextStyle(
         color: dim
-            ? Colors.white.withOpacity(0.38)
+            ? Colors.white.withOpacity(0.28)
             : Colors.white,
-        fontSize: dim ? 46 : 64,
+        fontSize: dim ? 52 : 72,
         fontWeight: FontWeight.w900,
-        letterSpacing: -2.5,
-        height: 1.05,
+        letterSpacing: -3.0,
+        height: 1.0,
       ),
     );
   }
@@ -633,6 +645,7 @@ class _Lane extends StatelessWidget {
         child: Column(
           children: items
               .map((item) => _Card(
+                    key: ValueKey(item.title),
                     item: item,
                     width: width - 8,
                     height: cardHeight,
@@ -654,6 +667,7 @@ class _Card extends StatelessWidget {
   final double height;
   final double gap;
   const _Card({
+    super.key,
     required this.item,
     required this.width,
     required this.height,
@@ -674,16 +688,18 @@ class _Card extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Cover image
-          Image.network(
-            item.imageUrl,
-            fit: BoxFit.cover,
-            headers: const {
-              'User-Agent': 'Mozilla/5.0 (compatible; Watchtower/1.0)',
-            },
-            errorBuilder: (_, __, ___) => _fallback(),
-            loadingBuilder: (_, child, progress) =>
-                progress == null ? child : _fallback(),
+          // Cover image — cached to avoid re-fetching on every rebuild
+          RepaintBoundary(
+            child: cachedNetworkImage(
+              imageUrl: item.imageUrl,
+              width: width,
+              height: height,
+              fit: BoxFit.cover,
+              headers: const {
+                'User-Agent': 'Mozilla/5.0 (compatible; Watchtower/1.0)',
+              },
+              errorWidget: _fallback(),
+            ),
           ),
 
           // Gradient overlay for text legibility

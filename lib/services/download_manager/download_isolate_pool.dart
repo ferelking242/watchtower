@@ -763,11 +763,16 @@ Future<void> _processM3u8Download(
 /// after that point would kill the whole HLS download with a misleading
 /// "Failed to process segment" error and leave 5 other in-flight segments
 /// orphaned.
+///
+/// A per-segment timeout of 45 seconds prevents the downloader from
+/// hanging silently when a CDN stalls mid-stream (the "stuck at 0%"
+/// symptom seen with Hydra on some providers).
 Future<void> _downloadSegment(
   TsInfo ts,
   M3u8DownloadParams params,
   Client client,
 ) async {
+  const segmentTimeout = Duration(seconds: 45);
   final file = File(path.join(params.tempDir, '${ts.name}.ts'));
 
   try {
@@ -786,7 +791,15 @@ Future<void> _downloadSegment(
       if (params.headers != null) {
         request.headers.addAll(params.headers!);
       }
-      final response = await client.send(request);
+
+      // Wrap the entire send+stream in a timeout so a stalled CDN
+      // does not block the isolate indefinitely.
+      final response = await client.send(request).timeout(
+        segmentTimeout,
+        onTimeout: () => throw DownloadPoolException(
+          'Segment ${ts.name}: connection timeout after ${segmentTimeout.inSeconds}s',
+        ),
+      );
 
       if (response.statusCode != 200) {
         throw DownloadPoolException(
@@ -796,9 +809,16 @@ Future<void> _downloadSegment(
 
       final sink = file.openWrite();
       try {
-        await for (final chunk in response.stream) {
-          sink.add(chunk);
-        }
+        // Per-chunk inactivity watchdog — if no bytes arrive for
+        // segmentTimeout the stream is considered stalled.
+        await response.stream
+            .timeout(
+              segmentTimeout,
+              onTimeout: (_) => throw DownloadPoolException(
+                'Segment ${ts.name}: stream stalled for ${segmentTimeout.inSeconds}s',
+              ),
+            )
+            .forEach(sink.add);
       } finally {
         await sink.flush();
         await sink.close();

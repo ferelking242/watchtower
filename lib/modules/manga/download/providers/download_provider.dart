@@ -643,7 +643,8 @@ Future<void> downloadChapter(
     PageUrl? novelPage;
     List<PageUrl> pages = [];
     final StorageProvider storageProvider = StorageProvider();
-    await storageProvider.requestPermission();
+    // Do NOT call requestPermission() here — permission is granted during
+    // onboarding. Calling it at download time shows a system dialog mid-session.
     final mangaMainDirectory = await storageProvider.getMangaMainDirectory(
       chapter,
     );

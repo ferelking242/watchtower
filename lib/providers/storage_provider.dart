@@ -216,16 +216,11 @@ class StorageProvider {
     final dir = Directory(dirPath);
     try {
       await dir.create(recursive: true);
-    } catch (_) {
-      if (await requestPermission()) {
-        try {
-          await dir.create(recursive: true);
-        } catch (e) {
-          debugPrint('Initial directory creation failed for $dirPath: $e');
-        }
-      } else {
-        debugPrint('Permission denied. Cannot create: $dirPath');
-      }
+    } catch (e) {
+      // Do NOT call requestPermission() here — permissions are granted during
+      // onboarding (page 3). Calling it here would open a system dialog at any
+      // random point (e.g. when a download starts) which is confusing.
+      debugPrint('createDirectorySafely failed for $dirPath: $e');
     }
   }
 

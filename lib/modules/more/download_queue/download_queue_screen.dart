@@ -1004,9 +1004,18 @@ class _IconBtn extends StatelessWidget {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Progressive Swipeable — reveals actions progressively
-// Left swipe → reveals: Pause | Resume + Cancel
-// Right swipe → reveals: Delete + Open
+// _ProgressiveSwipeable — rewrote to fix:
+//   • Both sides appearing simultaneously (was a hit-test conflict)
+//   • Actions not triggering (GestureDetector inside drag GestureDetector)
+//   • Overflow beyond card bounds
+//
+// Design:
+//   Swipe RIGHT  →  reveals LEFT actions: [Pause/Resume] [Annuler]
+//   Swipe LEFT   →  reveals RIGHT actions: [Ouvrir] [Supprimer]
+//
+// The card snaps to fully-open (max reveal) or closed on drag end.
+// Each action button is an independent InkWell — no nested
+// GestureDetector competing with the drag recognizer.
 // ──────────────────────────────────────────────────────────────
 
 class _ProgressiveSwipeable extends StatefulWidget {
@@ -1033,159 +1042,186 @@ class _ProgressiveSwipeable extends StatefulWidget {
 
 class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
     with SingleTickerProviderStateMixin {
-  double _dx = 0;
-  double _dragStart = 0;
-  bool _isDragging = false;
+  late final AnimationController _anim;
+  late Animation<double> _slide;
 
-  static const double _actionWidth = 64.0;
-  static const double _snapThreshold = 80.0;
-  static const double _maxLeftReveal = _actionWidth * 2; // pause + cancel
-  static const double _maxRightReveal = _actionWidth * 2; // delete + open
+  // +1 = left panel open, -1 = right panel open, 0 = closed
+  int _direction = 0;
 
-  void _onDragStart(DragStartDetails d) {
-    _dragStart = d.globalPosition.dx;
-    _isDragging = true;
+  // Width of a single action button
+  static const double _btnW = 72.0;
+  // Total width revealed for each side
+  static const double _leftMax = _btnW * 2;  // pause + cancel
+  static const double _rightMax = _btnW * 2; // open + delete
+  // Drag distance needed to snap open
+  static const double _snapThreshold = 48.0;
+
+  double _rawDelta = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _slide = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  void _onDragStart(DragStartDetails _) {
+    _rawDelta = 0;
+    _anim.stop();
   }
 
   void _onDragUpdate(DragUpdateDetails d) {
-    final raw = d.globalPosition.dx - _dragStart;
-    // Apply rubber-band damping beyond max reveal
-    double clamped;
-    if (raw > 0) {
-      clamped = math.min(raw, _maxLeftReveal + 20);
-    } else {
-      clamped = math.max(raw, -(_maxRightReveal + 20));
+    _rawDelta += d.delta.dx;
+    // Only allow dragging in one direction per gesture
+    if (_direction == 0) {
+      if (_rawDelta > 6) _direction = 1;
+      if (_rawDelta < -6) _direction = -1;
     }
-    setState(() => _dx = clamped);
+    if (_direction == 0) return;
+
+    final max = _direction == 1 ? _leftMax : _rightMax;
+    final clamped = (_rawDelta * _direction).clamp(0.0, max + 16);
+    _slide = AlwaysStoppedAnimation(clamped * _direction);
+    if (mounted) setState(() {});
   }
 
   void _onDragEnd(DragEndDetails d) {
-    _isDragging = false;
-    // Snap back to 0 always — actions are revealed in-place
-    setState(() => _dx = 0);
+    final absVal = _rawDelta.abs();
+    final snapTo = absVal > _snapThreshold
+        ? (_direction == 1 ? _leftMax : -_rightMax)
+        : 0.0;
+
+    final from = _slide.value;
+    _slide = Tween<double>(begin: from, end: snapTo).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    );
+    _anim.forward(from: 0).then((_) {
+      if (snapTo == 0) _direction = 0;
+    });
   }
 
-  double get _leftReveal => _dx > 0 ? _dx.clamp(0.0, _maxLeftReveal) : 0;
-  double get _rightReveal => _dx < 0 ? (-_dx).clamp(0.0, _maxRightReveal) : 0;
-
-  // Left side: Pause/Resume (first), Cancel (second, appears after 64px)
-  // Right side: Delete (first), Open (second)
-
-  void _handleLeftTap(double revealWidth) {
-    if (revealWidth < _actionWidth * 0.6) return;
-    if (revealWidth >= _actionWidth + 20) {
-      // both visible — tapping second action (cancel)
-      widget.onCancel();
-    } else {
-      // only first (pause/resume)
-      widget.onPauseResume();
-    }
+  void _close() {
+    final from = _slide.value;
+    _slide = Tween<double>(begin: from, end: 0).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    );
+    _anim.forward(from: 0).then((_) => _direction = 0);
   }
 
-  void _handleRightTap(double revealWidth) {
-    if (revealWidth < _actionWidth * 0.6) return;
-    if (revealWidth >= _actionWidth + 20) {
-      // Open
-      widget.onOpen();
-    } else {
-      // Delete
-      widget.onDelete();
-    }
+  void _tap(VoidCallback cb) {
+    _close();
+    cb();
   }
 
   @override
   Widget build(BuildContext context) {
-    final leftReveal = _leftReveal;
-    final rightReveal = _rightReveal;
     final scheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onHorizontalDragStart: _onDragStart,
-      onHorizontalDragUpdate: _onDragUpdate,
-      onHorizontalDragEnd: _onDragEnd,
-      child: Stack(
-        children: [
-          // Left background (swipe right → pause/cancel revealed)
-          if (leftReveal > 4)
-            Positioned.fill(
-              child: Row(
-                children: [
-                  // Pause / Resume action (always visible first)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: math.min(leftReveal, _actionWidth),
-                    color: Colors.orange.shade700,
-                    child: leftReveal > 16
-                        ? _SwipeActionItem(
-                            icon: widget.isPaused ? Icons.play_arrow : Icons.pause,
-                            label: widget.isPaused ? 'Reprendre' : 'Pause',
-                            onTap: widget.onPauseResume,
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  // Cancel action (appears after first is fully revealed)
-                  if (leftReveal > _actionWidth * 0.7)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: math.min(leftReveal - _actionWidth * 0.7, _actionWidth),
-                      color: Colors.red.shade700,
-                      child: leftReveal > _actionWidth
-                          ? _SwipeActionItem(
-                              icon: Icons.close,
-                              label: 'Annuler',
-                              onTap: widget.onCancel,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  const Spacer(),
-                ],
-              ),
-            ),
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        final offset = _slide.value;
+        final leftReveal = offset > 0 ? offset.clamp(0.0, _leftMax) : 0.0;
+        final rightReveal = offset < 0 ? (-offset).clamp(0.0, _rightMax) : 0.0;
 
-          // Right background (swipe left → delete/open revealed)
-          if (rightReveal > 4)
-            Positioned.fill(
-              child: Row(
-                children: [
-                  const Spacer(),
-                  // Open action (second, appears first because on right)
-                  if (rightReveal > _actionWidth * 0.7)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: math.min(rightReveal - _actionWidth * 0.7, _actionWidth),
-                      color: scheme.primary,
-                      child: rightReveal > _actionWidth
-                          ? _SwipeActionItem(
-                              icon: Icons.folder_open_outlined,
-                              label: 'Ouvrir',
-                              onTap: widget.onOpen,
-                            )
-                          : const SizedBox.shrink(),
+        return GestureDetector(
+          onHorizontalDragStart: _onDragStart,
+          onHorizontalDragUpdate: _onDragUpdate,
+          onHorizontalDragEnd: _onDragEnd,
+          child: ClipRect(
+            child: Stack(
+              children: [
+                // ── Left action panel (swipe right) ─────────────────
+                if (leftReveal > 0)
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: leftReveal,
+                        child: Row(
+                          children: [
+                            // Pause / Resume
+                            Expanded(
+                              child: _SwipeActionItem(
+                                icon: widget.isPaused
+                                    ? Icons.play_arrow_rounded
+                                    : Icons.pause_rounded,
+                                label: widget.isPaused ? 'Reprendre' : 'Pause',
+                                color: Colors.orange.shade700,
+                                onTap: () => _tap(widget.onPauseResume),
+                              ),
+                            ),
+                            // Cancel — only shown once first button fully visible
+                            if (leftReveal >= _btnW * 0.85)
+                              Expanded(
+                                child: _SwipeActionItem(
+                                  icon: Icons.close_rounded,
+                                  label: 'Annuler',
+                                  color: Colors.red.shade700,
+                                  onTap: () => _tap(widget.onCancel),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
-                  // Delete action (first on right side)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: math.min(rightReveal, _actionWidth),
-                    color: Colors.red.shade900,
-                    child: rightReveal > 16
-                        ? _SwipeActionItem(
-                            icon: Icons.delete_outline,
-                            label: 'Supprimer',
-                            onTap: widget.onDelete,
-                          )
-                        : const SizedBox.shrink(),
                   ),
-                ],
-              ),
-            ),
 
-          // Main card — translates with drag
-          Transform.translate(
-            offset: Offset(_dx.clamp(-_maxRightReveal, _maxLeftReveal), 0),
-            child: widget.child,
+                // ── Right action panel (swipe left) ──────────────────
+                if (rightReveal > 0)
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: rightReveal,
+                        child: Row(
+                          children: [
+                            // Open — only shown once delete button fully visible
+                            if (rightReveal >= _btnW * 0.85)
+                              Expanded(
+                                child: _SwipeActionItem(
+                                  icon: Icons.folder_open_outlined,
+                                  label: 'Ouvrir',
+                                  color: scheme.primary,
+                                  onTap: () => _tap(widget.onOpen),
+                                ),
+                              ),
+                            // Delete
+                            Expanded(
+                              child: _SwipeActionItem(
+                                icon: Icons.delete_outline_rounded,
+                                label: 'Supprimer',
+                                color: Colors.red.shade900,
+                                onTap: () => _tap(widget.onDelete),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // ── Main card — slides with drag ──────────────────────
+                Transform.translate(
+                  offset: Offset(offset.clamp(-_rightMax, _leftMax), 0),
+                  child: widget.child,
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1193,34 +1229,41 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
 class _SwipeActionItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
   final VoidCallback onTap;
 
   const _SwipeActionItem({
     required this.icon,
     required this.label,
+    required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+    return Material(
+      color: color,
+      child: InkWell(
+        onTap: onTap,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
