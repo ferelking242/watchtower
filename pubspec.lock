@@ -1193,6 +1193,14 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
+  permission_handler_android:
+    dependency: "direct main"
+    description:
+      name: permission_handler_android
+      sha256: d3971dcdd76182a0c198c096b5db2f0884b0d4196723d21a866fc4cdea057ebc
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.1.0"
   petitparser:
     dependency: transitive
     description:
