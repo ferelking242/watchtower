@@ -136,9 +136,11 @@ class Permission {
 
   Future<PermissionStatus> _checkStatus() async {
     try {
+      // The permission_handler_android v12 MethodChannel expects a bare int
+      // as the argument — NOT a map like {'permission': code}.
       final int? result = await _kChannel.invokeMethod<int>(
         'checkPermissionStatus',
-        {'permission': _code},
+        _code,
       );
       return _fromCode(result);
     } catch (e) {
@@ -149,10 +151,12 @@ class Permission {
 
   Future<PermissionStatus> _request() async {
     try {
+      // The permission_handler_android v12 MethodChannel expects a bare
+      // List<int> as the argument — NOT a map like {'permissions': [code]}.
       final Map<dynamic, dynamic>? result =
           await _kChannel.invokeMethod<Map<dynamic, dynamic>>(
         'requestPermissions',
-        {'permissions': <int>[_code]},
+        <int>[_code],
       );
       return _fromCode(result?[_code] as int?);
     } catch (e) {
@@ -170,10 +174,11 @@ Future<Map<Permission, PermissionStatus>> requestList(
   }
   try {
     final codes = permissions.map((p) => p._code).toList();
+    // Bare List<int> — NOT a map like {'permissions': codes}.
     final Map<dynamic, dynamic>? result =
         await _kChannel.invokeMethod<Map<dynamic, dynamic>>(
       'requestPermissions',
-      {'permissions': codes},
+      codes,
     );
     return {
       for (final p in permissions)

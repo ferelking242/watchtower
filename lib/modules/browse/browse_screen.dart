@@ -69,7 +69,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   Future<void> _checkPermission() async {
-    await StorageProvider().requestPermission();
+    // Silent check only — do NOT open the Settings screen on every tab
+    // switch.  Permissions are granted during onboarding; this just verifies
+    // the current state without prompting.
+    await StorageProvider().requestPermission(requestIfNeeded: false);
   }
 
   @override

@@ -27,10 +27,16 @@ class StorageProvider {
   StorageProvider._internal();
   factory StorageProvider() => _instance;
 
-  Future<bool> requestPermission() async {
+  /// Check (and optionally request) MANAGE_EXTERNAL_STORAGE on Android.
+  ///
+  /// [requestIfNeeded] — when true (default) the real OS dialog / Settings
+  /// intent is shown if the permission is not yet granted.  Pass false to
+  /// perform a silent status-only check without prompting the user.
+  Future<bool> requestPermission({bool requestIfNeeded = true}) async {
     if (kIsWeb || !Platform.isAndroid) return true;
     Permission permission = Permission.manageExternalStorage;
     if (await permission.isGranted) return true;
+    if (!requestIfNeeded) return false;
     if (await permission.request().isGranted) {
       return true;
     }
