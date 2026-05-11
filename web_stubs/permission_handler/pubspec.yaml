@@ -1,5 +1,5 @@
 name: permission_handler
-description: Cross-platform stub — web: always-granted shim; Android: real OS dialogs via PermissionHandlerPlugin MethodChannel.
+description: "Cross-platform stub: web always-granted shim, Android real OS dialogs via PermissionHandlerPlugin MethodChannel."
 version: 12.0.1
 publish_to: none
 
