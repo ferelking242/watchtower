@@ -21,6 +21,9 @@ class SkeletonHomeScreen extends StatelessWidget {
       child: Skeletonizer(
         enabled: true,
         enableSwitchAnimation: true,
+        // ignorePointers defaults to true → blocks all gestures during loading.
+        // Set false so the user can scroll the skeleton while data loads.
+        ignorePointers: false,
         child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(

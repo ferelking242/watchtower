@@ -8,10 +8,15 @@ import 'package:palette_generator/palette_generator.dart';
 
 /// Auto-cycling banner carousel.
 ///
-/// [forceFullWidth] = true â cinematic edge-to-edge mode used on the home
+/// [forceFullWidth] = true → cinematic edge-to-edge mode used on the home
 /// screen hero.  In this mode the description text is rendered **on the
 /// image** (there is enough room), the synopsis strip below is suppressed,
 /// and the card height is set to 62 % of the screen.
+///
+/// FIX (2026-05-11):
+///   • PageController now lives in State (not recreated every build).
+///   • Top brush-stroke scrim keeps the header readable on bright images.
+///   • viewportFraction is tracked; controller is only rebuilt when it changes.
 class HeroCarousel extends ConsumerStatefulWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
@@ -29,29 +34,37 @@ class HeroCarousel extends ConsumerStatefulWidget {
 }
 
 class _HeroCarouselState extends ConsumerState<HeroCarousel> {
-  late final PageController _pageController;
   Timer? _timer;
   int _index = 0;
   Color? _dominantColor;
   String? _lastExtractedUrl;
 
+  // Stable PageController — only recreated when viewportFraction changes.
+  late PageController _ctrl;
+  double _viewportFraction = 1.0;
+
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _ctrl = PageController(viewportFraction: _viewportFraction);
+    _startTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.items.isNotEmpty) _extractDominantColor(widget.items[0]);
+    });
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 6), (_) {
       if (!mounted || widget.items.isEmpty) return;
       final next = (_index + 1) % widget.items.length;
-      if (_pageController.hasClients) {
-        _pageController.animateToPage(
+      if (_ctrl.hasClients) {
+        _ctrl.animateToPage(
           next,
           duration: const Duration(milliseconds: 600),
           curve: Curves.easeOutCubic,
         );
       }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.items.isNotEmpty) _extractDominantColor(widget.items[0]);
     });
   }
 
@@ -76,8 +89,31 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   @override
   void dispose() {
     _timer?.cancel();
-    _pageController.dispose();
+    _ctrl.dispose();
     super.dispose();
+  }
+
+  /// Returns the viewport fraction that should be used given the current style.
+  double _computeVpFraction(bool isCinematic, bool isCompact) {
+    if (isCinematic) return 1.0;
+    if (isCompact) return 0.88;
+    return 0.92;
+  }
+
+  /// Rebuilds [_ctrl] with a new viewportFraction when the style changes.
+  /// Called inside build() — safe because we defer to the next frame via
+  /// addPostFrameCallback so we never call setState during a build.
+  void _maybeRebuildController(double newFraction) {
+    if (newFraction == _viewportFraction) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final old = _ctrl;
+      setState(() {
+        _viewportFraction = newFraction;
+        _ctrl = PageController(viewportFraction: newFraction);
+      });
+      old.dispose();
+    });
   }
 
   @override
@@ -92,32 +128,39 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     final isCinematic = widget.forceFullWidth || carouselStyle == 1;
     final isCompact = !widget.forceFullWidth && carouselStyle == 2;
 
+    // ── Controller lifecycle ──────────────────────────────────────────────────
+    final desiredFraction = _computeVpFraction(isCinematic, isCompact);
+    _maybeRebuildController(desiredFraction);
+
+    // ── Fixed heights ─────────────────────────────────────────────────────────
     final cardHeight = widget.forceFullWidth
         ? screenH * 0.62
         : (isCompact ? 190.0 : 270.0);
-    final viewportFraction = isCinematic ? 1.0 : (isCompact ? 0.88 : 0.92);
 
-    // For the home hero carousel we use an inner PageController that is
-    // separate from the outer one used for animation tracking so we don't
-    // get "position not attached" errors.
-    final innerController = PageController(viewportFraction: viewportFraction);
+    final totalHeight = (!widget.forceFullWidth && showSynopsis && !isCompact)
+        ? cardHeight + 86
+        : cardHeight;
+
+    // Dominant-color for the brush scrim (darkened toward black)
+    final brushColor = _dominantColor != null
+        ? Color.lerp(_dominantColor!, Colors.black, 0.45)!
+        : Colors.black;
 
     return SizedBox(
-      // When forceFullWidth we put the synopsis INSIDE the image, so no
-      // extra height is needed below the card.
-      height: (!widget.forceFullWidth && showSynopsis && !isCompact)
-          ? cardHeight + 86
-          : cardHeight,
+      height: totalHeight,
       child: Column(
         children: [
+          // ── Card PageView ─────────────────────────────────────────────────
           SizedBox(
             height: cardHeight,
             child: PageView.builder(
-              controller: innerController,
+              controller: _ctrl,
               itemCount: widget.items.length,
               onPageChanged: (i) {
                 setState(() => _index = i);
-                if (i < widget.items.length) _extractDominantColor(widget.items[i]);
+                if (i < widget.items.length) {
+                  _extractDominantColor(widget.items[i]);
+                }
               },
               itemBuilder: (_, i) {
                 final m = widget.items[i];
@@ -134,41 +177,57 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // ââ Cover / banner image ââââââââââââââââââââââââââ
+                          // ── Cover / banner image ────────────────────────
                           if (image != null)
                             ExtendedImage.network(
                               image,
                               fit: BoxFit.cover,
+                              // Portrait manga covers: align top so faces show
+                              alignment: Alignment.topCenter,
                               cache: true,
                             )
                           else
                             Container(
-                              color: theme
-                                  .colorScheme.surfaceContainerHighest,
+                              color: theme.colorScheme.surfaceContainerHighest,
                             ),
 
-                          // ââ Gradient scrim: subtle at top, heavy at bottom
-                          //    so the info overlay pops ââââââââââââââââââââââ
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                stops: const [0.0, 0.38, 1.0],
-                                colors: [
-                                  (_dominantColor != null
-                                      ? Color.lerp(_dominantColor!, Colors.black, 0.3)!.withValues(alpha: 0.20)
-                                      : Colors.black.withValues(alpha: 0.08)),
-                                  Colors.transparent,
-                                  (_dominantColor != null
-                                      ? Color.lerp(_dominantColor!, Colors.black, 0.5)!.withValues(alpha: 0.95)
-                                      : Colors.black.withValues(alpha: 0.92)),
-                                ],
+                          // ── BOTTOM gradient scrim — title legibility ────
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  stops: const [0.30, 0.62, 1.0],
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.45),
+                                    (_dominantColor != null
+                                        ? Color.lerp(_dominantColor!,
+                                                Colors.black, 0.5)!
+                                            .withValues(alpha: 0.97)
+                                        : Colors.black
+                                            .withValues(alpha: 0.95)),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
 
-                          // ââ Info overlay â always on the image âââââââââââ
+                          // ── TOP brush-stroke scrim — header always legible
+                          // Organic wavy bottom edge (brush/pinceaux effect).
+                          // Height covers the floating HomeHeader (≈160 px).
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: 165,
+                            child: CustomPaint(
+                              painter: _TopBrushScrim(brushColor),
+                            ),
+                          ),
+
+                          // ── Info overlay ────────────────────────────────
                           Positioned(
                             left: 16,
                             right: 16,
@@ -177,11 +236,10 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // Badges row
                                 Row(
                                   children: [
-                                    _TypeBadge(m.type, m.format,
-                                        m.countryOfOrigin),
+                                    _TypeBadge(
+                                        m.type, m.format, m.countryOfOrigin),
                                     if (m.averageScore != null) ...[
                                       const SizedBox(width: 8),
                                       _ScoreBadge(m.averageScore!),
@@ -189,22 +247,15 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-
-                                // Title
                                 Text(
                                   m.displayTitle,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleLarge
-                                      ?.copyWith(
+                                  style: theme.textTheme.titleLarge?.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-
-                                // ââ Description text ON the image âââââââââ
-                                // Shown when there is enough vertical space
-                                // (forceFullWidth / cinematic mode).
                                 if (isCinematic &&
                                     m.description != null &&
                                     m.description!.isNotEmpty) ...[
@@ -226,8 +277,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                     ),
                                   ),
                                 ],
-
-                                // Genres
                                 if (m.genres.isNotEmpty) ...[
                                   const SizedBox(height: 8),
                                   SingleChildScrollView(
@@ -237,9 +286,8 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                           .take(3)
                                           .map(
                                             (g) => Padding(
-                                              padding:
-                                                  const EdgeInsets.only(
-                                                      right: 6),
+                                              padding: const EdgeInsets.only(
+                                                  right: 6),
                                               child: _GenrePill(g),
                                             ),
                                           )
@@ -251,7 +299,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                             ),
                           ),
 
-                          // ââ Page indicator dots âââââââââââââââââââââââââââ
+                          // ── Page indicator dots ─────────────────────────
                           Positioned(
                             bottom: isCinematic ? 16 : 10,
                             left: 0,
@@ -275,8 +323,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                         ? Colors.white
                                         : Colors.white
                                             .withValues(alpha: 0.35),
-                                    borderRadius:
-                                        BorderRadius.circular(3),
+                                    borderRadius: BorderRadius.circular(3),
                                   ),
                                 ),
                               ),
@@ -291,9 +338,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
             ),
           ),
 
-          // ââ Optional synopsis strip below carousel ââââââââââââââââââââââ
-          // Only shown when NOT forceFullWidth (description is on the image
-          // in that mode so no need for a strip below).
+          // ── Optional synopsis strip ───────────────────────────────────────
           if (!widget.forceFullWidth &&
               showSynopsis &&
               !isCompact &&
@@ -314,7 +359,63 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   }
 }
 
-// ââ Synopsis strip (non-forceFullWidth only) ââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
+// Top brush-stroke scrim
+//
+// Organic wavy bottom edge mimics a paint-brush stroke.  Filled with a strong
+// top-to-transparent gradient so the floating header is always legible even
+// over bright/white images.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TopBrushScrim extends CustomPainter {
+  final Color color;
+  _TopBrushScrim(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Organic wavy path — the "pinceaux" / brush-stroke shape
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w, h * 0.72)
+      ..cubicTo(
+        w * 0.80, h * 0.95,
+        w * 0.62, h * 0.68,
+        w * 0.44, h * 0.84,
+      )
+      ..cubicTo(
+        w * 0.30, h * 0.97,
+        w * 0.14, h * 0.66,
+        0, h * 0.80,
+      )
+      ..close();
+
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: 0.88),
+          color.withValues(alpha: 0.52),
+          color.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TopBrushScrim old) => old.color != color;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Synopsis strip (non-forceFullWidth only)
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SynopsisRow extends StatelessWidget {
   final AnilistMedia media;
@@ -384,7 +485,9 @@ class _SynopsisRow extends StatelessWidget {
   }
 }
 
-// ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _TypeBadge extends StatelessWidget {
   final String type;
