@@ -160,19 +160,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     bool granted = false;
     try {
       if (!kIsWeb && Platform.isAndroid) {
-        // Call request() first — works with the stub and real handler on Android < 11.
-        // On Android 11+ the real handler might return denied; we then fall back to
-        // openAppSettings() and pick up the result via didChangeAppLifecycleState.
+        // On Android 11+, request() for manageExternalStorage opens the system
+        // "Allow management of all files" settings page directly — there is no
+        // runtime dialog for this permission. We simply await the result and let
+        // didChangeAppLifecycleState refresh the status when the user comes back.
+        // We must NOT call openAppSettings() afterwards; that would open the
+        // general app-settings page on top of the specific file-access page,
+        // causing a confusing double Settings navigation.
         final result = await Permission.manageExternalStorage.request();
-        if (result.isGranted) {
-          granted = true;
-        } else {
-          await openAppSettings();
-          // Status will be refreshed by didChangeAppLifecycleState when user returns.
-          // We set granted from the current status; lifecycle will update if needed.
-          granted =
-              (await Permission.manageExternalStorage.status).isGranted;
-        }
+        granted = result.isGranted;
       } else {
         granted = await StorageProvider().requestPermission();
       }
