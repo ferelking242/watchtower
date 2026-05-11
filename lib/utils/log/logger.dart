@@ -284,22 +284,6 @@ class AppLogger {
     Object? error,
     StackTrace? stackTrace,
   }) {
-    if (!_initialized) return;
-
-    // Filter by minimum level
-    if (logLevel.index < _minLevel) return;
-
-    // Filter by disabled tags
-    if (tag != null && _disabledTags.contains(tag)) return;
-
-    // Suppress image errors if configured
-    if (_suppressImages &&
-        logLevel == LogLevel.error &&
-        (message.contains('Failed to load') ||
-            message.contains('Bad state'))) {
-      return;
-    }
-
     final tagPart = tag != null ? '[$tag] ' : '';
     final entry = StringBuffer(
       '[${_timestamp()}][${logLevel.label}] $tagPart$message',
@@ -319,10 +303,28 @@ class AppLogger {
     }
 
     final formatted = entry.toString();
-    if (kDebugMode) debugPrint(formatted);
-    _logQueue.add(formatted);
-    // Mirror to in-memory ring + live broadcast for the overlay viewer.
+
+    // ALWAYS push to the in-memory ring + live broadcast so the floating
+    // overlay and log viewer's in-memory fallback always work, even when
+    // file logging is disabled (enableLogs = false).
     _emitToLive(formatted);
+
+    if (kDebugMode) debugPrint(formatted);
+
+    // Gate file writing on full initialisation (requires enableLogs = true).
+    if (!_initialized) return;
+
+    // Apply file-writing filters (level, tags, image suppression).
+    if (logLevel.index < _minLevel) return;
+    if (tag != null && _disabledTags.contains(tag)) return;
+    if (_suppressImages &&
+        logLevel == LogLevel.error &&
+        (message.contains('Failed to load') ||
+            message.contains('Bad state'))) {
+      return;
+    }
+
+    _logQueue.add(formatted);
   }
 
   static String _timestamp() {

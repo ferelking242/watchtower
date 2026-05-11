@@ -14,6 +14,7 @@ import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -59,9 +60,47 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     try {
       final storage = StorageProvider();
       final dir = await storage.getDefaultDirectory();
-      final file = File(path.join(dir!.path, 'logs.txt'));
-      if (await file.exists()) {
-        final content = await file.readAsString();
+
+      // 1. Prefer per-session files written by AppLogger (logs_sessions/).
+      if (dir != null) {
+        final sessionsDir =
+            Directory(path.join(dir.path, 'logs_sessions'));
+        if (await sessionsDir.exists()) {
+          final files = await sessionsDir
+              .list()
+              .where((e) => e is File && e.path.endsWith('.log'))
+              .cast<File>()
+              .toList();
+          if (files.isNotEmpty) {
+            files.sort((a, b) => b.path.compareTo(a.path));
+            final content = await files.first.readAsString();
+            _rawContent = content;
+            _lines = _parse(content);
+            _applyFilter();
+            setState(() => _loading = false);
+            if (_autoScroll) _scrollToBottom();
+            return;
+          }
+        }
+
+        // 2. Legacy fallback: old flat logs.txt file.
+        final legacy = File(path.join(dir.path, 'logs.txt'));
+        if (await legacy.exists()) {
+          final content = await legacy.readAsString();
+          _rawContent = content;
+          _lines = _parse(content);
+          _applyFilter();
+          setState(() => _loading = false);
+          if (_autoScroll) _scrollToBottom();
+          return;
+        }
+      }
+
+      // 3. No file at all — use the in-memory ring buffer (works even when
+      //    file logging is disabled; always populated by AppLogger.log()).
+      final recent = AppLogger.recentEntries();
+      if (recent.isNotEmpty) {
+        final content = recent.join('\n');
         _rawContent = content;
         _lines = _parse(content);
         _applyFilter();

@@ -121,8 +121,6 @@ dependency_overrides:
       path: flutter_web_auth_2
   local_auth:
     path: web_stubs/local_auth
-  permission_handler:
-    path: web_stubs/permission_handler
   window_manager:
     path: web_stubs/window_manager
   desktop_webview_window:
