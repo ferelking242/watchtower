@@ -25,7 +25,6 @@ dependencies:
   url_launcher: ^6.3.1
   package_info_plus: ^9.0.1
   permission_handler: ^12.0.1
-  permission_handler_android: ^12.1.0
   flutter_inappwebview:
     git:
       url: https://github.com/kodjodevf/flutter_inappwebview.git
@@ -122,8 +121,6 @@ dependency_overrides:
       path: flutter_web_auth_2
   local_auth:
     path: web_stubs/local_auth
-  permission_handler:
-    path: web_stubs/permission_handler
   window_manager:
     path: web_stubs/window_manager
   desktop_webview_window:
