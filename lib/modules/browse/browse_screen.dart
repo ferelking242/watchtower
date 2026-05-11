@@ -17,6 +17,7 @@ import 'package:watchtower/modules/browse/sources/sources_screen.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/wext_importer.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key});
@@ -183,6 +184,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             (_isSearch[type] ?? false) ? Icons.close : Icons.search_rounded,
             color: theme.hintColor,
           ),
+        ),
+        IconButton(
+          tooltip: 'Import .wext file',
+          splashRadius: 20,
+          onPressed: () => importWextAndNotify(context),
+          icon: Icon(Icons.file_download_outlined, color: theme.hintColor),
         ),
         IconButton(
           tooltip: 'Create extension',
