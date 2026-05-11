@@ -411,29 +411,31 @@ class StorageProvider {
           await isar.writeTxn(() async => isar.settings.put(settings));
         }
       }
-    } catch (_) {
-      if (await requestPermission()) {
-        try {
-          final settings = await isar.settings
-              .filter()
-              .idEqualTo(227)
-              .findFirst();
-          if (settings == null) {
-            await isar.writeTxn(
-              () async => isar.settings.put(
-                Settings(
-                  mangaExtensionsRepo: [mangaRepo],
-                  animeExtensionsRepo: [watchRepo],
-                  novelExtensionsRepo: [novelRepo],
-                ),
+    } catch (e) {
+      // DB is already open at this point — the catch covers the settings
+      // initialisation block above, NOT the Isar.open() call.  Requesting OS
+      // storage permission here makes no sense (Isar uses internal app
+      // storage on Android) and could trigger a Settings intent in the middle
+      // of startup.  Just retry the write directly.
+      debugPrint('[initDB] Settings init failed ($e) — retrying without permission gate');
+      try {
+        final settings = await isar.settings
+            .filter()
+            .idEqualTo(227)
+            .findFirst();
+        if (settings == null) {
+          await isar.writeTxn(
+            () async => isar.settings.put(
+              Settings(
+                mangaExtensionsRepo: [mangaRepo],
+                animeExtensionsRepo: [watchRepo],
+                novelExtensionsRepo: [novelRepo],
               ),
-            );
-          }
-        } catch (e) {
-          debugPrint("Failed after retry with permission: $e");
+            ),
+          );
         }
-      } else {
-        debugPrint("Permission denied during Database init fallback.");
+      } catch (e2) {
+        debugPrint('[initDB] Settings retry also failed: $e2');
       }
     }
 

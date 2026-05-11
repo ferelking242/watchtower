@@ -1,6 +1,6 @@
 name: permission_handler
-description: Web stub for permission_handler - returns granted for all permissions
-version: 0.0.1
+description: Cross-platform stub — web: always-granted shim; Android: real OS dialogs via PermissionHandlerPlugin MethodChannel.
+version: 12.0.1
 publish_to: none
 
 environment:
@@ -9,3 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  permission_handler_android: ^12.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.baseflow.permissionhandler
+        pluginClass: PermissionHandlerPlugin
