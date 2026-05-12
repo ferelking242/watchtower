@@ -1,0 +1,819 @@
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:isar_community/isar.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/modules/browse/extension/extension_screen.dart';
+import 'package:watchtower/modules/browse/marketplace_screen.dart';
+import 'package:watchtower/modules/browse/sources/sources_screen.dart';
+import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
+import 'package:watchtower/services/extension_diagnostics.dart';
+import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/wext_importer.dart';
+
+class BrowseScreen extends ConsumerStatefulWidget {
+  const BrowseScreen({super.key});
+
+  @override
+  ConsumerState<BrowseScreen> createState() => _BrowseScreenState();
+}
+
+/// Sub-section inside a single content type (Sources / Extensions / Marketplace).
+enum BrowseSection { sources, extensions, marketplace }
+
+class _BrowseScreenState extends ConsumerState<BrowseScreen>
+    with TickerProviderStateMixin {
+  late final hideItems = ref.read(hideItemsStateProvider);
+  late TabController _tabBarController;
+
+  /// Outer tab order â Watch first as requested.
+  late final List<ItemType> _types = [
+    if (!hideItems.contains("/AnimeLibrary")) ItemType.anime,
+    if (!hideItems.contains("/MangaLibrary")) ItemType.manga,
+    if (!hideItems.contains("/NovelLibrary")) ItemType.novel,
+    if (!hideItems.contains("/MusicLibrary")) ItemType.music,
+    if (!hideItems.contains("/GameLibrary")) ItemType.game,
+  ];
+
+  /// Per-type sub-section (Sources / Extensions / Marketplace).
+  final Map<ItemType, BrowseSection> _section = {};
+  final Map<ItemType, bool> _isSearch = {};
+  final Map<ItemType, TextEditingController> _searchControllers = {};
+
+  ItemType get _activeType => _types[_tabBarController.index];
+  BrowseSection get _activeSection =>
+      _section[_activeType] ?? BrowseSection.sources;
+
+  bool _diagnosing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabBarController = TabController(length: _types.length, vsync: this);
+    _tabBarController.addListener(() {
+      _checkPermission();
+      if (mounted) setState(() {});
+    });
+    for (final t in _types) {
+      _section[t] = BrowseSection.sources;
+      _isSearch[t] = false;
+      _searchControllers[t] = TextEditingController();
+    }
+  }
+
+  Future<void> _checkPermission() async {
+    // Silent check only — do NOT open the Settings screen on every tab
+    // switch.  Permissions are granted during onboarding; this just verifies
+    // the current state without prompting.
+    await StorageProvider().requestPermission(requestIfNeeded: false);
+  }
+
+  @override
+  void dispose() {
+    _tabBarController.dispose();
+    for (final c in _searchControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _runDiagnostics(BuildContext context, ItemType type) async {
+    if (_diagnosing) return;
+    _diagnosing = true;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+        content: Row(children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Lancement du diagnostic sur toutes les extensionsâ¦',
+            ),
+          ),
+        ]),
+      ),
+    );
+    try {
+      final results = await runExtensionDiagnosticsFull(type);
+      final ok = results.where((r) => r.allOk).length;
+      final failed = results.where((r) => r.anyFailed).length;
+      final total = results.length;
+      if (!context.mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: failed > 0 ? Colors.red.shade700 : null,
+          content: Text(
+            'Diagnostic terminÃ© Â· $ok OK Â· $failed erreur(s) sur $total. '
+            'Voir Logs.',
+          ),
+          action: SnackBarAction(
+            label: 'Logs',
+            textColor: Colors.white,
+            onPressed: () => context.push('/logViewer'),
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } finally {
+      _diagnosing = false;
+    }
+  }
+
+  /// Build the right-aligned action icons for the AppBar based on the
+  /// currently active tab + section.
+  List<Widget> _appBarActions(BuildContext context) {
+    final theme = Theme.of(context);
+    if (_types.isEmpty) return const [];
+    final type = _activeType;
+    final section = _activeSection;
+    final isExt = section == BrowseSection.extensions;
+    final isSources = section == BrowseSection.sources;
+
+    return [
+      if (isSources) ...[
+        GestureDetector(
+          onLongPress: () => context.push('/extensionDiagnostic', extra: type),
+          child: IconButton(
+            tooltip: 'Global search Â· long-press to diagnose',
+            splashRadius: 20,
+            onPressed: () => context.push(
+              '/globalSearch',
+              extra: (null, type),
+            ),
+            icon: Icon(Icons.travel_explore_rounded, color: theme.hintColor),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Source filters',
+          splashRadius: 20,
+          onPressed: () => context.push(
+            '/sourceFilter',
+            extra: type,
+          ),
+          icon: Icon(Icons.filter_list_sharp, color: theme.hintColor),
+        ),
+      ],
+      if (isExt) ...[
+        IconButton(
+          tooltip: 'Search extensions',
+          splashRadius: 20,
+          onPressed: () => setState(() {
+            _isSearch[type] = !(_isSearch[type] ?? false);
+            if (!(_isSearch[type] ?? false)) {
+              _searchControllers[type]?.clear();
+            }
+          }),
+          icon: Icon(
+            (_isSearch[type] ?? false) ? Icons.close : Icons.search_rounded,
+            color: theme.hintColor,
+          ),
+        ),
+        IconButton(
+          tooltip: 'Import .wext file',
+          splashRadius: 20,
+          onPressed: () => importWextAndNotify(context),
+          icon: Icon(Icons.file_download_outlined, color: theme.hintColor),
+        ),
+        IconButton(
+          tooltip: 'Create extension',
+          splashRadius: 20,
+          onPressed: () => context.push('/createExtension'),
+          icon: Icon(Icons.add_outlined, color: theme.hintColor),
+        ),
+        GestureDetector(
+          onLongPress: () => _isolateDeviceLanguage(context, type),
+          child: IconButton(
+            tooltip: 'Languages',
+            splashRadius: 20,
+            onPressed: () => context.push(
+              '/ExtensionLang',
+              extra: type,
+            ),
+            icon: Icon(Icons.translate_rounded, color: theme.hintColor),
+          ),
+        ),
+      ],
+      const SizedBox(width: 4),
+    ];
+  }
+
+  String _typeLabel(ItemType t, AppLocalizations l10n) {
+    switch (t) {
+      case ItemType.anime:
+        return l10n.watch;
+      case ItemType.manga:
+        return l10n.manga;
+      case ItemType.novel:
+        return l10n.novel;
+      case ItemType.music:
+        return 'Music';
+      case ItemType.game:
+        return 'Games';
+    }
+  }
+
+  IconData _typeIcon(ItemType t) {
+    switch (t) {
+      case ItemType.anime:
+        return Icons.live_tv_outlined;
+      case ItemType.manga:
+        return Icons.auto_stories_outlined;
+      case ItemType.novel:
+        return Icons.text_snippet_outlined;
+      case ItemType.music:
+        return Icons.music_note_outlined;
+      case ItemType.game:
+        return Icons.sports_esports_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_types.isEmpty) return const SizedBox.shrink();
+    final l10n = l10nLocalizations(context)!;
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        title: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.18),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+              child: child,
+            ),
+          ),
+          child: (_isSearch[_activeType] ?? false) &&
+                  _activeSection == BrowseSection.extensions
+              ? SeachFormTextField(
+                  key: const ValueKey('search_field'),
+                  autofocus: true,
+                  onChanged: (_) => setState(() {}),
+                  onSuffixPressed: () {
+                    _searchControllers[_activeType]?.clear();
+                    setState(() {});
+                  },
+                  onPressed: () => setState(() {
+                    _isSearch[_activeType] = false;
+                    _searchControllers[_activeType]?.clear();
+                  }),
+                  controller: _searchControllers[_activeType]!,
+                )
+              : Text(
+                  key: const ValueKey('browse_title'),
+                  l10n.browse,
+                  style: TextStyle(color: theme.hintColor),
+                ),
+        ),
+        actions: _appBarActions(context),
+        bottom: TabBar(
+          controller: _tabBarController,
+          indicatorSize: TabBarIndicatorSize.tab,
+          tabAlignment: TabAlignment.fill,
+          dividerColor: Colors.transparent,
+          labelColor: theme.colorScheme.primary,
+          unselectedLabelColor: theme.hintColor,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+          tabs: _types
+              .map(
+                (t) => Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_typeIcon(t), size: 16),
+                      const SizedBox(width: 6),
+                      Text(_typeLabel(t, l10n)),
+                      if (t.isExtensionUpdateRelevant) ...[
+                        const SizedBox(width: 6),
+                        _extensionUpdateBadge(ref, t),
+                      ],
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabBarController,
+        physics: const BouncingScrollPhysics(),
+        children: _types.map((t) {
+          return _BrowseTypeView(
+            itemType: t,
+            section: _section[t] ?? BrowseSection.sources,
+            isSearch: _isSearch[t] ?? false,
+            searchController: _searchControllers[t]!,
+            onSectionChanged: (s) => setState(() {
+              _section[t] = s;
+              _isSearch[t] = false;
+              _searchControllers[t]?.clear();
+            }),
+            onSearchClose: () => setState(() {
+              _isSearch[t] = false;
+              _searchControllers[t]?.clear();
+            }),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+extension _ItemTypeExt on ItemType {
+  bool get isExtensionUpdateRelevant => true;
+}
+
+/// Per-type body: top SegmentedButton (Sources / Extensions / Marketplace)
+/// + per-section action row + the corresponding screen.
+class _BrowseTypeView extends ConsumerStatefulWidget {
+  final ItemType itemType;
+  final BrowseSection section;
+  final bool isSearch;
+  final TextEditingController searchController;
+  final ValueChanged<BrowseSection> onSectionChanged;
+  final VoidCallback onSearchClose;
+
+  const _BrowseTypeView({
+    required this.itemType,
+    required this.section,
+    required this.isSearch,
+    required this.searchController,
+    required this.onSectionChanged,
+    required this.onSearchClose,
+  });
+
+  @override
+  ConsumerState<_BrowseTypeView> createState() => _BrowseTypeViewState();
+}
+
+class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
+  Widget _segmentedDock() {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    Widget seg(BrowseSection s, IconData icon, String label) {
+      final active = widget.section == s;
+      return InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          if (!active) {
+            widget.onSectionChanged(s);
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: active
+                ? cs.primary.withValues(alpha: 0.14)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: active ? cs.primary : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: active ? cs.primary : cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.10)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            seg(BrowseSection.sources, Icons.cloud_outlined, 'Sources'),
+            seg(BrowseSection.extensions, Icons.extension_outlined,
+                'Extensions'),
+            seg(BrowseSection.marketplace, Icons.storefront_outlined,
+                'Market'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: SeachFormTextField(
+        onChanged: (_) => setState(() {}),
+        onSuffixPressed: () {
+          widget.searchController.clear();
+          setState(() {});
+        },
+        onPressed: widget.onSearchClose,
+        controller: widget.searchController,
+      ),
+    );
+  }
+
+  Widget _body() {
+    switch (widget.section) {
+      case BrowseSection.sources:
+        return SourcesScreen(
+          itemType: widget.itemType,
+        );
+      case BrowseSection.extensions:
+        return ExtensionScreen(
+          query: widget.searchController.text,
+          itemType: widget.itemType,
+        );
+      case BrowseSection.marketplace:
+        return MarketplaceScreen(itemType: widget.itemType);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _segmentedDock(),
+        if (widget.section == BrowseSection.sources)
+          _MockupSourcesBanner(itemType: widget.itemType),
+        Expanded(child: _body()),
+      ],
+    );
+  }
+}
+
+/// Long-press shortcut on the translate icon: keeps only the device's
+/// language active (and English as a fallback). Long-press again to restore
+/// every language.
+void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
+  String deviceLang;
+  try {
+    deviceLang = Platform.localeName.split(RegExp('[_-]')).first.toLowerCase();
+  } catch (_) {
+    deviceLang = 'en';
+  }
+  final entries = isar.sources
+      .filter()
+      .idIsNotNull()
+      .and()
+      .itemTypeEqualTo(itemType)
+      .findAllSync();
+
+  final isolated = entries.any((s) =>
+      (s.isActive ?? false) &&
+      s.lang!.toLowerCase() != deviceLang &&
+      s.lang!.toLowerCase() != 'en' &&
+      s.lang!.toLowerCase() != 'all');
+  final shouldIsolate = isolated;
+
+  isar.writeTxnSync(() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final s in entries) {
+      final lang = s.lang!.toLowerCase();
+      final keep = lang == deviceLang || lang == 'en' || lang == 'all';
+      isar.sources.putSync(
+        s
+          ..isActive = shouldIsolate ? keep : true
+          ..updatedAt = now,
+      );
+    }
+  });
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      duration: const Duration(seconds: 2),
+      content: Text(
+        shouldIsolate
+            ? 'Sources limitÃ©es Ã  ${deviceLang.toUpperCase()} + EN'
+            : 'Toutes les langues rÃ©activÃ©es',
+      ),
+    ),
+  );
+}
+
+Widget _extensionUpdateBadge(WidgetRef ref, ItemType itemType) {
+  return StreamBuilder(
+    stream: isar.sources
+        .filter()
+        .idIsNotNull()
+        .and()
+        .isActiveEqualTo(true)
+        .itemTypeEqualTo(itemType)
+        .watch(fireImmediately: true),
+    builder: (context, snapshot) {
+      if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+        final entries = snapshot.data!
+            .where((e) => compareVersions(e.version!, e.versionLast!) < 0)
+            .toList();
+        return entries.isEmpty
+            ? const SizedBox.shrink()
+            : Badge(
+                backgroundColor: Theme.of(context).focusColor,
+                label: Text(
+                  entries.length.toString(),
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodySmall!.color,
+                  ),
+                ),
+              );
+      }
+      return const SizedBox.shrink();
+    },
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mockup sources banner — shown at the top of the Sources section to preview
+// the "xnxx" adult-video extension card and the "Le Bit" local-source design.
+// These are UI design showcases only (not real installed sources).
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MockupSourcesBanner extends StatefulWidget {
+  final ItemType itemType;
+  const _MockupSourcesBanner({required this.itemType});
+
+  @override
+  State<_MockupSourcesBanner> createState() => _MockupSourcesBannerState();
+}
+
+class _MockupSourcesBannerState extends State<_MockupSourcesBanner> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final showXnxx = widget.itemType == ItemType.anime;
+    final showLeBit = true; // local source visible on every tab
+
+    if (!showXnxx && !showLeBit) return const SizedBox.shrink();
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Collapse / expand toggle bar ─────────────────────────────
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: cs.surfaceContainerHigh,
+              child: Row(
+                children: [
+                  Icon(Icons.auto_awesome_rounded,
+                      size: 13, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Aperçu sources (mockup)',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            Container(
+              color: cs.surfaceContainerHighest.withOpacity(0.6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                children: [
+                  if (showXnxx) ...[
+                    _MockupSourceCard(
+                      name: 'XNXX',
+                      lang: 'All',
+                      tagline: 'Adult video · HD streams · 10M+ contenus',
+                      icon: Icons.play_circle_fill_rounded,
+                      badgeLabel: 'Adult',
+                      badgeColor: Colors.red.shade700,
+                      gradientColors: [
+                        const Color(0xFF1A1A2E),
+                        const Color(0xFF16213E),
+                      ],
+                      accentColor: const Color(0xFFE94560),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (showLeBit)
+                    _MockupSourceCard(
+                      name: 'Le Bit',
+                      lang: 'Local',
+                      tagline:
+                          'Source locale · Fichiers sur l\'appareil · Hors-ligne',
+                      icon: Icons.folder_special_rounded,
+                      badgeLabel: 'Local',
+                      badgeColor: Colors.teal.shade700,
+                      gradientColors: [
+                        const Color(0xFF0F2027),
+                        const Color(0xFF203A43),
+                      ],
+                      accentColor: Colors.tealAccent,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MockupSourceCard extends StatelessWidget {
+  final String name;
+  final String lang;
+  final String tagline;
+  final IconData icon;
+  final String badgeLabel;
+  final Color badgeColor;
+  final List<Color> gradientColors;
+  final Color accentColor;
+
+  const _MockupSourceCard({
+    required this.name,
+    required this.lang,
+    required this.tagline,
+    required this.icon,
+    required this.badgeLabel,
+    required this.badgeColor,
+    required this.gradientColors,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accentColor.withOpacity(0.3),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          // Icon circle
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.15),
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: accentColor.withOpacity(0.4), width: 1),
+            ),
+            child: Icon(icon, color: accentColor, size: 24),
+          ),
+          const SizedBox(width: 14),
+
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        badgeLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  tagline,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Language pill
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: accentColor.withOpacity(0.35), width: 0.7),
+            ),
+            child: Text(
+              lang,
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
