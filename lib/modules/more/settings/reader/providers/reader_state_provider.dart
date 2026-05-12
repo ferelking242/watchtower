@@ -235,6 +235,9 @@ class HideItemsState extends _$HideItemsState {
         const [
           '/trackerLibrary',
           '/updates',
+          '/history',
+          '/MusicLibrary',
+          '/GameLibrary',
         ];
   }
 

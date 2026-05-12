@@ -239,6 +239,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         uniqueSwitch = true;
                         return "_enableLibSwitch";
                       }
+                      // Music & Game are accessible via Hub expansion — hide
+                      // them from the main dock row when Hub is enabled.
+                      if (nav == "/MusicLibrary" || nav == "/GameLibrary") {
+                        return null;
+                      }
                       return nav;
                     })
                     .nonNulls
