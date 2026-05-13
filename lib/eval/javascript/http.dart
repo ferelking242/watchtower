@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 
 // URL du proxy Cloudflare Workers — toutes les requêtes web passent par lui
 // pour contourner les restrictions CORS des navigateurs.
-const _kWebProxyUrl = 'https://watchtower-proxy.ferelking242.workers.dev/proxy';
+const _kWebProxyUrl = 'https://watchtower-proxy.aivos-dev.workers.dev/proxy';
 
 class JsHttpClient {
   late JavascriptRuntime runtime;
