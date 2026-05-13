@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/manga_details_view.dart';
 import 'package:watchtower/modules/manga/detail/providers/update_manga_detail_providers.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
+import 'package:watchtower/modules/watch/detail/watch_detail_view.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -91,44 +93,71 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
                     );
                   }
                 },
-                child: Stack(
-                  children: [
-                    MangaDetailsView(
-                      manga: manga,
-                      sourceExist: sourceExist,
-                      checkForUpdate: (value) async {
-                        if (!_isLoading) {
-                          setState(() {
-                            _isLoading = true;
-                          });
-                          if (sourceExist) {
-                            await ref.read(
-                              updateMangaDetailProvider(
-                                mangaId: manga.id,
-                                isInit: false,
-                              ).future,
-                            );
-                          }
-                          if (mounted) {
+                child: manga.itemType == ItemType.anime
+                    ? WatchDetailView(
+                        manga: manga,
+                        sourceExist: sourceExist,
+                        isLoading: _isLoading,
+                        checkForUpdate: (value) async {
+                          if (!_isLoading) {
                             setState(() {
-                              _isLoading = false;
+                              _isLoading = true;
                             });
+                            if (sourceExist) {
+                              await ref.read(
+                                updateMangaDetailProvider(
+                                  mangaId: manga.id,
+                                  isInit: false,
+                                ).future,
+                              );
+                            }
+                            if (mounted) {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                            }
                           }
-                        }
-                      },
-                    ),
-                    if (_isLoading)
-                      const Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 40),
-                          child: Center(child: RefreshProgressIndicator()),
-                        ),
+                        },
+                      )
+                    : Stack(
+                        children: [
+                          MangaDetailsView(
+                            manga: manga,
+                            sourceExist: sourceExist,
+                            checkForUpdate: (value) async {
+                              if (!_isLoading) {
+                                setState(() {
+                                  _isLoading = true;
+                                });
+                                if (sourceExist) {
+                                  await ref.read(
+                                    updateMangaDetailProvider(
+                                      mangaId: manga.id,
+                                      isInit: false,
+                                    ).future,
+                                  );
+                                }
+                                if (mounted) {
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                }
+                              }
+                            },
+                          ),
+                          if (_isLoading)
+                            const Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: Padding(
+                                padding: EdgeInsets.only(top: 40),
+                                child: Center(
+                                    child: RefreshProgressIndicator()),
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
               );
             },
           );
