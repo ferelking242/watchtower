@@ -559,6 +559,10 @@ void _workerEntryPoint(_WorkerInit init) async {
 bool _isCancelled(String taskId) => _workerCancelledTasks.contains(taskId);
 
 /// Process a file download
+///
+/// Uses a sliding-window (circular slot buffer) so a slow file never
+/// blocks other slots from starting — every freed slot is immediately
+/// filled from the queue.
 Future<void> _processFileDownload(
   String taskId,
   FileDownloadParams params,
@@ -567,56 +571,52 @@ Future<void> _processFileDownload(
 ) async {
   int completed = 0;
   final total = params.pageUrls.length;
-  final queue = Queue<PageUrl>.from(params.pageUrls);
-  final List<Future<void>> activeTasks = [];
+
+  if (total == 0) {
+    replyPort.send(DownloadComplete());
+    return;
+  }
 
   try {
-    while (queue.isNotEmpty || activeTasks.isNotEmpty) {
+    final int concurrency = params.concurrentDownloads.clamp(1, 32);
+    // Circular slot buffer: slot i is awaited before launching item i,
+    // guaranteeing at most `concurrency` downloads in flight at once.
+    final slots = List<Future<void>>.filled(concurrency, Future.value());
+
+    for (int i = 0; i < params.pageUrls.length; i++) {
       if (_isCancelled(taskId)) {
-        // Wait for in-flight downloads to settle so we don't leave
-        // dangling sinks/file handles, then exit gracefully.
-        if (activeTasks.isNotEmpty) {
-          await Future.wait(activeTasks.toList()).catchError((_) => <void>[]);
-        }
+        await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
         replyPort.send(_toSendable(DownloadPoolException(
-            'Task $taskId cancelled by user',
-            null,
-          )));
+          'Task $taskId cancelled by user', null)));
         return;
       }
-      while (queue.isNotEmpty &&
-          activeTasks.length < params.concurrentDownloads) {
-        if (_isCancelled(taskId)) break;
-        final pageUrl = queue.removeFirst();
-        final task = _downloadFile(pageUrl, client, params.itemType, replyPort)
-            .then((_) {
-              if (params.itemType != ItemType.anime) {
-                completed++;
-                replyPort.send(
-                  DownloadProgress(
-                    pageUrl: pageUrl,
-                    completed,
-                    total,
-                    params.itemType,
-                  ),
-                );
-              }
-            })
-            .catchError((error) {
-              replyPort.send(_toSendable(DownloadPoolException(
-                  'Error downloading ${pageUrl.fileName}',
-                  error,
-                )));
-              throw error;
-            });
 
-        activeTasks.add(task);
-      }
+      final slotIdx = i % concurrency;
+      await slots[slotIdx];
 
-      if (activeTasks.isNotEmpty) {
-        await Future.wait(activeTasks.toList(), eagerError: true);
-        activeTasks.clear();
-      }
+      final pageUrl = params.pageUrls[i];
+      slots[slotIdx] = _downloadFile(pageUrl, client, params.itemType, replyPort)
+          .then((_) {
+            if (params.itemType != ItemType.anime) {
+              completed++;
+              replyPort.send(DownloadProgress(
+                pageUrl: pageUrl, completed, total, params.itemType));
+            }
+          })
+          .catchError((error) {
+            replyPort.send(_toSendable(DownloadPoolException(
+              'Error downloading ${pageUrl.fileName}', error)));
+            throw error;
+          });
+    }
+
+    // Drain all remaining in-flight slots.
+    await Future.wait(slots, eagerError: true);
+
+    if (_isCancelled(taskId)) {
+      replyPort.send(_toSendable(DownloadPoolException(
+        'Task $taskId cancelled by user', null)));
+      return;
     }
 
     replyPort.send(DownloadComplete());
@@ -692,6 +692,11 @@ Future<void> _downloadFile(
 }
 
 /// Process an M3U8 download
+///
+/// Uses a sliding-window (circular slot buffer) identical to
+/// [_processFileDownload] so that a stalled segment never holds back the
+/// other concurrency slots — as soon as one slot is free the next segment
+/// starts immediately.
 Future<void> _processM3u8Download(
   String taskId,
   M3u8DownloadParams params,
@@ -700,52 +705,48 @@ Future<void> _processM3u8Download(
 ) async {
   int completed = 0;
   final total = params.segments.length;
-  final queue = Queue<TsInfo>.from(params.segments);
-  final List<Future<void>> activeTasks = [];
+
+  if (total == 0) {
+    replyPort.send(DownloadComplete());
+    return;
+  }
 
   try {
-    while (queue.isNotEmpty || activeTasks.isNotEmpty) {
+    final int concurrency = params.concurrentDownloads.clamp(1, 32);
+    final slots = List<Future<void>>.filled(concurrency, Future.value());
+
+    for (int i = 0; i < params.segments.length; i++) {
       if (_isCancelled(taskId)) {
-        if (activeTasks.isNotEmpty) {
-          await Future.wait(activeTasks.toList()).catchError((_) => <void>[]);
-        }
+        await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
         replyPort.send(_toSendable(DownloadPoolException(
-            'M3U8 task $taskId cancelled by user',
-            null,
-          )));
+          'M3U8 task $taskId cancelled by user', null)));
         return;
       }
-      while (queue.isNotEmpty &&
-          activeTasks.length < params.concurrentDownloads) {
-        if (_isCancelled(taskId)) break;
-        final segment = queue.removeFirst();
-        final task = _downloadSegment(segment, params, client)
-            .then((_) {
-              completed++;
-              replyPort.send(
-                DownloadProgress(
-                  segment: segment,
-                  completed,
-                  total,
-                  params.itemType,
-                ),
-              );
-            })
-            .catchError((error) {
-              replyPort.send(_toSendable(DownloadPoolException(
-                  'Error downloading segment ${segment.name}',
-                  error,
-                )));
-              throw error;
-            });
 
-        activeTasks.add(task);
-      }
+      final slotIdx = i % concurrency;
+      await slots[slotIdx];
 
-      if (activeTasks.isNotEmpty) {
-        await Future.wait(activeTasks.toList(), eagerError: true);
-        activeTasks.clear();
-      }
+      final segment = params.segments[i];
+      slots[slotIdx] = _downloadSegment(segment, params, client)
+          .then((_) {
+            completed++;
+            replyPort.send(DownloadProgress(
+              segment: segment, completed, total, params.itemType));
+          })
+          .catchError((error) {
+            replyPort.send(_toSendable(DownloadPoolException(
+              'Error downloading segment ${segment.name}', error)));
+            throw error;
+          });
+    }
+
+    // Drain remaining in-flight slots.
+    await Future.wait(slots, eagerError: true);
+
+    if (_isCancelled(taskId)) {
+      replyPort.send(_toSendable(DownloadPoolException(
+        'M3U8 task $taskId cancelled by user', null)));
+      return;
     }
 
     replyPort.send(DownloadComplete());
@@ -840,6 +841,12 @@ Future<void> _downloadSegment(
       );
       await file.writeAsBytes(decrypted);
     }
+
+    // Write a zero-byte marker so _filterExistingSegments can distinguish
+    // a fully-written segment from a partially-written one left by an
+    // interrupted download. The marker is deleted together with the temp
+    // directory after merging.
+    await File('${file.path}.done').writeAsBytes(const []);
   } catch (e) {
     throw DownloadPoolException('Failed to process segment: ${ts.name}', e);
   }

@@ -214,9 +214,15 @@ class M3u8Downloader {
     List<TsInfo> tsList,
     String tempDir,
   ) async {
-    return tsList
-        .where((ts) => !File(path.join(tempDir, '${ts.name}.ts')).existsSync())
-        .toList();
+    // A segment is considered complete only when BOTH the .ts file AND its
+    // .done marker exist. A lone .ts without a marker means the write was
+    // interrupted mid-stream (e.g. app kill, network drop) and the file is
+    // potentially truncated — it must be re-downloaded to avoid merge artifacts.
+    return tsList.where((ts) {
+      final tsPath = path.join(tempDir, '${ts.name}.ts');
+      final donePath = '$tsPath.done';
+      return !(File(tsPath).existsSync() && File(donePath).existsSync());
+    }).toList();
   }
 
   Future<void> _downloadSegmentsWithProgress(
