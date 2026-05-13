@@ -16,6 +16,7 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/utils/mock_isar.dart';
+import 'package:watchtower/utils/mock_web_data.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/models/custom_button.dart';
 import 'package:watchtower/models/manga.dart';
@@ -129,6 +130,7 @@ void main(List<String> args) async {
       final storage = StorageProvider();
       if (kIsWeb) {
         final _mockIsar = MockIsar()..seed<Settings>(227, Settings());
+        seedMockWebData(_mockIsar);
         isar = _mockIsar;
       } else {
         isar = await storage.initDB(null, inspector: false);
