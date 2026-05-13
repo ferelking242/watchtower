@@ -270,19 +270,23 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           ),
           child: (_isSearch[_activeType] ?? false) &&
                   _activeSection == BrowseSection.extensions
-              ? SeachFormTextField(
+              ? Row(
                   key: const ValueKey('search_field'),
-                  autofocus: true,
-                  onChanged: (_) => setState(() {}),
-                  onSuffixPressed: () {
-                    _searchControllers[_activeType]?.clear();
-                    setState(() {});
-                  },
-                  onPressed: () => setState(() {
-                    _isSearch[_activeType] = false;
-                    _searchControllers[_activeType]?.clear();
-                  }),
-                  controller: _searchControllers[_activeType]!,
+                  children: [
+                    SeachFormTextField(
+                      autofocus: true,
+                      onChanged: (_) => setState(() {}),
+                      onSuffixPressed: () {
+                        _searchControllers[_activeType]?.clear();
+                        setState(() {});
+                      },
+                      onPressed: () => setState(() {
+                        _isSearch[_activeType] = false;
+                        _searchControllers[_activeType]?.clear();
+                      }),
+                      controller: _searchControllers[_activeType]!,
+                    ),
+                  ],
                 )
               : Text(
                   key: const ValueKey('browse_title'),
