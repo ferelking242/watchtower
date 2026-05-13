@@ -4,7 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:watchtower/eval/lib.dart';
+import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/eval/model/m_pages.dart';
+import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/log.dart';
 
@@ -160,6 +164,82 @@ class GetIsolateService {
         });
   }
 
+  // ── Web fallback ─────────────────────────────────────────────────────────
+  //
+  // Flutter web does not support Isolate.spawn().  When running on web,
+  // the isolate service is never started (see main.dart `if (!kIsWeb)`).
+  // Instead of throwing "Isolate not running", we:
+  //
+  //  1. For local / mock sources (sourceCode is empty): return sensible
+  //     empty-but-valid data so the UI renders without crashing.
+  //     For `getVideoList`, the chapter URL is already a direct media link
+  //     (seeded in mock_web_data.dart), so we wrap it as a Video directly.
+  //
+  //  2. For real extension sources: run withExtensionService directly on
+  //     the main thread.  This avoids the "Isolate not running" crash but
+  //     real JS extensions will still fail with CORS errors on web (browser
+  //     blocks cross-origin XHR from extension JS).  The error message will
+  //     be the actual JS/CORS error, which is more useful than the generic
+  //     "Isolate not running" message.
+
+  static T _webLocalFallback<T>({String? url, String? serviceType}) {
+    switch (serviceType) {
+      case 'getVideoList':
+        final videoUrl = url ?? '';
+        return <Video>[Video(videoUrl, 'Direct', videoUrl)] as T;
+      case 'getPageList':
+        return <PageUrl>[PageUrl(url ?? '')] as T;
+      case 'getPopular':
+      case 'getLatestUpdates':
+      case 'getCustomList':
+      case 'search':
+        return MPages(list: [], hasNextPage: false) as T;
+      case 'getDetail':
+        return MManga() as T;
+      case 'getHeaders':
+        return <String, String>{} as T;
+      default:
+        throw Exception('Web: unsupported service type "$serviceType" for local/mock source');
+    }
+  }
+
+  static Future<T> _runOnMainThread<T>({
+    String? url,
+    int? page,
+    String? query,
+    List<dynamic>? filterList,
+    Source? source,
+    String? serviceType,
+    String? proxyServer,
+  }) async {
+    return withExtensionService<T>(
+      source!,
+      proxyServer ?? '',
+      (service) async {
+        switch (serviceType) {
+          case 'getDetail':
+            return await service.getDetail(url!) as T;
+          case 'getPopular':
+            return await service.getPopular(page!) as T;
+          case 'getLatestUpdates':
+            return await service.getLatestUpdates(page!) as T;
+          case 'search':
+            return await service.search(query!, page!, filterList!) as T;
+          case 'getCustomList':
+            return await service.getCustomList(url!, page!) as T;
+          case 'getVideoList':
+            return await service.getVideoList(url!) as T;
+          case 'getPageList':
+            return await service.getPageList(url!) as T;
+          case 'getHeaders':
+            return service.getHeaders() as T;
+          default:
+            throw Exception('Unknown service type: $serviceType');
+        }
+      },
+    );
+  }
+
   Future<T> get<T>({
     String? url,
     int? page,
@@ -172,6 +252,28 @@ class GetIsolateService {
     String? androidProxyServer,
     bool? useLogger,
   }) async {
+    // ── Web path ──────────────────────────────────────────────────────────
+    if (kIsWeb) {
+      final isLocalOrMock =
+          source?.isLocal == true ||
+          (source?.sourceCode?.isEmpty ?? true);
+
+      if (isLocalOrMock) {
+        return _webLocalFallback<T>(url: url, serviceType: serviceType);
+      }
+
+      return _runOnMainThread<T>(
+        url: url,
+        page: page,
+        query: query,
+        filterList: filterList,
+        source: source,
+        serviceType: serviceType,
+        proxyServer: proxyServer,
+      );
+    }
+    // ── Native path ───────────────────────────────────────────────────────
+
     if (_sendPort == null) {
       throw Exception('Isolate not running');
     }
