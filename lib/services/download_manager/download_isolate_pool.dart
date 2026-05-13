@@ -485,7 +485,16 @@ class _WorkerTask {
 /// segments/files so they can short-circuit cleanly.
 final Set<String> _workerCancelledTasks = <String>{};
 
-/// Isolate worker entry point
+/// Converts any exception to a plain [Exception] containing only the string
+  /// representation so it can safely cross isolate boundaries via [SendPort].
+  ///
+  /// [RhttpClient] (and other flutter_rust_bridge objects) hold a [RustArc]
+  /// which is NOT sendable between Dart isolates. Forwarding a raw
+  /// [RhttpWrappedClientException] / [DownloadPoolException] that wraps one
+  /// causes: "Illegal argument in isolate message: object is unsendable".
+  Exception _toSendable(Object e) => Exception(e.toString());
+
+  /// Isolate worker entry point
 void _workerEntryPoint(_WorkerInit init) async {
   // Initialize dependencies in the Isolate
   await RustLib.init();
@@ -539,7 +548,7 @@ void _workerEntryPoint(_WorkerInit init) async {
           );
         }
       } catch (e) {
-        message.replyPort.send(DownloadPoolException('Task failed', e));
+        message.replyPort.send(_toSendable(DownloadPoolException('Task failed', e)));
       } finally {
         _workerCancelledTasks.remove(message.taskId);
       }
@@ -569,12 +578,10 @@ Future<void> _processFileDownload(
         if (activeTasks.isNotEmpty) {
           await Future.wait(activeTasks.toList()).catchError((_) => <void>[]);
         }
-        replyPort.send(
-          DownloadPoolException(
+        replyPort.send(_toSendable(DownloadPoolException(
             'Task $taskId cancelled by user',
             null,
-          ),
-        );
+          )));
         return;
       }
       while (queue.isNotEmpty &&
@@ -596,12 +603,10 @@ Future<void> _processFileDownload(
               }
             })
             .catchError((error) {
-              replyPort.send(
-                DownloadPoolException(
+              replyPort.send(_toSendable(DownloadPoolException(
                   'Error downloading ${pageUrl.fileName}',
                   error,
-                ),
-              );
+                )));
               throw error;
             });
 
@@ -616,7 +621,7 @@ Future<void> _processFileDownload(
 
     replyPort.send(DownloadComplete());
   } catch (e) {
-    replyPort.send(DownloadPoolException('Download failed', e));
+    replyPort.send(_toSendable(DownloadPoolException('Download failed', e)));
   }
 }
 
@@ -704,12 +709,10 @@ Future<void> _processM3u8Download(
         if (activeTasks.isNotEmpty) {
           await Future.wait(activeTasks.toList()).catchError((_) => <void>[]);
         }
-        replyPort.send(
-          DownloadPoolException(
+        replyPort.send(_toSendable(DownloadPoolException(
             'M3U8 task $taskId cancelled by user',
             null,
-          ),
-        );
+          )));
         return;
       }
       while (queue.isNotEmpty &&
@@ -729,12 +732,10 @@ Future<void> _processM3u8Download(
               );
             })
             .catchError((error) {
-              replyPort.send(
-                DownloadPoolException(
+              replyPort.send(_toSendable(DownloadPoolException(
                   'Error downloading segment ${segment.name}',
                   error,
-                ),
-              );
+                )));
               throw error;
             });
 
@@ -749,7 +750,7 @@ Future<void> _processM3u8Download(
 
     replyPort.send(DownloadComplete());
   } catch (e) {
-    replyPort.send(DownloadPoolException('M3U8 download failed', e));
+    replyPort.send(_toSendable(DownloadPoolException('M3U8 download failed', e)));
   }
 }
 
