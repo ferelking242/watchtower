@@ -1,10 +1,15 @@
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:flutter/foundation.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:http/http.dart' as http;
+
+// URL du proxy Cloudflare Workers — toutes les requêtes web passent par lui
+// pour contourner les restrictions CORS des navigateurs.
+const _kWebProxyUrl = 'https://watchtower-proxy.ferelking242.workers.dev/proxy';
 
 class JsHttpClient {
   late JavascriptRuntime runtime;
@@ -93,6 +98,9 @@ class Client {
   }
 }
 
+/// Sur Flutter web, toutes les requêtes HTTP sont redirigées vers le proxy
+/// Cloudflare Workers pour contourner les restrictions CORS du navigateur.
+/// Sur les plateformes natives, les requêtes sont faites directement.
 Future<String> _toHttpResponse(Client client, String method, List args) async {
   final url = args[2] as String;
   final headers = (args[3] as Map?)?.toMapStringString;
@@ -110,6 +118,12 @@ Future<String> _toHttpResponse(Client client, String method, List args) async {
     tag: LogTag.network,
   );
 
+  // ── Web: passe par le proxy Cloudflare pour éviter les erreurs CORS ──────
+  if (kIsWeb) {
+    return _toHttpResponseViaProxy(method, url, headers, body);
+  }
+
+  // ── Native: requête directe ───────────────────────────────────────────────
   try {
     var request = http.Request(method, Uri.parse(url));
     request.headers.addAll(headers ?? {});
@@ -156,6 +170,91 @@ Future<String> _toHttpResponse(Client client, String method, List args) async {
   } catch (e, st) {
     AppLogger.log(
       '$method $url → ERROR: $e',
+      logLevel: LogLevel.error,
+      tag: LogTag.network,
+      error: e,
+      stackTrace: st,
+    );
+    rethrow;
+  }
+}
+
+/// Envoie la requête au proxy Cloudflare Workers et reconstruit une réponse
+/// au format attendu par le runtime JS des extensions.
+Future<String> _toHttpResponseViaProxy(
+  String method,
+  String url,
+  Map<String, String>? headers,
+  dynamic body,
+) async {
+  AppLogger.log(
+    'WEB-PROXY $method $url',
+    logLevel: LogLevel.debug,
+    tag: LogTag.network,
+  );
+
+  try {
+    final proxyPayload = jsonEncode({
+      'method': method,
+      'url': url,
+      'headers': headers ?? {},
+      if (body != null && !['GET', 'HEAD'].contains(method)) 'body': body,
+    });
+
+    final proxyResp = await http.post(
+      Uri.parse(_kWebProxyUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: proxyPayload,
+    );
+
+    if (proxyResp.statusCode != 200) {
+      throw Exception(
+        'Proxy error ${proxyResp.statusCode}: ${proxyResp.body}',
+      );
+    }
+
+    final proxyJson = jsonDecode(proxyResp.body) as Map<String, dynamic>;
+
+    if (proxyJson.containsKey('error')) {
+      throw Exception('Proxy error: ${proxyJson['error']}');
+    }
+
+    final statusCode = proxyJson['statusCode'] as int? ?? 200;
+    final respHeaders =
+        (proxyJson['headers'] as Map?)?.toMapStringString ?? {};
+    final respBody = proxyJson['body'] as String? ?? '';
+
+    AppLogger.log(
+      'WEB-PROXY $method $url → $statusCode',
+      logLevel: statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
+      tag: LogTag.network,
+    );
+
+    // Reconstruit la réponse au même format JSON que _toHttpResponse natif
+    return jsonEncode({
+      'body': respBody,
+      'headers': respHeaders,
+      'isRedirect': false,
+      'persistentConnection': false,
+      'reasonPhrase': 'OK',
+      'statusCode': statusCode,
+      'request': {
+        'contentLength': null,
+        'finalized': true,
+        'followRedirects': true,
+        'headers': headers ?? {},
+        'maxRedirects': 5,
+        'method': method,
+        'persistentConnection': false,
+        'url': url,
+      },
+    });
+  } catch (e, st) {
+    AppLogger.log(
+      'WEB-PROXY $method $url → ERROR: $e',
       logLevel: LogLevel.error,
       tag: LogTag.network,
       error: e,
