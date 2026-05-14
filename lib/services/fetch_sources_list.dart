@@ -28,18 +28,30 @@ const _kWebProxyUrl = 'https://watchtower-proxy.aivos-dev.workers.dev/proxy';
 /// Effectue un GET via le proxy CF Workers sur Flutter web.
 /// Retourne le body texte de la réponse cible.
 Future<rawHttp.Response> _webProxyGet(String url) async {
-  final proxyRes = await rawHttp.post(
-    Uri.parse(_kWebProxyUrl),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: jsonEncode({'method': 'GET', 'url': url, 'headers': {}}),
-  );
+  final proxyRes = await rawHttp
+      .post(
+        Uri.parse(_kWebProxyUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'method': 'GET', 'url': url, 'headers': {}}),
+      )
+      .timeout(const Duration(seconds: 25));
   if (proxyRes.statusCode != 200) {
     throw Exception('Proxy error ${proxyRes.statusCode} for $url');
   }
-  final json = jsonDecode(proxyRes.body) as Map<String, dynamic>;
+  if (proxyRes.body.isEmpty) {
+    throw Exception('Proxy returned empty body for $url');
+  }
+  final Map<String, dynamic> json;
+  try {
+    json = jsonDecode(proxyRes.body) as Map<String, dynamic>;
+  } on FormatException catch (e) {
+    throw Exception(
+      'Proxy invalid JSON for $url (len=${proxyRes.body.length}): $e',
+    );
+  }
   if (json.containsKey('error')) {
     throw Exception('Proxy returned error: ${json['error']} for $url');
   }
@@ -84,9 +96,31 @@ Future<String> _fetchIndexBody({
   if (inflight != null) return inflight;
 
   final future = () async {
-    final req = kIsWeb
-        ? await _webProxyGet(url)
-        : await http.get(Uri.parse(url));
+    rawHttp.Response req;
+    if (kIsWeb) {
+      // GitHub raw content and most CDN extension indices support CORS
+      // (Access-Control-Allow-Origin: *).  Try a direct GET first — this
+      // avoids the proxy JSON-wrapping overhead that truncates large
+      // index files and produces "Unexpected end of JSON input".
+      try {
+        final direct = await rawHttp
+            .get(
+              Uri.parse(url),
+              headers: {'Accept': 'application/json, text/plain, */*'},
+            )
+            .timeout(const Duration(seconds: 20));
+        if (direct.statusCode == 200 && direct.body.isNotEmpty) {
+          req = direct;
+        } else {
+          throw Exception('direct fetch status ${direct.statusCode}');
+        }
+      } catch (_) {
+        // CORS blocked or server error — fall back to proxy.
+        req = await _webProxyGet(url);
+      }
+    } else {
+      req = await http.get(Uri.parse(url));
+    }
     final body = req.body as String;
     _indexCache[url] = _IndexCacheEntry(body, DateTime.now());
     return body;

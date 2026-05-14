@@ -685,6 +685,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           Navigator.pop(context);
           _showAdMenu();
         },
+        onCloseWebView: () => context.pop(),
       ),
     );
   }
@@ -715,71 +716,41 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       );
     }
 
-    final screenH = MediaQuery.of(context).size.height;
-    final panelH = screenH * _currentFraction;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Material(
-      color: Colors.black.withValues(
-        alpha: (0.55 * _currentFraction).clamp(0.0, 0.55),
-      ),
-      child: Stack(
-        children: [
-          // Tap outside to close when not fullscreen
-          if (_snap != _PanelSnap.full)
-            GestureDetector(
-              onTap: _dismiss,
-              behavior: HitTestBehavior.opaque,
-              child: const SizedBox.expand(),
-            ),
-
-          // Panel
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: AnimatedContainer(
-              duration: Duration.zero,
-              height: panelH,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Scaffold(
-                  backgroundColor: isDark
-                      ? const Color(0xFF1C1C1E)
-                      : Colors.white,
-                  // ── Top: drag handle + address bar ─────────────────────
-                  appBar: PreferredSize(
-                    preferredSize: const Size.fromHeight(86),
-                    child: GestureDetector(
-                      onVerticalDragStart: _onDragStart,
-                      onVerticalDragUpdate: _onDragUpdate,
-                      onVerticalDragEnd: _onDragEnd,
-                      behavior: HitTestBehavior.opaque,
-                      child: _BrowserHeader(
-                        url: _url,
-                        title: _title,
-                        progress: _progress,
-                        isDark: isDark,
-                        cs: cs,
-                        adEnabled: _adBlockEnabled,
-                        blockedCount: _blockedCount,
-                        showFooter: _showFooter,
-                        onToggleFooter: () => setState(() => _showFooter = !_showFooter),
-                        onRefresh: () => _webViewController?.reload(),
-                      ),
-                    ),
-                  ),
-                  // ── WebView body ────────────────────────────────────────
-                  body: kIsWeb || !Platform.isWindows
-                      ? WillPopScope(
-                          onWillPop: () async {
-                            if (await _webViewController?.canGoBack() ?? false) {
-                              _webViewController?.goBack();
-                            } else {
-                              _dismiss();
-                            }
-                            return false;
-                          },
-                          child: InAppWebView(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _webViewController?.canGoBack() ?? false) {
+          _webViewController?.goBack();
+        } else {
+          if (mounted) context.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        // ── Top bar: address + close ──────────────────────────────────
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: _BrowserHeader(
+            url: _url,
+            title: _title,
+            progress: _progress,
+            isDark: isDark,
+            cs: cs,
+            adEnabled: _adBlockEnabled,
+            blockedCount: _blockedCount,
+            showFooter: _showFooter,
+            onToggleFooter: () => setState(() => _showFooter = !_showFooter),
+            onRefresh: () => _webViewController?.reload(),
+            onClose: () => context.pop(),
+          ),
+        ),
+        // ── WebView body ──────────────────────────────────────────────
+        body: kIsWeb || !Platform.isWindows
+            ? InAppWebView(
                             webViewEnvironment: webViewEnvironment,
                             initialUrlRequest: URLRequest(url: WebUri(widget.url)),
                             initialSettings: InAppWebViewSettings(
@@ -873,29 +844,23 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                   }
                                 : null,
                           ),
-                        )
-                      : const SizedBox.shrink(),
-                  // ── Bottom toolbar ──────────────────────────────────────
-                  bottomNavigationBar: _showFooter
-                      ? _BrowserToolbar(
-                          isDark: isDark,
-                          cs: cs,
-                          canGoBack: _canGoback,
-                          canGoForward: _canGoForward,
-                          onBack: () => _webViewController?.goBack(),
-                          onForward: () => _webViewController?.goForward(),
-                          onHome: () => _webViewController?.loadUrl(
-                            urlRequest: URLRequest(url: WebUri(widget.url)),
-                          ),
-                          onTabs: _showMoreMenu,
-                          onMore: _showMoreMenu,
-                        )
-                      : null,
+            : const SizedBox.shrink(),
+        // ── Bottom toolbar ────────────────────────────────────────────
+        bottomNavigationBar: _showFooter
+            ? _BrowserToolbar(
+                isDark: isDark,
+                cs: cs,
+                canGoBack: _canGoback,
+                canGoForward: _canGoForward,
+                onBack: () => _webViewController?.goBack(),
+                onForward: () => _webViewController?.goForward(),
+                onHome: () => _webViewController?.loadUrl(
+                  urlRequest: URLRequest(url: WebUri(widget.url)),
                 ),
-              ),
-            ),
-          ),
-        ],
+                onTabs: _showMoreMenu,
+                onMore: _showMoreMenu,
+              )
+            : null,
       ),
     );
   }
@@ -914,6 +879,7 @@ class _BrowserHeader extends StatelessWidget {
   final bool showFooter;
   final VoidCallback onToggleFooter;
   final VoidCallback onRefresh;
+  final VoidCallback onClose;
 
   const _BrowserHeader({
     required this.url,
@@ -926,6 +892,7 @@ class _BrowserHeader extends StatelessWidget {
     required this.showFooter,
     required this.onToggleFooter,
     required this.onRefresh,
+    required this.onClose,
   });
 
   @override
@@ -942,24 +909,9 @@ class _BrowserHeader extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              margin: const EdgeInsets.only(top: 10, bottom: 10),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.2)
-                    : Colors.black.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-
           // Address bar row
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
             child: Row(
               children: [
                 // Footer toggle icon
@@ -1076,6 +1028,14 @@ class _BrowserHeader extends StatelessWidget {
                   icon: Icons.refresh_rounded,
                   size: 20,
                   onTap: onRefresh,
+                  isDark: isDark,
+                ),
+                const SizedBox(width: 4),
+                // Close button — ferme le WebView
+                _ToolbarBtn(
+                  icon: Icons.close_rounded,
+                  size: 22,
+                  onTap: onClose,
                   isDark: isDark,
                 ),
               ],
@@ -1254,6 +1214,7 @@ class _MoreSheet extends StatefulWidget {
   final VoidCallback onFullscreen;
   final VoidCallback onUserAgent;
   final VoidCallback onNetworkLog;
+  final VoidCallback onCloseWebView;
 
   const _MoreSheet({
     required this.adEnabled,
@@ -1271,6 +1232,7 @@ class _MoreSheet extends StatefulWidget {
     required this.onFullscreen,
     required this.onUserAgent,
     required this.onNetworkLog,
+    required this.onCloseWebView,
   });
 
   @override
@@ -1484,9 +1446,12 @@ class _MoreSheetState extends State<_MoreSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Power = close WebView
+                  // Power = close WebView entirely
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onCloseWebView();
+                    },
                     child: Icon(
                       Icons.power_settings_new_rounded,
                       size: 26,
