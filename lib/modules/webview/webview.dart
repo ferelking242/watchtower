@@ -843,7 +843,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                     return null;
                                   }
                                 : null,
-                          ),
+                          )
             : const SizedBox.shrink(),
         // ── Bottom toolbar ────────────────────────────────────────────
         bottomNavigationBar: _showFooter
