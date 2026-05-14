@@ -184,7 +184,11 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                   ) <
                   0) {
                 updateEntries.add(element);
-              } else if (isLatestVersion) {
+              } else {
+                // compareVersions >= 0: version is at least as recent as
+                // versionLast (or they differ only in string format).
+                // Treat as "latest" regardless of strict string equality
+                // so sources always appear in the available/installed list.
                 if (element.isAdded ?? false) {
                   installedEntries.add(element);
                 } else {

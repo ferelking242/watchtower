@@ -423,6 +423,12 @@ Future<void> checkIfSourceIsObsolete(
   Repo repo,
   ItemType itemType,
 ) async {
+  // On web the mock Isar ignores all filter clauses (itemType, isLocal, etc.)
+  // so the query returns every source in the store, not just the ones for
+  // this repo/itemType. Running the obsolete-check with a polluted list
+  // would incorrectly mark valid sources as obsolete, causing them to
+  // disappear from the extension list. Skip it entirely on web.
+  if (kIsWeb) return;
   if (sourceList.isEmpty) return;
 
   final sources = await isar.sources
