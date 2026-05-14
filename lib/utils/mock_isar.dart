@@ -97,6 +97,9 @@ class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
   final StreamController<void> _changes =
       StreamController<void>.broadcast();
 
+  /// Debounce flag: collapse multiple synchronous writes into one notification.
+  bool _pendingNotify = false;
+
   MockIsarCollection(this._mockIsar);
 
   void seed(int id, OBJ obj) {
@@ -116,7 +119,17 @@ class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
     return null;
   }
 
-  void _notify() => _changes.add(null);
+  /// Batch all writes within the same microtask into a single notification,
+  /// preventing excessive stream re-emissions (and UI rebuilds) when many
+  /// sources are added in a tight loop.
+  void _notify() {
+    if (_pendingNotify) return;
+    _pendingNotify = true;
+    Future.microtask(() {
+      _pendingNotify = false;
+      if (!_changes.isClosed) _changes.add(null);
+    });
+  }
 
   // ── identity ───────────────────────────────────────────────────────────────
 

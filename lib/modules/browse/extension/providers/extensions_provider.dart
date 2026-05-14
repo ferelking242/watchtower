@@ -19,5 +19,15 @@ Stream<List<Source>> getExtensionsStream(Ref ref, ItemType itemType) async* {
       )
       .isActiveEqualTo(true)
       .itemTypeEqualTo(itemType)
-      .watch(fireImmediately: true);
+      .watch(fireImmediately: true)
+      // On the web mock, Isar filter chains are no-ops — apply them in Dart
+      // so only the correct item type / active / visible sources appear.
+      // On real Isar this map is a safe no-op (the DB already filtered).
+      .map((sources) => sources
+          .where((s) =>
+              s.id != null &&
+              (s.isActive ?? false) &&
+              s.itemType == itemType &&
+              (s.repo == null || s.repo?.hidden != true))
+          .toList());
 }
