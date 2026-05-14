@@ -1,154 +1,336 @@
 // ignore_for_file: public_member_api_docs, invalid_use_of_protected_member
 
-  import 'dart:typed_data';
+import 'dart:async';
+import 'dart:typed_data';
 
-  import 'package:isar_community/isar.dart';
-  import 'package:meta/meta.dart';
+import 'package:isar_community/isar.dart';
+import 'package:meta/meta.dart';
 
-  class MockQuery<T> extends Query<T> {
-    @override
-    final Isar isar;
-    final List<T> _data;
+// ── MockQuery ────────────────────────────────────────────────────────────────
+//
+// A live query: when [_changeStream] is provided it re-reads [_liveData] on
+// every collection mutation instead of emitting a static snapshot.
 
-    MockQuery(this.isar, [this._data = const []]);
+class MockQuery<T> extends Query<T> {
+  @override
+  final Isar isar;
 
-    @override Future<T?> findFirst() => Future.value(_data.firstOrNull);
-    @override T? findFirstSync() => _data.firstOrNull;
-    @override Future<List<T>> findAll() => Future.value(List<T>.from(_data));
-    @override List<T> findAllSync() => List<T>.from(_data);
+  final List<T> _data;
+  final Stream<void>? _changeStream;
+  final List<T> Function()? _liveData;
 
-    @override @protected
-    Future<R?> aggregate<R>(AggregationOp op) {
-      if (op == AggregationOp.count) return Future.value(_data.length as R?);
-      if (op == AggregationOp.isEmpty) return Future.value((_data.isEmpty ? 1 : 0) as R?);
-      return Future.value(null);
-    }
+  MockQuery(this.isar,
+      [this._data = const [], this._changeStream, this._liveData]);
 
-    @override @protected
-    R? aggregateSync<R>(AggregationOp op) {
-      if (op == AggregationOp.count) return _data.length as R?;
-      if (op == AggregationOp.isEmpty) return (_data.isEmpty ? 1 : 0) as R?;
-      return null;
-    }
+  @override Future<T?> findFirst() => Future.value(_data.firstOrNull);
+  @override T? findFirstSync() => _data.firstOrNull;
+  @override Future<List<T>> findAll() => Future.value(List<T>.from(_data));
+  @override List<T> findAllSync() => List<T>.from(_data);
 
-    @override Future<bool> deleteFirst() => Future.value(false);
-    @override bool deleteFirstSync() => false;
-    @override Future<int> deleteAll() => Future.value(0);
-    @override int deleteAllSync() => 0;
-
-    /// Returns the stored data immediately when [fireImmediately] is true,
-    /// otherwise the stream stays open but never emits (no real-time DB on web).
-    @override Stream<List<T>> watch({bool fireImmediately = false}) {
-      if (fireImmediately) return Stream.value(List<T>.from(_data));
-      return const Stream.empty();
-    }
-
-    @override Stream<void> watchLazy({bool fireImmediately = false}) {
-      if (fireImmediately) return Stream.value(null);
-      return const Stream.empty();
-    }
-
-    @override Future<R> exportJsonRaw<R>(R Function(Uint8List) callback) => Future.value(callback(Uint8List(0)));
-    @override R exportJsonRawSync<R>(R Function(Uint8List) callback) => callback(Uint8List(0));
+  @override
+  @protected
+  Future<R?> aggregate<R>(AggregationOp op) {
+    if (op == AggregationOp.count) return Future.value(_data.length as R?);
+    if (op == AggregationOp.isEmpty)
+      return Future.value((_data.isEmpty ? 1 : 0) as R?);
+    return Future.value(null);
   }
 
-  class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
-    final MockIsar _mockIsar;
-    final Map<int, OBJ> _store = {};
-
-    MockIsarCollection(this._mockIsar);
-
-    void seed(int id, OBJ obj) => _store[id] = obj;
-
-    @override Isar get isar => _mockIsar;
-    @override String get name => 'mock';
-    @override CollectionSchema<OBJ> get schema =>
-        throw UnsupportedError('Web mock: schema not available');
-
-    // Single-object accessors
-    @override Future<OBJ?> get(int id) => Future.value(_store[id]);
-    @override OBJ? getSync(int id) => _store[id];
-    @override Future<OBJ?> getByIndex(String indexName, List<Object?> key) => Future.value(null);
-    @override OBJ? getByIndexSync(String indexName, List<Object?> key) => null;
-
-    @override Future<List<OBJ?>> getAll(List<int> ids) => Future.value(ids.map((id) => _store[id]).toList());
-    @override List<OBJ?> getAllSync(List<int> ids) => ids.map((id) => _store[id]).toList();
-    @override Future<List<OBJ?>> getAllByIndex(String indexName, List<List<Object?>> keys) => Future.value(List.filled(keys.length, null));
-    @override List<OBJ?> getAllByIndexSync(String indexName, List<List<Object?>> keys) => List.filled(keys.length, null);
-
-    @override Future<List<int>> putAll(List<OBJ> objects) => Future.value(List.filled(objects.length, 0));
-    @override List<int> putAllSync(List<OBJ> objects, {bool saveLinks = true}) => List.filled(objects.length, 0);
-    @override Future<List<int>> putAllByIndex(String indexName, List<OBJ> objects) => Future.value(List.filled(objects.length, 0));
-    @override List<int> putAllByIndexSync(String indexName, List<OBJ> objects, {bool saveLinks = true}) => List.filled(objects.length, 0);
-
-    @override Future<int> deleteAll(List<int> ids) => Future.value(0);
-    @override int deleteAllSync(List<int> ids) => 0;
-    @override Future<int> deleteAllByIndex(String indexName, List<List<Object?>> keys) => Future.value(0);
-    @override int deleteAllByIndexSync(String indexName, List<List<Object?>> keys) => 0;
-
-    @override Future<void> clear() => Future.value();
-    @override void clearSync() {}
-    @override Future<void> importJsonRaw(Uint8List jsonBytes) => Future.value();
-    @override void importJsonRawSync(Uint8List jsonBytes) {}
-    @override Future<void> importJson(List<Map<String, dynamic>> json) => Future.value();
-    @override void importJsonSync(List<Map<String, dynamic>> json) {}
-
-    @override
-    Query<R> buildQuery<R>({
-      List<WhereClause> whereClauses = const [],
-      bool whereDistinct = false,
-      Sort whereSort = Sort.asc,
-      FilterOperation? filter,
-      List<SortProperty> sortBy = const [],
-      List<DistinctProperty> distinctBy = const [],
-      int? offset,
-      int? limit,
-      String? property,
-    }) {
-      // Pass the stored objects so watch(fireImmediately: true) can emit them
-      // immediately instead of hanging in loading state on web.
-      final data = _store.values.whereType<R>().toList();
-      return MockQuery<R>(_mockIsar, data);
-    }
-
-    @override Future<int> count() => Future.value(_store.length);
-    @override int countSync() => _store.length;
-    @override Future<int> getSize({bool includeIndexes = false, bool includeLinks = false}) => Future.value(0);
-    @override int getSizeSync({bool includeIndexes = false, bool includeLinks = false}) => 0;
-
-    @override Stream<void> watchLazy({bool fireImmediately = false}) {
-      if (fireImmediately) return Stream.value(null);
-      return const Stream.empty();
-    }
-
-    @override Stream<OBJ?> watchObject(int id, {bool fireImmediately = false}) => Stream.value(_store[id]);
-    @override Stream<void> watchObjectLazy(int id, {bool fireImmediately = false}) => const Stream.empty();
-    @override Future<void> verify(List<OBJ> objects) => Future.value();
-    @override Future<void> verifyLink(String linkName, List<int> sourceIds, List<int> targetIds) => Future.value();
+  @override
+  @protected
+  R? aggregateSync<R>(AggregationOp op) {
+    if (op == AggregationOp.count) return _data.length as R?;
+    if (op == AggregationOp.isEmpty) return (_data.isEmpty ? 1 : 0) as R?;
+    return null;
   }
 
-  class MockIsar extends Isar {
-    final Map<Type, IsarCollection<dynamic>> _mockCollections = {};
+  @override Future<bool> deleteFirst() => Future.value(false);
+  @override bool deleteFirstSync() => false;
+  @override Future<int> deleteAll() => Future.value(0);
+  @override int deleteAllSync() => 0;
 
-    MockIsar() : super('watchtowerDb');
-
-    @override String? get directory => null;
-
-    @override
-    IsarCollection<T> collection<T>() {
-      return _mockCollections.putIfAbsent(T, () => MockIsarCollection<T>(this)) as IsarCollection<T>;
+  /// Live-reactive stream: emits the current snapshot immediately (when
+  /// [fireImmediately] is true) and then re-emits whenever the underlying
+  /// collection changes.
+  @override
+  Stream<List<T>> watch({bool fireImmediately = false}) {
+    if (_changeStream != null && _liveData != null) {
+      final live = _changeStream!.map((_) => _liveData!());
+      if (fireImmediately) {
+        return Stream.value(_liveData!()).followedBy(live);
+      }
+      return live;
     }
-
-    void seed<T>(int id, T obj) {
-      (collection<T>() as MockIsarCollection<T>).seed(id, obj);
-    }
-
-    @override Future<T> txn<T>(Future<T> Function() callback) => callback();
-    @override T txnSync<T>(T Function() callback) => callback();
-    @override Future<T> writeTxn<T>(Future<T> Function() callback, {bool silent = false}) => callback();
-    @override T writeTxnSync<T>(T Function() callback, {bool silent = false}) => callback();
-    @override Future<int> getSize({bool includeIndexes = false, bool includeLinks = false}) => Future.value(0);
-    @override int getSizeSync({bool includeIndexes = false, bool includeLinks = false}) => 0;
-    @override Future<void> copyToFile(String targetPath) => Future.value();
-    @override Future<void> verify() => Future.value();
+    if (fireImmediately) return Stream.value(List<T>.from(_data));
+    return const Stream.empty();
   }
+
+  @override
+  Stream<void> watchLazy({bool fireImmediately = false}) {
+    if (_changeStream != null) {
+      if (fireImmediately) {
+        return Stream.value(null).followedBy(_changeStream!);
+      }
+      return _changeStream!;
+    }
+    if (fireImmediately) return Stream.value(null);
+    return const Stream.empty();
+  }
+
+  @override
+  Future<R> exportJsonRaw<R>(R Function(Uint8List) callback) =>
+      Future.value(callback(Uint8List(0)));
+  @override
+  R exportJsonRawSync<R>(R Function(Uint8List) callback) =>
+      callback(Uint8List(0));
+}
+
+// ── MockIsarCollection ───────────────────────────────────────────────────────
+
+class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
+  final MockIsar _mockIsar;
+  final Map<int, OBJ> _store = {};
+
+  /// Broadcast stream that fires whenever [_store] is mutated.
+  final StreamController<void> _changes =
+      StreamController<void>.broadcast();
+
+  MockIsarCollection(this._mockIsar);
+
+  void seed(int id, OBJ obj) {
+    _store[id] = obj;
+    // No broadcast on seed — seeding happens before any listener is attached.
+  }
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  /// Extract the Isar `id` field from an object via dynamic access.
+  /// Returns null if the object has no `id` or it is not an int.
+  int? _idOf(OBJ obj) {
+    try {
+      final dynamic d = obj;
+      final dynamic raw = d.id;
+      if (raw is int) return raw;
+    } catch (_) {}
+    return null;
+  }
+
+  void _notify() => _changes.add(null);
+
+  // ── Isar identity ──────────────────────────────────────────────────────────
+
+  @override
+  Isar get isar => _mockIsar;
+  @override
+  String get name => 'mock';
+  @override
+  CollectionSchema<OBJ> get schema =>
+      throw UnsupportedError('Web mock: schema not available');
+
+  // ── reads ──────────────────────────────────────────────────────────────────
+
+  @override
+  Future<OBJ?> get(int id) => Future.value(_store[id]);
+  @override
+  OBJ? getSync(int id) => _store[id];
+  @override
+  Future<OBJ?> getByIndex(String indexName, List<Object?> key) =>
+      Future.value(null);
+  @override
+  OBJ? getByIndexSync(String indexName, List<Object?> key) => null;
+
+  @override
+  Future<List<OBJ?>> getAll(List<int> ids) =>
+      Future.value(ids.map((id) => _store[id]).toList());
+  @override
+  List<OBJ?> getAllSync(List<int> ids) =>
+      ids.map((id) => _store[id]).toList();
+  @override
+  Future<List<OBJ?>> getAllByIndex(
+          String indexName, List<List<Object?>> keys) =>
+      Future.value(List.filled(keys.length, null));
+  @override
+  List<OBJ?> getAllByIndexSync(String indexName, List<List<Object?>> keys) =>
+      List.filled(keys.length, null);
+
+  // ── writes ─────────────────────────────────────────────────────────────────
+
+  @override
+  Future<List<int>> putAll(List<OBJ> objects) {
+    final ids = _storeAll(objects);
+    if (ids.any((id) => id != 0)) _notify();
+    return Future.value(ids);
+  }
+
+  @override
+  List<int> putAllSync(List<OBJ> objects, {bool saveLinks = true}) {
+    final ids = _storeAll(objects);
+    if (ids.any((id) => id != 0)) _notify();
+    return ids;
+  }
+
+  @override
+  Future<List<int>> putAllByIndex(String indexName, List<OBJ> objects) =>
+      putAll(objects);
+  @override
+  List<int> putAllByIndexSync(String indexName, List<OBJ> objects,
+          {bool saveLinks = true}) =>
+      putAllSync(objects);
+
+  List<int> _storeAll(List<OBJ> objects) {
+    final ids = <int>[];
+    for (final obj in objects) {
+      final id = _idOf(obj);
+      if (id != null) {
+        _store[id] = obj;
+        ids.add(id);
+      } else {
+        ids.add(0);
+      }
+    }
+    return ids;
+  }
+
+  // ── deletes ────────────────────────────────────────────────────────────────
+
+  @override
+  Future<int> deleteAll(List<int> ids) {
+    int count = 0;
+    for (final id in ids) {
+      if (_store.remove(id) != null) count++;
+    }
+    if (count > 0) _notify();
+    return Future.value(count);
+  }
+
+  @override
+  int deleteAllSync(List<int> ids) {
+    int count = 0;
+    for (final id in ids) {
+      if (_store.remove(id) != null) count++;
+    }
+    if (count > 0) _notify();
+    return count;
+  }
+
+  @override
+  Future<int> deleteAllByIndex(
+      String indexName, List<List<Object?>> keys) =>
+      Future.value(0);
+  @override
+  int deleteAllByIndexSync(String indexName, List<List<Object?>> keys) => 0;
+
+  @override
+  Future<void> clear() async {
+    _store.clear();
+    _notify();
+  }
+
+  @override
+  void clearSync() {
+    _store.clear();
+    _notify();
+  }
+
+  // ── JSON import (no-op) ────────────────────────────────────────────────────
+
+  @override Future<void> importJsonRaw(Uint8List jsonBytes) => Future.value();
+  @override void importJsonRawSync(Uint8List jsonBytes) {}
+  @override Future<void> importJson(List<Map<String, dynamic>> json) => Future.value();
+  @override void importJsonSync(List<Map<String, dynamic>> json) {}
+
+  // ── query building ─────────────────────────────────────────────────────────
+
+  @override
+  Query<R> buildQuery<R>({
+    List<WhereClause> whereClauses = const [],
+    bool whereDistinct = false,
+    Sort whereSort = Sort.asc,
+    FilterOperation? filter,
+    List<SortProperty> sortBy = const [],
+    List<DistinctProperty> distinctBy = const [],
+    int? offset,
+    int? limit,
+    String? property,
+  }) {
+    final data = _store.values.whereType<R>().toList();
+    List<R> liveData() => _store.values.whereType<R>().toList();
+    return MockQuery<R>(_mockIsar, data, _changes.stream, liveData);
+  }
+
+  // ── counts / sizes ─────────────────────────────────────────────────────────
+
+  @override Future<int> count() => Future.value(_store.length);
+  @override int countSync() => _store.length;
+  @override Future<int> getSize(
+          {bool includeIndexes = false, bool includeLinks = false}) =>
+      Future.value(0);
+  @override int getSizeSync(
+          {bool includeIndexes = false, bool includeLinks = false}) =>
+      0;
+
+  // ── watch helpers ──────────────────────────────────────────────────────────
+
+  @override
+  Stream<void> watchLazy({bool fireImmediately = false}) {
+    if (fireImmediately) {
+      return Stream.value(null).followedBy(_changes.stream);
+    }
+    return _changes.stream;
+  }
+
+  @override
+  Stream<OBJ?> watchObject(int id, {bool fireImmediately = false}) {
+    final live = _changes.stream.map((_) => _store[id]);
+    if (fireImmediately) return Stream.value(_store[id]).followedBy(live);
+    return live;
+  }
+
+  @override
+  Stream<void> watchObjectLazy(int id, {bool fireImmediately = false}) {
+    if (fireImmediately) return Stream.value(null).followedBy(_changes.stream);
+    return _changes.stream;
+  }
+
+  @override Future<void> verify(List<OBJ> objects) => Future.value();
+  @override Future<void> verifyLink(
+          String linkName, List<int> sourceIds, List<int> targetIds) =>
+      Future.value();
+}
+
+// ── MockIsar ─────────────────────────────────────────────────────────────────
+
+class MockIsar extends Isar {
+  final Map<Type, IsarCollection<dynamic>> _mockCollections = {};
+
+  MockIsar() : super('watchtowerDb');
+
+  @override
+  String? get directory => null;
+
+  @override
+  IsarCollection<T> collection<T>() {
+    return _mockCollections.putIfAbsent(
+            T, () => MockIsarCollection<T>(this)) as IsarCollection<T>;
+  }
+
+  void seed<T>(int id, T obj) {
+    (collection<T>() as MockIsarCollection<T>).seed(id, obj);
+  }
+
+  @override Future<T> txn<T>(Future<T> Function() callback) => callback();
+  @override T txnSync<T>(T Function() callback) => callback();
+  @override Future<T> writeTxn<T>(Future<T> Function() callback,
+          {bool silent = false}) =>
+      callback();
+  @override T writeTxnSync<T>(T Function() callback, {bool silent = false}) =>
+      callback();
+  @override Future<int> getSize(
+          {bool includeIndexes = false, bool includeLinks = false}) =>
+      Future.value(0);
+  @override int getSizeSync(
+          {bool includeIndexes = false, bool includeLinks = false}) =>
+      0;
+  @override Future<void> copyToFile(String targetPath) => Future.value();
+  @override Future<void> verify() => Future.value();
+}
