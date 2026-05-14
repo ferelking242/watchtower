@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as rawHttp;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/filter.dart';
@@ -15,6 +17,39 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/settings/general/extension_cookie_manager_screen.dart'
     show autoRegisterExtensionCookieSlot;
+
+// ── Web proxy helper ─────────────────────────────────────────────────────────
+// Sur Flutter web, toutes les requêtes cross-origin sont bloquées par CORS.
+// Cette fonction envoie les requêtes via le Cloudflare Worker proxy qui fait
+// la requête côté serveur et renvoie le résultat.
+
+const _kWebProxyUrl = 'https://watchtower-proxy.aivos-dev.workers.dev/proxy';
+
+/// Effectue un GET via le proxy CF Workers sur Flutter web.
+/// Retourne le body texte de la réponse cible.
+Future<rawHttp.Response> _webProxyGet(String url) async {
+  final proxyRes = await rawHttp.post(
+    Uri.parse(_kWebProxyUrl),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: jsonEncode({'method': 'GET', 'url': url, 'headers': {}}),
+  );
+  if (proxyRes.statusCode != 200) {
+    throw Exception('Proxy error ${proxyRes.statusCode} for $url');
+  }
+  final json = jsonDecode(proxyRes.body) as Map<String, dynamic>;
+  if (json.containsKey('error')) {
+    throw Exception('Proxy returned error: ${json['error']} for $url');
+  }
+  final targetStatus = json['statusCode'] as int? ?? 200;
+  final targetBody = json['body'] as String? ?? '';
+  final targetHeaders = (json['headers'] as Map?)
+          ?.map((k, v) => MapEntry(k.toString(), v.toString())) ??
+      <String, String>{};
+  return rawHttp.Response(targetBody, targetStatus, headers: targetHeaders);
+}
 
 // ── Index response cache ─────────────────────────────────────────────────────
 //
@@ -49,7 +84,9 @@ Future<String> _fetchIndexBody({
   if (inflight != null) return inflight;
 
   final future = () async {
-    final req = await http.get(Uri.parse(url));
+    final req = kIsWeb
+        ? await _webProxyGet(url)
+        : await http.get(Uri.parse(url));
     final body = req.body as String;
     _indexCache[url] = _IndexCacheEntry(body, DateTime.now());
     return body;
@@ -273,7 +310,9 @@ Future<void> _updateSource(
     tag: LogTag.extension_,
   );
   final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
-  final req = await http.get(Uri.parse(source.sourceCodeUrl!));
+  final req = kIsWeb
+      ? await _webProxyGet(source.sourceCodeUrl!)
+      : await http.get(Uri.parse(source.sourceCodeUrl!));
   AppLogger.log(
     'Source code downloaded | status=${req.statusCode} | size=${req.bodyBytes.length}B | "${source.name}"',
     logLevel: req.statusCode == 200 ? LogLevel.info : LogLevel.error,
