@@ -92,13 +92,18 @@ class MClient {
               ClientSettings(dnsSettings: dnsSettings)
         : settings;
 
+    // Sur Flutter web, on ajoute l'intercepteur proxy Cloudflare en premier
+    // pour que toutes les requêtes passent par le worker et évitent les CORS.
+    final interceptors = <InterceptorContract>[
+      if (kIsWeb) WebProxyInterceptor(),
+      MCookieManager(reqcopyWith),
+      LoggerInterceptor(showCloudFlareError),
+    ];
+
     return InterceptedClient.build(
       client: httpClient(settings: clientSettings, reqcopyWith: reqcopyWith),
       retryPolicy: ResolveCloudFlareChallenge(showCloudFlareError),
-      interceptors: [
-        MCookieManager(reqcopyWith),
-        LoggerInterceptor(showCloudFlareError),
-      ],
+      interceptors: interceptors,
     );
   }
 
@@ -475,5 +480,88 @@ void _handleResolveCf(HttpRequest request) async {
       ..statusCode = HttpStatus.badRequest
       ..write(jsonEncode({'error': 'Invalid JSON'}))
       ..close();
+  }
+}
+
+// ── WebProxyInterceptor ───────────────────────────────────────────────────────
+// Sur Flutter web, le navigateur bloque les requêtes cross-origin (CORS).
+// Cet intercepteur reroute toutes les requêtes via le proxy Cloudflare Workers
+// qui fait la requête côté serveur et renvoie le résultat avec les bons headers.
+//
+// Activé uniquement quand kIsWeb == true (voir MClient.init).
+
+const _kCfProxyUrl = 'https://watchtower-proxy.aivos-dev.workers.dev/proxy';
+
+// URLs qui ne doivent PAS passer par le proxy (ressources locales, le proxy lui-même)
+bool _shouldBypassProxy(String url) {
+  return url.startsWith('http://localhost') ||
+      url.startsWith('http://127.0.0.1') ||
+      url.contains('workers.dev') ||
+      url.startsWith('data:') ||
+      url.startsWith('blob:');
+}
+
+class WebProxyInterceptor extends InterceptorContract {
+  @override
+  Future<BaseRequest> interceptRequest({required BaseRequest request}) async {
+    final originalUrl = request.url.toString();
+    if (_shouldBypassProxy(originalUrl)) return request;
+
+    // Convertit la requête en un POST vers le proxy
+    final originalHeaders = Map<String, String>.from(request.headers);
+
+    String? body;
+    if (request is Request && request.body.isNotEmpty) {
+      body = request.body;
+    }
+
+    final proxyPayload = <String, dynamic>{
+      'method': request.method,
+      'url': originalUrl,
+      'headers': originalHeaders,
+      if (body != null) 'body': body,
+    };
+
+    final proxyRequest = Request('POST', Uri.parse(_kCfProxyUrl));
+    proxyRequest.headers['Content-Type'] = 'application/json';
+    proxyRequest.headers['Accept'] = 'application/json';
+    proxyRequest.body = jsonEncode(proxyPayload);
+
+    return proxyRequest;
+  }
+
+  @override
+  Future<BaseResponse> interceptResponse({
+    required BaseResponse response,
+  }) async {
+    // La réponse du proxy est un JSON {statusCode, headers, body}
+    // On la décode et reconstruit une Response normale
+    if (response is Response) {
+      try {
+        final proxyJson = jsonDecode(response.body) as Map<String, dynamic>;
+        if (proxyJson.containsKey('error')) {
+          // Le proxy a renvoyé une erreur — on la propage telle quelle
+          return response;
+        }
+        final targetStatus = proxyJson['statusCode'] as int? ?? response.statusCode;
+        final targetBody = proxyJson['body'] as String? ?? '';
+        final targetHeaders = (proxyJson['headers'] as Map?)
+                ?.map((k, v) => MapEntry(k.toString(), v.toString())) ??
+            <String, String>{};
+
+        return Response(
+          targetBody,
+          targetStatus,
+          headers: targetHeaders,
+          request: response.request,
+          isRedirect: false,
+          persistentConnection: false,
+          reasonPhrase: targetStatus == 200 ? 'OK' : '',
+        );
+      } catch (_) {
+        // Si le décodage échoue, renvoie la réponse brute
+      }
+    }
+    return response;
   }
 }
