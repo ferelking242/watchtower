@@ -16,17 +16,21 @@ class ExtensionLangListTileWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final langCode = lang.toLowerCase();
+    final flag = langFlagEmoji(langCode);
+    final name = completeLanguageName(langCode);
+
     return ListTile(
-      onTap: () {
-        onChanged(!value);
-      },
+      onTap: () => onChanged(!value),
       onLongPress: onLongPress,
-      title: Text(completeLanguageName(lang.toLowerCase())),
+      leading: Text(
+        flag,
+        style: const TextStyle(fontSize: 26),
+      ),
+      title: Text(name),
       trailing: Switch(
         value: value,
-        onChanged: (value) {
-          onChanged(value);
-        },
+        onChanged: onChanged,
       ),
     );
   }

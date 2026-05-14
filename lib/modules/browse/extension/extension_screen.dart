@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
@@ -133,11 +134,6 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                       )
                       .toList();
 
-            // Deduplicate by name+lang: same extension can appear multiple
-            // times if it is present in several repos with different IDs
-            // (e.g. native-format ID vs Mihon-format hashCode).
-            // Keep the most relevant entry: installed > update-pending > not-installed,
-            // then prefer the one with the higher versionLast.
             final Map<String, Source> _deduped = {};
             for (final src in rawFiltered) {
               final key = '${src.name ?? ''}_${src.lang ?? ''}_${src.itemType.name}';
@@ -176,7 +172,6 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
               if (!showNSFW && (element.isNsfw ?? false)) {
                 continue;
               }
-              final isLatestVersion = element.version == element.versionLast;
 
               if (compareVersions(
                     element.version ?? '',
@@ -185,10 +180,6 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                   0) {
                 updateEntries.add(element);
               } else {
-                // compareVersions >= 0: version is at least as recent as
-                // versionLast (or they differ only in string format).
-                // Treat as "latest" regardless of strict string equality
-                // so sources always appear in the available/installed list.
                 if (element.isAdded ?? false) {
                   installedEntries.add(element);
                 } else {
@@ -233,15 +224,15 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                                   ],
                                 ),
                               ),
-                              child: Icon(
-                                Icons.extension_off_outlined,
-                                size: 52,
-                                color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5),
+                              child: FaIcon(
+                                FontAwesomeIcons.ghost,
+                                size: 48,
+                                color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.45),
                               ),
                             ),
                             const SizedBox(height: 20),
                             Text(
-                              "Nothing here",
+                              "Rien ici",
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(context).hintColor,
@@ -251,7 +242,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                             Text(
                               widget.query.isEmpty
                                   ? l10n.refresh
-                                  : "No results for \"${widget.query}\"",
+                                  : "Aucun résultat pour « ${widget.query} »",
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context).hintColor.withValues(alpha: 0.7),
                                   ),
@@ -365,11 +356,12 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
   }
 
   List<Widget> _buildAvailableSection(List<Source> notInstalledEntries) {
-    // Group by language
+    // Group by language code (raw) for flag lookup, display name for label
     final Map<String, List<Source>> grouped = {};
     for (final src in notInstalledEntries) {
-      final lang = completeLanguageName(src.lang?.toLowerCase() ?? '');
-      grouped.putIfAbsent(lang, () => []).add(src);
+      final langCode = src.lang?.toLowerCase() ?? '';
+      final name = completeLanguageName(langCode);
+      grouped.putIfAbsent(name, () => []).add(src);
     }
     final sortedLangs = grouped.keys.toList()..sort();
 
@@ -383,7 +375,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
           child: Row(
             children: [
               Text(
-                "Available",
+                "Disponibles",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -402,7 +394,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                         height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text("Installer tout", style: TextStyle(fontSize: 12)),
+                    : const Text("Tout installer", style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -416,7 +408,10 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
       final isCollapsed = _collapsed[lang] ?? false;
       final isInstallingLang = _installingLang[lang] ?? false;
 
-      // Language section header (collapsible) + Install All for this lang
+      // Get flag from the first item's lang code
+      final firstLangCode = items.first.lang?.toLowerCase() ?? '';
+      final flag = langFlagEmoji(firstLangCode);
+
       slivers.add(
         SliverToBoxAdapter(
           child: InkWell(
@@ -429,6 +424,9 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(
                 children: [
+                  // Flag emoji
+                  Text(flag, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       lang,
@@ -484,7 +482,6 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
         ),
       );
 
-      // Items (visible only when not collapsed)
       if (!isCollapsed) {
         slivers.add(
           SliverList(
@@ -516,11 +513,12 @@ class _CountBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
-        '$count',
+        count.toString().padLeft(3, '0'),
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );

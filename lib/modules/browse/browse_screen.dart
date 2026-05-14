@@ -2,6 +2,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
@@ -16,6 +17,7 @@ import 'package:watchtower/modules/browse/marketplace_screen.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
+import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/services/wext_importer.dart';
 
@@ -46,6 +48,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         _section[_activeType] ?? BrowseSection.sources;
 
     bool _diagnosing = false;
+    bool _bulkWorking = false;
 
     static List<ItemType> _computeTypes(List<String> hideItems) => [
           if (!hideItems.contains("/AnimeLibrary")) ItemType.anime,
@@ -111,9 +114,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
 
   Future<void> _checkPermission() async {
-    // Silent check only — do NOT open the Settings screen on every tab
-    // switch.  Permissions are granted during onboarding; this just verifies
-    // the current state without prompting.
     await StorageProvider().requestPermission(requestIfNeeded: false);
   }
 
@@ -141,11 +141,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Lancement du diagnostic sur toutes les extensionsâ¦',
-            ),
-          ),
+          Expanded(child: Text('Diagnostic en cours…')),
         ]),
       ),
     );
@@ -160,10 +156,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: failed > 0 ? Colors.red.shade700 : null,
-          content: Text(
-            'Diagnostic terminÃ© Â· $ok OK Â· $failed erreur(s) sur $total. '
-            'Voir Logs.',
-          ),
+          content: Text('Diagnostic · $ok OK · $failed erreur(s) sur $total.'),
           action: SnackBarAction(
             label: 'Logs',
             textColor: Colors.white,
@@ -177,8 +170,184 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
   }
 
-  /// Build the right-aligned action icons for the AppBar based on the
-  /// currently active tab + section.
+  // ── Bulk operations ────────────────────────────────────────────────────────
+
+  Future<void> _installAllExtensions(BuildContext context, ItemType type) async {
+    if (_bulkWorking) return;
+    setState(() => _bulkWorking = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 999),
+        content: Row(children: [
+          SizedBox(width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 12),
+          Expanded(child: Text('Installation de toutes les extensions…')),
+        ]),
+      ),
+    );
+    try {
+      final sources = isar.sources
+          .filter()
+          .itemTypeEqualTo(type)
+          .isAddedEqualTo(false)
+          .findAllSync();
+      int done = 0;
+      for (final src in sources) {
+        try {
+          final provider = fetchItemSourcesListProvider(
+            id: src.id, reFresh: true, itemType: src.itemType);
+          ref.invalidate(provider);
+          await ref.read(provider.future);
+          done++;
+        } catch (_) {}
+      }
+      if (context.mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('$done extension(s) installée(s).'),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _bulkWorking = false);
+    }
+  }
+
+  void _uninstallAllExtensions(BuildContext context, ItemType type) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Désinstaller tout'),
+        content: const Text(
+            'Voulez-vous vraiment désinstaller toutes les extensions installées ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              final sources = isar.sources
+                  .filter()
+                  .itemTypeEqualTo(type)
+                  .isAddedEqualTo(true)
+                  .findAllSync();
+              isar.writeTxnSync(() {
+                final now = DateTime.now().millisecondsSinceEpoch;
+                for (final s in sources) {
+                  if (!(s.isObsolete ?? false)) {
+                    isar.sources.putSync(s
+                      ..sourceCode = ''
+                      ..isAdded = false
+                      ..isPinned = false
+                      ..updatedAt = now);
+                  } else {
+                    isar.sources.deleteSync(s.id!);
+                  }
+                }
+              });
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                behavior: SnackBarBehavior.floating,
+                content:
+                    Text('${sources.length} extension(s) désinstallée(s).'),
+                duration: const Duration(seconds: 3),
+              ));
+            },
+            child: const Text('Désinstaller'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _activateAllSources(BuildContext context, ItemType type) {
+    isar.writeTxnSync(() {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final sources = isar.sources
+          .filter()
+          .itemTypeEqualTo(type)
+          .findAllSync();
+      for (final s in sources) {
+        isar.sources.putSync(s..isActive = true..updatedAt = now);
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      behavior: SnackBarBehavior.floating,
+      content: Text('Toutes les sources activées.'),
+      duration: Duration(seconds: 2),
+    ));
+  }
+
+  void _deactivateAllSources(BuildContext context, ItemType type) {
+    isar.writeTxnSync(() {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final sources = isar.sources
+          .filter()
+          .itemTypeEqualTo(type)
+          .findAllSync();
+      for (final s in sources) {
+        isar.sources.putSync(s..isActive = false..updatedAt = now);
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      behavior: SnackBarBehavior.floating,
+      content: Text('Toutes les sources désactivées.'),
+      duration: Duration(seconds: 2),
+    ));
+  }
+
+  Future<void> _updateAllExtensions(BuildContext context, ItemType type) async {
+    if (_bulkWorking) return;
+    setState(() => _bulkWorking = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 999),
+        content: Row(children: [
+          SizedBox(width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 12),
+          Expanded(child: Text('Mise à jour de toutes les extensions…')),
+        ]),
+      ),
+    );
+    try {
+      final sources = isar.sources
+          .filter()
+          .itemTypeEqualTo(type)
+          .isAddedEqualTo(true)
+          .findAllSync()
+          .where((s) => compareVersions(s.version ?? '', s.versionLast ?? '') < 0)
+          .toList();
+      int done = 0;
+      for (final src in sources) {
+        try {
+          await ref.read(fetchItemSourcesListProvider(
+            id: src.id, reFresh: true, itemType: src.itemType).future);
+          done++;
+        } catch (_) {}
+      }
+      if (context.mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('$done extension(s) mise(s) à jour.'),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _bulkWorking = false);
+    }
+  }
+
+  // ── AppBar actions ─────────────────────────────────────────────────────────
+
   List<Widget> _appBarActions(BuildContext context) {
     final theme = Theme.of(context);
     if (_types.isEmpty) return const [];
@@ -192,28 +361,22 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         GestureDetector(
           onLongPress: () => context.push('/extensionDiagnostic', extra: type),
           child: IconButton(
-            tooltip: 'Global search Â· long-press to diagnose',
+            tooltip: 'Recherche globale · appui long = diagnostic',
             splashRadius: 20,
-            onPressed: () => context.push(
-              '/globalSearch',
-              extra: (null, type),
-            ),
+            onPressed: () => context.push('/globalSearch', extra: (null, type)),
             icon: Icon(Icons.travel_explore_rounded, color: theme.hintColor),
           ),
         ),
         IconButton(
-          tooltip: 'Source filters',
+          tooltip: 'Filtres sources',
           splashRadius: 20,
-          onPressed: () => context.push(
-            '/sourceFilter',
-            extra: type,
-          ),
+          onPressed: () => context.push('/sourceFilter', extra: type),
           icon: Icon(Icons.filter_list_sharp, color: theme.hintColor),
         ),
       ],
       if (isExt) ...[
         IconButton(
-          tooltip: 'Search extensions',
+          tooltip: 'Rechercher',
           splashRadius: 20,
           onPressed: () => setState(() {
             _isSearch[type] = !(_isSearch[type] ?? false);
@@ -227,13 +390,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           ),
         ),
         IconButton(
-          tooltip: 'Import .wext file',
+          tooltip: 'Importer .wext',
           splashRadius: 20,
           onPressed: () => importWextAndNotify(context),
           icon: Icon(Icons.file_download_outlined, color: theme.hintColor),
         ),
         IconButton(
-          tooltip: 'Create extension',
+          tooltip: 'Créer une extension',
           splashRadius: 20,
           onPressed: () => context.push('/createExtension'),
           icon: Icon(Icons.add_outlined, color: theme.hintColor),
@@ -241,18 +404,111 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         GestureDetector(
           onLongPress: () => _isolateDeviceLanguage(context, type),
           child: IconButton(
-            tooltip: 'Languages',
+            tooltip: 'Langues · appui long = ma langue seulement',
             splashRadius: 20,
-            onPressed: () => context.push(
-              '/ExtensionLang',
-              extra: type,
-            ),
+            onPressed: () => context.push('/ExtensionLang', extra: type),
             icon: Icon(Icons.translate_rounded, color: theme.hintColor),
           ),
+        ),
+        // ── 3-dot vertical menu ──────────────────────────────────────────
+        PopupMenuButton<_ExtMenuAction>(
+          tooltip: 'Plus d\'options',
+          icon: Icon(Icons.more_vert, color: theme.hintColor),
+          onSelected: (action) => _handleExtMenuAction(context, type, action),
+          itemBuilder: (ctx) => [
+            // ── Install / Uninstall ──────────────────────────────────────
+            PopupMenuItem(
+              value: _ExtMenuAction.installAll,
+              child: _MenuRow(
+                icon: Icons.download_rounded,
+                label: 'Installer toutes les extensions',
+                enabled: !_bulkWorking,
+              ),
+            ),
+            PopupMenuItem(
+              value: _ExtMenuAction.uninstallAll,
+              child: _MenuRow(
+                icon: Icons.delete_sweep_rounded,
+                label: 'Désinstaller toutes les extensions',
+                danger: true,
+              ),
+            ),
+            const PopupMenuDivider(),
+            // ── Activate / Deactivate ─────────────────────────────────────
+            PopupMenuItem(
+              value: _ExtMenuAction.activateAll,
+              child: _MenuRow(
+                icon: Icons.toggle_on_rounded,
+                label: 'Activer toutes les sources',
+              ),
+            ),
+            PopupMenuItem(
+              value: _ExtMenuAction.deactivateAll,
+              child: _MenuRow(
+                icon: Icons.toggle_off_rounded,
+                label: 'Désactiver toutes les sources',
+              ),
+            ),
+            PopupMenuItem(
+              value: _ExtMenuAction.onlyMyLanguage,
+              child: _MenuRow(
+                icon: Icons.language_rounded,
+                label: 'Seulement ma langue',
+              ),
+            ),
+            const PopupMenuDivider(),
+            // ── Update / Diagnostic ───────────────────────────────────────
+            PopupMenuItem(
+              value: _ExtMenuAction.updateAll,
+              child: _MenuRow(
+                icon: Icons.system_update_alt_rounded,
+                label: 'Mettre à jour tout',
+                enabled: !_bulkWorking,
+              ),
+            ),
+            PopupMenuItem(
+              value: _ExtMenuAction.diagnostic,
+              child: _MenuRow(
+                icon: Icons.bug_report_rounded,
+                label: 'Diagnostic',
+              ),
+            ),
+            const PopupMenuDivider(),
+            // ── Repos ────────────────────────────────────────────────────
+            PopupMenuItem(
+              value: _ExtMenuAction.manageRepos,
+              child: _MenuRow(
+                icon: Icons.source_rounded,
+                label: 'Gérer les dépôts',
+              ),
+            ),
+          ],
         ),
       ],
       const SizedBox(width: 4),
     ];
+  }
+
+  void _handleExtMenuAction(
+      BuildContext context, ItemType type, _ExtMenuAction action) {
+    switch (action) {
+      case _ExtMenuAction.installAll:
+        _installAllExtensions(context, type);
+      case _ExtMenuAction.uninstallAll:
+        _uninstallAllExtensions(context, type);
+      case _ExtMenuAction.activateAll:
+        _activateAllSources(context, type);
+      case _ExtMenuAction.deactivateAll:
+        _deactivateAllSources(context, type);
+      case _ExtMenuAction.onlyMyLanguage:
+        _isolateDeviceLanguage(context, type);
+      case _ExtMenuAction.updateAll:
+        _updateAllExtensions(context, type);
+      case _ExtMenuAction.diagnostic:
+        _runDiagnostics(context, type);
+      case _ExtMenuAction.manageRepos:
+        context.push('/extensionRepositories');
+    }
   }
 
   String _typeLabel(ItemType t, AppLocalizations l10n) {
@@ -287,7 +543,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   @override
     Widget build(BuildContext context) {
-      // Watch hideItems so we rebuild tabs when navigation options change.
       ref.listen<List<String>>(hideItemsStateProvider, (_, next) {
         final newTypes = _computeTypes(next);
         if (!_typesEqual(newTypes, _types) && mounted) {
@@ -404,6 +659,59 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Menu action enum
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum _ExtMenuAction {
+  installAll,
+  uninstallAll,
+  activateAll,
+  deactivateAll,
+  onlyMyLanguage,
+  updateAll,
+  diagnostic,
+  manageRepos,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Menu row widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool danger;
+  final bool enabled;
+
+  const _MenuRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger
+        ? Colors.red.shade400
+        : enabled
+            ? null
+            : Theme.of(context).disabledColor;
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Text(label,
+            style: TextStyle(
+              color: color,
+              fontWeight: danger ? FontWeight.w600 : null,
+            )),
+      ],
+    );
+  }
+}
+
 extension _ItemTypeExt on ItemType {
   bool get isExtensionUpdateRelevant => true;
 }
@@ -440,15 +748,12 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
       return InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          if (!active) {
-            widget.onSectionChanged(s);
-          }
+          if (!active) widget.onSectionChanged(s);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: active
                 ? cs.primary.withValues(alpha: 0.14)
@@ -458,11 +763,8 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 15,
-                color: active ? cs.primary : cs.onSurfaceVariant,
-              ),
+              Icon(icon, size: 15,
+                  color: active ? cs.primary : cs.onSurfaceVariant),
               const SizedBox(width: 5),
               Text(
                 label,
@@ -491,10 +793,8 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             seg(BrowseSection.sources, Icons.cloud_outlined, 'Sources'),
-            seg(BrowseSection.extensions, Icons.extension_outlined,
-                'Extensions'),
-            seg(BrowseSection.marketplace, Icons.storefront_outlined,
-                'Market'),
+            seg(BrowseSection.extensions, Icons.extension_outlined, 'Extensions'),
+            seg(BrowseSection.marketplace, Icons.storefront_outlined, 'Market'),
           ],
         ),
       ),
@@ -519,9 +819,7 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
   Widget _body() {
     switch (widget.section) {
       case BrowseSection.sources:
-        return SourcesScreen(
-          itemType: widget.itemType,
-        );
+        return SourcesScreen(itemType: widget.itemType);
       case BrowseSection.extensions:
         return ExtensionScreen(
           query: widget.searchController.text,
@@ -544,8 +842,7 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
 }
 
 /// Long-press shortcut on the translate icon: keeps only the device's
-/// language active (and English as a fallback). Long-press again to restore
-/// every language.
+/// language active (and English as a fallback). Long-press again to restore.
 void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
   String deviceLang;
   try {
@@ -565,7 +862,6 @@ void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
       s.lang!.toLowerCase() != deviceLang &&
       s.lang!.toLowerCase() != 'en' &&
       s.lang!.toLowerCase() != 'all');
-  final shouldIsolate = isolated;
 
   isar.writeTxnSync(() {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -574,7 +870,7 @@ void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
       final keep = lang == deviceLang || lang == 'en' || lang == 'all';
       isar.sources.putSync(
         s
-          ..isActive = shouldIsolate ? keep : true
+          ..isActive = isolated ? keep : true
           ..updatedAt = now,
       );
     }
@@ -582,11 +878,12 @@ void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
 
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
+      behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 2),
       content: Text(
-        shouldIsolate
-            ? 'Sources limitÃ©es Ã  ${deviceLang.toUpperCase()} + EN'
-            : 'Toutes les langues rÃ©activÃ©es',
+        isolated
+            ? 'Sources limitées à ${deviceLang.toUpperCase()} + EN'
+            : 'Toutes les langues réactivées',
       ),
     ),
   );
