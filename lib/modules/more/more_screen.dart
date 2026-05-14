@@ -23,13 +23,13 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
     final cs = Theme.of(context).colorScheme;
     final pkgInfoAsync = ref.watch(getPackageInfoProvider);
     return Scaffold(
+      extendBodyBehindAppBar: true,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(height: AppBar().preferredSize.height),
-            // ── Hero header card ──
+            // ── Hero header — full-bleed, no margin, no rounded corners ──
             Container(
-              margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              width: double.infinity,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -40,92 +40,94 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                     cs.secondary.withValues(alpha: 0.7),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(20),
               ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // logo
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Image.asset(
-                          'assets/app_icons/icon.png',
-                          fit: BoxFit.cover,
-                        ),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                MediaQuery.of(context).padding.top + 24,
+                24,
+                28,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // logo
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        width: 1.5,
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    // text
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'WATCHTOWER',
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          pkgInfoAsync.when(
-                            data: (data) => Text(
-                              'v${data.version}  ·  Beta',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                            loading: () => const SizedBox(height: 18),
-                            error: (_, __) => const SizedBox(height: 18),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.25),
-                              ),
-                            ),
-                            child: Text(
-                              'Streaming · Manga · Novels',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.asset(
+                        'assets/app_icons/icon.png',
+                        fit: BoxFit.cover,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 20),
+                  // text
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'WATCHTOWER',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        pkgInfoAsync.when(
+                          data: (data) => Text(
+                            'v${data.version}  ·  Beta',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          loading: () => const SizedBox(height: 18),
+                          error: (_, __) => const SizedBox(height: 18),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Text(
+                            'Streaming · Manga · Novels',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Divider(),
+            const Divider(height: 1),
             // ListTile(
             //   onTap: () {},
             //   leading: const SizedBox(height: 40, child: Icon(Icons.cloud_off)),

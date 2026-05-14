@@ -51,9 +51,12 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             return const SizedBox.shrink();
           }
           final showNSFW = ref.watch(showNSFWStateProvider);
-          // Apply itemType filter in Dart as a safety-net for platforms
-          // (e.g. Flutter web) where Isar filter chains may be no-ops.
+          // On Flutter web the Isar filter chain is a no-op, so we mirror
+          // ALL conditions from the query in Dart as a safety-net.
           List<Source> sources = snapshot.data!
+              .where((e) => e.id != null)
+              .where((e) => e.isAdded == true)
+              .where((e) => e.isActive == true)
               .where((e) => e.itemType == widget.itemType)
               .where((e) => showNSFW || !(e.isNsfw ?? false))
               .toList();
