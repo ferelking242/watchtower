@@ -30,44 +30,85 @@ class BrowseScreen extends ConsumerStatefulWidget {
 enum BrowseSection { sources, extensions, marketplace }
 
 class _BrowseScreenState extends ConsumerState<BrowseScreen>
-    with TickerProviderStateMixin {
-  late final hideItems = ref.read(hideItemsStateProvider);
-  late TabController _tabBarController;
+      with TickerProviderStateMixin {
+    late TabController _tabBarController;
 
-  /// Outer tab order â Watch first as requested.
-  late final List<ItemType> _types = [
-    if (!hideItems.contains("/AnimeLibrary")) ItemType.anime,
-    if (!hideItems.contains("/MangaLibrary")) ItemType.manga,
-    if (!hideItems.contains("/NovelLibrary")) ItemType.novel,
-    if (!hideItems.contains("/MusicLibrary")) ItemType.music,
-    if (!hideItems.contains("/GameLibrary")) ItemType.game,
-  ];
+    /// Outer tab order — computed dynamically from current navigation settings.
+    List<ItemType> _types = [];
 
-  /// Per-type sub-section (Sources / Extensions / Marketplace).
-  final Map<ItemType, BrowseSection> _section = {};
-  final Map<ItemType, bool> _isSearch = {};
-  final Map<ItemType, TextEditingController> _searchControllers = {};
+    /// Per-type sub-section (Sources / Extensions / Marketplace).
+    final Map<ItemType, BrowseSection> _section = {};
+    final Map<ItemType, bool> _isSearch = {};
+    final Map<ItemType, TextEditingController> _searchControllers = {};
 
-  ItemType get _activeType => _types[_tabBarController.index];
-  BrowseSection get _activeSection =>
-      _section[_activeType] ?? BrowseSection.sources;
+    ItemType get _activeType => _types[_tabBarController.index];
+    BrowseSection get _activeSection =>
+        _section[_activeType] ?? BrowseSection.sources;
 
-  bool _diagnosing = false;
+    bool _diagnosing = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _tabBarController = TabController(length: _types.length, vsync: this);
-    _tabBarController.addListener(() {
-      _checkPermission();
-      if (mounted) setState(() {});
-    });
-    for (final t in _types) {
-      _section[t] = BrowseSection.sources;
-      _isSearch[t] = false;
-      _searchControllers[t] = TextEditingController();
+    static List<ItemType> _computeTypes(List<String> hideItems) => [
+          if (!hideItems.contains("/AnimeLibrary")) ItemType.anime,
+          if (!hideItems.contains("/MangaLibrary")) ItemType.manga,
+          if (!hideItems.contains("/NovelLibrary")) ItemType.novel,
+          if (!hideItems.contains("/MusicLibrary")) ItemType.music,
+          if (!hideItems.contains("/GameLibrary")) ItemType.game,
+        ];
+
+    static bool _typesEqual(List<ItemType> a, List<ItemType> b) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (a[i] != b[i]) return false;
+      }
+      return true;
     }
-  }
+
+    void _initTabController(List<ItemType> types, {int initialIndex = 0}) {
+      _tabBarController = TabController(
+        length: types.length,
+        initialIndex: initialIndex.clamp(0, (types.length - 1).clamp(0, 9999)),
+        vsync: this,
+      );
+      _tabBarController.addListener(() {
+        _checkPermission();
+        if (mounted) setState(() {});
+      });
+    }
+
+    void _applyNewTypes(List<ItemType> newTypes) {
+      final prevIndex = _tabBarController.index;
+      final newIndex = prevIndex.clamp(0, (newTypes.length - 1).clamp(0, 9999));
+      for (final t in _types) {
+        if (!newTypes.contains(t)) {
+          _searchControllers[t]?.dispose();
+          _searchControllers.remove(t);
+          _section.remove(t);
+          _isSearch.remove(t);
+        }
+      }
+      for (final t in newTypes) {
+        if (!_types.contains(t)) {
+          _section[t] = BrowseSection.sources;
+          _isSearch[t] = false;
+          _searchControllers[t] = TextEditingController();
+        }
+      }
+      _types = newTypes;
+      _tabBarController.dispose();
+      _initTabController(newTypes, initialIndex: newIndex);
+    }
+
+    @override
+    void initState() {
+      super.initState();
+      _types = _computeTypes(ref.read(hideItemsStateProvider));
+      _initTabController(_types);
+      for (final t in _types) {
+        _section[t] = BrowseSection.sources;
+        _isSearch[t] = false;
+        _searchControllers[t] = TextEditingController();
+      }
+    }
 
   Future<void> _checkPermission() async {
     // Silent check only — do NOT open the Settings screen on every tab
@@ -245,10 +286,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_types.isEmpty) return const SizedBox.shrink();
-    final l10n = l10nLocalizations(context)!;
-    final theme = Theme.of(context);
+    Widget build(BuildContext context) {
+      // Watch hideItems so we rebuild tabs when navigation options change.
+      ref.listen<List<String>>(hideItemsStateProvider, (_, next) {
+        final newTypes = _computeTypes(next);
+        if (!_typesEqual(newTypes, _types) && mounted) {
+          setState(() => _applyNewTypes(newTypes));
+        }
+      });
+      if (_types.isEmpty) return const SizedBox.shrink();
+      final l10n = l10nLocalizations(context)!;
+      final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(

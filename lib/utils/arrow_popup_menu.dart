@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// A drop-in replacement for [PopupMenuButton] that pops the menu open
-/// directly under the trigger button, with a small triangular caret that
-/// points back up at the button. Used throughout the app for a consistent
-/// "anchored menu" style.
+/// directly under (or above) the trigger button, with a small triangular
+/// caret that points back at the button.
 class ArrowPopupMenuButton<T> extends StatefulWidget {
   const ArrowPopupMenuButton({
     super.key,
@@ -123,7 +122,7 @@ class _ArrowPopupMenuButtonState<T> extends State<ArrowPopupMenuButton<T>> {
   }
 }
 
-/// Shows a menu anchored to the given [anchorGlobalPos] with a small upward caret.
+/// Shows a menu anchored to the given [anchorGlobalPos] with a small caret.
 Future<T?> _showArrowMenu<T>({
   required BuildContext context,
   required Offset anchorGlobalPos,
@@ -247,16 +246,36 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
 
     final width = menuWidth ?? 240.0;
     final theme = Theme.of(context);
-    // Use surfaceContainer (neutral) instead of surfaceContainerHighest to
-    // avoid the yellowish tint that appears in some theme configurations.
     final bg = backgroundColor ??
         theme.popupMenuTheme.color ??
         theme.colorScheme.surfaceContainer;
 
-    // Compute top of the menu (just below the anchor button).
-    final top = anchorGlobalPos.dy + anchorSize.height + offset.dy;
+    // Anchor bottom edge (where menu would start if shown below)
+    final anchorBottomY =
+        anchorGlobalPos.dy + anchorSize.height + offset.dy;
 
-    // Center the menu under the anchor button, then clamp to screen bounds.
+    // Space available below and above the anchor
+    final spaceBelow =
+        (mq.size.height - anchorBottomY - screenPadding).clamp(0.0, double.infinity);
+    final spaceAbove =
+        (anchorGlobalPos.dy - offset.dy - screenPadding).clamp(0.0, double.infinity);
+
+    // Flip menu above anchor when there isn't enough room below
+    final showAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+
+    final double maxMenuHeight;
+    final double top;
+
+    if (showAbove) {
+      maxMenuHeight = spaceAbove.clamp(80.0, mq.size.height * 0.7);
+      top = (anchorGlobalPos.dy - offset.dy - maxMenuHeight)
+          .clamp(screenPadding, mq.size.height - screenPadding);
+    } else {
+      maxMenuHeight = spaceBelow.clamp(80.0, mq.size.height * 0.7);
+      top = anchorBottomY;
+    }
+
+    // Center the menu under/above the anchor button, then clamp to screen bounds.
     double left = anchorGlobalPos.dx +
         anchorSize.width / 2 -
         width / 2 +
@@ -275,7 +294,9 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
           child: FadeTransition(
             opacity: animation,
             child: ScaleTransition(
-              alignment: const Alignment(0, -1),
+              alignment: showAbove
+                  ? const Alignment(0, 1)
+                  : const Alignment(0, -1),
               scale: Tween(begin: 0.95, end: 1.0).animate(
                 CurvedAnimation(
                     parent: animation, curve: Curves.easeOutCubic),
@@ -283,19 +304,20 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: width,
-                  maxHeight: mq.size.height * 0.7,
+                  maxHeight: maxMenuHeight,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: CustomPaint(
-                        size: const Size(caretWidth, caretHeight),
-                        painter: _CaretPainter(color: bg),
+                    if (!showAbove)
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: CustomPaint(
+                          size: const Size(caretWidth, caretHeight),
+                          painter: _CaretPainter(color: bg, pointDown: false),
+                        ),
                       ),
-                    ),
                     Flexible(
                       child: Material(
                         color: bg,
@@ -319,6 +341,14 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (showAbove)
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: CustomPaint(
+                          size: const Size(caretWidth, caretHeight),
+                          painter: _CaretPainter(color: bg, pointDown: true),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -377,20 +407,28 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
 }
 
 class _CaretPainter extends CustomPainter {
-  _CaretPainter({required this.color});
+  _CaretPainter({required this.color, this.pointDown = false});
   final Color color;
+  final bool pointDown;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
+    final path = pointDown
+        ? (Path()
+          ..moveTo(0, 0)
+          ..lineTo(size.width, 0)
+          ..lineTo(size.width / 2, size.height)
+          ..close())
+        : (Path()
+          ..moveTo(size.width / 2, 0)
+          ..lineTo(size.width, size.height)
+          ..lineTo(0, size.height)
+          ..close());
     final paint = Paint()..color = color;
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(_CaretPainter old) => old.color != color;
+  bool shouldRepaint(_CaretPainter old) =>
+      old.color != color || old.pointDown != pointDown;
 }

@@ -191,7 +191,13 @@ Future<void> customDraggableTabBar({
                                 (e) => SingleChildScrollView(
                                   child: MeasureWidgetSize(
                                     onCalculateSize: (_) => refresh(),
-                                    child: e,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        e,
+                                        const SizedBox(height: 96),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               )

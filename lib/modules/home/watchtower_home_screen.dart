@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
     show AniListErrorView;
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
-    show AnilistHome, AnilistMedia, AnilistBrowseFilter, anilistHomeProvider;
+    show AnilistHome, AnilistMedia, AnilistBrowseFilter, anilistHomeProvider, anilistOfflineNotifier;
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
@@ -68,12 +68,68 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ref.watch(anilistHomeProvider).when(
-            loading: () => const SkeletonHomeScreen(),
-            error: (e, _) => AniListErrorView(
-                error: e, onRetry: () => ref.invalidate(anilistHomeProvider)),
-            data: (home) => _buildBody(context, home),
-          ),
+      body: ValueListenableBuilder<bool>(
+        valueListenable: anilistOfflineNotifier,
+        builder: (context, isOffline, _) => Column(
+          children: [
+            if (isOffline)
+              Material(
+                color: Colors.orange.shade700,
+                child: SafeArea(
+                  bottom: false,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.wifi_off,
+                              color: Colors.white, size: 16),
+                          const SizedBox(width: 8),
+                          const Flexible(
+                            child: Text(
+                              'Connexion non disponible — données mises en cache',
+                              style: TextStyle(
+                                  color: Colors.white, fontSize: 13),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => ref.refresh(anilistHomeProvider),
+                            borderRadius: BorderRadius.circular(4),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Text(
+                                'Réessayer',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(
+              child: ref.watch(anilistHomeProvider).when(
+                    loading: () => const SkeletonHomeScreen(),
+                    error: (e, _) => AniListErrorView(
+                        error: e,
+                        onRetry: () => ref.refresh(anilistHomeProvider)),
+                    data: (home) => _buildBody(context, home),
+                  ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

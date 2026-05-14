@@ -252,6 +252,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
               // Insert /Library on dock when Library toggle is ON
               if (mergeLibraryDock && !isLibSwitch) {
+                // Always filter out individual library items when merge is ON,
+                // regardless of whether hideItems was explicitly updated.
+                const _individualLibs = [
+                  '/MangaLibrary',
+                  '/AnimeLibrary',
+                  '/NovelLibrary',
+                  '/MusicLibrary',
+                  '/GameLibrary',
+                ];
+                dest = dest
+                    .where((e) => !_individualLibs.contains(e))
+                    .toList();
+
                 if (!dest.contains('/Library')) {
                   final insertIdx = dest.indexWhere(
                     (e) =>

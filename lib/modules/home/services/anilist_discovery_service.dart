@@ -413,13 +413,35 @@ Future<AnilistHome> _fetchAnilistHome() async {
   );
 }
 
+// In-memory cache: last successful home payload.
+AnilistHome? _cachedHome;
+
+/// Notifier for offline-with-cache mode (true = showing stale data).
+final ValueNotifier<bool> anilistOfflineNotifier = ValueNotifier(false);
+
+Future<AnilistHome> _fetchAnilistHomeWithCache() async {
+  try {
+    final home = await _fetchAnilistHome();
+    _cachedHome = home;
+    anilistOfflineNotifier.value = false;
+    return home;
+  } catch (_) {
+    if (_cachedHome != null) {
+      anilistOfflineNotifier.value = true;
+      return _cachedHome!;
+    }
+    anilistOfflineNotifier.value = false;
+    rethrow;
+  }
+}
+
 /// Persistent (non-autoDispose) provider with 8-minute keepAlive.
 /// Navigating away and back won't re-fetch; after 8 min the cache auto-expires
 /// so the user always gets fresh data on the next cold open.
 final anilistHomeProvider = FutureProvider<AnilistHome>((ref) async {
   final link = ref.keepAlive();
   Timer(const Duration(minutes: 8), link.close);
-  return _fetchAnilistHome();
+  return _fetchAnilistHomeWithCache();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
