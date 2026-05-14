@@ -129,7 +129,38 @@ void main(List<String> args) async {
       }
       final storage = StorageProvider();
       if (kIsWeb) {
-        final _mockIsar = MockIsar()..seed<Settings>(227, Settings());
+        const _wtBase =
+            'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
+        final _mockIsar = MockIsar()
+          ..seed<Settings>(
+            227,
+            Settings(
+              mangaExtensionsRepo: [
+                Repo(
+                  jsonUrl: '$_wtBase/manga/index.json',
+                  name: 'Watchtower – Manga',
+                  website:
+                      'https://github.com/ferelking242/watchtower-extensions',
+                ),
+              ],
+              animeExtensionsRepo: [
+                Repo(
+                  jsonUrl: '$_wtBase/watch/index.json',
+                  name: 'Watchtower – Watch',
+                  website:
+                      'https://github.com/ferelking242/watchtower-extensions',
+                ),
+              ],
+              novelExtensionsRepo: [
+                Repo(
+                  jsonUrl: '$_wtBase/novel/index.json',
+                  name: 'Watchtower – Novels',
+                  website:
+                      'https://github.com/ferelking242/watchtower-extensions',
+                ),
+              ],
+            ),
+          );
         seedMockWebData(_mockIsar);
         isar = _mockIsar;
       } else {
