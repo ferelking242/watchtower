@@ -12,8 +12,10 @@ import 'package:watchtower/utils/language.dart';
 
 class SourcesScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
+  final VoidCallback? onShowExtensions;
   const SourcesScreen({
     required this.itemType,
+    this.onShowExtensions,
     super.key,
   });
 
@@ -101,9 +103,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   ),
                   const SizedBox(height: 28),
                   FilledButton.icon(
-                    onPressed: () {
-                      DefaultTabController.of(context).animateTo(1);
-                    },
+                    onPressed: widget.onShowExtensions,
                     icon: const Icon(Icons.extension_rounded, size: 18),
                     label: Text(context.l10n.show_extensions),
                   ),

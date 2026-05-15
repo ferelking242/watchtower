@@ -1,12 +1,41 @@
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
 
 class FileExplorerWidget extends StatelessWidget {
   const FileExplorerWidget({super.key});
 
   Future<void> _openWatchtowerFolder() async {
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      await _openDesktopFolder();
+      return;
+    }
+    await _openAndroidFolder();
+  }
+
+  Future<void> _openDesktopFolder() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final watchtowerPath = '${dir.path}/Watchtower';
+      final uri = Uri.file(watchtowerPath);
+      final ok = await launchUrl(uri);
+      if (ok) return;
+    } catch (_) {}
+    try {
+      final dir = await getDownloadsDirectory();
+      if (dir != null) {
+        final uri = Uri.file(dir.path);
+        final ok = await launchUrl(uri);
+        if (ok) return;
+      }
+    } catch (_) {}
+    botToast('Impossible d\'ouvrir le dossier Watchtower');
+  }
+
+  Future<void> _openAndroidFolder() async {
     const packageId = 'com.watchtower.app';
 
     final candidates = <Uri>[
@@ -51,9 +80,11 @@ class FileExplorerWidget extends StatelessWidget {
         child: Icon(Icons.folder_special_outlined, color: cs.primary, size: 22),
       ),
       title: const Text('Watchtower folder'),
-      subtitle: const Text(
-        'Ouvre android/data/com.watchtower.app/',
-        style: TextStyle(fontSize: 12),
+      subtitle: Text(
+        !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+            ? 'Ouvre le dossier Documents/Watchtower'
+            : 'Ouvre Android/data/com.watchtower.app/',
+        style: const TextStyle(fontSize: 12),
       ),
       trailing: const Icon(Icons.open_in_new_rounded, size: 18),
       onTap: _openWatchtowerFolder,

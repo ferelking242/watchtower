@@ -192,7 +192,10 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                 installedEntries.isNotEmpty ||
                 notInstalledEntries.isNotEmpty;
 
-            return Scrollbar(
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 800;
+                return Scrollbar(
               interactive: true,
               controller: controller,
               thickness: 12,
@@ -201,11 +204,11 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                 controller: controller,
                 slivers: [
                   if (updateEntries.isNotEmpty)
-                    _buildUpdateSection(updateEntries, l10n),
+                    _buildUpdateSection(updateEntries, l10n, isWide: isWide),
                   if (installedEntries.isNotEmpty)
-                    _buildInstalledSection(installedEntries, l10n),
+                    _buildInstalledSection(installedEntries, l10n, isWide: isWide),
                   if (notInstalledEntries.isNotEmpty)
-                    ..._buildAvailableSection(notInstalledEntries),
+                    ..._buildAvailableSection(notInstalledEntries, isWide: isWide),
                   if (!hasAnyEntry)
                     SliverFillRemaining(
                       child: Center(
@@ -255,6 +258,8 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                 ],
               ),
             );
+              },
+            );
           },
           error: (error, _) => Center(
             child: ElevatedButton(
@@ -268,94 +273,114 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
     );
   }
 
-  Widget _buildUpdateSection(List<Source> updateEntries, dynamic l10n) {
-    return CustomSliverGroupedListView<Source, String>(
-      elements: updateEntries,
-      groupBy: (_) => "",
-      groupSeparatorBuilder: (_) => StatefulBuilder(
-        builder: (context, setState) {
-          return Padding(
+  Widget _buildSliverListOrGrid({
+    required List<Source> items,
+    required bool isWide,
+  }) {
+    if (isWide) {
+      return SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 3.6,
+          crossAxisSpacing: 0,
+          mainAxisSpacing: 0,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => ref.watch(extensionListTileWidget(items[index])),
+          childCount: items.length,
+        ),
+      );
+    }
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => ref.watch(extensionListTileWidget(items[index])),
+        childCount: items.length,
+      ),
+    );
+  }
+
+  Widget _buildUpdateSection(List<Source> updateEntries, dynamic l10n,
+      {bool isWide = false}) {
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: StatefulBuilder(
+            builder: (context, setState) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        l10n.update_pending,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      _CountBadge(count: updateEntries.length),
+                    ],
+                  ),
+                  ElevatedButton(
+                    onPressed: isUpdating
+                        ? null
+                        : () async {
+                            setState(() => isUpdating = true);
+                            try {
+                              for (var source in updateEntries) {
+                                await _updateSource(source);
+                              }
+                            } finally {
+                              if (mounted) setState(() => isUpdating = false);
+                            }
+                          },
+                    child: isUpdating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n.update_all),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        _buildSliverListOrGrid(items: updateEntries, isWide: isWide),
+      ],
+    );
+  }
+
+  Widget _buildInstalledSection(List<Source> installedEntries, dynamic l10n,
+      {bool isWide = false}) {
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      l10n.update_pending,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    _CountBadge(count: updateEntries.length),
-                  ],
+                Text(
+                  l10n.installed,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-                ElevatedButton(
-                  onPressed: isUpdating
-                      ? null
-                      : () async {
-                          setState(() => isUpdating = true);
-                          try {
-                            for (var source in updateEntries) {
-                              await _updateSource(source);
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() => isUpdating = false);
-                            }
-                          }
-                        },
-                  child: isUpdating
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l10n.update_all),
-                ),
+                const SizedBox(width: 6),
+                _CountBadge(count: installedEntries.length),
               ],
             ),
-          );
-        },
-      ),
-      itemBuilder: (context, Source element) =>
-          ref.watch(extensionListTileWidget(element)),
-      groupComparator: (group1, group2) => group1.compareTo(group2),
-      itemComparator: (item1, item2) =>
-          item1.name?.compareTo(item2.name ?? '') ?? 0,
-      order: GroupedListOrder.ASC,
-    );
-  }
-
-  Widget _buildInstalledSection(List<Source> installedEntries, dynamic l10n) {
-    return CustomSliverGroupedListView<Source, String>(
-      elements: installedEntries,
-      groupBy: (_) => "",
-      groupSeparatorBuilder: (_) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            Text(
-              l10n.installed,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const SizedBox(width: 6),
-            _CountBadge(count: installedEntries.length),
-          ],
+          ),
         ),
-      ),
-      itemBuilder: (context, Source element) =>
-          ref.watch(extensionListTileWidget(element)),
-      groupComparator: (group1, group2) => group1.compareTo(group2),
-      itemComparator: (item1, item2) =>
-          item1.name?.compareTo(item2.name ?? '') ?? 0,
-      order: GroupedListOrder.ASC,
+        _buildSliverListOrGrid(items: installedEntries, isWide: isWide),
+      ],
     );
   }
 
-  List<Widget> _buildAvailableSection(List<Source> notInstalledEntries) {
+  List<Widget> _buildAvailableSection(List<Source> notInstalledEntries,
+      {bool isWide = false}) {
     // Group by language code (raw) for flag lookup, display name for label
     final Map<String, List<Source>> grouped = {};
     for (final src in notInstalledEntries) {
@@ -484,14 +509,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
       if (!isCollapsed) {
         slivers.add(
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => ref.watch(
-                extensionListTileWidget(items[index]),
-              ),
-              childCount: items.length,
-            ),
-          ),
+          _buildSliverListOrGrid(items: items, isWide: isWide),
         );
       }
     }

@@ -1666,9 +1666,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                           widget.manga!.genre![i],
                                           style: TextStyle(
                                             fontSize: 11.5,
-                                            color: context.isLight
-                                                ? Colors.black
-                                                : Colors.white,
+                                            color: Theme.of(context).colorScheme.onSurface,
                                           ),
                                         ),
                                       ),
@@ -1698,8 +1696,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
                                           elevation: 0,
-                                          backgroundColor: Colors.grey
-                                              .withValues(alpha: 0.2),
+                                          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(
                                               5,
@@ -1711,9 +1708,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                           widget.manga!.genre![i],
                                           style: TextStyle(
                                             fontSize: 11.5,
-                                            color: context.isLight
-                                                ? Colors.black
-                                                : Colors.white,
+                                            color: Theme.of(context).colorScheme.onSurface,
                                           ),
                                         ),
                                       ),

@@ -355,6 +355,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final section = _activeSection;
     final isExt = section == BrowseSection.extensions;
     final isSources = section == BrowseSection.sources;
+    final isMkt = section == BrowseSection.marketplace;
 
     return [
       if (isSources) ...[
@@ -373,6 +374,35 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           onPressed: () => context.push('/sourceFilter', extra: type),
           icon: Icon(Icons.filter_list_sharp, color: theme.hintColor),
         ),
+        PopupMenuButton<_SrcMenuAction>(
+          tooltip: 'Plus d\'options',
+          icon: Icon(Icons.more_vert, color: theme.hintColor),
+          onSelected: (action) => _handleSrcMenuAction(context, type, action),
+          itemBuilder: (ctx) => [
+            PopupMenuItem(
+              value: _SrcMenuAction.activateAll,
+              child: _MenuRow(
+                icon: Icons.toggle_on_rounded,
+                label: 'Activer toutes les sources',
+              ),
+            ),
+            PopupMenuItem(
+              value: _SrcMenuAction.deactivateAll,
+              child: _MenuRow(
+                icon: Icons.toggle_off_rounded,
+                label: 'Désactiver toutes les sources',
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: _SrcMenuAction.diagnostic,
+              child: _MenuRow(
+                icon: Icons.bug_report_rounded,
+                label: 'Diagnostic',
+              ),
+            ),
+          ],
+        ),
       ],
       if (isExt) ...[
         IconButton(
@@ -389,18 +419,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             color: theme.hintColor,
           ),
         ),
-        IconButton(
-          tooltip: 'Importer .wext',
-          splashRadius: 20,
-          onPressed: () => importWextAndNotify(context),
-          icon: Icon(Icons.file_download_outlined, color: theme.hintColor),
-        ),
-        IconButton(
-          tooltip: 'Créer une extension',
-          splashRadius: 20,
-          onPressed: () => context.push('/createExtension'),
-          icon: Icon(Icons.add_outlined, color: theme.hintColor),
-        ),
         GestureDetector(
           onLongPress: () => _isolateDeviceLanguage(context, type),
           child: IconButton(
@@ -416,6 +434,22 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           icon: Icon(Icons.more_vert, color: theme.hintColor),
           onSelected: (action) => _handleExtMenuAction(context, type, action),
           itemBuilder: (ctx) => [
+            // ── Import / Create ───────────────────────────────────────────
+            PopupMenuItem(
+              value: _ExtMenuAction.importWext,
+              child: _MenuRow(
+                icon: Icons.file_download_outlined,
+                label: 'Importer .wext',
+              ),
+            ),
+            PopupMenuItem(
+              value: _ExtMenuAction.createExtension,
+              child: _MenuRow(
+                icon: Icons.add_outlined,
+                label: 'Créer une extension',
+              ),
+            ),
+            const PopupMenuDivider(),
             // ── Install / Uninstall ──────────────────────────────────────
             PopupMenuItem(
               value: _ExtMenuAction.installAll,
@@ -485,6 +519,23 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           ],
         ),
       ],
+      if (isMkt) ...[
+        PopupMenuButton<_MktMenuAction>(
+          tooltip: 'Plus d\'options',
+          icon: Icon(Icons.more_vert, color: theme.hintColor),
+          onSelected: (_) {},
+          itemBuilder: (ctx) => const [
+            PopupMenuItem(
+              enabled: false,
+              value: _MktMenuAction.placeholder,
+              child: _MenuRow(
+                icon: Icons.schedule_rounded,
+                label: 'À venir…',
+              ),
+            ),
+          ],
+        ),
+      ],
       const SizedBox(width: 4),
     ];
   }
@@ -492,6 +543,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   void _handleExtMenuAction(
       BuildContext context, ItemType type, _ExtMenuAction action) {
     switch (action) {
+      case _ExtMenuAction.importWext:
+        importWextAndNotify(context);
+      case _ExtMenuAction.createExtension:
+        context.push('/createExtension');
       case _ExtMenuAction.installAll:
         _installAllExtensions(context, type);
       case _ExtMenuAction.uninstallAll:
@@ -508,6 +563,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         _runDiagnostics(context, type);
       case _ExtMenuAction.manageRepos:
         context.push('/extensionRepositories');
+    }
+  }
+
+  void _handleSrcMenuAction(
+      BuildContext context, ItemType type, _SrcMenuAction action) {
+    switch (action) {
+      case _SrcMenuAction.activateAll:
+        _activateAllSources(context, type);
+      case _SrcMenuAction.deactivateAll:
+        _deactivateAllSources(context, type);
+      case _SrcMenuAction.diagnostic:
+        _runDiagnostics(context, type);
     }
   }
 
@@ -664,6 +731,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _ExtMenuAction {
+  importWext,
+  createExtension,
   installAll,
   uninstallAll,
   activateAll,
@@ -672,6 +741,16 @@ enum _ExtMenuAction {
   updateAll,
   diagnostic,
   manageRepos,
+}
+
+enum _SrcMenuAction {
+  activateAll,
+  deactivateAll,
+  diagnostic,
+}
+
+enum _MktMenuAction {
+  placeholder,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -819,7 +898,10 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
   Widget _body() {
     switch (widget.section) {
       case BrowseSection.sources:
-        return SourcesScreen(itemType: widget.itemType);
+        return SourcesScreen(
+          itemType: widget.itemType,
+          onShowExtensions: () => widget.onSectionChanged(BrowseSection.extensions),
+        );
       case BrowseSection.extensions:
         return ExtensionScreen(
           query: widget.searchController.text,
