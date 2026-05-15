@@ -1,0 +1,80 @@
+name: Build Windows x64
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows x64 Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter (latest stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ env.LOCALAPPDATA }}\Pub\Cache
+          key: windows-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: windows-pub-
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Compute version
+        id: ver
+        shell: bash
+        run: |
+          VNAME=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9.]+).*/\1/')
+          VCODE=${GITHUB_RUN_NUMBER}
+          echo "name=$VNAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VCODE" >> "$GITHUB_OUTPUT"
+          echo "Building $VNAME ($VCODE)"
+
+      - name: Build Windows x64
+        run: >
+          flutter build windows
+          --release
+          --no-tree-shake-icons
+          --build-name=${{ steps.ver.outputs.name }}
+          --build-number=${{ steps.ver.outputs.code }}
+
+      - name: Show build size
+        shell: bash
+        run: |
+          BUILD_DIR="build/windows/x64/runner/Release"
+          if [ -d "$BUILD_DIR" ]; then
+            echo "Build size: $(du -sh "$BUILD_DIR" | cut -f1)"
+            ls -la "$BUILD_DIR"
+          fi
+
+      - name: Package as ZIP
+        shell: pwsh
+        run: |
+          $src = "build\windows\x64\runner\Release"
+          $dst = "watchtower-windows-x64-${{ steps.ver.outputs.name }}.zip"
+          Compress-Archive -Path "$src\*" -DestinationPath $dst
+          Write-Host "ZIP size: $((Get-Item $dst).Length / 1MB) MB"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-windows-x64-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}
+          path: watchtower-windows-x64-${{ steps.ver.outputs.name }}.zip
+          retention-days: 14
