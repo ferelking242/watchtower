@@ -314,6 +314,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // Footer visibility (toggled by ghost icon)
   bool _showFooter = true;
 
+  // Night mode / text size / desktop
+  bool _nightMode = false;
+  int _textSizeStep = 0;
+  bool _desktopMode = false;
+
   // Panel drag
   _PanelSnap _snap = _PanelSnap.full;
   double _currentFraction = 1.0;
@@ -502,6 +507,132 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     } catch (_) {}
   }
 
+  Future<void> _toggleNightMode() async {
+    setState(() => _nightMode = !_nightMode);
+    if (_nightMode) {
+      await _webViewController?.evaluateJavascript(source: r"""
+(function(){
+  var s=document.getElementById('__wt_night');
+  if(!s){s=document.createElement('style');s.id='__wt_night';document.head.appendChild(s);}
+  s.textContent='html{filter:invert(1) hue-rotate(180deg)!important;}img,video,canvas{filter:invert(1) hue-rotate(180deg)!important;}';
+})();
+""");
+    } else {
+      await _webViewController?.evaluateJavascript(source:
+          "var s=document.getElementById('__wt_night');if(s)s.remove();");
+    }
+  }
+
+  Future<void> _cycleTextSize() async {
+    _textSizeStep = (_textSizeStep + 1) % 3;
+    final sizes = ['100%', '125%', '150%'];
+    final labels = ['Normal', 'Grand', 'Très grand'];
+    await _webViewController?.evaluateJavascript(source: """
+(function(){
+  var s=document.getElementById('__wt_textsize');
+  if(!s){s=document.createElement('style');s.id='__wt_textsize';document.head.appendChild(s);}
+  s.textContent='html{font-size:${sizes[_textSizeStep]}!important;}';
+})();
+""");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Taille du texte : ${labels[_textSizeStep]}'),
+        duration: const Duration(seconds: 1),
+      ));
+    }
+  }
+
+  Future<void> _toggleDesktopMode() async {
+    setState(() => _desktopMode = !_desktopMode);
+    const desktopUA =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+    await _webViewController?.setSettings(
+      settings: InAppWebViewSettings(
+        userAgent: _desktopMode ? desktopUA : null,
+      ),
+    );
+    await _webViewController?.reload();
+  }
+
+  void _openTranslation() {
+    final encoded = Uri.encodeComponent(_url);
+    InAppBrowser.openWithSystemBrowser(
+        url: WebUri('https://translate.google.com/translate?u=$encoded'));
+  }
+
+  void _openDownload() {
+    InAppBrowser.openWithSystemBrowser(url: WebUri(_url));
+  }
+
+  void _copyUrlAsBookmark() {
+    Clipboard.setData(ClipboardData(text: _url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('URL copiée dans le presse-papier'),
+          duration: Duration(seconds: 2)),
+    );
+  }
+
+  void _showQrCode() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+        title: Text('QR Code',
+            style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_url,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 12),
+            Text('Ouvrez l\'URL dans un générateur QR externe',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                textAlign: TextAlign.center),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _copyUrlAsBookmark();
+            },
+            child: const Text('Copier URL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleOrientation() {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    if (isLandscape) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+    Navigator.of(context).pop();
+  }
+
   Future<void> _injectHideRule(String css) async {
     final js = '''
 (function(){
@@ -607,6 +738,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         adEnabled: _adBlockEnabled,
         blockedCount: _blockedCount,
         blockedElements: _blockedElements,
+        nightMode: _nightMode,
+        desktopMode: _desktopMode,
+        textSizeStep: _textSizeStep,
         onCopyUrl: () {
           Navigator.pop(context);
           Clipboard.setData(ClipboardData(text: _url));
@@ -630,9 +764,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         },
         onViewSource: () {
           Navigator.pop(context);
-          _webViewController?.evaluateJavascript(
-            source: "document.documentElement.outerHTML",
-          );
+          _webViewController?.evaluateJavascript(source: "document.documentElement.outerHTML");
         },
         onFindInPage: () {
           Navigator.pop(context);
@@ -650,17 +782,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           setState(() => _pickerMode = true);
           _activatePicker();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Tap sur un élément pour le bloquer'),
-              duration: Duration(seconds: 4),
-            ),
+            const SnackBar(content: Text('Tap sur un élément pour le bloquer'), duration: Duration(seconds: 4)),
           );
         },
         onResetRules: () {
-          setState(() {
-            _blockedCount = 0;
-            _blockedElements.clear();
-          });
+          setState(() { _blockedCount = 0; _blockedElements.clear(); });
           Navigator.pop(context);
         },
         onClearCookies: () {
@@ -678,14 +804,41 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         },
         onUserAgent: () {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Paramètre agent utilisateur dans les réglages'), duration: Duration(seconds: 2)),
-          );
+          _toggleDesktopMode();
         },
         onNetworkLog: () {
           Navigator.pop(context);
           _showAdMenu();
         },
+        onNightMode: () {
+          Navigator.pop(context);
+          _toggleNightMode();
+        },
+        onTextSize: () {
+          Navigator.pop(context);
+          _cycleTextSize();
+        },
+        onDesktopMode: () {
+          Navigator.pop(context);
+          _toggleDesktopMode();
+        },
+        onTranslate: () {
+          Navigator.pop(context);
+          _openTranslation();
+        },
+        onDownload: () {
+          Navigator.pop(context);
+          _openDownload();
+        },
+        onBookmark: () {
+          Navigator.pop(context);
+          _copyUrlAsBookmark();
+        },
+        onQrCode: () {
+          Navigator.pop(context);
+          _showQrCode();
+        },
+        onOrientation: _toggleOrientation,
         onCloseWebView: () => context.pop(),
       ),
     );
@@ -899,145 +1052,93 @@ class _BrowserHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final secure = _isSecure(url);
-    final barBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
     final displayTitle = title.isNotEmpty ? title : _displayHost(url);
-    final ghostColor = showFooter
-        ? (isDark ? Colors.white : Colors.black87)
-        : (isDark ? Colors.white.withValues(alpha: 0.35) : Colors.black38);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subColor = isDark ? Colors.grey.shade500 : Colors.grey.shade500;
+    final ghostColor = showFooter ? textColor : subColor;
 
     return Container(
       color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Address bar row
+          // Address bar row — flat, no box, Via style
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
             child: Row(
               children: [
-                // Footer toggle icon
+                // Search icon left
                 GestureDetector(
                   onTap: onToggleFooter,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                    child: Icon(
-                      showFooter
-                          ? Icons.tab_rounded
-                          : Icons.tab_unselected_rounded,
-                      size: 22,
-                      color: ghostColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: SvgPicture.asset(
+                      'assets/icons/search.svg',
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(ghostColor, BlendMode.srcIn),
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
 
-                // Address pill — shows page title, long press = copy URL
+                // Title — centered, flat, no box
                 Expanded(
                   child: GestureDetector(
                     onLongPress: () {
                       Clipboard.setData(ClipboardData(text: url));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Lien copié'),
-                          duration: Duration(seconds: 2),
-                        ),
+                        const SnackBar(content: Text('Lien copié'), duration: Duration(seconds: 2)),
                       );
                     },
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: barBg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        children: [
-                          Icon(
-                            secure
-                                ? Icons.lock_rounded
-                                : Icons.info_outline_rounded,
-                            size: 13,
-                            color: secure
-                                ? (isDark
-                                      ? Colors.greenAccent.shade400
-                                      : Colors.green.shade600)
-                                : (isDark
-                                      ? Colors.grey.shade400
-                                      : Colors.grey.shade600),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          secure ? Icons.lock_rounded : Icons.lock_open_rounded,
+                          size: 12,
+                          color: secure
+                              ? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
+                              : subColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            displayTitle,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: textColor,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            maxLines: 1,
+                            textAlign: TextAlign.center,
                           ),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              displayTitle,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: isDark ? Colors.white : Colors.black87,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              maxLines: 1,
-                              textAlign: TextAlign.center,
+                        ),
+                        if (adEnabled && blockedCount > 0) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            blockedCount > 99 ? '99+' : '$blockedCount',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
                             ),
                           ),
-                          // AdBlock indicator (if active and blocked > 0)
-                          if (adEnabled && blockedCount > 0) ...[
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade700.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.shield_rounded,
-                                    size: 10,
-                                    color: isDark
-                                        ? Colors.greenAccent.shade400
-                                        : Colors.green.shade600,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    blockedCount > 99 ? '99+' : '$blockedCount',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.greenAccent.shade400
-                                          : Colors.green.shade700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                         ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
 
-                // Refresh button (right)
-                const SizedBox(width: 4),
-                _ToolbarBtn(
-                  icon: Icons.refresh_rounded,
-                  size: 20,
-                  onTap: onRefresh,
-                  isDark: isDark,
-                ),
-                const SizedBox(width: 4),
-                // Close button — ferme le WebView
-                _ToolbarBtn(
-                  icon: Icons.close_rounded,
-                  size: 22,
+                // Window close icon right  [-]
+                GestureDetector(
                   onTap: onClose,
-                  isDark: isDark,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Icon(Icons.close_rounded, size: 20, color: ghostColor),
+                  ),
                 ),
               ],
             ),
@@ -1212,6 +1313,9 @@ class _MoreSheet extends StatefulWidget {
   final bool adEnabled;
   final int blockedCount;
   final List<String> blockedElements;
+  final bool nightMode;
+  final bool desktopMode;
+  final int textSizeStep;
   final VoidCallback onCopyUrl;
   final VoidCallback onShare;
   final VoidCallback onOpenBrowser;
@@ -1224,12 +1328,23 @@ class _MoreSheet extends StatefulWidget {
   final VoidCallback onFullscreen;
   final VoidCallback onUserAgent;
   final VoidCallback onNetworkLog;
+  final VoidCallback onNightMode;
+  final VoidCallback onTextSize;
+  final VoidCallback onDesktopMode;
+  final VoidCallback onTranslate;
+  final VoidCallback onDownload;
+  final VoidCallback onBookmark;
+  final VoidCallback onQrCode;
+  final VoidCallback onOrientation;
   final VoidCallback onCloseWebView;
 
   const _MoreSheet({
     required this.adEnabled,
     required this.blockedCount,
     required this.blockedElements,
+    required this.nightMode,
+    required this.desktopMode,
+    required this.textSizeStep,
     required this.onCopyUrl,
     required this.onShare,
     required this.onOpenBrowser,
@@ -1242,6 +1357,14 @@ class _MoreSheet extends StatefulWidget {
     required this.onFullscreen,
     required this.onUserAgent,
     required this.onNetworkLog,
+    required this.onNightMode,
+    required this.onTextSize,
+    required this.onDesktopMode,
+    required this.onTranslate,
+    required this.onDownload,
+    required this.onBookmark,
+    required this.onQrCode,
+    required this.onOrientation,
     required this.onCloseWebView,
   });
 
@@ -1263,46 +1386,43 @@ class _MoreSheetState extends State<_MoreSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final iconBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
     final iconColor = isDark ? Colors.white : Colors.black87;
-    final labelColor = isDark ? Colors.grey.shade300 : Colors.grey.shade700;
+    final labelColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
 
     Widget item(IconData? icon, String label, VoidCallback onTap, {Color? accent, bool highlight = false, String? svgAsset}) {
+      final effectiveColor = highlight
+          ? (accent ?? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600))
+          : (accent ?? iconColor);
       return GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          width: 62,
+          width: 64,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: highlight
-                      ? (accent ?? Colors.greenAccent).withValues(alpha: 0.18)
-                      : iconBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: highlight
-                      ? Border.all(color: accent ?? Colors.greenAccent, width: 1.5)
-                      : null,
-                ),
+              SizedBox(
+                width: 64,
+                height: 44,
                 child: Center(
                   child: svgAsset != null
                       ? SvgPicture.asset(
                           svgAsset,
-                          width: 22,
-                          height: 22,
-                          colorFilter: ColorFilter.mode(accent ?? iconColor, BlendMode.srcIn),
+                          width: 24,
+                          height: 24,
+                          colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
                         )
-                      : Icon(icon, size: 22, color: accent ?? iconColor),
+                      : Icon(icon, size: 24, color: effectiveColor),
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 2),
               Text(
                 label,
-                style: TextStyle(fontSize: 9.5, color: accent ?? labelColor, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: highlight ? effectiveColor : (accent ?? labelColor),
+                  fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
+                ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1356,34 +1476,42 @@ class _MoreSheetState extends State<_MoreSheet> {
         accent: widget.adEnabled ? Colors.greenAccent.shade400 : Colors.grey,
         highlight: widget.adEnabled,
       ),
-      item(null, 'Sélect. élément', widget.onPickElement, svgAsset: 'assets/icons/edit-2.svg', accent: Colors.orange),
-      item(null, 'Masquer élément', widget.onPickElement, svgAsset: 'assets/icons/eye-slash.svg'),
-      item(null, 'Bloquer domaine', widget.onPickElement, svgAsset: 'assets/icons/minus-circle.svg', accent: Colors.redAccent),
+      item(null, 'Sélect. élém.', widget.onPickElement, svgAsset: 'assets/icons/edit-2.svg', accent: Colors.orange),
+      item(null, 'Masquer élém.', widget.onPickElement, svgAsset: 'assets/icons/eye-slash.svg'),
+      item(null, 'Bloquer dom.', widget.onPickElement, svgAsset: 'assets/icons/minus-circle.svg', accent: Colors.redAccent),
       item(Icons.refresh_rounded, 'Réinitialiser', widget.onResetRules),
       item(
         null,
-        widget.blockedElements.isEmpty
-            ? 'Aucun bloqué'
-            : '${widget.blockedElements.length} règles',
+        widget.blockedElements.isEmpty ? 'Aucun bloqué' : '${widget.blockedElements.length} règles',
         () {},
         svgAsset: 'assets/icons/layers.svg',
       ),
-      item(Icons.check_circle_outline_rounded, 'Whitelist site', () => Navigator.pop(context)),
+      item(null, 'Nuit', widget.onNightMode,
+          svgAsset: 'assets/icons/moon.svg',
+          highlight: widget.nightMode,
+          accent: widget.nightMode ? Colors.indigo.shade300 : null),
       item(null, 'Statistiques', () => Navigator.pop(context), svgAsset: 'assets/icons/activity.svg'),
-      item(Icons.bug_report_rounded, 'Déboguer', () => Navigator.pop(context)),
       item(null, 'Réglages', () => Navigator.pop(context), svgAsset: 'assets/icons/settings.svg'),
+      item(null, 'Whitelist', () => Navigator.pop(context), svgAsset: 'assets/icons/block-ads.svg'),
     ]);
 
+    final textSizeLabels = ['Texte', 'Texte+', 'Texte++'];
     final page3 = buildPage([
-      item(null, 'Texte', () => Navigator.pop(context), svgAsset: 'assets/icons/text-size.svg'),
+      item(null, textSizeLabels[widget.textSizeStep], widget.onTextSize,
+          svgAsset: 'assets/icons/text-size.svg',
+          highlight: widget.textSizeStep > 0,
+          accent: widget.textSizeStep > 0 ? Colors.blue.shade400 : null),
       item(Icons.brightness_6_rounded, 'Luminosité', () => Navigator.pop(context)),
-      item(null, 'Orientation', () => Navigator.pop(context), svgAsset: 'assets/icons/orientation.svg'),
-      item(null, 'Télécharger', () => Navigator.pop(context), svgAsset: 'assets/icons/download.svg'),
-      item(null, 'Favoris', () => Navigator.pop(context), svgAsset: 'assets/icons/star.svg'),
+      item(null, 'Orientation', widget.onOrientation, svgAsset: 'assets/icons/orientation.svg'),
+      item(null, 'Télécharger', widget.onDownload, svgAsset: 'assets/icons/download.svg'),
+      item(null, 'Favoris', widget.onBookmark, svgAsset: 'assets/icons/star.svg'),
       item(null, 'Accueil', () => Navigator.pop(context), svgAsset: 'assets/icons/home.svg'),
-      item(null, 'QR Code', () => Navigator.pop(context), svgAsset: 'assets/icons/qr-code.svg'),
-      item(null, 'Sauvegarder', () => Navigator.pop(context), svgAsset: 'assets/icons/save.svg'),
-      item(null, 'Traduction', () => Navigator.pop(context), svgAsset: 'assets/icons/translate.svg'),
+      item(null, 'QR Code', widget.onQrCode, svgAsset: 'assets/icons/qr-code.svg'),
+      item(null, 'Traduction', widget.onTranslate, svgAsset: 'assets/icons/translate.svg'),
+      item(null, 'Bureau', widget.onDesktopMode,
+          svgAsset: 'assets/icons/desktop.svg',
+          highlight: widget.desktopMode,
+          accent: widget.desktopMode ? Colors.blue.shade400 : null),
       item(null, 'Outils', () => Navigator.pop(context), svgAsset: 'assets/icons/tool.svg'),
     ]);
 
