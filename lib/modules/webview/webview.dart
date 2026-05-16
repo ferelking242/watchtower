@@ -853,6 +853,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      enableDrag: false,
       builder: (_) => _MoreSheet(
         adEnabled: _adBlockEnabled,
         blockedCount: _blockedCount,
@@ -1036,6 +1037,13 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               useShouldOverrideUrlLoading: true,
                               useShouldInterceptRequest: !kIsWeb && Platform.isAndroid,
                               incognito: _incognitoMode,
+                              // Respect app theme → force dark when app is dark
+                              forceDark: (!kIsWeb && Platform.isAndroid && isDark)
+                                  ? ForceDark.ON
+                                  : ForceDark.OFF,
+                              forceDarkStrategy: ForceDarkStrategy.WEB_THEME_DARKENING_ONLY,
+                              // Transparent bg so scaffold colour shows during load
+                              transparentBackground: true,
                               userAgent:
                                   ref.read(userAgentStateProvider) ==
                                           defaultUserAgent
@@ -1662,26 +1670,14 @@ class _MoreSheetState extends State<_MoreSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : Colors.black.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            const SizedBox(height: 14),
 
             // PageView — 3 pages
             SizedBox(
               height: 190,
               child: PageView(
                 controller: _pageCtrl,
+                physics: const ClampingScrollPhysics(),
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
                   Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page1),
