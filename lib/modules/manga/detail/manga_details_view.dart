@@ -16,6 +16,24 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+String _langFlag(String lang) {
+  const map = {
+    'ja': '🇯🇵', 'jp': '🇯🇵',
+    'ko': '🇰🇷', 'kr': '🇰🇷',
+    'zh': '🇨🇳', 'cn': '🇨🇳',
+    'zh-hant': '🇹🇼', 'tw': '🇹🇼',
+    'en': '🇬🇧', 'fr': '🇫🇷',
+    'es': '🇪🇸', 'pt': '🇧🇷',
+    'pt-br': '🇧🇷', 'de': '🇩🇪',
+    'it': '🇮🇹', 'ru': '🇷🇺',
+    'ar': '🇸🇦', 'vi': '🇻🇳',
+    'th': '🇹🇭', 'id': '🇮🇩',
+  };
+  return map[lang.toLowerCase()] ?? '';
+}
+
 class MangaDetailsView extends ConsumerStatefulWidget {
   final Manga manga;
   final bool sourceExist;
@@ -157,8 +175,40 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                 Text(getMangaStatusName(widget.manga.status, context)),
                 if (!isLocalArchive) const Text(' • '),
                 if (!isLocalArchive) Text(widget.manga.source!),
-                if (!isLocalArchive)
-                  Text(' (${widget.manga.lang!.toUpperCase()})'),
+                if (!isLocalArchive && widget.manga.lang != null) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: context.primaryColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: context.primaryColor.withValues(alpha: 0.30),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_langFlag(widget.manga.lang!).isNotEmpty) ...[
+                          Text(
+                            _langFlag(widget.manga.lang!),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          const SizedBox(width: 3),
+                        ],
+                        Text(
+                          widget.manga.lang!.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: context.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (!isLocalArchive && !widget.sourceExist)
                   const Padding(
                     padding: EdgeInsets.all(3),

@@ -19,26 +19,48 @@ class GridViewWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: GridView.builder(
-        padding: const EdgeInsets.only(top: 13),
-        controller: controller,
-        gridDelegate: (gridSize == null || gridSize == 0)
-            ? SliverGridDelegateWithMaxCrossAxisExtent(
-                childAspectRatio: childAspectRatio!,
-                // Tighter cell size so the default grid is 3 columns on
-                // a typical phone (~360–420dp wide) and 4–5 columns on
-                // tablets, instead of the previous 2-column behaviour
-                // produced by maxCrossAxisExtent: 220.
-                maxCrossAxisExtent: 140,
-              )
-            : SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: gridSize!,
-                childAspectRatio: childAspectRatio!,
-              ),
-        itemCount: itemCount,
-        itemBuilder: itemBuilder,
+    final mq = MediaQuery.of(context);
+    final isLandscape = mq.orientation == Orientation.landscape;
+    // In landscape the screen is wider → smaller cells → more columns.
+    // We also account for horizontal safe-area insets (camera cutouts, etc.)
+    // by using the available width after padding.
+    final safeWidth = mq.size.width - mq.padding.left - mq.padding.right;
+    final double maxExtent;
+    if (gridSize != null && gridSize != 0) {
+      maxExtent = 140; // ignored when fixedCrossAxisCount is used
+    } else if (isLandscape) {
+      // landscape: aim for 4-6 columns depending on screen width
+      maxExtent = (safeWidth / 5).clamp(100, 130);
+    } else {
+      // portrait: 3 columns on phones, 4-5 on tablets
+      maxExtent = 140;
+    }
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: GridView.builder(
+          padding: EdgeInsets.only(
+            top: 13,
+            left: mq.padding.left,
+            right: mq.padding.right,
+          ),
+          controller: controller,
+          reverse: reverse,
+          gridDelegate: (gridSize == null || gridSize == 0)
+              ? SliverGridDelegateWithMaxCrossAxisExtent(
+                  childAspectRatio: childAspectRatio!,
+                  maxCrossAxisExtent: maxExtent,
+                )
+              : SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: gridSize!,
+                  childAspectRatio: childAspectRatio!,
+                ),
+          itemCount: itemCount,
+          itemBuilder: itemBuilder,
+        ),
       ),
     );
   }

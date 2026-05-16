@@ -96,8 +96,12 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     final screenH = MediaQuery.sizeOf(context).height;
     final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
 
-    // Hero height: 54 % of screen (cinematic)
-    final cardH = widget.forceFullWidth ? screenH * 0.54 : screenH * 0.46;
+    // Hero height: cinematic. In landscape the screen height is short (≈ 360dp),
+    // so we use a higher fraction to maintain visual impact.
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final cardH = isLandscape
+        ? screenH * 0.80
+        : (widget.forceFullWidth ? screenH * 0.54 : screenH * 0.46);
 
     return Column(
       mainAxisSize: MainAxisSize.min,

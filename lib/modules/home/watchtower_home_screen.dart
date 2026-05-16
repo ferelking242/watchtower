@@ -237,31 +237,60 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     }
   }
 
+  // ── Saga items ─────────────────────────────────────────────────────────────
+
+  List<AnilistMedia> _sagaItems(AnilistHome home) {
+    final seen = <int>{};
+    final out  = <AnilistMedia>[];
+    for (final m in [
+      ...home.popularAnimes,
+      ...home.trendingAnimes,
+      ...home.recentlyUpdatedAnimes,
+    ]) {
+      if (m.format == 'TV' && (m.episodes ?? 0) >= 24 && seen.add(m.id ?? out.length)) {
+        out.add(m);
+      }
+    }
+    out.sort((a, b) => (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+    return out;
+  }
+
   // ── Tout ───────────────────────────────────────────────────────────────────
 
-  List<Widget> _toutTab(BuildContext ctx, AnilistHome home) => [
-        _Row(title: 'Recommandé pour vous',
-            icon: Icons.recommend_rounded,
-            color: const Color(0xFF3498DB),
-            items: home.recentlyUpdatedAnimes,
-            onTap: (m) => _openDetail(ctx, m),
-            trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
-        _MixedRow(title: 'Tendance aujourd\'hui',
-            icon: Icons.local_fire_department_rounded,
-            color: const Color(0xFFE74C3C),
-            items: home.trendingAnimes,
-            onTap: (m) => _openDetail(ctx, m)),
-        _RankedRow(title: 'Top populaires',
-            icon: Icons.star_rounded,
-            color: const Color(0xFFF39C12),
-            items: home.popularAnimes.take(10).toList(),
-            onTap: (m) => _openDetail(ctx, m)),
-        _Row(title: 'Bientôt disponible',
-            icon: Icons.schedule_rounded,
-            color: const Color(0xFF27AE60),
-            items: home.upcomingAnimes,
-            onTap: (m) => _openDetail(ctx, m)),
-      ];
+  List<Widget> _toutTab(BuildContext ctx, AnilistHome home) {
+    final sagas = _sagaItems(home);
+    return [
+      _Row(title: 'Recommandé pour vous',
+          icon: Icons.recommend_rounded,
+          color: const Color(0xFF3498DB),
+          items: home.recentlyUpdatedAnimes,
+          onTap: (m) => _openDetail(ctx, m),
+          trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
+      _MixedRow(title: 'Tendance aujourd\'hui',
+          icon: Icons.local_fire_department_rounded,
+          color: const Color(0xFFE74C3C),
+          items: home.trendingAnimes,
+          onTap: (m) => _openDetail(ctx, m)),
+      if (sagas.isNotEmpty)
+        _SagaRow(
+          title: 'Sagas & Longues Séries',
+          icon: Icons.collections_bookmark_rounded,
+          color: const Color(0xFF9B59B6),
+          items: sagas.take(15).toList(),
+          onTap: (m) => _openDetail(ctx, m),
+        ),
+      _RankedRow(title: 'Top populaires',
+          icon: Icons.star_rounded,
+          color: const Color(0xFFF39C12),
+          items: home.popularAnimes.take(10).toList(),
+          onTap: (m) => _openDetail(ctx, m)),
+      _Row(title: 'Bientôt disponible',
+          icon: Icons.schedule_rounded,
+          color: const Color(0xFF27AE60),
+          items: home.upcomingAnimes,
+          onTap: (m) => _openDetail(ctx, m)),
+    ];
+  }
 
   // ── Film ───────────────────────────────────────────────────────────────────
 
@@ -287,31 +316,42 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   // ── Série ──────────────────────────────────────────────────────────────────
 
-  List<Widget> _serieTab(BuildContext ctx, AnilistHome home) => [
-        SliverToBoxAdapter(
-          child: CategoryRow(
-            title: 'Explorer par genre',
-            categories: animeCategories(),
-            mediaForImages: [...home.trendingAnimes, ...home.popularAnimes],
-          ),
+  List<Widget> _serieTab(BuildContext ctx, AnilistHome home) {
+    final sagas = _sagaItems(home);
+    return [
+      SliverToBoxAdapter(
+        child: CategoryRow(
+          title: 'Explorer par genre',
+          categories: animeCategories(),
+          mediaForImages: [...home.trendingAnimes, ...home.popularAnimes],
         ),
-        _MixedRow(title: 'Séries en tendance',
-            icon: Icons.local_fire_department_rounded,
-            color: const Color(0xFFE74C3C),
-            items: home.trendingAnimes,
-            onTap: (m) => _openDetail(ctx, m)),
-        _RankedRow(title: 'Top populaires',
-            icon: Icons.star_rounded,
-            color: const Color(0xFFF39C12),
-            items: home.popularAnimes.take(10).toList(),
-            onTap: (m) => _openDetail(ctx, m),
-            trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
-        _RankedRow(title: 'Mieux notées',
-            icon: Icons.workspace_premium_rounded,
-            color: const Color(0xFF8E44AD),
-            items: home.topRatedAnimes.take(10).toList(),
-            onTap: (m) => _openDetail(ctx, m)),
-      ];
+      ),
+      _MixedRow(title: 'Séries en tendance',
+          icon: Icons.local_fire_department_rounded,
+          color: const Color(0xFFE74C3C),
+          items: home.trendingAnimes,
+          onTap: (m) => _openDetail(ctx, m)),
+      if (sagas.isNotEmpty)
+        _SagaRow(
+          title: 'Sagas & Longues Séries',
+          icon: Icons.collections_bookmark_rounded,
+          color: const Color(0xFF9B59B6),
+          items: sagas.take(15).toList(),
+          onTap: (m) => _openDetail(ctx, m),
+        ),
+      _RankedRow(title: 'Top populaires',
+          icon: Icons.star_rounded,
+          color: const Color(0xFFF39C12),
+          items: home.popularAnimes.take(10).toList(),
+          onTap: (m) => _openDetail(ctx, m),
+          trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
+      _RankedRow(title: 'Mieux notées',
+          icon: Icons.workspace_premium_rounded,
+          color: const Color(0xFF8E44AD),
+          items: home.topRatedAnimes.take(10).toList(),
+          onTap: (m) => _openDetail(ctx, m)),
+    ];
+  }
 
   // ── Asia ───────────────────────────────────────────────────────────────────
 
@@ -802,6 +842,52 @@ class _RankedRow extends StatelessWidget {
               itemBuilder: (_, i) => RankedDiscoveryCard(
                 media: items[i],
                 rank: i + 1,
+                onTap: () => onTap(items[i]),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Saga row — wide 16:10 cards for long-running / multi-episode series
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SagaRow extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<AnilistMedia> items;
+  final void Function(AnilistMedia) onTap;
+
+  const _SagaRow({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(title: title, icon: icon, color: color),
+          SizedBox(
+            height: 140,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, i) => SagaDiscoveryCard(
+                media: items[i],
                 onTap: () => onTap(items[i]),
               ),
             ),
