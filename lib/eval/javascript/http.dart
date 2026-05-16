@@ -175,7 +175,29 @@ Future<String> _toHttpResponse(Client client, String method, List args) async {
       error: e,
       stackTrace: st,
     );
-    rethrow;
+    // Return a valid JSON error response so that JS JSON.parse() never crashes.
+    // A rethrow here causes flutter_qjs to return null/undefined to the JS
+    // sendMessage(), which then makes JSON.parse() throw
+    // "SyntaxError: Unexpected end of JSON input", which Dart catches as a
+    // FormatException when it tries to jsonDecode that error string.
+    return jsonEncode({
+      'body': '',
+      'statusCode': 0,
+      'headers': <String, String>{},
+      'isRedirect': false,
+      'persistentConnection': false,
+      'reasonPhrase': 'Error: $e',
+      'request': {
+        'contentLength': null,
+        'finalized': false,
+        'followRedirects': true,
+        'headers': headers ?? <String, String>{},
+        'maxRedirects': 5,
+        'method': method,
+        'persistentConnection': false,
+        'url': url,
+      },
+    });
   }
 }
 

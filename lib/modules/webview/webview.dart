@@ -854,118 +854,134 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       enableDrag: false,
-      builder: (_) => _MoreSheet(
-        adEnabled: _adBlockEnabled,
-        blockedCount: _blockedCount,
-        blockedElements: _blockedElements,
-        nightMode: _nightMode,
-        desktopMode: _desktopMode,
-        textSizeStep: _textSizeStep,
-        incognito: _incognitoMode,
-        onCopyUrl: () {
-          Navigator.pop(context);
-          Clipboard.setData(ClipboardData(text: _url));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('URL copiée'), duration: Duration(seconds: 2)),
-          );
-        },
-        onShare: () {
-          Navigator.pop(context);
-          final box = context.findRenderObject() as RenderBox?;
-          SharePlus.instance.share(
-            ShareParams(
-              text: _url,
-              sharePositionOrigin: box!.localToGlobal(Offset.zero) & box.size,
-            ),
-          );
-        },
-        onOpenBrowser: () {
-          Navigator.pop(context);
-          InAppBrowser.openWithSystemBrowser(url: WebUri(_url));
-        },
-        onViewSource: () {
-          Navigator.pop(context);
-          _webViewController?.evaluateJavascript(source: "document.documentElement.outerHTML");
-        },
-        onFindInPage: () {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Recherche dans la page non disponible'), duration: Duration(seconds: 2)),
-          );
-        },
-        onToggleAdBlock: () {
-          setState(() => _adBlockEnabled = !_adBlockEnabled);
-          if (_adBlockEnabled) _injectJs();
-          Navigator.pop(context);
-        },
-        onPickElement: () {
-          Navigator.pop(context);
-          setState(() => _pickerMode = true);
-          _activatePicker();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Tap sur un élément pour le bloquer'), duration: Duration(seconds: 4)),
-          );
-        },
-        onResetRules: () {
-          setState(() { _blockedCount = 0; _blockedElements.clear(); });
-          Navigator.pop(context);
-        },
-        onClearCookies: () {
-          Navigator.pop(context);
-          CookieManager.instance().deleteAllCookies();
-          MClient.deleteAllCookies(_url);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cookies effacés'), duration: Duration(seconds: 2)),
-          );
-        },
-        onFullscreen: () {
-          Navigator.pop(context);
-          _snap = _PanelSnap.full;
-          _animateTo(1.0);
-        },
-        onUserAgent: () {
-          Navigator.pop(context);
-          _toggleDesktopMode();
-        },
-        onNetworkLog: () {
-          Navigator.pop(context);
-          _showAdMenu();
-        },
-        onNightMode: () {
-          Navigator.pop(context);
-          _toggleNightMode();
-        },
-        onTextSize: () {
-          Navigator.pop(context);
-          _cycleTextSize();
-        },
-        onDesktopMode: () {
-          Navigator.pop(context);
-          _toggleDesktopMode();
-        },
-        onTranslate: () {
-          Navigator.pop(context);
-          _openTranslation();
-        },
-        onDownload: () {
-          Navigator.pop(context);
-          _openDownload();
-        },
-        onBookmark: () {
-          Navigator.pop(context);
-          _copyUrlAsBookmark();
-        },
-        onQrCode: () {
-          Navigator.pop(context);
-          _showQrCode();
-        },
-        onOrientation: _toggleOrientation,
-        onIncognito: () {
-          Navigator.pop(context);
-          _toggleIncognito();
-        },
-        onCloseWebView: () => context.pop(),
-      ),
+      builder: (sheetCtx) {
+        // Use sheetCtx (the modal's own context) to pop the bottom sheet.
+        // Using the outer widget context causes a navigator mismatch with
+        // GoRouter nested navigators, making it look like buttons don't work.
+        void dismiss() {
+          if (Navigator.of(sheetCtx).canPop()) {
+            Navigator.of(sheetCtx).pop();
+          }
+        }
+
+        return _MoreSheet(
+          adEnabled: _adBlockEnabled,
+          blockedCount: _blockedCount,
+          blockedElements: _blockedElements,
+          nightMode: _nightMode,
+          desktopMode: _desktopMode,
+          textSizeStep: _textSizeStep,
+          incognito: _incognitoMode,
+          onCopyUrl: () {
+            dismiss();
+            Clipboard.setData(ClipboardData(text: _url));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('URL copiée'), duration: Duration(seconds: 2)),
+            );
+          },
+          onShare: () {
+            dismiss();
+            final box = context.findRenderObject() as RenderBox?;
+            SharePlus.instance.share(
+              ShareParams(
+                text: _url,
+                sharePositionOrigin: box != null
+                    ? box.localToGlobal(Offset.zero) & box.size
+                    : null,
+              ),
+            );
+          },
+          onOpenBrowser: () {
+            dismiss();
+            InAppBrowser.openWithSystemBrowser(url: WebUri(_url));
+          },
+          onViewSource: () {
+            dismiss();
+            _webViewController?.evaluateJavascript(source: "document.documentElement.outerHTML");
+          },
+          onFindInPage: () {
+            dismiss();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Recherche dans la page non disponible'), duration: Duration(seconds: 2)),
+            );
+          },
+          onToggleAdBlock: () {
+            setState(() => _adBlockEnabled = !_adBlockEnabled);
+            if (_adBlockEnabled) _injectJs();
+            dismiss();
+          },
+          onPickElement: () {
+            dismiss();
+            setState(() => _pickerMode = true);
+            _activatePicker();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tap sur un élément pour le bloquer'), duration: Duration(seconds: 4)),
+            );
+          },
+          onResetRules: () {
+            setState(() { _blockedCount = 0; _blockedElements.clear(); });
+            dismiss();
+          },
+          onClearCookies: () {
+            dismiss();
+            CookieManager.instance().deleteAllCookies();
+            MClient.deleteAllCookies(_url);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Cookies effacés'), duration: Duration(seconds: 2)),
+            );
+          },
+          onFullscreen: () {
+            dismiss();
+            _snap = _PanelSnap.full;
+            _animateTo(1.0);
+          },
+          onUserAgent: () {
+            dismiss();
+            _toggleDesktopMode();
+          },
+          onNetworkLog: () {
+            dismiss();
+            _showAdMenu();
+          },
+          onNightMode: () {
+            dismiss();
+            _toggleNightMode();
+          },
+          onTextSize: () {
+            dismiss();
+            _cycleTextSize();
+          },
+          onDesktopMode: () {
+            dismiss();
+            _toggleDesktopMode();
+          },
+          onTranslate: () {
+            dismiss();
+            _openTranslation();
+          },
+          onDownload: () {
+            dismiss();
+            _openDownload();
+          },
+          onBookmark: () {
+            dismiss();
+            _copyUrlAsBookmark();
+          },
+          onQrCode: () {
+            dismiss();
+            _showQrCode();
+          },
+          onOrientation: () {
+            dismiss();
+            _toggleOrientation();
+          },
+          onIncognito: () {
+            dismiss();
+            _toggleIncognito();
+          },
+          onCloseWebView: () => context.pop(),
+        );
+      },
     );
   }
 
@@ -1037,11 +1053,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               useShouldOverrideUrlLoading: true,
                               useShouldInterceptRequest: !kIsWeb && Platform.isAndroid,
                               incognito: _incognitoMode,
-                              // Respect app theme → force dark when app is dark
-                              forceDark: (!kIsWeb && Platform.isAndroid && isDark)
-                                  ? ForceDark.ON
-                                  : ForceDark.OFF,
-                              forceDarkStrategy: ForceDarkStrategy.WEB_THEME_DARKENING_ONLY,
                               // Transparent bg so scaffold colour shows during load
                               transparentBackground: true,
                               userAgent:
@@ -1677,7 +1688,6 @@ class _MoreSheetState extends State<_MoreSheet> {
               height: 190,
               child: PageView(
                 controller: _pageCtrl,
-                physics: const ClampingScrollPhysics(),
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
                   Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page1),

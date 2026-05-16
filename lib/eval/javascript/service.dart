@@ -377,14 +377,28 @@ var extention = new DefaultExtension();
   Future<T> _extensionCallAsync<T>(String call) async {
     _init();
 
-    try {
-      final promised = await runtime.handlePromise(
-        await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),
-      );
+    final promised = await runtime.handlePromise(
+      await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),
+    );
 
-      return jsonDecode(promised.stringResult) as T;
-    } catch (e) {
-      rethrow;
+    if (promised.isError) {
+      throw Exception(
+        'Extension JS error in "$call": ${promised.stringResult}',
+      );
+    }
+
+    final raw = promised.stringResult;
+    if (raw == null || raw.isEmpty) {
+      throw Exception('Extension returned empty result for "$call"');
+    }
+
+    try {
+      return jsonDecode(raw) as T;
+    } on FormatException catch (e) {
+      throw Exception(
+        'Extension result is not valid JSON for "$call" '
+        '(got: ${raw.length > 120 ? raw.substring(0, 120) : raw}): $e',
+      );
     }
   }
 }
