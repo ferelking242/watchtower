@@ -17,13 +17,13 @@ const kHomeTabs = [
 ];
 
 const kHomeTabIcons = <int, IconData>{
-  0: Icons.home_rounded,
-  1: Icons.theaters_rounded,
-  2: Icons.tv_rounded,
-  3: Icons.travel_explore_rounded,
-  4: Icons.sports_soccer_rounded,
-  5: Icons.queue_music_rounded,
-  6: Icons.sports_esports_rounded,
+  0: Icons.all_inclusive_rounded,      // Tout — everything
+  1: Icons.movie_creation_rounded,     // Film — cinema
+  2: Icons.live_tv_rounded,            // Série — live TV
+  3: Icons.language_rounded,           // Asia — globe
+  4: Icons.sports_soccer_rounded,      // Football — ball
+  5: Icons.headphones_rounded,         // Musique — headphones
+  6: Icons.videogame_asset_rounded,    // Jeux — controller
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

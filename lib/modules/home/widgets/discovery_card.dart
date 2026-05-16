@@ -714,6 +714,197 @@ class SagaDiscoveryCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Spotlight card — wide cinematic editorial card for the "Coup de cœur" row
+// ─────────────────────────────────────────────────────────────────────────────
+
+class SpotlightDiscoveryCard extends StatelessWidget {
+  final AnilistMedia media;
+  final VoidCallback onTap;
+
+  const SpotlightDiscoveryCard({
+    super.key,
+    required this.media,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final image = media.bannerImage ?? media.bestCover;
+    final flag = _countryFlag(media.countryOfOrigin);
+    final fmt  = _fmtLabel(media.format);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: AspectRatio(
+          aspectRatio: 2.5 / 1,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Background image
+              if (image != null)
+                ExtendedImage.network(
+                  image, fit: BoxFit.cover, cache: true,
+                  loadStateChanged: (s) {
+                    if (s.extendedImageLoadState == LoadState.completed) return null;
+                    return Container(color: cs.surfaceContainerHighest);
+                  },
+                )
+              else
+                Container(
+                  color: cs.surfaceContainerHighest,
+                  child: Icon(Icons.movie_creation_rounded, size: 48, color: cs.onSurface.withValues(alpha: 0.20)),
+                ),
+
+              // Cinematic horizontal gradient (right → left)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerRight,
+                    end: Alignment.centerLeft,
+                    stops: const [0.0, 0.45, 0.85],
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.black.withValues(alpha: 0.90),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Right-side bottom gradient (title area bleed)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black.withValues(alpha: 0.55), Colors.transparent],
+                      stops: const [0.0, 0.5],
+                    ),
+                  ),
+                  child: const SizedBox(height: 60, width: double.infinity),
+                ),
+              ),
+
+              // Left side content
+              Positioned(
+                left: 16, top: 0, bottom: 0,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // "COUP DE CŒUR" label
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE84393), Color(0xFF6C5CE7)],
+                        ),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: const Text(
+                        'COUP DE CŒUR',
+                        style: TextStyle(
+                          color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    // Title
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 200),
+                      child: Text(
+                        media.displayTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5, height: 1.15,
+                          shadows: [Shadow(color: Colors.black54, blurRadius: 8)],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    // Score + format + flag row
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (media.averageScore != null) ...[
+                          const Icon(Icons.star_rounded, size: 13, color: Colors.amberAccent),
+                          const SizedBox(width: 3),
+                          Text(
+                            (media.averageScore! / 10).toStringAsFixed(1),
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (fmt.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 0.5),
+                            ),
+                            child: Text(fmt, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                          ),
+                        if (flag.isNotEmpty) ...[
+                          const SizedBox(width: 7),
+                          Text(flag, style: const TextStyle(fontSize: 14)),
+                        ],
+                      ],
+                    ),
+                    if (media.genres.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        media.genres.take(3).join(' · '),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.60),
+                          fontSize: 10.5, fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Top-right: episode count (if available)
+              if (media.episodes != null && media.episodes! > 0)
+                Positioned(
+                  top: 12, right: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.60),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.play_circle_outline_rounded, size: 11, color: Colors.white70),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${media.episodes} ép.',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Legacy DiscoveryRow (kept for backwards compat)
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -259,34 +259,60 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   List<Widget> _toutTab(BuildContext ctx, AnilistHome home) {
     final sagas = _sagaItems(home);
+    // Editorial spotlight — top trending pick with a banner image
+    final spotlightItems = [
+      ...home.trendingAnimes,
+      ...home.popularAnimes,
+    ].where((m) => m.bannerImage != null).toList();
+
     return [
-      _Row(title: 'Recommandé pour vous',
-          icon: Icons.recommend_rounded,
-          color: const Color(0xFF3498DB),
+      // ── Spotlight (editorial pick) ──────────────────────────────────────
+      if (spotlightItems.isNotEmpty)
+        _SpotlightSection(
+          items: spotlightItems.take(6).toList(),
+          onTap: (m) => _openDetail(ctx, m),
+        ),
+
+      // ── Sorties récentes ────────────────────────────────────────────────
+      _Row(
+          title: 'Sorties récentes',
+          icon: Icons.fiber_new_rounded,
+          color: const Color(0xFF00B894),
           items: home.recentlyUpdatedAnimes,
           onTap: (m) => _openDetail(ctx, m),
           trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
-      _MixedRow(title: 'Tendance aujourd\'hui',
+
+      // ── En ce moment ────────────────────────────────────────────────────
+      _MixedRow(
+          title: 'En ce moment',
           icon: Icons.local_fire_department_rounded,
-          color: const Color(0xFFE74C3C),
+          color: const Color(0xFFE17055),
           items: home.trendingAnimes,
           onTap: (m) => _openDetail(ctx, m)),
+
+      // ── Sagas & longues séries ───────────────────────────────────────────
       if (sagas.isNotEmpty)
         _SagaRow(
           title: 'Sagas & Longues Séries',
           icon: Icons.collections_bookmark_rounded,
-          color: const Color(0xFF9B59B6),
+          color: const Color(0xFF6C5CE7),
           items: sagas.take(15).toList(),
           onTap: (m) => _openDetail(ctx, m),
         ),
-      _RankedRow(title: 'Top populaires',
-          icon: Icons.star_rounded,
-          color: const Color(0xFFF39C12),
+
+      // ── Top du moment ───────────────────────────────────────────────────
+      _RankedRow(
+          title: 'Top du moment',
+          icon: Icons.bar_chart_rounded,
+          color: const Color(0xFFE84393),
           items: home.popularAnimes.take(10).toList(),
           onTap: (m) => _openDetail(ctx, m)),
-      _Row(title: 'Bientôt disponible',
-          icon: Icons.schedule_rounded,
-          color: const Color(0xFF27AE60),
+
+      // ── Prochainement ───────────────────────────────────────────────────
+      _Row(
+          title: 'Prochainement',
+          icon: Icons.upcoming_rounded,
+          color: const Color(0xFF0984E3),
           items: home.upcomingAnimes,
           onTap: (m) => _openDetail(ctx, m)),
     ];
@@ -634,21 +660,40 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 30, 16, 12),
+      padding: const EdgeInsets.fromLTRB(20, 28, 16, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Icon box
+          // Gradient accent bar
           Container(
-            width: 30,
-            height: 30,
+            width: 3,
+            height: 22,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(9),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [color, color.withValues(alpha: 0.30)],
+              ),
+              borderRadius: BorderRadius.circular(2),
             ),
-            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 10),
+          // Icon with gradient background
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.07)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.22), width: 0.8),
+            ),
+            child: Icon(icon, size: 17, color: color),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -657,9 +702,9 @@ class _SectionHeader extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: tt.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                letterSpacing: -0.2,
+                fontWeight: FontWeight.w800,
+                fontSize: 17,
+                letterSpacing: -0.4,
               ),
             ),
           ),
@@ -846,6 +891,91 @@ class _RankedRow extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Spotlight section — editorial pick carousel (auto-cycles, full-bleed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SpotlightSection extends StatefulWidget {
+  final List<AnilistMedia> items;
+  final void Function(AnilistMedia) onTap;
+  const _SpotlightSection({required this.items, required this.onTap});
+
+  @override
+  State<_SpotlightSection> createState() => _SpotlightSectionState();
+}
+
+class _SpotlightSectionState extends State<_SpotlightSection> {
+  int _current = 0;
+  late final PageController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = PageController(viewportFraction: 0.92);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    final cs = Theme.of(context).colorScheme;
+
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(
+            title: 'Coup de cœur',
+            icon: Icons.auto_awesome_rounded,
+            color: const Color(0xFFE84393),
+          ),
+          SizedBox(
+            height: 170,
+            child: PageView.builder(
+              controller: _ctrl,
+              itemCount: widget.items.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (_, i) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: SpotlightDiscoveryCard(
+                  media: widget.items[i],
+                  onTap: () => widget.onTap(widget.items[i]),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Page dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.items.length, (i) {
+              final active = i == _current;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active
+                      ? cs.primary
+                      : cs.onSurface.withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 4),
         ],
       ),
     );

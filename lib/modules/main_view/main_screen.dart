@@ -599,8 +599,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("_enableLibSwitch")) {
       destinations[dest.indexOf("_enableLibSwitch")] = const NavigationDestination(
-        selectedIcon: Icon(Icons.apps),
-        icon: Icon(Icons.apps_outlined),
+        selectedIcon: Icon(Icons.grid_view_rounded),
+        icon: Icon(Icons.grid_view_outlined),
         label: 'HUB',
       );
     }
@@ -1473,8 +1473,8 @@ class _FloatingDockState extends State<_FloatingDock> {
           items.add(const _DockItemData(
             route: '_enableLibSwitch',
             label: 'Hub',
-            icon: Icons.apps_outlined,
-            activeIcon: Icons.apps,
+            icon: Icons.grid_view_outlined,
+            activeIcon: Icons.grid_view_rounded,
           ));
         case '_disableLibSwitch':
           items.add(_DockItemData(
