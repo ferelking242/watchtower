@@ -16,6 +16,7 @@ import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // ─── AdBlock domain blocklist ─────────────────────────────────────────────────
 
@@ -1116,7 +1117,7 @@ class _BrowserToolbar extends StatelessWidget {
                 children: [
                   // Back
                   _ToolbarBtn(
-                    icon: Icons.arrow_back_ios_new_rounded,
+                    svgAsset: 'assets/icons/arrow-left.svg',
                     size: 18,
                     onTap: canGoBack ? onBack : null,
                     isDark: isDark,
@@ -1124,7 +1125,7 @@ class _BrowserToolbar extends StatelessWidget {
                   ),
                   // Forward
                   _ToolbarBtn(
-                    icon: Icons.arrow_forward_ios_rounded,
+                    svgAsset: 'assets/icons/arrow-right.svg',
                     size: 18,
                     onTap: canGoForward ? onForward : null,
                     isDark: isDark,
@@ -1132,21 +1133,21 @@ class _BrowserToolbar extends StatelessWidget {
                   ),
                   // Home
                   _ToolbarBtn(
-                    icon: Icons.home_rounded,
+                    svgAsset: 'assets/icons/home.svg',
                     size: 22,
                     onTap: onHome,
                     isDark: isDark,
                   ),
                   // Tabs / onglets
                   _ToolbarBtn(
-                    icon: Icons.tab_rounded,
+                    svgAsset: 'assets/icons/number-square-one.svg',
                     size: 21,
                     onTap: onTabs,
                     isDark: isDark,
                   ),
                   // Menu (3 barres / hamburger)
                   _ToolbarBtn(
-                    icon: Icons.menu_rounded,
+                    svgAsset: 'assets/icons/menu.svg',
                     size: 22,
                     onTap: onMore,
                     isDark: isDark,
@@ -1164,14 +1165,16 @@ class _BrowserToolbar extends StatelessWidget {
 // ─── Reusable icon button ─────────────────────────────────────────────────────
 
 class _ToolbarBtn extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final String? svgAsset;
   final double size;
   final VoidCallback? onTap;
   final bool isDark;
   final Color? disabledColor;
 
   const _ToolbarBtn({
-    required this.icon,
+    this.icon,
+    this.svgAsset,
     required this.size,
     required this.onTap,
     required this.isDark,
@@ -1190,7 +1193,14 @@ class _ToolbarBtn extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Icon(icon, size: size, color: color),
+        child: svgAsset != null
+            ? SvgPicture.asset(
+                svgAsset!,
+                width: size,
+                height: size,
+                colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+              )
+            : Icon(icon, size: size, color: color),
       ),
     );
   }
@@ -1257,7 +1267,7 @@ class _MoreSheetState extends State<_MoreSheet> {
     final iconColor = isDark ? Colors.white : Colors.black87;
     final labelColor = isDark ? Colors.grey.shade300 : Colors.grey.shade700;
 
-    Widget item(IconData icon, String label, VoidCallback onTap, {Color? accent, bool highlight = false}) {
+    Widget item(IconData? icon, String label, VoidCallback onTap, {Color? accent, bool highlight = false, String? svgAsset}) {
       return GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
@@ -1278,7 +1288,16 @@ class _MoreSheetState extends State<_MoreSheet> {
                       ? Border.all(color: accent ?? Colors.greenAccent, width: 1.5)
                       : null,
                 ),
-                child: Icon(icon, size: 22, color: accent ?? iconColor),
+                child: Center(
+                  child: svgAsset != null
+                      ? SvgPicture.asset(
+                          svgAsset,
+                          width: 22,
+                          height: 22,
+                          colorFilter: ColorFilter.mode(accent ?? iconColor, BlendMode.srcIn),
+                        )
+                      : Icon(icon, size: 22, color: accent ?? iconColor),
+                ),
               ),
               const SizedBox(height: 5),
               Text(
@@ -1314,56 +1333,58 @@ class _MoreSheetState extends State<_MoreSheet> {
     }
 
     final page1 = buildPage([
-      item(Icons.search_rounded, 'Chercher', widget.onFindInPage),
+      item(null, 'Chercher', widget.onFindInPage, svgAsset: 'assets/icons/search-in-page.svg'),
       item(Icons.copy_rounded, 'Copier URL', widget.onCopyUrl),
-      item(Icons.ios_share_rounded, 'Partager', widget.onShare),
-      item(Icons.open_in_browser_rounded, 'Navigateur', widget.onOpenBrowser),
-      item(Icons.code_rounded, 'Source', widget.onViewSource),
-      item(Icons.fullscreen_rounded, 'Plein écran', widget.onFullscreen),
-      item(Icons.delete_sweep_rounded, 'Cookies', widget.onClearCookies),
-      item(Icons.phone_android_rounded, 'User-Agent', widget.onUserAgent),
-      item(Icons.wifi_rounded, 'Réseau', widget.onNetworkLog),
+      item(null, 'Partager', widget.onShare, svgAsset: 'assets/icons/share-2.svg'),
+      item(null, 'Navigateur', widget.onOpenBrowser, svgAsset: 'assets/icons/globe.svg'),
+      item(null, 'Source', widget.onViewSource, svgAsset: 'assets/icons/code.svg'),
+      item(null, 'Plein écran', widget.onFullscreen, svgAsset: 'assets/icons/maximize.svg'),
+      item(null, 'Cookies', widget.onClearCookies, svgAsset: 'assets/icons/trash-2.svg'),
+      item(null, 'User-Agent', widget.onUserAgent, svgAsset: 'assets/icons/user-agent.svg'),
+      item(null, 'Réseau', widget.onNetworkLog, svgAsset: 'assets/icons/network-log.svg'),
       item(Icons.info_outline_rounded, 'À propos', () => Navigator.pop(context)),
     ]);
 
     final page2 = buildPage([
       item(
-        widget.adEnabled ? Icons.shield_rounded : Icons.shield_outlined,
+        null,
         widget.adEnabled
             ? (widget.blockedCount > 0 ? '${widget.blockedCount} bloqués' : 'AdBlock ON')
             : 'AdBlock OFF',
         widget.onToggleAdBlock,
+        svgAsset: 'assets/icons/block-ads.svg',
         accent: widget.adEnabled ? Colors.greenAccent.shade400 : Colors.grey,
         highlight: widget.adEnabled,
       ),
-      item(Icons.ads_click_rounded, 'Sélect. élément', widget.onPickElement, accent: Colors.orange),
-      item(Icons.visibility_off_rounded, 'Masquer élément', widget.onPickElement),
-      item(Icons.block_rounded, 'Bloquer domaine', widget.onPickElement, accent: Colors.redAccent),
+      item(null, 'Sélect. élément', widget.onPickElement, svgAsset: 'assets/icons/edit-2.svg', accent: Colors.orange),
+      item(null, 'Masquer élément', widget.onPickElement, svgAsset: 'assets/icons/eye-slash.svg'),
+      item(null, 'Bloquer domaine', widget.onPickElement, svgAsset: 'assets/icons/minus-circle.svg', accent: Colors.redAccent),
       item(Icons.refresh_rounded, 'Réinitialiser', widget.onResetRules),
       item(
-        Icons.list_rounded,
+        null,
         widget.blockedElements.isEmpty
             ? 'Aucun bloqué'
             : '${widget.blockedElements.length} règles',
         () {},
+        svgAsset: 'assets/icons/layers.svg',
       ),
       item(Icons.check_circle_outline_rounded, 'Whitelist site', () => Navigator.pop(context)),
-      item(Icons.bar_chart_rounded, 'Statistiques', () => Navigator.pop(context)),
+      item(null, 'Statistiques', () => Navigator.pop(context), svgAsset: 'assets/icons/activity.svg'),
       item(Icons.bug_report_rounded, 'Déboguer', () => Navigator.pop(context)),
-      item(Icons.settings_rounded, 'Réglages', () => Navigator.pop(context)),
+      item(null, 'Réglages', () => Navigator.pop(context), svgAsset: 'assets/icons/settings.svg'),
     ]);
 
     final page3 = buildPage([
-      item(Icons.text_fields_rounded, 'Texte', () => Navigator.pop(context)),
+      item(null, 'Texte', () => Navigator.pop(context), svgAsset: 'assets/icons/text-size.svg'),
       item(Icons.brightness_6_rounded, 'Luminosité', () => Navigator.pop(context)),
-      item(Icons.screen_rotation_rounded, 'Orientation', () => Navigator.pop(context)),
-      item(Icons.download_rounded, 'Télécharger', () => Navigator.pop(context)),
-      item(Icons.bookmark_rounded, 'Favoris', () => Navigator.pop(context)),
-      item(Icons.home_rounded, 'Accueil', () => Navigator.pop(context)),
-      item(Icons.qr_code_rounded, 'QR Code', () => Navigator.pop(context)),
-      item(Icons.save_rounded, 'Sauvegarder', () => Navigator.pop(context)),
-      item(Icons.translate_rounded, 'Traduction', () => Navigator.pop(context)),
-      item(Icons.build_rounded, 'Outils', () => Navigator.pop(context)),
+      item(null, 'Orientation', () => Navigator.pop(context), svgAsset: 'assets/icons/orientation.svg'),
+      item(null, 'Télécharger', () => Navigator.pop(context), svgAsset: 'assets/icons/download.svg'),
+      item(null, 'Favoris', () => Navigator.pop(context), svgAsset: 'assets/icons/star.svg'),
+      item(null, 'Accueil', () => Navigator.pop(context), svgAsset: 'assets/icons/home.svg'),
+      item(null, 'QR Code', () => Navigator.pop(context), svgAsset: 'assets/icons/qr-code.svg'),
+      item(null, 'Sauvegarder', () => Navigator.pop(context), svgAsset: 'assets/icons/save.svg'),
+      item(null, 'Traduction', () => Navigator.pop(context), svgAsset: 'assets/icons/translate.svg'),
+      item(null, 'Outils', () => Navigator.pop(context), svgAsset: 'assets/icons/tool.svg'),
     ]);
 
     return Container(
