@@ -21,41 +21,57 @@ import 'package:flutter_svg/flutter_svg.dart';
 // ─── AdBlock domain blocklist ─────────────────────────────────────────────────
 
 const _kBlockedDomains = [
-  'doubleclick.net',
-  'googlesyndication.com',
-  'googleadservices.com',
-  'googletagservices.com',
-  'googletagmanager.com',
-  'ads.yahoo.com',
-  'adservice.google.com',
-  'amazon-adsystem.com',
-  'adnxs.com',
-  'taboola.com',
-  'outbrain.com',
-  'popads.net',
-  'adsterra.com',
-  'propellerads.com',
-  'revcontent.com',
-  'media.net',
-  'yandexadexchange.net',
-  'smartadserver.com',
-  'rubiconproject.com',
-  'openx.net',
-  'criteo.com',
-  'adsrvr.org',
-  'bidswitch.net',
-  'pubmatic.com',
-  'appnexus.com',
-  'advertising.com',
-  'adroll.com',
-  'quantserve.com',
-  'scorecardresearch.com',
-  'trafficjunky.net',
-  'exoclick.com',
-  'juicyads.com',
-  'ero-advertising.com',
-  'plugrush.com',
-  'clickadu.com',
+  // Google
+  'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
+  'googletagservices.com', 'googletagmanager.com', 'adservice.google.com',
+  'pagead2.googlesyndication.com', 'fundingchoicesmessages.google.com',
+  'tpc.googlesyndication.com', 'admanager.google.com',
+  // Yahoo / AOL
+  'ads.yahoo.com', 'advertising.com', 'aolcloud.net', 'ssp.yahoo.com',
+  // Amazon
+  'amazon-adsystem.com', 'assoc-amazon.com',
+  // Major ad exchanges
+  'adnxs.com', 'appnexus.com', 'taboola.com', 'outbrain.com',
+  'popads.net', 'adsterra.com', 'propellerads.com', 'revcontent.com',
+  'media.net', 'yandexadexchange.net', 'smartadserver.com',
+  'rubiconproject.com', 'openx.net', 'openx.com', 'criteo.com', 'criteo.net',
+  'adsrvr.org', 'bidswitch.net', 'pubmatic.com', 'adroll.com',
+  'quantserve.com', 'scorecardresearch.com',
+  // Adult / streaming ad nets
+  'trafficjunky.net', 'exoclick.com', 'juicyads.com',
+  'ero-advertising.com', 'plugrush.com', 'clickadu.com',
+  'trafficholder.com', 'adspyglass.com', 'tubecorporate.com',
+  'hilltopads.net', 'adnium.com', 'sublimemedia.net', 'cpmstar.com',
+  // Programmatic / SSPs
+  '3lift.com', 'triplelift.com', 'sovrn.com', 'lijit.com',
+  'spotxchange.com', 'spotx.tv', 'sharethrough.com', 'sizmek.com',
+  'turn.com', 'teads.tv', 'teads.com', 'indexexchange.com',
+  'casalemedia.com', 'rhythmone.com', '33across.com', 'undertone.com',
+  'yieldmo.com', 'adform.net', 'adform.com', 'emxdgt.com',
+  'lkqd.net', 'districtm.io', 'innovid.com', 'springserve.com',
+  'yieldbot.com', 'smartclip.net', 'conversantmedia.com',
+  'flashtalking.com', 'advertising.com', 'adblade.com', 'adbuddiz.com',
+  'adcolony.com', 'admixer.net', 'adtegrity.net',
+  // Trackers / analytics
+  'moatads.com', 'moatpixel.com', 'adsafeprotected.com',
+  'mixpanel.com', 'amplitude.com', 'hotjar.com', 'crazyegg.com',
+  'fullstory.com', 'mouseflow.com', 'nr-data.net',
+  'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io',
+  // Twitter / LinkedIn ads
+  'ads-twitter.com', 'analytics.twitter.com', 'static.ads-twitter.com',
+  'ads.linkedin.com', 'syndication.twitter.com',
+  // Popup / redirect shorteners
+  'adf.ly', 'ouo.io', 'bc.vc', 'sh.st', 'clkmon.com',
+  'clkrev.com', 'shorte.st', 'za.gl', 'fc.lc',
+  // Anime/streaming site specific
+  'vdo.ai', 'adspeed.com', 'adinplay.com',
+  'seedr.cc', 'streamtape.com', 'vidstreaming.io',
+  'bunnycdn.com', 'bunny.net',
+  // Coinminer / malware
+  'coinhive.com', 'cryptoloot.pro', 'coin-hive.com', 'jsecoin.com',
+  // Misc
+  'mgid.com', 'zergnet.com', 'content.ad', 'kiosked.com', 'adloox.com',
+  'prebid.org', 'prebid.io', 'a9.com',
 ];
 
 bool _isAdDomain(String url) {
@@ -77,6 +93,58 @@ const _kAdBlockJs = r"""
   if (window.__watchtowerAdBlockActive) return;
   window.__watchtowerAdBlockActive = true;
 
+  // ── Blocked network patterns ─────────────────────────────────────────────────
+  var _blockedPatterns = [
+    'doubleclick','googlesyndication','googleadservices','googletagservices',
+    'adservice.google','pagead','adnxs','appnexus','taboola','outbrain',
+    'popads','adsterra','propellerads','media.net','smartadserver',
+    'rubiconproject','openx','criteo','pubmatic','adroll',
+    'trafficjunky','exoclick','juicyads','ero-advertising','plugrush',
+    'clickadu','trafficholder','adspyglass','hilltopads','adnium',
+    'triplelift','sovrn','spotxchange','spotx.tv','sharethrough',
+    'teads','indexexchange','casalemedia','adform','districtm',
+    'moatads','fundingchoicesmessages.google','prebid','vdo.ai',
+    'adinplay','mgid','zergnet','coinhive','cryptoloot',
+    'adf.ly','ouo.io','clkmon','clkrev'
+  ];
+
+  function _isBlocked(url) {
+    if (!url) return false;
+    var u = url.toLowerCase();
+    for (var i=0; i<_blockedPatterns.length; i++) {
+      if (u.indexOf(_blockedPatterns[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  // ── Block fetch ──────────────────────────────────────────────────────────────
+  var _origFetch = window.fetch;
+  window.fetch = function(resource, init) {
+    var url = (typeof resource === 'string') ? resource : (resource && resource.url) || '';
+    if (_isBlocked(url)) return new Promise(function(_, rej) { rej(new TypeError('blocked')); });
+    return _origFetch.apply(this, arguments);
+  };
+
+  // ── Block XMLHttpRequest ─────────────────────────────────────────────────────
+  var _origOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    if (_isBlocked(url)) {
+      this._wtBlocked = true;
+    }
+    return _origOpen.apply(this, arguments);
+  };
+  var _origSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function() {
+    if (this._wtBlocked) return;
+    return _origSend.apply(this, arguments);
+  };
+
+  // ── Block window.open / popups / alerts ──────────────────────────────────────
+  try { window.open = function() { return null; }; } catch(e) {}
+  try { window.alert = function() {}; } catch(e) {}
+  try { window.confirm = function() { return true; }; } catch(e) {}
+  try { window.prompt = function() { return ''; }; } catch(e) {}
+
   // ── CSS rules ───────────────────────────────────────────────────────────────
   var style = document.createElement('style');
   style.id = '__watchtower_adblock_css';
@@ -87,16 +155,22 @@ const _kAdBlockJs = r"""
     .gdpr-banner,.gdpr-overlay,.cookie-banner,.cookie-notice,.cookie-popup,
     .consent-banner,.consent-popup,.newsletter-popup,.newsletter-modal,
     .pushad,.push-ad,.sticky-ad,.fixed-ad,.floating-ad,.banner-ad,
+    .vid-container>div[style*="position:fixed"],
+    div[style*="position:fixed"][style*="z-index:9"],
+    div[style*="position:fixed"][style*="z-index: 9"],
     [class*="google-ads"],[class*="google_ads"],[id*="google_ads"],
     [class*="adsense"],[id*="adsense"],
     [class*="adsbygoogle"],[id*="adsbygoogle"],
     [id^="div-gpt-ad"],[id^="gpt-ad"],
     iframe[src*="doubleclick"],iframe[src*="googlesyndication"],
     iframe[src*="adnxs"],iframe[src*="ads."],iframe[src*="/ads/"],
-    iframe[src*="adservice"],iframe[src*="pagead"],
+    iframe[src*="adservice"],iframe[src*="pagead"],iframe[src*="taboola"],
+    iframe[src*="outbrain"],iframe[src*="criteo"],iframe[src*="popads"],
     div[id^="ad_"],div[id^="ads_"],div[class^="ad_"],div[class^="ads_"],
     ins.adsbygoogle,
-    #ad,#ads,#banner-ad,#sponsor,#sponsored,#popup,#interstitial {
+    #ad,#ads,#banner-ad,#sponsor,#sponsored,#popup,#interstitial,
+    #cookie-banner,#gdpr-overlay,#consent-modal,#newsletter-popup,
+    .overlay,.modal-overlay,.bg-overlay:not(.video-overlay) {
       display:none!important;
       visibility:hidden!important;
       opacity:0!important;
@@ -105,23 +179,23 @@ const _kAdBlockJs = r"""
       max-height:0!important;
       overflow:hidden!important;
     }
+    body { overflow: auto !important; }
+    html, body { position: static !important; }
   `;
   (document.head || document.documentElement).appendChild(style);
-
-  // ── Block window.open / popups ───────────────────────────────────────────────
-  try { window.open = function() { return null; }; } catch(e) {}
-  try { window.alert = function() {}; } catch(e) {}
 
   // ── DOM cleaning ─────────────────────────────────────────────────────────────
   var adSelectors = [
     'iframe[src*="ads"]','iframe[src*="doubleclick"]',
     'iframe[src*="googlesyndication"]','iframe[src*="adnxs"]',
     'iframe[src*="adservice"]','iframe[src*="pagead"]',
+    'iframe[src*="taboola"]','iframe[src*="outbrain"]',
     'ins.adsbygoogle','[id^="div-gpt-ad"]',
     '[class*="overlay-ad"]','[class*="modal-ad"]',
     '[class*="gdpr"]','[class*="consent"]','[class*="cookie-banner"]',
     '[class*="newsletter-popup"]','[data-ad]','[data-ads]','[data-adunit]',
-    '.adsbygoogle','#cookie-banner','#gdpr-overlay','#consent-modal'
+    '.adsbygoogle','#cookie-banner','#gdpr-overlay','#consent-modal',
+    '[class*="popup-ad"]','[class*="ad-popup"]','[id*="popup-ad"]'
   ];
 
   function removeAdNodes() {
@@ -132,14 +206,23 @@ const _kAdBlockJs = r"""
         });
       } catch(e) {}
     });
-    // Also remove by pattern matching id/class
-    document.querySelectorAll('div,section,aside').forEach(function(el) {
+    document.querySelectorAll('div,section,aside,span').forEach(function(el) {
       try {
         var c = (el.className||'').toLowerCase();
         var i = (el.id||'').toLowerCase();
         if (/\bad\b|^ads$|advert|adsense|adsbygoogle|sponsor|popup|gdpr|consent|cookie.banner|interstitial/.test(c+' '+i)) {
-          if (el.offsetHeight < 400 || /popup|modal|interstitial/.test(c+' '+i)) {
+          if (el.offsetHeight < 500 || /popup|modal|interstitial|overlay/.test(c+' '+i)) {
             el.style.cssText = 'display:none!important;height:0!important;overflow:hidden!important;';
+          }
+        }
+        // Remove fixed/absolute fullscreen overlays
+        if (/fixed|absolute/.test(getComputedStyle(el).position||'')) {
+          var z = parseInt(getComputedStyle(el).zIndex||'0');
+          if (z > 9999 && el.offsetHeight > 200) {
+            var tag = el.tagName.toLowerCase();
+            if (tag !== 'video' && tag !== 'canvas') {
+              el.style.cssText = 'display:none!important;';
+            }
           }
         }
       } catch(e) {}
@@ -148,25 +231,27 @@ const _kAdBlockJs = r"""
 
   removeAdNodes();
   document.addEventListener('DOMContentLoaded', removeAdNodes);
-  setTimeout(removeAdNodes, 500);
-  setTimeout(removeAdNodes, 1500);
-  setTimeout(removeAdNodes, 4000);
-  setTimeout(removeAdNodes, 8000);
+  setTimeout(removeAdNodes, 300);
+  setTimeout(removeAdNodes, 800);
+  setTimeout(removeAdNodes, 2000);
+  setTimeout(removeAdNodes, 5000);
+  setTimeout(removeAdNodes, 10000);
 
   // ── MutationObserver — catch dynamic ads ────────────────────────────────────
   var observer = new MutationObserver(function(mutations) {
+    var dirty = false;
     mutations.forEach(function(m) {
       m.addedNodes.forEach(function(node) {
         if (node.nodeType !== 1) return;
+        dirty = true;
         var c = (node.className||'').toLowerCase();
         var i = (node.id||'').toLowerCase();
         var src = (node.src||node.getAttribute&&node.getAttribute('src')||'').toLowerCase();
-        if (/\bad\b|^ads$|advert|adsense|adsbygoogle|sponsor|popup|gdpr|consent|doubleclick|googlesyndication/.test(c+' '+i+' '+src)) {
-          try { node.remove(); } catch(e) {
+        if (/\bad\b|^ads$|advert|adsense|adsbygoogle|sponsor|popup|gdpr|consent|doubleclick|googlesyndication|taboola|outbrain|criteo/.test(c+' '+i+' '+src)) {
+          try { node.remove(); return; } catch(e) {
             try { node.style.display='none'; } catch(e2) {}
           }
         }
-        // Recurse into added subtrees
         try {
           node.querySelectorAll && adSelectors.forEach(function(sel) {
             node.querySelectorAll(sel).forEach(function(child) {
@@ -176,6 +261,15 @@ const _kAdBlockJs = r"""
         } catch(e) {}
       });
     });
+    if (dirty) {
+      try {
+        document.querySelectorAll('div[style*="z-index: 2147483647"],div[style*="z-index:2147483647"]').forEach(function(el) {
+          if (el.tagName !== 'VIDEO' && el.tagName !== 'CANVAS') {
+            try { el.remove(); } catch(e) {}
+          }
+        });
+      } catch(e) {}
+    }
   });
   try {
     observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -314,10 +408,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // Footer visibility (toggled by ghost icon)
   bool _showFooter = true;
 
-  // Night mode / text size / desktop
+  // Night mode / text size / desktop / incognito
   bool _nightMode = false;
   int _textSizeStep = 0;
   bool _desktopMode = false;
+  bool _incognitoMode = false;
 
   // Panel drag
   _PanelSnap _snap = _PanelSnap.full;
@@ -542,6 +637,30 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     }
   }
 
+  Future<void> _toggleIncognito() async {
+    setState(() => _incognitoMode = !_incognitoMode);
+    if (_incognitoMode) {
+      await CookieManager.instance().deleteAllCookies();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mode incognito activé — cookies effacés'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mode incognito désactivé'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _toggleDesktopMode() async {
     setState(() => _desktopMode = !_desktopMode);
     const desktopUA =
@@ -741,6 +860,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         nightMode: _nightMode,
         desktopMode: _desktopMode,
         textSizeStep: _textSizeStep,
+        incognito: _incognitoMode,
         onCopyUrl: () {
           Navigator.pop(context);
           Clipboard.setData(ClipboardData(text: _url));
@@ -839,6 +959,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           _showQrCode();
         },
         onOrientation: _toggleOrientation,
+        onIncognito: () {
+          Navigator.pop(context);
+          _toggleIncognito();
+        },
         onCloseWebView: () => context.pop(),
       ),
     );
@@ -887,7 +1011,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         // ── Top bar: address + close ──────────────────────────────────
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
+          preferredSize: const Size.fromHeight(54),
           child: _BrowserHeader(
             url: _url,
             title: _title,
@@ -897,9 +1021,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             adEnabled: _adBlockEnabled,
             blockedCount: _blockedCount,
             showFooter: _showFooter,
+            incognito: _incognitoMode,
             onToggleFooter: () => setState(() => _showFooter = !_showFooter),
             onRefresh: () => _webViewController?.reload(),
-            onClose: () => context.pop(),
           ),
         ),
         // ── WebView body ──────────────────────────────────────────────
@@ -910,8 +1034,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                             initialSettings: InAppWebViewSettings(
                               isInspectable: kDebugMode,
                               useShouldOverrideUrlLoading: true,
-                              useShouldInterceptRequest:
-                                  _adBlockEnabled && !kIsWeb && Platform.isAndroid,
+                              useShouldInterceptRequest: !kIsWeb && Platform.isAndroid,
+                              incognito: _incognitoMode,
                               userAgent:
                                   ref.read(userAgentStateProvider) ==
                                           defaultUserAgent
@@ -1031,9 +1155,9 @@ class _BrowserHeader extends StatelessWidget {
   final bool adEnabled;
   final int blockedCount;
   final bool showFooter;
+  final bool incognito;
   final VoidCallback onToggleFooter;
   final VoidCallback onRefresh;
-  final VoidCallback onClose;
 
   const _BrowserHeader({
     required this.url,
@@ -1044,9 +1168,9 @@ class _BrowserHeader extends StatelessWidget {
     required this.adEnabled,
     required this.blockedCount,
     required this.showFooter,
+    required this.incognito,
     required this.onToggleFooter,
     required this.onRefresh,
-    required this.onClose,
   });
 
   @override
@@ -1055,117 +1179,116 @@ class _BrowserHeader extends StatelessWidget {
     final displayTitle = title.isNotEmpty ? title : _displayHost(url);
     final textColor = isDark ? Colors.white : Colors.black87;
     final subColor = isDark ? Colors.grey.shade500 : Colors.grey.shade500;
-    final ghostColor = showFooter ? textColor : subColor;
 
-    return Container(
-      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Address bar row — flat, no box, Via style
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-            child: Row(
-              children: [
-                // Search icon left
-                GestureDetector(
-                  onTap: onToggleFooter,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    child: SvgPicture.asset(
-                      'assets/icons/search.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: ColorFilter.mode(ghostColor, BlendMode.srcIn),
-                    ),
+    // Left icon colour: incognito=purple, HTTPS=green, HTTP=grey
+    final Color shieldColor = incognito
+        ? Colors.deepPurple.shade300
+        : secure
+            ? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
+            : subColor;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Address bar row — completely flat, no container/pill/box
+        SizedBox(
+          height: 46,
+          child: Row(
+            children: [
+              // Left: shield (secure) or ghost (incognito) — tap = toggle footer
+              GestureDetector(
+                onTap: onToggleFooter,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  child: SvgPicture.asset(
+                    incognito ? 'assets/icons/ghost.svg' : 'assets/icons/block-ads.svg',
+                    width: 22,
+                    height: 22,
+                    colorFilter: ColorFilter.mode(shieldColor, BlendMode.srcIn),
                   ),
                 ),
+              ),
 
-                // Title — centered, flat, no box
-                Expanded(
-                  child: GestureDetector(
-                    onLongPress: () {
-                      Clipboard.setData(ClipboardData(text: url));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Lien copié'), duration: Duration(seconds: 2)),
-                      );
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          secure ? Icons.lock_rounded : Icons.lock_open_rounded,
-                          size: 12,
-                          color: secure
-                              ? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
-                              : subColor,
+              // Title — centered, plain text, no box
+              Expanded(
+                child: GestureDetector(
+                  onLongPress: () {
+                    Clipboard.setData(ClipboardData(text: url));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Lien copié'), duration: Duration(seconds: 2)),
+                    );
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          displayTitle,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: textColor,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            displayTitle,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: textColor,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            maxLines: 1,
-                            textAlign: TextAlign.center,
+                      ),
+                      if (adEnabled && blockedCount > 0) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          blockedCount > 99 ? '99+' : '$blockedCount',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
                           ),
                         ),
-                        if (adEnabled && blockedCount > 0) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            blockedCount > 99 ? '99+' : '$blockedCount',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
+              ),
 
-                // Window close icon right  [-]
-                GestureDetector(
-                  onTap: onClose,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    child: Icon(Icons.close_rounded, size: 20, color: ghostColor),
+              // Right: ONLY refresh icon
+              GestureDetector(
+                onTap: onRefresh,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  child: Icon(
+                    Icons.refresh_rounded,
+                    size: 22,
+                    color: textColor,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
 
-          // Progress bar
-          SizedBox(
-            height: 2,
-            child: progress < 1.0
-                ? LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
-                  )
-                : const SizedBox.shrink(),
-          ),
+        // Progress bar
+        SizedBox(
+          height: 2,
+          child: progress < 1.0
+              ? LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                )
+              : const SizedBox.shrink(),
+        ),
 
-          // Divider
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.08),
-          ),
-        ],
-      ),
+        // Subtle divider
+        Divider(
+          height: 1,
+          thickness: 0.5,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.08),
+        ),
+      ],
     );
   }
 }
@@ -1336,7 +1459,9 @@ class _MoreSheet extends StatefulWidget {
   final VoidCallback onBookmark;
   final VoidCallback onQrCode;
   final VoidCallback onOrientation;
+  final VoidCallback onIncognito;
   final VoidCallback onCloseWebView;
+  final bool incognito;
 
   const _MoreSheet({
     required this.adEnabled,
@@ -1345,6 +1470,7 @@ class _MoreSheet extends StatefulWidget {
     required this.nightMode,
     required this.desktopMode,
     required this.textSizeStep,
+    required this.incognito,
     required this.onCopyUrl,
     required this.onShare,
     required this.onOpenBrowser,
@@ -1365,6 +1491,7 @@ class _MoreSheet extends StatefulWidget {
     required this.onBookmark,
     required this.onQrCode,
     required this.onOrientation,
+    required this.onIncognito,
     required this.onCloseWebView,
   });
 
@@ -1512,7 +1639,10 @@ class _MoreSheetState extends State<_MoreSheet> {
           svgAsset: 'assets/icons/desktop.svg',
           highlight: widget.desktopMode,
           accent: widget.desktopMode ? Colors.blue.shade400 : null),
-      item(null, 'Outils', () => Navigator.pop(context), svgAsset: 'assets/icons/tool.svg'),
+      item(null, 'Incognito', widget.onIncognito,
+          svgAsset: 'assets/icons/ghost.svg',
+          highlight: widget.incognito,
+          accent: widget.incognito ? Colors.deepPurple.shade300 : null),
     ]);
 
     return Container(
