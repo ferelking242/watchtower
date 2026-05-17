@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
 import 'package:watchtower/eval/javascript/dom_selector.dart';
 import 'package:watchtower/eval/javascript/extractors.dart';
@@ -375,6 +376,15 @@ var extention = new DefaultExtension();
   }
 
   Future<T> _extensionCallAsync<T>(String call) async {
+    if (kIsWeb) {
+      throw Exception(
+        '⚠️ Extensions non disponibles en version web\n\n'
+        'Le moteur JavaScript des extensions (QuickJS) ne fonctionne pas '
+        'dans un navigateur. Utilisez l\'application Android pour accéder '
+        'aux sources.',
+      );
+    }
+
     _init();
 
     final promised = await runtime.handlePromise(
