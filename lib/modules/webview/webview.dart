@@ -637,63 +637,248 @@ import 'package:flutter_svg/flutter_svg.dart';
 })();
 """;
 
-// ── Element picker JS (injected on demand) ────────────────────────────────────
-const _kPickerJs = r"""
-(function() {
-  if (window.__watchtowerPickerActive) return;
-  window.__watchtowerPickerActive = true;
+// ── Smart AdBlock picker JS (floating toolbar + auto-scan + touch picker) ──────
+  const _kSmartPickerJs = r"""
+  (function() {
+    if (window.__wtSmartPicker) return;
+    window.__wtSmartPicker = true;
 
-  var overlay = document.createElement('div');
-  overlay.id = '__wt_picker_overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;cursor:crosshair;background:rgba(255,0,0,0.05);';
-  document.body.appendChild(overlay);
+    // ── Ad selectors for auto-scan ──────────────────────────────────────────────
+    var _adSels = [
+      'iframe[src*="ads"]','iframe[src*="doubleclick"]','iframe[src*="googlesyndication"]',
+      'iframe[src*="adnxs"]','iframe[src*="adservice"]','iframe[src*="pagead"]',
+      'iframe[src*="taboola"]','iframe[src*="outbrain"]','iframe[src*="criteo"]',
+      'ins.adsbygoogle','[id^="div-gpt-ad"]','[id^="gpt-ad"]',
+      '[class*="overlay-ad"]','[class*="modal-ad"]','[class*="popup-ad"]',
+      '[class*="gdpr"]','[class*="consent"]','[class*="cookie-banner"]',
+      '[class*="cookie-notice"]','[class*="newsletter-popup"]',
+      '.adsbygoogle','#cookie-banner','#gdpr-overlay','#consent-modal',
+      '[data-ad]','[data-ads]','[data-adunit]',
+      'div[style*="z-index: 2147483647"]','div[style*="z-index:2147483647"]'
+    ];
 
-  var highlight = document.createElement('div');
-  highlight.style.cssText = 'position:fixed;pointer-events:none;border:2px solid red;background:rgba(255,0,0,0.15);z-index:2147483646;transition:all 0.1s;box-sizing:border-box;';
-  document.body.appendChild(highlight);
+    // ── Floating toolbar ────────────────────────────────────────────────────────
+    var bar = document.createElement('div');
+    bar.id = '__wt_bar';
+    bar.style.cssText = [
+      'position:fixed','bottom:72px','left:50%','transform:translateX(-50%)',
+      'background:rgba(20,20,20,0.94)','color:#fff',
+      'border-radius:28px','padding:7px 14px',
+      'display:flex','align-items:center','gap:10px',
+      'z-index:2147483645',
+      'font-family:-apple-system,BlinkMacSystemFont,sans-serif','font-size:12px',
+      'box-shadow:0 4px 28px rgba(0,0,0,0.5)',
+      'user-select:none','-webkit-user-select:none',
+      'touch-action:none','backdrop-filter:blur(10px)',
+      '-webkit-backdrop-filter:blur(10px)'
+    ].join(';');
 
-  function getBounds(el) {
-    var r = el.getBoundingClientRect();
-    return { top: r.top, left: r.left, width: r.width, height: r.height };
-  }
+    function mkBtn(txt, bg) {
+      var b = document.createElement('button');
+      b.textContent = txt;
+      b.style.cssText = 'background:'+(bg||'rgba(255,255,255,0.12)')+';color:#fff;'
+        +'border:1px solid rgba(255,255,255,0.2);border-radius:16px;'
+        +'padding:4px 11px;cursor:pointer;font-size:11.5px;white-space:nowrap;'
+        +'-webkit-tap-highlight-color:transparent;';
+      return b;
+    }
 
-  overlay.addEventListener('mousemove', function(e) {
-    overlay.style.pointerEvents = 'none';
-    var el = document.elementFromPoint(e.clientX, e.clientY);
-    overlay.style.pointerEvents = 'all';
-    if (!el || el === overlay || el === highlight) return;
-    var b = getBounds(el);
-    highlight.style.top = b.top + 'px';
-    highlight.style.left = b.left + 'px';
-    highlight.style.width = b.width + 'px';
-    highlight.style.height = b.height + 'px';
-  });
+    var autoBtn  = mkBtn('⚡ Auto');
+    var pickBtn  = mkBtn('🎯 Picker');
+    var countLbl = document.createElement('span');
+    countLbl.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.65);white-space:nowrap;min-width:56px;text-align:center;';
+    countLbl.textContent = '0 bloqué';
+    var closeBtn = mkBtn('✕', 'transparent');
+    closeBtn.style.border = 'none';
+    closeBtn.style.color = 'rgba(255,255,255,0.5)';
+    closeBtn.style.padding = '4px 2px';
 
-  overlay.addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    overlay.style.pointerEvents = 'none';
-    var el = document.elementFromPoint(e.clientX, e.clientY);
-    overlay.style.pointerEvents = 'all';
-    if (!el || el === overlay || el === highlight) return;
-    var tag = el.tagName || '';
-    var cls = el.className || '';
-    var id = el.id || '';
-    var src = el.src || el.getAttribute('src') || '';
-    var info = JSON.stringify({ tag: tag, cls: cls, id: id, src: src });
-    // Store for Flutter to retrieve
-    window.__watchtowerPickedInfo = info;
-    // Clean up
-    overlay.remove();
-    highlight.remove();
-    window.__watchtowerPickerActive = false;
-    // Notify Flutter
-    try { window.flutter_inappwebview.callHandler('elementPicked', info); } catch(e2) {}
-  });
-})();
-""";
+    bar.appendChild(autoBtn);
+    bar.appendChild(pickBtn);
+    bar.appendChild(countLbl);
+    bar.appendChild(closeBtn);
+    (document.body || document.documentElement).appendChild(bar);
 
-// ─── Panel snap positions ─────────────────────────────────────────────────────
+    // ── Highlight overlay ───────────────────────────────────────────────────────
+    var hl = document.createElement('div');
+    hl.id = '__wt_hl';
+    hl.style.cssText = 'position:fixed;pointer-events:none;border:2px solid rgba(255,70,70,0.9);'
+      +'background:rgba(255,40,40,0.1);z-index:2147483644;box-sizing:border-box;'
+      +'border-radius:4px;display:none;transition:top .08s,left .08s,width .08s,height .08s;';
+    (document.body || document.documentElement).appendChild(hl);
+
+    var hlLabel = document.createElement('div');
+    hlLabel.id = '__wt_hl_lbl';
+    hlLabel.style.cssText = 'position:fixed;background:rgba(220,40,40,0.93);color:#fff;'
+      +'font-size:10px;font-family:-apple-system,sans-serif;padding:1px 7px;border-radius:3px;'
+      +'pointer-events:none;z-index:2147483646;display:none;'
+      +'max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    (document.body || document.documentElement).appendChild(hlLabel);
+
+    // ── State ───────────────────────────────────────────────────────────────────
+    var blocked = 0;
+    var pickerOn = false;
+    var lastEl = null;
+
+    function updateCount() {
+      countLbl.textContent = blocked + ' bloqué' + (blocked !== 1 ? 's' : '');
+    }
+
+    function blockEl(el) {
+      if (!el || el.id && el.id.startsWith('__wt')) return;
+      try {
+        el.style.setProperty('display','none','important');
+        blocked++;
+        updateCount();
+        var info = JSON.stringify({
+          tag: el.tagName || '',
+          cls: (el.className && el.className.toString ? el.className.toString() : '').slice(0,80),
+          id: el.id || '',
+          src: (el.src || (el.getAttribute && el.getAttribute('src')) || '').slice(0,120),
+          auto: false
+        });
+        try { window.flutter_inappwebview.callHandler('elementPicked', info); } catch(e2) {}
+      } catch(e) {}
+    }
+
+    // ── Auto-scan ───────────────────────────────────────────────────────────────
+    function autoScan() {
+      var found = 0;
+      _adSels.forEach(function(sel) {
+        try {
+          document.querySelectorAll(sel).forEach(function(el) {
+            if (el.id && el.id.startsWith('__wt')) return;
+            if (!el.offsetParent && el.offsetWidth === 0) return;
+            el.style.setProperty('display','none','important');
+            found++; blocked++;
+          });
+        } catch(e) {}
+      });
+      // Heuristic: class/id contains ad keywords
+      document.querySelectorAll('div,section,aside,article').forEach(function(el) {
+        if (el.id && el.id.startsWith('__wt')) return;
+        var c = ((el.className && el.className.toString ? el.className.toString() : '')+' '+(el.id||'')).toLowerCase();
+        if (/ad|ads|advert|adsense|adsbygoogle|sponsor(?:ed)?|popup|gdpr|consent|cookie.banner|interstitial/.test(c)) {
+          var h = el.offsetHeight;
+          if (h > 0 && h < 500) {
+            el.style.setProperty('display','none','important');
+            found++; blocked++;
+          }
+        }
+        // Large fixed/absolute overlays with high z-index
+        try {
+          var cs = window.getComputedStyle(el);
+          var pos = cs.position;
+          if ((pos === 'fixed' || pos === 'absolute') && parseInt(cs.zIndex || '0') > 999) {
+            var h2 = el.offsetHeight;
+            var w2 = el.offsetWidth;
+            var tag = (el.tagName||'').toLowerCase();
+            if (tag !== 'video' && tag !== 'canvas' && w2 > 200 && h2 > 100) {
+              el.style.setProperty('display','none','important');
+              found++; blocked++;
+            }
+          }
+        } catch(e) {}
+      });
+      updateCount();
+      return found;
+    }
+
+    // ── Picker mode touch/mouse handlers ────────────────────────────────────────
+    function getXY(e) {
+      if (e.touches && e.touches.length) return [e.touches[0].clientX, e.touches[0].clientY];
+      if (e.changedTouches && e.changedTouches.length) return [e.changedTouches[0].clientX, e.changedTouches[0].clientY];
+      return [e.clientX, e.clientY];
+    }
+
+    function onMove(e) {
+      if (!pickerOn) return;
+      var xy = getXY(e);
+      bar.style.pointerEvents = 'none';
+      hl.style.display = 'none';
+      var el = document.elementFromPoint(xy[0], xy[1]);
+      bar.style.pointerEvents = 'auto';
+      if (!el || el === bar || el === hl || el === hlLabel || (el.id && el.id.startsWith('__wt'))) {
+        hl.style.display = 'none'; hlLabel.style.display = 'none'; return;
+      }
+      lastEl = el;
+      var r = el.getBoundingClientRect();
+      hl.style.top = r.top + 'px'; hl.style.left = r.left + 'px';
+      hl.style.width = r.width + 'px'; hl.style.height = r.height + 'px';
+      hl.style.display = 'block';
+      var tag = (el.tagName||'').toLowerCase();
+      var idStr = el.id ? '#'+el.id.slice(0,20) : '';
+      var clsStr = el.className && el.className.toString ? '.'+el.className.toString().split(' ')[0].slice(0,20) : '';
+      hlLabel.textContent = tag + (idStr || clsStr);
+      hlLabel.style.top = Math.max(0, r.top - 18) + 'px';
+      hlLabel.style.left = Math.max(0, r.left) + 'px';
+      hlLabel.style.display = 'block';
+    }
+
+    function onTap(e) {
+      if (!pickerOn) return;
+      e.preventDefault(); e.stopPropagation();
+      var xy = getXY(e);
+      bar.style.pointerEvents = 'none';
+      hl.style.display = 'none';
+      var el = document.elementFromPoint(xy[0], xy[1]);
+      bar.style.pointerEvents = 'auto';
+      if (!el || el === bar || el === hl || el === hlLabel || (el.id && el.id.startsWith('__wt'))) return;
+      blockEl(el);
+      hl.style.display = 'none'; hlLabel.style.display = 'none';
+    }
+
+    document.addEventListener('mousemove', onMove, true);
+    document.addEventListener('touchmove', onMove, {passive:true, capture:true});
+    document.addEventListener('click', onTap, true);
+    document.addEventListener('touchend', onTap, {capture:true});
+
+    // ── Button handlers ─────────────────────────────────────────────────────────
+    autoBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var n = autoScan();
+      autoBtn.textContent = '✅ ' + n + ' cachés';
+      autoBtn.style.background = 'rgba(40,180,40,0.35)';
+      setTimeout(function() {
+        autoBtn.textContent = '⚡ Auto';
+        autoBtn.style.background = 'rgba(255,255,255,0.12)';
+      }, 2500);
+    });
+
+    pickBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      pickerOn = !pickerOn;
+      if (pickerOn) {
+        pickBtn.style.background = 'rgba(220,50,50,0.7)';
+        pickBtn.style.borderColor = 'rgba(255,80,80,0.6)';
+        pickBtn.textContent = '🎯 Actif';
+        document.documentElement.style.cursor = 'crosshair';
+      } else {
+        pickBtn.style.background = 'rgba(255,255,255,0.12)';
+        pickBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+        pickBtn.textContent = '🎯 Picker';
+        document.documentElement.style.cursor = '';
+        hl.style.display = 'none'; hlLabel.style.display = 'none';
+      }
+    });
+
+    closeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.documentElement.style.cursor = '';
+      [bar, hl, hlLabel].forEach(function(el) { try { el.remove(); } catch(e2) {} });
+      document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('click', onTap, true);
+      window.__wtSmartPicker = false;
+      try { window.flutter_inappwebview.callHandler('pickerClosed', '{}'); } catch(e2) {}
+    });
+
+    // Auto-scan in background after load
+    setTimeout(autoScan, 600);
+    setTimeout(autoScan, 2000);
+  })();
+  """;
+
+  // ─── Panel snap positions ─────────────────────────────────────────────────────
 
 enum _PanelSnap { mini, half, full }
 
@@ -1204,6 +1389,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           setState(() => _blockedCount = 0);
           Navigator.pop(context);
         },
+        onActivatePicker: _activatePicker,
       ),
     );
   }
@@ -1404,7 +1590,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           ),
         ),
         // ── WebView body ──────────────────────────────────────────────
-        body: kIsWeb || !Platform.isWindows
+        body: !kIsWeb && !Platform.isWindows
             ? InAppWebView(
                             webViewEnvironment: webViewEnvironment,
                             initialUrlRequest: URLRequest(url: WebUri(widget.url)),
@@ -1427,9 +1613,15 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                 handlerName: 'elementPicked',
                                 callback: (args) {
                                   if (!mounted) return;
-                                  setState(() => _pickerMode = false);
                                   final info = args.isNotEmpty ? args[0].toString() : '';
                                   _showPickedElementDialog(info);
+                                },
+                              );
+                              c.addJavaScriptHandler(
+                                handlerName: 'pickerClosed',
+                                callback: (args) {
+                                  if (!mounted) return;
+                                  setState(() => _pickerMode = false);
                                 },
                               );
                             },
@@ -1502,7 +1694,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                   }
                                 : null,
                           )
-            : const SizedBox.shrink(),
+            : kIsWeb
+                ? _WebViewNotAvailable(url: widget.url)
+                : const SizedBox.shrink(),
         // ── Bottom toolbar ────────────────────────────────────────────
         bottomNavigationBar: _showFooter
             ? _BrowserToolbar(
@@ -1524,6 +1718,68 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   }
 }
 
+  // ─── Web placeholder widget (Flutter web build) ───────────────────────────────
+
+  class _WebViewNotAvailable extends StatelessWidget {
+    final String url;
+    const _WebViewNotAvailable({required this.url});
+
+    @override
+    Widget build(BuildContext context) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final cs = Theme.of(context).colorScheme;
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.public_off_rounded,
+                size: 56,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'WebView non disponible en version web',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Les sites ne peuvent pas être affichés dans l'iframe du navigateur "
+                "en raison des politiques X-Frame-Options. Ouvrez le lien directement.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () async {
+                  final uri = Uri.tryParse(url);
+                  if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('Ouvrir dans le navigateur'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  
 // ─── Browser header (drag handle + address bar + progress) ───────────────────
 
 class _BrowserHeader extends StatelessWidget {
@@ -2126,137 +2382,151 @@ class _MoreSheetState extends State<_MoreSheet> {
 // ─── AdBlock sheet ────────────────────────────────────────────────────────────
 
 class _AdBlockSheet extends StatelessWidget {
-  final bool enabled;
-  final int blockedCount;
-  final void Function(bool) onToggle;
-  final VoidCallback onReset;
+    final bool enabled;
+    final int blockedCount;
+    final void Function(bool) onToggle;
+    final VoidCallback onReset;
+    final VoidCallback? onActivatePicker;
 
-  const _AdBlockSheet({
-    required this.enabled,
-    required this.blockedCount,
-    required this.onToggle,
-    required this.onReset,
-  });
+    const _AdBlockSheet({
+      required this.enabled,
+      required this.blockedCount,
+      required this.onToggle,
+      required this.onReset,
+      this.onActivatePicker,
+    });
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+    @override
+    Widget build(BuildContext context) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+      final textColor = isDark ? Colors.white : Colors.black87;
+      final subColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+      final divColor = isDark
+          ? Colors.white.withValues(alpha: 0.08)
+          : Colors.black.withValues(alpha: 0.07);
 
-    return Container(
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.2)
-                  : Colors.black.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(2),
+      return Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+              blurRadius: 20,
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.shield_rounded,
-                  color: enabled ? Colors.greenAccent : Colors.grey,
-                  size: 22,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'AdBlock',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: divColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.shield_rounded,
+                    color: enabled ? Colors.greenAccent : Colors.grey,
+                    size: 22,
                   ),
-                ),
-                const Spacer(),
-                if (blockedCount > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade800.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 10),
+                  Text(
+                    'AdBlock',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
-                    child: Text(
-                      '$blockedCount bloqués',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark
-                            ? Colors.greenAccent.shade400
-                            : Colors.green.shade700,
-                        fontWeight: FontWeight.w600,
+                  ),
+                  const Spacer(),
+                  if (blockedCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade800.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$blockedCount bloqués',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.greenAccent.shade400
+                              : Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.07),
-          ),
-          SwitchListTile(
-            title: Text(
-              "Activer l'AdBlock",
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-                fontSize: 14,
+                ],
               ),
             ),
-            subtitle: Text(
-              'Bloque les domaines publicitaires connus et injecte un filtre CSS/DOM',
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+            Divider(height: 1, thickness: 0.5, color: divColor),
+            SwitchListTile(
+              title: Text(
+                "Activer l'AdBlock",
+                style: TextStyle(color: textColor, fontSize: 14),
               ),
-            ),
-            value: enabled,
-            onChanged: onToggle,
-            activeColor: Colors.greenAccent,
-          ),
-          ListTile(
-            leading: Icon(
-              Icons.refresh_rounded,
-              size: 20,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-            title: Text(
-              'Réinitialiser le compteur',
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.white : Colors.black87,
+              subtitle: Text(
+                'Bloque les domaines publicitaires connus et injecte un filtre CSS/DOM',
+                style: TextStyle(fontSize: 11, color: subColor),
               ),
+              value: enabled,
+              onChanged: onToggle,
+              activeColor: Colors.greenAccent,
             ),
-            onTap: onReset,
-            dense: true,
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
+            Divider(height: 1, thickness: 0.5, color: divColor),
+            ListTile(
+              leading: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.colorize_rounded, size: 18, color: Colors.orange),
+              ),
+              title: Text(
+                'Sélectionner des éléments',
+                style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              subtitle: Text(
+                'Toolbar flottante · auto-scan + picker tactile',
+                style: TextStyle(fontSize: 11, color: subColor),
+              ),
+              trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
+              onTap: onActivatePicker != null
+                  ? () {
+                      Navigator.pop(context);
+                      onActivatePicker!();
+                    }
+                  : null,
+            ),
+            Divider(height: 1, thickness: 0.5, color: divColor),
+            ListTile(
+              leading: Icon(Icons.refresh_rounded, size: 20, color: textColor),
+              title: Text(
+                'Réinitialiser le compteur',
+                style: TextStyle(fontSize: 14, color: textColor),
+              ),
+              onTap: onReset,
+              dense: true,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
+    }
   }
-}
 
 // ─── Desktop InAppBrowser wrapper ─────────────────────────────────────────────
 
