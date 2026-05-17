@@ -1143,7 +1143,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   Future<void> _activatePicker() async {
     try {
-      await _webViewController?.evaluateJavascript(source: _kPickerJs);
+      await _webViewController?.evaluateJavascript(source: _kSmartPickerJs);
     } catch (_) {}
   }
 
