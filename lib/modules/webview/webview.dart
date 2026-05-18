@@ -1381,17 +1381,48 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       builder: (_) => _AdBlockSheet(
         enabled: _adBlockEnabled,
         blockedCount: _blockedCount,
+        blockedElements: _blockedElements,
+        currentUrl: _url,
         onToggle: (v) {
-          setState(() => _adBlockEnabled = v);
+          if (mounted) setState(() => _adBlockEnabled = v);
+          if (v) _injectJs();
           Navigator.pop(context);
         },
         onReset: () {
-          setState(() => _blockedCount = 0);
+          if (mounted) setState(() { _blockedCount = 0; _blockedElements.clear(); });
+          Navigator.pop(context);
+        },
+        onActivatePicker: _activatePicker,
+        onOpenFullPage: _showAdFullPage,
+      ),
+    );
+  }
+
+  void _showAdFullPage() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AdBlockFullPage(
+        enabled: _adBlockEnabled,
+        blockedCount: _blockedCount,
+        blockedElements: _blockedElements,
+        onToggle: (v) {
+          if (mounted) setState(() => _adBlockEnabled = v);
+          if (v) _injectJs();
+          Navigator.pop(context);
+        },
+        onReset: () {
+          if (mounted) setState(() { _blockedCount = 0; _blockedElements.clear(); });
           Navigator.pop(context);
         },
         onActivatePicker: _activatePicker,
       ),
     );
+  }
+
+  void _reopenInWatchtower() {
+    if (mounted) context.pop();
   }
 
   void _showMoreMenu() {
@@ -1452,9 +1483,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             );
           },
           onToggleAdBlock: () {
-            setState(() => _adBlockEnabled = !_adBlockEnabled);
-            if (_adBlockEnabled) _injectJs();
             dismiss();
+            _showAdMenu();
           },
           onPickElement: () {
             dismiss();
@@ -1711,6 +1741,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                 ),
                 onTabs: _showMoreMenu,
                 onMore: _showMoreMenu,
+                onReopenInApp: _reopenInWatchtower,
               )
             : null,
       ),
@@ -1941,6 +1972,7 @@ class _BrowserToolbar extends StatelessWidget {
   final VoidCallback onHome;
   final VoidCallback onTabs;
   final VoidCallback onMore;
+  final VoidCallback? onReopenInApp;
 
   const _BrowserToolbar({
     required this.isDark,
@@ -1952,6 +1984,7 @@ class _BrowserToolbar extends StatelessWidget {
     required this.onHome,
     required this.onTabs,
     required this.onMore,
+    this.onReopenInApp,
   });
 
   @override
@@ -2005,6 +2038,16 @@ class _BrowserToolbar extends StatelessWidget {
                     onTap: onTabs,
                     isDark: isDark,
                   ),
+                  // Re-open in Watchtower
+                  _ToolbarBtn(
+                    icon: Icons.open_in_new_rounded,
+                    size: 20,
+                    onTap: onReopenInApp,
+                    isDark: isDark,
+                    overrideColor: isDark
+                        ? Colors.deepPurple.shade200
+                        : Colors.deepPurple.shade400,
+                  ),
                   // Menu (3 barres / hamburger)
                   _ToolbarBtn(
                     svgAsset: 'assets/icons/menu.svg',
@@ -2031,6 +2074,7 @@ class _ToolbarBtn extends StatelessWidget {
   final VoidCallback? onTap;
   final bool isDark;
   final Color? disabledColor;
+  final Color? overrideColor;
 
   const _ToolbarBtn({
     this.icon,
@@ -2039,11 +2083,12 @@ class _ToolbarBtn extends StatelessWidget {
     required this.onTap,
     required this.isDark,
     this.disabledColor,
+    this.overrideColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = isDark ? Colors.white : Colors.black87;
+    final activeColor = overrideColor ?? (isDark ? Colors.white : Colors.black87);
     final color = onTap == null
         ? (disabledColor ?? (isDark ? Colors.grey.shade700 : Colors.grey.shade400))
         : activeColor;
@@ -2052,7 +2097,7 @@ class _ToolbarBtn extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: svgAsset != null
             ? SvgPicture.asset(
                 svgAsset!,
@@ -2379,154 +2424,591 @@ class _MoreSheetState extends State<_MoreSheet> {
   }
 }
 
-// ─── AdBlock sheet ────────────────────────────────────────────────────────────
+// ─── AdBlock mini sheet (uBlock Origin style) ─────────────────────────────────
 
 class _AdBlockSheet extends StatelessWidget {
-    final bool enabled;
-    final int blockedCount;
-    final void Function(bool) onToggle;
-    final VoidCallback onReset;
-    final VoidCallback? onActivatePicker;
+  final bool enabled;
+  final int blockedCount;
+  final List<String> blockedElements;
+  final String currentUrl;
+  final void Function(bool) onToggle;
+  final VoidCallback onReset;
+  final VoidCallback? onActivatePicker;
+  final VoidCallback? onOpenFullPage;
 
-    const _AdBlockSheet({
-      required this.enabled,
-      required this.blockedCount,
-      required this.onToggle,
-      required this.onReset,
-      this.onActivatePicker,
-    });
+  const _AdBlockSheet({
+    required this.enabled,
+    required this.blockedCount,
+    required this.blockedElements,
+    required this.currentUrl,
+    required this.onToggle,
+    required this.onReset,
+    this.onActivatePicker,
+    this.onOpenFullPage,
+  });
 
-    @override
-    Widget build(BuildContext context) {
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
-      final textColor = isDark ? Colors.white : Colors.black87;
-      final subColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-      final divColor = isDark
-          ? Colors.white.withValues(alpha: 0.08)
-          : Colors.black.withValues(alpha: 0.07);
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    final divColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.07);
+    final domain = _displayHost(currentUrl);
+    final on = enabled;
+    final powerColor = on
+        ? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
+        : (isDark ? Colors.grey.shade500 : Colors.grey.shade400);
+    final ringOuter = on
+        ? powerColor.withValues(alpha: 0.12)
+        : Colors.grey.withValues(alpha: 0.07);
+    final ringInner = on
+        ? powerColor.withValues(alpha: 0.22)
+        : Colors.grey.withValues(alpha: 0.12);
 
-      return Container(
-        margin: const EdgeInsets.all(12),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.13),
+            blurRadius: 28,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Drag handle ─────────────────────────────────────────
+          Container(
+            width: 36, height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(color: divColor, borderRadius: BorderRadius.circular(2)),
+          ),
+
+          // ── Header: shield + title + counter + gear ──────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 2, 14, 0),
+            child: Row(
+              children: [
+                SvgPicture.asset(
+                  'assets/icons/block-ads.svg',
+                  width: 22, height: 22,
+                  colorFilter: ColorFilter.mode(
+                    on ? powerColor : Colors.grey.shade500,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'AdBlock',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textColor),
+                ),
+                const SizedBox(width: 8),
+                if (blockedCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: powerColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$blockedCount',
+                      style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700,
+                        color: powerColor,
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                // Gear → full settings page
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    onOpenFullPage?.call();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: SvgPicture.asset(
+                      'assets/icons/settings.svg',
+                      width: 20, height: 20,
+                      colorFilter: ColorFilter.mode(subColor, BlendMode.srcIn),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // ── Big power button (ring style) ─────────────────────────
+          GestureDetector(
+            onTap: () => onToggle(!enabled),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Outer glow ring
+                Container(
+                  width: 128, height: 128,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: ringOuter),
+                ),
+                // Mid ring
+                Container(
+                  width: 104, height: 104,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: ringInner),
+                ),
+                // Inner button
+                Container(
+                  width: 82, height: 82,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: bg,
+                    border: Border.all(color: powerColor, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: powerColor.withValues(alpha: on ? 0.4 : 0.08),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Icon(Icons.power_settings_new_rounded, size: 38, color: powerColor),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Status line
+          Text(
+            on ? 'Protection active' : 'Protection désactivée',
+            style: TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w600,
+              color: on ? powerColor : Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            domain,
+            style: TextStyle(fontSize: 12, color: subColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+
+          const SizedBox(height: 24),
+          Divider(height: 1, thickness: 0.5, color: divColor),
+
+          // ── Quick actions row ─────────────────────────────────────
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _AdBlockQuickBtn(
+                    icon: Icons.pause_circle_outline_rounded,
+                    label: 'Pause\nce site',
+                    isDark: isDark,
+                    textColor: textColor,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ),
+                VerticalDivider(width: 1, thickness: 0.5, color: divColor),
+                Expanded(
+                  child: _AdBlockQuickBtn(
+                    icon: Icons.timer_outlined,
+                    label: 'Pause\n30 min',
+                    isDark: isDark,
+                    textColor: textColor,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ),
+                VerticalDivider(width: 1, thickness: 0.5, color: divColor),
+                Expanded(
+                  child: _AdBlockQuickBtn(
+                    icon: Icons.colorize_rounded,
+                    label: 'Sélect.\nélém.',
+                    isDark: isDark,
+                    textColor: textColor,
+                    accent: Colors.orange,
+                    onTap: () {
+                      Navigator.pop(context);
+                      onActivatePicker?.call();
+                    },
+                  ),
+                ),
+                VerticalDivider(width: 1, thickness: 0.5, color: divColor),
+                Expanded(
+                  child: _AdBlockQuickBtn(
+                    icon: Icons.refresh_rounded,
+                    label: 'Remise\nà zéro',
+                    isDark: isDark,
+                    textColor: textColor,
+                    accent: Colors.red.shade400,
+                    onTap: onReset,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Divider(height: 1, thickness: 0.5, color: divColor),
+
+          // ── Stats row ─────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _AdBlockStat(
+                  value: '$blockedCount',
+                  label: 'Requêtes\nbloquées',
+                  color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade700,
+                ),
+                Container(width: 1, height: 34, color: divColor),
+                _AdBlockStat(
+                  value: '${blockedElements.length}',
+                  label: 'Éléments\nmasqués',
+                  color: isDark ? Colors.orangeAccent : Colors.orange.shade700,
+                ),
+                Container(width: 1, height: 34, color: divColor),
+                _AdBlockStat(
+                  value: '1561',
+                  label: 'Règles\nactives',
+                  color: isDark ? Colors.blueAccent.shade100 : Colors.blue.shade700,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── AdBlock quick action button ─────────────────────────────────────────────
+
+class _AdBlockQuickBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final Color textColor;
+  final Color? accent;
+  final VoidCallback onTap;
+
+  const _AdBlockQuickBtn({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    required this.textColor,
+    required this.onTap,
+    this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ?? textColor.withValues(alpha: 0.75);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── AdBlock stat widget ──────────────────────────────────────────────────────
+
+class _AdBlockStat extends StatelessWidget {
+  final String value;
+  final String label;
+  final Color color;
+
+  const _AdBlockStat({required this.value, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20, fontWeight: FontWeight.w800, color: color,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7)),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+// ─── AdBlock full settings page ───────────────────────────────────────────────
+
+class _AdBlockFullPage extends StatelessWidget {
+  final bool enabled;
+  final int blockedCount;
+  final List<String> blockedElements;
+  final void Function(bool) onToggle;
+  final VoidCallback onReset;
+  final VoidCallback? onActivatePicker;
+
+  const _AdBlockFullPage({
+    required this.enabled,
+    required this.blockedCount,
+    required this.blockedElements,
+    required this.onToggle,
+    required this.onReset,
+    this.onActivatePicker,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    final divColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.07);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollCtrl) => Container(
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-              blurRadius: 20,
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.14),
+              blurRadius: 28, offset: const Offset(0, -4),
             ),
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
+            // Handle
             Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: divColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
+              width: 36, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(color: divColor, borderRadius: BorderRadius.circular(2)),
             ),
+            // Title row
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              padding: const EdgeInsets.fromLTRB(20, 0, 8, 14),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.shield_rounded,
-                    color: enabled ? Colors.greenAccent : Colors.grey,
-                    size: 22,
+                  SvgPicture.asset(
+                    'assets/icons/block-ads.svg',
+                    width: 24, height: 24,
+                    colorFilter: ColorFilter.mode(
+                      enabled ? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600) : Colors.grey,
+                      BlendMode.srcIn,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'AdBlock',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
+                    'AdBlock – Paramètres',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
                   ),
                   const Spacer(),
-                  if (blockedCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade800.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '$blockedCount bloqués',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark
-                              ? Colors.greenAccent.shade400
-                              : Colors.green.shade700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: subColor),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ],
               ),
             ),
-            Divider(height: 1, thickness: 0.5, color: divColor),
-            SwitchListTile(
-              title: Text(
-                "Activer l'AdBlock",
-                style: TextStyle(color: textColor, fontSize: 14),
+            Divider(height: 1, color: divColor),
+
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                children: [
+                  // Enable toggle
+                  SwitchListTile(
+                    title: Text("Activer l'AdBlock", style: TextStyle(color: textColor)),
+                    subtitle: Text(
+                      "Bloque les domaines publicitaires et injecte un filtre CSS/DOM",
+                      style: TextStyle(fontSize: 12, color: subColor),
+                    ),
+                    value: enabled,
+                    onChanged: (v) { onToggle(v); Navigator.pop(context); },
+                    activeColor: isDark ? Colors.greenAccent : Colors.green.shade600,
+                  ),
+                  Divider(height: 1, color: divColor),
+
+                  // Stats cards
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                    child: Text('Statistiques', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subColor)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: Row(
+                      children: [
+                        Expanded(child: _AdBlockStatCard(value: '$blockedCount', label: 'Requêtes\nbloquées', icon: Icons.block_rounded, color: Colors.green, isDark: isDark)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _AdBlockStatCard(value: '${blockedElements.length}', label: 'Éléments\nmasqués', icon: Icons.visibility_off_rounded, color: Colors.orange, isDark: isDark)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _AdBlockStatCard(value: '1561', label: 'Règles\nactives', icon: Icons.rule_rounded, color: Colors.blue, isDark: isDark)),
+                      ],
+                    ),
+                  ),
+
+                  Divider(height: 1, color: divColor),
+
+                  // Tools section
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                    child: Text('Outils', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subColor)),
+                  ),
+                  ListTile(
+                    leading: Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.colorize_rounded, size: 20, color: Colors.orange),
+                    ),
+                    title: Text('Sélectionner des éléments', style: TextStyle(color: textColor, fontSize: 14)),
+                    subtitle: Text('Toolbar flottante · touch picker', style: TextStyle(fontSize: 11, color: subColor)),
+                    trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
+                    onTap: onActivatePicker != null
+                        ? () { Navigator.pop(context); onActivatePicker!(); }
+                        : null,
+                  ),
+                  ListTile(
+                    leading: Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                      child: Icon(Icons.refresh_rounded, size: 20, color: Colors.red.shade400),
+                    ),
+                    title: Text('Réinitialiser les règles', style: TextStyle(color: textColor, fontSize: 14)),
+                    subtitle: Text('Remet le compteur à 0 et efface les règles personnalisées', style: TextStyle(fontSize: 11, color: subColor)),
+                    trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
+                    onTap: () { onReset(); Navigator.pop(context); },
+                  ),
+
+                  Divider(height: 1, color: divColor),
+
+                  // Whitelist (placeholder)
+                  ListTile(
+                    leading: Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                      child: Icon(Icons.playlist_remove_rounded, size: 20, color: Colors.blue.shade400),
+                    ),
+                    title: Text('Liste blanche', style: TextStyle(color: textColor, fontSize: 14)),
+                    subtitle: Text('Sites exemptés du filtrage', style: TextStyle(fontSize: 11, color: subColor)),
+                    trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
+                    onTap: () {},
+                  ),
+
+                  // Blocked elements list
+                  if (blockedElements.isNotEmpty) ...[
+                    Divider(height: 1, color: divColor),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                      child: Text(
+                        'Éléments bloqués manuellement (${blockedElements.length})',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subColor),
+                      ),
+                    ),
+                    ...blockedElements.take(20).map((el) => ListTile(
+                      dense: true,
+                      leading: Icon(Icons.visibility_off_outlined, size: 16, color: Colors.red.shade400),
+                      title: Text(
+                        el.length > 60 ? '${el.substring(0, 57)}…' : el,
+                        style: TextStyle(fontSize: 11, color: textColor, fontFamily: 'monospace'),
+                      ),
+                    )),
+                    if (blockedElements.length > 20)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Text('+${blockedElements.length - 20} éléments…', style: TextStyle(fontSize: 11, color: subColor)),
+                      ),
+                  ],
+                  const SizedBox(height: 32),
+                ],
               ),
-              subtitle: Text(
-                'Bloque les domaines publicitaires connus et injecte un filtre CSS/DOM',
-                style: TextStyle(fontSize: 11, color: subColor),
-              ),
-              value: enabled,
-              onChanged: onToggle,
-              activeColor: Colors.greenAccent,
             ),
-            Divider(height: 1, thickness: 0.5, color: divColor),
-            ListTile(
-              leading: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.colorize_rounded, size: 18, color: Colors.orange),
-              ),
-              title: Text(
-                'Sélectionner des éléments',
-                style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              subtitle: Text(
-                'Toolbar flottante · auto-scan + picker tactile',
-                style: TextStyle(fontSize: 11, color: subColor),
-              ),
-              trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
-              onTap: onActivatePicker != null
-                  ? () {
-                      Navigator.pop(context);
-                      onActivatePicker!();
-                    }
-                  : null,
-            ),
-            Divider(height: 1, thickness: 0.5, color: divColor),
-            ListTile(
-              leading: Icon(Icons.refresh_rounded, size: 20, color: textColor),
-              title: Text(
-                'Réinitialiser le compteur',
-                style: TextStyle(fontSize: 14, color: textColor),
-              ),
-              onTap: onReset,
-              dense: true,
-            ),
-            const SizedBox(height: 8),
           ],
         ),
-      );
-    }
+      ),
+    );
   }
+}
+
+// ─── AdBlock stat card (used in full page) ────────────────────────────────────
+
+class _AdBlockStatCard extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool isDark;
+
+  const _AdBlockStatCard({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.14 : 0.09),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7)),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ─── Desktop InAppBrowser wrapper ─────────────────────────────────────────────
 
