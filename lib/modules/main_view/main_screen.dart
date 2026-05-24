@@ -30,6 +30,7 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
+import 'package:watchtower/modules/home/widgets/home_header.dart' show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
@@ -849,175 +850,171 @@ class _TabletLayout extends StatefulWidget {
   State<_TabletLayout> createState() => _TabletLayoutState();
 }
 
-class _TabletLayoutState extends State<_TabletLayout>
-    with SingleTickerProviderStateMixin {
-  bool _collapsed = false;
-  bool _hovering = false;
-
-  // When the sidebar is collapsed AND the mouse is not over it,
-  // show icon-only rail. Hovering temporarily expands it.
-  bool get _effectiveCollapsed => _collapsed && !_hovering;
-
-  // Widths
-  static const double _expandedWidth = 200.0;
-  static const double _collapsedWidth = 72.0;
+class _TabletLayoutState extends State<_TabletLayout> {
+  // Sidebar is always icon-only — no collapse/expand toggle.
+  static const double _sidebarWidth = 64.0;
 
   static const _validLocations = {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
-    '/updates', '/browse', '/more', '/trackerLibrary',
+    '/updates', '/browse', '/more', '/trackerLibrary', '/globalSearch',
+    '/settings',
   };
+
+  static const _mainItems = [
+    (route: '/WatchtowerHome', icon: Icons.home_outlined,               activeIcon: Icons.home_rounded,               tooltip: 'Accueil'),
+    (route: '/AnimeLibrary',   icon: Icons.live_tv_outlined,            activeIcon: Icons.live_tv,                    tooltip: 'Watch'),
+    (route: '/MangaLibrary',   icon: Icons.auto_stories_outlined,       activeIcon: Icons.auto_stories,               tooltip: 'Manga'),
+    (route: '/NovelLibrary',   icon: Icons.local_library_outlined,      activeIcon: Icons.local_library,              tooltip: 'Novel'),
+    (route: '/MusicLibrary',   icon: Icons.music_note_outlined,         activeIcon: Icons.music_note,                 tooltip: 'Music'),
+    (route: '/GameLibrary',    icon: Icons.sports_esports_outlined,     activeIcon: Icons.sports_esports,             tooltip: 'Games'),
+    (route: '/Library',        icon: Icons.collections_bookmark_outlined, activeIcon: Icons.collections_bookmark,     tooltip: 'Bibliothèque'),
+    (route: '/globalSearch',   icon: Icons.search_outlined,             activeIcon: Icons.search,                     tooltip: 'Recherche'),
+    (route: '/browse',         icon: Icons.explore_outlined,            activeIcon: Icons.explore,                    tooltip: 'Browse'),
+  ];
+
+  static const _footerItems = [
+    (route: '/more',     icon: Icons.more_horiz_outlined,  activeIcon: Icons.more_horiz,  tooltip: 'Plus'),
+    (route: '/settings', icon: Icons.settings_outlined,    activeIcon: Icons.settings,    tooltip: 'Paramètres'),
+  ];
 
   double _railWidth() {
     if (widget.isLongPressed) return 0;
     final loc = widget.location;
     if (loc != null && !_validLocations.contains(loc)) return 0;
-    return _effectiveCollapsed ? _collapsedWidth : _expandedWidth;
+    return _sidebarWidth;
   }
 
   @override
   Widget build(BuildContext context) {
-    final destinations = widget.buildNavigationWidgetsDesktop(
-      widget.ref, widget.dest, context);
     final railWidth = _railWidth();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final safeIdx = (widget.currentIndex >= 0 &&
-            widget.currentIndex < destinations.length)
-        ? widget.currentIndex
-        : 0;
+    final location = widget.location;
 
     return Row(
       children: [
-        // ââ Sidebar ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Fixed icon-only sidebar ──────────────────────────────
         AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOutCubic,
           width: railWidth,
           child: railWidth == 0
               ? const SizedBox.shrink()
-              : ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                    child: MouseRegion(
-                      onEnter: (_) => setState(() => _hovering = true),
-                      onExit: (_) => setState(() => _hovering = false),
-                    child: Container(
-                      width: railWidth,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF0E1020).withValues(alpha: _hovering ? 0.82 : 0.62)
-                            : cs.surface.withValues(alpha: _hovering ? 0.88 : 0.72),
-                        border: Border(
-                          right: BorderSide(
-                            color: cs.outlineVariant.withValues(alpha: 0.28),
-                            width: 0.6,
-                          ),
-                        ),
+              : Container(
+                  width: _sidebarWidth,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF0E1020).withValues(alpha: 0.92)
+                        : cs.surface.withValues(alpha: 0.94),
+                    border: Border(
+                      right: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.28),
+                        width: 0.6,
                       ),
-                      child: Column(
-                        children: [
-                          // ââ App logo + toggle button ââââââââââââââââââ
-                          SafeArea(
-                            bottom: false,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-                              child: Row(
-                                mainAxisAlignment: _effectiveCollapsed
-                                    ? MainAxisAlignment.center
-                                    : MainAxisAlignment.spaceBetween,
-                                children: [
-                                  if (!_effectiveCollapsed) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Container(
-                                            width: 32,
-                                            height: 32,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [cs.primary, cs.tertiary],
-                                              ),
-                                            ),
-                                            child: const Icon(
-                                              Icons.visibility_rounded,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Watchtower',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                              color: cs.onSurface,
-                                              letterSpacing: -0.3,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  // Toggle button
-                                  _SidebarToggle(
-                                    collapsed: _collapsed,
-                                    cs: cs,
-                                    onTap: () => setState(() => _collapsed = !_collapsed),
-                                  ),
-                                ],
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // ── App icon ────────────────────────────────
+                      SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14, bottom: 10),
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.asset(
+                                'assets/app_icons/icon.png',
+                                fit: BoxFit.cover,
                               ),
                             ),
                           ),
-
-                          const SizedBox(height: 8),
-
-                          // ââ Navigation items ââââââââââââââââââââââââââ
-                          Expanded(
-                            child: _effectiveCollapsed
-                                ? _CollapsedRail(
-                                    destinations: destinations,
-                                    selectedIndex: safeIdx,
-                                    dest: widget.dest,
-                                    route: widget.route,
-                                    cs: cs,
-                                  )
-                                : _ExpandedRail(
-                                    destinations: destinations,
-                                    selectedIndex: safeIdx,
-                                    dest: widget.dest,
-                                    route: widget.route,
-                                    cs: cs,
-                                    railWidth: _expandedWidth,
-                                  ),
-                          ),
-
-                          // ââ Bottom divider ââââââââââââââââââââââââââââ
-                          Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            color: cs.outlineVariant.withValues(alpha: 0.30),
-                            indent: 16,
-                            endIndent: 16,
-                          ),
-                          const SizedBox(height: 12),
-                          // Version / settings shortcut
-                          _SidebarFooter(cs: cs, collapsed: _effectiveCollapsed),
-                          const SizedBox(height: 16),
-                        ],
+                        ),
                       ),
-                    ),
-                    ),
+                      // ── Main nav items ──────────────────────────
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          children: _mainItems
+                              .map((item) => Tooltip(
+                                    message: item.tooltip,
+                                    preferBelow: false,
+                                    child: _SidebarItem(
+                                      icon: location == item.route
+                                          ? Icon(item.activeIcon)
+                                          : Icon(item.icon),
+                                      label: null,
+                                      active: location == item.route,
+                                      cs: cs,
+                                      onTap: () =>
+                                          widget.route.go(item.route),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                      // ── Divider ───────────────────────────────────
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: cs.outlineVariant.withValues(alpha: 0.30),
+                        indent: 12,
+                        endIndent: 12,
+                      ),
+                      const SizedBox(height: 4),
+                      // ── Footer: More & Settings ─────────────────
+                      ..._footerItems.map((item) => Tooltip(
+                            message: item.tooltip,
+                            child: _SidebarItem(
+                              icon: location == item.route
+                                  ? Icon(item.activeIcon)
+                                  : Icon(item.icon),
+                              label: null,
+                              active: location == item.route,
+                              cs: cs,
+                              onTap: () => widget.route.go(item.route),
+                            ),
+                          )),
+                      // ── Account ─────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Tooltip(
+                          message: 'Compte',
+                          child: InkWell(
+                            onTap: () => showAccountSheet(context),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    cs.primary.withValues(alpha: 0.85),
+                                    cs.tertiary.withValues(alpha: 0.80),
+                                  ],
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.person_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                   ),
                 ),
         ),
-
-        // ââ Content area âââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Content area ──────────────────────────────────
         Expanded(child: widget.child),
       ],
     );

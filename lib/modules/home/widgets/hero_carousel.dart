@@ -144,20 +144,21 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   .surfaceContainerHighest,
                             ),
 
-                          // ── Cinematic gradient scrim ────────────────────
-                          // Transparent at top → scaffold bg at bottom
-                          // Blends seamlessly into page background
+                          // ── Brush gradient scrim (top + bottom fade) ────
+                          // Fades from page bg at top AND bottom — "brush"
+                          // effect so the carousel bleeds into the background.
                           Positioned.fill(
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
-                                  stops: const [0.0, 0.38, 0.65, 1.0],
+                                  stops: const [0.0, 0.16, 0.42, 0.68, 1.0],
                                   colors: [
+                                    scaffoldBg.withValues(alpha: 0.90),
                                     Colors.transparent,
                                     Colors.transparent,
-                                    Colors.black.withValues(alpha: 0.50),
+                                    Colors.black.withValues(alpha: 0.55),
                                     (_accentColor != null
                                             ? Color.lerp(
                                                 _accentColor!,

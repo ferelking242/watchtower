@@ -153,9 +153,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         physics: const AlwaysScrollableScrollPhysics(
             parent: ClampingScrollPhysics()),
         slivers: [
-          // ── "Pour vous" title ──────────────────────────────────────────
-          SliverToBoxAdapter(child: _TitleBar(onAvatarTap: () => showAccountSheet(context))),
-
           // ── Sticky pill tabs ───────────────────────────────────────────
           SliverPersistentHeader(
             pinned: true,
