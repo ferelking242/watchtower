@@ -6,8 +6,10 @@ import 'package:watchtower/modules/more/about/providers/get_package_info.dart';
 import 'package:watchtower/modules/more/widgets/downloaded_only_widget.dart';
 import 'package:watchtower/modules/more/widgets/file_explorer_widget.dart';
 import 'package:watchtower/modules/more/widgets/incognito_mode_widget.dart';
-import 'package:watchtower/modules/more/widgets/list_tile_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+
+// ── Small helpers ──────────────────────────────────────────────────────────
 
 class _HeaderChip extends StatelessWidget {
   final String label;
@@ -34,40 +36,243 @@ class _HeaderChip extends StatelessWidget {
   }
 }
 
-class _StatItem extends StatelessWidget {
+// ── Nav item data ──────────────────────────────────────────────────────────
+
+class _NavItem {
   final IconData icon;
-  final String label;
-  const _StatItem({required this.icon, required this.label});
+  final String Function(dynamic l10n) label;
+  final String route;
+  final dynamic routeExtra;
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.route,
+    this.routeExtra,
+  });
+}
+
+// ── Grid card for a nav item ───────────────────────────────────────────────
+
+class _NavCard extends StatelessWidget {
+  final _NavItem item;
+  final dynamic l10n;
+  final bool compact;
+  const _NavCard({
+    super.key,
+    required this.item,
+    required this.l10n,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          if (item.routeExtra != null) {
+            context.push(item.route, extra: item.routeExtra);
+          } else {
+            context.push(item.route);
+          }
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.45),
+            ),
+          ),
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+              : const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+          child: compact
+              ? Row(
+                  children: [
+                    Icon(item.icon, color: cs.primary, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        item.label(l10n),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(item.icon, color: cs.primary, size: 24),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.label(l10n),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Hero header (shared) ───────────────────────────────────────────────────
+
+class _HeroHeader extends ConsumerWidget {
+  final bool compact;
+  const _HeroHeader({this.compact = false});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final pkgInfoAsync = ref.watch(getPackageInfoProvider);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.primary,
+            cs.tertiary.withValues(alpha: 0.9),
+            cs.secondary.withValues(alpha: 0.75),
+          ],
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        0,
+        compact ? 0 : MediaQuery.of(context).padding.top,
+        0,
+        0,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Logo
+            Container(
+              width: compact ? 64 : 80,
+              height: compact ? 64 : 80,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  'assets/app_icons/icon.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'WATCHTOWER',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: compact ? 22 : 26,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  pkgInfoAsync.when(
+                    data: (data) => Text(
+                      'v${data.version}  ·  Beta',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    loading: () => const SizedBox(height: 16),
+                    error: (_, __) => const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _HeaderChip(label: 'Streaming'),
+                      _HeaderChip(label: 'Manga'),
+                      _HeaderChip(label: 'Novels'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Toggle section (shared) ────────────────────────────────────────────────
+
+class _TogglesSection extends StatelessWidget {
+  const _TogglesSection();
+
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 20),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+      children: const [
+        DownloadedOnlyWidget(),
+        IncognitoModeWidget(),
+        FileExplorerWidget(),
       ],
     );
   }
 }
 
-class _VertDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 32,
-      color: Colors.white.withValues(alpha: 0.2),
-    );
-  }
-}
+// ── Main screen ────────────────────────────────────────────────────────────
 
 class MoreScreen extends ConsumerStatefulWidget {
   const MoreScreen({super.key});
@@ -77,246 +282,190 @@ class MoreScreen extends ConsumerStatefulWidget {
 }
 
 class MoreScreenState extends ConsumerState<MoreScreen> {
-  @override
-  Widget build(BuildContext context) {
-    final l10n = l10nLocalizations(context);
-    final cs = Theme.of(context).colorScheme;
-    final pkgInfoAsync = ref.watch(getPackageInfoProvider);
+  List<_NavItem> _buildNavItems(dynamic l10n) => [
+        _NavItem(
+          icon: Icons.history,
+          label: (_) => l10n.history,
+          route: '/history',
+        ),
+        _NavItem(
+          icon: Icons.new_releases_outlined,
+          label: (_) => l10n.updates,
+          route: '/updates',
+        ),
+        _NavItem(
+          icon: Icons.download_outlined,
+          label: (_) => l10n.download_queue,
+          route: '/downloadQueue',
+        ),
+        _NavItem(
+          icon: Icons.label_outline_rounded,
+          label: (_) => l10n.categories,
+          route: '/categories',
+          routeExtra: (false, 0),
+        ),
+        _NavItem(
+          icon: Icons.query_stats_outlined,
+          label: (_) => l10n.statistics,
+          route: '/statistics',
+        ),
+        _NavItem(
+          icon: Icons.calendar_month_outlined,
+          label: (_) => l10n.calendar,
+          route: '/calendarScreen',
+        ),
+        _NavItem(
+          icon: Icons.storage,
+          label: (_) => l10n.data_and_storage,
+          route: '/dataAndStorage',
+        ),
+        _NavItem(
+          icon: Icons.settings_outlined,
+          label: (_) => l10n.settings,
+          route: '/settings',
+        ),
+        _NavItem(
+          icon: Icons.info_outline,
+          label: (_) => l10n.about,
+          route: '/about',
+        ),
+      ];
+
+  // ── Android layout ────────────────────────────────────────────────────
+
+  Widget _buildAndroid(BuildContext context, dynamic l10n) {
+    final navItems = _buildNavItems(l10n);
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Hero header — Mangayomi-style full-bleed card ──
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    cs.primary,
-                    cs.tertiary.withValues(alpha: 0.9),
-                    cs.secondary.withValues(alpha: 0.75),
-                  ],
+            const _HeroHeader(),
+            const Divider(height: 1),
+            const _TogglesSection(),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: navItems.length,
+                itemBuilder: (ctx, i) => _NavCard(
+                  item: navItems[i],
+                  l10n: l10n,
+                  compact: false,
                 ),
               ),
-              padding: EdgeInsets.fromLTRB(
-                0,
-                MediaQuery.of(context).padding.top,
-                0,
-                0,
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // logo — bigger, more prominent
-                        Container(
-                          width: 90,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.35),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.18),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(22),
-                            child: Image.asset(
-                              'assets/app_icons/icon.png',
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 22),
-                        // text column
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'WATCHTOWER',
-                                style: GoogleFonts.inter(
-                                  color: Colors.white,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              pkgInfoAsync.when(
-                                data: (data) => Text(
-                                  'v${data.version}  ·  Beta',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                                loading: () => const SizedBox(height: 18),
-                                error: (_, __) => const SizedBox(height: 18),
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 6,
-                                children: [
-                                  _HeaderChip(label: 'Streaming'),
-                                  _HeaderChip(label: 'Manga'),
-                                  _HeaderChip(label: 'Novels'),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // stats row — like Mangayomi
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _StatItem(
-                          icon: Icons.live_tv_outlined,
-                          label: 'Watch',
-                        ),
-                        _VertDivider(),
-                        _StatItem(
-                          icon: Icons.auto_stories_outlined,
-                          label: 'Manga',
-                        ),
-                        _VertDivider(),
-                        _StatItem(
-                          icon: Icons.text_snippet_outlined,
-                          label: 'Novel',
-                        ),
-                        _VertDivider(),
-                        _StatItem(
-                          icon: Icons.music_note_outlined,
-                          label: 'Music',
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
-            const Divider(height: 1),
-            // ListTile(
-            //   onTap: () {},
-            //   leading: const SizedBox(height: 40, child: Icon(Icons.cloud_off)),
-            //   subtitle: const Text('Filter all entries in your library'),
-            //   title: const Text('Donloaded only'),
-            //   trailing: Switch(
-            //     value: false,
-            //     onChanged: (value) {},
-            //   ),
-            // ),
-            const DownloadedOnlyWidget(),
-            const IncognitoModeWidget(),
-            const FileExplorerWidget(),
-            const Divider(),
-            ListTileWidget(
-              onTap: () {
-                context.push('/history');
-              },
-              icon: Icons.history,
-              title: l10n!.history,
-            ),
-            ListTileWidget(
-              onTap: () {
-                context.push('/updates');
-              },
-              icon: Icons.new_releases_outlined,
-              title: l10n.updates,
-            ),
-            ListTileWidget(
-              onTap: () {
-                context.push('/downloadQueue');
-              },
-              icon: Icons.download_outlined,
-              title: l10n.download_queue,
-            ),
-            ListTileWidget(
-              onTap: () {
-                context.push('/categories', extra: (false, 0));
-              },
-              icon: Icons.label_outline_rounded,
-              title: l10n.categories,
-            ),
-            ListTileWidget(
-              onTap: () {
-                context.push('/statistics');
-              },
-              icon: Icons.query_stats_outlined,
-              title: l10n.statistics,
-            ),
-            ListTileWidget(
-              onTap: () {
-                context.push('/calendarScreen');
-              },
-              icon: Icons.calendar_month_outlined,
-              title: l10n.calendar,
-            ),
-            ListTileWidget(
-              onTap: () {
-                context.push('/dataAndStorage');
-              },
-              icon: Icons.storage,
-              title: l10n.data_and_storage,
-            ),
-            const Divider(),
-            ListTileWidget(
-              onTap: () {
-                context.push('/settings');
-              },
-              icon: Icons.settings_outlined,
-              title: l10n.settings,
-            ),
-            ListTileWidget(
-              onTap: () {
-                context.push('/about');
-              },
-              icon: Icons.info_outline,
-              title: l10n.about,
-            ),
-            // ListTileWidget(
-            //   onTap: () {},
-            //   icon: Icons.help_outline,
-            //   title: l10n.help,
-            // ),
-            // Bottom safe-area padding so the dock doesn't overlap the
-            // last item (About).
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 96),
+            SizedBox(height: bottomPad + 96),
           ],
         ),
       ),
     );
+  }
+
+  // ── Desktop / Tablet layout ───────────────────────────────────────────
+
+  Widget _buildDesktop(BuildContext context, dynamic l10n) {
+    final navItems = _buildNavItems(l10n);
+    final cs = Theme.of(context).colorScheme;
+    final screenW = MediaQuery.of(context).size.width;
+    final leftW = (screenW * 0.32).clamp(260.0, 360.0);
+
+    return Scaffold(
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Left panel ──────────────────────────────────────────────
+          SizedBox(
+            width: leftW,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const _HeroHeader(compact: true),
+                    const Divider(height: 1),
+                    const _TogglesSection(),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // ── Right panel ─────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Navigation',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurfaceVariant,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final cols = constraints.maxWidth > 500 ? 3 : 2;
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: cols,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 2.4,
+                        ),
+                        itemCount: navItems.length,
+                        itemBuilder: (ctx, i) => _NavCard(
+                          item: navItems[i],
+                          l10n: l10n,
+                          compact: true,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    final isDesktop = context.isDesktop;
+
+    return isDesktop
+        ? _buildDesktop(context, l10n)
+        : _buildAndroid(context, l10n);
   }
 }
