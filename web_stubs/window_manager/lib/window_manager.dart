@@ -60,6 +60,10 @@ class _WindowManager {
   Future<void> setMinimumSize(Size size) async {}
   Future<void> setAlwaysOnTop(bool alwaysOnTop) async {}
   Future<bool> isAlwaysOnTop() async => false;
+  Future<void> show() async {}
+  Future<void> hide() async {}
+  Future<void> focus() async {}
+  Future<void> blur() async {}
   Future<void> close() async {}
 }
 
