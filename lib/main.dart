@@ -112,6 +112,21 @@ void main(List<String> args) async {
       if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
         await windowManager.ensureInitialized();
         await WindowGeometry.restore();
+        // Show the window only after Flutter renders its first frame to avoid
+        // the blank white-screen that appears when window_manager is initialised
+        // but show() is never called explicitly.
+        windowManager.waitUntilReadyToShow(
+          const WindowOptions(
+            title: 'Watchtower',
+            minimumSize: Size(900, 600),
+            skipTaskbar: false,
+            titleBarStyle: TitleBarStyle.normal,
+          ),
+          () async {
+            await windowManager.show();
+            await windowManager.focus();
+          },
+        );
       }
       if (!kIsWeb && Platform.isWindows) {
         registerProtocolHandler("watchtower");

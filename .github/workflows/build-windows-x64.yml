@@ -19,7 +19,7 @@ jobs:
       - name: Set up Flutter (latest stable)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.x'
+          flutter-version: '3.32.x'
           channel: stable
           cache: true
 
@@ -65,17 +65,96 @@ jobs:
             ls -la "$BUILD_DIR"
           fi
 
-      - name: Package as ZIP
+      - name: Create NSIS installer (LZMA solid ultra compression)
         shell: pwsh
         run: |
-          $src = "build\windows\x64\runner\Release"
-          $dst = "watchtower-windows-x64-${{ steps.ver.outputs.name }}.zip"
-          Compress-Archive -Path "$src\*" -DestinationPath $dst
-          Write-Host "ZIP size: $((Get-Item $dst).Length / 1MB) MB"
+          $src    = "build\windows\x64\runner\Release"
+          $ver    = "${{ steps.ver.outputs.name }}"
+          $out    = "watchtower-setup-$ver.exe"
+          $srcAbs = (Resolve-Path $src).Path
 
-      - name: Upload artifact
+          $nsi = @"
+          Unicode true
+          !include "MUI2.nsh"
+
+          ; ── Compression (must come before any File command) ──────────
+          SetCompressor /SOLID lzma
+          SetCompressorDictSize 64
+
+          ; ── Installer metadata ───────────────────────────────────────
+          Name "Watchtower $ver"
+          OutFile "$out"
+          InstallDir "`$PROGRAMFILES64\Watchtower"
+          InstallDirRegKey HKLM "Software\Watchtower" "InstallDir"
+          RequestExecutionLevel admin
+          BrandingText "Watchtower $ver"
+
+          ; ── MUI pages ────────────────────────────────────────────────
+          !define MUI_WELCOMEPAGE_TITLE "Welcome to Watchtower $ver"
+          !define MUI_FINISHPAGE_RUN    "`$INSTDIR\watchtower.exe"
+          !define MUI_FINISHPAGE_RUN_TEXT "Launch Watchtower"
+          !define MUI_ABORTWARNING
+
+          !insertmacro MUI_PAGE_WELCOME
+          !insertmacro MUI_PAGE_DIRECTORY
+          !insertmacro MUI_PAGE_INSTFILES
+          !insertmacro MUI_PAGE_FINISH
+
+          !insertmacro MUI_UNPAGE_CONFIRM
+          !insertmacro MUI_UNPAGE_INSTFILES
+
+          !insertmacro MUI_LANGUAGE "English"
+          !insertmacro MUI_LANGUAGE "French"
+
+          ; ── Install section ──────────────────────────────────────────
+          Section "Watchtower" SecMain
+            SetOutPath "`$INSTDIR"
+            File /r "$srcAbs\*.*"
+
+            ; Desktop shortcut
+            CreateShortcut "`$DESKTOP\Watchtower.lnk" "`$INSTDIR\watchtower.exe"
+
+            ; Start-menu shortcut
+            CreateDirectory "`$SMPROGRAMS\Watchtower"
+            CreateShortcut  "`$SMPROGRAMS\Watchtower\Watchtower.lnk"   "`$INSTDIR\watchtower.exe"
+            CreateShortcut  "`$SMPROGRAMS\Watchtower\Uninstall.lnk"    "`$INSTDIR\uninstall.exe"
+
+            ; Add/Remove Programs entry
+            WriteUninstaller "`$INSTDIR\uninstall.exe"
+            WriteRegStr  HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" \
+                              "DisplayName"      "Watchtower"
+            WriteRegStr  HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" \
+                              "UninstallString"  "`$INSTDIR\uninstall.exe"
+            WriteRegStr  HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" \
+                              "DisplayVersion"   "$ver"
+            WriteRegStr  HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" \
+                              "Publisher"        "ferelking242"
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" \
+                              "NoModify" 1
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" \
+                              "NoRepair" 1
+          SectionEnd
+
+          ; ── Uninstall section ─────────────────────────────────────────
+          Section "Uninstall"
+            Delete "`$INSTDIR\uninstall.exe"
+            RMDir  /r "`$INSTDIR"
+            Delete "`$DESKTOP\Watchtower.lnk"
+            RMDir  /r "`$SMPROGRAMS\Watchtower"
+            DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower"
+            DeleteRegKey HKLM "Software\Watchtower"
+          SectionEnd
+          "@
+
+          $nsi | Out-File -FilePath "watchtower.nsi" -Encoding UTF8
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /V3 watchtower.nsi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sizeMB = [math]::Round((Get-Item $out).Length / 1MB, 1)
+          Write-Host "✅ Installer: $out  ($sizeMB MB)"
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: watchtower-windows-x64-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}
-          path: watchtower-windows-x64-${{ steps.ver.outputs.name }}.zip
-          retention-days: 14
+          name: watchtower-windows-setup-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}
+          path: watchtower-setup-${{ steps.ver.outputs.name }}.exe
+          retention-days: 30
