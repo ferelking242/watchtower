@@ -11,6 +11,7 @@ import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
+import 'package:watchtower/modules/home/widgets/anime_schedule_section.dart';
 import 'package:watchtower/modules/home/widgets/sea_command.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
@@ -351,6 +352,13 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           color: const Color(0xFF0984E3),
           items: home.upcomingAnimes,
           onTap: (m) => _openDetail(ctx, m)),
+      if (ref.watch(homeSectionsProvider.notifier).isEnabled('schedule'))
+        SliverToBoxAdapter(
+          child: AnimeScheduleSection(
+            upcoming: home.upcomingAnimes,
+            onTap: (m) => _openDetail(ctx, m),
+          ),
+        ),
     ];
   }
 
@@ -1421,13 +1429,14 @@ class _ContinueWatchingSection extends StatelessWidget {
                 data: EpisodeCardData(
                   thumbnailUrl: media.bannerImage,
                   animeCoverUrl: media.bestCover,
-                  animeTitle: media.displayTitle ?? 'Unknown',
+                  animeTitle: media.displayTitle,
                   episodeNumber: (index % 24) + 1,
                   progress: EpisodeProgress(
                     value: progress.clamp(0.0, 1.0),
                   ),
                 ),
                 onTap: () => onTap(media),
+                onPlayNext: () => onTap(media),
                 width: 200,
               );
             },
