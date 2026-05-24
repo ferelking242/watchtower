@@ -344,6 +344,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       children: [
                     Scaffold(
                       extendBody: true,
+                      // N-12: Mobile Drawer Sidebar
+                      drawer: _MobileDrawer(
+                        dest: dest,
+                        currentIndex: currentIndex,
+                        route: route,
+                        destinations: _buildNavigationWidgetsDesktop(ref, dest, context),
+                      ),
                       body: NotificationListener<UserScrollNotification>(
                         onNotification: (n) {
                           // Only care about vertical primary scrolls so the
