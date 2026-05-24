@@ -60,6 +60,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Timer? _backupTimer;
   Timer? _syncTimer;
 
+  // ── Ctrl+K / Cmd+K → Sea Command ──────────────────────────────────────────
+  bool _handleGlobalKey(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final ctrl = HardwareKeyboard.instance.isControlPressed;
+      final meta = HardwareKeyboard.instance.isMetaPressed;
+      if ((ctrl || meta) && event.logicalKey == LogicalKeyboardKey.keyK) {
+        if (mounted) showSeaCommand(context);
+        return true;
+      }
+    }
+    return false;
+  }
+
   late final String _defaultLocation;
   late final List<String> _navigationOrder;
   late final int _autoSyncFrequency;
@@ -117,6 +130,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
 
     discordRpc?.connect(ref);
+    HardwareKeyboard.instance.addHandler(_handleGlobalKey);
   }
 
   void _initializeTimers() {
@@ -180,6 +194,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _backupTimer?.cancel();
     _syncTimer?.cancel();
     discordRpc?.disconnect();
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
     super.dispose();
   }
 
