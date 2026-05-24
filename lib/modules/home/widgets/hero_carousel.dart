@@ -40,6 +40,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   int _page = 0;
   Color? _accentColor;
   String? _lastUrl;
+  bool _hovering = false;
 
   @override
   void initState() {
@@ -54,7 +55,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(_autoplayInterval, (_) {
-      if (!mounted || widget.items.isEmpty) return;
+      if (!mounted || widget.items.isEmpty || _hovering) return;
       _ctrl.animateToPage(
         (_page + 1) % widget.items.length,
         duration: _animDuration,
@@ -106,7 +107,10 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
+        MouseRegion(
+          onEnter: (_) => setState(() => _hovering = true),
+          onExit: (_) => setState(() => _hovering = false),
+          child: SizedBox(
           height: cardH,
           child: PageView.builder(
             controller: _ctrl,
@@ -187,6 +191,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
               );
             },
           ),
+        ),
         ),
 
         // ── Optional synopsis strip ────────────────────────────────────────

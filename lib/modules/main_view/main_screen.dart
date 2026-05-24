@@ -852,6 +852,11 @@ class _TabletLayout extends StatefulWidget {
 class _TabletLayoutState extends State<_TabletLayout>
     with SingleTickerProviderStateMixin {
   bool _collapsed = false;
+  bool _hovering = false;
+
+  // When the sidebar is collapsed AND the mouse is not over it,
+  // show icon-only rail. Hovering temporarily expands it.
+  bool get _effectiveCollapsed => _collapsed && !_hovering;
 
   // Widths
   static const double _expandedWidth = 200.0;
@@ -867,7 +872,7 @@ class _TabletLayoutState extends State<_TabletLayout>
     if (widget.isLongPressed) return 0;
     final loc = widget.location;
     if (loc != null && !_validLocations.contains(loc)) return 0;
-    return _collapsed ? _collapsedWidth : _expandedWidth;
+    return _effectiveCollapsed ? _collapsedWidth : _expandedWidth;
   }
 
   @override
@@ -894,12 +899,15 @@ class _TabletLayoutState extends State<_TabletLayout>
               : ClipRect(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: MouseRegion(
+                      onEnter: (_) => setState(() => _hovering = true),
+                      onExit: (_) => setState(() => _hovering = false),
                     child: Container(
                       width: railWidth,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF0E1020).withValues(alpha: 0.88)
-                            : cs.surface.withValues(alpha: 0.90),
+                            ? const Color(0xFF0E1020).withValues(alpha: _hovering ? 0.82 : 0.62)
+                            : cs.surface.withValues(alpha: _hovering ? 0.88 : 0.72),
                         border: Border(
                           right: BorderSide(
                             color: cs.outlineVariant.withValues(alpha: 0.28),
@@ -915,11 +923,11 @@ class _TabletLayoutState extends State<_TabletLayout>
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
                               child: Row(
-                                mainAxisAlignment: _collapsed
+                                mainAxisAlignment: _effectiveCollapsed
                                     ? MainAxisAlignment.center
                                     : MainAxisAlignment.spaceBetween,
                                 children: [
-                                  if (!_collapsed) ...[
+                                  if (!_effectiveCollapsed) ...[
                                     Padding(
                                       padding: const EdgeInsets.only(left: 8),
                                       child: Row(
@@ -971,7 +979,7 @@ class _TabletLayoutState extends State<_TabletLayout>
 
                           // ââ Navigation items ââââââââââââââââââââââââââ
                           Expanded(
-                            child: _collapsed
+                            child: _effectiveCollapsed
                                 ? _CollapsedRail(
                                     destinations: destinations,
                                     selectedIndex: safeIdx,
@@ -999,10 +1007,11 @@ class _TabletLayoutState extends State<_TabletLayout>
                           ),
                           const SizedBox(height: 12),
                           // Version / settings shortcut
-                          _SidebarFooter(cs: cs, collapsed: _collapsed),
+                          _SidebarFooter(cs: cs, collapsed: _effectiveCollapsed),
                           const SizedBox(height: 16),
                         ],
                       ),
+                    ),
                     ),
                   ),
                 ),
@@ -1173,6 +1182,7 @@ class _SidebarItem extends StatelessWidget {
   final bool active;
   final ColorScheme cs;
   final VoidCallback onTap;
+  final int badge;
 
   const _SidebarItem({
     required this.icon,
@@ -1180,6 +1190,7 @@ class _SidebarItem extends StatelessWidget {
     required this.active,
     required this.cs,
     required this.onTap,
+    this.badge = 0,
   });
 
   @override
@@ -1215,12 +1226,45 @@ class _SidebarItem extends StatelessWidget {
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                IconTheme(
-                  data: IconThemeData(
-                    color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55),
-                    size: 22,
-                  ),
-                  child: icon,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconTheme(
+                      data: IconThemeData(
+                        color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55),
+                        size: 22,
+                      ),
+                      child: icon,
+                    ),
+                    if (badge > 0)
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade600,
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: cs.surface,
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              badge > 99 ? '99+' : '$badge',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w800,
+                                height: 1.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 if (label != null) ...[
                   const SizedBox(width: 12),
@@ -1272,25 +1316,74 @@ class _SidebarFooter extends StatelessWidget {
     if (collapsed) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Icon(
-          Icons.info_outline_rounded,
-          size: 18,
-          color: cs.onSurface.withValues(alpha: 0.30),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cs.primary.withValues(alpha: 0.80),
+                cs.tertiary.withValues(alpha: 0.75),
+              ],
+            ),
+          ),
+          child: const Icon(Icons.person_rounded, color: Colors.white, size: 18),
         ),
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: Row(
         children: [
-          Icon(Icons.watch_later_outlined, size: 14, color: cs.onSurface.withValues(alpha: 0.28)),
-          const SizedBox(width: 6),
-          Text(
-            'Watchtower',
-            style: TextStyle(
-              fontSize: 11,
-              color: cs.onSurface.withValues(alpha: 0.30),
-              fontWeight: FontWeight.w500,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  cs.primary.withValues(alpha: 0.85),
+                  cs.tertiary.withValues(alpha: 0.80),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: 0.28),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.person_rounded, color: Colors.white, size: 17),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Mon profil',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface.withValues(alpha: 0.80),
+              ),
+            ),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => context.go('/more'),
+            child: Padding(
+              padding: const EdgeInsets.all(5),
+              child: Icon(
+                Icons.settings_outlined,
+                size: 16,
+                color: cs.onSurface.withValues(alpha: 0.45),
+              ),
             ),
           ),
         ],

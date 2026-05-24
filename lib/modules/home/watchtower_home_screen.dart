@@ -7,9 +7,11 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
     show AnilistHome, AnilistMedia, AnilistBrowseFilter, anilistHomeProvider, anilistOfflineNotifier;
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
+import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
+import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
@@ -175,6 +177,15 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 6)),
 
+          // ── Continue Watching ──────────────────────────────────────────
+          if (_tab == 0)
+            SliverToBoxAdapter(
+              child: _ContinueWatchingSection(
+                items: _continueItems(home),
+                onTap: (m) => _openDetail(context, m),
+              ),
+            ),
+
           // ── Tab content ────────────────────────────────────────────────
           ..._sections(context, home, tab),
 
@@ -183,6 +194,15 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ],
       ),
     );
+  }
+
+  // ── Continue-watching items (Sprint 1 placeholder from recently-updated) ────
+
+  List<AnilistMedia> _continueItems(AnilistHome home) {
+    return home.recentlyUpdatedAnimes
+        .where((m) => m.bestCover != null)
+        .take(12)
+        .toList();
   }
 
   // ── Hero items ─────────────────────────────────────────────────────────────
@@ -1260,6 +1280,110 @@ class _AsiaChips extends StatelessWidget {
                 ),
               );
             },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Continue Watching section
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ContinueWatchingSection extends StatelessWidget {
+  final List<AnilistMedia> items;
+  final void Function(AnilistMedia) onTap;
+
+  const _ContinueWatchingSection({
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ── Section header ───────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Continuer à regarder',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const Spacer(),
+              GlassButton(
+                label: 'Tout voir',
+                intent: GlassButtonIntent.gray,
+                height: 28,
+                fontSize: 12,
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+
+        // ── Horizontal scroll ─────────────────────────────────────────────────
+        SizedBox(
+          height: 172,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final media = items[index];
+              final progress = 0.15 + (index % 7) * 0.12;
+              return EpisodeCard(
+                data: EpisodeCardData(
+                  thumbnailUrl: media.bannerImage,
+                  animeCoverUrl: media.bestCover,
+                  animeTitle: media.displayTitle ?? 'Unknown',
+                  episodeNumber: (index % 24) + 1,
+                  progress: EpisodeProgress(
+                    value: progress.clamp(0.0, 1.0),
+                  ),
+                ),
+                onTap: () => onTap(media),
+                width: 200,
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // ── Section divider ───────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Divider(
+            height: 1,
+            thickness: 0.5,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.07),
           ),
         ),
       ],
