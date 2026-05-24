@@ -13,6 +13,7 @@ import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/anime_schedule_section.dart';
 import 'package:watchtower/modules/home/widgets/sea_command.dart';
+import 'package:watchtower/modules/home/widgets/spoiler_card_veil.dart';
 import 'package:watchtower/modules/home/widgets/top_indefinite_loader.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
@@ -619,6 +620,9 @@ class _TitleBarState extends State<_TitleBar>
                   ),
                 ),
               ),
+            const SizedBox(width: 8),
+            // C-08 Spoiler mode toggle
+            const SpoilerModeToggle(),
             const SizedBox(width: 8),
             // Animated 3D holographic avatar
             GestureDetector(
