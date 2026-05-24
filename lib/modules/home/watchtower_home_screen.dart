@@ -470,9 +470,32 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 // "Pour vous" title bar
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TitleBar extends StatelessWidget {
+class _TitleBar extends StatefulWidget {
   final VoidCallback onAvatarTap;
   const _TitleBar({required this.onAvatarTap});
+
+  @override
+  State<_TitleBar> createState() => _TitleBarState();
+}
+
+class _TitleBarState extends State<_TitleBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ring;
+
+  @override
+  void initState() {
+    super.initState();
+    _ring = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ring.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -502,36 +525,48 @@ class _TitleBar extends StatelessWidget {
                 ],
               ),
             ),
-            // Avatar
+            // Animated 3D holographic avatar
             GestureDetector(
-              onTap: onAvatarTap,
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      cs.primary.withValues(alpha: 0.92),
-                      cs.tertiary.withValues(alpha: 0.88),
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: cs.primary.withValues(alpha: 0.30),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+              onTap: widget.onAvatarTap,
+              child: AnimatedBuilder(
+                animation: _ring,
+                builder: (_, __) => SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CustomPaint(
+                    painter: _HoloRingPainter(
+                      progress: _ring.value,
+                      primary: cs.primary,
+                      tertiary: cs.tertiary,
                     ),
-                  ],
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.20),
-                    width: 1.5,
+                    child: Center(
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              cs.primary.withValues(alpha: 0.92),
+                              cs.tertiary.withValues(alpha: 0.88),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: cs.primary.withValues(alpha: 0.40),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.person_rounded,
+                            color: Colors.white, size: 19),
+                      ),
+                    ),
                   ),
                 ),
-                child: const Icon(Icons.person_rounded,
-                    color: Colors.white, size: 18),
               ),
             ),
           ],
@@ -539,6 +574,54 @@ class _TitleBar extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rotating holographic ring painter — used by _TitleBar avatar
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HoloRingPainter extends CustomPainter {
+  final double progress;
+  final Color primary;
+  final Color tertiary;
+
+  const _HoloRingPainter({
+    required this.progress,
+    required this.primary,
+    required this.tertiary,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+    final angle = progress * 6.2832; // 2π
+
+    final gradient = SweepGradient(
+      startAngle: 0,
+      endAngle: 6.2832,
+      colors: [
+        primary.withValues(alpha: 0.0),
+        primary,
+        tertiary,
+        primary.withValues(alpha: 0.0),
+      ],
+      stops: const [0.0, 0.30, 0.70, 1.0],
+      transform: GradientRotation(angle),
+    );
+
+    final paint = Paint()
+      ..shader = gradient.createShader(
+          Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(_HoloRingPainter old) => old.progress != progress;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -926,57 +1009,101 @@ class _SpotlightSectionState extends State<_SpotlightSection> {
     super.dispose();
   }
 
+  // ── PC grid (2 or 3 columns, landscape aspect) ──────────────────────────
+
+  Widget _buildPcGrid(double width) {
+    final crossCount = width >= 1100 ? 3 : 2;
+    final maxItems =
+        widget.items.length > crossCount * 2 ? crossCount * 2 : widget.items.length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossCount,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 16 / 9,
+        ),
+        itemCount: maxItems,
+        itemBuilder: (_, i) => SpotlightDiscoveryCard(
+          media: widget.items[i],
+          onTap: () => widget.onTap(widget.items[i]),
+        ),
+      ),
+    );
+  }
+
+  // ── Mobile horizontal carousel ──────────────────────────────────────────
+
+  Widget _buildMobileCarousel(ColorScheme cs) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 170,
+          child: PageView.builder(
+            controller: _ctrl,
+            itemCount: widget.items.length,
+            onPageChanged: (i) => setState(() => _current = i),
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              child: SpotlightDiscoveryCard(
+                media: widget.items[i],
+                onTap: () => widget.onTap(widget.items[i]),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.items.length, (i) {
+            final active = i == _current;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 20 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
     final cs = Theme.of(context).colorScheme;
 
     return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(
-            title: 'Coup de cœur',
-            icon: Icons.auto_awesome_rounded,
-            color: const Color(0xFFE84393),
-          ),
-          SizedBox(
-            height: 170,
-            child: PageView.builder(
-              controller: _ctrl,
-              itemCount: widget.items.length,
-              onPageChanged: (i) => setState(() => _current = i),
-              itemBuilder: (_, i) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: SpotlightDiscoveryCard(
-                  media: widget.items[i],
-                  onTap: () => widget.onTap(widget.items[i]),
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 700;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionHeader(
+                title: 'Coup de cœur',
+                icon: Icons.auto_awesome_rounded,
+                color: const Color(0xFFE84393),
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Page dots
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.items.length, (i) {
-              final active = i == _current;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: active ? 20 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: active
-                      ? cs.primary
-                      : cs.onSurface.withValues(alpha: 0.20),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 4),
-        ],
+              if (isWide)
+                _buildPcGrid(constraints.maxWidth)
+              else
+                _buildMobileCarousel(cs),
+            ],
+          );
+        },
       ),
     );
   }

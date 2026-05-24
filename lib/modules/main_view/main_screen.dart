@@ -304,6 +304,22 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
               final isLongPressed = ref.watch(isLongPressedStateProvider);
 
+              // ── PC sidebar mode ─────────────────────────────────────────
+              if (dockStyle == 'pc_sidebar' &&
+                  MediaQuery.of(context).size.width >= 700 &&
+                  !isReadingScreen) {
+                return _TabletLayout(
+                  isLongPressed: isLongPressed,
+                  location: location,
+                  dest: dest,
+                  currentIndex: currentIndex,
+                  route: route,
+                  child: widget.child,
+                  ref: ref,
+                  buildNavigationWidgetsDesktop: _buildNavigationWidgetsDesktop,
+                );
+              }
+
               return Column(
                 children: [
                   Flexible(

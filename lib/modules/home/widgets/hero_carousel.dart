@@ -44,7 +44,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   @override
   void initState() {
     super.initState();
-    _ctrl = PageController(viewportFraction: 0.88);
+    _ctrl = PageController(viewportFraction: 1.0);
     _startTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.items.isNotEmpty) _extractColor(widget.items[0]);
@@ -117,21 +117,12 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
             },
             itemBuilder: (ctx, i) {
               final m = widget.items[i];
-              final isActive = i == _page;
               final image = m.bannerImage ?? m.bestCover;
 
-              return AnimatedScale(
-                scale: isActive ? 1.0 : 0.95,
-                duration: const Duration(milliseconds: 360),
-                curve: Curves.easeOut,
-                child: Padding(
-                  // Gap between cards (creates the peek space)
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: GestureDetector(
-                    onTap: () => widget.onItemTap(m),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Stack(
+              return GestureDetector(
+                onTap: () => widget.onItemTap(m),
+                child: ClipRect(
+                  child: Stack(
                         fit: StackFit.expand,
                         children: [
                           // ── Poster / Banner image ───────────────────────
@@ -193,8 +184,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                         ],
                       ),
                     ),
-                  ),
-                ),
               );
             },
           ),

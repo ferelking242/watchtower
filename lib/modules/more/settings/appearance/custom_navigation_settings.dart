@@ -283,6 +283,29 @@ class CustomNavigationSettings extends ConsumerWidget {
                       )
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  // ── PC / Bureau ──────────────────────────────────────────
+                  Row(
+                    children: [
+                      _DockPreviewCard(
+                        label: 'PC Sidebar',
+                        description: 'Barre latérale',
+                        isSelected: dockStyle == 'pc_sidebar',
+                        child: _PcSidebarPreview(cs: colorScheme),
+                        onTap: () {
+                          ref
+                              .read(navDockStyleProvider.notifier)
+                              .set('pc_sidebar');
+                          botToast(
+                              'PC Sidebar — navigation en barre latérale sur grand écran (≥ 700 px)');
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(child: SizedBox.shrink()),
+                      const SizedBox(width: 10),
+                      const Expanded(child: SizedBox.shrink()),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -749,6 +772,53 @@ class _RoundedFullDockPreview extends StatelessWidget {
       );
     }
   }
+
+class _PcSidebarPreview extends StatelessWidget {
+  final ColorScheme cs;
+  const _PcSidebarPreview({required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Sidebar strip
+        Container(
+          width: 24,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(4, (i) => Icon(
+              _previewIcons[i],
+              size: 10,
+              color: i == 0 ? cs.primary : cs.onSurface.withValues(alpha: 0.35),
+            )),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Content area
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.grid_view_rounded,
+                size: 16,
+                color: cs.onSurface.withValues(alpha: 0.15),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
   class _SettingSliderTile extends StatelessWidget {
   final IconData icon;
