@@ -112,21 +112,6 @@ void main(List<String> args) async {
       if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
         await windowManager.ensureInitialized();
         await WindowGeometry.restore();
-        // Show the window only after Flutter renders its first frame to avoid
-        // the blank white-screen that appears when window_manager is initialised
-        // but show() is never called explicitly.
-        windowManager.waitUntilReadyToShow(
-          WindowOptions(
-            title: 'Watchtower',
-            minimumSize: const Size(900, 600),
-            skipTaskbar: false,
-            titleBarStyle: TitleBarStyle.normal,
-          ),
-          () async {
-            await windowManager.show();
-            await windowManager.focus();
-          },
-        );
       }
       if (!kIsWeb && Platform.isWindows) {
         registerProtocolHandler("watchtower");
@@ -264,7 +249,14 @@ class _MyAppState extends ConsumerState<MyApp>
     if (!kIsWeb) _setupMpvConfig().catchError((_) {});
     unawaited(ref.read(scanLocalLibraryProvider.future));
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Show desktop window after the first real Flutter frame to avoid the
+      // blank white-screen caused by window_manager hiding the window during
+      // initialization without an explicit show() call.
+      if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
+        await windowManager.show();
+        await windowManager.focus();
+      }
       MExtensionServerPlatform(ref).startServer();
       if (ref.read(clearChapterCacheOnAppLaunchStateProvider)) {
         // Watch before calling clearcache to keep it alive, so that _getTotalDiskSpace completes safely
