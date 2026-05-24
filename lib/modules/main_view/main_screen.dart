@@ -901,16 +901,19 @@ class _TabletLayoutState extends State<_TabletLayout> {
           width: railWidth,
           child: railWidth == 0
               ? const SizedBox.shrink()
-              : Container(
+              : ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: Container(
                   width: _sidebarWidth,
                   decoration: BoxDecoration(
                     color: isDark
-                        ? const Color(0xFF0E1020).withValues(alpha: 0.92)
-                        : cs.surface.withValues(alpha: 0.94),
+                        ? Colors.black.withValues(alpha: 0.30)
+                        : Colors.white.withValues(alpha: 0.25),
                     border: Border(
                       right: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.28),
-                        width: 0.6,
+                        color: cs.outlineVariant.withValues(alpha: 0.18),
+                        width: 0.5,
                       ),
                     ),
                   ),
@@ -1013,6 +1016,8 @@ class _TabletLayoutState extends State<_TabletLayout> {
                     ],
                   ),
                 ),
+                ),
+              ),
         ),
         // ── Content area ──────────────────────────────────
         Expanded(child: widget.child),

@@ -220,9 +220,12 @@ class RouterNotifier extends ChangeNotifier {
       name: "extensionDiagnostic",
       builder: (itemType) => ExtensionDiagnosticScreen(itemType: itemType),
     ),
-    _genericRoute<(String?, ItemType)>(
+    _genericRoute<(String?, ItemType)?>(
       name: "globalSearch",
-      builder: (data) => GlobalSearchScreen(search: data.$1, itemType: data.$2),
+      builder: (data) => GlobalSearchScreen(
+        search: data?.$1,
+        itemType: data?.$2 ?? ItemType.manga,
+      ),
     ),
     _genericRoute<AnilistMedia>(
       name: "anilistDetail",

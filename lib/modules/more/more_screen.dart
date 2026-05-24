@@ -51,27 +51,44 @@ class _NavItem {
   });
 }
 
-// ── Grid card for a nav item ───────────────────────────────────────────────
+// ── Gradient palette per nav item index ───────────────────────────────────
+
+const _kCardGradients = [
+  [Color(0xFF6C63FF), Color(0xFF9C5BFF)],
+  [Color(0xFF00BFA5), Color(0xFF00897B)],
+  [Color(0xFFFF6584), Color(0xFFE91E63)],
+  [Color(0xFF2196F3), Color(0xFF0D47A1)],
+  [Color(0xFFFF9800), Color(0xFFE65100)],
+  [Color(0xFF43A047), Color(0xFF1B5E20)],
+  [Color(0xFF9C27B0), Color(0xFF4A148C)],
+  [Color(0xFF00ACC1), Color(0xFF006064)],
+  [Color(0xFFF44336), Color(0xFFB71C1C)],
+];
+
+// ── Big gradient tile ──────────────────────────────────────────────────────
 
 class _NavCard extends StatelessWidget {
   final _NavItem item;
   final dynamic l10n;
   final bool compact;
+  final int index;
   const _NavCard({
     super.key,
     required this.item,
     required this.l10n,
+    required this.index,
     this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final colors = _kCardGradients[index % _kCardGradients.length];
+
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         onTap: () {
           if (item.routeExtra != null) {
             context.push(item.route, extra: item.routeExtra);
@@ -81,62 +98,87 @@ class _NavCard extends StatelessWidget {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.45),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
             ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: colors[0].withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          padding: compact
-              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
-              : const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
           child: compact
-              ? Row(
-                  children: [
-                    Icon(item.icon, color: cs.primary, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(item.icon,
+                            color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          item.label(l10n),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.70),
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(item.icon,
+                            color: Colors.white, size: 26),
+                      ),
+                      const Spacer(),
+                      Text(
                         item.label(l10n),
                         style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.1,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                    ),
-                  ],
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(item.icon, color: cs.primary, size: 24),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.label(l10n),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
         ),
       ),
@@ -354,15 +396,16 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 1.0,
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.15,
                 ),
                 itemCount: navItems.length,
                 itemBuilder: (ctx, i) => _NavCard(
                   item: navItems[i],
                   l10n: l10n,
+                  index: i,
                   compact: false,
                 ),
               ),
@@ -435,14 +478,15 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                         gridDelegate:
                             SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: cols,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 2.4,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 2.2,
                         ),
                         itemCount: navItems.length,
                         itemBuilder: (ctx, i) => _NavCard(
                           item: navItems[i],
                           l10n: l10n,
+                          index: i,
                           compact: true,
                         ),
                       );

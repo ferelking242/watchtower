@@ -144,28 +144,23 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   .surfaceContainerHighest,
                             ),
 
-                          // ── Brush gradient scrim (top + bottom fade) ────
-                          // Fades from page bg at top AND bottom — "brush"
-                          // effect so the carousel bleeds into the background.
+                          // ── Brush gradient scrim (bottom only) ──────────
+                          // Heavy bottom fade → scaffold bg so the carousel
+                          // "paints" seamlessly into the tab bar below —
+                          // zero top fade now that tabs are beneath carousel.
                           Positioned.fill(
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
-                                  stops: const [0.0, 0.16, 0.42, 0.68, 1.0],
+                                  stops: const [0.0, 0.38, 0.58, 0.76, 1.0],
                                   colors: [
-                                    scaffoldBg.withValues(alpha: 0.90),
                                     Colors.transparent,
                                     Colors.transparent,
-                                    Colors.black.withValues(alpha: 0.55),
-                                    (_accentColor != null
-                                            ? Color.lerp(
-                                                _accentColor!,
-                                                scaffoldBg,
-                                                0.60)!
-                                            : scaffoldBg)
-                                        .withValues(alpha: 0.97),
+                                    Colors.black.withValues(alpha: 0.38),
+                                    Colors.black.withValues(alpha: 0.72),
+                                    scaffoldBg,
                                   ],
                                 ),
                               ),

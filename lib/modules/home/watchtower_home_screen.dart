@@ -153,16 +153,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         physics: const AlwaysScrollableScrollPhysics(
             parent: ClampingScrollPhysics()),
         slivers: [
-          // ── Sticky pill tabs ───────────────────────────────────────────
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabsDelegate(tab: _tab, onChanged: _onTabChanged),
-          ),
-
-          // ── Spacing ────────────────────────────────────────────────────
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-          // ── Hero carousel ──────────────────────────────────────────────
+          // ── Hero carousel (full bleed, at the very top) ────────────────
           if (heroItems.isNotEmpty)
             SliverToBoxAdapter(
               child: HeroCarousel(
@@ -172,7 +163,13 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
               ),
             ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 6)),
+          // ── Pill tabs (pinned below carousel) ──────────────────────────
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _TabsDelegate(tab: _tab, onChanged: _onTabChanged),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
           // ── Continue Watching ──────────────────────────────────────────
           if (_tab == 0)
@@ -659,12 +656,24 @@ class _TabsDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext ctx, double shrinkOffset, bool overlaps) {
+    final scaffoldBg = Theme.of(ctx).scaffoldBackgroundColor;
     final cs = Theme.of(ctx).colorScheme;
     final isDark = Theme.of(ctx).brightness == Brightness.dark;
 
     return Container(
       height: _h,
-      color: Theme.of(ctx).scaffoldBackgroundColor,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: const [0.0, 0.55, 1.0],
+          colors: [
+            scaffoldBg.withValues(alpha: 0.0),
+            scaffoldBg.withValues(alpha: 0.88),
+            scaffoldBg,
+          ],
+        ),
+      ),
       padding: const EdgeInsets.only(top: 10, bottom: 6),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
