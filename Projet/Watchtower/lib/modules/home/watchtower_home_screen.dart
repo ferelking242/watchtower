@@ -13,6 +13,7 @@ import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/anime_schedule_section.dart';
 import 'package:watchtower/modules/home/widgets/sea_command.dart';
+import 'package:watchtower/modules/home/widgets/top_indefinite_loader.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 
@@ -81,6 +82,11 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // N-10: wire TopIndefiniteLoader to AniList loading state
+    ref.listen<AsyncValue<AnilistHome>>(anilistHomeProvider, (prev, next) {
+      if (next.isLoading) showTopLoader(ref);
+      else if (prev?.isLoading == true) hideTopLoader(ref);
+    });
     return Scaffold(
       body: ValueListenableBuilder<bool>(
         valueListenable: anilistOfflineNotifier,
