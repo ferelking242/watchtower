@@ -92,14 +92,11 @@ jobs:
         run: |
           $ver    = "${{ steps.ver.outputs.name }}"
           $out    = "watchtower-setup-$ver.exe"
-          $srcFwd = (Resolve-Path "build\windows\x64\runner\Release").Path.Replace('\','/')
-          # Use $env:GITHUB_WORKSPACE for absolute, stable paths within this step
+          # NSIS does NOT handle forward-slash paths in File or !define — use native backslash
+          $srcNsis = (Resolve-Path "build\windows\x64\runner\Release").Path
           $wsDir      = $env:GITHUB_WORKSPACE
-          $bannerPath = "$wsDir\installer_banner.bmp"
-          $headerPath = "$wsDir\installer_header.bmp"
-          # Keep backslashes for NSIS — it does NOT handle forward-slash bitmap paths
-          $bannerNsis = $bannerPath
-          $headerNsis = $headerPath
+          $bannerNsis = "$wsDir\installer_banner.bmp"
+          $headerNsis = "$wsDir\installer_header.bmp"
 
           # ── Generate side banner 164x314 (24-bit BMP required by NSIS MUI) ────
           Add-Type -AssemblyName System.Drawing
@@ -232,7 +229,7 @@ jobs:
           $lines.Add("OutFile `"$out`"")
           $lines.Add('InstallDir "$PROGRAMFILES64\Watchtower"')
           $lines.Add('RequestExecutionLevel admin')
-          $lines.Add('BrandingText "Watchtower — Your media hub"')
+          $lines.Add('BrandingText "Watchtower -- Your media hub"')
 
           # ── MUI branding ──────────────────────────────────────────────────────
           $lines.Add("!define MUI_WELCOMEFINISHPAGE_BITMAP `"$bannerNsis`"")
@@ -244,7 +241,7 @@ jobs:
 
           # ── Welcome page ──────────────────────────────────────────────────────
           $lines.Add('!define MUI_WELCOMEPAGE_TITLE "Welcome to Watchtower"')
-          $lines.Add('!define MUI_WELCOMEPAGE_TEXT "Watchtower is your all-in-one media hub for anime, manga and novels.$\r$\n$\r$\nBrowse thousands of sources through a powerful extension system, manage your personal library, and track your watch and read progress $\x2014 all from a single, fast desktop app.$\r$\n$\r$\nThis wizard will install Watchtower on your computer. Click Next to continue."')
+          $lines.Add('!define MUI_WELCOMEPAGE_TEXT "Watchtower is your all-in-one media hub for anime, manga and novels.$\r$\n$\r$\nBrowse thousands of sources through a powerful extension system, manage your personal library, and track your watch and read progress -- all from a single, fast desktop app.$\r$\n$\r$\nThis wizard will install Watchtower on your computer. Click Next to continue."')
 
           # ── Finish page ───────────────────────────────────────────────────────
           $lines.Add('!define MUI_FINISHPAGE_RUN "$INSTDIR\watchtower.exe"')
@@ -269,7 +266,7 @@ jobs:
           # ── Install section ───────────────────────────────────────────────────
           $lines.Add('Section "Watchtower" SecMain')
           $lines.Add('  SetOutPath "$INSTDIR"')
-          $lines.Add("  File /r `"$srcFwd/*`"")
+          $lines.Add("  File /r `"$srcNsis\*`"")
           $lines.Add('  WriteUninstaller "$INSTDIR\Uninstall.exe"')
           $lines.Add('  CreateShortcut "$DESKTOP\Watchtower.lnk" "$INSTDIR\watchtower.exe"')
           $lines.Add('  CreateDirectory "$SMPROGRAMS\Watchtower"')
