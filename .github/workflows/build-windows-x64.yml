@@ -77,6 +77,16 @@ jobs:
             ls -la "$BUILD_DIR"
           fi
 
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          $nsisPath = (Get-Command makensis -ErrorAction SilentlyContinue)?.Source
+          if (-not $nsisPath) {
+            $nsisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
+          }
+          Write-Host "makensis found at: $nsisPath"
+
       - name: Generate installer graphics (banner + header bitmaps)
         shell: pwsh
         run: |
@@ -300,7 +310,10 @@ jobs:
           Write-Host "--- watchtower.nsi (first 30 lines) ---"
           Get-Content watchtower.nsi | Select-Object -First 30
 
-          & 'C:\Program Files (x86)\NSIS\makensis.exe' /V3 "$PWD\watchtower.nsi"
+          $makensis = (Get-Command makensis -ErrorAction SilentlyContinue)?.Source
+          if (-not $makensis) { $makensis = "C:\Program Files (x86)\NSIS\makensis.exe" }
+          Write-Host "Using makensis: $makensis"
+          & $makensis /V3 "$PWD\watchtower.nsi"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $sizeMB = [math]::Round((Get-Item $out).Length / 1MB, 1)
           Write-Host "Installer ready: $out ($sizeMB MB)"
