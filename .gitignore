@@ -59,5 +59,9 @@ artifacts/
 .agents/
 /tmp/
 
-# External reference projects (not pushed)
+# External reference projects cloned for analysis (not part of the app)
+external/
 external_project/
+
+# Local planning / scratch files (pushed only inside docs/ if needed)
+SEANIME_INSPIRATION_PLAN.md
