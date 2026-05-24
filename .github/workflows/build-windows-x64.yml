@@ -92,11 +92,14 @@ jobs:
         run: |
           $ver    = "${{ steps.ver.outputs.name }}"
           $out    = "watchtower-setup-$ver.exe"
-          # NSIS does NOT handle forward-slash paths in File or !define — use native backslash
-          $srcNsis = (Resolve-Path "build\windows\x64\runner\Release").Path
+          # NSIS does NOT handle forward-slash paths — use native Windows backslash everywhere
+          $srcNsis    = (Resolve-Path "build\windows\x64\runner\Release").Path
           $wsDir      = $env:GITHUB_WORKSPACE
-          $bannerNsis = "$wsDir\installer_banner.bmp"
-          $headerNsis = "$wsDir\installer_header.bmp"
+          $bannerPath = "$wsDir\installer_banner.bmp"
+          $headerPath = "$wsDir\installer_header.bmp"
+          # NSIS bitmap defines use same backslash paths
+          $bannerNsis = $bannerPath
+          $headerNsis = $headerPath
 
           # ── Generate side banner 164x314 (24-bit BMP required by NSIS MUI) ────
           Add-Type -AssemblyName System.Drawing
