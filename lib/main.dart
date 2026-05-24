@@ -249,13 +249,13 @@ class _MyAppState extends ConsumerState<MyApp>
     if (!kIsWeb) _setupMpvConfig().catchError((_) {});
     unawaited(ref.read(scanLocalLibraryProvider.future));
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       // Show desktop window after the first real Flutter frame to avoid the
       // blank white-screen caused by window_manager hiding the window during
       // initialization without an explicit show() call.
       if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
-        await windowManager.show();
-        await windowManager.focus();
+        unawaited(windowManager.show());
+        unawaited(windowManager.focus());
       }
       MExtensionServerPlatform(ref).startServer();
       if (ref.read(clearChapterCacheOnAppLaunchStateProvider)) {
