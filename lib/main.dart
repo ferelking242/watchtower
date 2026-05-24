@@ -111,6 +111,10 @@ void main(List<String> args) async {
       }
       if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
         await windowManager.ensureInitialized();
+        // Hide the window immediately so it doesn't flash a blank white frame
+        // while Flutter is still building the first widget tree.
+        // It is shown again in addPostFrameCallback below, after the first frame.
+        await windowManager.hide();
         await WindowGeometry.restore();
       }
       if (!kIsWeb && Platform.isWindows) {
