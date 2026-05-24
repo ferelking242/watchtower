@@ -32,6 +32,7 @@ import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/home/widgets/sea_command.dart';
+import 'package:watchtower/modules/home/widgets/top_indefinite_loader.dart';
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
 
@@ -1034,7 +1035,17 @@ class _TabletLayoutState extends State<_TabletLayout>
         ),
 
         // ââ Content area âââââââââââââââââââââââââââââââââââââââââââââââââ
-        Expanded(child: widget.child),
+        Expanded(
+          child: Stack(
+            children: [
+              widget.child,
+              const Positioned(
+                top: 0, left: 0, right: 0,
+                child: TopIndefiniteLoader(),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
