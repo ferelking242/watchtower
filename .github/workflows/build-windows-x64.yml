@@ -93,12 +93,13 @@ jobs:
           $ver    = "${{ steps.ver.outputs.name }}"
           $out    = "watchtower-setup-$ver.exe"
           $srcFwd = (Resolve-Path "build\windows\x64\runner\Release").Path.Replace('\','/')
-          # Use $env:GITHUB_WORKSPACE for absolute, stable paths shared within this step
-          $wsDir  = $env:GITHUB_WORKSPACE
+          # Use $env:GITHUB_WORKSPACE for absolute, stable paths within this step
+          $wsDir      = $env:GITHUB_WORKSPACE
           $bannerPath = "$wsDir\installer_banner.bmp"
           $headerPath = "$wsDir\installer_header.bmp"
-          $bannerFwd  = $bannerPath.Replace('\','/')
-          $headerFwd  = $headerPath.Replace('\','/')
+          # Keep backslashes for NSIS — it does NOT handle forward-slash bitmap paths
+          $bannerNsis = $bannerPath
+          $headerNsis = $headerPath
 
           # ── Generate side banner 164x314 (24-bit BMP required by NSIS MUI) ────
           Add-Type -AssemblyName System.Drawing
@@ -234,10 +235,10 @@ jobs:
           $lines.Add('BrandingText "Watchtower — Your media hub"')
 
           # ── MUI branding ──────────────────────────────────────────────────────
-          $lines.Add("!define MUI_WELCOMEFINISHPAGE_BITMAP `"$bannerFwd`"")
-          $lines.Add("!define MUI_UNWELCOMEFINISHPAGE_BITMAP `"$bannerFwd`"")
+          $lines.Add("!define MUI_WELCOMEFINISHPAGE_BITMAP `"$bannerNsis`"")
+          $lines.Add("!define MUI_UNWELCOMEFINISHPAGE_BITMAP `"$bannerNsis`"")
           $lines.Add('!define MUI_HEADER_IMAGE')
-          $lines.Add("!define MUI_HEADER_IMAGE_BITMAP `"$headerFwd`"")
+          $lines.Add("!define MUI_HEADER_IMAGE_BITMAP `"$headerNsis`"")
           $lines.Add('!define MUI_HEADER_IMAGE_RIGHT')
           $lines.Add('!define MUI_ABORTWARNING')
 
