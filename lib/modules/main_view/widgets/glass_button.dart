@@ -9,7 +9,9 @@ class GlassButton extends StatefulWidget {
   final GlassButtonIntent intent;
   final bool pill;
   final VoidCallback? onTap;
+  final VoidCallback? onPressed;
   final double? fontSize;
+  final double? height;
 
   const GlassButton({
     super.key,
@@ -18,7 +20,9 @@ class GlassButton extends StatefulWidget {
     this.intent = GlassButtonIntent.primary,
     this.pill = false,
     this.onTap,
+    this.onPressed,
     this.fontSize,
+    this.height,
   });
 
   @override
@@ -27,6 +31,8 @@ class GlassButton extends StatefulWidget {
 
 class _GlassButtonState extends State<GlassButton> {
   bool _pressed = false;
+
+  VoidCallback? get _callback => widget.onTap ?? widget.onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +58,13 @@ class _GlassButtonState extends State<GlassButton> {
 
     final radius = widget.pill ? 50.0 : 12.0;
 
+    final double vPad = widget.height != null ? ((widget.height! - (widget.fontSize ?? 13) * 1.2) / 2).clamp(4, 20) : 10;
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
-        widget.onTap?.call();
+        _callback?.call();
       },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
@@ -67,7 +75,8 @@ class _GlassButtonState extends State<GlassButton> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              height: widget.height,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: vPad),
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: BorderRadius.circular(radius),
@@ -75,6 +84,7 @@ class _GlassButtonState extends State<GlassButton> {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   if (widget.icon != null) ...[
                     Icon(widget.icon, size: 16, color: textColor),
