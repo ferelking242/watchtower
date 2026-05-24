@@ -116,9 +116,9 @@ void main(List<String> args) async {
         // the blank white-screen that appears when window_manager is initialised
         // but show() is never called explicitly.
         windowManager.waitUntilReadyToShow(
-          const WindowOptions(
+          WindowOptions(
             title: 'Watchtower',
-            minimumSize: Size(900, 600),
+            minimumSize: const Size(900, 600),
             skipTaskbar: false,
             titleBarStyle: TitleBarStyle.normal,
           ),
