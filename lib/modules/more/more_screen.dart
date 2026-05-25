@@ -326,6 +326,11 @@ class MoreScreen extends ConsumerStatefulWidget {
 class MoreScreenState extends ConsumerState<MoreScreen> {
   List<_NavItem> _buildNavItems(dynamic l10n) => [
         _NavItem(
+          icon: Icons.playlist_add_check_rounded,
+          label: (_) => 'Ma Liste',
+          route: '/AnimeLibrary',
+        ),
+        _NavItem(
           icon: Icons.history,
           label: (_) => l10n.history,
           route: '/history',
