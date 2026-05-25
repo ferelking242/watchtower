@@ -373,7 +373,7 @@ Future<AnilistHome> _fetchAnilistHome() async {
             'variables': {'perPage': 15},
           }),
         )
-        .timeout(const Duration(seconds: 25));
+        .timeout(const Duration(seconds: 40));
   } on TimeoutException {
     throw Exception('AniList timeout — server is slow to respond.');
   } on SocketException {
