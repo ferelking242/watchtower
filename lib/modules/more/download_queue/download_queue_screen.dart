@@ -774,7 +774,9 @@ class _DownloadCard extends ConsumerWidget {
                 Row(
                   children: [
                     Text(
-                      '${(progress * 100).toStringAsFixed(0)}% — ${succeeded}/${total}',
+                      isComplete
+                          ? 'Terminé'
+                          : _buildProgressLabel(itemType, succeeded, total, failed),
                       style: const TextStyle(
                           color: Color(0xFF666666), fontSize: 11),
                     ),
@@ -791,14 +793,23 @@ class _DownloadCard extends ConsumerWidget {
                 ),
                 if (progress > 0 && !isComplete) ...[
                   const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: progress.clamp(0.0, 1.0),
-                      minHeight: 2,
-                      backgroundColor: const Color(0xFF2A2A2A),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        hasFailed ? Colors.redAccent : _kTeal,
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOut,
+                    tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
+                    builder: (_, val, __) => ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: val,
+                        minHeight: 3,
+                        backgroundColor: const Color(0xFF2A2A2A),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          hasFailed
+                              ? Colors.redAccent
+                              : isPaused
+                                  ? Colors.orange
+                                  : _kTeal,
+                        ),
                       ),
                     ),
                   ),
