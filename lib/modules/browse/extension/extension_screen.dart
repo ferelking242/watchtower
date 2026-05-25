@@ -35,6 +35,35 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
   final Map<String, bool> _collapsed = {};
   final Map<String, bool> _installingLang = {};
 
+  // ── Lazy loading for the "Available" section ──────────────────────────────
+  static const _kPageSize = 20;
+  int _visibleInstalled = _kPageSize;
+  int _visibleAvailLangs = 8; // number of language groups shown
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!controller.hasClients) return;
+    final pos = controller.position;
+    // Load more when within 300 px of the bottom
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      bool changed = false;
+      if (_visibleInstalled < 10000) {
+        _visibleInstalled += _kPageSize;
+        changed = true;
+      }
+      if (_visibleAvailLangs < 10000) {
+        _visibleAvailLangs += 4;
+        changed = true;
+      }
+      if (changed && mounted) setState(() {});
+    }
+  }
+
   Future<void> _refreshSources() {
     return ref.refresh(
       fetchItemSourcesListProvider(
@@ -47,6 +76,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
   @override
   void dispose() {
+    controller.removeListener(_onScroll);
     controller.dispose();
     super.dispose();
   }
@@ -356,6 +386,8 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
   Widget _buildInstalledSection(List<Source> installedEntries, dynamic l10n,
       {bool isWide = false}) {
+    final visible = installedEntries.take(_visibleInstalled).toList();
+    final hasMore = visible.length < installedEntries.length;
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
@@ -374,7 +406,20 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
             ),
           ),
         ),
-        _buildSliverListOrGrid(items: installedEntries, isWide: isWide),
+        _buildSliverListOrGrid(items: visible, isWide: isWide),
+        if (hasMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -388,7 +433,10 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
       final name = completeLanguageName(langCode);
       grouped.putIfAbsent(name, () => []).add(src);
     }
-    final sortedLangs = grouped.keys.toList()..sort();
+    final allLangs = grouped.keys.toList()..sort();
+    // Lazy loading: only render up to _visibleAvailLangs language groups
+    final sortedLangs = allLangs.take(_visibleAvailLangs).toList();
+    final hasMoreLangs = allLangs.length > sortedLangs.length;
 
     final slivers = <Widget>[];
 
@@ -512,6 +560,37 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
           _buildSliverListOrGrid(items: items, isWide: isWide),
         );
       }
+    }
+
+    // "Load more" spinner at the bottom
+    if (hasMoreLangs) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${allLangs.length - sortedLangs.length} langues supplémentaires…',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return slivers;
