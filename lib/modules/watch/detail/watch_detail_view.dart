@@ -1026,8 +1026,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       children: List.generate(chapters.length, (i) {
         final chapter = chapters[i];
         final watched = chapter.isRead ?? false;
-        final epNum = (chapter.chapterNumber ?? 0) > 0
-            ? (chapter.chapterNumber!).toInt()
+        // Extract episode number from name, fallback to position index
+        final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
+        final epNum = numMatch != null
+            ? (int.tryParse(numMatch.group(0)!) ?? (i + 1))
             : (i + 1);
         final label = epNum.toString().padLeft(2, '0');
 
