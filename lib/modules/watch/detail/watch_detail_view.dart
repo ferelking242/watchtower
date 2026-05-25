@@ -51,11 +51,25 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   String? _selectedSeason;
   String? _selectedLanguage;
+  bool _autoplayed = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  void _maybeAutoplay(List<Chapter> chapters) {
+    if (_autoplayed) return;
+    if (widget.isLoading) return;
+    if (!_isMovie(chapters)) return;
+    if (chapters.isEmpty) return;
+    _autoplayed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        chapters.first.pushToReaderView(context, ignoreIsRead: true);
+      }
+    });
   }
 
   @override
@@ -121,6 +135,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           error: (_, __) => <Chapter>[],
         );
 
+    _maybeAutoplay(chapters);
+
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
@@ -142,10 +158,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           expandedHeight: 230,
           pinned: true,
           backgroundColor: _bg,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          automaticallyImplyLeading: false,
           actions: [
             if (widget.isLoading)
               const Padding(
@@ -355,15 +368,60 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     if (author.isNotEmpty) parts.add(author);
     final genres = widget.manga.genre?.take(3).toList() ?? [];
     parts.addAll(genres);
-    if (parts.isEmpty) return const SizedBox.shrink();
 
     return Row(
       children: [
-        const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 15),
-        const SizedBox(width: 5),
+        // Type pill: Série or Film
+        Builder(builder: (_) {
+          final chapters = ref
+              .watch(getChaptersStreamProvider(mangaId: widget.manga.id!))
+              .when(
+                data: (list) => list,
+                loading: () => widget.manga.chapters.toList(),
+                error: (_, __) => <Chapter>[],
+              );
+          final isMovie = _isMovie(chapters);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: isMovie
+                  ? const Color(0xFF2A1A0A)
+                  : const Color(0xFF0A1A2A),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: isMovie
+                    ? const Color(0xFFE87820).withValues(alpha: 0.7)
+                    : _teal.withValues(alpha: 0.7),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isMovie ? Icons.movie_outlined : Icons.live_tv_outlined,
+                  size: 11,
+                  color: isMovie ? const Color(0xFFE87820) : _teal,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isMovie ? 'Film' : 'Série',
+                  style: TextStyle(
+                    color: isMovie ? const Color(0xFFE87820) : _teal,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(width: 8),
+        const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 14),
+        const SizedBox(width: 4),
         Expanded(
           child: Text(
-            parts.join('  ·  '),
+            parts.isEmpty ? '' : parts.join('  ·  '),
             style: const TextStyle(color: _grey, fontSize: 12),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -545,10 +603,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── ACTION BUTTONS ─────────────────────────────────────────────────────────
 
   Widget _buildActionButtons(List<Chapter> chapters) {
+    final isFav = widget.manga.favorite ?? false;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+          _chip(
+            icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
+            label: isFav ? 'Dans ma liste' : 'Ajouter à ma liste',
+            onTap: _toggleFavorite,
+            active: isFav,
+          ),
+          const SizedBox(width: 8),
           _chip(
             icon: Icons.share_outlined,
             label: 'Partager',
@@ -612,13 +678,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── MOVIE / SERIES DETECTION ───────────────────────────────────────────────
 
   bool _isMovie(List<Chapter> chapters) {
+    // Never guess "movie" while chapters are still loading
+    // (prevents series like Naruto from appearing as "Film" during load)
+    if (widget.isLoading) return false;
     if (chapters.isEmpty) return false;
-    if (chapters.length == 1) return true;
-    // Also treat as movie if genre contains "Film" or "Movie"
+    // Genre must be an exact token match — not a substring — to avoid false positives
     final genres = (widget.manga.genre ?? [])
-        .map((g) => g.toLowerCase())
+        .map((g) => g.toLowerCase().trim())
         .toList();
-    return genres.any((g) => g.contains('film') || g.contains('movie'));
+    if (genres.contains('film') || genres.contains('movie')) return true;
+    // Single chapter after a full load → treat as movie/special
+    if (chapters.length == 1) return true;
+    return false;
   }
 
   /// Returns distinct season keys found in chapter names.
@@ -775,7 +846,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         else if (isMovie)
           _buildMovieBox(filtered.first)
         else
-          ...filtered.map((ch) => _buildEpisodeTile(ch)),
+          _buildEpisodeGrid(filtered),
       ],
     );
   }
@@ -943,6 +1014,53 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
         ),
       ),
+    );
+  }
+
+  // ─── EPISODE GRID (numbered chips, MovieBox style) ───────────────────────────
+
+  Widget _buildEpisodeGrid(List<Chapter> chapters) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(chapters.length, (i) {
+        final chapter = chapters[i];
+        final watched = chapter.isRead ?? false;
+        final epNum = (chapter.chapterNumber ?? 0) > 0
+            ? (chapter.chapterNumber!).toInt()
+            : (i + 1);
+        final label = epNum.toString().padLeft(2, '0');
+
+        return GestureDetector(
+          onTap: () => chapter.pushToReaderView(context, ignoreIsRead: true),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 52,
+            height: 40,
+            decoration: BoxDecoration(
+              color: watched
+                  ? const Color(0xFF1A1A1A)
+                  : _teal.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: watched
+                    ? const Color(0xFF2D2D2D)
+                    : _teal.withValues(alpha: 0.55),
+                width: 1,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: watched ? Colors.grey : Colors.white,
+                fontSize: 13,
+                fontWeight: watched ? FontWeight.normal : FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 
