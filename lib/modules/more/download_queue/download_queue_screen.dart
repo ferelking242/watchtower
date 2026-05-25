@@ -237,10 +237,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               ),
             ],
           ),
-          floatingActionButton: _PauseResumeAllFab(
-            entries: entries,
-            queueState: queueState,
-          ),
         );
       },
     );
