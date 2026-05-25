@@ -43,12 +43,14 @@ class WatchDetailView extends ConsumerStatefulWidget {
 class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     with TickerProviderStateMixin {
   late final TabController _tabController;
-  bool _isDescriptionExpanded = false;
 
   static const _teal = Color(0xFF1DB954);
   static const _bg = Color(0xFF0E0E0E);
   static const _card = Color(0xFF1A1A1A);
   static const _grey = Color(0xFF9E9E9E);
+
+  String? _selectedSeason;
+  String? _selectedLanguage;
 
   @override
   void initState() {
@@ -228,10 +230,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               const SizedBox(height: 6),
               _buildMetaRow(),
               const SizedBox(height: 10),
-              if ((widget.manga.description ?? '').isNotEmpty)
-                _buildDescription(),
-              const SizedBox(height: 14),
-              _buildActionButtons(chapters),
+                _buildActionButtons(chapters),
               const SizedBox(height: 18),
               _buildRessourcesSection(chapters),
             ],
@@ -305,8 +304,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           const SizedBox(height: 6),
           _buildMetaRow(),
           const SizedBox(height: 10),
-          if ((widget.manga.description ?? '').isNotEmpty) _buildDescription(),
-          const SizedBox(height: 14),
           _buildActionButtons(chapters),
           const SizedBox(height: 20),
           _buildRessourcesSection(chapters),
@@ -335,7 +332,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
         const SizedBox(width: 8),
         GestureDetector(
-          onTap: () {}, // future: navigate to full info screen
+          onTap: () => _showInfoSheet(context),
           child: const Row(
             children: [
               Text(
@@ -376,52 +373,182 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // ─── DESCRIPTION ────────────────────────────────────────────────────────────
+  // ─── INFO SHEET (description + all metadata) ────────────────────────────────
 
-  Widget _buildDescription() {
-    return GestureDetector(
-      onTap: () =>
-          setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
-      child: Column(
+  void _showInfoSheet(BuildContext context) {
+    final manga = widget.manga;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (_, ctrl) => ListView(
+          controller: ctrl,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Title
+            Text(
+              manga.name ?? '',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Synopsis
+            if ((manga.description ?? '').isNotEmpty) ...[
+              const Text(
+                'Synopsis',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                manga.description ?? '',
+                style: const TextStyle(
+                  color: _grey,
+                  fontSize: 13,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+            // Info rows
+            const Text(
+              'Informations',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _infoRow('Statut', _statusLabel(manga.status)),
+            if ((manga.author ?? '').isNotEmpty)
+              _infoRow('Auteur', manga.author!),
+            if ((manga.artist ?? '').isNotEmpty)
+              _infoRow('Artiste', manga.artist!),
+            if ((manga.source ?? '').isNotEmpty)
+              _infoRow('Source', manga.source!),
+            if ((manga.lang ?? '').isNotEmpty)
+              _infoRow('Langue', manga.lang!.toUpperCase()),
+            // Genres
+            if ((manga.genre?.isNotEmpty ?? false)) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Genres',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final g in (manga.genre ?? []))
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _teal.withValues(alpha: 0.4),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        g,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.manga.description ?? '',
-            maxLines: _isDescriptionExpanded ? null : 3,
-            overflow: _isDescriptionExpanded
-                ? TextOverflow.visible
-                : TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _grey,
-              fontSize: 13,
-              height: 1.45,
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(color: _grey, fontSize: 13),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _isDescriptionExpanded ? 'Réduire' : 'Lire plus',
-            style: const TextStyle(color: _teal, fontSize: 12),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
           ),
         ],
       ),
     );
   }
 
+  String _statusLabel(dynamic status) {
+    switch (status?.toString()) {
+      case '0':
+        return 'En cours';
+      case '1':
+        return 'Terminé';
+      case '2':
+        return 'Licencié';
+      case '3':
+        return 'Annulé';
+      case '4':
+        return 'En pause';
+      default:
+        return 'Inconnu';
+    }
+  }
+
   // ─── ACTION BUTTONS ─────────────────────────────────────────────────────────
 
   Widget _buildActionButtons(List<Chapter> chapters) {
-    final isFav = widget.manga.favorite ?? false;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _chip(
-            icon: isFav ? Icons.playlist_add_check : Icons.playlist_add,
-            label: isFav ? 'Dans la liste' : 'Ajouter à la liste',
-            onTap: _toggleFavorite,
-            active: isFav,
-          ),
-          const SizedBox(width: 8),
           _chip(
             icon: Icons.share_outlined,
             label: 'Partager',
@@ -435,9 +562,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
           const SizedBox(width: 8),
           _chip(
-            icon: Icons.tv_outlined,
-            label: 'Voir le télé',
-            onTap: () => botToast('Cast non disponible'),
+            icon: Icons.download_for_offline_outlined,
+            label: 'Voir le téléchargement',
+            onTap: () => Navigator.of(context).pushNamed('/downloadQueue'),
           ),
         ],
       ),
@@ -482,9 +609,93 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
+  // ─── MOVIE / SERIES DETECTION ───────────────────────────────────────────────
+
+  bool _isMovie(List<Chapter> chapters) {
+    if (chapters.isEmpty) return false;
+    if (chapters.length == 1) return true;
+    // Also treat as movie if genre contains "Film" or "Movie"
+    final genres = (widget.manga.genre ?? [])
+        .map((g) => g.toLowerCase())
+        .toList();
+    return genres.any((g) => g.contains('film') || g.contains('movie'));
+  }
+
+  /// Returns distinct season keys found in chapter names.
+  /// e.g. ["Saison 1", "Saison 2"] or ["S01", "S02"]
+  List<String> _detectSeasons(List<Chapter> chapters) {
+    final seasonRegex = RegExp(
+        r'(?:Saison|Season|Partie|Part)\s*(\d+)|S(\d{1,2})(?:E\d+)?',
+        caseSensitive: false);
+    final seen = <String>{};
+    for (final ch in chapters) {
+      final name = ch.name ?? '';
+      final match = seasonRegex.firstMatch(name);
+      if (match != null) {
+        final num = match.group(1) ?? match.group(2) ?? '1';
+        seen.add('Saison $num');
+      }
+    }
+    if (seen.isEmpty && chapters.isNotEmpty) return [];
+    final sorted = seen.toList()
+      ..sort((a, b) {
+        final na = int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        final nb = int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        return na.compareTo(nb);
+      });
+    return sorted;
+  }
+
+  /// Returns distinct audio/language tracks from scanlator field.
+  List<String> _detectLanguages(List<Chapter> chapters) {
+    final langPatterns = RegExp(
+        r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA)\b',
+        caseSensitive: false);
+    final seen = <String>{};
+    for (final ch in chapters) {
+      final scan = ch.scanlator ?? '';
+      final name = ch.name ?? '';
+      for (final m in langPatterns.allMatches('$scan $name')) {
+        seen.add(m.group(0)!.toUpperCase());
+      }
+    }
+    return seen.toList();
+  }
+
+  /// Filter chapters by selected season + language.
+  List<Chapter> _filterChapters(List<Chapter> all) {
+    List<Chapter> result = all;
+    final season = _selectedSeason;
+    if (season != null) {
+      final num = RegExp(r'\d+').firstMatch(season)?.group(0) ?? '';
+      final seasonRegex = RegExp(
+          r'(?:Saison|Season|Partie|Part)\s*' + num + r'|S' + num.padLeft(2, '0'),
+          caseSensitive: false);
+      result = result
+          .where((ch) => seasonRegex.hasMatch(ch.name ?? ''))
+          .toList();
+      if (result.isEmpty) result = all; // fallback
+    }
+    final lang = _selectedLanguage;
+    if (lang != null) {
+      final filtered = result
+          .where((ch) =>
+              (ch.scanlator ?? '').toUpperCase().contains(lang) ||
+              (ch.name ?? '').toUpperCase().contains(lang))
+          .toList();
+      if (filtered.isNotEmpty) result = filtered;
+    }
+    return result;
+  }
+
   // ─── RESSOURCES / EPISODES ──────────────────────────────────────────────────
 
   Widget _buildRessourcesSection(List<Chapter> chapters) {
+    final isMovie = _isMovie(chapters);
+    final seasons = isMovie ? <String>[] : _detectSeasons(chapters);
+    final languages = _detectLanguages(chapters);
+    final filtered = _filterChapters(chapters);
+
     final source = getSource(
       widget.manga.lang ?? '',
       widget.manga.source ?? '',
@@ -494,18 +705,24 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Section header ──
         Row(
           children: [
-            const Text(
-              'Ressources',
-              style: TextStyle(
+            Text(
+              isMovie ? 'Film' : 'Épisodes',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
+            if (!isMovie && chapters.isNotEmpty)
+              Text(
+                '  ${filtered.length}',
+                style: const TextStyle(color: _grey, fontSize: 13),
+              ),
             if (source != null) ...[
-              const SizedBox(width: 8),
+              const Spacer(),
               Text(
                 'via ${source.name}',
                 style: const TextStyle(color: _grey, fontSize: 12),
@@ -514,6 +731,30 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ],
         ),
         const SizedBox(height: 12),
+
+        // ── Language selector ──
+        if (languages.length > 1) ...[
+          _buildSelectorRow(
+            icon: Icons.language_outlined,
+            items: languages,
+            selected: _selectedLanguage,
+            onSelected: (v) => setState(() => _selectedLanguage = v),
+          ),
+          const SizedBox(height: 10),
+        ],
+
+        // ── Season selector ──
+        if (!isMovie && seasons.length > 1) ...[
+          _buildSelectorRow(
+            icon: Icons.layers_outlined,
+            items: seasons,
+            selected: _selectedSeason,
+            onSelected: (v) => setState(() => _selectedSeason = v),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // ── Content ──
         if (chapters.isEmpty)
           const Center(
             child: Padding(
@@ -531,9 +772,177 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ),
             ),
           )
+        else if (isMovie)
+          _buildMovieBox(filtered.first)
         else
-          ...chapters.map((ch) => _buildEpisodeTile(ch)),
+          ...filtered.map((ch) => _buildEpisodeTile(ch)),
       ],
+    );
+  }
+
+  // ─── SELECTOR ROW (language / season) ───────────────────────────────────────
+
+  Widget _buildSelectorRow({
+    required IconData icon,
+    required List<String> items,
+    required String? selected,
+    required void Function(String?) onSelected,
+  }) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Icon(icon, color: _grey, size: 16),
+          const SizedBox(width: 8),
+          ...items.map((item) {
+            final isSelected = selected == item;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () =>
+                    onSelected(isSelected ? null : item),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? _teal.withValues(alpha: 0.15)
+                        : const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected ? _teal : const Color(0xFF3A3A3A),
+                      width: isSelected ? 1.2 : 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    item,
+                    style: TextStyle(
+                      color: isSelected ? _teal : Colors.white70,
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ─── MOVIE BOX ───────────────────────────────────────────────────────────────
+
+  Widget _buildMovieBox(Chapter chapter) {
+    final hasThumb = (chapter.thumbnailUrl ?? '').isNotEmpty;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => chapter.pushToReaderView(context, ignoreIsRead: true),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _teal.withValues(alpha: 0.5),
+              width: 0.8,
+            ),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Thumbnail background
+              ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: hasThumb
+                    ? cachedNetworkImage(
+                        imageUrl: chapter.thumbnailUrl!,
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        width: double.infinity,
+                        height: 180,
+                        color: const Color(0xFF252525),
+                      ),
+              ),
+              // Gradient overlay
+              Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(13),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00000000),
+                      Color(0xCC000000),
+                    ],
+                  ),
+                ),
+              ),
+              // Play button
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: _teal.withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 34,
+                ),
+              ),
+              // Bottom info
+              Positioned(
+                bottom: 12,
+                left: 14,
+                right: 14,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        chapter.name ?? 'Film',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if ((chapter.duration ?? '').isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        chapter.duration!,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.download_outlined,
+                          color: Colors.white70, size: 20),
+                      onPressed: () => _downloadChapter(chapter),
+                      tooltip: 'Télécharger',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
