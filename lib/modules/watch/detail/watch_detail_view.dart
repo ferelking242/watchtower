@@ -431,7 +431,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           _chip(
             icon: Icons.download_outlined,
             label: 'Télécharger',
-            onTap: () => _downloadAll(chapters),
+            onTap: () => _showDownloadSheet(context, chapters),
           ),
           const SizedBox(width: 8),
           _chip(
@@ -678,6 +678,124 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
+  // ─── DOWNLOAD SHEET ─────────────────────────────────────────────────────────
+
+  void _showDownloadSheet(BuildContext context, List<Chapter> chapters) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1C),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _DownloadSheet(
+        manga: widget.manga,
+        chapters: chapters,
+        onDownload: (selected) {
+          Navigator.pop(context);
+          for (final ch in selected) {
+            final entry =
+                isar.downloads.filter().idEqualTo(ch.id).findFirstSync();
+            if (entry == null || !(entry.isDownload ?? false)) {
+              ref.read(addDownloadToQueueProvider(chapter: ch));
+            }
+          }
+          ref.read(processDownloadsProvider());
+          if (selected.isNotEmpty) {
+            _showAfterDownloadSheet(context, selected.length);
+          }
+        },
+      ),
+    );
+  }
+
+  void _showAfterDownloadSheet(BuildContext context, int count) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1C),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.download_rounded, color: _teal, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Téléchargement $count fichier(s)',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.close,
+                        color: Colors.white54, size: 20),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Regardez-le maintenant pendant le téléchargement, sans utilisation de données supplémentaire.',
+                style: TextStyle(
+                    color: Color(0xFF9E9E9E), fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.of(context)
+                            .pushNamed('/downloadQueue');
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFF444444)),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Voir le téléchargement'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _teal,
+                        foregroundColor: Colors.white,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Regarder maintenant'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── OPTIONS SHEET ──────────────────────────────────────────────────────────
 
   void _showOptionsSheet(BuildContext context, List<Chapter> chapters) {
@@ -728,6 +846,309 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               },
             ),
             const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── DOWNLOAD SHEET WIDGET ──────────────────────────────────────────────────
+
+class _DownloadSheet extends StatefulWidget {
+  final Manga manga;
+  final List<Chapter> chapters;
+  final void Function(List<Chapter> selected) onDownload;
+
+  const _DownloadSheet({
+    required this.manga,
+    required this.chapters,
+    required this.onDownload,
+  });
+
+  @override
+  State<_DownloadSheet> createState() => _DownloadSheetState();
+}
+
+class _DownloadSheetState extends State<_DownloadSheet> {
+  static const _teal = Color(0xFF1DB954);
+  static const _bg = Color(0xFF1C1C1C);
+  static const _card = Color(0xFF242424);
+
+  String _selectedQuality = '360P';
+  final Set<int> _selected = {};
+  bool _selectAll = false;
+
+  final List<String> _qualities = ['360P', '480P', '1080P'];
+
+  @override
+  Widget build(BuildContext context) {
+    final chapters = widget.chapters;
+    final maxH = MediaQuery.of(context).size.height * 0.85;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      color: _bg,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildHandle(),
+          _buildHeader(),
+          _buildResourcesCard(),
+          _buildQualityChips(),
+          const Divider(height: 1, color: Color(0xFF2A2A2A)),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.only(bottom: 4),
+              itemCount: chapters.length,
+              itemBuilder: (_, i) => _buildEpisodeRow(i, chapters[i]),
+            ),
+          ),
+          _buildBottomBar(chapters),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHandle() => Container(
+        width: 40,
+        height: 4,
+        margin: const EdgeInsets.only(top: 10, bottom: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey[700],
+          borderRadius: BorderRadius.circular(2),
+        ),
+      );
+
+  Widget _buildHeader() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            const Text(
+              'Télécharger',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: const Icon(Icons.close, color: Colors.white54, size: 22),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildResourcesCard() {
+    final source = getSource(
+      widget.manga.lang ?? '',
+      widget.manga.source ?? '',
+      widget.manga.sourceId,
+    );
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Ressources',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600),
+              ),
+              if (source != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  'via ${source.name}',
+                  style:
+                      const TextStyle(color: Color(0xFF9E9E9E), fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _dropdownChip(
+                  label: 'French dub', icon: Icons.language_outlined),
+              const SizedBox(width: 8),
+              _dropdownChip(label: 'Saison 01', icon: Icons.expand_more),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dropdownChip({required String label, required IconData icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF303030),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(width: 4),
+          Icon(icon, color: Colors.white54, size: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQualityChips() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: _qualities.map((q) {
+          final sel = q == _selectedQuality;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedQuality = q),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: sel ? _teal : const Color(0xFF2A2A2A),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  q,
+                  style: TextStyle(
+                    color: sel ? Colors.white : Colors.white54,
+                    fontSize: 13,
+                    fontWeight:
+                        sel ? FontWeight.w700 : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildEpisodeRow(int index, Chapter chapter) {
+    final sel = _selected.contains(index);
+    return InkWell(
+      onTap: () => setState(() {
+        if (sel) {
+          _selected.remove(index);
+        } else {
+          _selected.add(index);
+        }
+        _selectAll = _selected.length == widget.chapters.length;
+      }),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: sel
+                  ? const Icon(Icons.radio_button_checked,
+                      color: _teal, size: 22)
+                  : const Icon(Icons.radio_button_unchecked,
+                      color: Colors.white38, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                chapter.name ?? 'Épisode ${index + 1}',
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 14),
+              ),
+            ),
+            Text(
+              chapter.duration?.isNotEmpty == true
+                  ? chapter.duration!
+                  : '',
+              style: const TextStyle(
+                  color: Color(0xFF666666), fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(List<Chapter> chapters) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFF2A2A2A))),
+        color: _bg,
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () => setState(() {
+                _selectAll = !_selectAll;
+                if (_selectAll) {
+                  _selected.addAll(
+                      List.generate(chapters.length, (i) => i));
+                } else {
+                  _selected.clear();
+                }
+              }),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: _selectAll
+                        ? const Icon(Icons.radio_button_checked,
+                            color: _teal, size: 22)
+                        : const Icon(Icons.radio_button_unchecked,
+                            color: Colors.white38, size: 22),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Tout sélectionner',
+                      style:
+                          TextStyle(color: Colors.white70, fontSize: 14)),
+                ],
+              ),
+            ),
+            const Spacer(),
+            ElevatedButton.icon(
+              onPressed: _selected.isEmpty
+                  ? null
+                  : () => widget
+                      .onDownload(_selected.map((i) => chapters[i]).toList()),
+              icon: const Icon(Icons.download_outlined, size: 18),
+              label: Text(_selected.isEmpty
+                  ? 'Télécharger'
+                  : 'Télécharger (${_selected.length})'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _teal,
+                disabledBackgroundColor: const Color(0xFF2A2A2A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
           ],
         ),
       ),

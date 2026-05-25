@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:grouped_list/grouped_list.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
@@ -19,6 +20,10 @@ import 'package:watchtower/services/download_manager/download_isolate_pool.dart'
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+
+const _kBg = Color(0xFF0E0E0E);
+const _kCard = Color(0xFF1A1A1A);
+const _kTeal = Color(0xFF1DB954);
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -95,175 +100,140 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         final allQueueLength = entries.length;
 
         return Scaffold(
+          backgroundColor: _kBg,
           appBar: AppBar(
-            title: Row(
-              children: [
-                Text(l10n!.download_queue),
-                const SizedBox(width: 8),
-                Badge(
-                  backgroundColor: Theme.of(context).focusColor,
-                  label: Text(
-                    allQueueLength.toString(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall!.color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: [
-                Tab(
-                  icon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.play_circle_outline, size: 16),
-                      const SizedBox(width: 4),
-                      const Text('Watch'),
-                      if (watchEntries.isNotEmpty) ...[
-                        const SizedBox(width: 4),
-                        _TabBadge(count: watchEntries.length),
-                      ],
-                    ],
-                  ),
-                ),
-                Tab(
-                  icon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.menu_book_outlined, size: 16),
-                      const SizedBox(width: 4),
-                      const Text('Manga'),
-                      if (mangaEntries.isNotEmpty) ...[
-                        const SizedBox(width: 4),
-                        _TabBadge(count: mangaEntries.length),
-                      ],
-                    ],
-                  ),
-                ),
-                Tab(
-                  icon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.auto_stories_outlined, size: 16),
-                      const SizedBox(width: 4),
-                      const Text('Novel'),
-                      if (novelEntries.isNotEmpty) ...[
-                        const SizedBox(width: 4),
-                        _TabBadge(count: novelEntries.length),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+            backgroundColor: _kBg,
+            elevation: 0,
+            titleSpacing: 16,
+            title: const Text(
+              'Téléchargements',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             actions: [
-              ArrowPopupMenuButton<_GlobalAction>(
-                popUpAnimationStyle: popupAnimationStyle,
-                icon: const Icon(Icons.more_vert),
-                onSelected: (action) => _handleGlobalAction(
-                  action,
-                  entries,
-                  ref,
-                  context,
+              GestureDetector(
+                onTap: () => context.push('/transfer'),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _kTeal.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: _kTeal.withValues(alpha: 0.35), width: 1),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.swap_horiz_rounded,
+                          color: _kTeal, size: 15),
+                      SizedBox(width: 5),
+                      Text(
+                        'Transfert',
+                        style: TextStyle(
+                          color: _kTeal,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: _GlobalAction.pauseAll,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.pause_circle_outline),
-                      title: Text('Pause All'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: _GlobalAction.resumeAll,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.play_circle_outline),
-                      title: Text('Resume All'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: _GlobalAction.stopAll,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.stop_circle_outlined),
-                      title: Text('Stop All'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: _GlobalAction.deleteCompleted,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.delete_sweep_outlined),
-                      title: Text('Delete Completed'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: _GlobalAction.retryFailed,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.replay_outlined),
-                      title: Text('Retry Failed'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
-          body: TabBarView(
-            controller: _tabController,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DownloadTabList(
-                entries: watchEntries,
-                allEntries: entries,
-                emptyIcon: Icons.play_circle_outline,
-                emptyLabel: 'Aucun téléchargement Watch',
-                queueState: queueState,
-                swipeLeft: swipeLeft,
-                swipeRight: swipeRight,
-                onPauseResume: (e) => _togglePause(e, ref),
-                onCancel: (e) => _cancelDownload(e, ref),
-                onDelete: (e) => _deleteDownload(e),
-                onRetry: (e) => _retryDownload(e, ref, context),
-                onOpen: (e) => _openDownload(e, context),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Row(
+                  children: [
+                    Text(
+                      'Téléchargement ($allQueueLength)',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => _showGererSheet(context, entries, ref),
+                      child: const Text(
+                        'Gérer',
+                        style: TextStyle(
+                          color: _kTeal,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              _DownloadTabList(
-                entries: mangaEntries,
-                allEntries: entries,
-                emptyIcon: Icons.menu_book_outlined,
-                emptyLabel: 'Aucun téléchargement Manga',
-                queueState: queueState,
-                swipeLeft: swipeLeft,
-                swipeRight: swipeRight,
-                onPauseResume: (e) => _togglePause(e, ref),
-                onCancel: (e) => _cancelDownload(e, ref),
-                onDelete: (e) => _deleteDownload(e),
-                onRetry: (e) => _retryDownload(e, ref, context),
-                onOpen: (e) => _openDownload(e, context),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _buildChipTabBar(
+                  watchCount: watchEntries.length,
+                  mangaCount: mangaEntries.length,
+                  novelCount: novelEntries.length,
+                ),
               ),
-              _DownloadTabList(
-                entries: novelEntries,
-                allEntries: entries,
-                emptyIcon: Icons.auto_stories_outlined,
-                emptyLabel: 'Aucun téléchargement Novel',
-                queueState: queueState,
-                swipeLeft: swipeLeft,
-                swipeRight: swipeRight,
-                onPauseResume: (e) => _togglePause(e, ref),
-                onCancel: (e) => _cancelDownload(e, ref),
-                onDelete: (e) => _deleteDownload(e),
-                onRetry: (e) => _retryDownload(e, ref, context),
-                onOpen: (e) => _openDownload(e, context),
+              const SizedBox(height: 4),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _DownloadTabList(
+                      entries: watchEntries,
+                      allEntries: entries,
+                      emptyIcon: Icons.play_circle_outline,
+                      emptyLabel: 'Aucun téléchargement Watch',
+                      queueState: queueState,
+                      swipeLeft: swipeLeft,
+                      swipeRight: swipeRight,
+                      onPauseResume: (e) => _togglePause(e, ref),
+                      onCancel: (e) => _cancelDownload(e, ref),
+                      onDelete: (e) => _deleteDownload(e),
+                      onRetry: (e) => _retryDownload(e, ref, context),
+                      onOpen: (e) => _openDownload(e, context),
+                    ),
+                    _DownloadTabList(
+                      entries: mangaEntries,
+                      allEntries: entries,
+                      emptyIcon: Icons.menu_book_outlined,
+                      emptyLabel: 'Aucun téléchargement Manga',
+                      queueState: queueState,
+                      swipeLeft: swipeLeft,
+                      swipeRight: swipeRight,
+                      onPauseResume: (e) => _togglePause(e, ref),
+                      onCancel: (e) => _cancelDownload(e, ref),
+                      onDelete: (e) => _deleteDownload(e),
+                      onRetry: (e) => _retryDownload(e, ref, context),
+                      onOpen: (e) => _openDownload(e, context),
+                    ),
+                    _DownloadTabList(
+                      entries: novelEntries,
+                      allEntries: entries,
+                      emptyIcon: Icons.auto_stories_outlined,
+                      emptyLabel: 'Aucun téléchargement Novel',
+                      queueState: queueState,
+                      swipeLeft: swipeLeft,
+                      swipeRight: swipeRight,
+                      onPauseResume: (e) => _togglePause(e, ref),
+                      onCancel: (e) => _cancelDownload(e, ref),
+                      onDelete: (e) => _deleteDownload(e),
+                      onRetry: (e) => _retryDownload(e, ref, context),
+                      onOpen: (e) => _openDownload(e, context),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -377,13 +347,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     if (element.chapter.value != null) {
       final id = element.id ?? -1;
       ref.read(downloadQueueStateProvider.notifier).incrementRetry(id);
-      // Remove paused state if set
       ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
-      // Cancel old engine/task
       ActiveDownloadRegistry.cancel(id);
       DownloadIsolatePool.instance.cancelTask('$id');
       DownloadIsolatePool.instance.cancelTask('m3u8_$id');
-      // Reset progress in Isar
       isar.writeTxnSync(() {
         final dl = isar.downloads.getSync(id);
         if (dl != null) {
@@ -396,6 +363,157 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       });
       ref.read(processDownloadsProvider());
     }
+  }
+
+  Widget _buildChipTabBar({
+    required int watchCount,
+    required int mangaCount,
+    required int novelCount,
+  }) {
+    return AnimatedBuilder(
+      animation: _tabController,
+      builder: (context, _) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _chipTab(0, Icons.play_circle_outline, 'Watch', watchCount),
+              const SizedBox(width: 8),
+              _chipTab(1, Icons.menu_book_outlined, 'Manga', mangaCount),
+              const SizedBox(width: 8),
+              _chipTab(2, Icons.auto_stories_outlined, 'Novel', novelCount),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _chipTab(int index, IconData icon, String label, int count) {
+    final selected = _tabController.index == index;
+    return GestureDetector(
+      onTap: () => setState(() => _tabController.animateTo(index)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? Colors.white54 : Colors.white24,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 14,
+                color: selected ? Colors.white : Colors.white38),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : Colors.white38,
+                fontSize: 13,
+                fontWeight:
+                    selected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: _kTeal,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showGererSheet(
+      BuildContext context, List<Download> entries, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1C),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[700],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            _sheetTile(
+              label: 'Tout mettre en pause',
+              onTap: () {
+                Navigator.pop(context);
+                final ids = entries.map((e) => e.id ?? -1).toList();
+                ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFF2A2A2A)),
+            _sheetTile(
+              label: 'Télécharger en arrière-plan',
+              onTap: () {
+                Navigator.pop(context);
+                botToast('Téléchargement en arrière-plan activé');
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFF2A2A2A)),
+            _sheetTile(
+              label: 'Annuler',
+              textColor: Colors.redAccent,
+              onTap: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetTile({
+    required String label,
+    required VoidCallback onTap,
+    Color textColor = Colors.white,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -469,14 +587,14 @@ class _DownloadTabList extends StatelessWidget {
           children: [
             Icon(
               emptyIcon,
-              size: 56,
-              color: Theme.of(context).colorScheme.outlineVariant,
+              size: 60,
+              color: Colors.white.withValues(alpha: 0.12),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(
               emptyLabel,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.outlineVariant,
+              style: const TextStyle(
+                color: Color(0xFF555555),
                 fontSize: 14,
               ),
             ),
@@ -485,28 +603,11 @@ class _DownloadTabList extends StatelessWidget {
       );
     }
 
-    return GroupedListView<Download, String>(
-      elements: entries,
-      groupBy: (element) => element.chapter.value?.manga.value?.source ?? "",
-      groupSeparatorBuilder: (String groupByValue) {
-        final sourceQueueLength = entries
-            .where((element) =>
-                (element.chapter.value?.manga.value?.source ?? "") ==
-                groupByValue)
-            .length;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-          child: Text(
-            '$groupByValue ($sourceQueueLength)',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        );
-      },
-      itemBuilder: (context, Download element) {
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 80),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final element = entries[index];
         final isPaused = queueState.pausedIds.contains(element.id ?? -1);
         final itemType = element.chapter.value?.manga.value?.itemType;
         final defaultEngineBadge = itemType == ItemType.manga
@@ -514,29 +615,33 @@ class _DownloadTabList extends StatelessWidget {
             : itemType == ItemType.novel
                 ? 'HERMES'
                 : 'HYDRA';
-        final engine = queueState.engineMap[element.id ?? -1] ?? defaultEngineBadge;
-        final retryCount = queueState.retryCounts[element.id ?? -1] ?? 0;
+        final engine =
+            queueState.engineMap[element.id ?? -1] ?? defaultEngineBadge;
+        final retryCount =
+            queueState.retryCounts[element.id ?? -1] ?? 0;
 
-        return _DownloadCard(
-          download: element,
+        return _ProgressiveSwipeable(
           isPaused: isPaused,
-          engine: engine,
-          retryCount: retryCount,
-          swipeLeftAction: swipeLeft,
-          swipeRightAction: swipeRight,
           onPauseResume: () => onPauseResume(element),
           onCancel: () => onCancel(element),
           onDelete: () => onDelete(element),
-          onRetry: () => onRetry(element),
           onOpen: () => onOpen(element),
-          entries: allEntries,
+          child: _DownloadCard(
+            download: element,
+            isPaused: isPaused,
+            engine: engine,
+            retryCount: retryCount,
+            swipeLeftAction: swipeLeft,
+            swipeRightAction: swipeRight,
+            onPauseResume: () => onPauseResume(element),
+            onCancel: () => onCancel(element),
+            onDelete: () => onDelete(element),
+            onRetry: () => onRetry(element),
+            onOpen: () => onOpen(element),
+            entries: allEntries,
+          ),
         );
       },
-      itemComparator: (item1, item2) =>
-          (item1.chapter.value?.manga.value?.source ?? "").compareTo(
-        item2.chapter.value?.manga.value?.source ?? "",
-      ),
-      order: GroupedListOrder.DESC,
     );
   }
 }
@@ -597,26 +702,38 @@ class _DownloadCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final manga = download.chapter.value?.manga.value;
     final chapter = download.chapter.value;
-    final scheme = Theme.of(context).colorScheme;
-    final cardButtons = ref.watch(cardButtonsStateProvider);
     final itemType = manga?.itemType ?? ItemType.manga;
+    final cardButtons = ref.watch(cardButtonsStateProvider);
 
     // Progress calculation
     final succeeded = download.succeeded ?? 0;
     final total = download.total ?? 100;
     final failed = download.failed ?? 0;
     final progress = total > 0 ? succeeded / total : 0.0;
+    final isComplete = download.isDownload ?? false;
+    final hasFailed = failed > 0 && !isComplete;
+    final isPaused = this.isPaused;
 
-    // Progress label — varies by type
-    final String progressLabel = _buildProgressLabel(itemType, succeeded, total, failed);
+    final String statusText = isComplete
+        ? 'Terminé'
+        : hasFailed
+            ? 'Échec'
+            : isPaused
+                ? 'En pause'
+                : progress > 0
+                    ? 'En cours…'
+                    : 'En attente';
+    final Color statusColor = isComplete
+        ? const Color(0xFF1DB954)
+        : hasFailed
+            ? Colors.redAccent
+            : isPaused
+                ? Colors.orange
+                : Colors.white54;
 
     Widget card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: scheme.outlineVariant.withOpacity(0.3)),
-        ),
-      ),
+      color: _kBg,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
           // ── Cover image (left) ──
@@ -625,110 +742,119 @@ class _DownloadCard extends ConsumerWidget {
             customBytes: manga?.customCoverImage?.cast<int>(),
             itemType: itemType,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
 
           // ── Content ──
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Title row + badges
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        manga?.name ?? "",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    _EngineBadge(engine: engine, scheme: scheme),
-                    if (isPaused) ...[
-                      const SizedBox(width: 4),
-                      _PausedBadge(),
-                    ],
-                    if (failed > 0) ...[
-                      const SizedBox(width: 4),
-                      _FailedBadge(count: failed),
-                    ],
-                  ],
+                Text(
+                  manga?.name ?? 'Inconnu',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  chapter?.name ?? "",
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  chapter?.name ?? '',
+                  style: const TextStyle(
+                    color: Color(0xFF9E9E9E),
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                if (retryCount > 0) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Retry #$retryCount',
-                    style: TextStyle(fontSize: 11, color: Colors.orange.shade400),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      '${(progress * 100).toStringAsFixed(0)}% — ${succeeded}/${total}',
+                      style: const TextStyle(
+                          color: Color(0xFF666666), fontSize: 11),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                if (progress > 0 && !isComplete) ...[
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      minHeight: 2,
+                      backgroundColor: const Color(0xFF2A2A2A),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        hasFailed ? Colors.redAccent : _kTeal,
+                      ),
+                    ),
                   ),
                 ],
-                const SizedBox(height: 6),
-                // Progress bar + label
-                _ProgressRow(
-                  progress: progress.clamp(0.0, 1.0),
-                  label: progressLabel,
-                  isPaused: isPaused,
-                  scheme: scheme,
-                ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
 
-          // ── Action buttons ──
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (cardButtons.contains(CardButton.pauseResume))
-                _IconBtn(
-                  icon: isPaused ? Icons.play_arrow : Icons.pause,
-                  tooltip: isPaused ? 'Reprendre' : 'Pause',
-                  color: Colors.orange,
-                  onTap: onPauseResume,
+          // ── Right action button ──
+          GestureDetector(
+            onTap: hasFailed
+                ? onRetry
+                : isPaused
+                    ? onPauseResume
+                    : isComplete
+                        ? onOpen
+                        : onPauseResume,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isComplete
+                    ? const Color(0xFF1DB954).withValues(alpha: 0.15)
+                    : hasFailed
+                        ? Colors.redAccent.withValues(alpha: 0.15)
+                        : const Color(0xFF1DB954).withValues(alpha: 0.15),
+                border: Border.all(
+                  color: isComplete
+                      ? _kTeal.withValues(alpha: 0.5)
+                      : hasFailed
+                          ? Colors.redAccent.withValues(alpha: 0.5)
+                          : _kTeal.withValues(alpha: 0.5),
+                  width: 1,
                 ),
-              if (cardButtons.contains(CardButton.retry))
-                _IconBtn(
-                  icon: Icons.replay,
-                  tooltip: 'Réessayer',
-                  color: scheme.primary,
-                  onTap: onRetry,
-                ),
-              if (cardButtons.contains(CardButton.cancel))
-                _IconBtn(
-                  icon: Icons.close,
-                  tooltip: 'Annuler',
-                  color: scheme.error,
-                  onTap: onCancel,
-                ),
-              if (cardButtons.contains(CardButton.delete))
-                _IconBtn(
-                  icon: Icons.delete_outline,
-                  tooltip: 'Supprimer',
-                  color: scheme.error,
-                  onTap: onDelete,
-                ),
-            ],
+              ),
+              child: Icon(
+                isComplete
+                    ? Icons.folder_open_outlined
+                    : hasFailed
+                        ? Icons.replay
+                        : isPaused
+                            ? Icons.play_arrow_rounded
+                            : Icons.download_rounded,
+                color: isComplete
+                    ? _kTeal
+                    : hasFailed
+                        ? Colors.redAccent
+                        : _kTeal,
+                size: 18,
+              ),
+            ),
           ),
         ],
       ),
-    );
-
-    // Wrap in progressive swipe
-    card = _ProgressiveSwipeable(
-      key: Key('dl_swipe_${download.id}'),
-      isPaused: isPaused,
-      onPauseResume: onPauseResume,
-      onCancel: onCancel,
-      onDelete: onDelete,
-      onOpen: onOpen,
-      child: card,
     );
 
     return card;
