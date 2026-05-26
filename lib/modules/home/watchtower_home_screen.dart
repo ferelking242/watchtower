@@ -190,13 +190,11 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     );
   }
 
-  // ── Continue-watching items (Sprint 1 placeholder from recently-updated) ────
+  // ── Continue-watching items — hidden until real Isar history is plugged in ──
 
   List<AnilistMedia> _continueItems(AnilistHome home) {
-    return home.recentlyUpdatedAnimes
-        .where((m) => m.bestCover != null)
-        .take(12)
-        .toList();
+    // Returning empty hides the section; real history requires Isar integration
+    return [];
   }
 
   // ── Hero items ─────────────────────────────────────────────────────────────
