@@ -32,7 +32,7 @@ import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:marquee/marquee.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:flutter_popup/flutter_popup.dart';
 
 class MangaHomeScreen extends ConsumerStatefulWidget {
   final Source source;
@@ -281,84 +281,88 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                   },
                   icon: Icon(Icons.search, color: Theme.of(context).hintColor),
                 ),
-          ArrowPopupMenuButton(
-            popUpAnimationStyle: popupAnimationStyle,
-            icon: Icon(displayTypeIcon),
-            itemBuilder: (context) {
-              final displayType = ref.watch(mangaHomeDisplayTypeStateProvider);
-              final displayTypeNotifier = ref.read(
-                mangaHomeDisplayTypeStateProvider.notifier,
-              );
-              return [
-                PopupMenuItem<int>(
-                  value: 0,
-                  child: RadioGroup(
-                    groupValue: displayType,
-                    onChanged: (a) {
-                      context.pop();
-                      displayTypeNotifier.setMangaHomeDisplayType(a!);
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RadioListTile(
-                          title: Text(context.l10n.comfortable_grid),
-                          value: DisplayType.comfortableGrid,
-                        ),
-                        RadioListTile(
-                          title: Text(context.l10n.compact_grid),
-                          value: DisplayType.compactGrid,
-                        ),
-                        RadioListTile(
-                          title: Text(context.l10n.list),
-                          value: DisplayType.list,
-                        ),
-                      ],
-                    ),
+          CustomPopup(
+            contentPadding: EdgeInsets.zero,
+            content: Consumer(
+              builder: (ctx, ref2, _) {
+                final displayType =
+                    ref2.watch(mangaHomeDisplayTypeStateProvider);
+                final notifier = ref2
+                    .read(mangaHomeDisplayTypeStateProvider.notifier);
+                return IntrinsicWidth(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RadioListTile(
+                        title: Text(ctx.l10n.comfortable_grid),
+                        value: DisplayType.comfortableGrid,
+                        groupValue: displayType,
+                        onChanged: (v) =>
+                            notifier.setMangaHomeDisplayType(v!),
+                      ),
+                      RadioListTile(
+                        title: Text(ctx.l10n.compact_grid),
+                        value: DisplayType.compactGrid,
+                        groupValue: displayType,
+                        onChanged: (v) =>
+                            notifier.setMangaHomeDisplayType(v!),
+                      ),
+                      RadioListTile(
+                        title: Text(ctx.l10n.list),
+                        value: DisplayType.list,
+                        groupValue: displayType,
+                        onChanged: (v) =>
+                            notifier.setMangaHomeDisplayType(v!),
+                      ),
+                    ],
                   ),
-                ),
-              ];
-            },
-            onSelected: (value) {},
+                );
+              },
+            ),
+            child: Icon(displayTypeIcon, color: Theme.of(context).hintColor),
           ),
           if (!isLocal)
-            ArrowPopupMenuButton(
-              popUpAnimationStyle: popupAnimationStyle,
-              itemBuilder: (context) {
-                return [
-                  PopupMenuItem<int>(
-                    value: 0,
-                    child: Text(context.l10n.open_in_browser),
+            Builder(
+              builder: (ctx) => CustomPopup(
+                contentPadding: EdgeInsets.zero,
+                content: IntrinsicWidth(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.open_in_browser_rounded),
+                        title: Text(ctx.l10n.open_in_browser),
+                        onTap: () {
+                          final baseUrl = ref.read(
+                            sourceBaseUrlProvider(source: source),
+                          );
+                          final data = {
+                            'url': baseUrl,
+                            'sourceId': source.id.toString(),
+                            'title': '',
+                          };
+                          ctx.push("/mangawebview", extra: data);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.settings_outlined),
+                        title: Text(ctx.l10n.settings),
+                        onTap: () async {
+                          final res = await ctx.push(
+                            '/extension_detail',
+                            extra: source,
+                          );
+                          if (res != null && mounted) {
+                            setState(() => source = res as Source);
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                  PopupMenuItem<int>(
-                    value: 1,
-                    child: Text(context.l10n.settings),
-                  ),
-                ];
-              },
-              onSelected: (value) async {
-                if (value == 0) {
-                  final baseUrl = ref.watch(
-                    sourceBaseUrlProvider(source: source),
-                  );
-                  Map<String, dynamic> data = {
-                    'url': baseUrl,
-                    'sourceId': source.id.toString(),
-                    'title': '',
-                  };
-                  context.push("/mangawebview", extra: data);
-                } else {
-                  final res = await context.push(
-                    '/extension_detail',
-                    extra: source,
-                  );
-                  if (res != null && mounted) {
-                    setState(() {
-                      source = res as Source;
-                    });
-                  }
-                }
-              },
+                ),
+                child:
+                    Icon(Icons.more_vert, color: Theme.of(ctx).hintColor),
+              ),
             ),
         ],
         bottom: PreferredSize(
