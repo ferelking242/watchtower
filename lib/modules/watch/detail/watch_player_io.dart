@@ -12,7 +12,7 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 class WatchInlinePlayer {
   static const _teal = Color(0xFF1DB954);
 
-  final Player _player;
+  late final Player _player;
   late final VideoController _controller;
 
   bool hasVideoUrl = false;
