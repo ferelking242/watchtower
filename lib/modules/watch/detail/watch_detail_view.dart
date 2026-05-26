@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
@@ -19,13 +18,13 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
-import 'package:watchtower/services/get_video_list.dart';
+
+// Conditional import: native uses media_kit, web uses an empty stub.
+import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
 /// Dedicated detail page for watch/video content (films, series).
 /// Portrait: inline auto-play player in banner area.
-/// Landscape: fullscreen player.
+/// Landscape: full-screen player.
 class WatchDetailView extends ConsumerStatefulWidget {
   final Manga manga;
   final bool sourceExist;
@@ -48,12 +47,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     with TickerProviderStateMixin {
   late final TabController _tabController;
   bool _isDescriptionExpanded = false;
-
-  // ── Inline video player ──────────────────────────────────────────────────────
-  Player? _player;
-  VideoController? _videoController;
-  bool _hasVideoUrl = false;
-  int? _loadedChapterId;
+  late final WatchInlinePlayer _player;
 
   static const _teal = Color(0xFF1DB954);
   static const _bg = Color(0xFF0E0E0E);
@@ -64,46 +58,28 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    if (!kIsWeb) {
-      _player = Player();
-      _videoController = VideoController(_player!);
-    }
+    _player = WatchInlinePlayer();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _player?.dispose();
+    _player.dispose();
     super.dispose();
   }
 
-  // ─── VIDEO LOADING ──────────────────────────────────────────────────────────
+  // ─── VIDEO TRIGGER ──────────────────────────────────────────────────────────
 
   void _maybeStartVideo(List<Chapter> chapters) {
-    if (kIsWeb || _player == null || chapters.isEmpty) return;
+    if (chapters.isEmpty) return;
     final chapterId = chapters.first.id;
-    if (_loadedChapterId == chapterId) return;
-    _loadedChapterId = chapterId;
+    if (_player.loadedChapterId == chapterId) return;
+    _player.loadedChapterId = chapterId; // guard: prevent double-schedule
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      try {
-        final data = await ref.read(
-          getVideoListProvider(episode: chapters.first).future,
-        );
-        if (!mounted) return;
-        final (videos, _, __, ___) = data;
-        if (videos.isNotEmpty) {
-          final v = videos.first;
-          await _player!.open(
-            Media(v.url, httpHeaders: v.headers),
-            play: true,
-          );
-          if (mounted) setState(() => _hasVideoUrl = true);
-        }
-      } catch (_) {
-        // Silently fall back to poster image
-      }
+      await _player.load(ref: ref, chapter: chapters.first);
+      if (_player.hasVideoUrl && mounted) setState(() {});
     });
   }
 
@@ -164,7 +140,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           error: (_, __) => <Chapter>[],
         );
 
-    // Kick off video load (deferred, guarded by _loadedChapterId)
     _maybeStartVideo(chapters);
 
     final isLandscape =
@@ -187,36 +162,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   Widget _buildFullscreenLandscape(List<Chapter> chapters) {
     return Stack(
       children: [
-        if (!kIsWeb && _videoController != null)
-          SizedBox.expand(
-            child: Video(
-              controller: _videoController!,
-              fit: BoxFit.contain,
-              controls: MaterialVideoControls,
-            ),
-          )
-        else ...[
-          SizedBox(
-            width: 280,
-            height: double.infinity,
-            child: _buildBannerImage(),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              children: [
-                _buildTitleRow(),
-                const SizedBox(height: 6),
-                _buildMetaRow(),
-                const SizedBox(height: 10),
-                if ((widget.manga.description ?? '').isNotEmpty)
-                  _buildDescription(),
-                const SizedBox(height: 14),
-                _buildActionButtons(chapters),
-              ],
-            ),
-          ),
-        ],
+        if (_player.hasVideoUrl)
+          SizedBox.expand(child: _player.buildFullscreenPlayer())
+        else
+          SizedBox.expand(child: _buildBannerImage()),
         SafeArea(
           child: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -232,7 +181,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   Widget _buildPortrait(List<Chapter> chapters) {
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        // ── Player banner ──
         SliverAppBar(
           expandedHeight: 230,
           pinned: true,
@@ -263,13 +211,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             background: _buildPlayerBanner(chapters),
           ),
         ),
-
-        // ── Metadata + actions + episodes ──
         SliverToBoxAdapter(
           child: _buildMetadataBlock(chapters),
         ),
-
-        // ── Pinned TabBar ──
         SliverPersistentHeader(
           pinned: true,
           delegate: _TabBarDelegate(
@@ -304,19 +248,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Poster always shown as background / placeholder
+        // Poster always visible as background / placeholder
         _buildBannerImage(),
 
-        // Inline video player — overlaid once URL is ready (native only)
-        if (!kIsWeb && _videoController != null && _hasVideoUrl)
-          Video(
-            controller: _videoController!,
-            fit: BoxFit.cover,
-            controls: NoVideoControls,
-          ),
+        // Inline video overlay (native only — stub returns SizedBox on web)
+        _player.buildBannerOverlay(context: context, chapters: chapters),
 
-        // Loading spinner while fetching video URL
-        if (!kIsWeb && chapters.isNotEmpty && !_hasVideoUrl)
+        // Loading spinner while fetching URL
+        if (!_player.hasVideoUrl && chapters.isNotEmpty)
           const Center(
             child: SizedBox(
               width: 36,
@@ -328,7 +267,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
           ),
 
-        // Bottom gradient
+        // Bottom gradient (always on top of video)
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -344,34 +283,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
           ),
         ),
-
-        // Fullscreen button (tap to open full player)
-        if (!kIsWeb && _hasVideoUrl && chapters.isNotEmpty)
-          Positioned(
-            bottom: 10,
-            right: 10,
-            child: GestureDetector(
-              onTap: () => chapters.first
-                  .pushToReaderView(context, ignoreIsRead: true),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(
-                  Icons.fullscreen,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
 
-  // ─── BANNER IMAGE (poster fallback) ─────────────────────────────────────────
+  // ─── BANNER IMAGE (poster / fallback) ───────────────────────────────────────
 
   Widget _buildBannerImage() {
     final manga = widget.manga;
@@ -447,10 +363,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           onTap: () {},
           child: const Row(
             children: [
-              Text(
-                'Info',
-                style: TextStyle(color: _teal, fontSize: 13),
-              ),
+              Text('Info', style: TextStyle(color: _teal, fontSize: 13)),
               Icon(Icons.chevron_right, color: _teal, size: 18),
             ],
           ),
@@ -500,11 +413,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             overflow: _isDescriptionExpanded
                 ? TextOverflow.visible
                 : TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _grey,
-              fontSize: 13,
-              height: 1.45,
-            ),
+            style: const TextStyle(color: _grey, fontSize: 13, height: 1.45),
           ),
           const SizedBox(height: 4),
           Text(
@@ -575,8 +484,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 17, color: active ? _teal : Colors.white70),
+            Icon(icon, size: 17, color: active ? _teal : Colors.white70),
             const SizedBox(width: 6),
             Text(
               label,
@@ -592,10 +500,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── EPISODES SECTION ───────────────────────────────────────────────────────
-  // Replaces the old "Ressources/Film" block.
   // • 0 chapters  → empty state
-  // • 1 chapter   → compact play row (movie-style)
-  // • >1 chapters → section header + full episode list (series)
+  // • 1 chapter   → compact play row (film/OVA)
+  // • >1 chapters → full episode list (series)
 
   Widget _buildEpisodesSection(List<Chapter> chapters) {
     final source = getSource(
@@ -610,8 +517,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Column(
             children: [
-              Icon(Icons.video_library_outlined,
-                  color: Colors.grey, size: 40),
+              Icon(Icons.video_library_outlined, color: Colors.grey, size: 40),
               SizedBox(height: 8),
               Text(
                 'Aucun épisode disponible',
@@ -623,12 +529,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       );
     }
 
-    // ── Movie: single compact row ────────────────────────────────────────────
+    // Film / OVA — compact single row
     if (chapters.length == 1) {
       return _buildCompactSingleEpisode(chapters.first, source?.name);
     }
 
-    // ── Series: full episode list ────────────────────────────────────────────
+    // Série — full list
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -657,7 +563,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // Compact single-episode row (films / OVAs)
+  /// Compact row for a single-episode item (film, OVA, special).
   Widget _buildCompactSingleEpisode(Chapter chapter, String? sourceName) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,11 +606,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     const SizedBox(width: 8),
                     Text(
                       chapter.duration!,
-                      style: const TextStyle(
-                          color: _grey, fontSize: 12),
+                      style: const TextStyle(color: _grey, fontSize: 12),
                     ),
                   ],
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.download_outlined,
                         color: Colors.white54, size: 20),
@@ -720,7 +625,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // Individual episode tile (used in series list)
+  /// Individual episode tile used in the full series list.
   Widget _buildEpisodeTile(Chapter chapter) {
     final watched = chapter.isRead ?? false;
     final hasThumb = (chapter.thumbnailUrl ?? '').isNotEmpty;
@@ -745,7 +650,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
             child: Row(
               children: [
-                // Thumbnail or play icon
                 ClipRRect(
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(9),
@@ -791,10 +695,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         const SizedBox(height: 3),
                         Text(
                           chapter.duration!,
-                          style: const TextStyle(
-                            color: _grey,
-                            fontSize: 11,
-                          ),
+                          style:
+                              const TextStyle(color: _grey, fontSize: 11),
                         ),
                       ],
                     ],
@@ -852,7 +754,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
           SizedBox(height: 6),
           Text(
-            'Les commentaires sont affichés si l\'extension les fournit',
+            'Les commentaires affichés si l\'extension les fournit',
             style: TextStyle(color: Color(0xFF555555), fontSize: 12),
           ),
         ],
@@ -943,8 +845,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
                         side: const BorderSide(color: Color(0xFF444444)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 13),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -959,8 +860,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _teal,
                         foregroundColor: Colors.white,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 13),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1109,15 +1009,15 @@ class _DownloadSheetState extends State<_DownloadSheet> {
             const Text(
               'Télécharger',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700),
             ),
             const Spacer(),
             GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: const Icon(Icons.close, color: Colors.white54, size: 22),
+              child:
+                  const Icon(Icons.close, color: Colors.white54, size: 22),
             ),
           ],
         ),
@@ -1133,28 +1033,22 @@ class _DownloadSheetState extends State<_DownloadSheet> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(10),
-      ),
+          color: _card, borderRadius: BorderRadius.circular(10)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text(
-                'Ressources',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600),
-              ),
+              const Text('Ressources',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600)),
               if (source != null) ...[
                 const SizedBox(width: 6),
-                Text(
-                  'via ${source.name}',
-                  style:
-                      const TextStyle(color: Color(0xFF9E9E9E), fontSize: 12),
-                ),
+                Text('via ${source.name}',
+                    style: const TextStyle(
+                        color: Color(0xFF9E9E9E), fontSize: 12)),
               ],
             ],
           ),
@@ -1176,14 +1070,14 @@ class _DownloadSheetState extends State<_DownloadSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFF303030),
-        borderRadius: BorderRadius.circular(8),
-      ),
+          color: const Color(0xFF303030),
+          borderRadius: BorderRadius.circular(8)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              style:
+                  const TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(width: 4),
           Icon(icon, color: Colors.white54, size: 16),
         ],
@@ -1203,8 +1097,8 @@ class _DownloadSheetState extends State<_DownloadSheet> {
               onTap: () => setState(() => _selectedQuality = q),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: sel ? _teal : const Color(0xFF2A2A2A),
                   borderRadius: BorderRadius.circular(6),
@@ -1254,16 +1148,13 @@ class _DownloadSheetState extends State<_DownloadSheet> {
             Expanded(
               child: Text(
                 chapter.name ?? 'Épisode ${index + 1}',
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 14),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
               ),
             ),
             Text(
-              chapter.duration?.isNotEmpty == true
-                  ? chapter.duration!
-                  : '',
-              style: const TextStyle(
-                  color: Color(0xFF666666), fontSize: 12),
+              chapter.duration?.isNotEmpty == true ? chapter.duration! : '',
+              style:
+                  const TextStyle(color: Color(0xFF666666), fontSize: 12),
             ),
           ],
         ),
@@ -1285,8 +1176,8 @@ class _DownloadSheetState extends State<_DownloadSheet> {
               onTap: () => setState(() {
                 _selectAll = !_selectAll;
                 if (_selectAll) {
-                  _selected.addAll(
-                      List.generate(chapters.length, (i) => i));
+                  _selected
+                      .addAll(List.generate(chapters.length, (i) => i));
                 } else {
                   _selected.clear();
                 }
@@ -1304,8 +1195,8 @@ class _DownloadSheetState extends State<_DownloadSheet> {
                   ),
                   const SizedBox(width: 8),
                   const Text('Tout sélectionner',
-                      style:
-                          TextStyle(color: Colors.white70, fontSize: 14)),
+                      style: TextStyle(
+                          color: Colors.white70, fontSize: 14)),
                 ],
               ),
             ),
@@ -1313,8 +1204,8 @@ class _DownloadSheetState extends State<_DownloadSheet> {
             ElevatedButton.icon(
               onPressed: _selected.isEmpty
                   ? null
-                  : () => widget
-                      .onDownload(_selected.map((i) => chapters[i]).toList()),
+                  : () => widget.onDownload(
+                      _selected.map((i) => chapters[i]).toList()),
               icon: const Icon(Icons.download_outlined, size: 18),
               label: Text(_selected.isEmpty
                   ? 'Télécharger'
@@ -1326,8 +1217,7 @@ class _DownloadSheetState extends State<_DownloadSheet> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
@@ -1353,9 +1243,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return ColoredBox(color: color, child: tabBar);
-  }
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      ColoredBox(color: color, child: tabBar);
 
   @override
   bool shouldRebuild(_TabBarDelegate old) =>
