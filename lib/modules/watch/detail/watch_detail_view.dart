@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
@@ -18,10 +19,13 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+import 'package:watchtower/services/get_video_list.dart';
 
 /// Dedicated detail page for watch/video content (films, series).
-/// Renders the MovieBox-style UI with banner, metadata, episode buttons,
-/// tab bar (Pour vous / Commentaires) and landscape support.
+/// Portrait: inline auto-play player in banner area.
+/// Landscape: fullscreen player.
 class WatchDetailView extends ConsumerStatefulWidget {
   final Manga manga;
   final bool sourceExist;
@@ -43,39 +47,64 @@ class WatchDetailView extends ConsumerStatefulWidget {
 class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     with TickerProviderStateMixin {
   late final TabController _tabController;
+  bool _isDescriptionExpanded = false;
+
+  // ── Inline video player ──────────────────────────────────────────────────────
+  Player? _player;
+  VideoController? _videoController;
+  bool _hasVideoUrl = false;
+  int? _loadedChapterId;
 
   static const _teal = Color(0xFF1DB954);
   static const _bg = Color(0xFF0E0E0E);
   static const _card = Color(0xFF1A1A1A);
   static const _grey = Color(0xFF9E9E9E);
 
-  String? _selectedSeason;
-  String? _selectedLanguage;
-  bool _autoplayed = false;
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-  }
-
-  void _maybeAutoplay(List<Chapter> chapters) {
-    if (_autoplayed) return;
-    if (widget.isLoading) return;
-    if (!_isMovie(chapters)) return;
-    if (chapters.isEmpty) return;
-    _autoplayed = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        chapters.first.pushToReaderView(context, ignoreIsRead: true);
-      }
-    });
+    if (!kIsWeb) {
+      _player = Player();
+      _videoController = VideoController(_player!);
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _player?.dispose();
     super.dispose();
+  }
+
+  // ─── VIDEO LOADING ──────────────────────────────────────────────────────────
+
+  void _maybeStartVideo(List<Chapter> chapters) {
+    if (kIsWeb || _player == null || chapters.isEmpty) return;
+    final chapterId = chapters.first.id;
+    if (_loadedChapterId == chapterId) return;
+    _loadedChapterId = chapterId;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        final data = await ref.read(
+          getVideoListProvider(episode: chapters.first).future,
+        );
+        if (!mounted) return;
+        final (videos, _, __, ___) = data;
+        if (videos.isNotEmpty) {
+          final v = videos.first;
+          await _player!.open(
+            Media(v.url, httpHeaders: v.headers),
+            play: true,
+          );
+          if (mounted) setState(() => _hasVideoUrl = true);
+        }
+      } catch (_) {
+        // Silently fall back to poster image
+      }
+    });
   }
 
   // ─── ACTIONS ────────────────────────────────────────────────────────────────
@@ -135,16 +164,66 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           error: (_, __) => <Chapter>[],
         );
 
-    _maybeAutoplay(chapters);
+    // Kick off video load (deferred, guarded by _loadedChapterId)
+    _maybeStartVideo(chapters);
 
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
+    if (isLandscape) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: _buildFullscreenLandscape(chapters),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: _bg,
-      body: isLandscape
-          ? _buildLandscape(chapters)
-          : _buildPortrait(chapters),
+      body: _buildPortrait(chapters),
+    );
+  }
+
+  // ─── FULLSCREEN LANDSCAPE ───────────────────────────────────────────────────
+
+  Widget _buildFullscreenLandscape(List<Chapter> chapters) {
+    return Stack(
+      children: [
+        if (!kIsWeb && _videoController != null)
+          SizedBox.expand(
+            child: Video(
+              controller: _videoController!,
+              fit: BoxFit.contain,
+              controls: MaterialVideoControls,
+            ),
+          )
+        else ...[
+          SizedBox(
+            width: 280,
+            height: double.infinity,
+            child: _buildBannerImage(),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              children: [
+                _buildTitleRow(),
+                const SizedBox(height: 6),
+                _buildMetaRow(),
+                const SizedBox(height: 10),
+                if ((widget.manga.description ?? '').isNotEmpty)
+                  _buildDescription(),
+                const SizedBox(height: 14),
+                _buildActionButtons(chapters),
+              ],
+            ),
+          ),
+        ],
+        SafeArea(
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -153,12 +232,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   Widget _buildPortrait(List<Chapter> chapters) {
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        // ── Banner ──
+        // ── Player banner ──
         SliverAppBar(
           expandedHeight: 230,
           pinned: true,
-          backgroundColor: _bg,
-          automaticallyImplyLeading: false,
+          backgroundColor: Colors.black,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           actions: [
             if (widget.isLoading)
               const Padding(
@@ -178,11 +260,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
           ],
           flexibleSpace: FlexibleSpaceBar(
-            background: _buildBanner(),
+            background: _buildPlayerBanner(chapters),
           ),
         ),
 
-        // ── Metadata + actions + ressources ──
+        // ── Metadata + actions + episodes ──
         SliverToBoxAdapter(
           child: _buildMetadataBlock(chapters),
         ),
@@ -216,78 +298,39 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // ─── LANDSCAPE ──────────────────────────────────────────────────────────────
+  // ─── PLAYER BANNER ──────────────────────────────────────────────────────────
 
-  Widget _buildLandscape(List<Chapter> chapters) {
-    return Row(
-      children: [
-        // Left – thumbnail
-        Stack(
-          children: [
-            SizedBox(width: 280, height: double.infinity, child: _buildBanner()),
-            SafeArea(
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
-        ),
-
-        // Right – scrollable content
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            children: [
-              _buildTitleRow(),
-              const SizedBox(height: 6),
-              _buildMetaRow(),
-              const SizedBox(height: 10),
-                _buildActionButtons(chapters),
-              const SizedBox(height: 18),
-              _buildRessourcesSection(chapters),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── BANNER ─────────────────────────────────────────────────────────────────
-
-  Widget _buildBanner() {
-    final manga = widget.manga;
-    final headers = (manga.isLocalArchive ?? false)
-        ? null
-        : ref.watch(headersProvider(
-            source: manga.source!,
-            lang: manga.lang!,
-            sourceId: manga.sourceId,
-          ));
-    final imgUrl =
-        toImgUrl(manga.customCoverFromTracker ?? manga.imageUrl ?? '');
-
-    Widget img = manga.customCoverImage != null
-        ? Image.memory(
-            manga.customCoverImage as Uint8List,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-          )
-        : cachedNetworkImage(
-            headers: headers,
-            imageUrl: imgUrl,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-          );
-
+  Widget _buildPlayerBanner(List<Chapter> chapters) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        img,
-        DecoratedBox(
-          decoration: const BoxDecoration(
+        // Poster always shown as background / placeholder
+        _buildBannerImage(),
+
+        // Inline video player — overlaid once URL is ready (native only)
+        if (!kIsWeb && _videoController != null && _hasVideoUrl)
+          Video(
+            controller: _videoController!,
+            fit: BoxFit.cover,
+            controls: NoVideoControls,
+          ),
+
+        // Loading spinner while fetching video URL
+        if (!kIsWeb && chapters.isNotEmpty && !_hasVideoUrl)
+          const Center(
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: _teal,
+              ),
+            ),
+          ),
+
+        // Bottom gradient
+        const DecoratedBox(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -301,7 +344,61 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
           ),
         ),
+
+        // Fullscreen button (tap to open full player)
+        if (!kIsWeb && _hasVideoUrl && chapters.isNotEmpty)
+          Positioned(
+            bottom: 10,
+            right: 10,
+            child: GestureDetector(
+              onTap: () => chapters.first
+                  .pushToReaderView(context, ignoreIsRead: true),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.fullscreen,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
       ],
+    );
+  }
+
+  // ─── BANNER IMAGE (poster fallback) ─────────────────────────────────────────
+
+  Widget _buildBannerImage() {
+    final manga = widget.manga;
+    final headers = (manga.isLocalArchive ?? false)
+        ? null
+        : ref.watch(headersProvider(
+            source: manga.source!,
+            lang: manga.lang!,
+            sourceId: manga.sourceId,
+          ));
+    final imgUrl =
+        toImgUrl(manga.customCoverFromTracker ?? manga.imageUrl ?? '');
+
+    if (manga.customCoverImage != null) {
+      return Image.memory(
+        manga.customCoverImage as Uint8List,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    }
+    return cachedNetworkImage(
+      headers: headers,
+      imageUrl: imgUrl,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
     );
   }
 
@@ -317,9 +414,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           const SizedBox(height: 6),
           _buildMetaRow(),
           const SizedBox(height: 10),
+          if ((widget.manga.description ?? '').isNotEmpty) _buildDescription(),
+          const SizedBox(height: 14),
           _buildActionButtons(chapters),
           const SizedBox(height: 20),
-          _buildRessourcesSection(chapters),
+          _buildEpisodesSection(chapters),
           const SizedBox(height: 8),
         ],
       ),
@@ -345,7 +444,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
         const SizedBox(width: 8),
         GestureDetector(
-          onTap: () => _showInfoSheet(context),
+          onTap: () {},
           child: const Row(
             children: [
               Text(
@@ -368,60 +467,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     if (author.isNotEmpty) parts.add(author);
     final genres = widget.manga.genre?.take(3).toList() ?? [];
     parts.addAll(genres);
+    if (parts.isEmpty) return const SizedBox.shrink();
 
     return Row(
       children: [
-        // Type pill: Série or Film
-        Builder(builder: (_) {
-          final chapters = ref
-              .watch(getChaptersStreamProvider(mangaId: widget.manga.id!))
-              .when(
-                data: (list) => list,
-                loading: () => widget.manga.chapters.toList(),
-                error: (_, __) => <Chapter>[],
-              );
-          final isMovie = _isMovie(chapters);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(
-              color: isMovie
-                  ? const Color(0xFF2A1A0A)
-                  : const Color(0xFF0A1A2A),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(
-                color: isMovie
-                    ? const Color(0xFFE87820).withValues(alpha: 0.7)
-                    : _teal.withValues(alpha: 0.7),
-                width: 0.8,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isMovie ? Icons.movie_outlined : Icons.live_tv_outlined,
-                  size: 11,
-                  color: isMovie ? const Color(0xFFE87820) : _teal,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  isMovie ? 'Film' : 'Série',
-                  style: TextStyle(
-                    color: isMovie ? const Color(0xFFE87820) : _teal,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-        const SizedBox(width: 8),
-        const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 14),
-        const SizedBox(width: 4),
+        const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 15),
+        const SizedBox(width: 5),
         Expanded(
           child: Text(
-            parts.isEmpty ? '' : parts.join('  ·  '),
+            parts.join('  ·  '),
             style: const TextStyle(color: _grey, fontSize: 12),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -431,173 +485,35 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // ─── INFO SHEET (description + all metadata) ────────────────────────────────
+  // ─── DESCRIPTION ────────────────────────────────────────────────────────────
 
-  void _showInfoSheet(BuildContext context) {
-    final manga = widget.manga;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A1A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.75,
-        minChildSize: 0.4,
-        maxChildSize: 0.95,
-        builder: (_, ctrl) => ListView(
-          controller: ctrl,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-          children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[700],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            // Title
-            Text(
-              manga.name ?? '',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Synopsis
-            if ((manga.description ?? '').isNotEmpty) ...[
-              const Text(
-                'Synopsis',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                manga.description ?? '',
-                style: const TextStyle(
-                  color: _grey,
-                  fontSize: 13,
-                  height: 1.55,
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-            // Info rows
-            const Text(
-              'Informations',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _infoRow('Statut', _statusLabel(manga.status)),
-            if ((manga.author ?? '').isNotEmpty)
-              _infoRow('Auteur', manga.author!),
-            if ((manga.artist ?? '').isNotEmpty)
-              _infoRow('Artiste', manga.artist!),
-            if ((manga.source ?? '').isNotEmpty)
-              _infoRow('Source', manga.source!),
-            if ((manga.lang ?? '').isNotEmpty)
-              _infoRow('Langue', manga.lang!.toUpperCase()),
-            // Genres
-            if ((manga.genre?.isNotEmpty ?? false)) ...[
-              const SizedBox(height: 16),
-              const Text(
-                'Genres',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final g in (manga.genre ?? []))
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2A),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: _teal.withValues(alpha: 0.4),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        g,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+  Widget _buildDescription() {
+    return GestureDetector(
+      onTap: () =>
+          setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: const TextStyle(color: _grey, fontSize: 13),
+          Text(
+            widget.manga.description ?? '',
+            maxLines: _isDescriptionExpanded ? null : 3,
+            overflow: _isDescriptionExpanded
+                ? TextOverflow.visible
+                : TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _grey,
+              fontSize: 13,
+              height: 1.45,
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
+          const SizedBox(height: 4),
+          Text(
+            _isDescriptionExpanded ? 'Réduire' : 'Lire plus',
+            style: const TextStyle(color: _teal, fontSize: 12),
           ),
         ],
       ),
     );
-  }
-
-  String _statusLabel(dynamic status) {
-    switch (status?.toString()) {
-      case '0':
-        return 'En cours';
-      case '1':
-        return 'Terminé';
-      case '2':
-        return 'Licencié';
-      case '3':
-        return 'Annulé';
-      case '4':
-        return 'En pause';
-      default:
-        return 'Inconnu';
-    }
   }
 
   // ─── ACTION BUTTONS ─────────────────────────────────────────────────────────
@@ -609,8 +525,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       child: Row(
         children: [
           _chip(
-            icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
-            label: isFav ? 'Dans ma liste' : 'Ajouter à ma liste',
+            icon: isFav ? Icons.playlist_add_check : Icons.playlist_add,
+            label: isFav ? 'Dans la liste' : 'Ajouter à la liste',
             onTap: _toggleFavorite,
             active: isFav,
           ),
@@ -628,9 +544,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
           const SizedBox(width: 8),
           _chip(
-            icon: Icons.download_for_offline_outlined,
-            label: 'Voir le téléchargement',
-            onTap: () => Navigator.of(context).pushNamed('/downloadQueue'),
+            icon: Icons.tv_outlined,
+            label: 'Voir le télé',
+            onTap: () => botToast('Cast non disponible'),
           ),
         ],
       ),
@@ -675,125 +591,59 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // ─── MOVIE / SERIES DETECTION ───────────────────────────────────────────────
+  // ─── EPISODES SECTION ───────────────────────────────────────────────────────
+  // Replaces the old "Ressources/Film" block.
+  // • 0 chapters  → empty state
+  // • 1 chapter   → compact play row (movie-style)
+  // • >1 chapters → section header + full episode list (series)
 
-  bool _isMovie(List<Chapter> chapters) {
-    // Never guess "movie" while chapters are still loading
-    // (prevents series like Naruto from appearing as "Film" during load)
-    if (widget.isLoading) return false;
-    if (chapters.isEmpty) return false;
-    // Genre must be an exact token match — not a substring — to avoid false positives
-    final genres = (widget.manga.genre ?? [])
-        .map((g) => g.toLowerCase().trim())
-        .toList();
-    if (genres.contains('film') || genres.contains('movie')) return true;
-    // Single chapter after a full load → treat as movie/special
-    if (chapters.length == 1) return true;
-    return false;
-  }
-
-  /// Returns distinct season keys found in chapter names.
-  /// e.g. ["Saison 1", "Saison 2"] or ["S01", "S02"]
-  List<String> _detectSeasons(List<Chapter> chapters) {
-    final seasonRegex = RegExp(
-        r'(?:Saison|Season|Partie|Part)\s*(\d+)|S(\d{1,2})(?:E\d+)?',
-        caseSensitive: false);
-    final seen = <String>{};
-    for (final ch in chapters) {
-      final name = ch.name ?? '';
-      final match = seasonRegex.firstMatch(name);
-      if (match != null) {
-        final num = match.group(1) ?? match.group(2) ?? '1';
-        seen.add('Saison $num');
-      }
-    }
-    if (seen.isEmpty && chapters.isNotEmpty) return [];
-    final sorted = seen.toList()
-      ..sort((a, b) {
-        final na = int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
-        final nb = int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
-        return na.compareTo(nb);
-      });
-    return sorted;
-  }
-
-  /// Returns distinct audio/language tracks from scanlator field.
-  List<String> _detectLanguages(List<Chapter> chapters) {
-    final langPatterns = RegExp(
-        r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA)\b',
-        caseSensitive: false);
-    final seen = <String>{};
-    for (final ch in chapters) {
-      final scan = ch.scanlator ?? '';
-      final name = ch.name ?? '';
-      for (final m in langPatterns.allMatches('$scan $name')) {
-        seen.add(m.group(0)!.toUpperCase());
-      }
-    }
-    return seen.toList();
-  }
-
-  /// Filter chapters by selected season + language.
-  List<Chapter> _filterChapters(List<Chapter> all) {
-    List<Chapter> result = all;
-    final season = _selectedSeason;
-    if (season != null) {
-      final num = RegExp(r'\d+').firstMatch(season)?.group(0) ?? '';
-      final seasonRegex = RegExp(
-          r'(?:Saison|Season|Partie|Part)\s*' + num + r'|S' + num.padLeft(2, '0'),
-          caseSensitive: false);
-      result = result
-          .where((ch) => seasonRegex.hasMatch(ch.name ?? ''))
-          .toList();
-      if (result.isEmpty) result = all; // fallback
-    }
-    final lang = _selectedLanguage;
-    if (lang != null) {
-      final filtered = result
-          .where((ch) =>
-              (ch.scanlator ?? '').toUpperCase().contains(lang) ||
-              (ch.name ?? '').toUpperCase().contains(lang))
-          .toList();
-      if (filtered.isNotEmpty) result = filtered;
-    }
-    return result;
-  }
-
-  // ─── RESSOURCES / EPISODES ──────────────────────────────────────────────────
-
-  Widget _buildRessourcesSection(List<Chapter> chapters) {
-    final isMovie = _isMovie(chapters);
-    final seasons = isMovie ? <String>[] : _detectSeasons(chapters);
-    final languages = _detectLanguages(chapters);
-    final filtered = _filterChapters(chapters);
-
+  Widget _buildEpisodesSection(List<Chapter> chapters) {
     final source = getSource(
       widget.manga.lang ?? '',
       widget.manga.source ?? '',
       widget.manga.sourceId,
     );
 
+    if (chapters.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            children: [
+              Icon(Icons.video_library_outlined,
+                  color: Colors.grey, size: 40),
+              SizedBox(height: 8),
+              Text(
+                'Aucun épisode disponible',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ── Movie: single compact row ────────────────────────────────────────────
+    if (chapters.length == 1) {
+      return _buildCompactSingleEpisode(chapters.first, source?.name);
+    }
+
+    // ── Series: full episode list ────────────────────────────────────────────
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Section header ──
         Row(
           children: [
             Text(
-              isMovie ? 'Film' : 'Épisodes',
+              'Épisodes · ${chapters.length}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            if (!isMovie && chapters.isNotEmpty)
-              Text(
-                '  ${filtered.length}',
-                style: const TextStyle(color: _grey, fontSize: 13),
-              ),
             if (source != null) ...[
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 'via ${source.name}',
                 style: const TextStyle(color: _grey, fontSize: 12),
@@ -802,270 +652,75 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ],
         ),
         const SizedBox(height: 12),
-
-        // ── Language selector ──
-        if (languages.length > 1) ...[
-          _buildSelectorRow(
-            icon: Icons.language_outlined,
-            items: languages,
-            selected: _selectedLanguage,
-            onSelected: (v) => setState(() => _selectedLanguage = v),
-          ),
-          const SizedBox(height: 10),
-        ],
-
-        // ── Season selector ──
-        if (!isMovie && seasons.length > 1) ...[
-          _buildSelectorRow(
-            icon: Icons.layers_outlined,
-            items: seasons,
-            selected: _selectedSeason,
-            onSelected: (v) => setState(() => _selectedSeason = v),
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        // ── Content ──
-        if (chapters.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Column(
-                children: [
-                  Icon(Icons.video_library_outlined,
-                      color: Colors.grey, size: 40),
-                  SizedBox(height: 8),
-                  Text(
-                    'Aucun épisode disponible',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else if (isMovie)
-          _buildMovieBox(filtered.first)
-        else
-          _buildEpisodeGrid(filtered),
+        ...chapters.map((ch) => _buildEpisodeTile(ch)),
       ],
     );
   }
 
-  // ─── SELECTOR ROW (language / season) ───────────────────────────────────────
-
-  Widget _buildSelectorRow({
-    required IconData icon,
-    required List<String> items,
-    required String? selected,
-    required void Function(String?) onSelected,
-  }) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          Icon(icon, color: _grey, size: 16),
-          const SizedBox(width: 8),
-          ...items.map((item) {
-            final isSelected = selected == item;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () =>
-                    onSelected(isSelected ? null : item),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? _teal.withValues(alpha: 0.15)
-                        : const Color(0xFF2A2A2A),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected ? _teal : const Color(0xFF3A3A3A),
-                      width: isSelected ? 1.2 : 0.8,
-                    ),
-                  ),
-                  child: Text(
-                    item,
-                    style: TextStyle(
-                      color: isSelected ? _teal : Colors.white70,
-                      fontSize: 13,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  // ─── MOVIE BOX ───────────────────────────────────────────────────────────────
-
-  Widget _buildMovieBox(Chapter chapter) {
-    final hasThumb = (chapter.thumbnailUrl ?? '').isNotEmpty;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => chapter.pushToReaderView(context, ignoreIsRead: true),
-        child: Container(
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _teal.withValues(alpha: 0.5),
-              width: 0.8,
+  // Compact single-episode row (films / OVAs)
+  Widget _buildCompactSingleEpisode(Chapter chapter, String? sourceName) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (sourceName != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'via $sourceName',
+              style: const TextStyle(color: _grey, fontSize: 12),
             ),
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Thumbnail background
-              ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: hasThumb
-                    ? cachedNetworkImage(
-                        imageUrl: chapter.thumbnailUrl!,
-                        width: double.infinity,
-                        height: 180,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        width: double.infinity,
-                        height: 180,
-                        color: const Color(0xFF252525),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () =>
+                chapter.pushToReaderView(context, ignoreIsRead: true),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.play_circle_outline,
+                      color: _teal, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      chapter.name ?? 'Regarder',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
-              ),
-              // Gradient overlay
-              Container(
-                height: 180,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(13),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x00000000),
-                      Color(0xCC000000),
-                    ],
-                  ),
-                ),
-              ),
-              // Play button
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: _teal.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 34,
-                ),
-              ),
-              // Bottom info
-              Positioned(
-                bottom: 12,
-                left: 14,
-                right: 14,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        chapter.name ?? 'Film',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    if ((chapter.duration ?? '').isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        chapter.duration!,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                  ),
+                  if ((chapter.duration ?? '').isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.download_outlined,
-                          color: Colors.white70, size: 20),
-                      onPressed: () => _downloadChapter(chapter),
-                      tooltip: 'Télécharger',
+                    Text(
+                      chapter.duration!,
+                      style: const TextStyle(
+                          color: _grey, fontSize: 12),
                     ),
                   ],
-                ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.download_outlined,
+                        color: Colors.white54, size: 20),
+                    onPressed: () => _downloadChapter(chapter),
+                    tooltip: 'Télécharger',
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
-  // ─── EPISODE GRID (numbered chips, MovieBox style) ───────────────────────────
-
-  Widget _buildEpisodeGrid(List<Chapter> chapters) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: List.generate(chapters.length, (i) {
-        final chapter = chapters[i];
-        final watched = chapter.isRead ?? false;
-        // Extract episode number from name, fallback to position index
-        final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
-        final epNum = numMatch != null
-            ? (int.tryParse(numMatch.group(0)!) ?? (i + 1))
-            : (i + 1);
-        final label = epNum.toString().padLeft(2, '0');
-
-        return GestureDetector(
-          onTap: () => chapter.pushToReaderView(context, ignoreIsRead: true),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 52,
-            height: 40,
-            decoration: BoxDecoration(
-              color: watched
-                  ? const Color(0xFF1A1A1A)
-                  : _teal.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: watched
-                    ? const Color(0xFF2D2D2D)
-                    : _teal.withValues(alpha: 0.55),
-                width: 1,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: watched ? Colors.grey : Colors.white,
-                fontSize: 13,
-                fontWeight: watched ? FontWeight.normal : FontWeight.w600,
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
+  // Individual episode tile (used in series list)
   Widget _buildEpisodeTile(Chapter chapter) {
     final watched = chapter.isRead ?? false;
     final hasThumb = (chapter.thumbnailUrl ?? '').isNotEmpty;
@@ -1146,7 +801,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Download button
                 IconButton(
                   icon: const Icon(Icons.download_outlined,
                       color: Colors.white54, size: 20),
@@ -1200,7 +854,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           Text(
             'Les commentaires sont affichés si l\'extension les fournit',
             style: TextStyle(color: Color(0xFF555555), fontSize: 12),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -1285,8 +938,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     child: OutlinedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        Navigator.of(context)
-                            .pushNamed('/downloadQueue');
+                        Navigator.of(context).pushNamed('/downloadQueue');
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
