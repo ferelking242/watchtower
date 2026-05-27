@@ -36,7 +36,20 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - name: Install dependencies
-        run: flutter pub get
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 3; $i++) {
+            Write-Host "--- pub get attempt $i/3 ---"
+            flutter pub get
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($i -lt 3) {
+              Write-Host "pub get failed, retrying in 30s..."
+              Start-Sleep -Seconds 30
+            } else {
+              Write-Host "All 3 attempts failed."
+              exit 1
+            }
+          }
 
       - name: Replace app icon (PNG to ICO via ImageMagick)
         shell: pwsh

@@ -1422,11 +1422,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     );
   }
 
-  void _reopenInWatchtower() {
+  Future<void> _reopenInWatchtower() async {
     final url = _url;
     if (url.isNotEmpty) {
       try {
-        final all = isar.mangas.filter().linkIsNotEmpty().findAllSync();
+        final all = await isar.mangas.filter().linkIsNotEmpty().findAll();
         Manga? match;
         for (final m in all) {
           final link = m.link ?? '';

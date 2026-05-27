@@ -822,7 +822,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               const SizedBox(width: 4),
               // Extension name
               Text(
-                source.name,
+                source.name ?? '',
                 style: TextStyle(
                     color: _grey,
                     fontSize: 12,
