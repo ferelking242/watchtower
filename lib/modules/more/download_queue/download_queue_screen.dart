@@ -353,7 +353,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
           isar.downloads.putSync(dl
             ..succeeded = 0
             ..failed = 0
-            ..total = 100
+            ..total = 1
             ..isDownload = false);
         }
       });
@@ -870,18 +870,37 @@ class _DownloadCard extends ConsumerWidget {
   String _buildProgressLabel(ItemType itemType, int succeeded, int total, int failed) {
     switch (itemType) {
       case ItemType.manga:
-        // Show X/Y images
-        if (total > 1 && total != 100) {
+        // Always show "X / Y images" — total is now the real page count,
+        // never the synthetic 100 from the old code.
+        if (total > 1) {
           return '$succeeded / $total images';
         }
-        return '${(succeeded.toDouble() / math.max(total, 1) * 100).toStringAsFixed(0)}%';
+        // Single-page edge case (shouldn't happen but guards against 0/0).
+        return succeeded > 0 ? '1 / 1 image' : '0 / 1 image';
       case ItemType.anime:
-        // Show MB/GB file size based progress if we have real size info
-        // succeeded = downloaded bytes in KB, total = total bytes in KB when > 1000
-        if (total > 1000) {
+        // Two sub-cases depending on what's stored in Isar:
+        //
+        // A) HLS/direct with real byte data → succeeded & total are in KB
+        //    (always > 1024 for a real video file). Show "14 MB / 58 MB".
+        //
+        // B) ZeusDL / Aria2 → store raw percent (0-100). Show "50%".
+        //    These engines don't produce byte info; total stays ≤ 100.
+        //
+        // Threshold: KB values for real videos are almost always > 500 KB
+        // (smallest real episode ≈ a few MB = thousands of KB). Using 500
+        // as the cutoff correctly separates byte-mode (>500) from %-mode
+        // (0-100) without any false positives.
+        if (total > 500) {
+          if (succeeded >= total) {
+            return _formatSize(total);
+          }
           return '${_formatSize(succeeded)} / ${_formatSize(total)}';
         }
-        return '${(succeeded.toDouble() / math.max(total, 1) * 100).toStringAsFixed(0)}%';
+        // ZeusDL / Aria2 percentage mode or early tick before bytes arrive.
+        if (total > 1) {
+          return '${succeeded.clamp(0, total)}%';
+        }
+        return 'En attente…';
       case ItemType.novel:
       case ItemType.music:
       case ItemType.game:
@@ -889,6 +908,7 @@ class _DownloadCard extends ConsumerWidget {
     }
   }
 
+  /// Format a KB value into a human-readable string (KB → MB → GB).
   String _formatSize(int kb) {
     if (kb >= 1024 * 1024) {
       return '${(kb / (1024 * 1024)).toStringAsFixed(1)} GB';

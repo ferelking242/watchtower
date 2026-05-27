@@ -45,6 +45,14 @@ class DownloadProgress {
   bool isCompleted;
   ItemType itemType;
 
+  /// Bytes downloaded so far (used for video progress display, in bytes).
+  /// When non-null and [totalBytes] > 0, the UI shows "14 MB / 58 MB"
+  /// instead of a percentage.
+  final int? downloadedBytes;
+
+  /// Total size in bytes. Estimated from Content-Length or segment accumulation.
+  final int? totalBytes;
+
   DownloadProgress(
     this.completed,
     this.total,
@@ -52,10 +60,12 @@ class DownloadProgress {
     this.segment,
     this.pageUrl,
     this.isCompleted = false,
+    this.downloadedBytes,
+    this.totalBytes,
   });
 
   @override
   String toString() {
-    return 'DownloadProgress(segment: $segment, pageUrl: $pageUrl completed: $completed, total: $total, isCompleted: $isCompleted)';
+    return 'DownloadProgress(segment: $segment, pageUrl: $pageUrl completed: $completed, total: $total, isCompleted: $isCompleted, bytes: $downloadedBytes/$totalBytes)';
   }
 }

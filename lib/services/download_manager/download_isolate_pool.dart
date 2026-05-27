@@ -647,7 +647,7 @@ Future<void> _downloadFile(
       final file = File(pageUrl.fileName!);
       await file.writeAsBytes(response.bodyBytes);
     } else {
-      // Streaming for videos (saves RAM)
+      // Streaming for videos — reports real byte progress ("14 MB / 58 MB").
       await _withRetry(() async {
         var request = Request('GET', Uri.parse(pageUrl.url));
         request.headers.addAll(pageUrl.headers ?? {});
@@ -657,22 +657,27 @@ Future<void> _downloadFile(
             'Failed to download file: ${pageUrl.fileName!}',
           );
         }
-        int total = response.contentLength ?? 0;
+        // Content-Length may be absent (chunked transfer). When present it
+        // drives the "X MB / Y MB" label; when absent we still show bytes
+        // received as "X MB" with no denominator.
+        final int contentLength = response.contentLength ?? 0;
         int received = 0;
 
         final file = File(pageUrl.fileName!);
         final sink = file.openWrite();
         try {
-          await for (var value in response.stream) {
-            sink.add(value);
-            received += value.length;
+          await for (var chunk in response.stream) {
+            sink.add(chunk);
+            received += chunk.length;
             try {
               replyPort.send(
                 DownloadProgress(
-                  (received / total * 100).toInt(),
-                  100,
-                  pageUrl: pageUrl,
+                  received,
+                  contentLength > 0 ? contentLength : received,
                   itemType,
+                  pageUrl: pageUrl,
+                  downloadedBytes: received,
+                  totalBytes: contentLength > 0 ? contentLength : null,
                 ),
               );
             } catch (_) {}
@@ -697,6 +702,11 @@ Future<void> _downloadFile(
 /// [_processFileDownload] so that a stalled segment never holds back the
 /// other concurrency slots — as soon as one slot is free the next segment
 /// starts immediately.
+///
+/// Byte-level progress: after each segment is written to disk we read its
+/// actual size and accumulate it. The first batch of segments also seeds a
+/// per-segment average that lets us estimate the remaining total — giving
+/// the UI a "14 MB / 58 MB" label instead of a raw count or percentage.
 Future<void> _processM3u8Download(
   String taskId,
   M3u8DownloadParams params,
@@ -710,6 +720,10 @@ Future<void> _processM3u8Download(
     replyPort.send(DownloadComplete());
     return;
   }
+
+  // Byte accumulators — updated after each segment lands.
+  int downloadedBytes = 0;
+  int estimatedTotalBytes = 0;
 
   try {
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
@@ -730,8 +744,29 @@ Future<void> _processM3u8Download(
       slots[slotIdx] = _downloadSegment(segment, params, client)
           .then((_) {
             completed++;
+
+            // Read size of the written .ts file for byte-accurate progress.
+            try {
+              final tsFile = File(path.join(params.tempDir, '${segment.name}.ts'));
+              if (tsFile.existsSync()) {
+                downloadedBytes += tsFile.lengthSync();
+              }
+            } catch (_) {}
+
+            // Re-estimate total after each segment using running average.
+            if (completed > 0) {
+              final avgBytesPerSegment = downloadedBytes ~/ completed;
+              estimatedTotalBytes = avgBytesPerSegment * total;
+            }
+
             replyPort.send(DownloadProgress(
-              segment: segment, completed, total, params.itemType));
+              segment: segment,
+              completed,
+              total,
+              params.itemType,
+              downloadedBytes: downloadedBytes,
+              totalBytes: estimatedTotalBytes > 0 ? estimatedTotalBytes : null,
+            ));
           })
           .catchError((error) {
             replyPort.send(_toSendable(DownloadPoolException(

@@ -591,11 +591,15 @@ class _VideoListTileState extends State<_VideoListTile> {
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
   final download = isar.downloads.getSync(chapter.id!);
   if (download == null) {
+    // Use a sentinel value of 1 so the progress bar shows "waiting" (0/1)
+    // without dividing by zero. setProgress will overwrite this with the
+    // real page count (manga) or real byte total (anime) as soon as the
+    // first progress callback fires.
     final download = Download(
       id: chapter.id,
       succeeded: 0,
       failed: 0,
-      total: 100,
+      total: 1,
       isDownload: false,
       isStartDownload: true,
     );
@@ -712,8 +716,6 @@ Future<void> downloadChapter(
         stuckWatchdog.markDownloading();
         stuckWatchdog.notifyProgress(pct);
 
-        // Extreme-mode: emit a per-page/per-segment trace so every unit of
-        // work is visible in the log without flooding normal sessions.
         if (AppLogger.isExtremeMode) {
           AppLogger.log(
             '[ch:${chapter.id}] page ${progress.completed}/${progress.total} ($pct%) '
@@ -727,31 +729,61 @@ Future<void> downloadChapter(
       if (progress.isCompleted && itemType == ItemType.manga) {
         await processConvert();
       }
+
+      // ── Compute the values to store in Isar ─────────────────────────────
+      // For anime: when we have real byte data, store in KB so the UI can
+      // display "14 MB / 58 MB". The _formatSize helper in the queue screen
+      // expects KB units (it auto-scales to MB/GB).
+      // For manga: store the real page count so the UI shows "7 / 322 images".
+      // We never store raw percentages — the UI derives % from succeeded/total
+      // only as a last-resort fallback.
+      int isarSucceeded;
+      int isarTotal;
+
+      if (progress.itemType == ItemType.anime) {
+        final dBytes = progress.downloadedBytes;
+        final tBytes = progress.totalBytes;
+        if (dBytes != null && tBytes != null && tBytes > 0) {
+          // Convert bytes → KB (integer, minimum 1 to avoid 0/0)
+          isarSucceeded = (dBytes / 1024).ceil();
+          isarTotal = (tBytes / 1024).ceil();
+        } else if (dBytes != null && dBytes > 0) {
+          // Total unknown (chunked transfer) — store downloaded KB only,
+          // set total = downloaded+1 so progress bar stays < 100%.
+          isarSucceeded = (dBytes / 1024).ceil();
+          isarTotal = isarSucceeded + 1;
+        } else {
+          // Fallback to segment count (rare — occurs during first segment
+          // before any bytes have landed yet).
+          isarSucceeded = progress.completed;
+          isarTotal = progress.total > 0 ? progress.total : 1;
+        }
+      } else {
+        // Manga / novel: store real page counts.
+        isarSucceeded = progress.completed;
+        isarTotal = progress.total > 0 ? progress.total : 1;
+      }
+
       final download = isar.downloads.getSync(chapter.id!);
       if (download == null) {
-        final download = Download(
+        final newDl = Download(
           id: chapter.id,
-          succeeded: progress.completed == 0
-              ? 0
-              : (progress.completed / progress.total * 100).toInt(),
+          succeeded: progress.completed == 0 ? 0 : isarSucceeded,
           failed: 0,
-          total: 100,
+          total: isarTotal,
           isDownload: progress.isCompleted,
           isStartDownload: true,
         );
         isar.writeTxnSync(() {
-          isar.downloads.putSync(download..chapter.value = chapter);
+          isar.downloads.putSync(newDl..chapter.value = chapter);
         });
       } else {
-        final download = isar.downloads.getSync(chapter.id!);
-        if (download != null && progress.total != 0) {
+        if (progress.total != 0) {
           isar.writeTxnSync(() {
             isar.downloads.putSync(
               download
-                ..succeeded = progress.completed == 0
-                    ? 0
-                    : (progress.completed / progress.total * 100).toInt()
-                ..total = 100
+                ..succeeded = progress.completed == 0 ? 0 : isarSucceeded
+                ..total = isarTotal
                 ..failed = 0
                 ..isDownload = progress.isCompleted,
             );
