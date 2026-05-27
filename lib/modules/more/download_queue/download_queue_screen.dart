@@ -21,9 +21,6 @@ import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
-const _kBg = Color(0xFF0E0E0E);
-const _kCard = Color(0xFF1A1A1A);
-const _kTeal = Color(0xFF1DB954);
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -99,16 +96,25 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
 
         final allQueueLength = entries.length;
 
+        final scheme = Theme.of(context).colorScheme;
         return Scaffold(
-          backgroundColor: _kBg,
           appBar: AppBar(
-            backgroundColor: _kBg,
             elevation: 0,
+            automaticallyImplyLeading: false,
+            leading: IconButton(
+              icon: const Icon(Icons.chevron_left_rounded),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/more');
+                }
+              },
+            ),
             titleSpacing: 16,
             title: const Text(
               'Téléchargements',
               style: TextStyle(
-                color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -121,21 +127,21 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _kTeal.withValues(alpha: 0.12),
+                    color: scheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: _kTeal.withValues(alpha: 0.35), width: 1),
+                        color: scheme.primary.withValues(alpha: 0.35), width: 1),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.swap_horiz_rounded,
-                          color: _kTeal, size: 15),
-                      SizedBox(width: 5),
+                          color: scheme.primary, size: 15),
+                      const SizedBox(width: 5),
                       Text(
                         'Transfert',
                         style: TextStyle(
-                          color: _kTeal,
+                          color: scheme.primary,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -151,38 +157,31 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             children: [
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: Row(
                   children: [
-                    Text(
-                      'Téléchargement ($allQueueLength)',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: _buildChipTabBar(
+                        watchCount: watchEntries.length,
+                        mangaCount: mangaEntries.length,
+                        novelCount: novelEntries.length,
                       ),
                     ),
-                    const Spacer(),
                     GestureDetector(
                       onTap: () => _showGererSheet(context, entries, ref),
-                      child: const Text(
-                        'Gérer',
-                        style: TextStyle(
-                          color: _kTeal,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8, right: 4),
+                        child: Text(
+                          'Gérer',
+                          style: TextStyle(
+                            color: scheme.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ),
                   ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _buildChipTabBar(
-                  watchCount: watchEntries.length,
-                  mangaCount: mangaEntries.length,
-                  novelCount: novelEntries.length,
                 ),
               ),
               const SizedBox(height: 4),
@@ -386,65 +385,74 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   }
 
   Widget _chipTab(int index, IconData icon, String label, int count) {
-    final selected = _tabController.index == index;
-    return GestureDetector(
-      onTap: () => setState(() => _tabController.animateTo(index)),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? Colors.white54 : Colors.white24,
-            width: 1,
+    return Builder(builder: (context) {
+      final selected = _tabController.index == index;
+      final scheme = Theme.of(context).colorScheme;
+      return GestureDetector(
+        onTap: () => setState(() => _tabController.animateTo(index)),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? scheme.onSurface.withValues(alpha: 0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? scheme.onSurface.withValues(alpha: 0.54)
+                  : scheme.onSurface.withValues(alpha: 0.24),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: 14,
+                  color: selected
+                      ? scheme.onSurface
+                      : scheme.onSurface.withValues(alpha: 0.38)),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected
+                      ? scheme.onSurface
+                      : scheme.onSurface.withValues(alpha: 0.38),
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+              if (count > 0) ...[
+                const SizedBox(width: 5),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 14,
-                color: selected ? Colors.white : Colors.white38),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : Colors.white38,
-                fontSize: 13,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-            if (count > 0) ...[
-              const SizedBox(width: 5),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: _kTeal,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$count',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+      );
+    });
   }
 
   void _showGererSheet(
       BuildContext context, List<Download> entries, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1C),
+      backgroundColor: scheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -457,27 +465,29 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               height: 4,
               margin: const EdgeInsets.only(top: 10, bottom: 8),
               decoration: BoxDecoration(
-                color: Colors.grey[700],
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             _sheetTile(
               label: 'Tout mettre en pause',
+              textColor: scheme.onSurface,
               onTap: () {
                 Navigator.pop(context);
                 final ids = entries.map((e) => e.id ?? -1).toList();
                 ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
               },
             ),
-            const Divider(height: 1, color: Color(0xFF2A2A2A)),
+            Divider(height: 1, color: scheme.outlineVariant),
             _sheetTile(
               label: 'Télécharger en arrière-plan',
+              textColor: scheme.onSurface,
               onTap: () {
                 Navigator.pop(context);
                 botToast('Téléchargement en arrière-plan activé');
               },
             ),
-            const Divider(height: 1, color: Color(0xFF2A2A2A)),
+            Divider(height: 1, color: scheme.outlineVariant),
             _sheetTile(
               label: 'Annuler',
               textColor: Colors.redAccent,
@@ -493,7 +503,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   Widget _sheetTile({
     required String label,
     required VoidCallback onTap,
-    Color textColor = Colors.white,
+    required Color textColor,
   }) {
     return InkWell(
       onTap: onTap,
@@ -584,13 +594,13 @@ class _DownloadTabList extends StatelessWidget {
             Icon(
               emptyIcon,
               size: 60,
-              color: Colors.white.withValues(alpha: 0.12),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
             ),
             const SizedBox(height: 14),
             Text(
               emptyLabel,
-              style: const TextStyle(
-                color: Color(0xFF555555),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 14,
               ),
             ),
@@ -710,6 +720,8 @@ class _DownloadCard extends ConsumerWidget {
     final hasFailed = failed > 0 && !isComplete;
     final isPaused = this.isPaused;
 
+    final scheme = Theme.of(context).colorScheme;
+
     final String statusText = isComplete
         ? 'Terminé'
         : hasFailed
@@ -720,15 +732,18 @@ class _DownloadCard extends ConsumerWidget {
                     ? 'En cours…'
                     : 'En attente';
     final Color statusColor = isComplete
-        ? const Color(0xFF1DB954)
+        ? scheme.primary
         : hasFailed
             ? Colors.redAccent
             : isPaused
                 ? Colors.orange
-                : Colors.white54;
+                : scheme.onSurface.withValues(alpha: 0.54);
+
+    final Color actionColor =
+        hasFailed ? Colors.redAccent : scheme.primary;
 
     Widget card = Container(
-      color: _kBg,
+      color: scheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
@@ -748,8 +763,8 @@ class _DownloadCard extends ConsumerWidget {
               children: [
                 Text(
                   manga?.name ?? 'Inconnu',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: scheme.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -759,8 +774,8 @@ class _DownloadCard extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   chapter?.name ?? '',
-                  style: const TextStyle(
-                    color: Color(0xFF9E9E9E),
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
                     fontSize: 12,
                   ),
                   maxLines: 1,
@@ -773,8 +788,9 @@ class _DownloadCard extends ConsumerWidget {
                       isComplete
                           ? 'Terminé'
                           : _buildProgressLabel(itemType, succeeded, total, failed),
-                      style: const TextStyle(
-                          color: Color(0xFF666666), fontSize: 11),
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          fontSize: 11),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -798,13 +814,13 @@ class _DownloadCard extends ConsumerWidget {
                       child: LinearProgressIndicator(
                         value: val,
                         minHeight: 3,
-                        backgroundColor: const Color(0xFF2A2A2A),
+                        backgroundColor: scheme.surfaceContainerHighest,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           hasFailed
                               ? Colors.redAccent
                               : isPaused
                                   ? Colors.orange
-                                  : _kTeal,
+                                  : scheme.primary,
                         ),
                       ),
                     ),
@@ -829,17 +845,9 @@ class _DownloadCard extends ConsumerWidget {
               height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isComplete
-                    ? const Color(0xFF1DB954).withValues(alpha: 0.15)
-                    : hasFailed
-                        ? Colors.redAccent.withValues(alpha: 0.15)
-                        : const Color(0xFF1DB954).withValues(alpha: 0.15),
+                color: actionColor.withValues(alpha: 0.15),
                 border: Border.all(
-                  color: isComplete
-                      ? _kTeal.withValues(alpha: 0.5)
-                      : hasFailed
-                          ? Colors.redAccent.withValues(alpha: 0.5)
-                          : _kTeal.withValues(alpha: 0.5),
+                  color: actionColor.withValues(alpha: 0.5),
                   width: 1,
                 ),
               ),
@@ -851,11 +859,7 @@ class _DownloadCard extends ConsumerWidget {
                         : isPaused
                             ? Icons.play_arrow_rounded
                             : Icons.download_rounded,
-                color: isComplete
-                    ? _kTeal
-                    : hasFailed
-                        ? Colors.redAccent
-                        : _kTeal,
+                color: actionColor,
                 size: 18,
               ),
             ),
