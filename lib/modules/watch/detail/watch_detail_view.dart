@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
@@ -20,6 +21,12 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
+
+// SVG icon provided for the movie meta row
+const _kFilmSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M14.0605 13.4546H11.8205C13.5385 12.2473 14.6666 10.2546 14.6666 8.00001C14.6666 4.32405 11.6759 1.33334 7.99992 1.33334C4.32396 1.33334 1.33325 4.32405 1.33325 8.00001C1.33325 11.676 4.32396 14.6667 7.99992 14.6667C8.01608 14.6667 8.03063 14.6643 8.04679 14.6643C8.05083 14.6643 8.05406 14.6667 8.0581 14.6667H14.0605C14.3951 14.6667 14.666 14.3952 14.666 14.0606C14.6666 13.7261 14.3951 13.4546 14.0605 13.4546ZM7.99992 3.95959C7.33083 3.95959 6.7878 4.50262 6.7878 5.17172C6.7878 5.84081 7.33083 6.38384 7.99992 6.38384C8.66901 6.38384 9.21204 5.84081 9.21204 5.17172C9.21204 4.50262 8.66901 3.95959 7.99992 3.95959ZM7.99992 9.45776C7.33083 9.45776 6.7878 10.0008 6.7878 10.6699C6.7878 11.339 7.33083 11.882 7.99992 11.882C8.66901 11.882 9.21204 11.339 9.21204 10.6699C9.21204 10.0008 8.66901 9.45776 7.99992 9.45776ZM10.7491 6.7087C10.08 6.7087 9.53699 7.25173 9.53699 7.92082C9.53699 8.58991 10.08 9.13294 10.7491 9.13294C11.4182 9.13294 11.9612 8.58991 11.9612 7.92082C11.9612 7.25173 11.4182 6.7087 10.7491 6.7087ZM5.2509 6.7087C4.58181 6.7087 4.03878 7.25173 4.03878 7.92082C4.03878 8.58991 4.58181 9.13294 5.2509 9.13294C5.91999 9.13294 6.46302 8.58991 6.46302 7.92082C6.46302 7.25173 5.91999 6.7087 5.2509 6.7087Z" fill="currentColor"/>
+</svg>''';
 
 class WatchDetailView extends ConsumerStatefulWidget {
   final Manga manga;
@@ -44,16 +51,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   late final TabController _tabController;
   late final WatchInlinePlayer _player;
 
-  // ─── Palette ────────────────────────────────────────────────────────────────
-  static const _teal    = Color(0xFF1DB954);
-  static const _bg      = Color(0xFF0F0F17);   // deep blue-black instead of pure black
-  static const _card    = Color(0xFF1C1B27);   // warmer dark card
-  static const _surface = Color(0xFF252434);   // sheet / modal surface
-  static const _grey    = Color(0xFF9E9E9E);
-
   String? _selectedSeason;
   String? _selectedLanguage;
   bool _isDescriptionExpanded = false;
+
+  // ── Theme helpers ────────────────────────────────────────────────────────────
+  Color get _accent     => context.primaryColor;
+  Color get _bg         => Theme.of(context).scaffoldBackgroundColor;
+  Color get _card       => Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _surface    => Theme.of(context).colorScheme.surface;
+  Color get _onSurface  => Theme.of(context).colorScheme.onSurface;
+  Color get _grey       => _onSurface.withValues(alpha: 0.50);
+  Color get _faint      => _onSurface.withValues(alpha: 0.30);
+  Color get _textPrimary => _onSurface;
+  bool  get _isLight    => context.isLight;
 
   @override
   void initState() {
@@ -95,20 +106,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     setState(() {});
   }
 
-  void _share(BuildContext context) {
+  void _share(BuildContext ctx) {
     final source = getSource(widget.manga.lang!, widget.manga.source!, widget.manga.sourceId);
     if (source == null) return;
     final url = '${source.baseUrl}${widget.manga.link!.getUrlWithoutDomain}';
     SharePlus.instance.share(ShareParams(text: url));
-  }
-
-  void _downloadChapter(Chapter chapter) {
-    final entry = isar.downloads.filter().idEqualTo(chapter.id).findFirstSync();
-    if (entry == null || !(entry.isDownload ?? false)) {
-      ref.read(addDownloadToQueueProvider(chapter: chapter));
-    }
-    ref.read(processDownloadsProvider());
-    botToast('Téléchargement lancé');
   }
 
   void _downloadAll(List<Chapter> chapters) {
@@ -136,7 +138,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     _maybeStartVideo(chapters);
 
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -150,25 +153,30 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   Widget _buildPortrait(List<Chapter> chapters) {
     return NestedScrollView(
-      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+      headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
         SliverAppBar(
           expandedHeight: 230,
           pinned: true,
           backgroundColor: _bg,
           automaticallyImplyLeading: false,
+          // ── Back button ──────────────────────────────────────────────────────
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          // ── Actions (loading + Aide) ─────────────────────────────────────────
           actions: [
             if (widget.isLoading)
               const Padding(
-                padding: EdgeInsets.all(14),
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 14),
                 child: SizedBox(
                   width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: _teal),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 ),
               ),
-            IconButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              onPressed: () => _showOptionsSheet(context, chapters),
-            ),
+            _AideButton(onTap: () => _showOptionsSheet(context, chapters)),
+            const SizedBox(width: 4),
           ],
           flexibleSpace: FlexibleSpaceBar(
             background: _buildBanner(chapters),
@@ -180,10 +188,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           delegate: _TabBarDelegate(
             TabBar(
               controller: _tabController,
-              indicatorColor: _teal,
+              indicatorColor: _accent,
               indicatorWeight: 2.5,
-              labelColor: Colors.white,
-              unselectedLabelColor: const Color(0xFF666688),
+              labelColor: _textPrimary,
+              unselectedLabelColor: _grey,
               dividerColor: Colors.transparent,
               tabs: const [
                 Tab(text: 'Pour vous'),
@@ -227,7 +235,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // ─── BANNER (poster + inline video overlay) ──────────────────────────────────
+  // ─── BANNER ─────────────────────────────────────────────────────────────────
 
   Widget _buildBanner(List<Chapter> chapters) {
     return Stack(
@@ -235,30 +243,29 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       children: [
         _buildBannerImageOnly(),
 
-        // Inline video overlay (no-op on web)
         _player.buildBannerOverlay(context: context, chapters: chapters),
 
-        // Loading spinner while video URL is being fetched
         if (!_player.hasVideoUrl && chapters.isNotEmpty)
           const Center(
             child: SizedBox(
               width: 34, height: 34,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: _teal),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2.5, color: Colors.white),
             ),
           ),
 
-        // Gradient to blend into page bg
-        const DecoratedBox(
+        // Gradient blend
+        DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              stops: [0.0, 0.3, 0.65, 1.0],
+              stops: const [0.0, 0.3, 0.65, 1.0],
               colors: [
-                Color(0xBB0F0F17),
-                Color(0x000F0F17),
-                Color(0x440F0F17),
-                Color(0xFF0F0F17),
+                _bg.withValues(alpha: 0.72),
+                _bg.withValues(alpha: 0.0),
+                _bg.withValues(alpha: 0.27),
+                _bg,
               ],
             ),
           ),
@@ -304,7 +311,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTitleRow(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           _buildMetaRow(chapters),
           const SizedBox(height: 14),
           _buildActionButtons(chapters),
@@ -317,39 +324,33 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── TITLE ROW ──────────────────────────────────────────────────────────────
+  // Title + "Info ›" plain text right next to title (not far right)
 
   Widget _buildTitleRow() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
-        Expanded(
+        Flexible(
           child: Text(
             widget.manga.name ?? '',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: _textPrimary,
               fontSize: 21,
               fontWeight: FontWeight.w700,
               height: 1.2,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         GestureDetector(
           onTap: () => _showInfoSheet(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: _teal.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _teal.withValues(alpha: 0.4), width: 0.8),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.info_outline, color: _teal, size: 13),
-                SizedBox(width: 4),
-                Text('Info', style: TextStyle(color: _teal, fontSize: 12, fontWeight: FontWeight.w600)),
-              ],
+          child: Text(
+            'Info ›',
+            style: TextStyle(
+              color: _accent,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -358,105 +359,120 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── META ROW ───────────────────────────────────────────────────────────────
+  // SVG icon | ★ rating | year | country | type
 
   Widget _buildMetaRow(List<Chapter> chapters) {
     final isMovie = _isMovie(chapters);
     final parts = <String>[];
-    final author = widget.manga.author ?? '';
+
+    final author = widget.manga.author?.trim() ?? '';
     if (author.isNotEmpty) parts.add(author);
-    final genres = widget.manga.genre?.take(2).toList() ?? [];
-    parts.addAll(genres);
+
+    // First genre that isn't "film"/"movie"/"serie"
+    final typeGenre = (widget.manga.genre ?? [])
+        .where((g) {
+          final l = g.toLowerCase().trim();
+          return l != 'film' && l != 'movie' && l != 'série' && l != 'serie';
+        })
+        .take(1)
+        .firstOrNull;
+    if (typeGenre != null && typeGenre.isNotEmpty) parts.add(typeGenre);
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Type pill
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-          decoration: BoxDecoration(
-            color: isMovie ? const Color(0xFF2A1A0A) : const Color(0xFF0A0A1E),
-            borderRadius: BorderRadius.circular(5),
-            border: Border.all(
-              color: isMovie ? const Color(0xFFE87820).withValues(alpha: 0.7) : _teal.withValues(alpha: 0.7),
-              width: 0.8,
+        // SVG icon — coloured with secondary text colour
+        SvgPicture.string(
+          _kFilmSvg,
+          width: 14,
+          height: 14,
+          colorFilter: ColorFilter.mode(_grey, BlendMode.srcIn),
+        ),
+        if (parts.isNotEmpty) ...[
+          const SizedBox(width: 7),
+          // ★ star
+          const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
+          const SizedBox(width: 3),
+          Expanded(
+            child: Text(
+              parts.join('  |  '),
+              style: TextStyle(color: _grey, fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isMovie ? Icons.movie_outlined : Icons.live_tv_outlined,
-                size: 11,
-                color: isMovie ? const Color(0xFFE87820) : _teal,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                isMovie ? 'Film' : 'Série',
-                style: TextStyle(
-                  color: isMovie ? const Color(0xFFE87820) : _teal,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+        ] else ...[
+          const SizedBox(width: 6),
+          Text(
+            isMovie ? 'Film' : 'Série',
+            style: TextStyle(color: _grey, fontSize: 12),
           ),
-        ),
-        const SizedBox(width: 10),
-        const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 14),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            parts.isEmpty ? '' : parts.join('  ·  '),
-            style: const TextStyle(color: _grey, fontSize: 12),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        ],
       ],
     );
   }
 
-  // ─── INFO SHEET (full details) ───────────────────────────────────────────────
+  // ─── INFO SHEET ─────────────────────────────────────────────────────────────
+  // Fixed bottom sheet — no drag handle, never overlaps player (230 px)
 
-  void _showInfoSheet(BuildContext context) {
+  void _showInfoSheet(BuildContext ctx) {
     final manga = widget.manga;
     showModalBottomSheet(
-      context: context,
+      context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.78,
-        minChildSize: 0.4,
-        maxChildSize: 0.95,
-        builder: (_, ctrl) => Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF191826),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      // barrierColor stays default (dim)
+      builder: (sheetCtx) {
+        final screen  = MediaQuery.of(ctx).size.height;
+        final statusH = MediaQuery.of(ctx).padding.top;
+        final maxH    = screen - 230 - statusH; // never cover player
+
+        return Container(
+          height: maxH,
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
-              // Handle
-              Container(
-                width: 38, height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 0),
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
+              // ── Header ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+                child: Row(
+                  children: [
+                    Text(
+                      'Plus de détails',
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: Icon(Icons.close, color: _grey, size: 20),
+                      onPressed: () => Navigator.pop(sheetCtx),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
                 ),
               ),
+              const Divider(height: 12),
+              // ── Scrollable content ──
               Expanded(
                 child: ListView(
-                  controller: ctrl,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   children: [
-                    // Header: poster + title side by side
+                    // Poster + title + meta
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: cachedNetworkImage(
-                            imageUrl: toImgUrl(manga.customCoverFromTracker ?? manga.imageUrl ?? ''),
+                            imageUrl: toImgUrl(
+                                manga.customCoverFromTracker ??
+                                    manga.imageUrl ?? ''),
                             width: 80,
                             height: 115,
                             fit: BoxFit.cover,
@@ -469,29 +485,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                             children: [
                               Text(
                                 manga.name ?? '',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
+                                style: TextStyle(
+                                  color: _textPrimary,
+                                  fontSize: 17,
                                   fontWeight: FontWeight.w800,
                                   height: 1.2,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              if ((manga.author ?? '').isNotEmpty)
-                                Text(
-                                  manga.author!,
-                                  style: const TextStyle(color: _grey, fontSize: 13),
-                                ),
-                              const SizedBox(height: 10),
-                              // Info pills
+                              const SizedBox(height: 6),
+                              // meta pills: lang, status, source
                               Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
+                                spacing: 5,
+                                runSpacing: 5,
                                 children: [
-                                  _infoPill(Icons.language, (manga.lang ?? '').toUpperCase()),
-                                  _infoPill(Icons.circle, _statusLabel(manga.status)),
+                                  _infoPill(Icons.language,
+                                      (manga.lang ?? '').toUpperCase()),
+                                  _infoPill(
+                                      Icons.circle, _statusLabel(manga.status)),
                                   if ((manga.source ?? '').isNotEmpty)
-                                    _infoPill(Icons.storage_outlined, manga.source!),
+                                    _infoPill(
+                                        Icons.storage_outlined, manga.source!),
                                 ],
                               ),
                             ],
@@ -499,41 +512,47 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    // Synopsis
+                    const SizedBox(height: 22),
+                    // Description
                     if ((manga.description ?? '').isNotEmpty) ...[
-                      _sectionLabel('Synopsis'),
+                      _sheetSectionLabel('Info'),
                       const SizedBox(height: 8),
                       StatefulBuilder(
-                        builder: (ctx, setSt) {
-                          return GestureDetector(
-                            onTap: () => setSt(() => _isDescriptionExpanded = !_isDescriptionExpanded),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  manga.description ?? '',
-                                  maxLines: _isDescriptionExpanded ? null : 4,
-                                  overflow: _isDescriptionExpanded
-                                      ? TextOverflow.visible
-                                      : TextOverflow.ellipsis,
-                                  style: const TextStyle(color: _grey, fontSize: 13, height: 1.55),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _isDescriptionExpanded ? 'Voir moins' : 'Voir plus',
-                                  style: const TextStyle(color: _teal, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                        builder: (c, setSt) => GestureDetector(
+                          onTap: () => setSt(
+                              () => _isDescriptionExpanded =
+                                  !_isDescriptionExpanded),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                manga.description ?? '',
+                                maxLines: _isDescriptionExpanded ? null : 4,
+                                overflow: _isDescriptionExpanded
+                                    ? TextOverflow.visible
+                                    : TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: _grey,
+                                    fontSize: 13,
+                                    height: 1.55),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _isDescriptionExpanded
+                                    ? 'Voir moins'
+                                    : 'Voir plus',
+                                style:
+                                    TextStyle(color: _accent, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 20),
                     ],
                     // Genres
                     if ((manga.genre?.isNotEmpty ?? false)) ...[
-                      _sectionLabel('Genres'),
+                      _sheetSectionLabel('Genres'),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
@@ -541,15 +560,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         children: [
                           for (final g in (manga.genre ?? []))
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 13, vertical: 6),
                               decoration: BoxDecoration(
-                                color: _teal.withValues(alpha: 0.1),
+                                color: _accent.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: _teal.withValues(alpha: 0.35), width: 0.8),
+                                border: Border.all(
+                                    color: _accent.withValues(alpha: 0.30),
+                                    width: 0.8),
                               ),
                               child: Text(
                                 g,
-                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                style: TextStyle(
+                                    color: _onSurface.withValues(alpha: 0.75),
+                                    fontSize: 12),
                               ),
                             ),
                         ],
@@ -560,8 +584,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -570,7 +594,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2940),
+        color: _card,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -578,19 +602,19 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         children: [
           Icon(icon, size: 10, color: _grey),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: _grey, fontSize: 11)),
+          Text(label, style: TextStyle(color: _grey, fontSize: 11)),
         ],
       ),
     );
   }
 
-  Widget _sectionLabel(String text) {
-    return Row(
-      children: [
-        Container(width: 3, height: 14, decoration: BoxDecoration(color: _teal, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 8),
-        Text(text, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-      ],
+  Widget _sheetSectionLabel(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+          color: _textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w700),
     );
   }
 
@@ -615,16 +639,24 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         children: [
           _chip(
             icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
-            label: isFav ? 'Dans ma liste' : 'Ajouter à ma liste',
+            label: isFav ? 'Dans ma liste' : 'Ajouter à la liste',
             onTap: _toggleFavorite,
             active: isFav,
           ),
           const SizedBox(width: 8),
-          _chip(icon: Icons.share_outlined, label: 'Partager', onTap: () => _share(context)),
+          _chip(
+              icon: Icons.share_outlined,
+              label: 'Partager',
+              onTap: () => _share(context)),
           const SizedBox(width: 8),
-          _chip(icon: Icons.download_outlined, label: 'Télécharger', onTap: () => _showDownloadSheet(context, chapters)),
+          _chip(
+              icon: Icons.download_outlined,
+              label: 'Télécharger',
+              onTap: () => _showDownloadSheet(context, chapters)),
           const SizedBox(width: 8),
-          _chip(icon: Icons.download_for_offline_outlined, label: 'Voir téléchargements',
+          _chip(
+              icon: Icons.download_for_offline_outlined,
+              label: 'Voir téléchargements',
               onTap: () => Navigator.of(context).pushNamed('/downloadQueue')),
         ],
       ),
@@ -643,16 +675,24 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? _teal.withValues(alpha: 0.15) : Colors.transparent,
+          color: active ? _accent.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: active ? _teal : const Color(0xFF3A3A50), width: 1),
+          border: Border.all(
+              color: active ? _accent : _faint.withValues(alpha: 0.45),
+              width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 17, color: active ? _teal : Colors.white60),
+            Icon(icon,
+                size: 17,
+                color: active ? _accent : _onSurface.withValues(alpha: 0.55)),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: active ? _teal : Colors.white60, fontSize: 13)),
+            Text(label,
+                style: TextStyle(
+                    color:
+                        active ? _accent : _onSurface.withValues(alpha: 0.55),
+                    fontSize: 13)),
           ],
         ),
       ),
@@ -664,7 +704,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   bool _isMovie(List<Chapter> chapters) {
     if (widget.isLoading) return false;
     if (chapters.isEmpty) return false;
-    final genres = (widget.manga.genre ?? []).map((g) => g.toLowerCase().trim()).toList();
+    final genres =
+        (widget.manga.genre ?? []).map((g) => g.toLowerCase().trim()).toList();
     if (genres.contains('film') || genres.contains('movie')) return true;
     if (chapters.length == 1) return true;
     return false;
@@ -685,8 +726,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     if (seen.isEmpty) return [];
     return seen.toList()
       ..sort((a, b) {
-        final na = int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
-        final nb = int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        final na =
+            int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        final nb =
+            int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
         return na.compareTo(nb);
       });
   }
@@ -697,7 +740,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         caseSensitive: false);
     final seen = <String>{};
     for (final ch in chapters) {
-      for (final m in langRx.allMatches('${ch.scanlator ?? ''} ${ch.name ?? ''}')) {
+      for (final m
+          in langRx.allMatches('${ch.scanlator ?? ''} ${ch.name ?? ''}')) {
         seen.add(m.group(0)!.toUpperCase());
       }
     }
@@ -710,99 +754,135 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     if (season != null) {
       final num = RegExp(r'\d+').firstMatch(season)?.group(0) ?? '';
       final rx = RegExp(
-          r'(?:Saison|Season|Partie|Part)\s*' + num + r'|S' + num.padLeft(2, '0'),
+          r'(?:Saison|Season|Partie|Part)\s*' +
+              num +
+              r'|S' +
+              num.padLeft(2, '0'),
           caseSensitive: false);
-      final filtered = result.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
+      final filtered =
+          result.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
       if (filtered.isNotEmpty) result = filtered;
     }
     final lang = _selectedLanguage;
     if (lang != null) {
-      final filtered = result.where((ch) =>
-          (ch.scanlator ?? '').toUpperCase().contains(lang) ||
-          (ch.name ?? '').toUpperCase().contains(lang)).toList();
+      final filtered = result
+          .where((ch) =>
+              (ch.scanlator ?? '').toUpperCase().contains(lang) ||
+              (ch.name ?? '').toUpperCase().contains(lang))
+          .toList();
       if (filtered.isNotEmpty) result = filtered;
     }
     return result;
   }
 
-  // ─── RESSOURCES / EPISODES ──────────────────────────────────────────────────
+  // ─── RESSOURCES SECTION ─────────────────────────────────────────────────────
 
   Widget _buildRessourcesSection(List<Chapter> chapters) {
-    final isMovie   = _isMovie(chapters);
-    final seasons   = isMovie ? <String>[] : _detectSeasons(chapters);
+    final isMovie  = _isMovie(chapters);
+    final seasons  = isMovie ? <String>[] : _detectSeasons(chapters);
     final languages = _detectLanguages(chapters);
     final filtered  = _filterChapters(chapters);
 
-    final source = getSource(widget.manga.lang ?? '', widget.manga.source ?? '', widget.manga.sourceId);
+    final source = getSource(
+        widget.manga.lang ?? '',
+        widget.manga.source ?? '',
+        widget.manga.sourceId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Header ──
+        // ── Header: "Ressources   Ajouté par [icon] [name]  [?]" ─────────────
         Row(
           children: [
             Text(
-              isMovie ? 'Film' : 'Épisodes',
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+              'Ressources',
+              style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600),
             ),
-            if (!isMovie && chapters.isNotEmpty)
-              Text('  ${filtered.length}', style: const TextStyle(color: _grey, fontSize: 13)),
             if (source != null) ...[
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E1D2E),
-                  borderRadius: BorderRadius.circular(6),
+              const SizedBox(width: 10),
+              Text(
+                'Ajouté par',
+                style: TextStyle(color: _grey, fontSize: 12),
+              ),
+              const SizedBox(width: 5),
+              // Extension icon
+              if ((source.iconUrl ?? '').isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: cachedNetworkImage(
+                    imageUrl: source.iconUrl!,
+                    width: 16,
+                    height: 16,
+                    fit: BoxFit.cover,
+                  ),
                 ),
-                child: Text(
-                  'via ${source.name}',
-                  style: const TextStyle(color: _grey, fontSize: 11),
-                ),
+              const SizedBox(width: 4),
+              // Extension name
+              Text(
+                source.name,
+                style: TextStyle(
+                    color: _grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(width: 6),
+              // Help icon
+              GestureDetector(
+                onTap: () => _showOptionsSheet(context, chapters),
+                child: Icon(Icons.help_outline_rounded,
+                    size: 15, color: _grey),
               ),
             ],
           ],
         ),
         const SizedBox(height: 12),
 
-        // ── Language selector ──
+        // ── Language selector (only if multiple languages) ────────────────────
         if (languages.length > 1) ...[
           _buildSelectorRow(
             icon: Icons.language_outlined,
             items: languages,
             selected: _selectedLanguage,
-            onSelected: (v) => setState(() => _selectedLanguage = v),
+            onSelected: (v) =>
+                setState(() => _selectedLanguage = v),
           ),
           const SizedBox(height: 10),
         ],
 
-        // ── Season selector ──
+        // ── Season selector ───────────────────────────────────────────────────
         if (!isMovie && seasons.length > 1) ...[
           _buildSelectorRow(
             icon: Icons.layers_outlined,
             items: seasons,
             selected: _selectedSeason,
-            onSelected: (v) => setState(() => _selectedSeason = v),
+            onSelected: (v) =>
+                setState(() => _selectedSeason = v),
           ),
           const SizedBox(height: 12),
         ],
 
-        // ── Content ──
+        // ── Content ───────────────────────────────────────────────────────────
         if (chapters.isEmpty)
-          const Center(
+          Center(
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 children: [
-                  Icon(Icons.video_library_outlined, color: Colors.grey, size: 40),
-                  SizedBox(height: 8),
-                  Text('Aucun épisode disponible', style: TextStyle(color: Colors.grey)),
+                  Icon(Icons.video_library_outlined,
+                      color: _grey, size: 40),
+                  const SizedBox(height: 8),
+                  Text('Aucun épisode disponible',
+                      style: TextStyle(color: _grey)),
                 ],
               ),
             ),
           )
         else if (isMovie)
-          _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
+          _buildMovieBox(
+              filtered.isNotEmpty ? filtered.first : chapters.first)
         else
           _buildEpisodeGrid(filtered),
       ],
@@ -829,19 +909,22 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 onTap: () => onSelected(isSel ? null : item),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: BoxDecoration(
-                    color: isSel ? _teal.withValues(alpha: 0.15) : const Color(0xFF252434),
+                    color: isSel
+                        ? _accent.withValues(alpha: 0.12)
+                        : _card,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isSel ? _teal : const Color(0xFF3A3A52),
+                      color: isSel ? _accent : _faint,
                       width: isSel ? 1.2 : 0.8,
                     ),
                   ),
                   child: Text(
                     item,
                     style: TextStyle(
-                      color: isSel ? _teal : Colors.white70,
+                      color: isSel ? _accent : _onSurface.withValues(alpha: 0.7),
                       fontSize: 13,
                       fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -855,79 +938,42 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
+  // ─── MOVIE BOX — small rectangle, title only ─────────────────────────────────
+
   Widget _buildMovieBox(Chapter chapter) {
-    final hasThumb = (chapter.thumbnailUrl ?? '').isNotEmpty;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         onTap: () => chapter.pushToReaderView(context, ignoreIsRead: true),
         child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           decoration: BoxDecoration(
             color: _card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _teal.withValues(alpha: 0.45), width: 0.8),
-            boxShadow: [
-              BoxShadow(color: _teal.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4)),
-            ],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: _accent.withValues(alpha: 0.28), width: 0.8),
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: hasThumb
-                    ? cachedNetworkImage(imageUrl: chapter.thumbnailUrl!, width: double.infinity, height: 180, fit: BoxFit.cover)
-                    : Container(width: double.infinity, height: 180, color: const Color(0xFF1E1D2E)),
-              ),
-              Container(
-                height: 180,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(13),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x00000000), Color(0xCC000000)],
-                  ),
-                ),
-              ),
-              Container(
-                width: 62, height: 62,
-                decoration: BoxDecoration(
-                  color: _teal.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: _teal.withValues(alpha: 0.4), blurRadius: 16, spreadRadius: 2)],
-                ),
-                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 36),
-              ),
-              if ((chapter.name ?? '').isNotEmpty || (chapter.duration ?? '').isNotEmpty)
-                Positioned(
-                  bottom: 12, left: 14, right: 14,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          chapter.name ?? 'Film',
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if ((chapter.duration ?? '').isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Text(chapter.duration!, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                      ],
-                    ],
-                  ),
-                ),
-            ],
+          child: Text(
+            chapter.name?.isNotEmpty == true
+                ? chapter.name!
+                : widget.manga.name ?? 'Regarder',
+            style: TextStyle(
+              color: _accent,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
     );
   }
 
-  // ─── EPISODE GRID (numbered chips, MovieBox style) ──────────────────────────
+  // ─── EPISODE GRID ───────────────────────────────────────────────────────────
 
   Widget _buildEpisodeGrid(List<Chapter> chapters) {
     return Wrap(
@@ -937,19 +983,27 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         final chapter = chapters[i];
         final watched = chapter.isRead ?? false;
         final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
-        final epNum = numMatch != null ? (int.tryParse(numMatch.group(0)!) ?? (i + 1)) : (i + 1);
+        final epNum = numMatch != null
+            ? (int.tryParse(numMatch.group(0)!) ?? (i + 1))
+            : (i + 1);
         final label = epNum.toString().padLeft(2, '0');
 
         return GestureDetector(
-          onTap: () => chapter.pushToReaderView(context, ignoreIsRead: true),
+          onTap: () =>
+              chapter.pushToReaderView(context, ignoreIsRead: true),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            width: 52, height: 40,
+            width: 52,
+            height: 40,
             decoration: BoxDecoration(
-              color: watched ? const Color(0xFF1A1928) : _teal.withValues(alpha: 0.12),
+              color: watched
+                  ? _card
+                  : _accent.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: watched ? const Color(0xFF32304A) : _teal.withValues(alpha: 0.55),
+                color: watched
+                    ? _faint
+                    : _accent.withValues(alpha: 0.50),
                 width: 1,
               ),
             ),
@@ -957,9 +1011,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             child: Text(
               label,
               style: TextStyle(
-                color: watched ? const Color(0xFF555575) : Colors.white,
+                color: watched
+                    ? _grey
+                    : _textPrimary,
                 fontSize: 13,
-                fontWeight: watched ? FontWeight.normal : FontWeight.w600,
+                fontWeight:
+                    watched ? FontWeight.normal : FontWeight.w600,
               ),
             ),
           ),
@@ -980,16 +1037,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             decoration: BoxDecoration(
               color: _card,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF32304A), width: 1.5),
+              border: Border.all(color: _faint, width: 1.5),
             ),
-            child: const Icon(Icons.movie_filter_outlined, color: Color(0xFF555575), size: 36),
+            child: Icon(Icons.movie_filter_outlined, color: _grey, size: 36),
           ),
           const SizedBox(height: 16),
-          const Text('Les recommandations arrivent bientôt', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          Text('Les recommandations arrivent bientôt',
+              style: TextStyle(color: _onSurface.withValues(alpha: 0.7),
+                  fontSize: 14)),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Découvrez du contenu similaire dans la bibliothèque',
-            style: TextStyle(color: Color(0xFF555575), fontSize: 12),
+            style: TextStyle(color: _grey, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1007,16 +1066,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             decoration: BoxDecoration(
               color: _card,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF32304A), width: 1.5),
+              border: Border.all(color: _faint, width: 1.5),
             ),
-            child: const Icon(Icons.chat_bubble_outline, color: Color(0xFF555575), size: 32),
+            child: Icon(Icons.chat_bubble_outline, color: _grey, size: 32),
           ),
           const SizedBox(height: 16),
-          const Text('Aucun commentaire', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+          Text('Aucun commentaire',
+              style: TextStyle(
+                  color: _onSurface.withValues(alpha: 0.7),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Les commentaires apparaissent ici\nsi l\'extension les fournit.',
-            style: TextStyle(color: Color(0xFF555575), fontSize: 12),
+            style: TextStyle(color: _grey, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1026,35 +1089,39 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── DOWNLOAD SHEET ─────────────────────────────────────────────────────────
 
-  void _showDownloadSheet(BuildContext context, List<Chapter> chapters) {
+  void _showDownloadSheet(BuildContext ctx, List<Chapter> chapters) {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF191826),
+      context: ctx,
+      backgroundColor: _surface,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _DownloadSheet(
         manga: widget.manga,
         chapters: chapters,
         onDownload: (selected) {
-          Navigator.pop(context);
+          Navigator.pop(ctx);
           for (final ch in selected) {
-            final entry = isar.downloads.filter().idEqualTo(ch.id).findFirstSync();
+            final entry =
+                isar.downloads.filter().idEqualTo(ch.id).findFirstSync();
             if (entry == null || !(entry.isDownload ?? false)) {
               ref.read(addDownloadToQueueProvider(chapter: ch));
             }
           }
           ref.read(processDownloadsProvider());
-          if (selected.isNotEmpty) _showAfterDownloadSheet(context, selected.length);
+          if (selected.isNotEmpty)
+            _showAfterDownloadSheet(ctx, selected.length);
         },
       ),
     );
   }
 
-  void _showAfterDownloadSheet(BuildContext context, int count) {
+  void _showAfterDownloadSheet(BuildContext ctx, int count) {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF191826),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      context: ctx,
+      backgroundColor: _surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
@@ -1064,23 +1131,25 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             children: [
               Row(
                 children: [
-                  const Icon(Icons.download_rounded, color: _teal, size: 20),
+                  Icon(Icons.download_rounded, color: _accent, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    'Téléchargement $count fichier(s)',
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
+                  Text('Téléchargement $count fichier(s)',
+                      style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600)),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, color: Colors.white54, size: 20),
+                    onTap: () => Navigator.pop(ctx),
+                    child: Icon(Icons.close, color: _grey, size: 20),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Regardez pendant le téléchargement, sans données supplémentaires.',
-                style: TextStyle(color: _grey, fontSize: 13, height: 1.4),
+                style:
+                    TextStyle(color: _grey, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 16),
               Row(
@@ -1088,14 +1157,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.of(context).pushNamed('/downloadQueue');
+                        Navigator.pop(ctx);
+                        Navigator.of(ctx).pushNamed('/downloadQueue');
                       },
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Color(0xFF3A3A52)),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        foregroundColor: _textPrimary,
+                        side: BorderSide(color: _faint),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Voir le téléchargement'),
                     ),
@@ -1103,12 +1174,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(ctx),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _teal,
+                        backgroundColor: _accent,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Regarder maintenant'),
                     ),
@@ -1124,11 +1197,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── OPTIONS SHEET ──────────────────────────────────────────────────────────
 
-  void _showOptionsSheet(BuildContext context, List<Chapter> chapters) {
+  void _showOptionsSheet(BuildContext ctx, List<Chapter> chapters) {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF191826),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      context: ctx,
+      backgroundColor: _surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1136,24 +1210,65 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             Container(
               width: 38, height: 4,
               margin: const EdgeInsets.only(top: 10, bottom: 8),
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                  color: _faint,
+                  borderRadius: BorderRadius.circular(2)),
             ),
             ListTile(
-              leading: const Icon(Icons.refresh, color: Colors.white70),
-              title: const Text('Actualiser', style: TextStyle(color: Colors.white)),
-              onTap: () { Navigator.pop(context); widget.checkForUpdate(true); },
+              leading: Icon(Icons.refresh, color: _grey),
+              title: Text('Actualiser',
+                  style: TextStyle(color: _textPrimary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                widget.checkForUpdate(true);
+              },
             ),
             ListTile(
-              leading: const Icon(Icons.share, color: Colors.white70),
-              title: const Text('Partager', style: TextStyle(color: Colors.white)),
-              onTap: () { Navigator.pop(context); _share(context); },
+              leading: Icon(Icons.share, color: _grey),
+              title: Text('Partager',
+                  style: TextStyle(color: _textPrimary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _share(ctx);
+              },
             ),
             ListTile(
-              leading: const Icon(Icons.download, color: Colors.white70),
-              title: const Text('Tout télécharger', style: TextStyle(color: Colors.white)),
-              onTap: () { Navigator.pop(context); _downloadAll(chapters); },
+              leading: Icon(Icons.download, color: _grey),
+              title: Text('Tout télécharger',
+                  style: TextStyle(color: _textPrimary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _downloadAll(chapters);
+              },
             ),
             const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── AIDE BUTTON ────────────────────────────────────────────────────────────
+
+class _AideButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AideButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.help_outline_rounded, color: Colors.white, size: 18),
+            SizedBox(height: 1),
+            Text('Aide',
+                style: TextStyle(color: Colors.white, fontSize: 9.5)),
           ],
         ),
       ),
@@ -1179,9 +1294,14 @@ class _DownloadSheet extends StatefulWidget {
 }
 
 class _DownloadSheetState extends State<_DownloadSheet> {
-  static const _teal = Color(0xFF1DB954);
-  static const _bg   = Color(0xFF191826);
-  static const _card = Color(0xFF232234);
+  // ── Theme helpers ────────────────────────────────────────────────────────────
+  Color get _accent   => Theme.of(context).primaryColor;
+  Color get _bg       => Theme.of(context).scaffoldBackgroundColor;
+  Color get _card     => Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _surface  => Theme.of(context).colorScheme.surface;
+  Color get _grey     => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.50);
+  Color get _faint    => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.25);
+  Color get _text     => Theme.of(context).colorScheme.onSurface;
 
   String _selectedQuality = '1080P';
   final Set<int> _selected = {};
@@ -1204,7 +1324,7 @@ class _DownloadSheetState extends State<_DownloadSheet> {
           _buildHeader(),
           _buildResourcesCard(),
           _buildQualityChips(),
-          const Divider(height: 1, color: Color(0xFF2A2840)),
+          Divider(height: 1, color: _faint),
           Flexible(
             child: ListView.builder(
               shrinkWrap: true,
@@ -1222,45 +1342,55 @@ class _DownloadSheetState extends State<_DownloadSheet> {
   Widget _buildHandle() => Container(
         width: 38, height: 4,
         margin: const EdgeInsets.only(top: 10, bottom: 4),
-        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+        decoration: BoxDecoration(
+            color: _faint, borderRadius: BorderRadius.circular(2)),
       );
 
   Widget _buildHeader() => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            const Text('Télécharger',
-                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
+            Text('Télécharger',
+                style: TextStyle(
+                    color: _text,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700)),
             const Spacer(),
             GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: const Icon(Icons.close, color: Colors.white54, size: 22),
+              child: Icon(Icons.close, color: _grey, size: 22),
             ),
           ],
         ),
       );
 
   Widget _buildResourcesCard() {
-    final source = getSource(widget.manga.lang ?? '', widget.manga.source ?? '', widget.manga.sourceId);
+    final source = getSource(widget.manga.lang ?? '',
+        widget.manga.source ?? '', widget.manga.sourceId);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF3A3A52), width: 0.8),
+        border: Border.all(color: _faint, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.storage_outlined, color: Color(0xFF9E9E9E), size: 14),
+              Icon(Icons.storage_outlined, color: _grey, size: 14),
               const SizedBox(width: 6),
-              const Text('Ressources', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              Text('Ressources',
+                  style: TextStyle(
+                      color: _text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600)),
               if (source != null) ...[
                 const SizedBox(width: 6),
-                Text('· ${source.name}', style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 12)),
+                Text('· ${source.name}',
+                    style: TextStyle(color: _grey, fontSize: 12)),
               ],
             ],
           ),
@@ -1281,16 +1411,18 @@ class _DownloadSheetState extends State<_DownloadSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2840),
+        color: _surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF3A3A52), width: 0.8),
+        border: Border.all(color: _faint, width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(label,
+              style: TextStyle(
+                  color: _text.withValues(alpha: 0.7), fontSize: 13)),
           const SizedBox(width: 4),
-          Icon(icon, color: Colors.white54, size: 16),
+          Icon(icon, color: _grey, size: 16),
         ],
       ),
     );
@@ -1308,18 +1440,21 @@ class _DownloadSheetState extends State<_DownloadSheet> {
               onTap: () => setState(() => _selectedQuality = q),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: sel ? _teal : const Color(0xFF2A2840),
+                  color: sel ? _accent : _card,
                   borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: sel ? _teal : const Color(0xFF3A3A52), width: 0.8),
+                  border:
+                      Border.all(color: sel ? _accent : _faint, width: 0.8),
                 ),
                 child: Text(
                   q,
                   style: TextStyle(
-                    color: sel ? Colors.white : Colors.white54,
+                    color: sel ? Colors.white : _grey,
                     fontSize: 13,
-                    fontWeight: sel ? FontWeight.w700 : FontWeight.normal,
+                    fontWeight:
+                        sel ? FontWeight.w700 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -1344,19 +1479,21 @@ class _DownloadSheetState extends State<_DownloadSheet> {
             SizedBox(
               width: 22, height: 22,
               child: sel
-                  ? const Icon(Icons.radio_button_checked, color: _teal, size: 22)
-                  : const Icon(Icons.radio_button_unchecked, color: Colors.white24, size: 22),
+                  ? Icon(Icons.radio_button_checked,
+                      color: _accent, size: 22)
+                  : Icon(Icons.radio_button_unchecked,
+                      color: _faint, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 chapter.name ?? 'Épisode ${index + 1}',
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: TextStyle(color: _text, fontSize: 14),
               ),
             ),
             Text(
               chapter.duration?.isNotEmpty == true ? chapter.duration! : '',
-              style: const TextStyle(color: Color(0xFF555575), fontSize: 12),
+              style: TextStyle(color: _grey, fontSize: 12),
             ),
           ],
         ),
@@ -1367,8 +1504,8 @@ class _DownloadSheetState extends State<_DownloadSheet> {
   Widget _buildBottomBar(List<Chapter> chapters) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFF2A2840))),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: _faint)),
         color: _bg,
       ),
       child: SafeArea(
@@ -1378,7 +1515,8 @@ class _DownloadSheetState extends State<_DownloadSheet> {
               onTap: () => setState(() {
                 _selectAll = !_selectAll;
                 if (_selectAll) {
-                  _selected.addAll(List.generate(chapters.length, (i) => i));
+                  _selected.addAll(
+                      List.generate(chapters.length, (i) => i));
                 } else {
                   _selected.clear();
                 }
@@ -1388,11 +1526,16 @@ class _DownloadSheetState extends State<_DownloadSheet> {
                   SizedBox(
                     width: 22, height: 22,
                     child: _selectAll
-                        ? const Icon(Icons.radio_button_checked, color: _teal, size: 22)
-                        : const Icon(Icons.radio_button_unchecked, color: Colors.white24, size: 22),
+                        ? Icon(Icons.radio_button_checked,
+                            color: _accent, size: 22)
+                        : Icon(Icons.radio_button_unchecked,
+                            color: _faint, size: 22),
                   ),
                   const SizedBox(width: 8),
-                  const Text('Tout sélectionner', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text('Tout sélectionner',
+                      style: TextStyle(
+                          color: _text.withValues(alpha: 0.7),
+                          fontSize: 14)),
                 ],
               ),
             ),
@@ -1400,15 +1543,20 @@ class _DownloadSheetState extends State<_DownloadSheet> {
             ElevatedButton.icon(
               onPressed: _selected.isEmpty
                   ? null
-                  : () => widget.onDownload(_selected.map((i) => chapters[i]).toList()),
+                  : () => widget
+                      .onDownload(_selected.map((i) => chapters[i]).toList()),
               icon: const Icon(Icons.download_outlined, size: 18),
-              label: Text(_selected.isEmpty ? 'Télécharger' : 'Télécharger (${_selected.length})'),
+              label: Text(_selected.isEmpty
+                  ? 'Télécharger'
+                  : 'Télécharger (${_selected.length})'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _teal,
-                disabledBackgroundColor: const Color(0xFF252434),
+                backgroundColor: _accent,
+                disabledBackgroundColor: _card,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -1426,13 +1574,17 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
   const _TabBarDelegate(this.tabBar, {this.color = Colors.black});
 
-  @override double get minExtent => tabBar.preferredSize.height;
-  @override double get maxExtent => tabBar.preferredSize.height;
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
+  Widget build(
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
       ColoredBox(color: color, child: tabBar);
 
   @override
-  bool shouldRebuild(_TabBarDelegate old) => old.tabBar != tabBar || old.color != color;
+  bool shouldRebuild(_TabBarDelegate old) =>
+      old.tabBar != tabBar || old.color != color;
 }
