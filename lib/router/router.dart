@@ -184,6 +184,7 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(name: "updates", child: const UpdatesScreen()),
         _genericRoute(name: "browse", child: const BrowseScreen()),
         _genericRoute(name: "more", child: const MoreScreen()),
+        _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
       ],
     ),
     _genericRoute<(Source?, bool)>(
@@ -245,7 +246,6 @@ class RouterNotifier extends ChangeNotifier {
       name: "sourceFilter",
       builder: (itemType) => SourcesFilterScreen(itemType: itemType),
     ),
-    _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
     _genericRoute<Map<String, dynamic>>(
       name: "mangawebview",
       builder: (data) => MangaWebView(url: data["url"]!, title: data['title']!),
