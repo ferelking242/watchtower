@@ -1021,7 +1021,7 @@ enum AudioChannel {
 
 enum SectionType { all, anime, manga }
 
-enum DisplayType { compactGrid, comfortableGrid, coverOnlyGrid, list }
+enum DisplayType { compactGrid, comfortableGrid, coverOnlyGrid, list, wideList, largeGrid }
 
 enum ScaleType {
   fitScreen,

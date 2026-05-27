@@ -199,9 +199,12 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     final l10n = context.l10n;
     final displayType = ref.watch(mangaHomeDisplayTypeStateProvider);
     final displayTypeIcon = switch (displayType) {
-      DisplayType.comfortableGrid ||
-      DisplayType.compactGrid => Icons.view_module,
-      _ => Icons.view_list,
+      DisplayType.compactGrid => Icons.grid_view,
+      DisplayType.comfortableGrid => Icons.view_module,
+      DisplayType.coverOnlyGrid => Icons.image_outlined,
+      DisplayType.largeGrid => Icons.dashboard_outlined,
+      DisplayType.list => Icons.view_list,
+      DisplayType.wideList => Icons.view_agenda_outlined,
     };
     return Scaffold(
       appBar: AppBar(
@@ -289,31 +292,25 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                     ref2.watch(mangaHomeDisplayTypeStateProvider);
                 final notifier = ref2
                     .read(mangaHomeDisplayTypeStateProvider.notifier);
+                Widget tile(IconData icon, String label, DisplayType val) =>
+                    RadioListTile<DisplayType>(
+                      secondary: Icon(icon, size: 20),
+                      title: Text(label, style: const TextStyle(fontSize: 14)),
+                      value: val,
+                      groupValue: displayType,
+                      dense: true,
+                      onChanged: (v) => notifier.setMangaHomeDisplayType(v!),
+                    );
                 return IntrinsicWidth(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      RadioListTile(
-                        title: Text(ctx.l10n.comfortable_grid),
-                        value: DisplayType.comfortableGrid,
-                        groupValue: displayType,
-                        onChanged: (v) =>
-                            notifier.setMangaHomeDisplayType(v!),
-                      ),
-                      RadioListTile(
-                        title: Text(ctx.l10n.compact_grid),
-                        value: DisplayType.compactGrid,
-                        groupValue: displayType,
-                        onChanged: (v) =>
-                            notifier.setMangaHomeDisplayType(v!),
-                      ),
-                      RadioListTile(
-                        title: Text(ctx.l10n.list),
-                        value: DisplayType.list,
-                        groupValue: displayType,
-                        onChanged: (v) =>
-                            notifier.setMangaHomeDisplayType(v!),
-                      ),
+                      tile(Icons.grid_view, ctx.l10n.compact_grid, DisplayType.compactGrid),
+                      tile(Icons.view_module, ctx.l10n.comfortable_grid, DisplayType.comfortableGrid),
+                      tile(Icons.image_outlined, ctx.l10n.cover_only_grid, DisplayType.coverOnlyGrid),
+                      tile(Icons.dashboard_outlined, 'Grille large', DisplayType.largeGrid),
+                      tile(Icons.view_list, ctx.l10n.list, DisplayType.list),
+                      tile(Icons.view_agenda_outlined, 'Liste étendue', DisplayType.wideList),
                     ],
                   ),
                 );
@@ -321,6 +318,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             ),
             child: Icon(displayTypeIcon, color: Theme.of(context).hintColor),
           ),
+          const SizedBox(width: 2),
           if (!isLocal)
             Builder(
               builder: (ctx) => CustomPopup(
@@ -330,8 +328,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.open_in_browser_rounded),
-                        title: Text(ctx.l10n.open_in_browser),
+                        dense: true,
+                        leading: const Icon(Icons.open_in_browser_rounded, size: 20),
+                        title: Text(ctx.l10n.open_in_browser, style: const TextStyle(fontSize: 14)),
                         onTap: () {
                           final baseUrl = ref.read(
                             sourceBaseUrlProvider(source: source),
@@ -345,8 +344,16 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                         },
                       ),
                       ListTile(
-                        leading: const Icon(Icons.settings_outlined),
-                        title: Text(ctx.l10n.settings),
+                        dense: true,
+                        leading: const Icon(Icons.cookie_outlined, size: 20),
+                        title: const Text('Cookies', style: TextStyle(fontSize: 14)),
+                        onTap: () => ctx.push('/extension-cookies'),
+                      ),
+                      const Divider(height: 1, thickness: 0.5),
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.settings_outlined, size: 20),
+                        title: Text(ctx.l10n.settings, style: const TextStyle(fontSize: 14)),
                         onTap: () async {
                           final res = await ctx.push(
                             '/extension_detail',
@@ -357,11 +364,16 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                           }
                         },
                       ),
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.bug_report_outlined, size: 20),
+                        title: const Text('Diagnostic', style: TextStyle(fontSize: 14)),
+                        onTap: () => ctx.push('/extensionDiagnostic', extra: source.itemType),
+                      ),
                     ],
                   ),
                 ),
-                child:
-                    Icon(Icons.more_vert, color: Theme.of(ctx).hintColor),
+                child: Icon(Icons.more_vert, color: Theme.of(ctx).hintColor),
               ),
             ),
         ],
@@ -599,14 +611,22 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 _length = (_mangaList.length < _length
                     ? _mangaList.length
                     : _length);
+                final isListMode = displayType == DisplayType.list || displayType == DisplayType.wideList;
                 final isComfortableGrid =
-                    displayType == DisplayType.comfortableGrid;
+                    displayType == DisplayType.comfortableGrid ||
+                    displayType == DisplayType.largeGrid;
+                final childAspectRatio = switch (displayType) {
+                  DisplayType.comfortableGrid => 0.642,
+                  DisplayType.largeGrid => 0.6,
+                  DisplayType.coverOnlyGrid => 0.85,
+                  _ => 0.69,
+                };
                 return Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Column(
                     children: [
                       Flexible(
-                        child: displayType == DisplayType.list
+                        child: isListMode
                             ? SuperListViewWidget(
                                 controller: _scrollController,
                                 itemCount: _length + 1,
@@ -623,19 +643,19 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                               )
                             : Consumer(
                                 builder: (context, ref, child) {
-                                  final gridSize = ref.watch(
-                                    libraryGridSizeStateProvider(
-                                      itemType: source.itemType,
-                                    ),
-                                  );
+                                  final gridSize = displayType == DisplayType.largeGrid
+                                      ? 2
+                                      : ref.watch(
+                                          libraryGridSizeStateProvider(
+                                            itemType: source.itemType,
+                                          ),
+                                        );
 
                                   return GridViewWidget(
                                     gridSize: gridSize,
                                     controller: _scrollController,
                                     itemCount: _length + 1,
-                                    childAspectRatio: isComfortableGrid
-                                        ? 0.642
-                                        : 0.69,
+                                    childAspectRatio: childAspectRatio,
                                     itemBuilder: (context, index) {
                                       if (index == _length) {
                                         return buildProgressIndicator();

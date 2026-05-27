@@ -10,6 +10,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -1422,6 +1423,24 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   }
 
   void _reopenInWatchtower() {
+    final url = _url;
+    if (url.isNotEmpty) {
+      try {
+        final all = isar.mangas.filter().linkIsNotEmpty().findAllSync();
+        Manga? match;
+        for (final m in all) {
+          final link = m.link ?? '';
+          if (link.isNotEmpty && url.contains(link)) {
+            match = m;
+            break;
+          }
+        }
+        if (match != null && mounted) {
+          context.push('/manga-reader/detail', extra: match.id!);
+          return;
+        }
+      } catch (_) {}
+    }
     if (mounted) context.pop();
   }
 
@@ -1604,19 +1623,22 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         // ── Top bar: address + close ──────────────────────────────────
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(54),
-          child: _BrowserHeader(
-            url: _url,
-            title: _title,
-            progress: _progress,
-            isDark: isDark,
-            cs: cs,
-            adEnabled: _adBlockEnabled,
-            blockedCount: _blockedCount,
-            showFooter: _showFooter,
-            incognito: _incognitoMode,
-            onToggleFooter: () => setState(() => _showFooter = !_showFooter),
-            onRefresh: () => _webViewController?.reload(),
+          preferredSize: Size.fromHeight(54 + MediaQuery.of(context).padding.top),
+          child: SafeArea(
+            bottom: false,
+            child: _BrowserHeader(
+              url: _url,
+              title: _title,
+              progress: _progress,
+              isDark: isDark,
+              cs: cs,
+              adEnabled: _adBlockEnabled,
+              blockedCount: _blockedCount,
+              showFooter: _showFooter,
+              incognito: _incognitoMode,
+              onToggleFooter: () => setState(() => _showFooter = !_showFooter),
+              onRefresh: () => _webViewController?.reload(),
+            ),
           ),
         ),
         // ── WebView body ──────────────────────────────────────────────
@@ -2031,13 +2053,6 @@ class _BrowserToolbar extends StatelessWidget {
                     onTap: onHome,
                     isDark: isDark,
                   ),
-                  // Tabs / onglets
-                  _ToolbarBtn(
-                    svgAsset: 'assets/icons/number-square-one.svg',
-                    size: 21,
-                    onTap: onTabs,
-                    isDark: isDark,
-                  ),
                   // Re-open in Watchtower
                   _ToolbarBtn(
                     icon: Icons.open_in_new_rounded,
@@ -2249,7 +2264,7 @@ class _MoreSheetState extends State<_MoreSheet> {
         while (rowItems.length < 5) rowItems.add(const SizedBox(width: 62));
         rows.add(
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: rowItems,
@@ -2347,15 +2362,18 @@ class _MoreSheetState extends State<_MoreSheet> {
 
             // PageView — 3 pages
             SizedBox(
-              height: 190,
-              child: PageView(
-                controller: _pageCtrl,
-                onPageChanged: (i) => setState(() => _page = i),
-                children: [
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page1),
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page2),
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page3),
-                ],
+              height: 162,
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                child: PageView(
+                  controller: _pageCtrl,
+                  onPageChanged: (i) => setState(() => _page = i),
+                  children: [
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page1),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page2),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page3),
+                  ],
+                ),
               ),
             ),
 
@@ -2378,20 +2396,11 @@ class _MoreSheetState extends State<_MoreSheet> {
               }),
             ),
 
-            // Divider
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.07),
-            ),
-
-            // Bottom row: power + down
+            // Bottom row: fold + power both on the right
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   // Power = close WebView entirely
                   GestureDetector(
@@ -2399,19 +2408,25 @@ class _MoreSheetState extends State<_MoreSheet> {
                       Navigator.pop(context);
                       widget.onCloseWebView();
                     },
-                    child: Icon(
-                      Icons.power_settings_new_rounded,
-                      size: 26,
-                      color: isDark ? Colors.white70 : Colors.black54,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.power_settings_new_rounded,
+                        size: 26,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
                     ),
                   ),
                   // Down = dismiss sheet
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 30,
-                      color: isDark ? Colors.white70 : Colors.black54,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 30,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
                     ),
                   ),
                 ],
