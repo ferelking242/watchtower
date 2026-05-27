@@ -1426,7 +1426,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     final url = _url;
     if (url.isNotEmpty) {
       try {
-        final all = await isar.mangas.where().findAll();
+        final all = await isar.mangas.filter().idIsNotNull().findAll();
         Manga? match;
         for (final m in all) {
           final link = m.link ?? '';
