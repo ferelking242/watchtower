@@ -241,7 +241,7 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
             icon: const Icon(Icons.file_upload_outlined),
             onPressed: () async {
               try {
-                final result = await FilePicker.platform.pickFiles(
+                final result = await FilePicker.pickFiles(
                   type: FileType.custom,
                   allowedExtensions: ['dart', 'js', 'txt'],
                   withData: true,
