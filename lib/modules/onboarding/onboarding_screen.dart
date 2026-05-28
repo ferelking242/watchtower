@@ -590,7 +590,7 @@ class _SloganPageState extends State<_SloganPage>
 //   Second copy fills the gap seamlessly.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _Lane extends StatelessWidget {
+class _Lane extends StatefulWidget {
   final Animation<double> animation;
   final List<_MediaItem> items;
   final bool goUp;
@@ -608,30 +608,70 @@ class _Lane extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final totalH = (cardHeight + gap) * items.length;
+  State<_Lane> createState() => _LaneState();
+}
 
+class _LaneState extends State<_Lane> {
+  late Widget _col1;
+  late Widget _col2;
+
+  @override
+  void initState() {
+    super.initState();
+    _col1 = _buildCol(0);
+    _col2 = _buildCol(1);
+  }
+
+  @override
+  void didUpdateWidget(_Lane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.width != widget.width ||
+        oldWidget.cardHeight != widget.cardHeight ||
+        oldWidget.gap != widget.gap ||
+        oldWidget.items != widget.items) {
+      _col1 = _buildCol(0);
+      _col2 = _buildCol(1);
+    }
+  }
+
+  Widget _buildCol(int copyIdx) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          children: widget.items
+              .map((item) => _Card(
+                    key: ValueKey('$copyIdx/${item.title}'),
+                    item: item,
+                    width: widget.width - 8,
+                    height: widget.cardHeight,
+                    gap: widget.gap,
+                  ))
+              .toList(),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final totalH = (widget.cardHeight + widget.gap) * widget.items.length;
     return SizedBox(
-      width: width,
+      width: widget.width,
       child: AnimatedBuilder(
-        animation: animation,
+        animation: widget.animation,
         builder: (_, __) {
-          // progress is always in [0, totalH) — no jumps, seamlessly loops
-          final progress = (animation.value * totalH) % totalH;
+          final progress = (widget.animation.value * totalH) % totalH;
           final double top1, top2;
-          if (goUp) {
-            top1 = -progress;         // moves upward
-            top2 = -progress + totalH; // second copy fills from below
+          if (widget.goUp) {
+            top1 = -progress;
+            top2 = -progress + totalH;
           } else {
-            top1 = progress;          // moves downward
-            top2 = progress - totalH; // second copy fills from above
+            top1 = progress;
+            top2 = progress - totalH;
           }
           return ClipRect(
             child: Stack(
               clipBehavior: Clip.hardEdge,
               children: [
-                Positioned(top: top1, left: 0, right: 0, child: _col()),
-                Positioned(top: top2, left: 0, right: 0, child: _col()),
+                Positioned(top: top1, left: 0, right: 0, child: _col1),
+                Positioned(top: top2, left: 0, right: 0, child: _col2),
               ],
             ),
           );
@@ -639,21 +679,6 @@ class _Lane extends StatelessWidget {
       ),
     );
   }
-
-  Widget _col() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          children: items
-              .map((item) => _Card(
-                    key: ValueKey(item.title),
-                    item: item,
-                    width: width - 8,
-                    height: cardHeight,
-                    gap: gap,
-                  ))
-              .toList(),
-        ),
-      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

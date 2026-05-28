@@ -52,6 +52,7 @@ class AboutScreen extends ConsumerWidget {
                 // ── Hero header ─────────────────────────────────────────────
                 SliverAppBar(
                   expandedHeight: 200,
+                  floating: true,
                   pinned: true,
                   flexibleSpace: FlexibleSpaceBar(
                     background: Container(
@@ -151,19 +152,39 @@ class AboutScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Binary engines (swipeable: Zeus / Aria2) ──────
-                        _SectionLabel(label: 'Moteurs binaires', cs: cs),
+                        // ── Binary engines ────────────────────────────────
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(Icons.memory_rounded, size: 15, color: cs.primary),
+                            const SizedBox(width: 6),
+                            Expanded(child: _SectionLabel(label: 'Moteurs binaires', cs: cs)),
+                            TextButton.icon(
+                              onPressed: () => _showBinaryStoreSheet(context),
+                              icon: const Icon(Icons.storefront_outlined, size: 14),
+                              label: const Text('Store', style: TextStyle(fontSize: 12)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: cs.primary,
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
-                        _BinaryEnginesSection(
+                        _ZeusDLCard(
                           zeusAsync: zeusAsync,
                           colorScheme: cs,
                           isDark: isDark,
-                          onZeusCheckTap: () {
-                            // User explicitly requested a fresh check —
-                            // bypass the in-memory 5-minute cache.
+                          onCheckTap: () {
                             invalidateZeusReleaseCache();
                             ref.invalidate(zeusLatestReleaseProvider);
                           },
+                        ),
+                        const SizedBox(height: 10),
+                        _Aria2Card(
+                          colorScheme: cs,
+                          isDark: isDark,
                         ),
 
                         const SizedBox(height: 20),
@@ -483,98 +504,193 @@ class _GlassCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Binary Engines Section (swipeable: ZeusDL + Aria2)
+// Binary engine store sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _BinaryEnginesSection extends StatefulWidget {
-  final AsyncValue<ZeusRelease?> zeusAsync;
-  final ColorScheme colorScheme;
-  final bool isDark;
-  final VoidCallback onZeusCheckTap;
-
-  const _BinaryEnginesSection({
-    required this.zeusAsync,
-    required this.colorScheme,
-    required this.isDark,
-    required this.onZeusCheckTap,
-  });
-
-  @override
-  State<_BinaryEnginesSection> createState() => _BinaryEnginesSectionState();
+void _showBinaryStoreSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => const _BinaryStoreSheet(),
+  );
 }
 
-class _BinaryEnginesSectionState extends State<_BinaryEnginesSection> {
-  final _pageController = PageController();
-  int _currentPage = 0;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+class _BinaryStoreSheet extends StatelessWidget {
+  const _BinaryStoreSheet();
 
   @override
   Widget build(BuildContext context) {
-    final cs = widget.colorScheme;
-    return Column(
-      children: [
-        // Swipe hint row
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    final cs = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PageDot(active: _currentPage == 0, cs: cs),
-            const SizedBox(width: 6),
-            _PageDot(active: _currentPage == 1, cs: cs),
+            Row(
+              children: [
+                Icon(Icons.memory_rounded, size: 20, color: cs.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'MOTEURS BINAIRES',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: cs.primary,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            Text(
+              'Choisissez les moteurs à installer selon vos besoins.',
+              style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.55)),
+            ),
+            const SizedBox(height: 16),
+            _StoreEngineRow(
+              icon: Icons.bolt_rounded,
+              iconColor: cs.primary,
+              name: 'ZeusDL',
+              badge: 'Streaming',
+              badgeColor: cs.primary,
+              description: 'Moteur basé sur yt-dlp — streaming, HLS, DASH, YouTube et plus.',
+              installed: _zeusInstalledVersion != null,
+            ),
+            const SizedBox(height: 10),
+            _StoreEngineRow(
+              icon: Icons.account_tree_rounded,
+              iconColor: cs.tertiary,
+              name: 'Aria2',
+              badge: 'Téléchargement',
+              badgeColor: cs.tertiary,
+              description: 'Moteur multi-connexion pour HTTP, FTP, BitTorrent et Magnet.',
+              installed: false,
+            ),
+            const SizedBox(height: 14),
+            Center(
+              child: Text(
+                "D'autres moteurs seront disponibles prochainement.",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onSurface.withOpacity(0.4),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 270,
-          child: PageView(
-            controller: _pageController,
-            onPageChanged: (p) => setState(() => _currentPage = p),
-            children: [
-              _ZeusDLCard(
-                zeusAsync: widget.zeusAsync,
-                colorScheme: cs,
-                isDark: widget.isDark,
-                onCheckTap: widget.onZeusCheckTap,
-              ),
-              _Aria2Card(
-                colorScheme: cs,
-                isDark: widget.isDark,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Balayez pour voir ${_currentPage == 0 ? 'Aria2 →' : '← ZeusDL'}',
-          style: TextStyle(
-            fontSize: 10,
-            color: cs.onSurface.withOpacity(0.4),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _PageDot extends StatelessWidget {
-  final bool active;
-  final ColorScheme cs;
-  const _PageDot({required this.active, required this.cs});
+class _StoreEngineRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String name;
+  final String badge;
+  final Color badgeColor;
+  final String description;
+  final bool installed;
+
+  const _StoreEngineRow({
+    required this.icon,
+    required this.iconColor,
+    required this.name,
+    required this.badge,
+    required this.badgeColor,
+    required this.description,
+    required this.installed,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: active ? 18 : 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: active ? cs.primary : cs.primary.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(3),
-      ),
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: iconColor.withOpacity(0.2)),
+          ),
+          child: Icon(icon, size: 20, color: iconColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    name,
+                    style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: badgeColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: TextStyle(fontSize: 11.5, color: cs.onSurface.withOpacity(0.55)),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: installed
+                ? Colors.green.withOpacity(0.12)
+                : cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            installed ? 'Installé' : 'Disponible',
+            style: TextStyle(
+              fontSize: 11,
+              color: installed ? Colors.green : cs.onSurface.withOpacity(0.5),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -977,31 +1093,49 @@ class _ZeusDLCard extends StatelessWidget {
             ),
           ],
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: FilledButton.tonal(
+                child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: isLoading ? null : onCheckTap,
-                  child: isLoading
+                  onPressed: isLoading
+                      ? null
+                      : (hasUpdate && latest != null
+                          ? () => _startZeusDownload(context, latest)
+                          : onCheckTap),
+                  icon: isLoading
                       ? const SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(
-                          'Check for update',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      : Icon(
+                          hasUpdate
+                              ? Icons.download_rounded
+                              : (_zeusInstalledVersion == null
+                                  ? Icons.download_rounded
+                                  : Icons.refresh_rounded),
+                          size: 15,
                         ),
+                  label: Text(
+                    isLoading
+                        ? '...'
+                        : (hasUpdate
+                            ? 'Mettre à jour ${latest?.version ?? ''}'
+                            : (_zeusInstalledVersion == null
+                                ? 'Télécharger'
+                                : 'Vérifier MàJ')),
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1010,57 +1144,24 @@ class _ZeusDLCard extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  side: BorderSide(
-                    color: cs.outline.withOpacity(0.3),
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-                tooltip: 'Reset bundled binary',
-                onPressed: () async {
-                  await ZeusDlBinaryManager.instance.clearCache();
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-              ),
-              const SizedBox(width: 8),
-              IconButton.outlined(
-                style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(
-                    color: cs.outline.withOpacity(0.3),
-                  ),
+                  side: BorderSide(color: cs.outline.withOpacity(0.3)),
                   visualDensity: VisualDensity.compact,
                 ),
                 tooltip: 'Importer un binaire local',
                 onPressed: () => _importZeusDLBinary(context),
                 icon: const Icon(Icons.file_upload_outlined, size: 16),
               ),
-              if (hasUpdate && latest != null) ...[
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  tooltip: 'Télécharger ce binaire',
-                  onPressed: () => _startZeusDownload(context, latest),
-                  icon: const Icon(Icons.download_rounded, size: 16),
-                ),
+              if (latest != null) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
                   style: IconButton.styleFrom(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    side: BorderSide(
-                      color: cs.outline.withOpacity(0.3),
-                    ),
+                    side: BorderSide(color: cs.outline.withOpacity(0.3)),
                     visualDensity: VisualDensity.compact,
                   ),
-                  tooltip: 'Open release page',
+                  tooltip: 'Page de release',
                   onPressed: () => _launchInBrowser(
                     Uri.parse(
                       latest.htmlUrl.isNotEmpty
@@ -1226,6 +1327,7 @@ Future<void> _startZeusDownload(
     final selected = await showModalBottomSheet<ZeusReleaseAsset>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (_) => _AssetPickerSheet(
         compatible: compatible,
         allAssets: allAssets,
@@ -1355,6 +1457,7 @@ Future<void> _startAria2Download(
     final selected = await showModalBottomSheet<ZeusReleaseAsset>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (_) => _AssetPickerSheet(
         compatible: compatible,
         allAssets: release.assets,

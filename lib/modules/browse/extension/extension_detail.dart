@@ -489,6 +489,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   icon: const Icon(Icons.copy_rounded),
                   onPressed: _copyBaseUrl,
                 ),
+              IconButton(
+                tooltip: 'Modifier l\'URL de base',
+                icon: const Icon(Icons.edit_rounded),
+                onPressed: _editBaseUrl,
+              ),
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(

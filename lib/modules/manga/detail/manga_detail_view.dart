@@ -438,6 +438,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         actions: [
                           if (!isLocalArchive) ...[
                             ArrowPopupMenuButton(
+                              padding: const EdgeInsets.all(12),
                               popUpAnimationStyle: popupAnimationStyle,
                               icon: const Icon(Icons.download_outlined),
                               itemBuilder: (context) {
@@ -609,6 +610,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                             ),
                           ),
                           ArrowPopupMenuButton(
+                            padding: const EdgeInsets.all(12),
                             popUpAnimationStyle: popupAnimationStyle,
                             itemBuilder: (context) {
                               return [
