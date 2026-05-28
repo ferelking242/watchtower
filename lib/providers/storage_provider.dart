@@ -324,8 +324,12 @@ class StorageProvider {
         }
       }
 
+    // CDN jsDelivr — faster, globally cached, no GitHub rate limits.
     const _wtBase =
+        'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
+    const _oldWtBase =
         'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
+
     final mangaRepo = Repo(
       jsonUrl: '$_wtBase/manga/index.json',
       name: 'Watchtower – Manga',
@@ -342,8 +346,47 @@ class StorageProvider {
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
 
+    // Mihon official extension repos
+    const _mihonUrl =
+        'https://raw.githubusercontent.com/mihonapp/extensions/repo/index.min.json';
+    final mihonMangaRepo = Repo(
+      jsonUrl: _mihonUrl,
+      name: 'Mihon – Manga',
+      website: 'https://mihonapp.netlify.app',
+    );
+    final mihonWatchRepo = Repo(
+      jsonUrl: _mihonUrl,
+      name: 'Mihon – Anime',
+      website: 'https://mihonapp.netlify.app',
+    );
+
+    // LNReader novel sources
+    const _lnreaderUrl =
+        'https://raw.githubusercontent.com/LNReader/lnreader-sources/main/v2/index.json';
+    final lnreaderRepo = Repo(
+      jsonUrl: _lnreaderUrl,
+      name: 'LNReader – Novels',
+      website: 'https://github.com/LNReader/lnreader-sources',
+    );
+
     bool _isWatchtowerRepo(Repo r) =>
         r.jsonUrl?.contains('ferelking242/watchtower-extensions') == true;
+
+    // Migrate raw.githubusercontent URLs → jsDelivr for existing users.
+    bool _migrateToJsDelivr(List<Repo>? repos) {
+      if (repos == null) return false;
+      var changed = false;
+      for (final r in repos) {
+        if (r.jsonUrl?.startsWith(_oldWtBase) == true) {
+          r.jsonUrl = r.jsonUrl!.replaceFirst(_oldWtBase, _wtBase);
+          changed = true;
+        }
+      }
+      return changed;
+    }
+
+    bool _hasRepo(List<Repo>? repos, String urlFragment) =>
+        repos?.any((r) => r.jsonUrl?.contains(urlFragment) == true) == true;
 
     try {
       final settings = await isar.settings.filter().idEqualTo(227).findFirst();
@@ -351,60 +394,65 @@ class StorageProvider {
         await isar.writeTxn(
           () async => isar.settings.put(
             Settings(
-              mangaExtensionsRepo: [mangaRepo],
-              animeExtensionsRepo: [watchRepo],
-              novelExtensionsRepo: [novelRepo],
+              mangaExtensionsRepo: [mangaRepo, mihonMangaRepo],
+              animeExtensionsRepo: [watchRepo, mihonWatchRepo],
+              novelExtensionsRepo: [novelRepo, lnreaderRepo],
             ),
           ),
         );
       } else {
         bool needsUpdate = false;
 
-        bool _hasCorrectRepo(List<Repo>? repos, String urlFragment) =>
-            repos?.any((r) => r.jsonUrl?.contains(urlFragment) == true) == true;
+        // 1 — Migrate existing Watchtower URLs to jsDelivr CDN
+        if (_migrateToJsDelivr(settings.mangaExtensionsRepo)) needsUpdate = true;
+        if (_migrateToJsDelivr(settings.animeExtensionsRepo)) needsUpdate = true;
+        if (_migrateToJsDelivr(settings.novelExtensionsRepo)) needsUpdate = true;
 
-        if (settings.mangaExtensionsRepo == null ||
-            settings.mangaExtensionsRepo!.isEmpty ||
-            !_hasCorrectRepo(settings.mangaExtensionsRepo, 'manga/index.json')) {
+        // 2 — Ensure Watchtower base repos are present
+        if (!_hasRepo(settings.mangaExtensionsRepo, 'manga/index.json')) {
           settings.mangaExtensionsRepo = [
-            ...?settings.mangaExtensionsRepo?.where((r) =>
-                _isWatchtowerRepo(r) &&
-                r.jsonUrl?.contains('manga/index.json') == true),
+            ...?settings.mangaExtensionsRepo,
             mangaRepo,
-          ].toSet().toList();
-          if (settings.mangaExtensionsRepo!.isEmpty) {
-            settings.mangaExtensionsRepo = [mangaRepo];
-          }
+          ];
           needsUpdate = true;
         }
-
-        if (settings.animeExtensionsRepo == null ||
-            settings.animeExtensionsRepo!.isEmpty ||
-            !_hasCorrectRepo(settings.animeExtensionsRepo, 'watch/index.json')) {
+        if (!_hasRepo(settings.animeExtensionsRepo, 'watch/index.json')) {
           settings.animeExtensionsRepo = [
-            ...?settings.animeExtensionsRepo?.where((r) =>
-                _isWatchtowerRepo(r) &&
-                r.jsonUrl?.contains('watch/index.json') == true),
+            ...?settings.animeExtensionsRepo,
             watchRepo,
-          ].toSet().toList();
-          if (settings.animeExtensionsRepo!.isEmpty) {
-            settings.animeExtensionsRepo = [watchRepo];
-          }
+          ];
+          needsUpdate = true;
+        }
+        if (!_hasRepo(settings.novelExtensionsRepo, 'novel/index.json')) {
+          settings.novelExtensionsRepo = [
+            ...?settings.novelExtensionsRepo,
+            novelRepo,
+          ];
           needsUpdate = true;
         }
 
-        if (settings.novelExtensionsRepo == null ||
-            settings.novelExtensionsRepo!.isEmpty ||
-            !_hasCorrectRepo(settings.novelExtensionsRepo, 'novel/index.json')) {
+        // 3 — Add Mihon repos if not already present
+        if (!_hasRepo(settings.mangaExtensionsRepo, 'mihonapp/extensions')) {
+          settings.mangaExtensionsRepo = [
+            ...?settings.mangaExtensionsRepo,
+            mihonMangaRepo,
+          ];
+          needsUpdate = true;
+        }
+        if (!_hasRepo(settings.animeExtensionsRepo, 'mihonapp/extensions')) {
+          settings.animeExtensionsRepo = [
+            ...?settings.animeExtensionsRepo,
+            mihonWatchRepo,
+          ];
+          needsUpdate = true;
+        }
+
+        // 4 — Add LNReader repo if not already present
+        if (!_hasRepo(settings.novelExtensionsRepo, 'LNReader/lnreader-sources')) {
           settings.novelExtensionsRepo = [
-            ...?settings.novelExtensionsRepo?.where((r) =>
-                _isWatchtowerRepo(r) &&
-                r.jsonUrl?.contains('novel/index.json') == true),
-            novelRepo,
-          ].toSet().toList();
-          if (settings.novelExtensionsRepo!.isEmpty) {
-            settings.novelExtensionsRepo = [novelRepo];
-          }
+            ...?settings.novelExtensionsRepo,
+            lnreaderRepo,
+          ];
           needsUpdate = true;
         }
 
