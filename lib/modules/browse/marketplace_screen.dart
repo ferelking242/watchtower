@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +55,105 @@ class _ExtEntry {
   });
 }
 
+// ─── Top-level parse helpers (top-level = usable by compute()) ─────────────────
+
+String _mktConvertLang(Map<dynamic, dynamic> e) {
+  final raw = (e['lang'] ?? e['language'] ?? 'en') as String;
+  return raw.toLowerCase().replaceAll(' ', '-');
+}
+
+// compute() isolate bridge — receives/returns primitives only (Maps, Strings, ints, bools).
+// Returns List<Map<String,dynamic>> which is safe across the isolate boundary.
+List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
+  final String body = args['body']!;
+  final String url = args['url']!;
+
+  final List<dynamic> list;
+  try {
+    list = jsonDecode(body) as List;
+  } catch (_) {
+    return [];
+  }
+  final results = <Map<String, dynamic>>[];
+
+  for (final dynamic raw in list) {
+    final e = raw as Map<dynamic, dynamic>;
+
+    // ── Mihon: one card per package (deduplicated) ───────────────────────────
+    if (e['pkg'] != null && e['sources'] != null) {
+      final sources = e['sources'] as List;
+      if (sources.isEmpty) continue;
+      final repoBase = url.replaceFirst('/index.min.json', '');
+      final iconUrl = '$repoBase/icon/${e['pkg']}.png';
+      final isAnime = (e['pkg'] as String)
+          .startsWith('eu.kanade.tachiyomi.animeextension');
+      final firstSrc = sources[0] as Map<dynamic, dynamic>;
+      final langs =
+          sources.map((s) => (s['lang'] ?? 'en') as String).toSet();
+      final lang = langs.length == 1 ? langs.first.toLowerCase() : 'multi';
+      results.add({
+        'id': 'mihon-${firstSrc['id']}'.hashCode,
+        'name': (e['name'] ?? firstSrc['name'] ?? '?') as String,
+        'iconUrl': iconUrl,
+        'lang': lang,
+        'version': (e['version'] ?? '?') as String,
+        'contentType': isAnime ? 1 : 0, // ItemType index
+        'compat': 2, // SourceCodeLanguage.mihon index
+        'isNsfw': (e['nsfw'] as int? ?? 0) == 1,
+        'repoUrl': url,
+      });
+    }
+    // ── LNReader ─────────────────────────────────────────────────────────────
+    else if (e['id'] is String && e['site'] != null && e['url'] != null) {
+      final lang = _mktConvertLang(e);
+      results.add({
+        'id': 'lnreader-plugin-"${e['name']}"."$lang"'.hashCode,
+        'name': (e['name'] ?? '?') as String,
+        'iconUrl': e['iconUrl'] as String?,
+        'lang': lang,
+        'version': e['version']?.toString() ?? '?',
+        'contentType': 2, // ItemType.novel index
+        'compat': 3, // SourceCodeLanguage.lnreader index
+        'isNsfw': false,
+        'repoUrl': url,
+      });
+    }
+    // ── Watchtower native ─────────────────────────────────────────────────────
+    else if (e['id'] != null && e['name'] != null) {
+      final itemTypeIdx = (e['itemType'] as int? ?? 0)
+          .clamp(0, 4); // ItemType has 5 values
+      final compatIdx = (e['sourceCodeLanguage'] as int? ?? 1)
+          .clamp(0, 3); // SourceCodeLanguage has 4 values
+      results.add({
+        'id': (e['id'] as num).toInt(),
+        'name': (e['name'] ?? '?') as String,
+        'iconUrl': e['iconUrl'] as String?,
+        'lang': (e['lang'] as String? ?? 'all').toLowerCase(),
+        'version': (e['version'] ?? '?') as String,
+        'contentType': itemTypeIdx,
+        'compat': compatIdx,
+        'isNsfw': e['isNsfw'] as bool? ?? false,
+        'repoUrl': url,
+      });
+    }
+  }
+  return results;
+}
+
+List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
+    .map((m) => _ExtEntry(
+          id: m['id'] as int,
+          name: m['name'] as String,
+          iconUrl: m['iconUrl'] as String?,
+          lang: m['lang'] as String,
+          version: m['version'] as String,
+          contentType: ItemType.values[m['contentType'] as int],
+          compat: SourceCodeLanguage.values[m['compat'] as int],
+          isNsfw: m['isNsfw'] as bool,
+          repoUrl: m['repoUrl'] as String,
+        ))
+    .toList();
+
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
@@ -105,89 +203,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   Future<List<_ExtEntry>> _fetch(String url) async {
-    if (kIsWeb) {
-      const proxy = 'https://watchtower-proxy.aivos-dev.workers.dev/proxy';
-      final r = await http
-          .get(Uri.parse('$proxy?url=${Uri.encodeComponent(url)}'))
-          .timeout(const Duration(seconds: 20));
-      return _parseIndex(r.body, url);
-    }
     final r = await http
         .get(Uri.parse(url))
-        .timeout(const Duration(seconds: 20));
-    return _parseIndex(r.body, url);
-  }
-
-  List<_ExtEntry> _parseIndex(String body, String url) {
-    final list = jsonDecode(body) as List;
-    final entries = <_ExtEntry>[];
-
-    for (final e in list) {
-      // ── Mihon format ──────────────────────────────────────────────────────
-      if (e['pkg'] != null && e['sources'] != null) {
-        final repoUrl = url.replaceFirst('/index.min.json', '');
-        final iconUrl = '$repoUrl/icon/${e['pkg']}.png';
-        final isAnime =
-            (e['pkg'] as String).startsWith('eu.kanade.tachiyomi.animeextension');
-        final itemType = isAnime ? ItemType.anime : ItemType.manga;
-        for (final s in e['sources'] as List) {
-          final id = 'mihon-${s['id']}'.hashCode;
-          entries.add(_ExtEntry(
-            id: id,
-            name: s['name'] as String? ?? e['name'] as String? ?? '?',
-            iconUrl: iconUrl,
-            lang: ((s['lang'] ?? e['lang'] ?? 'all') as String).toLowerCase(),
-            version: e['version'] as String? ?? '?',
-            contentType: itemType,
-            compat: SourceCodeLanguage.mihon,
-            isNsfw: (e['nsfw'] as int? ?? 0) == 1,
-            repoUrl: url,
-          ));
-        }
-      }
-      // ── LNReader format ───────────────────────────────────────────────────
-      else if (e['id'] is String && e['site'] != null && e['url'] != null) {
-        final id =
-            'lnreader-plugin-"${e['name']}"."${_convertLang(e)}"'.hashCode;
-        entries.add(_ExtEntry(
-          id: id,
-          name: e['name'] as String? ?? '?',
-          iconUrl: e['iconUrl'] as String?,
-          lang: _convertLang(e),
-          version: e['version']?.toString() ?? '?',
-          contentType: ItemType.novel,
-          compat: SourceCodeLanguage.lnreader,
-          repoUrl: url,
-        ));
-      }
-      // ── Watchtower native format ──────────────────────────────────────────
-      else if (e['id'] != null && e['name'] != null) {
-        final langCode =
-            (e['lang'] as String? ?? 'all').toLowerCase();
-        final itemTypeIdx = e['itemType'] as int? ?? 0;
-        final itemType = ItemType.values[itemTypeIdx.clamp(0, ItemType.values.length - 1)];
-        final compatIdx = e['sourceCodeLanguage'] as int? ?? 1;
-        final compat = SourceCodeLanguage
-            .values[compatIdx.clamp(0, SourceCodeLanguage.values.length - 1)];
-        entries.add(_ExtEntry(
-          id: (e['id'] as num).toInt(),
-          name: e['name'] as String? ?? '?',
-          iconUrl: e['iconUrl'] as String?,
-          lang: langCode,
-          version: e['version'] as String? ?? '?',
-          contentType: itemType,
-          compat: compat,
-          isNsfw: e['isNsfw'] as bool? ?? false,
-          repoUrl: url,
-        ));
-      }
-    }
-    return entries;
-  }
-
-  String _convertLang(Map e) {
-    final raw = (e['lang'] ?? e['language'] ?? 'en') as String;
-    return raw.toLowerCase().replaceAll(' ', '-');
+        .timeout(const Duration(seconds: 25));
+    // Offload heavy JSON decode (e.g. Mihon's ~2 MB index) to a separate isolate.
+    final maps = r.bodyBytes.length > 80000
+        ? await compute(_parseIndexIsolate, {'body': r.body, 'url': url})
+        : _parseIndexIsolate({'body': r.body, 'url': url});
+    return _mapsToEntries(maps);
   }
 
   Future<void> _loadAll() async {

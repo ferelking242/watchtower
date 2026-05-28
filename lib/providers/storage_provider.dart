@@ -476,9 +476,9 @@ class StorageProvider {
           await isar.writeTxn(
             () async => isar.settings.put(
               Settings(
-                mangaExtensionsRepo: [mangaRepo],
-                animeExtensionsRepo: [watchRepo],
-                novelExtensionsRepo: [novelRepo],
+                mangaExtensionsRepo: [mangaRepo, mihonMangaRepo],
+                animeExtensionsRepo: [watchRepo, mihonWatchRepo],
+                novelExtensionsRepo: [novelRepo, lnreaderRepo],
               ),
             ),
           );
