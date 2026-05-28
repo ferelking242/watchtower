@@ -44,6 +44,7 @@ import 'package:watchtower/modules/more/settings/track/manage_trackers/manage_tr
 import 'package:watchtower/modules/more/settings/track/manage_trackers/tracking_detail.dart';
 import 'package:watchtower/modules/webview/webview.dart';
 import 'package:watchtower/modules/browse/browse_screen.dart';
+import 'package:watchtower/modules/browse/marketplace_screen.dart';
 import 'package:watchtower/modules/browse/extension/extension_lang.dart';
 import 'package:watchtower/modules/browse/extension_diagnostic_screen.dart';
 import 'package:watchtower/modules/browse/global_search/global_search_screen.dart';
@@ -183,6 +184,7 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(name: "history", child: const HistoryScreen()),
         _genericRoute(name: "updates", child: const UpdatesScreen()),
         _genericRoute(name: "browse", child: const BrowseScreen()),
+        _genericRoute(name: "marketplace", child: const MarketplaceScreen()),
         _genericRoute(name: "more", child: const MoreScreen()),
         _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
       ],

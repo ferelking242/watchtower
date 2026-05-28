@@ -858,7 +858,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
     '/updates', '/browse', '/more', '/trackerLibrary', '/globalSearch',
-    '/settings',
+    '/settings', '/marketplace',
   };
 
   static const _mainItems = [
@@ -871,6 +871,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
     (route: '/Library',        icon: Icons.collections_bookmark_outlined, activeIcon: Icons.collections_bookmark,     tooltip: 'Bibliothèque'),
     (route: '/globalSearch',   icon: Icons.search_outlined,             activeIcon: Icons.search,                     tooltip: 'Recherche'),
     (route: '/browse',         icon: Icons.explore_outlined,            activeIcon: Icons.explore,                    tooltip: 'Browse'),
+    (route: '/marketplace',    icon: Icons.storefront_outlined,         activeIcon: Icons.storefront_rounded,         tooltip: 'Marketplace'),
   ];
 
   static const _footerItems = [
@@ -1466,6 +1467,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/browse',
     '/more',
     '/trackerLibrary',
+    '/marketplace',
   };
 
   @override
@@ -1579,6 +1581,13 @@ class _FloatingDockState extends State<_FloatingDock> {
             label: l10n.tracking,
             icon: Icons.account_tree_outlined,
             activeIcon: Icons.account_tree,
+          ));
+        case '/marketplace':
+          items.add(const _DockItemData(
+            route: '/marketplace',
+            label: 'Market',
+            icon: Icons.storefront_outlined,
+            activeIcon: Icons.storefront_rounded,
           ));
         case '_enableLibSwitch':
           items.add(const _DockItemData(

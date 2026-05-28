@@ -194,6 +194,7 @@ class NavigationOrderState extends _$NavigationOrderState {
     '/GameLibrary',
     '/Library',
     '/browse',
+    '/marketplace',
     '/history',
     '/updates',
     '/trackerLibrary',

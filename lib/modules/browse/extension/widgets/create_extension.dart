@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
@@ -7,14 +8,14 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
-class CreateExtension extends StatefulWidget {
+class CreateExtension extends ConsumerStatefulWidget {
   const CreateExtension({super.key});
 
   @override
-  State<CreateExtension> createState() => _CreateExtensionState();
+  ConsumerState<CreateExtension> createState() => _CreateExtensionState();
 }
 
-class _CreateExtensionState extends State<CreateExtension> {
+class _CreateExtensionState extends ConsumerState<CreateExtension> {
   String _name = "";
   String _lang = "";
   String _baseUrl = "";
@@ -23,15 +24,65 @@ class _CreateExtensionState extends State<CreateExtension> {
   String _notes = "";
   int _sourceTypeIndex = 0;
   int _itemTypeIndex = 0;
-  int _languageIndex = 0;
+  SourceCodeLanguage _sourceCodeLanguage = SourceCodeLanguage.dart;
+
   final List<String> _sourceTypes = ["single", "multi", "torrent"];
   final List<String> _itemTypes = ["Manga", "Anime", "Novel"];
-  final List<String> _languages = [
-    "Dart",
-    "JavaScript",
-    "LNReader compiled JS",
+
+  static const _langOptions = [
+    (lang: SourceCodeLanguage.dart,       label: 'Dart',          subtitle: 'Native · Recommandé', emoji: '🎯', color: Color(0xFF54C5F8)),
+    (lang: SourceCodeLanguage.javascript, label: 'JavaScript',    subtitle: 'JS universel',         emoji: '𝐉𝐒', color: Color(0xFFF7DF1E)),
+    (lang: SourceCodeLanguage.lnreader,   label: 'LNReader JS',   subtitle: 'Compiled JS',          emoji: '📖', color: Color(0xFFFF7043)),
   ];
-  SourceCodeLanguage _sourceCodeLanguage = SourceCodeLanguage.dart;
+
+  static const _commonFlags = {
+    'en': '🇬🇧', 'fr': '🇫🇷', 'ja': '🇯🇵', 'zh': '🇨🇳', 'ko': '🇰🇷',
+    'es': '🇪🇸', 'pt': '🇵🇹', 'de': '🇩🇪', 'it': '🇮🇹', 'ru': '🇷🇺',
+    'ar': '🇸🇦', 'tr': '🇹🇷', 'pl': '🇵🇱', 'nl': '🇳🇱', 'id': '🇮🇩',
+    'th': '🇹🇭', 'vi': '🇻🇳', 'all': '🌐',
+  };
+
+  bool get _canProceed =>
+      _name.isNotEmpty && _lang.isNotEmpty && _baseUrl.isNotEmpty && _iconUrl.isNotEmpty;
+
+  Source? _buildSource() {
+    try {
+      final id = _sourceCodeLanguage == SourceCodeLanguage.dart
+          ? 'watchtower-$_lang.$_name'.hashCode
+          : 'watchtower-js-$_lang.$_name'.hashCode;
+      final existing = isar.sources.getSync(id);
+      if (existing != null) return existing;
+      final source = Source(
+        id: id,
+        name: _name,
+        lang: _lang,
+        baseUrl: _baseUrl,
+        apiUrl: _apiUrl,
+        iconUrl: _iconUrl,
+        typeSource: _sourceTypes[_sourceTypeIndex],
+        itemType: ItemType.values.elementAt(_itemTypeIndex),
+        isAdded: true,
+        isActive: true,
+        version: "0.0.1",
+        isNsfw: false,
+        notes: _notes,
+      )..sourceCodeLanguage = _sourceCodeLanguage;
+      final withCode = source
+        ..isLocal = true
+        ..sourceCode = _sourceCodeLanguage == SourceCodeLanguage.dart
+            ? _dartTemplate
+            : _jsSample(source);
+      isar.writeTxnSync(() {
+        isar.sources.putSync(
+          withCode..updatedAt = DateTime.now().millisecondsSinceEpoch,
+        );
+      });
+      return withCode;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -50,317 +101,428 @@ class _CreateExtensionState extends State<CreateExtension> {
               child: Icon(Icons.extension_rounded, size: 18, color: cs.primary),
             ),
             const SizedBox(width: 10),
-            const Text("Create Extension"),
+            const Text('Créer une extension'),
           ],
         ),
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      cs.primary.withValues(alpha: 0.16),
-                      cs.tertiary.withValues(alpha: 0.10),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: cs.primary.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.tips_and_updates_rounded,
-                        color: cs.primary, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Build your own source. After creation, open the '
-                        'extension to edit its code and publish it to the '
-                        'community marketplace.',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: cs.onSurface.withValues(alpha: 0.85),
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _SectionHeader(label: 'LANGUAGE', icon: Icons.code_rounded),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 17),
-                child: Row(
-                  children: [
-                    const Text("Choose extension language"),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child: DropdownButton(
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                        isExpanded: true,
-                        value: _languageIndex,
-                        hint: Text(
-                          _languages[_languageIndex],
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        items: _languages
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: _languages.indexOf(e),
-                                child: Text(
-                                  e,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          setState(() {
-                            if (v == 0) {
-                              _sourceCodeLanguage = SourceCodeLanguage.dart;
-                            } else if (v == 1) {
-                              _sourceCodeLanguage =
-                                  SourceCodeLanguage.javascript;
-                            } else {
-                              _sourceCodeLanguage = SourceCodeLanguage.lnreader;
-                            }
-                            _languageIndex = v!;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _textEditing("Name", context, "ex: myAnime", (v) {
-                setState(() {
-                  _name = v;
-                });
-              }),
-              _textEditing("Lang", context, "ex: en", (v) {
-                setState(() {
-                  _lang = v;
-                });
-              }),
-              _textEditing("BaseUrl", context, "ex: https://example.com", (v) {
-                setState(() {
-                  _baseUrl = v;
-                });
-              }),
-              _textEditing(
-                "ApiUrl (optional)",
-                context,
-                "ex: https://api.example.com",
-                (v) {
-                  setState(() {
-                    _apiUrl = v;
-                  });
-                },
-              ),
-              _textEditing("iconUrl", context, "Source icon url", (v) {
-                setState(() {
-                  _iconUrl = v;
-                });
-              }),
-              _textEditing(
-                "notes",
-                context,
-                "ex: this extension requires login",
-                (v) {
-                  setState(() {
-                    _notes = v;
-                  });
-                },
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 17),
-                child: Row(
-                  children: [
-                    const Text("Type"),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child: DropdownButton(
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                        isExpanded: true,
-                        value: _sourceTypeIndex,
-                        hint: Text(
-                          _sourceTypes[_sourceTypeIndex],
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        items: _sourceTypes
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: _sourceTypes.indexOf(e),
-                                child: Text(
-                                  e,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          setState(() {
-                            _sourceTypeIndex = v!;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 17),
-                child: Row(
-                  children: [
-                    const Text("Target"),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child: DropdownButton(
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                        isExpanded: true,
-                        value: _itemTypeIndex,
-                        hint: Text(
-                          _itemTypes[_itemTypeIndex],
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        items: _itemTypes
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: _itemTypes.indexOf(e),
-                                child: Text(
-                                  e,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          setState(() {
-                            _itemTypeIndex = v!;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _InfoBanner(cs: cs),
+              const SizedBox(height: 16),
+
+              _SectionHeader(label: 'LANGAGE', icon: Icons.code_rounded),
               const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              behavior: SnackBarBehavior.floating,
-                              content: Text(
-                                'Save your extension first, then open it '
-                                'and tap "Publish" to share to the marketplace.',
-                              ),
-                            ),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(
-                              color: cs.primary.withValues(alpha: 0.5)),
-                        ),
-                        icon: Icon(Icons.public_rounded,
-                            color: cs.primary, size: 18),
-                        label: Text(
-                          'Publish',
-                          style: TextStyle(color: cs.primary),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: Consumer(
-                  builder: (context, ref, child) => ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: cs.primary,
-                      foregroundColor: cs.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      if (_name.isNotEmpty &&
-                          _lang.isNotEmpty &&
-                          _baseUrl.isNotEmpty &&
-                          _iconUrl.isNotEmpty) {
-                        try {
-                          final id =
-                              _sourceCodeLanguage == SourceCodeLanguage.dart
-                              ? 'watchtower-$_lang.$_name'.hashCode
-                              : 'watchtower-js-$_lang.$_name'.hashCode;
-                          final checkIfExist = isar.sources.getSync(id);
-                          if (checkIfExist == null) {
-                            Source source = Source(
-                              id: id,
-                              name: _name,
-                              lang: _lang,
-                              baseUrl: _baseUrl,
-                              apiUrl: _apiUrl,
-                              iconUrl: _iconUrl,
-                              typeSource: _sourceTypes[_sourceTypeIndex],
-                              itemType: ItemType.values.elementAt(
-                                _itemTypeIndex,
-                              ),
-                              isAdded: true,
-                              isActive: true,
-                              version: "0.0.1",
-                              isNsfw: false,
-                              notes: _notes,
-                            )..sourceCodeLanguage = _sourceCodeLanguage;
-                            source = source
-                              ..isLocal = true
-                              ..sourceCode =
-                                  _sourceCodeLanguage == SourceCodeLanguage.dart
-                                  ? _dartTemplate
-                                  : _jsSample(source);
-                            isar.writeTxnSync(() {
-                              isar.sources.putSync(
-                                source
-                                  ..updatedAt =
-                                      DateTime.now().millisecondsSinceEpoch,
-                              );
-                            });
-                            Navigator.pop(context);
-                            botToast("Source created successfully");
-                          } else {
-                            botToast("Source already exists");
-                          }
-                        } catch (e) {
-                          botToast("Error when creating source");
-                        }
-                      }
-                    },
-                    child: Text(context.l10n.save),
+              _LanguagePicker(
+                selected: _sourceCodeLanguage,
+                options: _langOptions,
+                onChanged: (l) => setState(() => _sourceCodeLanguage = l),
+              ),
+              const SizedBox(height: 20),
+
+              _SectionHeader(label: 'INFORMATIONS', icon: Icons.info_outline_rounded),
+              const SizedBox(height: 8),
+              _FieldRow(label: 'Nom', hint: 'ex: myAnime', onChanged: (v) => setState(() => _name = v)),
+              const SizedBox(height: 10),
+
+              _LangField(
+                flags: _commonFlags,
+                onChanged: (v) => setState(() => _lang = v),
+              ),
+              const SizedBox(height: 10),
+
+              _FieldRow(label: 'URL de base', hint: 'https://exemple.com', onChanged: (v) => setState(() => _baseUrl = v)),
+              const SizedBox(height: 10),
+              _FieldRow(label: 'API URL (optionnel)', hint: 'https://api.exemple.com', onChanged: (v) => setState(() => _apiUrl = v)),
+              const SizedBox(height: 10),
+              _FieldRow(label: 'URL icône', hint: 'https://exemple.com/icon.png', onChanged: (v) => setState(() => _iconUrl = v)),
+              const SizedBox(height: 10),
+              _FieldRow(label: 'Notes', hint: 'ex: nécessite une connexion', onChanged: (v) => setState(() => _notes = v)),
+              const SizedBox(height: 20),
+
+              _SectionHeader(label: 'TYPE', icon: Icons.category_outlined),
+              const SizedBox(height: 8),
+              _DropdownRow(
+                label: 'Source',
+                items: _sourceTypes,
+                value: _sourceTypeIndex,
+                onChanged: (v) => setState(() => _sourceTypeIndex = v),
+                cs: cs,
+              ),
+              const SizedBox(height: 10),
+              _DropdownRow(
+                label: 'Contenu',
+                items: _itemTypes,
+                value: _itemTypeIndex,
+                onChanged: (v) => setState(() => _itemTypeIndex = v),
+                cs: cs,
+                icons: [Icons.auto_stories_outlined, Icons.live_tv_outlined, Icons.text_snippet_outlined],
+              ),
+              const SizedBox(height: 28),
+
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _canProceed ? cs.primary : cs.surfaceContainerHighest,
+                    foregroundColor: _canProceed ? cs.onPrimary : cs.onSurfaceVariant,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: _canProceed ? 3 : 0,
                   ),
-                ),
-                    ),
-                  ],
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                  label: const Text(
+                    'Suivant — Éditeur de code',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                  onPressed: _canProceed
+                      ? () {
+                          final src = _buildSource();
+                          if (src != null) {
+                            context.pop();
+                            context.push('/codeEditor', extra: src.id);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                content: Text('Ce nom d\'extension existe déjà.'),
+                              ),
+                            );
+                          }
+                        }
+                      : null,
                 ),
               ),
+              if (!_canProceed)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Remplis le nom, la langue, l\'URL de base et l\'icône pour continuer.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Widgets helpers ───────────────────────────────────────────────────────────
+
+class _InfoBanner extends StatelessWidget {
+  final ColorScheme cs;
+  const _InfoBanner({required this.cs});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary.withValues(alpha: 0.14), cs.tertiary.withValues(alpha: 0.08)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.tips_and_updates_rounded, color: cs.primary, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Configure les métadonnées, puis passe à l\'éditeur de code pour implémenter la logique.',
+              style: TextStyle(fontSize: 12.5, color: cs.onSurface.withValues(alpha: 0.85), height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LanguagePicker extends StatelessWidget {
+  final SourceCodeLanguage selected;
+  final List<({SourceCodeLanguage lang, String label, String subtitle, String emoji, Color color})> options;
+  final ValueChanged<SourceCodeLanguage> onChanged;
+
+  const _LanguagePicker({
+    required this.selected,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: options.map((opt) {
+        final active = selected == opt.lang;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(opt.lang),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              decoration: BoxDecoration(
+                color: active
+                    ? opt.color.withValues(alpha: 0.18)
+                    : cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: active ? opt.color : cs.outline.withValues(alpha: 0.15),
+                  width: active ? 2 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    opt.emoji,
+                    style: const TextStyle(fontSize: 28),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    opt.label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: active ? opt.color : cs.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  Text(
+                    opt.subtitle,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: (active ? opt.color : cs.onSurfaceVariant).withValues(alpha: 0.8),
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active ? opt.color : Colors.transparent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _LangField extends StatefulWidget {
+  final Map<String, String> flags;
+  final ValueChanged<String> onChanged;
+  const _LangField({required this.flags, required this.onChanged});
+  @override
+  State<_LangField> createState() => _LangFieldState();
+}
+
+class _LangFieldState extends State<_LangField> {
+  String? _selected;
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _controller,
+                onChanged: (v) {
+                  setState(() => _selected = v.isEmpty ? null : v.toLowerCase());
+                  widget.onChanged(v.toLowerCase());
+                },
+                decoration: InputDecoration(
+                  labelText: 'Langue (code ISO)',
+                  hintText: 'ex: fr, en, ja',
+                  isDense: true,
+                  filled: true,
+                  fillColor: cs.surfaceContainerLow,
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      _selected != null && widget.flags.containsKey(_selected)
+                          ? widget.flags[_selected]!
+                          : '🏳️',
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: cs.primary, width: 2),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: widget.flags.entries.map((e) {
+              final active = _selected == e.key;
+              return GestureDetector(
+                onTap: () {
+                  _controller.text = e.key;
+                  setState(() => _selected = e.key);
+                  widget.onChanged(e.key);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: active ? cs.primary : cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: active ? cs.primary : cs.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(e.value, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 4),
+                      Text(
+                        e.key.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: active ? cs.onPrimary : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FieldRow extends StatelessWidget {
+  final String label;
+  final String hint;
+  final ValueChanged<String> onChanged;
+  const _FieldRow({required this.label, required this.hint, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return TextFormField(
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        isDense: true,
+        filled: true,
+        fillColor: cs.surfaceContainerLow,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: cs.primary, width: 2),
+        ),
+        labelStyle: TextStyle(fontSize: 12, color: cs.primary.withValues(alpha: 0.8)),
+        hintStyle: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+      ),
+    );
+  }
+}
+
+class _DropdownRow extends StatelessWidget {
+  final String label;
+  final List<String> items;
+  final int value;
+  final ValueChanged<int> onChanged;
+  final ColorScheme cs;
+  final List<IconData>? icons;
+
+  const _DropdownRow({
+    required this.label,
+    required this.items,
+    required this.value,
+    required this.onChanged,
+    required this.cs,
+    this.icons,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          isExpanded: true,
+          value: value,
+          icon: Icon(Icons.keyboard_arrow_down, color: cs.primary),
+          hint: Text(label, style: const TextStyle(fontSize: 13)),
+          items: items.asMap().entries.map((e) {
+            return DropdownMenuItem<int>(
+              value: e.key,
+              child: Row(
+                children: [
+                  if (icons != null && e.key < icons!.length) ...[
+                    Icon(icons![e.key], size: 16, color: cs.primary),
+                    const SizedBox(width: 8),
+                  ],
+                  Text('$label — ${e.value}', style: const TextStyle(fontSize: 13)),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (v) => onChanged(v!),
         ),
       ),
     );
@@ -375,57 +537,25 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: cs.primary),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: cs.primary,
-            ),
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: cs.primary),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+            color: cs.primary,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-Widget _textEditing(
-  String label,
-  BuildContext context,
-  String hintText,
-  void Function(String)? onChanged,
-) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 5),
-    child: TextFormField(
-      keyboardType: TextInputType.text,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        hintText: hintText,
-        labelText: label,
-        isDense: true,
-        filled: true,
-        fillColor: Colors.transparent,
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: context.secondaryColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: context.secondaryColor),
-        ),
-        border: OutlineInputBorder(
-          borderSide: BorderSide(color: context.secondaryColor),
-        ),
-      ),
-    ),
-  );
-}
+// ─── Templates ────────────────────────────────────────────────────────────────
 
 const _dartTemplate = r'''
 import 'package:watchtower/bridge_lib.dart';
@@ -464,25 +594,21 @@ class TestSource extends MProvider {
     // TODO: implement
   }
   
-  // For novel html content
   @override
   Future<String> getHtmlContent(String name, String url) async {
     // TODO: implement
   }
   
-  // Clean html up for reader
   @override
   Future<String> cleanHtmlContent(String html) async {
     // TODO: implement
   }
   
-  // For anime episode video list
   @override
   Future<List<MVideo>> getVideoList(String url) async {
     // TODO: implement
   }
 
-  // For manga chapter pages
   @override
   Future<List<String>> getPageList(String url) async{
     // TODO: implement
@@ -503,8 +629,7 @@ TestSource main(MSource source) {
   return TestSource(source:source);
 }''';
 
-String _jsSample(Source source) =>
-    '''
+String _jsSample(Source source) => '''
 const watchtowerSources = [{
     "name": "${source.name}",
     "lang": "${source.lang}",
@@ -537,19 +662,15 @@ class DefaultExtension extends MProvider {
     async getDetail(url) {
         throw new Error("getDetail not implemented");
     }
-    // For novel html content
     async getHtmlContent(name, url) {
         throw new Error("getHtmlContent not implemented");
     }
-    // Clean html up for reader
     async cleanHtmlContent(html) {
         throw new Error("cleanHtmlContent not implemented");
     }
-    // For anime episode video list
     async getVideoList(url) {
         throw new Error("getVideoList not implemented");
     }
-    // For manga chapter pages
     async getPageList(url) {
         throw new Error("getPageList not implemented");
     }

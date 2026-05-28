@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:json_view/json_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -232,6 +234,78 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
             Navigator.pop(context, source);
           },
         ),
+        actions: [
+          // ── Import file ─────────────────────────────────────────────────
+          IconButton(
+            tooltip: 'Importer un fichier',
+            icon: const Icon(Icons.file_upload_outlined),
+            onPressed: () async {
+              try {
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ['dart', 'js', 'txt'],
+                  withData: true,
+                );
+                if (result != null && result.files.isNotEmpty) {
+                  final bytes = result.files.first.bytes;
+                  if (bytes != null) {
+                    final content = String.fromCharCodes(bytes);
+                    _controller.text = content;
+                    source?.sourceCode = content;
+                    if (source != null) {
+                      isar.writeTxnSync(() {
+                        isar.sources.putSync(
+                          source!..updatedAt = DateTime.now().millisecondsSinceEpoch,
+                        );
+                      });
+                    }
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content: Text('Fichier importé : ${result.files.first.name}'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      content: Text('Erreur import : $e'),
+                      backgroundColor: Colors.red.shade700,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+          // ── Save ──────────────────────────────────────────────────────────
+          IconButton(
+            tooltip: 'Sauvegarder',
+            icon: Icon(Icons.save_rounded, color: context.primaryColor),
+            onPressed: () {
+              source?.sourceCode = _controller.text;
+              if (source != null) {
+                isar.writeTxnSync(() {
+                  isar.sources.putSync(
+                    source!..updatedAt = DateTime.now().millisecondsSinceEpoch,
+                  );
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    content: Text('Sauvegardé'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [

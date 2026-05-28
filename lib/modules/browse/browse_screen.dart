@@ -13,8 +13,6 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/extension/extension_screen.dart';
-import 'package:watchtower/modules/browse/marketplace_screen.dart';
-import 'package:watchtower/modules/browse/sources/sources_screen.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
@@ -45,7 +43,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     ItemType get _activeType => _types[_tabBarController.index];
     BrowseSection get _activeSection =>
-        _section[_activeType] ?? BrowseSection.sources;
+        _section[_activeType] ?? BrowseSection.extensions;
 
     bool _diagnosing = false;
     bool _bulkWorking = false;
@@ -91,7 +89,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
       for (final t in newTypes) {
         if (!_types.contains(t)) {
-          _section[t] = BrowseSection.sources;
+          _section[t] = BrowseSection.extensions;
           _isSearch[t] = false;
           _searchControllers[t] = TextEditingController();
         }
@@ -107,7 +105,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _types = _computeTypes(ref.read(hideItemsStateProvider));
       _initTabController(_types);
       for (final t in _types) {
-        _section[t] = BrowseSection.sources;
+        _section[t] = BrowseSection.extensions;
         _isSearch[t] = false;
         _searchControllers[t] = TextEditingController();
       }
@@ -895,29 +893,17 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
     );
   }
 
-  Widget _body() {
-    switch (widget.section) {
-      case BrowseSection.sources:
-        return SourcesScreen(
-          itemType: widget.itemType,
-          onShowExtensions: () => widget.onSectionChanged(BrowseSection.extensions),
-        );
-      case BrowseSection.extensions:
-        return ExtensionScreen(
-          query: widget.searchController.text,
-          itemType: widget.itemType,
-        );
-      case BrowseSection.marketplace:
-        return MarketplaceScreen(itemType: widget.itemType);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _segmentedDock(),
-        Expanded(child: _body()),
+        if (widget.isSearch) _searchBar(),
+        Expanded(
+          child: ExtensionScreen(
+            query: widget.searchController.text,
+            itemType: widget.itemType,
+          ),
+        ),
       ],
     );
   }
