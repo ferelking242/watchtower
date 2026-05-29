@@ -237,8 +237,6 @@ class HideItemsState extends _$HideItemsState {
           '/trackerLibrary',
           '/updates',
           '/history',
-          '/MusicLibrary',
-          '/GameLibrary',
         ];
   }
 
