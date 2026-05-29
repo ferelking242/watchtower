@@ -346,44 +346,60 @@ class StorageProvider {
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
 
-    // Mihon official extension repos
-    const _mihonUrl =
-        'https://raw.githubusercontent.com/mihonapp/extensions/repo/index.min.json';
-    final mihonMangaRepo = Repo(
-      jsonUrl: _mihonUrl,
-      name: 'Mihon – Manga',
-      website: 'https://mihonapp.netlify.app',
-    );
-    final mihonWatchRepo = Repo(
-      jsonUrl: _mihonUrl,
-      name: 'Mihon – Anime',
-      website: 'https://mihonapp.netlify.app',
+    // Keiyoushi — communauté officielle Mihon/Tachiyomi (manga)
+    // 1 468 packages, CI GitHub Actions auto-rebuild à chaque commit
+    const _keiyoushiUrl =
+        'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json';
+    final keiyoushiMangaRepo = Repo(
+      jsonUrl: _keiyoushiUrl,
+      name: 'Keiyoushi – Manga (Mihon)',
+      website: 'https://keiyoushi.github.io',
     );
 
-    // LNReader novel sources
-    const _lnreaderUrl =
-        'https://raw.githubusercontent.com/LNReader/lnreader-sources/main/v2/index.json';
-    final lnreaderRepo = Repo(
-      jsonUrl: _lnreaderUrl,
-      name: 'LNReader – Novels',
-      website: 'https://github.com/LNReader/lnreader-sources',
+    // Aniyomi — extensions anime officielles (Jellyfin, Google Drive…)
+    // Les extensions de streaming ont été retirées du repo officiel (pressions légales).
+    // Les utilisateurs peuvent ajouter des dépôts communautaires manuellement.
+    const _aniyomiUrl =
+        'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo/index.min.json';
+    final aniyomiWatchRepo = Repo(
+      jsonUrl: _aniyomiUrl,
+      name: 'Aniyomi – Anime',
+      website: 'https://aniyomi.org',
     );
 
     bool _isWatchtowerRepo(Repo r) =>
         r.jsonUrl?.contains('ferelking242/watchtower-extensions') == true;
 
-    // Migrate raw.githubusercontent URLs → jsDelivr for existing users.
-    bool _migrateToJsDelivr(List<Repo>? repos) {
+    // Migrate repo URLs for existing users.
+    bool _migrateRepoUrls(List<Repo>? repos) {
       if (repos == null) return false;
       var changed = false;
       for (final r in repos) {
+        // A — Watchtower: raw.githubusercontent → jsDelivr
         if (r.jsonUrl?.startsWith(_oldWtBase) == true) {
           r.jsonUrl = r.jsonUrl!.replaceFirst(_oldWtBase, _wtBase);
+          changed = true;
+        }
+        // B — Mihon: old broken mihonapp/extensions → keiyoushi (real repo)
+        if (r.jsonUrl?.contains('mihonapp/extensions') == true) {
+          r.jsonUrl = r.jsonUrl!.replaceFirst(
+            'https://raw.githubusercontent.com/mihonapp/extensions',
+            'https://raw.githubusercontent.com/keiyoushi/extensions',
+          );
+          changed = true;
+        }
+        // C — LNReader: broken v2/index.json → remove (dead URL)
+        if (r.jsonUrl?.contains('LNReader/lnreader-sources') == true) {
+          r.jsonUrl = null; // will be filtered below
           changed = true;
         }
       }
       return changed;
     }
+
+    // Remove repos with null or dead URLs left by migration C.
+    List<Repo> _cleanRepos(List<Repo>? repos) =>
+        repos?.where((r) => r.jsonUrl != null && r.jsonUrl!.isNotEmpty).toList() ?? [];
 
     bool _hasRepo(List<Repo>? repos, String urlFragment) =>
         repos?.any((r) => r.jsonUrl?.contains(urlFragment) == true) == true;
@@ -394,65 +410,46 @@ class StorageProvider {
         await isar.writeTxn(
           () async => isar.settings.put(
             Settings(
-              mangaExtensionsRepo: [mangaRepo, mihonMangaRepo],
-              animeExtensionsRepo: [watchRepo, mihonWatchRepo],
-              novelExtensionsRepo: [novelRepo, lnreaderRepo],
+              mangaExtensionsRepo: [mangaRepo, keiyoushiMangaRepo],
+              animeExtensionsRepo: [watchRepo, aniyomiWatchRepo],
+              novelExtensionsRepo: [novelRepo],
             ),
           ),
         );
       } else {
         bool needsUpdate = false;
 
-        // 1 — Migrate existing Watchtower URLs to jsDelivr CDN
-        if (_migrateToJsDelivr(settings.mangaExtensionsRepo)) needsUpdate = true;
-        if (_migrateToJsDelivr(settings.animeExtensionsRepo)) needsUpdate = true;
-        if (_migrateToJsDelivr(settings.novelExtensionsRepo)) needsUpdate = true;
+        // 1 — Migrate broken / outdated URLs
+        if (_migrateRepoUrls(settings.mangaExtensionsRepo)) needsUpdate = true;
+        if (_migrateRepoUrls(settings.animeExtensionsRepo)) needsUpdate = true;
+        if (_migrateRepoUrls(settings.novelExtensionsRepo)) needsUpdate = true;
+        settings.mangaExtensionsRepo = _cleanRepos(settings.mangaExtensionsRepo);
+        settings.animeExtensionsRepo = _cleanRepos(settings.animeExtensionsRepo);
+        settings.novelExtensionsRepo = _cleanRepos(settings.novelExtensionsRepo);
 
         // 2 — Ensure Watchtower base repos are present
         if (!_hasRepo(settings.mangaExtensionsRepo, 'manga/index.json')) {
-          settings.mangaExtensionsRepo = [
-            ...?settings.mangaExtensionsRepo,
-            mangaRepo,
-          ];
+          settings.mangaExtensionsRepo = [...settings.mangaExtensionsRepo!, mangaRepo];
           needsUpdate = true;
         }
         if (!_hasRepo(settings.animeExtensionsRepo, 'watch/index.json')) {
-          settings.animeExtensionsRepo = [
-            ...?settings.animeExtensionsRepo,
-            watchRepo,
-          ];
+          settings.animeExtensionsRepo = [...settings.animeExtensionsRepo!, watchRepo];
           needsUpdate = true;
         }
         if (!_hasRepo(settings.novelExtensionsRepo, 'novel/index.json')) {
-          settings.novelExtensionsRepo = [
-            ...?settings.novelExtensionsRepo,
-            novelRepo,
-          ];
+          settings.novelExtensionsRepo = [...settings.novelExtensionsRepo!, novelRepo];
           needsUpdate = true;
         }
 
-        // 3 — Add Mihon repos if not already present
-        if (!_hasRepo(settings.mangaExtensionsRepo, 'mihonapp/extensions')) {
-          settings.mangaExtensionsRepo = [
-            ...?settings.mangaExtensionsRepo,
-            mihonMangaRepo,
-          ];
-          needsUpdate = true;
-        }
-        if (!_hasRepo(settings.animeExtensionsRepo, 'mihonapp/extensions')) {
-          settings.animeExtensionsRepo = [
-            ...?settings.animeExtensionsRepo,
-            mihonWatchRepo,
-          ];
+        // 3 — Add Keiyoushi (real Mihon community manga repo)
+        if (!_hasRepo(settings.mangaExtensionsRepo, 'keiyoushi/extensions')) {
+          settings.mangaExtensionsRepo = [...settings.mangaExtensionsRepo!, keiyoushiMangaRepo];
           needsUpdate = true;
         }
 
-        // 4 — Add LNReader repo if not already present
-        if (!_hasRepo(settings.novelExtensionsRepo, 'LNReader/lnreader-sources')) {
-          settings.novelExtensionsRepo = [
-            ...?settings.novelExtensionsRepo,
-            lnreaderRepo,
-          ];
+        // 4 — Add Aniyomi (official anime extensions)
+        if (!_hasRepo(settings.animeExtensionsRepo, 'aniyomiorg/aniyomi-extensions')) {
+          settings.animeExtensionsRepo = [...settings.animeExtensionsRepo!, aniyomiWatchRepo];
           needsUpdate = true;
         }
 
@@ -476,9 +473,9 @@ class StorageProvider {
           await isar.writeTxn(
             () async => isar.settings.put(
               Settings(
-                mangaExtensionsRepo: [mangaRepo, mihonMangaRepo],
-                animeExtensionsRepo: [watchRepo, mihonWatchRepo],
-                novelExtensionsRepo: [novelRepo, lnreaderRepo],
+                mangaExtensionsRepo: [mangaRepo, keiyoushiMangaRepo],
+                animeExtensionsRepo: [watchRepo, aniyomiWatchRepo],
+                novelExtensionsRepo: [novelRepo],
               ),
             ),
           );

@@ -14,10 +14,12 @@ import 'package:watchtower/services/fetch_sources_list.dart';
 
 const _kWtBase =
     'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
-const _kMihonBase =
-    'https://raw.githubusercontent.com/mihonapp/extensions/repo';
-const _kLnBase =
-    'https://raw.githubusercontent.com/LNReader/lnreader-sources/main/v2';
+// Keiyoushi = communauté officielle Mihon/Tachiyomi (manga, 1 468 packages)
+const _kKeiyoushiBase =
+    'https://raw.githubusercontent.com/keiyoushi/extensions/repo';
+// Aniyomi = extensions anime officielles (3 génériques : Jellyfin, Drive…)
+const _kAniyomiBase =
+    'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo';
 
 const _kFeaturedNames = {
   'MangaDex', 'Webtoons', 'Comick', 'MangaPlus', 'NovelUpdates',
@@ -220,11 +222,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     });
     try {
       final results = await Future.wait([
+        // Watchtower natif (jsDelivr)
         _fetch('$_kWtBase/manga/index.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kWtBase/watch/index.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kWtBase/novel/index.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kMihonBase/index.min.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kLnBase/index.json').catchError((_) => <_ExtEntry>[]),
+        // Keiyoushi — communauté Mihon/Tachiyomi manga (1 468 packages)
+        _fetch('$_kKeiyoushiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
+        // Aniyomi — extensions anime officielles (Jellyfin, Google Drive…)
+        _fetch('$_kAniyomiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
       ]);
       final merged = results.expand((l) => l).toList();
       if (mounted) setState(() { _all = merged; _loading = false; });
