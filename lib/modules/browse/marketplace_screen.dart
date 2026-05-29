@@ -610,7 +610,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                     style: TextStyle(
                         fontSize: 22, fontWeight: FontWeight.w800)),
                 Text(
-                  'Extensions · Mihon · LNReader · Dart JS',
+                  'Extensions · Keiyoushi · Aniyomi · Watchtower JS',
                   style:
                       TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
                 ),
@@ -749,12 +749,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _StatPill('$_mihonCount', 'Mihon', const Color(0xFF2196F3)),
-          _divider(cs),
-          _StatPill('$_lnCount', 'LNReader', const Color(0xFF4CAF50)),
+          _StatPill('$_mihonCount', 'Keiyoushi', const Color(0xFF2196F3)),
           _divider(cs),
           _StatPill('$_wtCount', 'Watchtower', const Color(0xFFF5A623)),
           _divider(cs),
+          if (_lnCount > 0) ...[
+            _StatPill('$_lnCount', 'LNReader', const Color(0xFF4CAF50)),
+            _divider(cs),
+          ],
           _StatPill('${_installed.length}', 'Installées', cs.primary),
         ],
       ),
