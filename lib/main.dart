@@ -57,6 +57,7 @@ import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
+import 'package:watchtower/services/mihon_auto_sync.dart';
 
 late Isar isar;
 DiscordRPC? discordRpc;
@@ -261,7 +262,7 @@ class _MyAppState extends ConsumerState<MyApp>
         unawaited(windowManager.show());
         unawaited(windowManager.focus());
       }
-      MExtensionServerPlatform(ref).startServer();
+      unawaited(_startExtensionServerAndSync());
       if (ref.read(clearChapterCacheOnAppLaunchStateProvider)) {
         // Watch before calling clearcache to keep it alive, so that _getTotalDiskSpace completes safely
         ref.watch(totalChapterCacheSizeStateProvider);
@@ -557,7 +558,15 @@ class _MyAppState extends ConsumerState<MyApp>
     }
   }
 
-  Future<void> _checkTrackerRefresh() async {
+  Future<void> _startExtensionServerAndSync() async {
+      await MExtensionServerPlatform(ref).startServer();
+      if (!kIsWeb && Platform.isAndroid) {
+        await Future.delayed(const Duration(seconds: 2));
+        unawaited(MihonAutoSync.run());
+      }
+    }
+
+      Future<void> _checkTrackerRefresh() async {
     final prefs = await isar.trackPreferences
         .filter()
         .syncIdIsNotNull()
