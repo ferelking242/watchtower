@@ -15,10 +15,8 @@ import 'package:watchtower/services/fetch_sources_list.dart';
 
 const _kWtBase =
     'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
-// Keiyoushi = communauté officielle Mihon/Tachiyomi (manga, 1 468 packages)
 const _kKeiyoushiBase =
     'https://raw.githubusercontent.com/keiyoushi/extensions/repo';
-// Aniyomi = extensions anime officielles (3 génériques : Jellyfin, Drive…)
 const _kAniyomiBase =
     'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo';
 
@@ -27,9 +25,8 @@ const _kFeaturedNames = {
   'AsuraScans', 'ReaperScans', 'Bato.to', 'Viz', 'CrunchyRoll',
 };
 
-// ─── Filters ───────────────────────────────────────────────────────────────────
+// ─── Compat filter ─────────────────────────────────────────────────────────────
 
-enum _TypeF { all, anime, manga, novel, game }
 enum _CompatF { all, mihon, lnreader, js }
 
 // ─── Data model ────────────────────────────────────────────────────────────────
@@ -58,19 +55,16 @@ class _ExtEntry {
   });
 }
 
-// ─── Top-level parse helpers (top-level = usable by compute()) ─────────────────
+// ─── Top-level parse helpers ───────────────────────────────────────────────────
 
 String _mktConvertLang(Map<dynamic, dynamic> e) {
   final raw = (e['lang'] ?? e['language'] ?? 'en') as String;
   return raw.toLowerCase().replaceAll(' ', '-');
 }
 
-// compute() isolate bridge — receives/returns primitives only (Maps, Strings, ints, bools).
-// Returns List<Map<String,dynamic>> which is safe across the isolate boundary.
 List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
   final String body = args['body']!;
   final String url = args['url']!;
-
   final List<dynamic> list;
   try {
     list = jsonDecode(body) as List;
@@ -78,11 +72,8 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
     return [];
   }
   final results = <Map<String, dynamic>>[];
-
   for (final dynamic raw in list) {
     final e = raw as Map<dynamic, dynamic>;
-
-    // ── Mihon: one card per package (deduplicated) ───────────────────────────
     if (e['pkg'] != null && e['sources'] != null) {
       final sources = e['sources'] as List;
       if (sources.isEmpty) continue;
@@ -91,8 +82,7 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       final isAnime = (e['pkg'] as String)
           .startsWith('eu.kanade.tachiyomi.animeextension');
       final firstSrc = sources[0] as Map<dynamic, dynamic>;
-      final langs =
-          sources.map((s) => (s['lang'] ?? 'en') as String).toSet();
+      final langs = sources.map((s) => (s['lang'] ?? 'en') as String).toSet();
       final lang = langs.length == 1 ? langs.first.toLowerCase() : 'multi';
       results.add({
         'id': 'mihon-${firstSrc['id']}'.hashCode,
@@ -100,14 +90,12 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'iconUrl': iconUrl,
         'lang': lang,
         'version': (e['version'] ?? '?') as String,
-        'contentType': isAnime ? 1 : 0, // ItemType index
-        'compat': 2, // SourceCodeLanguage.mihon index
+        'contentType': isAnime ? 1 : 0,
+        'compat': 2,
         'isNsfw': (e['nsfw'] as int? ?? 0) == 1,
         'repoUrl': url,
       });
-    }
-    // ── LNReader ─────────────────────────────────────────────────────────────
-    else if (e['id'] is String && e['site'] != null && e['url'] != null) {
+    } else if (e['id'] is String && e['site'] != null && e['url'] != null) {
       final lang = _mktConvertLang(e);
       results.add({
         'id': 'lnreader-plugin-"${e['name']}"."$lang"'.hashCode,
@@ -115,18 +103,14 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'iconUrl': e['iconUrl'] as String?,
         'lang': lang,
         'version': e['version']?.toString() ?? '?',
-        'contentType': 2, // ItemType.novel index
-        'compat': 3, // SourceCodeLanguage.lnreader index
+        'contentType': 2,
+        'compat': 3,
         'isNsfw': false,
         'repoUrl': url,
       });
-    }
-    // ── Watchtower native ─────────────────────────────────────────────────────
-    else if (e['id'] != null && e['name'] != null) {
-      final itemTypeIdx = (e['itemType'] as int? ?? 0)
-          .clamp(0, 4); // ItemType has 5 values
-      final compatIdx = (e['sourceCodeLanguage'] as int? ?? 1)
-          .clamp(0, 3); // SourceCodeLanguage has 4 values
+    } else if (e['id'] != null && e['name'] != null) {
+      final itemTypeIdx = (e['itemType'] as int? ?? 0).clamp(0, 4);
+      final compatIdx = (e['sourceCodeLanguage'] as int? ?? 1).clamp(0, 3);
       results.add({
         'id': (e['id'] as num).toInt(),
         'name': (e['name'] ?? '?') as String,
@@ -165,20 +149,42 @@ class MarketplaceScreen extends ConsumerStatefulWidget {
   ConsumerState<MarketplaceScreen> createState() => _MarketplaceScreenState();
 }
 
-class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
+// Tab indices
+const _kTabHome  = 0;
+const _kTabManga = 1;
+const _kTabAnime = 2;
+const _kTabNovel = 3;
+const _kTabGames = 4;
+
+class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
+    with TickerProviderStateMixin {
+
+  // ── Data ─────────────────────────────────────────────────────────────────────
   List<_ExtEntry> _all = [];
   Set<int> _installed = {};
-  final Map<int, int> _ratings = {};
   final Map<int, bool> _busy = {};
   bool _loading = true;
   String? _error;
-  String _search = '';
-  _TypeF _typeF = _TypeF.all;
-  _CompatF _compatF = _CompatF.all;
-  String _langF = 'all';
-  final _searchCtrl = TextEditingController();
 
-  // ── Banner auto-scroll ──────────────────────────────────────────────────────
+  // ── Tabs ─────────────────────────────────────────────────────────────────────
+  late TabController _tabCtrl;
+
+  // ── Search overlay ───────────────────────────────────────────────────────────
+  bool _searchOpen = false;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  // ── Per-tab compat filter ─────────────────────────────────────────────────────
+  final Map<int, _CompatF> _compatF = {
+    _kTabHome: _CompatF.all,
+    _kTabManga: _CompatF.all,
+    _kTabAnime: _CompatF.all,
+    _kTabNovel: _CompatF.all,
+    _kTabGames: _CompatF.all,
+  };
+
+  // ── Banner ───────────────────────────────────────────────────────────────────
   final _bannerCtrl = PageController(viewportFraction: 0.88);
   Timer? _bannerTimer;
   int _bannerPage = 0;
@@ -197,22 +203,27 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     });
   }
 
-  // ── Init ───────────────────────────────────────────────────────────────────
+  // ── Init ─────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
+    _tabCtrl = TabController(length: 5, vsync: this);
     _loadAll();
     _refreshInstalled();
   }
 
   @override
   void dispose() {
+    _tabCtrl.dispose();
     _bannerTimer?.cancel();
     _bannerCtrl.dispose();
     _searchCtrl.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
+
+  // ── Data load ─────────────────────────────────────────────────────────────────
 
   Future<void> _refreshInstalled() async {
     try {
@@ -225,13 +236,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     } catch (_) {}
   }
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
-
   Future<List<_ExtEntry>> _fetch(String url) async {
     final r = await http
         .get(Uri.parse(url))
         .timeout(const Duration(seconds: 25));
-    // Offload heavy JSON decode (e.g. Mihon's ~2 MB index) to a separate isolate.
     final maps = r.bodyBytes.length > 80000
         ? await compute(_parseIndexIsolate, {'body': r.body, 'url': url})
         : _parseIndexIsolate({'body': r.body, 'url': url});
@@ -239,29 +247,22 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Future<void> _loadAll() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
       final results = await Future.wait([
-        // Watchtower natif (jsDelivr)
         _fetch('$_kWtBase/manga/index.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kWtBase/watch/index.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kWtBase/novel/index.json').catchError((_) => <_ExtEntry>[]),
-        // Keiyoushi — communauté Mihon/Tachiyomi manga (1 468 packages)
         _fetch('$_kKeiyoushiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
-        // Aniyomi — extensions anime officielles (Jellyfin, Google Drive…)
         _fetch('$_kAniyomiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
       ]);
-      final merged = results.expand((l) => l).toList();
-      if (mounted) setState(() { _all = merged; _loading = false; });
+      if (mounted) setState(() { _all = results.expand((l) => l).toList(); _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
     }
   }
 
-  // ── Install ────────────────────────────────────────────────────────────────
+  // ── Install ───────────────────────────────────────────────────────────────────
 
   Future<void> _install(_ExtEntry entry) async {
     if (_busy[entry.id] == true) return;
@@ -276,138 +277,94 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       await fetchSourcesList(
         repo: repo,
         refresh: true,
-        id: entry.id,
         androidProxyServer: proxyServer,
         autoUpdateExtensions: true,
         itemType: entry.contentType,
       );
       await _refreshInstalled();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${entry.name} installée'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${entry.name} · dépôt actualisé'),
+          duration: const Duration(seconds: 2),
+        ));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur : $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erreur : $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 3),
+        ));
       }
     } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
     }
   }
 
-  // ── Filter helpers ─────────────────────────────────────────────────────────
+  // ── Filter helpers ────────────────────────────────────────────────────────────
 
-  List<_ExtEntry> get _filtered {
-    var list = _all;
-    if (_typeF != _TypeF.all) {
-      final t = _typeF == _TypeF.anime
-          ? ItemType.anime
-          : _typeF == _TypeF.manga
-              ? ItemType.manga
-              : _typeF == _TypeF.novel
-                  ? ItemType.novel
-                  : ItemType.game;
-      list = list.where((e) => e.contentType == t).toList();
+  List<_ExtEntry> _forTab(int tab) {
+    List<_ExtEntry> list;
+    switch (tab) {
+      case _kTabManga: list = _all.where((e) => e.contentType == ItemType.manga).toList(); break;
+      case _kTabAnime: list = _all.where((e) => e.contentType == ItemType.anime).toList(); break;
+      case _kTabNovel: list = _all.where((e) => e.contentType == ItemType.novel).toList(); break;
+      case _kTabGames: list = _all.where((e) => e.contentType == ItemType.game).toList(); break;
+      default: return _all;
     }
-    if (_compatF != _CompatF.all) {
-      final c = _compatF == _CompatF.mihon
+    final cf = _compatF[tab] ?? _CompatF.all;
+    if (cf != _CompatF.all) {
+      final c = cf == _CompatF.mihon
           ? SourceCodeLanguage.mihon
-          : _compatF == _CompatF.lnreader
+          : cf == _CompatF.lnreader
               ? SourceCodeLanguage.lnreader
               : SourceCodeLanguage.javascript;
       list = list.where((e) => e.compat == c).toList();
     }
-    if (_langF != 'all') {
-      list = list.where((e) => e.lang.toLowerCase() == _langF).toList();
-    }
-    if (_search.isNotEmpty) {
-      final q = _search.toLowerCase();
-      list = list.where((e) =>
-          e.name.toLowerCase().contains(q) ||
-          e.lang.toLowerCase().contains(q)).toList();
-    }
     return list;
   }
 
-  bool get _hasFilter =>
-      _typeF != _TypeF.all ||
-      _compatF != _CompatF.all ||
-      _langF != 'all' ||
-      _search.isNotEmpty;
-
-  // Top languages (by count), max 10
-  List<String> get _topLangs {
-    final counts = <String, int>{};
-    for (final e in _all) {
-      counts[e.lang.toLowerCase()] = (counts[e.lang.toLowerCase()] ?? 0) + 1;
-    }
-    final sorted = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return sorted.take(10).map((e) => e.key).toList();
+  List<_ExtEntry> get _searchResults {
+    if (_searchQuery.isEmpty) return [];
+    final q = _searchQuery.toLowerCase();
+    return _all.where((e) =>
+        e.name.toLowerCase().contains(q) ||
+        e.lang.toLowerCase().contains(q)).take(60).toList();
   }
-
-  List<_ExtEntry> _byCompat(SourceCodeLanguage c) =>
-      _all.where((e) => e.compat == c).toList();
 
   List<_ExtEntry> get _featured => _all
       .where((e) => _kFeaturedNames.contains(e.name))
-      .toList()
-    ..sort((a, b) => a.name.compareTo(b.name));
+      .toList()..sort((a, b) => a.name.compareTo(b.name));
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-
-  int get _totalCount => _all.length;
-  int get _mihonCount =>
-      _all.where((e) => e.compat == SourceCodeLanguage.mihon).length;
-  int get _lnCount =>
-      _all.where((e) => e.compat == SourceCodeLanguage.lnreader).length;
-  int get _wtCount =>
-      _all
-          .where((e) =>
-              e.compat == SourceCodeLanguage.javascript ||
-              e.compat == SourceCodeLanguage.dart)
-          .length;
-
-  // ── Labels / helpers ───────────────────────────────────────────────────────
+  // ── Static helpers ────────────────────────────────────────────────────────────
 
   static String _compatLabel(SourceCodeLanguage c) => switch (c) {
-        SourceCodeLanguage.mihon => 'Mihon',
-        SourceCodeLanguage.lnreader => 'LNReader',
-        SourceCodeLanguage.javascript => 'JS',
-        SourceCodeLanguage.dart => 'Dart',
-      };
+    SourceCodeLanguage.mihon => 'Mihon',
+    SourceCodeLanguage.lnreader => 'LNReader',
+    SourceCodeLanguage.javascript => 'JS',
+    SourceCodeLanguage.dart => 'Dart',
+  };
 
-  static Color _compatColor(SourceCodeLanguage c, ColorScheme cs) =>
-      switch (c) {
-        SourceCodeLanguage.mihon => const Color(0xFF2196F3),
-        SourceCodeLanguage.lnreader => const Color(0xFF4CAF50),
-        SourceCodeLanguage.javascript => const Color(0xFFF5A623),
-        SourceCodeLanguage.dart => const Color(0xFF00B4D8),
-      };
+  static Color _compatColor(SourceCodeLanguage c, ColorScheme cs) => switch (c) {
+    SourceCodeLanguage.mihon => const Color(0xFF2196F3),
+    SourceCodeLanguage.lnreader => const Color(0xFF4CAF50),
+    SourceCodeLanguage.javascript => const Color(0xFFF5A623),
+    SourceCodeLanguage.dart => const Color(0xFF00B4D8),
+  };
 
   static IconData _typeIcon(ItemType t) => switch (t) {
-        ItemType.anime => Icons.live_tv_rounded,
-        ItemType.manga => Icons.auto_stories_rounded,
-        ItemType.novel => Icons.menu_book_rounded,
-        _ => Icons.sports_esports_rounded,
-      };
+    ItemType.anime => Icons.live_tv_rounded,
+    ItemType.manga => Icons.auto_stories_rounded,
+    ItemType.novel => Icons.menu_book_rounded,
+    _ => Icons.sports_esports_rounded,
+  };
 
   static Color _typeColor(ItemType t) => switch (t) {
-        ItemType.anime => const Color(0xFF9C27B0),
-        ItemType.manga => const Color(0xFFE91E63),
-        ItemType.novel => const Color(0xFF009688),
-        _ => const Color(0xFF607D8B),
-      };
+    ItemType.anime => const Color(0xFF9C27B0),
+    ItemType.manga => const Color(0xFFE91E63),
+    ItemType.novel => const Color(0xFF009688),
+    _ => const Color(0xFF607D8B),
+  };
 
   static String _langCode(String lang) {
     final l = lang.toLowerCase();
@@ -417,352 +374,341 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   static Color _langColor(String lang) {
-    final l = lang.toLowerCase();
     const colors = <String, Color>{
       'en': Color(0xFF1565C0), 'fr': Color(0xFFC62828), 'ja': Color(0xFFAD1457),
       'zh': Color(0xFFB71C1C), 'ko': Color(0xFF283593), 'es': Color(0xFFF57F17),
       'pt': Color(0xFF2E7D32), 'de': Color(0xFF37474F), 'it': Color(0xFF558B2F),
       'ru': Color(0xFF4527A0), 'ar': Color(0xFF00695C), 'tr': Color(0xFFBF360C),
     };
-    return colors[l] ?? const Color(0xFF546E7A);
+    return colors[lang.toLowerCase()] ?? const Color(0xFF546E7A);
   }
 
-  // ─── Build ─────────────────────────────────────────────────────────────────
+  // ── Build ─────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: RefreshIndicator(
-        onRefresh: _loadAll,
-        child: CustomScrollView(
-          slivers: [
-            // Header
-            SliverToBoxAdapter(child: _buildHeader(cs)),
-            // Search
-            SliverToBoxAdapter(child: _buildSearch(cs)),
-            // Type filter
-            SliverToBoxAdapter(child: _buildTypeFilter(cs)),
-            // Compat filter
-            SliverToBoxAdapter(child: _buildCompatFilter(cs)),
-            // Language filter
-            SliverToBoxAdapter(child: _buildLangFilter(cs)),
-
-            if (_loading) ...[
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(color: cs.primary),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Chargement des extensions…',
-                        style: TextStyle(color: cs.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
+      body: Stack(
+        children: [
+          // ── Main content ─────────────────────────────────────────────────
+          Column(
+            children: [
+              // ── Top search bar + tabs ──────────────────────────────────
+              _buildTopBar(cs, theme),
+              // ── Tab content ───────────────────────────────────────────
+              Expanded(
+                child: _loading
+                    ? _buildLoading(cs)
+                    : _error != null
+                        ? _buildError(cs)
+                        : TabBarView(
+                            controller: _tabCtrl,
+                            children: [
+                              _HomeTab(state: this),
+                              _TypeTab(state: this, tab: _kTabManga),
+                              _TypeTab(state: this, tab: _kTabAnime),
+                              _TypeTab(state: this, tab: _kTabNovel),
+                              _TypeTab(state: this, tab: _kTabGames),
+                            ],
+                          ),
               ),
-            ] else if (_error != null) ...[
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.wifi_off_rounded,
-                          size: 52, color: cs.error.withValues(alpha: 0.6)),
-                      const SizedBox(height: 12),
-                      Text('Erreur de chargement',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface)),
-                      const SizedBox(height: 6),
-                      FilledButton.tonal(
-                        onPressed: _loadAll,
-                        child: const Text('Réessayer'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ] else if (_hasFilter) ...[
-              // ── Filtered list ──────────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: _sectionTitle(
-                    cs, '${_filtered.length} résultat(s)', Icons.list_rounded),
-              ),
-              if (_filtered.isEmpty)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off_rounded,
-                            size: 52,
-                            color:
-                                cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                        const SizedBox(height: 10),
-                        Text('Aucune extension trouvée',
-                            style: TextStyle(color: cs.onSurfaceVariant)),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _ExtCard(
-                      entry: _filtered[i],
-                      installed: _installed.contains(_filtered[i].id),
-                      busy: _busy[_filtered[i].id] == true,
-                      rating: _ratings[_filtered[i].id] ?? 0,
-                      onInstall: () => _install(_filtered[i]),
-                      onRate: (v) =>
-                          setState(() => _ratings[_filtered[i].id] = v),
-                    ),
-                    childCount: _filtered.length.clamp(0, 200),
-                  ),
-                ),
-            ] else ...[
-              // ── Stats bar ─────────────────────────────────────────────────
-              SliverToBoxAdapter(child: _buildStats(cs)),
-
-              // ── Featured ─────────────────────────────────────────────────
-              if (_featured.isNotEmpty) ...[
-                SliverToBoxAdapter(
-                  child: _sectionTitle(
-                      cs, 'À la une', Icons.star_rounded,
-                      color: Colors.amber,
-                      subtitle: 'Extensions populaires'),
-                ),
-                SliverToBoxAdapter(
-                  child: _buildBanner(_featured, cs),
-                ),
-              ],
-
-              // ── Mihon section ─────────────────────────────────────────────
-              if (_mihonCount > 0) ...[
-                SliverToBoxAdapter(
-                  child: _sectionTitle(
-                      cs,
-                      'Mihon · $_mihonCount extensions',
-                      Icons.android_rounded,
-                      color: const Color(0xFF2196F3),
-                      subtitle: 'Android uniquement · Tachiyomi/Aniyomi',
-                      onSeeAll: () =>
-                          setState(() => _compatF = _CompatF.mihon)),
-                ),
-                SliverToBoxAdapter(
-                  child:
-                      _buildHorizontal(_byCompat(SourceCodeLanguage.mihon), cs),
-                ),
-              ],
-
-              // ── LNReader section ──────────────────────────────────────────
-              if (_lnCount > 0) ...[
-                SliverToBoxAdapter(
-                  child: _sectionTitle(
-                      cs,
-                      'LNReader · $_lnCount extensions',
-                      Icons.menu_book_rounded,
-                      color: const Color(0xFF4CAF50),
-                      subtitle: 'Light novels & Web novels',
-                      onSeeAll: () =>
-                          setState(() => _compatF = _CompatF.lnreader)),
-                ),
-                SliverToBoxAdapter(
-                  child: _buildHorizontal(
-                      _byCompat(SourceCodeLanguage.lnreader), cs),
-                ),
-              ],
-
-              // ── Watchtower JS section ─────────────────────────────────────
-              if (_wtCount > 0) ...[
-                SliverToBoxAdapter(
-                  child: _sectionTitle(
-                      cs,
-                      'Watchtower · $_wtCount extensions',
-                      Icons.extension_rounded,
-                      color: const Color(0xFFF5A623),
-                      subtitle: 'JS natif · toutes plateformes',
-                      onSeeAll: () =>
-                          setState(() => _compatF = _CompatF.js)),
-                ),
-                SliverToBoxAdapter(
-                  child: _buildHorizontal(
-                      _all
-                          .where((e) =>
-                              e.compat == SourceCodeLanguage.javascript ||
-                              e.compat == SourceCodeLanguage.dart)
-                          .toList(),
-                      cs),
-                ),
-              ],
             ],
-
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
-          ],
-        ),
+          ),
+          // ── Search overlay ────────────────────────────────────────────
+          if (_searchOpen) _buildSearchOverlay(cs, theme),
+        ],
       ),
     );
   }
 
-  // ─── Header ────────────────────────────────────────────────────────────────
+  // ── Top bar ───────────────────────────────────────────────────────────────────
 
-  Widget _buildHeader(ColorScheme cs) {
+  Widget _buildTopBar(ColorScheme cs, ThemeData theme) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            cs.primaryContainer.withValues(alpha: 0.85),
-            cs.tertiaryContainer.withValues(alpha: 0.6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border:
-            Border.all(color: cs.primary.withValues(alpha: 0.15), width: 1),
+      color: theme.scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            child: GestureDetector(
+              onTap: () {
+                setState(() => _searchOpen = true);
+                Future.delayed(const Duration(milliseconds: 80), () {
+                  _searchFocus.requestFocus();
+                });
+              },
+              child: Container(
+                height: 46,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 14),
+                    Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Rechercher extensions, sources…',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                    if (!_loading && _all.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_all.length}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Tab bar
+          TabBar(
+            controller: _tabCtrl,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            indicatorSize: TabBarIndicatorSize.label,
+            dividerColor: Colors.transparent,
+            labelColor: cs.primary,
+            unselectedLabelColor: theme.hintColor,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tabs: const [
+              Tab(text: 'Pour vous'),
+              Tab(text: 'Manga'),
+              Tab(text: 'Anime'),
+              Tab(text: 'Novel'),
+              Tab(text: 'Jeux'),
+            ],
+          ),
+          Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
+        ],
       ),
+    );
+  }
+
+  // ── Loading / Error ────────────────────────────────────────────────────────────
+
+  Widget _buildLoading(ColorScheme cs) => Center(
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      CircularProgressIndicator(color: cs.primary),
+      const SizedBox(height: 14),
+      Text('Chargement des extensions…', style: TextStyle(color: cs.onSurfaceVariant)),
+    ]),
+  );
+
+  Widget _buildError(ColorScheme cs) => Center(
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Icon(Icons.wifi_off_rounded, size: 52, color: cs.error.withValues(alpha: 0.6)),
+      const SizedBox(height: 12),
+      Text('Erreur de chargement', style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface)),
+      const SizedBox(height: 6),
+      FilledButton.tonal(onPressed: _loadAll, child: const Text('Réessayer')),
+    ]),
+  );
+
+  // ── Section title ──────────────────────────────────────────────────────────────
+
+  Widget sectionTitle(ColorScheme cs, String title, IconData icon,
+      {Color? color, String? subtitle, VoidCallback? onSeeAll}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 12, 6),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [cs.primary, cs.tertiary],
-              ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: cs.primary.withValues(alpha: 0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.storefront_rounded,
-                color: Colors.white, size: 26),
-          ),
-          const SizedBox(width: 14),
+          Icon(icon, size: 16, color: color ?? cs.primary),
+          const SizedBox(width: 7),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Marketplace',
-                    style: TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w800)),
-                Text(
-                  'Extensions · Keiyoushi · Aniyomi · Watchtower JS',
-                  style:
-                      TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
-                ),
-              ],
-            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: cs.onSurface)),
+              if (subtitle != null)
+                Text(subtitle, style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant.withValues(alpha: 0.7))),
+            ]),
           ),
-          if (!_loading && _totalCount > 0)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$_totalCount',
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: cs.primary),
-                ),
-                Text('extensions',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: cs.onSurfaceVariant)),
-              ],
+          if (onSeeAll != null)
+            TextButton(
+              onPressed: onSeeAll,
+              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 28)),
+              child: Text('Voir tout', style: TextStyle(fontSize: 11.5, color: color ?? cs.primary)),
             ),
         ],
       ),
     );
   }
 
-  // ─── Search ────────────────────────────────────────────────────────────────
+  // ── Banner (featured auto-scroll) ─────────────────────────────────────────────
 
-  Widget _buildSearch(ColorScheme cs) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      child: TextField(
-        controller: _searchCtrl,
-        onChanged: (v) => setState(() => _search = v),
-        decoration: InputDecoration(
-          hintText: 'Rechercher par nom, langue…',
-          hintStyle: TextStyle(
-              fontSize: 13,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
-          prefixIcon: Icon(Icons.search_rounded, color: cs.primary, size: 20),
-          suffixIcon: _search.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    setState(() => _search = '');
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: cs.surfaceContainerHigh,
-          isDense: true,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+  Widget buildBanner(List<_ExtEntry> entries, ColorScheme cs) {
+    if (entries.isEmpty) return const SizedBox.shrink();
+    final show = entries.take(8).toList();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer(show.length));
+    return SizedBox(
+      height: 170,
+      child: PageView.builder(
+        controller: _bannerCtrl,
+        itemCount: show.length,
+        onPageChanged: (p) => _bannerPage = p,
+        itemBuilder: (ctx, i) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: _BannerCard(entry: show[i], installed: _installed.contains(show[i].id),
+              busy: _busy[show[i].id] == true, onInstall: () => _install(show[i])),
         ),
       ),
     );
   }
 
-  // ─── Type filter ───────────────────────────────────────────────────────────
+  // ── Horizontal mini-carousel ───────────────────────────────────────────────────
 
-  Widget _buildTypeFilter(ColorScheme cs) {
-    final items = [
-      (_TypeF.all, Icons.apps_rounded, 'Tout'),
-      (_TypeF.anime, Icons.live_tv_rounded, 'Anime'),
-      (_TypeF.manga, Icons.auto_stories_rounded, 'Manga'),
-      (_TypeF.novel, Icons.menu_book_rounded, 'Novel'),
-      (_TypeF.game, Icons.sports_esports_rounded, 'Game'),
-    ];
+  Widget buildHorizontal(List<_ExtEntry> entries, ColorScheme cs) {
+    final show = entries.take(20).toList();
     return SizedBox(
-      height: 46,
+      height: 140,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        itemCount: items.length,
-        itemBuilder: (_, i) {
-          final (f, icon, label) = items[i];
-          final active = _typeF == f;
-          return _IconFilterChip(
-            icon: icon,
-            label: label,
-            active: active,
-            onTap: () => setState(() => _typeF = active ? _TypeF.all : f),
-          );
-        },
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+        itemCount: show.length,
+        itemBuilder: (ctx, i) => _MiniCard(
+          entry: show[i],
+          installed: _installed.contains(show[i].id),
+          busy: _busy[show[i].id] == true,
+          onInstall: () => _install(show[i]),
+        ),
       ),
     );
   }
 
-  // ─── Compat filter ─────────────────────────────────────────────────────────
+  // ── Search overlay ─────────────────────────────────────────────────────────────
 
-  Widget _buildCompatFilter(ColorScheme cs) {
+  Widget _buildSearchOverlay(ColorScheme cs, ThemeData theme) {
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Search field
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () {
+                      setState(() {
+                        _searchOpen = false;
+                        _searchQuery = '';
+                        _searchCtrl.clear();
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      focusNode: _searchFocus,
+                      autofocus: true,
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher extensions, sources…',
+                        hintStyle: TextStyle(fontSize: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
+                        filled: true,
+                        fillColor: cs.surfaceContainerHigh,
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.close, size: 18),
+                                onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
+            // Results
+            Expanded(
+              child: _searchQuery.isEmpty
+                  ? _buildSearchEmpty(cs)
+                  : _searchResults.isEmpty
+                      ? Center(
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(Icons.search_off_rounded, size: 52, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                            const SizedBox(height: 10),
+                            Text('Aucune extension trouvée', style: TextStyle(color: cs.onSurfaceVariant)),
+                          ]),
+                        )
+                      : ListView.builder(
+                          itemCount: _searchResults.length,
+                          itemBuilder: (ctx, i) => _PlayStoreCard(
+                            entry: _searchResults[i],
+                            installed: _installed.contains(_searchResults[i].id),
+                            busy: _busy[_searchResults[i].id] == true,
+                            onInstall: () => _install(_searchResults[i]),
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchEmpty(ColorScheme cs) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          sectionTitle(cs, 'Extensions populaires', Icons.trending_up_rounded, color: cs.primary),
+          ..._featured.take(5).map((e) => _PlayStoreCard(
+            entry: e,
+            installed: _installed.contains(e.id),
+            busy: _busy[e.id] == true,
+            onInstall: () => _install(e),
+          )),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  // ── Compat filter strip ────────────────────────────────────────────────────────
+
+  Widget buildCompatFilter(ColorScheme cs, int tab) {
     final items = [
       (_CompatF.all, Icons.apps_rounded, 'Tout'),
       (_CompatF.mihon, Icons.android_rounded, 'Mihon'),
       (_CompatF.lnreader, Icons.menu_book_outlined, 'LNReader'),
       (_CompatF.js, Icons.code_rounded, 'JS / Dart'),
     ];
+    final cf = _compatF[tab] ?? _CompatF.all;
     return SizedBox(
       height: 42,
       child: ListView.builder(
@@ -771,77 +717,395 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         itemCount: items.length,
         itemBuilder: (_, i) {
           final (f, icon, label) = items[i];
-          final active = _compatF == f;
-          return _IconFilterChip(
-            icon: icon,
-            label: label,
-            active: active,
-            small: true,
-            onTap: () =>
-                setState(() => _compatF = active ? _CompatF.all : f),
+          final active = cf == f;
+          return _IconChip(
+            icon: icon, label: label, active: active,
+            onTap: () => setState(() => _compatF[tab] = active ? _CompatF.all : f),
           );
         },
       ),
     );
   }
+}
 
-  // ─── Language filter ────────────────────────────────────────────────────────
+// ─── Home tab ──────────────────────────────────────────────────────────────────
 
-  Widget _buildLangFilter(ColorScheme cs) {
-    if (_all.isEmpty) return const SizedBox.shrink();
-    final langs = _topLangs;
-    return SizedBox(
-      height: 38,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        itemCount: langs.length + 1,
-        itemBuilder: (_, i) {
-          if (i == 0) {
-            final active = _langF == 'all';
-            return _IconFilterChip(
-              icon: Icons.language_rounded,
-              label: 'Tout',
-              active: active,
-              small: true,
-              onTap: () => setState(() => _langF = 'all'),
-            );
-          }
-          final lang = langs[i - 1];
-          final active = _langF == lang;
-          final code = _langCode(lang);
-          final color = _langColor(lang);
-          return GestureDetector(
-            onTap: () => setState(() => _langF = active ? 'all' : lang),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              margin: const EdgeInsets.only(right: 7),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: active ? color : cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: active ? color : cs.outline.withValues(alpha: 0.2)),
+class _HomeTab extends StatelessWidget {
+  final _MarketplaceScreenState state;
+  const _HomeTab({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final all = state._all;
+    final featured = state._featured;
+    final mihon = all.where((e) => e.compat == SourceCodeLanguage.mihon).toList();
+    final ln = all.where((e) => e.compat == SourceCodeLanguage.lnreader).toList();
+    final wt = all.where((e) =>
+        e.compat == SourceCodeLanguage.javascript ||
+        e.compat == SourceCodeLanguage.dart).toList();
+
+    return RefreshIndicator(
+      onRefresh: state._loadAll,
+      child: CustomScrollView(
+        slivers: [
+          // Stats bar
+          SliverToBoxAdapter(child: _StatsBar(
+            mihon: mihon.length, wt: wt.length, ln: ln.length,
+            installed: state._installed.length, cs: cs,
+          )),
+          // Featured banner
+          if (featured.isNotEmpty) ...[
+            SliverToBoxAdapter(child: state.sectionTitle(cs, 'À la une', Icons.star_rounded, color: Colors.amber, subtitle: 'Extensions populaires')),
+            SliverToBoxAdapter(child: state.buildBanner(featured, cs)),
+          ],
+          // Mihon
+          if (mihon.isNotEmpty) ...[
+            SliverToBoxAdapter(child: state.sectionTitle(cs, 'Mihon · ${mihon.length}', Icons.android_rounded, color: const Color(0xFF2196F3), subtitle: 'Keiyoushi · Extensions manga Android')),
+            SliverToBoxAdapter(child: state.buildHorizontal(mihon, cs)),
+          ],
+          // LNReader
+          if (ln.isNotEmpty) ...[
+            SliverToBoxAdapter(child: state.sectionTitle(cs, 'LNReader · ${ln.length}', Icons.menu_book_rounded, color: const Color(0xFF4CAF50), subtitle: 'Light novels & Web novels')),
+            SliverToBoxAdapter(child: state.buildHorizontal(ln, cs)),
+          ],
+          // Watchtower
+          if (wt.isNotEmpty) ...[
+            SliverToBoxAdapter(child: state.sectionTitle(cs, 'Watchtower · ${wt.length}', Icons.extension_rounded, color: const Color(0xFFF5A623), subtitle: 'JS natif · toutes plateformes')),
+            SliverToBoxAdapter(child: state.buildHorizontal(wt, cs)),
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Type tab (Manga / Anime / Novel / Jeux) ───────────────────────────────────
+
+class _TypeTab extends StatelessWidget {
+  final _MarketplaceScreenState state;
+  final int tab;
+  const _TypeTab({required this.state, required this.tab});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final entries = state._forTab(tab);
+    return RefreshIndicator(
+      onRefresh: state._loadAll,
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: state.buildCompatFilter(cs, tab)),
+          if (entries.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.extension_off_rounded, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.35)),
+                  const SizedBox(height: 14),
+                  Text('Aucune extension', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 6),
+                  Text('Réessayez plus tard ou vérifiez la connexion', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
+                  const SizedBox(height: 20),
+                  TextButton.icon(
+                    onPressed: state._loadAll,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Actualiser'),
+                  ),
+                ]),
               ),
-              child: Text(
-                code,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: active ? Colors.white : color,
-                  letterSpacing: 0.4,
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) => _PlayStoreCard(
+                  entry: entries[i],
+                  installed: state._installed.contains(entries[i].id),
+                  busy: state._busy[entries[i].id] == true,
+                  onInstall: () => state._install(entries[i]),
                 ),
+                childCount: entries.length.clamp(0, 300),
               ),
             ),
-          );
-        },
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
       ),
     );
   }
+}
 
-  // ─── Stats bar ─────────────────────────────────────────────────────────────
+// ─── Play Store-style card ─────────────────────────────────────────────────────
 
-  Widget _buildStats(ColorScheme cs) {
+class _PlayStoreCard extends StatelessWidget {
+  final _ExtEntry entry;
+  final bool installed;
+  final bool busy;
+  final VoidCallback onInstall;
+  const _PlayStoreCard({
+    required this.entry, required this.installed,
+    required this.busy, required this.onInstall,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
+    final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
+    final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
+    final langCode = _MarketplaceScreenState._langCode(entry.lang);
+
+    return InkWell(
+      onTap: null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            // ── Icon ───────────────────────────────────────────────────────
+            _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 56),
+            const SizedBox(width: 14),
+            // ── Info ───────────────────────────────────────────────────────
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.name,
+                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: compatColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: compatColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(compatLabel, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: compatColor, letterSpacing: 0.2)),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.3)),
+                        ),
+                        child: Text(langCode, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: _MarketplaceScreenState._langColor(entry.lang), letterSpacing: 0.3)),
+                      ),
+                      if (entry.isNsfw) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(color: Colors.red.shade400.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red.shade400.withValues(alpha: 0.3))),
+                          child: Text('18+', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.red.shade400)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    Icon(_MarketplaceScreenState._typeIcon(entry.contentType), size: 11, color: typeColor),
+                    const SizedBox(width: 4),
+                    Text('v${entry.version}', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            // ── Install button ─────────────────────────────────────────────
+            installed
+                ? Container(
+                    width: 72,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.check_rounded, size: 18, color: cs.primary),
+                  )
+                : SizedBox(
+                    width: 80,
+                    height: 32,
+                    child: FilledButton(
+                      onPressed: busy ? null : onInstall,
+                      style: FilledButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        backgroundColor: cs.primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: busy
+                          ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary))
+                          : Text('Installer', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cs.onPrimary)),
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Banner card (featured) ────────────────────────────────────────────────────
+
+class _BannerCard extends StatelessWidget {
+  final _ExtEntry entry;
+  final bool installed;
+  final bool busy;
+  final VoidCallback onInstall;
+  const _BannerCard({required this.entry, required this.installed, required this.busy, required this.onInstall});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
+    final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [typeColor.withValues(alpha: 0.82), compatColor.withValues(alpha: 0.6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: typeColor.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 60),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text(entry.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(5)),
+                      child: Text(_MarketplaceScreenState._compatLabel(entry.compat), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(5)),
+                      child: Text(_MarketplaceScreenState._langCode(entry.lang), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
+                    ),
+                  ]),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 32,
+                    child: installed
+                        ? Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(8)),
+                            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                              SizedBox(width: 5),
+                              Text('Installée', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
+                            ]),
+                          )
+                        : FilledButton(
+                            onPressed: busy ? null : onInstall,
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              backgroundColor: Colors.white.withValues(alpha: 0.25),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: busy
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Text('Installer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Mini card ─────────────────────────────────────────────────────────────────
+
+class _MiniCard extends StatelessWidget {
+  final _ExtEntry entry;
+  final bool installed;
+  final bool busy;
+  final VoidCallback onInstall;
+  const _MiniCard({required this.entry, required this.installed, required this.busy, required this.onInstall});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: 100,
+      margin: const EdgeInsets.only(right: 10, bottom: 2),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: installed ? cs.primary.withValues(alpha: 0.4) : cs.outline.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 40),
+          const SizedBox(height: 5),
+          Text(entry.name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+          const SizedBox(height: 3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.25)),
+            ),
+            child: Text(_MarketplaceScreenState._langCode(entry.lang), style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: _MarketplaceScreenState._langColor(entry.lang))),
+          ),
+          const SizedBox(height: 5),
+          SizedBox(
+            width: double.infinity,
+            height: 26,
+            child: installed
+                ? OutlinedButton(
+                    onPressed: null,
+                    style: OutlinedButton.styleFrom(padding: EdgeInsets.zero, side: BorderSide(color: cs.primary.withValues(alpha: 0.4)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7))),
+                    child: Icon(Icons.check_rounded, size: 13, color: cs.primary),
+                  )
+                : FilledButton(
+                    onPressed: busy ? null : onInstall,
+                    style: FilledButton.styleFrom(padding: EdgeInsets.zero, backgroundColor: cs.primaryContainer, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7))),
+                    child: busy
+                        ? SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5, color: cs.onPrimaryContainer))
+                        : Icon(Icons.download_rounded, size: 14, color: cs.onPrimaryContainer),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stats bar ─────────────────────────────────────────────────────────────────
+
+class _StatsBar extends StatelessWidget {
+  final int mihon, wt, ln, installed;
+  final ColorScheme cs;
+  const _StatsBar({required this.mihon, required this.wt, required this.ln, required this.installed, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -853,419 +1117,36 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _StatPill('$_mihonCount', 'Keiyoushi', const Color(0xFF2196F3)),
-          _divider(cs),
-          _StatPill('$_wtCount', 'Watchtower', const Color(0xFFF5A623)),
-          _divider(cs),
-          if (_lnCount > 0) ...[
-            _StatPill('$_lnCount', 'LNReader', const Color(0xFF4CAF50)),
-            _divider(cs),
-          ],
-          _StatPill('${_installed.length}', 'Installées', cs.primary),
+          _Pill('$mihon', 'Keiyoushi', const Color(0xFF2196F3)),
+          _vdivider(cs),
+          _Pill('$wt', 'Watchtower', const Color(0xFFF5A623)),
+          if (ln > 0) ...[_vdivider(cs), _Pill('$ln', 'LNReader', const Color(0xFF4CAF50))],
+          _vdivider(cs),
+          _Pill('$installed', 'Installées', cs.primary),
         ],
       ),
     );
   }
 
-  Widget _divider(ColorScheme cs) => Container(
-      width: 1, height: 28,
-      color: cs.outline.withValues(alpha: 0.2));
-
-  // ─── Section title ─────────────────────────────────────────────────────────
-
-  Widget _sectionTitle(ColorScheme cs, String title, IconData icon,
-      {Color? color, String? subtitle, VoidCallback? onSeeAll}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 12, 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color ?? cs.primary),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurface,
-                    )),
-                if (subtitle != null)
-                  Text(subtitle,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                      )),
-              ],
-            ),
-          ),
-          if (onSeeAll != null)
-            TextButton(
-              onPressed: onSeeAll,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 28),
-              ),
-              child: Text('Voir tout →',
-                  style:
-                      TextStyle(fontSize: 11.5, color: color ?? cs.primary)),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Auto-scroll banner (featured) ────────────────────────────────────────
-
-  Widget _buildBanner(List<_ExtEntry> entries, ColorScheme cs) {
-    final show = entries.take(8).toList();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startBannerTimer(show.length);
-    });
-    return SizedBox(
-      height: 170,
-      child: PageView.builder(
-        controller: _bannerCtrl,
-        itemCount: show.length,
-        onPageChanged: (p) => _bannerPage = p,
-        itemBuilder: (ctx, i) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: _FeaturedMiniCard(
-            entry: show[i],
-            installed: _installed.contains(show[i].id),
-            busy: _busy[show[i].id] == true,
-            onInstall: () => _install(show[i]),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Horizontal carousel ──────────────────────────────────────────────────
-
-  Widget _buildHorizontal(List<_ExtEntry> entries, ColorScheme cs,
-      {bool featured = false}) {
-    final show = entries.take(20).toList();
-    final h = featured ? 170.0 : 140.0;
-    return SizedBox(
-      height: h,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-        itemCount: show.length,
-        itemBuilder: (ctx, i) => featured
-            ? _FeaturedMiniCard(
-                entry: show[i],
-                installed: _installed.contains(show[i].id),
-                busy: _busy[show[i].id] == true,
-                onInstall: () => _install(show[i]),
-              )
-            : _MiniCard(
-                entry: show[i],
-                installed: _installed.contains(show[i].id),
-                busy: _busy[show[i].id] == true,
-                onInstall: () => _install(show[i]),
-              ),
-      ),
-    );
-  }
+  Widget _vdivider(ColorScheme cs) =>
+      Container(width: 1, height: 28, color: cs.outline.withValues(alpha: 0.2));
 }
 
-// ─── Icon filter chip ──────────────────────────────────────────────────────────
-
-class _IconFilterChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final bool small;
-  const _IconFilterChip({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-    this.small = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(right: 8),
-        padding: EdgeInsets.symmetric(
-            horizontal: small ? 10 : 12, vertical: small ? 4 : 5),
-        decoration: BoxDecoration(
-          color: active ? cs.primary : cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-              color: active
-                  ? cs.primary
-                  : cs.outline.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: small ? 13 : 14,
-              color: active ? cs.onPrimary : cs.onSurfaceVariant,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: small ? 11 : 12,
-                fontWeight: FontWeight.w600,
-                color: active ? cs.onPrimary : cs.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Language badge ─────────────────────────────────────────────────────────────
-
-class _LangBadge extends StatelessWidget {
-  final String lang;
-  final bool small;
-  const _LangBadge({required this.lang, this.small = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final code = _MarketplaceScreenState._langCode(lang);
-    final color = _MarketplaceScreenState._langColor(lang);
-    return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: small ? 5 : 6, vertical: small ? 1 : 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        code,
-        style: TextStyle(
-          fontSize: small ? 9 : 10,
-          fontWeight: FontWeight.w800,
-          color: color,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Stat pill ─────────────────────────────────────────────────────────────────
-
-class _StatPill extends StatelessWidget {
-  final String count;
-  final String label;
+class _Pill extends StatelessWidget {
+  final String count, label;
   final Color color;
-  const _StatPill(this.count, this.label, this.color);
-
+  const _Pill(this.count, this.label, this.color);
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(count,
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: color)),
-        Text(label,
-            style: TextStyle(
-                fontSize: 9.5,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.8))),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(count, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
+      Text(label, style: TextStyle(fontSize: 9.5, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8))),
+    ],
+  );
 }
 
-// ─── Extension card (list) ─────────────────────────────────────────────────────
-
-class _ExtCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool busy;
-  final int rating;
-  final VoidCallback onInstall;
-  final ValueChanged<int> onRate;
-
-  const _ExtCard({
-    required this.entry,
-    required this.installed,
-    required this.busy,
-    required this.rating,
-    required this.onInstall,
-    required this.onRate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
-    final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Icon
-          _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 52),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Name + badges row
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        entry.name,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (entry.isNsfw)
-                      _Badge('18+', const Color(0xFFE53935), cs),
-                    const SizedBox(width: 4),
-                    _Badge(compatLabel, compatColor, cs),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                // Lang + version
-                Row(
-                  children: [
-                    _LangBadge(lang: entry.lang),
-                    const SizedBox(width: 8),
-                    Icon(_MarketplaceScreenState._typeIcon(entry.contentType),
-                        size: 11,
-                        color: _MarketplaceScreenState._typeColor(
-                            entry.contentType)),
-                    const SizedBox(width: 3),
-                    Text(
-                      'v${entry.version}',
-                      style: TextStyle(
-                          fontSize: 10.5, color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                // Stars row
-                Row(
-                  children: List.generate(5, (i) => GestureDetector(
-                    onTap: () => onRate(i + 1),
-                    child: Icon(
-                      i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                      size: 15,
-                      color: i < rating ? Colors.amber : cs.onSurfaceVariant.withValues(alpha: 0.35),
-                    ),
-                  )),
-                ),
-                const SizedBox(height: 7),
-                // Install button
-                SizedBox(
-                  width: double.infinity,
-                  height: 32,
-                  child: installed
-                      ? OutlinedButton.icon(
-                          onPressed: null,
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            side: BorderSide(
-                                color: cs.primary.withValues(alpha: 0.4)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: Icon(Icons.check_circle_rounded,
-                              size: 14, color: cs.primary),
-                          label: Text('Installée',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.primary)),
-                        )
-                      : FilledButton(
-                          onPressed: busy ? null : onInstall,
-                          style: FilledButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            backgroundColor: cs.primary,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: busy
-                              ? SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: cs.onPrimary),
-                                )
-                              : Text('Installer',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: cs.onPrimary)),
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Badge ─────────────────────────────────────────────────────────────────────
-
-class _Badge extends StatelessWidget {
-  final String label;
-  final Color color;
-  final ColorScheme cs;
-  const _Badge(this.label, this.color, this.cs);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              color: color,
-              letterSpacing: 0.2)),
-    );
-  }
-}
-
-// ─── Extension icon ────────────────────────────────────────────────────────────
+// ─── Extension icon ─────────────────────────────────────────────────────────────
 
 class _ExtIcon extends StatelessWidget {
   final String? iconUrl;
@@ -1278,276 +1159,51 @@ class _ExtIcon extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final color = _MarketplaceScreenState._typeColor(type);
     return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      width: size, height: size,
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: iconUrl != null && iconUrl!.isNotEmpty
-            ? Image.network(
-                iconUrl!,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _fallbackIcon(cs, color),
-              )
-            : _fallbackIcon(cs, color),
+            ? Image.network(iconUrl!, width: size, height: size, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _fallback(cs, color))
+            : _fallback(cs, color),
       ),
     );
   }
 
-  Widget _fallbackIcon(ColorScheme cs, Color color) => Center(
-        child: Icon(
-          _MarketplaceScreenState._typeIcon(type),
-          size: size * 0.48,
-          color: color,
-        ),
-      );
+  Widget _fallback(ColorScheme cs, Color color) => Center(
+    child: Icon(_MarketplaceScreenState._typeIcon(type), size: size * 0.48, color: color),
+  );
 }
 
-// ─── Mini card (horizontal carousel) ──────────────────────────────────────────
+// ─── Icon chip ─────────────────────────────────────────────────────────────────
 
-class _MiniCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool busy;
-  final VoidCallback onInstall;
-  const _MiniCard(
-      {required this.entry,
-      required this.installed,
-      required this.busy,
-      required this.onInstall});
+class _IconChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _IconChip({required this.icon, required this.label, required this.active, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final compatColor =
-        _MarketplaceScreenState._compatColor(entry.compat, cs);
-
-    return Container(
-      width: 100,
-      margin: const EdgeInsets.only(right: 10, bottom: 2),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: installed
-                ? cs.primary.withValues(alpha: 0.4)
-                : cs.outline.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 40),
-          const SizedBox(height: 5),
-          Text(
-            entry.name,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 3),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _LangBadge(lang: entry.lang, small: true),
-              const SizedBox(width: 3),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: compatColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          SizedBox(
-            width: double.infinity,
-            height: 26,
-            child: installed
-                ? OutlinedButton(
-                    onPressed: null,
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      side: BorderSide(
-                          color: cs.primary.withValues(alpha: 0.4)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7)),
-                    ),
-                    child: Icon(Icons.check_rounded,
-                        size: 13, color: cs.primary),
-                  )
-                : FilledButton(
-                    onPressed: busy ? null : onInstall,
-                    style: FilledButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      backgroundColor: cs.primaryContainer,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7)),
-                    ),
-                    child: busy
-                        ? SizedBox(
-                            width: 11,
-                            height: 11,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: cs.onPrimaryContainer),
-                          )
-                        : Icon(Icons.download_rounded,
-                            size: 14,
-                            color: cs.onPrimaryContainer),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Featured mini card ────────────────────────────────────────────────────────
-
-class _FeaturedMiniCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool busy;
-  final VoidCallback onInstall;
-  const _FeaturedMiniCard(
-      {required this.entry,
-      required this.installed,
-      required this.busy,
-      required this.onInstall});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final compatColor =
-        _MarketplaceScreenState._compatColor(entry.compat, cs);
-    final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
-
-    return Container(
-      width: 200,
-      margin: const EdgeInsets.only(right: 12, bottom: 4),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            typeColor.withValues(alpha: 0.75),
-            compatColor.withValues(alpha: 0.55),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: active ? cs.primary : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: active ? cs.primary : cs.outline.withValues(alpha: 0.2)),
         ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: typeColor.withValues(alpha: 0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            _ExtIcon(
-                iconUrl: entry.iconUrl,
-                type: entry.contentType,
-                size: 48),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(entry.name,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  Row(
-                    children: [
-                      _LangBadge(lang: entry.lang, small: true),
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _MarketplaceScreenState._compatLabel(entry.compat),
-                          style: const TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 28,
-                    child: installed
-                        ? Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.check_rounded,
-                                    size: 13, color: Colors.white),
-                                SizedBox(width: 4),
-                                Text('Installée',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700)),
-                              ],
-                            ),
-                          )
-                        : FilledButton(
-                            onPressed: busy ? null : onInstall,
-                            style: FilledButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: 0.25),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(7)),
-                            ),
-                            child: busy
-                                ? const SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 1.5,
-                                        color: Colors.white),
-                                  )
-                                : const Text('Installer',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white)),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: active ? cs.onPrimary : cs.onSurfaceVariant),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: active ? cs.onPrimary : cs.onSurfaceVariant)),
+        ]),
       ),
     );
   }
