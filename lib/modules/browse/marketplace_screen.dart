@@ -193,8 +193,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
   Future<void> _refreshInstalled() async {
     try {
-      final sources =
-          await isar.sources.filter().isAddedEqualTo(true).build().findAll();
+      final allSrcs = await isar.sources.buildQuery<Source>().findAll();
+      final sources = allSrcs.where((s) => s.isAdded == true).toList();
       if (mounted) {
         setState(() =>
             _installed = sources.map((s) => s.id).whereType<int>().toSet());
