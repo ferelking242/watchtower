@@ -338,7 +338,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         icon: Icon(Icons.filter_list_sharp, color: theme.hintColor),
       ),
       PopupMenuButton<_SrcMenuAction>(
-        tooltip: 'Plus d'options',
+        tooltip: "Plus d'options",
         icon: Icon(Icons.more_vert, color: theme.hintColor),
         onSelected: (action) => _handleSrcMenuAction(context, type, action),
         itemBuilder: (ctx) => [
