@@ -295,37 +295,101 @@ Future<void> fetchSourcesList({
       );
     }
   } else {
-    for (var source in sourceList) {
-      final existingSource = await isar.sources.get(source.id!);
-      if (existingSource == null) {
-        await _addNewSource(source, repo, itemType);
+    // ── Batch mode: one bulk DB read instead of N individual reads ────────────
+    // This replaces O(n) individual isar.sources.get() calls with a single
+    // query + in-memory lookup, which eliminates the main UI-freeze cause
+    // when processing large index files (Keiyoushi/Aniyomi = 1000–3000 sources).
+    final allExisting = await isar.sources
+        .filter()
+        .itemTypeEqualTo(itemType)
+        .findAll();
+    final existingMap = <int, Source>{
+      for (final s in allExisting) if (s.id != null) s.id!: s,
+    };
+
+    final toAdd = <Source>[];
+    final toVersionBump = <Source>[];
+    final toAutoUpdate = <Source>[];
+
+    for (final source in sourceList) {
+      if (source.id == null) continue;
+      final existing = existingMap[source.id!];
+      if (existing == null) {
+        toAdd.add(source);
         continue;
       }
       final shouldUpdate =
-          existingSource.isAdded! &&
-          compareVersions(existingSource.version!, source.version!) < 0;
+          (existing.isAdded ?? false) &&
+          compareVersions(existing.version ?? '', source.version ?? '') < 0;
       if (!shouldUpdate) continue;
       if (autoUpdateExtensions) {
-        AppLogger.log(
-          'Auto-updating "${source.name}" ${existingSource.version} → ${source.version}',
-          tag: LogTag.extension_,
-        );
-        try {
-          await _updateSource(source, androidProxyServer, repo, itemType);
-          AppLogger.log('Auto-update OK: "${source.name}"', tag: LogTag.extension_);
-        } catch (e, st) {
-          AppLogger.log(
-            'Auto-update FAILED: "${source.name}"',
-            logLevel: LogLevel.error,
-            tag: LogTag.extension_,
-            error: e,
-            stackTrace: st,
-          );
-        }
+        toAutoUpdate.add(source);
       } else {
-        await isar.writeTxn(() async {
-          isar.sources.put(existingSource..versionLast = source.version);
-        });
+        toVersionBump.add(existing..versionLast = source.version);
+      }
+    }
+
+    // Single transaction to register all new sources (isAdded = false)
+    if (toAdd.isNotEmpty) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final built = toAdd.map((s) => Source()
+        ..sourceCodeUrl = s.sourceCodeUrl
+        ..id = s.id
+        ..sourceCode = ''
+        ..apiUrl = s.apiUrl ?? ''
+        ..baseUrl = s.baseUrl ?? ''
+        ..dateFormat = s.dateFormat ?? ''
+        ..dateFormatLocale = s.dateFormatLocale ?? ''
+        ..hasCloudflare = s.hasCloudflare ?? false
+        ..iconUrl = s.iconUrl
+        ..typeSource = s.typeSource ?? ''
+        ..lang = s.lang
+        ..isNsfw = s.isNsfw ?? false
+        ..name = s.name
+        ..version = s.version
+        ..versionLast = s.version
+        ..itemType = itemType
+        ..sourceCodeLanguage = s.sourceCodeLanguage
+        ..isFullData = s.isFullData ?? false
+        ..appMinVerReq = s.appMinVerReq ?? ''
+        ..isAdded = false
+        ..isActive = false
+        ..isPinned = false
+        ..lastUsed = false
+        ..isObsolete = false
+        ..isLocal = false
+        ..notes = s.notes
+        ..repo = repo
+        ..updatedAt = now).toList();
+      await isar.writeTxn(() async => isar.sources.putAll(built));
+      AppLogger.log(
+        'Registered ${built.length} new source(s) from "${repo?.name}"',
+        tag: LogTag.repo,
+      );
+    }
+
+    // Single transaction for version-only bumps
+    if (toVersionBump.isNotEmpty) {
+      await isar.writeTxn(() async => isar.sources.putAll(toVersionBump));
+    }
+
+    // Auto-updates still need individual downloads
+    for (final source in toAutoUpdate) {
+      AppLogger.log(
+        'Auto-updating "${source.name}" | repo=${repo?.name}',
+        tag: LogTag.extension_,
+      );
+      try {
+        await _updateSource(source, androidProxyServer, repo, itemType);
+        AppLogger.log('Auto-update OK: "${source.name}"', tag: LogTag.extension_);
+      } catch (e, st) {
+        AppLogger.log(
+          'Auto-update FAILED: "${source.name}"',
+          logLevel: LogLevel.error,
+          tag: LogTag.extension_,
+          error: e,
+          stackTrace: st,
+        );
       }
     }
   }

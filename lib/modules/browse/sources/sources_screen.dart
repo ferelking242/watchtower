@@ -92,8 +92,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   const SizedBox(height: 28),
                   FilledButton.icon(
                     onPressed: widget.onShowExtensions,
-                    icon: const Icon(Icons.extension_rounded, size: 18),
-                    label: Text(context.l10n.show_extensions),
+                    icon: const Icon(Icons.storefront_rounded, size: 18),
+                    label: const Text('Go to Market'),
                   ),
                   const SizedBox(height: 24),
                   Divider(

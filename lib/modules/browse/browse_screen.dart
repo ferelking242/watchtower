@@ -397,7 +397,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           controller: _tabBarController,
           indicatorSize: TabBarIndicatorSize.tab,
           tabAlignment: TabAlignment.fill,
-          dividerColor: Colors.transparent,
+          dividerColor: Theme.of(context).dividerColor.withValues(alpha: 0.35),
           labelColor: theme.colorScheme.primary,
           unselectedLabelColor: theme.hintColor,
           labelStyle: const TextStyle(
