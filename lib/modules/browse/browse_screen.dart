@@ -17,6 +17,7 @@ import 'package:watchtower/modules/browse/sources/sources_screen.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key});
@@ -297,7 +298,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         onPressed: () => context.push('/sourceFilter', extra: type),
         icon: Icon(Icons.filter_list_sharp, color: theme.hintColor),
       ),
-      PopupMenuButton<_SrcMenuAction>(
+      ArrowPopupMenuButton<_SrcMenuAction>(
         tooltip: "Plus d'options",
         icon: Icon(Icons.more_vert, color: theme.hintColor),
         onSelected: (action) => _handleSrcMenuAction(context, type, action),

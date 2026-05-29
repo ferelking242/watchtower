@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
@@ -245,27 +244,16 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              width: 110,
-                              height: 110,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [
-                                    Theme.of(context).colorScheme.secondary.withValues(alpha: 0.15),
-                                    Theme.of(context).colorScheme.secondary.withValues(alpha: 0.03),
-                                  ],
-                                ),
-                              ),
-                              child: FaIcon(
-                                FontAwesomeIcons.ghost,
-                                size: 48,
-                                color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.45),
+                            Text(
+                              widget.query.isEmpty ? 'ε=ε=(ノ≧∇≦)ノ' : '(・_・;)',
+                              style: TextStyle(
+                                fontSize: 48,
+                                color: Theme.of(context).hintColor.withValues(alpha: 0.55),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 16),
                             Text(
-                              "Rien ici",
+                              widget.query.isEmpty ? "Rien ici" : "Aucun résultat",
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(context).hintColor,

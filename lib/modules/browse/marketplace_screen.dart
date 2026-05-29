@@ -275,6 +275,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         website: '',
       );
       await fetchSourcesList(
+        id: entry.id,
         repo: repo,
         refresh: true,
         androidProxyServer: proxyServer,
@@ -284,13 +285,15 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       await _refreshInstalled();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${entry.name} · dépôt actualisé'),
+          behavior: SnackBarBehavior.floating,
+          content: Text('${entry.name} installée ✓'),
           duration: const Duration(seconds: 2),
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
           content: Text('Erreur : $e'),
           backgroundColor: Theme.of(context).colorScheme.error,
           duration: const Duration(seconds: 3),
@@ -660,9 +663,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                   : _searchResults.isEmpty
                       ? Center(
                           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.search_off_rounded, size: 52, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                            const SizedBox(height: 10),
-                            Text('Aucune extension trouvée', style: TextStyle(color: cs.onSurfaceVariant)),
+                            Text('(・_・;)', style: TextStyle(fontSize: 46, color: cs.onSurfaceVariant.withValues(alpha: 0.5))),
+                            const SizedBox(height: 12),
+                            Text('Aucune extension trouvée', style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                            const SizedBox(height: 4),
+                            Text('Essaye un autre nom ou une langue', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
                           ]),
                         )
                       : ListView.builder(
@@ -801,7 +806,7 @@ class _TypeTab extends StatelessWidget {
             SliverFillRemaining(
               child: Center(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.extension_off_rounded, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.35)),
+                  Text('ε=ε=(ノ≧∇≦)ノ', style: TextStyle(fontSize: 44, color: cs.onSurfaceVariant.withValues(alpha: 0.5))),
                   const SizedBox(height: 14),
                   Text('Aucune extension', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
                   const SizedBox(height: 6),

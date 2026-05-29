@@ -66,25 +66,14 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                          Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
-                        ],
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.satellite_alt_outlined,
-                      size: 56,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                  Text(
+                    'ヽ(°〇°)ﾉ',
+                    style: TextStyle(
+                      fontSize: 52,
+                      color: Theme.of(context).hintColor.withValues(alpha: 0.55),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   Text(
                     "Nothing here",
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
