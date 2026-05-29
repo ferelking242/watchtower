@@ -86,9 +86,9 @@ class _NavCard extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           if (item.routeExtra != null) {
             context.push(item.route, extra: item.routeExtra);
@@ -103,12 +103,16 @@ class _NavCard extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: colors,
             ),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.14),
+            ),
             boxShadow: [
               BoxShadow(
-                color: colors[0].withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: colors[0].withValues(alpha: 0.45),
+                blurRadius: 18,
+                spreadRadius: -2,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -149,33 +153,104 @@ class _NavCard extends StatelessWidget {
                     ],
                   ),
                 )
-              : Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(12),
+                      // Decorative oversized watermark icon
+                      Positioned(
+                        right: -18,
+                        bottom: -22,
+                        child: Icon(
+                          item.icon,
+                          size: 116,
+                          color: Colors.white.withValues(alpha: 0.10),
                         ),
-                        child: Icon(item.icon,
-                            color: Colors.white, size: 26),
                       ),
-                      const Spacer(),
-                      Text(
-                        item.label(l10n),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.1,
+                      // Soft diagonal sheen
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.16),
+                                Colors.white.withValues(alpha: 0.0),
+                                Colors.black.withValues(alpha: 0.12),
+                              ],
+                              stops: const [0.0, 0.45, 1.0],
+                            ),
+                          ),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(11),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.24),
+                                    borderRadius:
+                                        BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.30),
+                                    ),
+                                  ),
+                                  child: Icon(item.icon,
+                                      color: Colors.white, size: 26),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.16),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.arrow_outward_rounded,
+                                    size: 16,
+                                    color: Colors.white
+                                        .withValues(alpha: 0.95),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              item.label(l10n),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.1,
+                                height: 1.15,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              height: 3,
+                              width: 28,
+                              decoration: BoxDecoration(
+                                color:
+                                    Colors.white.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -402,9 +477,9 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                 gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.15,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: 1.05,
                 ),
                 itemCount: navItems.length,
                 itemBuilder: (ctx, i) => _NavCard(
