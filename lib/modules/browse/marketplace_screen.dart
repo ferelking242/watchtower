@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -174,7 +175,27 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   String _search = '';
   _TypeF _typeF = _TypeF.all;
   _CompatF _compatF = _CompatF.all;
+  String _langF = 'all';
   final _searchCtrl = TextEditingController();
+
+  // ── Banner auto-scroll ──────────────────────────────────────────────────────
+  final _bannerCtrl = PageController(viewportFraction: 0.88);
+  Timer? _bannerTimer;
+  int _bannerPage = 0;
+
+  void _startBannerTimer(int count) {
+    _bannerTimer?.cancel();
+    if (count <= 1) return;
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      _bannerPage = (_bannerPage + 1) % count;
+      _bannerCtrl.animateToPage(
+        _bannerPage,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -187,6 +208,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
   @override
   void dispose() {
+    _bannerTimer?.cancel();
+    _bannerCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -304,6 +327,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               : SourceCodeLanguage.javascript;
       list = list.where((e) => e.compat == c).toList();
     }
+    if (_langF != 'all') {
+      list = list.where((e) => e.lang.toLowerCase() == _langF).toList();
+    }
     if (_search.isNotEmpty) {
       final q = _search.toLowerCase();
       list = list.where((e) =>
@@ -316,7 +342,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   bool get _hasFilter =>
       _typeF != _TypeF.all ||
       _compatF != _CompatF.all ||
+      _langF != 'all' ||
       _search.isNotEmpty;
+
+  // Top languages (by count), max 10
+  List<String> get _topLangs {
+    final counts = <String, int>{};
+    for (final e in _all) {
+      counts[e.lang.toLowerCase()] = (counts[e.lang.toLowerCase()] ?? 0) + 1;
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(10).map((e) => e.key).toList();
+  }
 
   List<_ExtEntry> _byCompat(SourceCodeLanguage c) =>
       _all.where((e) => e.compat == c).toList();
@@ -371,14 +409,22 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         _ => const Color(0xFF607D8B),
       };
 
-  static String _langFlag(String lang) {
-    const flags = {
-      'en': '🇬🇧', 'fr': '🇫🇷', 'ja': '🇯🇵', 'zh': '🇨🇳', 'ko': '🇰🇷',
-      'es': '🇪🇸', 'pt': '🇵🇹', 'pt-br': '🇧🇷', 'de': '🇩🇪', 'it': '🇮🇹',
-      'ru': '🇷🇺', 'ar': '🇸🇦', 'tr': '🇹🇷', 'pl': '🇵🇱', 'vi': '🇻🇳',
-      'id': '🇮🇩', 'th': '🇹🇭', 'uk': '🇺🇦', 'all': '🌐',
+  static String _langCode(String lang) {
+    final l = lang.toLowerCase();
+    if (l == 'all' || l == 'multi') return 'MULTI';
+    if (l.contains('-')) return l.split('-').map((p) => p.toUpperCase()).join('-');
+    return l.length > 3 ? l.substring(0, 3).toUpperCase() : l.toUpperCase();
+  }
+
+  static Color _langColor(String lang) {
+    final l = lang.toLowerCase();
+    const colors = <String, Color>{
+      'en': Color(0xFF1565C0), 'fr': Color(0xFFC62828), 'ja': Color(0xFFAD1457),
+      'zh': Color(0xFFB71C1C), 'ko': Color(0xFF283593), 'es': Color(0xFFF57F17),
+      'pt': Color(0xFF2E7D32), 'de': Color(0xFF37474F), 'it': Color(0xFF558B2F),
+      'ru': Color(0xFF4527A0), 'ar': Color(0xFF00695C), 'tr': Color(0xFFBF360C),
     };
-    return flags[lang.toLowerCase()] ?? '🌐';
+    return colors[l] ?? const Color(0xFF546E7A);
   }
 
   // ─── Build ─────────────────────────────────────────────────────────────────
@@ -401,6 +447,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
             SliverToBoxAdapter(child: _buildTypeFilter(cs)),
             // Compat filter
             SliverToBoxAdapter(child: _buildCompatFilter(cs)),
+            // Language filter
+            SliverToBoxAdapter(child: _buildLangFilter(cs)),
 
             if (_loading) ...[
               SliverFillRemaining(
@@ -487,11 +535,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                 SliverToBoxAdapter(
                   child: _sectionTitle(
                       cs, 'À la une', Icons.star_rounded,
-                      color: Colors.amber),
+                      color: Colors.amber,
+                      subtitle: 'Extensions populaires'),
                 ),
                 SliverToBoxAdapter(
-                  child: _buildHorizontal(
-                      _featured, cs, featured: true),
+                  child: _buildBanner(_featured, cs),
                 ),
               ],
 
@@ -679,23 +727,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   // ─── Type filter ───────────────────────────────────────────────────────────
 
   Widget _buildTypeFilter(ColorScheme cs) {
-    const items = [
-      (_TypeF.all, '🌐 Tout'),
-      (_TypeF.anime, '📺 Anime'),
-      (_TypeF.manga, '📚 Manga'),
-      (_TypeF.novel, '📖 Novel'),
-      (_TypeF.game, '🎮 Game'),
+    final items = [
+      (_TypeF.all, Icons.apps_rounded, 'Tout'),
+      (_TypeF.anime, Icons.live_tv_rounded, 'Anime'),
+      (_TypeF.manga, Icons.auto_stories_rounded, 'Manga'),
+      (_TypeF.novel, Icons.menu_book_rounded, 'Novel'),
+      (_TypeF.game, Icons.sports_esports_rounded, 'Game'),
     ];
     return SizedBox(
-      height: 44,
+      height: 46,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         itemCount: items.length,
         itemBuilder: (_, i) {
-          final (f, label) = items[i];
+          final (f, icon, label) = items[i];
           final active = _typeF == f;
-          return _FilterChip(
+          return _IconFilterChip(
+            icon: icon,
             label: label,
             active: active,
             onTap: () => setState(() => _typeF = active ? _TypeF.all : f),
@@ -708,27 +757,82 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   // ─── Compat filter ─────────────────────────────────────────────────────────
 
   Widget _buildCompatFilter(ColorScheme cs) {
-    const items = [
-      (_CompatF.all, '✦ Tout'),
-      (_CompatF.mihon, '🔵 Mihon'),
-      (_CompatF.lnreader, '📗 LNReader'),
-      (_CompatF.js, '🎯 JS / Dart'),
+    final items = [
+      (_CompatF.all, Icons.apps_rounded, 'Tout'),
+      (_CompatF.mihon, Icons.android_rounded, 'Mihon'),
+      (_CompatF.lnreader, Icons.menu_book_outlined, 'LNReader'),
+      (_CompatF.js, Icons.code_rounded, 'JS / Dart'),
     ];
     return SizedBox(
-      height: 40,
+      height: 42,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         itemCount: items.length,
         itemBuilder: (_, i) {
-          final (f, label) = items[i];
+          final (f, icon, label) = items[i];
           final active = _compatF == f;
-          return _FilterChip(
+          return _IconFilterChip(
+            icon: icon,
             label: label,
             active: active,
             small: true,
             onTap: () =>
                 setState(() => _compatF = active ? _CompatF.all : f),
+          );
+        },
+      ),
+    );
+  }
+
+  // ─── Language filter ────────────────────────────────────────────────────────
+
+  Widget _buildLangFilter(ColorScheme cs) {
+    if (_all.isEmpty) return const SizedBox.shrink();
+    final langs = _topLangs;
+    return SizedBox(
+      height: 38,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        itemCount: langs.length + 1,
+        itemBuilder: (_, i) {
+          if (i == 0) {
+            final active = _langF == 'all';
+            return _IconFilterChip(
+              icon: Icons.language_rounded,
+              label: 'Tout',
+              active: active,
+              small: true,
+              onTap: () => setState(() => _langF = 'all'),
+            );
+          }
+          final lang = langs[i - 1];
+          final active = _langF == lang;
+          final code = _langCode(lang);
+          final color = _langColor(lang);
+          return GestureDetector(
+            onTap: () => setState(() => _langF = active ? 'all' : lang),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              margin: const EdgeInsets.only(right: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: active ? color : cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: active ? color : cs.outline.withValues(alpha: 0.2)),
+              ),
+              child: Text(
+                code,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: active ? Colors.white : color,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
           );
         },
       ),
@@ -812,6 +916,32 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     );
   }
 
+  // ─── Auto-scroll banner (featured) ────────────────────────────────────────
+
+  Widget _buildBanner(List<_ExtEntry> entries, ColorScheme cs) {
+    final show = entries.take(8).toList();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startBannerTimer(show.length);
+    });
+    return SizedBox(
+      height: 170,
+      child: PageView.builder(
+        controller: _bannerCtrl,
+        itemCount: show.length,
+        onPageChanged: (p) => _bannerPage = p,
+        itemBuilder: (ctx, i) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: _FeaturedMiniCard(
+            entry: show[i],
+            installed: _installed.contains(show[i].id),
+            busy: _busy[show[i].id] == true,
+            onInstall: () => _install(show[i]),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── Horizontal carousel ──────────────────────────────────────────────────
 
   Widget _buildHorizontal(List<_ExtEntry> entries, ColorScheme cs,
@@ -842,18 +972,21 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 }
 
-// ─── Filter chip ───────────────────────────────────────────────────────────────
+// ─── Icon filter chip ──────────────────────────────────────────────────────────
 
-class _FilterChip extends StatelessWidget {
+class _IconFilterChip extends StatelessWidget {
+  final IconData icon;
   final String label;
   final bool active;
   final VoidCallback onTap;
   final bool small;
-  const _FilterChip(
-      {required this.label,
-      required this.active,
-      required this.onTap,
-      this.small = false});
+  const _IconFilterChip({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.small = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -864,7 +997,7 @@ class _FilterChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         margin: const EdgeInsets.only(right: 8),
         padding: EdgeInsets.symmetric(
-            horizontal: small ? 11 : 13, vertical: small ? 4 : 5),
+            horizontal: small ? 10 : 12, vertical: small ? 4 : 5),
         decoration: BoxDecoration(
           color: active ? cs.primary : cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
@@ -873,13 +1006,56 @@ class _FilterChip extends StatelessWidget {
                   ? cs.primary
                   : cs.outline.withValues(alpha: 0.2)),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: small ? 11.5 : 12.5,
-            fontWeight: FontWeight.w600,
-            color: active ? cs.onPrimary : cs.onSurfaceVariant,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: small ? 13 : 14,
+              color: active ? cs.onPrimary : cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: small ? 11 : 12,
+                fontWeight: FontWeight.w600,
+                color: active ? cs.onPrimary : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Language badge ─────────────────────────────────────────────────────────────
+
+class _LangBadge extends StatelessWidget {
+  final String lang;
+  final bool small;
+  const _LangBadge({required this.lang, this.small = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final code = _MarketplaceScreenState._langCode(lang);
+    final color = _MarketplaceScreenState._langColor(lang);
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: small ? 5 : 6, vertical: small ? 1 : 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        code,
+        style: TextStyle(
+          fontSize: small ? 9 : 10,
+          fontWeight: FontWeight.w800,
+          color: color,
+          letterSpacing: 0.3,
         ),
       ),
     );
@@ -981,18 +1157,7 @@ class _ExtCard extends StatelessWidget {
                 // Lang + version
                 Row(
                   children: [
-                    Text(
-                      _MarketplaceScreenState._langFlag(entry.lang),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      entry.lang.toUpperCase(),
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurfaceVariant),
-                    ),
+                    _LangBadge(lang: entry.lang),
                     const SizedBox(width: 8),
                     Icon(_MarketplaceScreenState._typeIcon(entry.contentType),
                         size: 11,
@@ -1190,8 +1355,7 @@ class _MiniCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(_MarketplaceScreenState._langFlag(entry.lang),
-                  style: const TextStyle(fontSize: 10)),
+              _LangBadge(lang: entry.lang, small: true),
               const SizedBox(width: 3),
               Container(
                 width: 6,
@@ -1311,9 +1475,7 @@ class _FeaturedMiniCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                   Row(
                     children: [
-                      Text(
-                          _MarketplaceScreenState._langFlag(entry.lang),
-                          style: const TextStyle(fontSize: 11)),
+                      _LangBadge(lang: entry.lang, small: true),
                       const SizedBox(width: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
