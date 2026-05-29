@@ -13,6 +13,8 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/extension/extension_screen.dart';
+import 'package:watchtower/modules/browse/marketplace_screen.dart';
+import 'package:watchtower/modules/browse/sources/sources_screen.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
@@ -598,7 +600,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       case ItemType.manga:
         return Icons.auto_stories_outlined;
       case ItemType.novel:
-        return Icons.text_snippet_outlined;
+        return Icons.menu_book_outlined;
       case ItemType.music:
         return Icons.music_note_outlined;
       case ItemType.game:
@@ -893,17 +895,32 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
     );
   }
 
+  Widget _buildSectionContent() {
+    switch (widget.section) {
+      case BrowseSection.sources:
+        return SourcesScreen(
+          itemType: widget.itemType,
+          onShowExtensions: () =>
+              widget.onSectionChanged(BrowseSection.extensions),
+        );
+      case BrowseSection.extensions:
+        return ExtensionScreen(
+          query: widget.searchController.text,
+          itemType: widget.itemType,
+        );
+      case BrowseSection.marketplace:
+        return const MarketplaceScreen();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (widget.isSearch) _searchBar(),
-        Expanded(
-          child: ExtensionScreen(
-            query: widget.searchController.text,
-            itemType: widget.itemType,
-          ),
-        ),
+        _segmentedDock(),
+        if (widget.isSearch && widget.section == BrowseSection.extensions)
+          _searchBar(),
+        Expanded(child: _buildSectionContent()),
       ],
     );
   }
