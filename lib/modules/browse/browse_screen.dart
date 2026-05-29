@@ -96,47 +96,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   Future<void> _runDiagnostics(BuildContext context, ItemType type) async {
-    if (_diagnosing) return;
-    _diagnosing = true;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      const SnackBar(
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-        content: Row(children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: 12),
-          Expanded(child: Text('Diagnostic en cours…')),
-        ]),
-      ),
-    );
-    try {
-      final results = await runExtensionDiagnosticsFull(type);
-      final ok = results.where((r) => r.allOk).length;
-      final failed = results.where((r) => r.anyFailed).length;
-      final total = results.length;
-      if (!context.mounted) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: failed > 0 ? Colors.red.shade700 : null,
-          content: Text('Diagnostic · $ok OK · $failed erreur(s) sur $total.'),
-          action: SnackBarAction(
-            label: 'Logs',
-            textColor: Colors.white,
-            onPressed: () => context.push('/logViewer'),
-          ),
-          duration: const Duration(seconds: 6),
-        ),
-      );
-    } finally {
-      _diagnosing = false;
-    }
+    context.push('/extensionDiagnostic', extra: type);
   }
 
   // ── Bulk operations ────────────────────────────────────────────────────────

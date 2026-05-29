@@ -1,4 +1,7 @@
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
@@ -6,6 +9,101 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/utils/language.dart';
+
+// ─── Notification helper ──────────────────────────────────────────────────────
+
+class _DiagNotifService {
+  _DiagNotifService._();
+  static const _kChannelId = 'watchtower_diagnostic';
+  static const _kChannelName = 'Diagnostic extensions';
+  static const _kNotifId = 9902;
+  static final _plugin = FlutterLocalNotificationsPlugin();
+  static bool _initialized = false;
+
+  static Future<void> _init() async {
+    if (_initialized || kIsWeb) return;
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      _initialized = true;
+      return;
+    }
+    try {
+      const initSettings = InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
+        ),
+      );
+      await _plugin.initialize(initSettings);
+      if (Platform.isAndroid) {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(const AndroidNotificationChannel(
+          _kChannelId,
+          _kChannelName,
+          description: 'Progression du diagnostic des extensions',
+          importance: Importance.low,
+          playSound: false,
+          enableVibration: false,
+        ));
+      }
+      _initialized = true;
+    } catch (_) {}
+  }
+
+  static Future<void> showProgress({
+    required int done,
+    required int total,
+    required String title,
+    String? body,
+  }) async {
+    await _init();
+    if (!_initialized || kIsWeb) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      final android = AndroidNotificationDetails(
+        _kChannelId,
+        _kChannelName,
+        channelDescription: 'Progression du diagnostic',
+        importance: Importance.low,
+        priority: Priority.low,
+        onlyAlertOnce: true,
+        showProgress: true,
+        maxProgress: total,
+        progress: done,
+        ongoing: done < total,
+        autoCancel: done >= total,
+        icon: '@mipmap/launcher_icon',
+      );
+      await _plugin.show(
+        _kNotifId,
+        title,
+        body ?? '$done / $total extensions testées',
+        NotificationDetails(android: android),
+      );
+    } catch (_) {}
+  }
+
+  static Future<void> dismiss() async {
+    if (kIsWeb) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      await _plugin.cancel(_kNotifId);
+    } catch (_) {}
+  }
+}
+
+// ─── Scope models ─────────────────────────────────────────────────────────────
+
+enum _ScopeType { all, byLanguage, single }
+
+// ─── Screen phases ────────────────────────────────────────────────────────────
+
+enum _ScreenPhase { selectScope, running, done }
+
+// ─── Main screen ─────────────────────────────────────────────────────────────
 
 class ExtensionDiagnosticScreen extends StatefulWidget {
   final ItemType itemType;
@@ -16,130 +114,509 @@ class ExtensionDiagnosticScreen extends StatefulWidget {
       _ExtensionDiagnosticScreenState();
 }
 
-class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
-  List<ExtDiagResult> _results = [];
-  bool _running = false;
-  bool _done = false;
+class _ExtensionDiagnosticScreenState
+    extends State<ExtensionDiagnosticScreen> {
+  _ScreenPhase _phase = _ScreenPhase.selectScope;
+
+  // Scope selection
+  _ScopeType _scopeType = _ScopeType.all;
+  String? _selectedLang;
+  Source? _selectedSource;
+
+  // Running / done
+  final List<String> _logLines = [];
+  final List<ExtDiagResult> _results = [];
   int _total = 0;
+  int _done = 0;
+  String? _savedPath;
+
+  final ScrollController _logScroll = ScrollController();
 
   @override
-  void initState() {
-    super.initState();
-    _total = _countSources();
-    _startDiagnostics();
+  void dispose() {
+    _logScroll.dispose();
+    super.dispose();
   }
 
-  int _countSources() {
-    return isar.sources
-        .filter()
-        .idIsNotNull()
-        .and()
-        .isAddedEqualTo(true)
-        .and()
-        .itemTypeEqualTo(widget.itemType)
-        .findAllSync()
-        .where((s) => !(s.name == 'local' && s.lang == ''))
-        .length;
+  // ── Source helpers ─────────────────────────────────────────────────────────
+
+  List<Source> _allSources() => isar.sources
+      .filter()
+      .idIsNotNull()
+      .and()
+      .isAddedEqualTo(true)
+      .and()
+      .itemTypeEqualTo(widget.itemType)
+      .findAllSync()
+      .where((s) => !(s.name == 'local' && (s.lang?.isEmpty ?? true)))
+      .toList();
+
+  List<String> _availableLangs() {
+    final langs = _allSources()
+        .map((s) => s.lang?.toLowerCase() ?? '')
+        .where((l) => l.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return langs;
   }
+
+  List<Source> _scopedSources() {
+    final all = _allSources();
+    return switch (_scopeType) {
+      _ScopeType.all => all,
+      _ScopeType.byLanguage => all
+          .where((s) =>
+              s.lang?.toLowerCase() == (_selectedLang ?? '').toLowerCase())
+          .toList(),
+      _ScopeType.single =>
+        _selectedSource != null ? [_selectedSource!] : [],
+    };
+  }
+
+  String get _scopeLabel => switch (_scopeType) {
+        _ScopeType.all => 'Toutes les extensions',
+        _ScopeType.byLanguage =>
+          'Langue : ${completeLanguageName(_selectedLang ?? "")}',
+        _ScopeType.single =>
+          _selectedSource?.name ?? 'Extension unique',
+      };
+
+  bool get _canStart {
+    if (_scopeType == _ScopeType.all) return true;
+    if (_scopeType == _ScopeType.byLanguage) {
+      return _selectedLang != null && _selectedLang!.isNotEmpty;
+    }
+    return _selectedSource != null;
+  }
+
+  // ── Start diagnostics ──────────────────────────────────────────────────────
 
   Future<void> _startDiagnostics() async {
-    if (_running) return;
+    final sources = _scopedSources();
+    if (sources.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Aucune extension installée pour ce scope.'),
+        ));
+      }
+      return;
+    }
+
     setState(() {
-      _running = true;
-      _done = false;
-      _results = [];
+      _phase = _ScreenPhase.running;
+      _logLines.clear();
+      _results.clear();
+      _total = sources.length;
+      _done = 0;
+      _savedPath = null;
     });
-    await runExtensionDiagnosticsFull(
+
+    await _DiagNotifService.showProgress(
+      done: 0,
+      total: sources.length,
+      title: '🔬 Diagnostic ${_typeLabelShort()} en cours…',
+    );
+
+    await runDiagnosticsForSources(
+      sources,
       widget.itemType,
       onResult: (result) {
-        if (mounted) setState(() => _results.add(result));
+        if (!mounted) return;
+        setState(() {
+          _results.add(result);
+          _done++;
+        });
+        _DiagNotifService.showProgress(
+          done: _done,
+          total: _total,
+          title: '🔬 Diagnostic ${_typeLabelShort()}',
+          body: '$_done / $_total — ${result.source.name}',
+        );
+      },
+      onLog: (line) {
+        if (!mounted) return;
+        setState(() => _logLines.add(line));
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_logScroll.hasClients &&
+              _logScroll.position.maxScrollExtent > 0) {
+            _logScroll.animateTo(
+              _logScroll.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+            );
+          }
+        });
       },
     );
-    if (mounted) setState(() {
-      _running = false;
-      _done = true;
-    });
+
+    // Save report
+    final savedPath = await saveDiagnosticReport(
+      results: _results,
+      itemType: widget.itemType,
+      scopeLabel: _scopeLabel,
+    );
+
+    final ok = _results.where((r) => r.allOk).length;
+    final failed = _results.length - ok;
+
+    await _DiagNotifService.dismiss();
+    await _DiagNotifService.showProgress(
+      done: _results.length,
+      total: _results.length,
+      title: '${failed > 0 ? "⚠️" : "✅"} Diagnostic terminé',
+      body: '$ok OK · $failed échec(s) sur ${_results.length}',
+    );
+
+    if (mounted) {
+      setState(() {
+        _phase = _ScreenPhase.done;
+        _savedPath = savedPath;
+      });
+    }
   }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final ok = _results.where((r) => r.allOk).length;
-    final failed = _results.where((r) => r.anyFailed).length;
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Diagnostic des extensions'),
+        title: Text(switch (_phase) {
+          _ScreenPhase.selectScope =>
+            'Diagnostic — ${_typeLabelShort()}',
+          _ScreenPhase.running => 'Diagnostic en cours…',
+          _ScreenPhase.done => 'Diagnostic terminé',
+        }),
         actions: [
-          if (!_running)
+          if (_phase == _ScreenPhase.done)
             IconButton(
-              tooltip: 'Relancer',
               icon: const Icon(Icons.refresh_rounded),
-              onPressed: _startDiagnostics,
+              tooltip: 'Nouveau diagnostic',
+              onPressed: () => setState(() {
+                _phase = _ScreenPhase.selectScope;
+                _logLines.clear();
+                _results.clear();
+              }),
             ),
         ],
       ),
-      body: Column(
+      body: switch (_phase) {
+        _ScreenPhase.selectScope => _buildScopeSelector(),
+        _ScreenPhase.running => _buildRunningView(),
+        _ScreenPhase.done => _buildDoneView(),
+      },
+    );
+  }
+
+  String _typeLabelShort() => switch (widget.itemType) {
+        ItemType.anime => 'Anime',
+        ItemType.manga => 'Manga',
+        ItemType.novel => 'Novel',
+        _ => widget.itemType.name,
+      };
+
+  // ── Phase 1 : Scope selector ───────────────────────────────────────────────
+
+  Widget _buildScopeSelector() {
+    final cs = Theme.of(context).colorScheme;
+    final allSources = _allSources();
+    final langs = _availableLangs();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Summary bar ─────────────────────────────────────────────────
-          _SummaryBar(
-            total: _total,
-            done: _results.length,
-            ok: ok,
-            failed: failed,
-            running: _running,
-            done_: _done,
+          Text(
+            'Périmètre du diagnostic',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          // ── Results list ────────────────────────────────────────────────
-          Expanded(
-            child: _results.isEmpty && _running
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    itemCount: _results.length,
-                    itemBuilder: (_, i) =>
-                        _ExtDiagCard(result: _results[i], cs: cs),
-                  ),
+          const SizedBox(height: 4),
+          Text(
+            '${allSources.length} extension(s) installées · ${langs.length} langue(s)',
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
+          ),
+          const SizedBox(height: 22),
+
+          // ── All ────────────────────────────────────────────────────────────
+          _ScopeCard(
+            selected: _scopeType == _ScopeType.all,
+            icon: Icons.all_inclusive_rounded,
+            title: 'Toutes les extensions',
+            subtitle:
+                '${allSources.length} extensions — peut prendre plusieurs minutes',
+            onTap: () => setState(() => _scopeType = _ScopeType.all),
+          ),
+          const SizedBox(height: 10),
+
+          // ── By language ────────────────────────────────────────────────────
+          _ScopeCard(
+            selected: _scopeType == _ScopeType.byLanguage,
+            icon: Icons.language_rounded,
+            title: 'Par langue',
+            subtitle: 'Tester toutes les extensions d\'une langue',
+            onTap: () => setState(() => _scopeType = _ScopeType.byLanguage),
+          ),
+          if (_scopeType == _ScopeType.byLanguage && langs.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+              child: DropdownButtonFormField<String>(
+                value: _selectedLang,
+                hint: const Text('Sélectionner une langue'),
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                items: langs.map((l) {
+                  final count = allSources
+                      .where((s) => s.lang?.toLowerCase() == l)
+                      .length;
+                  return DropdownMenuItem(
+                    value: l,
+                    child: Text('${completeLanguageName(l)} ($count)'),
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => _selectedLang = v),
+              ),
+            ),
+          const SizedBox(height: 10),
+
+          // ── Single ─────────────────────────────────────────────────────────
+          _ScopeCard(
+            selected: _scopeType == _ScopeType.single,
+            icon: Icons.extension_rounded,
+            title: 'Une seule extension',
+            subtitle: 'Tester une extension spécifique',
+            onTap: () => setState(() => _scopeType = _ScopeType.single),
+          ),
+          if (_scopeType == _ScopeType.single && allSources.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+              child: DropdownButtonFormField<Source>(
+                value: _selectedSource,
+                hint: const Text('Sélectionner une extension'),
+                isExpanded: true,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                items: allSources
+                    .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(
+                            '${s.name ?? "?"} [${(s.lang ?? "?").toUpperCase()}]',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedSource = v),
+              ),
+            ),
+
+          const SizedBox(height: 36),
+
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Lancer le diagnostic',
+                  style: TextStyle(fontSize: 16)),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: _canStart ? _startDiagnostics : null,
+            ),
           ),
         ],
       ),
     );
   }
+
+  // ── Phase 2 : Running ──────────────────────────────────────────────────────
+
+  Widget _buildRunningView() {
+    final cs = Theme.of(context).colorScheme;
+    final progress = _total == 0 ? 0.0 : _done / _total;
+
+    return Column(
+      children: [
+        _ProgressHeader(
+          done: _done,
+          total: _total,
+          progress: progress,
+          running: true,
+          cs: cs,
+        ),
+        Expanded(
+          child: _LogView(lines: _logLines, controller: _logScroll, cs: cs),
+        ),
+      ],
+    );
+  }
+
+  // ── Phase 3 : Done ─────────────────────────────────────────────────────────
+
+  Widget _buildDoneView() {
+    final cs = Theme.of(context).colorScheme;
+    final ok = _results.where((r) => r.allOk).length;
+    final failed = _results.length - ok;
+
+    return Column(
+      children: [
+        // Summary header
+        _DoneHeader(ok: ok, failed: failed, total: _results.length,
+            savedPath: _savedPath, cs: cs),
+        // Tabs: log + results
+        Expanded(
+          child: DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                TabBar(
+                  tabs: const [
+                    Tab(icon: Icon(Icons.terminal_rounded, size: 16), text: 'Log'),
+                    Tab(
+                        icon: Icon(Icons.summarize_rounded, size: 16),
+                        text: 'Résultats'),
+                  ],
+                  labelColor: cs.primary,
+                  unselectedLabelColor: cs.onSurfaceVariant,
+                  indicatorColor: cs.primary,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      // Log tab
+                      _LogView(
+                          lines: _logLines,
+                          controller: ScrollController(),
+                          cs: cs),
+                      // Results tab
+                      _ResultsList(
+                          results: _results, itemType: widget.itemType, cs: cs),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-// ─── Summary Bar ─────────────────────────────────────────────────────────────
+// ─── Scope option card ────────────────────────────────────────────────────────
 
-class _SummaryBar extends StatelessWidget {
-  final int total;
-  final int done;
-  final int ok;
-  final int failed;
-  final bool running;
-  final bool done_;
+class _ScopeCard extends StatelessWidget {
+  final bool selected;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
-  const _SummaryBar({
-    required this.total,
-    required this.done,
-    required this.ok,
-    required this.failed,
-    required this.running,
-    required this.done_,
+  const _ScopeCard({
+    required this.selected,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final progress = total == 0 ? 0.0 : done / total;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primaryContainer.withOpacity(0.4)
+              : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? cs.primary : cs.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: selected
+                    ? cs.primaryContainer
+                    : cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon,
+                  size: 20,
+                  color: selected ? cs.primary : cs.onSurfaceVariant),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: selected ? cs.primary : cs.onSurface)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 12, color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
+// ─── Progress header ──────────────────────────────────────────────────────────
+
+class _ProgressHeader extends StatelessWidget {
+  final int done;
+  final int total;
+  final double progress;
+  final bool running;
+  final ColorScheme cs;
+
+  const _ProgressHeader({
+    required this.done,
+    required this.total,
+    required this.progress,
+    required this.running,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
         border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 1)),
@@ -147,67 +624,228 @@ class _SummaryBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              if (running) ...[
-                SizedBox(
+          Row(children: [
+            if (running)
+              SizedBox(
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: cs.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                running
-                    ? 'Test en cours… $done/$total'
-                    : done_
-                    ? '✅ Terminé · $ok OK · $failed échec(s)'
-                    : 'En attente…',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: done_ && failed > 0 ? cs.error : cs.onSurface,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+                      strokeWidth: 2, color: cs.primary)),
+            if (running) const SizedBox(width: 10),
+            Text(
+              running ? 'Test en cours… $done / $total' : 'Terminé',
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+            ),
+          ]),
+          const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 4,
+              minHeight: 5,
               backgroundColor: cs.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation(
-                failed > 0 ? cs.error : cs.primary,
-              ),
+              valueColor: AlwaysStoppedAnimation(cs.primary),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '4 étapes par extension : Popular · Latest · Détail · Médias',
-            style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant),
-          ),
+          Text('4 étapes par extension : Popular · Latest · Détail · Médias',
+              style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant)),
         ],
       ),
     );
   }
 }
 
-// ─── Per-extension card ───────────────────────────────────────────────────────
+// ─── Done header ─────────────────────────────────────────────────────────────
 
-class _ExtDiagCard extends StatelessWidget {
-  final ExtDiagResult result;
+class _DoneHeader extends StatelessWidget {
+  final int ok;
+  final int failed;
+  final int total;
+  final String? savedPath;
   final ColorScheme cs;
 
-  const _ExtDiagCard({required this.result, required this.cs});
+  const _DoneHeader({
+    required this.ok,
+    required this.failed,
+    required this.total,
+    required this.savedPath,
+    required this.cs,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final src = result.source;
-    final allOk = result.allOk;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: failed > 0
+            ? cs.errorContainer.withOpacity(0.25)
+            : Colors.green.withOpacity(0.1),
+        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(
+              failed > 0
+                  ? Icons.warning_amber_rounded
+                  : Icons.check_circle_rounded,
+              color: failed > 0 ? cs.error : Colors.green,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              failed > 0
+                  ? '❌ $failed échec(s) · $ok OK sur $total'
+                  : '✅ Tout OK — $total extensions',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: failed > 0 ? cs.error : Colors.green.shade700,
+              ),
+            ),
+          ]),
+          if (savedPath != null) ...[
+            const SizedBox(height: 5),
+            Row(children: [
+              Icon(Icons.save_outlined, size: 13, color: cs.onSurfaceVariant),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Rapport : ${savedPath!.split('/').last}',
+                  style:
+                      TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Log view ─────────────────────────────────────────────────────────────────
+
+class _LogView extends StatelessWidget {
+  final List<String> lines;
+  final ScrollController controller;
+  final ColorScheme cs;
+
+  const _LogView(
+      {required this.lines, required this.controller, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: cs.surfaceContainerLowest,
+      child: ListView.builder(
+        controller: controller,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 20),
+        itemCount: lines.length,
+        itemBuilder: (_, i) => _LogLine(line: lines[i], cs: cs),
+      ),
+    );
+  }
+}
+
+class _LogLine extends StatelessWidget {
+  final String line;
+  final ColorScheme cs;
+  const _LogLine({required this.line, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    if (line.isEmpty) return const SizedBox(height: 6);
+    Color? color;
+    if (line.contains('❌')) {
+      color = cs.error;
+    } else if (line.contains('✅') &&
+        !line.contains('📋') &&
+        !line.contains('🕐') &&
+        !line.contains('🔍') &&
+        !line.contains('▶') &&
+        !line.contains('📄')) {
+      color = Colors.green.shade700;
+    } else if (line.contains('⏱')) {
+      color = cs.primary;
+    } else if (line.contains('🏁')) {
+      color = cs.secondary;
+    } else if (line.contains('⏭')) {
+      color = cs.onSurfaceVariant.withOpacity(0.6);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1.5),
+      child: Text(
+        line,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 11.5,
+          color: color ?? cs.onSurfaceVariant,
+          fontWeight:
+              color != null ? FontWeight.w500 : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Results list ─────────────────────────────────────────────────────────────
+
+class _ResultsList extends StatelessWidget {
+  final List<ExtDiagResult> results;
+  final ItemType itemType;
+  final ColorScheme cs;
+
+  const _ResultsList(
+      {required this.results, required this.itemType, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [
+      ...results.where((r) => r.anyFailed),
+      ...results.where((r) => r.allOk),
+    ];
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: sorted.length,
+      itemBuilder: (_, i) =>
+          _ExtDiagCard(result: sorted[i], cs: cs, itemType: itemType),
+    );
+  }
+}
+
+// ─── Per-extension card ───────────────────────────────────────────────────────
+
+class _ExtDiagCard extends StatefulWidget {
+  final ExtDiagResult result;
+  final ColorScheme cs;
+  final ItemType itemType;
+
+  const _ExtDiagCard(
+      {required this.result, required this.cs, required this.itemType});
+
+  @override
+  State<_ExtDiagCard> createState() => _ExtDiagCardState();
+}
+
+class _ExtDiagCardState extends State<_ExtDiagCard> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.result.anyFailed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final src = widget.result.source;
+    final allOk = widget.result.allOk;
+    final cs = widget.cs;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -221,16 +859,20 @@ class _ExtDiagCard extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────────────────────────
-            Row(
-              children: [
+      child: InkWell(
+        onTap: () => setState(() => _expanded = !_expanded),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(children: [
                 Icon(
-                  allOk ? Icons.check_circle_rounded : Icons.error_rounded,
+                  allOk
+                      ? Icons.check_circle_rounded
+                      : Icons.error_rounded,
                   color: allOk ? Colors.green : cs.error,
                   size: 18,
                 ),
@@ -239,98 +881,101 @@ class _ExtDiagCard extends StatelessWidget {
                   child: Text(
                     src.name ?? 'Unknown',
                     style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.5,
-                    ),
+                        fontWeight: FontWeight.w700, fontSize: 13.5),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    completeLanguageName(src.lang ?? '').toUpperCase(),
+                    (src.lang ?? '?').toUpperCase(),
                     style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurfaceVariant,
-                      letterSpacing: 0.5,
-                    ),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: cs.onSurfaceVariant,
+                        letterSpacing: 0.5),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // ── Step chips ───────────────────────────────────────────────
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: DiagStep.values.map((step) {
-                final sr = result.steps[step];
-                return _StepChip(step: step, result: sr, cs: cs);
-              }).toList(),
-            ),
-            // ── Errors ───────────────────────────────────────────────────
-            ...result.steps.entries
-                .where((e) => !e.value.ok && e.value.error != null)
-                .map((e) => Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            size: 13,
-                            color: cs.error.withOpacity(0.8),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '[${_stepLabel(e.key)}] ${e.value.error}',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                color: cs.onSurfaceVariant,
-                                fontFamily: 'monospace',
+                const SizedBox(width: 8),
+                Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+              ]),
+              // Expanded content
+              if (_expanded) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: DiagStep.values
+                      .map((step) => _StepChip(
+                            step: step,
+                            result: widget.result.steps[step],
+                            cs: cs,
+                            itemType: widget.itemType,
+                          ))
+                      .toList(),
+                ),
+                ...widget.result.steps.entries
+                    .where((e) => !e.value.ok && e.value.error != null)
+                    .map((e) => Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.warning_amber_rounded,
+                                  size: 13,
+                                  color: cs.error.withOpacity(0.8)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  '[${_stepLabel(e.key)}] ${e.value.error}',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: cs.onSurfaceVariant,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                    )),
-          ],
+                        )),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  String _stepLabel(DiagStep step) {
-    switch (step) {
-      case DiagStep.popular:
-        return 'Popular';
-      case DiagStep.latest:
-        return 'Latest';
-      case DiagStep.detail:
-        return 'Détail';
-      case DiagStep.media:
-        return 'Médias';
-    }
-  }
+  String _stepLabel(DiagStep step) => switch (step) {
+        DiagStep.popular => 'Popular',
+        DiagStep.latest => 'Latest',
+        DiagStep.detail => 'Détail',
+        DiagStep.media =>
+          widget.itemType == ItemType.anime ? 'Vidéos' : 'Pages',
+      };
 }
+
+// ─── Step chip ────────────────────────────────────────────────────────────────
 
 class _StepChip extends StatelessWidget {
   final DiagStep step;
   final DiagStepResult? result;
   final ColorScheme cs;
+  final ItemType itemType;
 
   const _StepChip({
     required this.step,
     required this.result,
     required this.cs,
+    required this.itemType,
   });
 
   @override
@@ -339,45 +984,39 @@ class _StepChip extends StatelessWidget {
       return _chip('…', cs.surfaceContainerHighest, cs.onSurfaceVariant);
     }
     final ok = result!.ok;
-    final label = _buildLabel();
     final bg = ok
         ? Colors.green.withOpacity(0.12)
         : cs.errorContainer.withOpacity(0.5);
     final fg = ok ? Colors.green.shade700 : cs.onErrorContainer;
-
-    return _chip(label, bg, fg);
+    return _chip(_label(), bg, fg);
   }
 
-  String _buildLabel() {
-    final prefix = switch (step) {
+  String _label() {
+    final emoji = switch (step) {
       DiagStep.popular => '📋',
       DiagStep.latest => '🕐',
       DiagStep.detail => '🔍',
-      DiagStep.media => '▶️',
+      DiagStep.media => itemType == ItemType.anime ? '▶️' : '📄',
     };
     final name = switch (step) {
       DiagStep.popular => 'Popular',
       DiagStep.latest => 'Latest',
       DiagStep.detail => 'Détail',
-      DiagStep.media => 'Médias',
+      DiagStep.media => itemType == ItemType.anime ? 'Vidéos' : 'Pages',
     };
     final status = result!.ok ? '✓' : '✗';
     final count = result!.count != null ? ' ${result!.count}' : '';
-    final ms = '${result!.ms}ms';
-    return '$prefix $name $status$count · $ms';
+    return '$emoji $name $status$count · ${result!.ms}ms';
   }
 
   Widget _chip(String label, Color bg, Color fg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w600),
-      ),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, color: fg, fontWeight: FontWeight.w600)),
     );
   }
 }
