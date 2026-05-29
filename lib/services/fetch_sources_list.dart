@@ -266,7 +266,7 @@ Future<void> fetchSourcesList({
       (source) => source.id == id,
       orElse: () => Source(),
     );
-    if (matchingSource.id != null && matchingSource.sourceCodeUrl!.isNotEmpty) {
+    if (matchingSource.id != null && (matchingSource.sourceCodeUrl ?? '').isNotEmpty) {
       AppLogger.log(
         'Installing "${matchingSource.name}" v${matchingSource.version} | repo=${repo?.name}',
         tag: LogTag.extension_,
@@ -352,6 +352,11 @@ Future<void> _updateSource(
     logLevel: req.statusCode == 200 ? LogLevel.info : LogLevel.error,
     tag: LogTag.extension_,
   );
+  if (req.statusCode != 200) {
+    throw Exception(
+      'Download failed for "${source.name}": HTTP ${req.statusCode}',
+    );
+  }
   final sourceCode = source.sourceCodeLanguage == SourceCodeLanguage.mihon
       ? base64.encode(req.bodyBytes)
       : req.body;
@@ -375,10 +380,19 @@ Future<void> _updateSource(
       androidProxyServer,
     );
   } else {
-    headers = await getIsolateService.get<Map<String, String>>(
-      source: source,
-      serviceType: 'getHeaders',
-    );
+    try {
+      headers = await getIsolateService.get<Map<String, String>>(
+        source: source,
+        serviceType: 'getHeaders',
+      );
+    } catch (e) {
+      AppLogger.log(
+        'getHeaders failed for "${source.name}" (non-fatal): $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.extension_,
+      );
+      headers = {};
+    }
   }
 
   final updatedSource = Source()
