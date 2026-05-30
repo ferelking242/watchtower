@@ -901,7 +901,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         else if (isMovie)
           _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
         else
-          _buildEpisodeStrip(_sortedEpisodes(filtered)),
+          _buildEpisodeStrip(
+            _sortedEpisodes(filtered),
+            _sortedEpisodes(chapters),
+          ),
       ],
     );
   }
@@ -1042,7 +1045,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     indexed.sort((a, b) {
       final na = _epNum(a.value.name, a.key);
       final nb = _epNum(b.value.name, b.key);
-      return nb.compareTo(na); // descending
+      return na.compareTo(nb); // ascending — ep 1 first
     });
     return indexed.map((e) => e.value).toList();
   }
@@ -1055,7 +1058,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
 
-  Widget _buildEpisodeStrip(List<Chapter> chapters) {
+  Widget _buildEpisodeStrip(List<Chapter> chapters, List<Chapter> allChapters) {
     return SizedBox(
       height: 72,
       child: ListView.builder(
@@ -1067,16 +1070,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               padding: const EdgeInsets.only(right: 10),
               child: Center(
                 child: GestureDetector(
-                  onTap: () => setState(() {
-                    _selectedSeason = null;
-                    _selectedLanguage = null;
-                  }),
+                  onTap: () => _showAllEpisodesSheet(context, allChapters),
                   child: Text(
                     'Tous',
                     style: TextStyle(
-                      color: _textPrimary,
+                      color: _accent,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: _accent,
                     ),
                   ),
                 ),
@@ -1135,6 +1137,209 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           );
         },
       ),
+    );
+  }
+
+  // ─── ALL EPISODES SHEET (MovieBox style) ─────────────────────────────────────
+
+  void _showAllEpisodesSheet(BuildContext ctx, List<Chapter> allChapters) {
+    final seasons = _detectSeasons(allChapters);
+    String? sheetSeason = seasons.isNotEmpty ? seasons.first : null;
+
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (_, setSt) {
+            // Filter by selected season if any
+            List<Chapter> display;
+            if (sheetSeason != null) {
+              final num = RegExp(r'\d+').firstMatch(sheetSeason!)?.group(0) ?? '';
+              final rx = RegExp(
+                r'(?:Saison|Season|Partie|Part)\s*' +
+                    num +
+                    r'|S' +
+                    num.padLeft(2, '0'),
+                caseSensitive: false,
+              );
+              final filtered =
+                  allChapters.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
+              display = filtered.isNotEmpty ? filtered : allChapters;
+            } else {
+              display = allChapters;
+            }
+
+            final bg = Theme.of(ctx).scaffoldBackgroundColor;
+            final card = Theme.of(ctx).colorScheme.surfaceContainerHighest;
+            final onSurface = Theme.of(ctx).colorScheme.onSurface;
+            final accent = ctx.primaryColor;
+            final grey = onSurface.withValues(alpha: 0.50);
+            final faint = onSurface.withValues(alpha: 0.25);
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.60,
+              minChildSize: 0.40,
+              maxChildSize: 0.92,
+              expand: false,
+              builder: (_, scrollCtrl) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: Column(
+                    children: [
+                      // Drag handle
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10, bottom: 6),
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: faint,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      // Header: season pill (if multi-season) + close
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                        child: Row(
+                          children: [
+                            if (seasons.length > 1) ...[
+                              GestureDetector(
+                                onTap: () async {
+                                  final picked = await showModalBottomSheet<String>(
+                                    context: sheetCtx,
+                                    backgroundColor: bg,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(16)),
+                                    ),
+                                    builder: (_) => ListView(
+                                      shrinkWrap: true,
+                                      children: seasons
+                                          .map(
+                                            (s) => ListTile(
+                                              title: Text(s,
+                                                  style: TextStyle(
+                                                      color: onSurface)),
+                                              selected: s == sheetSeason,
+                                              selectedColor: accent,
+                                              onTap: () =>
+                                                  Navigator.pop(sheetCtx, s),
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  );
+                                  if (picked != null) {
+                                    setSt(() => sheetSeason = picked);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: card,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        sheetSeason ?? seasons.first,
+                                        style: TextStyle(
+                                          color: onSurface,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(Icons.keyboard_arrow_down_rounded,
+                                          size: 18, color: grey),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ] else
+                              Text(
+                                'Épisodes (${display.length})',
+                                style: TextStyle(
+                                  color: onSurface,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () => Navigator.pop(sheetCtx),
+                              child: Icon(Icons.close_rounded,
+                                  size: 22, color: grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Episode grid
+                      Expanded(
+                        child: GridView.builder(
+                          controller: scrollCtrl,
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 6,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 1.1,
+                          ),
+                          itemCount: display.length,
+                          itemBuilder: (_, i) {
+                            final ch = display[i];
+                            final epNum = _epNum(ch.name, i + 1);
+                            final label =
+                                epNum.toString().padLeft(2, '0');
+                            final isWatched = ch.isRead ?? false;
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.pop(sheetCtx);
+                                ch.pushToReaderView(ctx,
+                                    ignoreIsRead: true);
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isWatched
+                                      ? accent.withValues(alpha: 0.85)
+                                      : card,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: isWatched
+                                        ? Colors.white
+                                        : onSurface,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 

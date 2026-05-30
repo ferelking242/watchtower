@@ -20,7 +20,9 @@ Future<dynamic> updateMangaDetail(
 }) async {
   try {
     final manga = isar.mangas.getSync(mangaId!);
-    if ((manga!.isLocalArchive ?? false) ||
+    // Isar backlinks are lazy — load them explicitly before checking count.
+    manga!.chapters.loadSync();
+    if ((manga.isLocalArchive ?? false) ||
         (manga.chapters.isNotEmpty && isInit)) {
       return;
     }
@@ -67,7 +69,8 @@ Future<dynamic> updateMangaDetail(
       ..lastUpdate = DateTime.now().millisecondsSinceEpoch
       ..updatedAt = DateTime.now().millisecondsSinceEpoch;
     final checkManga = isar.mangas.getSync(mangaId);
-    if (checkManga!.chapters.isNotEmpty && isInit) {
+    checkManga!.chapters.loadSync();
+    if (checkManga.chapters.isNotEmpty && isInit) {
       return;
     }
     isar.writeTxnSync(() {
@@ -115,12 +118,9 @@ Future<dynamic> updateMangaDetail(
           }
         }
       }
-      final oldChapers = isar.mangas
-          .getSync(mangaId)!
-          .chapters
-          .toList()
-          .reversed
-          .toList();
+      final _oldManga = isar.mangas.getSync(mangaId)!;
+      _oldManga.chapters.loadSync();
+      final oldChapers = _oldManga.chapters.toList().reversed.toList();
       if (oldChapers.length == chaps.length) {
         for (var i = 0; i < oldChapers.length; i++) {
           final oldChap = oldChapers[i];
