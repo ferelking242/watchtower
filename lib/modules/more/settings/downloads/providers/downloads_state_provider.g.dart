@@ -1584,3 +1584,217 @@ abstract class _$DownloadQueueState extends $Notifier<DownloadQueueStateData> {
     element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(WatchSimultaneousPerSourceState)
+final watchSimultaneousPerSourceStateProvider =
+    WatchSimultaneousPerSourceStateProvider._();
+
+final class WatchSimultaneousPerSourceStateProvider
+    extends $NotifierProvider<WatchSimultaneousPerSourceState, int> {
+  WatchSimultaneousPerSourceStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'watchSimultaneousPerSourceStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() =>
+      _$watchSimultaneousPerSourceStateHash();
+
+  @$internal
+  @override
+  WatchSimultaneousPerSourceState create() => WatchSimultaneousPerSourceState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$watchSimultaneousPerSourceStateHash() =>
+    r'd1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0';
+
+abstract class _$WatchSimultaneousPerSourceState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(MangaSimultaneousPerSourceState)
+final mangaSimultaneousPerSourceStateProvider =
+    MangaSimultaneousPerSourceStateProvider._();
+
+final class MangaSimultaneousPerSourceStateProvider
+    extends $NotifierProvider<MangaSimultaneousPerSourceState, int> {
+  MangaSimultaneousPerSourceStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mangaSimultaneousPerSourceStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() =>
+      _$mangaSimultaneousPerSourceStateHash();
+
+  @$internal
+  @override
+  MangaSimultaneousPerSourceState create() => MangaSimultaneousPerSourceState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$mangaSimultaneousPerSourceStateHash() =>
+    r'e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1';
+
+abstract class _$MangaSimultaneousPerSourceState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(NovelSimultaneousPerSourceState)
+final novelSimultaneousPerSourceStateProvider =
+    NovelSimultaneousPerSourceStateProvider._();
+
+final class NovelSimultaneousPerSourceStateProvider
+    extends $NotifierProvider<NovelSimultaneousPerSourceState, int> {
+  NovelSimultaneousPerSourceStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'novelSimultaneousPerSourceStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() =>
+      _$novelSimultaneousPerSourceStateHash();
+
+  @$internal
+  @override
+  NovelSimultaneousPerSourceState create() => NovelSimultaneousPerSourceState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$novelSimultaneousPerSourceStateHash() =>
+    r'f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2';
+
+abstract class _$NovelSimultaneousPerSourceState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(DownloadCardLayoutState)
+final downloadCardLayoutStateProvider = DownloadCardLayoutStateProvider._();
+
+final class DownloadCardLayoutStateProvider
+    extends $NotifierProvider<DownloadCardLayoutState, DownloadCardLayout> {
+  DownloadCardLayoutStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'downloadCardLayoutStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$downloadCardLayoutStateHash();
+
+  @$internal
+  @override
+  DownloadCardLayoutState create() => DownloadCardLayoutState();
+
+  Override overrideWithValue(DownloadCardLayout value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DownloadCardLayout>(value),
+    );
+  }
+}
+
+String _$downloadCardLayoutStateHash() =>
+    r'a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3';
+
+abstract class _$DownloadCardLayoutState extends $Notifier<DownloadCardLayout> {
+  DownloadCardLayout build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<DownloadCardLayout, DownloadCardLayout>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<DownloadCardLayout, DownloadCardLayout>,
+              DownloadCardLayout,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
