@@ -58,7 +58,7 @@ class WatchInlinePlayer {
       children: [
         Video(
           controller: _controller,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           controls: NoVideoControls,
         ),
         // gradient for readability of controls
