@@ -1,6 +1,8 @@
 // Native (Android / iOS / desktop) inline video player.
 // Conditionally imported by watch_detail_view.dart via:
 //   import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,10 +11,12 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
+import 'package:watchtower/widgets/watchtower_loader.dart';
 
 class WatchInlinePlayer {
   late final Player _player;
   late final VideoController _controller;
+  final ValueNotifier<bool> _seekingNotifier = ValueNotifier(false);
 
   bool hasVideoUrl = false;
   int? loadedChapterId;
@@ -24,6 +28,7 @@ class WatchInlinePlayer {
 
   void dispose() {
     _player.dispose();
+    _seekingNotifier.dispose();
   }
 
   Future<void> load({
@@ -80,6 +85,13 @@ class WatchInlinePlayer {
             ),
           ),
         ),
+        // State overlay (loading / buffering / seeking / success / error)
+        Positioned.fill(
+          child: _PlayerStateOverlay(
+            player: _player,
+            seekingNotifier: _seekingNotifier,
+          ),
+        ),
         // Controls bar — receives all pointer events
         Positioned(
           left: 0, right: 0, bottom: 0,
@@ -87,6 +99,7 @@ class WatchInlinePlayer {
             player: _player,
             controller: _controller,
             accent: accent,
+            seekingNotifier: _seekingNotifier,
           ),
         ),
       ],
@@ -150,11 +163,13 @@ class _InlineControls extends StatelessWidget {
   final Player player;
   final VideoController controller;
   final Color accent;
+  final ValueNotifier<bool> seekingNotifier;
 
   const _InlineControls({
     required this.player,
     required this.controller,
     required this.accent,
+    required this.seekingNotifier,
   });
 
   String _fmt(Duration d) {
@@ -219,6 +234,7 @@ class _InlineControls extends StatelessWidget {
                         ),
                         child: Slider(
                           value: progress,
+                          onChangeStart: (_) => seekingNotifier.value = true,
                           onChanged: (v) {
                             if (dur.inMilliseconds > 0) {
                               player.seek(Duration(
@@ -226,6 +242,7 @@ class _InlineControls extends StatelessWidget {
                                       (v * dur.inMilliseconds).round()));
                             }
                           },
+                          onChangeEnd: (_) => seekingNotifier.value = false,
                         ),
                       ),
                     ),
@@ -268,6 +285,92 @@ class _InlineControls extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Player state overlay (Lottie animations) ─────────────────────────────────
+
+class _PlayerStateOverlay extends StatefulWidget {
+  final Player player;
+  final ValueNotifier<bool> seekingNotifier;
+  const _PlayerStateOverlay({required this.player, required this.seekingNotifier});
+
+  @override
+  State<_PlayerStateOverlay> createState() => _PlayerStateOverlayState();
+}
+
+class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
+  String? _anim;
+  double? _percent;
+  bool _firstDuration = true;
+  bool _successShown = false;
+
+  StreamSubscription<Duration>? _durSub;
+  StreamSubscription<bool>? _bufSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = 'loading';
+
+    // Hide loading once first duration is known
+    _durSub = widget.player.stream.duration.listen((dur) {
+      if (dur > Duration.zero && _firstDuration && mounted) {
+        _firstDuration = false;
+        if (_anim == 'loading') setState(() => _anim = null);
+      }
+    });
+
+    // Buffering → show buffering overlay with percent; dismiss → flash success once
+    _bufSub = widget.player.stream.buffering.listen((buffering) {
+      if (!mounted) return;
+      if (widget.seekingNotifier.value) return; // seek overlay handled separately
+      if (buffering) {
+        final buffered = widget.player.state.buffered;
+        final duration = widget.player.state.duration;
+        final pct = duration.inMilliseconds > 0
+            ? (buffered.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+            : null;
+        setState(() { _anim = 'buffering'; _percent = pct; });
+      } else if (_anim == 'buffering') {
+        if (!_successShown) {
+          _successShown = true;
+          setState(() { _anim = 'success'; _percent = null; });
+        } else {
+          setState(() { _anim = null; _percent = null; });
+        }
+      }
+    });
+
+    widget.seekingNotifier.addListener(_onSeeking);
+  }
+
+  void _onSeeking() {
+    if (!mounted) return;
+    setState(() {
+      _anim = widget.seekingNotifier.value ? 'seeking' : null;
+      _percent = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _durSub?.cancel();
+    _bufSub?.cancel();
+    widget.seekingNotifier.removeListener(_onSeeking);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_anim == null) return const SizedBox.shrink();
+    return WatchtowerLoader(
+      animation: _anim!,
+      percent: _percent,
+      onDismiss: _anim == 'success'
+          ? () { if (mounted) setState(() => _anim = null); }
+          : null,
     );
   }
 }
