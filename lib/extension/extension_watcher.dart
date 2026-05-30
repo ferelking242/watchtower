@@ -77,12 +77,13 @@ void startExtensionWatcher() {
 Future<void> _handleInstalled(_ExtEvent e) async {
   if (e.sourceDir.isEmpty) return;
 
-  // Find matching source in DB (any itemType, since we don't know upfront)
-  final matches = isar.sources
-      .filter()
-      .isAddedEqualTo(false)
-      .findAllSync()
-      .where((s) => s.sourceCodeLanguage == SourceCodeLanguage.mihon)
+  // isar_community 3.3.2: buildQuery().findAll() is the safe async pattern
+  // when no single DB condition is available.
+  final allSources = await isar.sources.buildQuery<Source>().findAll();
+  final matches = allSources
+      .where((s) =>
+          s.isAdded != true &&
+          s.sourceCodeLanguage == SourceCodeLanguage.mihon)
       .toList();
 
   final suffix = e.pkg
@@ -129,11 +130,11 @@ Future<void> _handleRemoved(String pkg) async {
       .replaceFirst('eu.kanade.tachiyomi.animeextension.', '')
       .replaceFirst('eu.kanade.tachiyomi.extension.', '');
 
-  final installed = isar.sources
-      .filter()
-      .isAddedEqualTo(true)
-      .findAllSync()
-      .where((s) => s.sourceCodeLanguage == SourceCodeLanguage.mihon)
+  final allSources = await isar.sources.buildQuery<Source>().findAll();
+  final installed = allSources
+      .where((s) =>
+          s.isAdded == true &&
+          s.sourceCodeLanguage == SourceCodeLanguage.mihon)
       .toList();
 
   final toUpdate = <Source>[];

@@ -71,14 +71,16 @@ Future<void> syncExtensions({
   );
 
   // ── 2. Match against DB sources that are not yet installed ─────────────
-  // isar_community 3.3.2: use .findAllSync() with max 2 chained conditions;
-  // filter the third condition in Dart (avoids unsupported .and()/.findAll() combos).
-  final notInstalled = isar.sources
+  // isar_community 3.3.2: only single-condition filter supports async findAll.
+  // Use one DB condition, filter the rest in Dart.
+  final candidates = await isar.sources
       .filter()
       .itemTypeEqualTo(itemType)
-      .isAddedEqualTo(false)
-      .findAllSync()
-      .where((s) => s.sourceCodeLanguage == SourceCodeLanguage.mihon)
+      .findAll();
+  final notInstalled = candidates
+      .where((s) =>
+          s.isAdded != true &&
+          s.sourceCodeLanguage == SourceCodeLanguage.mihon)
       .toList();
 
   // Build suffix→sourceDir lookup once
