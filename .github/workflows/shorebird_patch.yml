@@ -1,0 +1,57 @@
+name: Shorebird Patch (Android OTA)
+
+# Triggered manually to push a code-only patch to users who already
+# have the Shorebird-built APK installed.
+# The patch is downloaded silently at the next app launch.
+#
+# Prerequisites:
+#   - SHOREBIRD_TOKEN secret set (run: shorebird login --ci)
+#   - KEYSTORE_B64 secret set (already done — same key as profile build)
+#   - shorebird.yaml has a valid app_id (run: shorebird init)
+#   - At least one release has been created with: shorebird release android
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Target release version (e.g. 8.1.155)'
+        required: true
+        type: string
+
+jobs:
+  patch:
+    name: Push Shorebird OTA Patch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Shorebird
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      - name: Set up Flutter (via Shorebird)
+        run: shorebird flutter versions use stable
+
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+
+      - name: Install dependencies
+        run: shorebird flutter pub get
+
+      - name: Push Shorebird patch (ARM64)
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+        run: |
+          shorebird patch android \
+            --target-platform android-arm64 \
+            --release-version ${{ inputs.release_version }}

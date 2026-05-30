@@ -68,13 +68,15 @@ android {
            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
            storePassword keystoreProperties['storePassword']
        }
-       // Stable keystore committed to the repo so every CI build is signed with
-       // the same identity. Allows in-place upgrade of debug/profile APKs.
+       // Stable keystore decoded from the KEYSTORE_B64 GitHub secret so every
+       // CI build is signed with the same identity (PKCS12 format, generated once).
+       // Allows in-place upgrade of debug/profile APKs without signature conflict.
        watchtower {
            keyAlias 'watchtower'
            keyPassword 'watchtower'
            storeFile file('watchtower-debug.keystore')
            storePassword 'watchtower'
+           storeType 'PKCS12'
        }
    }
    buildTypes {

@@ -36,19 +36,10 @@ jobs:
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-pub-
 
-      - name: Generate debug keystore
+      - name: Decode keystore from secret
         run: |
-          keytool -genkeypair \
-            -alias watchtower \
-            -keypass watchtower \
-            -storepass watchtower \
-            -keystore android/app/watchtower-debug.keystore \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Watchtower, OU=Dev, O=Watchtower, L=Unknown, S=Unknown, C=US" \
-            -storetype JKS \
-            -noprompt
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
       - name: Install dependencies
         run: flutter pub get
