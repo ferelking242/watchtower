@@ -9,9 +9,13 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
+import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -1490,9 +1494,11 @@ class _AideButton extends StatelessWidget {
   }
 }
 
-// ─── DOWNLOAD SHEET WIDGET ──────────────────────────────────────────────────
+// ─── DOWNLOAD SHEET — engine + external downloader ───────────────────────────
 
-class _DownloadSheet extends StatefulWidget {
+enum _Downloader { hydra, zeus, aria2, external }
+
+class _DownloadSheet extends ConsumerStatefulWidget {
   final Manga manga;
   final List<Chapter> chapters;
   final void Function(List<Chapter> selected) onDownload;
@@ -1504,29 +1510,191 @@ class _DownloadSheet extends StatefulWidget {
   });
 
   @override
-  State<_DownloadSheet> createState() => _DownloadSheetState();
+  ConsumerState<_DownloadSheet> createState() => _DownloadSheetState();
 }
 
-class _DownloadSheetState extends State<_DownloadSheet> {
-  // ── Theme helpers ────────────────────────────────────────────────────────────
-  Color get _accent   => Theme.of(context).primaryColor;
-  Color get _bg       => Theme.of(context).scaffoldBackgroundColor;
-  Color get _card     => Theme.of(context).colorScheme.surfaceContainerHighest;
-  Color get _surface  => Theme.of(context).colorScheme.surface;
-  Color get _grey     => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.50);
-  Color get _faint    => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.25);
-  Color get _text     => Theme.of(context).colorScheme.onSurface;
+class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
+  // ── Theme ────────────────────────────────────────────────────────────────────
+  Color get _accent => Theme.of(context).primaryColor;
+  Color get _bg     => Theme.of(context).scaffoldBackgroundColor;
+  Color get _text   => Theme.of(context).colorScheme.onSurface;
+  Color get _grey   => _text.withValues(alpha: 0.48);
+  Color get _faint  => _text.withValues(alpha: 0.13);
 
-  String _selectedQuality = '1080P';
-  final Set<int> _selected = {};
+  // ── State ────────────────────────────────────────────────────────────────────
+  bool _loading = true;
+  List<Video> _videos = [];
+  String? _selectedQuality;
+  String? _selectedLang;
+  String? _selectedSeason;
+  _Downloader _downloader = _Downloader.hydra;
+  String _externalApp = 'adm';
+  final Set<Chapter> _selected = {};
   bool _selectAll = false;
 
-  final List<String> _qualities = ['360P', '480P', '720P', '1080P'];
+  static final _langRe =
+      RegExp(r'\b(VF|VO|VOSTFR|VOSTA|MULTI|EN|FR|JAP?|ENG?)\b',
+          caseSensitive: false);
+  static final _seasonRe =
+      RegExp(r'(?:[Ss]aison|[Ss]eason|\bS)[ ]*(\d+)');
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    final pref =
+        DownloadSettingsService.instance.preferredExternalDownloader ?? '';
+    if (pref.isNotEmpty) _externalApp = pref;
+    _loadVideos();
+  }
+
+  Future<void> _loadVideos() async {
+    if (widget.chapters.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final result = await ref
+          .read(getVideoListProvider(episode: widget.chapters.first).future);
+      final videos = result.$1;
+      final seen = <String>{};
+      if (mounted) {
+        setState(() {
+          _videos = videos.where((v) => seen.add(v.originalUrl)).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // ── Data derivations ─────────────────────────────────────────────────────────
+
+  /// Language tags found in video quality strings — only shown if > 1.
+  List<String> get _langs {
+    final s = <String>{};
+    for (final v in _videos) {
+      final m = _langRe.firstMatch(v.quality);
+      if (m != null) s.add(m.group(0)!.toUpperCase());
+    }
+    return s.toList()..sort();
+  }
+
+  /// Distinct season labels from chapter names — only shown if > 1.
+  List<String> get _seasons {
+    final s = <String>{};
+    for (final ch in widget.chapters) {
+      final m = _seasonRe.firstMatch(ch.name ?? '');
+      if (m != null) s.add('Saison ${m.group(1)}');
+    }
+    return s.toList()..sort();
+  }
+
+  /// Chapters filtered by selected season (none selected = all).
+  List<Chapter> get _displayChapters {
+    if (_selectedSeason == null) return widget.chapters;
+    final num = _selectedSeason!.replaceAll('Saison ', '');
+    return widget.chapters.where((ch) {
+      final m = _seasonRe.firstMatch(ch.name ?? '');
+      return m != null && m.group(1) == num;
+    }).toList();
+  }
+
+  /// Real quality labels from fetched videos (filtered by lang if any).
+  List<String> get _qualities {
+    var src = _videos;
+    if (_selectedLang != null) {
+      final f = src
+          .where((v) => v.quality.toUpperCase().contains(_selectedLang!))
+          .toList();
+      if (f.isNotEmpty) src = f;
+    }
+    final seen = <String>{};
+    return src.map((v) => _normQ(v.quality)).where(seen.add).toList();
+  }
+
+  static String _normQ(String raw) {
+    if (raw.trim().isEmpty) return 'Inconnu';
+    final m = RegExp(r'^(\d{3,4})[pP]').firstMatch(raw);
+    if (m != null) return '${m.group(1)}p';
+    final s = raw.toLowerCase();
+    if (s.contains('4k') || s.contains('2160')) return '4K';
+    if (s.contains('1080') || s.contains('fhd')) return '1080p';
+    if (s.contains('720') || s.contains('hd')) return '720p';
+    if (s.contains('480') || s.contains('sd')) return '480p';
+    if (s.contains('360')) return '360p';
+    if (s.contains('240')) return '240p';
+    return raw.trim();
+  }
+
+  // ── Download action ───────────────────────────────────────────────────────────
+
+  Future<void> _startDownload() async {
+    if (_selected.isEmpty) return;
+    final chapters = _selected.toList();
+
+    if (_downloader == _Downloader.external) {
+      // Close sheet first, then fetch each chapter's URL and launch external app
+      if (mounted) Navigator.pop(context);
+      for (final ch in chapters) {
+        try {
+          final result =
+              await ref.read(getVideoListProvider(episode: ch).future);
+          final videos = result.$1;
+          if (videos.isEmpty) {
+            botToast('Aucun lien pour ${ch.name ?? '?'}');
+            continue;
+          }
+          // Pick best match for selected quality, else first
+          Video best = videos.first;
+          if (_selectedQuality != null) {
+            final match = videos.cast<Video?>().firstWhere(
+              (v) => _normQ(v!.quality) == _selectedQuality,
+              orElse: () => null,
+            );
+            if (match != null) best = match;
+          }
+          final launched = await ExternalDownloaderLauncher.launch(
+            url: best.url,
+            appId: _externalApp,
+            headers: best.headers,
+          );
+          if (!launched && mounted) {
+            botToast(
+                'Impossible d\'ouvrir $_externalApp — vérifiez qu\'il est installé.');
+          }
+        } catch (e) {
+          if (mounted) botToast(e.toString().split('\n').first);
+        }
+      }
+    } else {
+      // Internal engines — set quality preference then hand off
+      if (_selectedQuality != null && _videos.isNotEmpty) {
+        for (final ch in chapters) {
+          if (ch.id == null) continue;
+          final match = _videos.cast<Video?>().firstWhere(
+            (v) => _normQ(v!.quality) == _selectedQuality,
+            orElse: () => null,
+          );
+          if (match != null) {
+            chapterPreferredOriginalUrl[ch.id!] = match.originalUrl;
+          }
+        }
+      }
+      widget.onDownload(chapters);
+    }
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final chapters = widget.chapters;
-    final maxH = MediaQuery.of(context).size.height * 0.85;
+    final displayed = _displayChapters;
+    final maxH = MediaQuery.of(context).size.height * 0.88;
+    final langs = _langs;
+    final seasons = _seasons;
+    final qualities = _qualities;
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
@@ -1534,247 +1702,377 @@ class _DownloadSheetState extends State<_DownloadSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildHandle(),
-          _buildHeader(),
-          _buildResourcesCard(),
-          _buildQualityChips(),
+          // Drag handle
+          Container(
+            width: 36, height: 4,
+            margin: const EdgeInsets.only(top: 10, bottom: 2),
+            decoration: BoxDecoration(
+                color: _faint, borderRadius: BorderRadius.circular(2)),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+            child: Row(children: [
+              Text('Télécharger',
+                  style: TextStyle(
+                      color: _text,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Icon(Icons.close, color: _grey, size: 22),
+              ),
+            ]),
+          ),
+          // ── Filters (only real data) ────────────────────────────────────────
+          if (_loading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: LinearProgressIndicator(
+                color: _accent,
+                backgroundColor: _faint,
+                minHeight: 2,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            )
+          else ...[
+            // Language — only if multiple languages available
+            if (langs.length > 1)
+              _filterRow(
+                icon: Icons.language_rounded,
+                label: 'Langue',
+                items: langs,
+                selected: _selectedLang,
+                onSelect: (l) => setState(() {
+                  _selectedLang = _selectedLang == l ? null : l;
+                  _selectedQuality = null;
+                }),
+              ),
+            // Season — only if multiple seasons detected
+            if (seasons.length > 1)
+              _filterRow(
+                icon: Icons.layers_rounded,
+                label: 'Saison',
+                items: seasons,
+                selected: _selectedSeason,
+                onSelect: (s) => setState(() {
+                  _selectedSeason = _selectedSeason == s ? null : s;
+                  _selected.clear();
+                  _selectAll = false;
+                }),
+              ),
+            // Quality — only if real data available from the extension
+            if (qualities.isNotEmpty)
+              _filterRow(
+                icon: Icons.hd_outlined,
+                label: 'Qualité',
+                items: qualities,
+                selected: _selectedQuality,
+                onSelect: (q) => setState(
+                    () => _selectedQuality = _selectedQuality == q ? null : q),
+              ),
+          ],
+          // ── Downloader picker ───────────────────────────────────────────────
+          _buildDownloaderSection(),
+          // ── Episode list ────────────────────────────────────────────────────
           Divider(height: 1, color: _faint),
           Flexible(
             child: ListView.builder(
               shrinkWrap: true,
               padding: const EdgeInsets.only(bottom: 4),
-              itemCount: chapters.length,
-              itemBuilder: (_, i) => _buildEpisodeRow(i, chapters[i]),
+              itemCount: displayed.length,
+              itemBuilder: (_, i) => _buildEpisodeRow(displayed[i]),
             ),
           ),
-          _buildBottomBar(chapters),
+          _buildBottomBar(displayed),
         ],
       ),
     );
   }
 
-  Widget _buildHandle() => Container(
-        width: 38, height: 4,
-        margin: const EdgeInsets.only(top: 10, bottom: 4),
-        decoration: BoxDecoration(
-            color: _faint, borderRadius: BorderRadius.circular(2)),
-      );
+  // ── Filter row ────────────────────────────────────────────────────────────────
 
-  Widget _buildHeader() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Text('Télécharger',
-                style: TextStyle(
-                    color: _text,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700)),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Icon(Icons.close, color: _grey, size: 22),
+  Widget _filterRow({
+    required IconData icon,
+    required String label,
+    required List<String> items,
+    required String? selected,
+    required void Function(String) onSelect,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: _grey),
+          const SizedBox(width: 6),
+          Text(label,
+              style:
+                  TextStyle(color: _grey, fontSize: 12, fontWeight: FontWeight.w500)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: items.map((item) {
+                  final sel = item == selected;
+                  return GestureDetector(
+                    onTap: () => onSelect(item),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? _accent.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color:
+                              sel ? _accent : _faint,
+                          width: sel ? 1.2 : 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          color: sel ? _accent : _grey,
+                          fontSize: 12,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ],
-        ),
-      );
-
-  Widget _buildResourcesCard() {
-    final source = getSource(widget.manga.lang ?? '',
-        widget.manga.source ?? '', widget.manga.sourceId);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _faint, width: 0.8),
+          ),
+        ],
       ),
+    );
+  }
+
+  // ── Downloader section ────────────────────────────────────────────────────────
+
+  Widget _buildDownloaderSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.storage_outlined, color: _grey, size: 14),
+          Row(children: [
+            Icon(Icons.download_for_offline_outlined, size: 14, color: _grey),
+            const SizedBox(width: 6),
+            Text('Télécharger avec',
+                style: TextStyle(
+                    color: _grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
+          ]),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              // ── Internal engines ────────────────────────────────────────────
+              _engineChip(
+                label: 'Hydra',
+                icon: Icons.water_drop_outlined,
+                value: _Downloader.hydra,
+              ),
               const SizedBox(width: 6),
-              Text('Ressources',
-                  style: TextStyle(
-                      color: _text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600)),
-              if (source != null) ...[
-                const SizedBox(width: 6),
-                Text('· ${source.name}',
-                    style: TextStyle(color: _grey, fontSize: 12)),
-              ],
-            ],
+              _engineChip(
+                label: 'Zeus',
+                icon: Icons.bolt_outlined,
+                value: _Downloader.zeus,
+              ),
+              const SizedBox(width: 6),
+              _engineChip(
+                label: 'Aria2',
+                icon: Icons.multiple_stop_rounded,
+                value: _Downloader.aria2,
+              ),
+              Container(
+                width: 1, height: 24,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: _faint,
+              ),
+              // ── External apps ───────────────────────────────────────────────
+              _externalChip(label: 'ADM', appId: 'adm'),
+              const SizedBox(width: 6),
+              _externalChip(label: '1DM', appId: '1dm'),
+              const SizedBox(width: 6),
+              _externalChip(label: 'FDM', appId: 'fdm'),
+              const SizedBox(width: 6),
+              _externalChip(label: 'IDM+', appId: 'idm'),
+            ]),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _dropdownChip(label: 'French dub', icon: Icons.language_outlined),
-              const SizedBox(width: 8),
-              _dropdownChip(label: 'Saison 01', icon: Icons.expand_more),
-            ],
-          ),
+          if (_downloader == _Downloader.external) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              Icon(Icons.info_outline_rounded, size: 12, color: _accent),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'L\'URL du flux sera transmise à $_externalApp avec les en-têtes requis.',
+                  style: TextStyle(color: _accent, fontSize: 11),
+                ),
+              ),
+            ]),
+          ],
         ],
       ),
     );
   }
 
-  Widget _dropdownChip({required String label, required IconData icon}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _faint, width: 0.8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+  Widget _engineChip({
+    required String label,
+    required IconData icon,
+    required _Downloader value,
+  }) {
+    final sel =
+        _downloader == value && _downloader != _Downloader.external;
+    return GestureDetector(
+      onTap: () => setState(() => _downloader = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: sel ? _accent.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: sel ? _accent : _faint,
+            width: sel ? 1.2 : 0.8,
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: sel ? _accent : _grey),
+          const SizedBox(width: 5),
           Text(label,
               style: TextStyle(
-                  color: _text.withValues(alpha: 0.7), fontSize: 13)),
-          const SizedBox(width: 4),
-          Icon(icon, color: _grey, size: 16),
-        ],
+                  color: sel ? _accent : _grey,
+                  fontSize: 12,
+                  fontWeight: sel ? FontWeight.w600 : FontWeight.normal)),
+        ]),
       ),
     );
   }
 
-  Widget _buildQualityChips() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: _qualities.map((q) {
-          final sel = q == _selectedQuality;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedQuality = q),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: sel ? _accent : _card,
-                  borderRadius: BorderRadius.circular(7),
-                  border:
-                      Border.all(color: sel ? _accent : _faint, width: 0.8),
-                ),
-                child: Text(
-                  q,
-                  style: TextStyle(
-                    color: sel ? Colors.white : _grey,
-                    fontSize: 13,
-                    fontWeight:
-                        sel ? FontWeight.w700 : FontWeight.normal,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildEpisodeRow(int index, Chapter chapter) {
-    final sel = _selected.contains(index);
-    return InkWell(
+  Widget _externalChip({required String label, required String appId}) {
+    final sel =
+        _downloader == _Downloader.external && _externalApp == appId;
+    return GestureDetector(
       onTap: () => setState(() {
-        sel ? _selected.remove(index) : _selected.add(index);
-        _selectAll = _selected.length == widget.chapters.length;
+        _downloader = _Downloader.external;
+        _externalApp = appId;
       }),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 22, height: 22,
-              child: sel
-                  ? Icon(Icons.radio_button_checked,
-                      color: _accent, size: 22)
-                  : Icon(Icons.radio_button_unchecked,
-                      color: _faint, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                chapter.name ?? 'Épisode ${index + 1}',
-                style: TextStyle(color: _text, fontSize: 14),
-              ),
-            ),
-            Text(
-              chapter.duration?.isNotEmpty == true ? chapter.duration! : '',
-              style: TextStyle(color: _grey, fontSize: 12),
-            ),
-          ],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: sel ? _accent.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: sel ? _accent : _faint,
+            width: sel ? 1.2 : 0.8,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: sel ? _accent : _grey,
+            fontSize: 12,
+            fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBottomBar(List<Chapter> chapters) {
+  // ── Episode row ───────────────────────────────────────────────────────────────
+
+  Widget _buildEpisodeRow(Chapter chapter) {
+    final sel = _selected.contains(chapter);
+    return InkWell(
+      onTap: () => setState(() {
+        sel ? _selected.remove(chapter) : _selected.add(chapter);
+        _selectAll = _selected.length == _displayChapters.length;
+      }),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        child: Row(children: [
+          Icon(
+            sel ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+            color: sel ? _accent : _faint,
+            size: 21,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              chapter.name ?? 'Épisode',
+              style: TextStyle(color: _text, fontSize: 14),
+            ),
+          ),
+          if (chapter.duration?.isNotEmpty == true)
+            Text(chapter.duration!,
+                style: TextStyle(color: _grey, fontSize: 12)),
+        ]),
+      ),
+    );
+  }
+
+  // ── Bottom bar ────────────────────────────────────────────────────────────────
+
+  Widget _buildBottomBar(List<Chapter> displayed) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: _faint)),
         color: _bg,
       ),
       child: SafeArea(
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () => setState(() {
-                _selectAll = !_selectAll;
-                if (_selectAll) {
-                  _selected.addAll(
-                      List.generate(chapters.length, (i) => i));
-                } else {
-                  _selected.clear();
-                }
-              }),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 22, height: 22,
-                    child: _selectAll
-                        ? Icon(Icons.radio_button_checked,
-                            color: _accent, size: 22)
-                        : Icon(Icons.radio_button_unchecked,
-                            color: _faint, size: 22),
-                  ),
-                  const SizedBox(width: 8),
-                  Text('Tout sélectionner',
-                      style: TextStyle(
-                          color: _text.withValues(alpha: 0.7),
-                          fontSize: 14)),
-                ],
+        child: Row(children: [
+          GestureDetector(
+            onTap: () => setState(() {
+              _selectAll = !_selectAll;
+              if (_selectAll) {
+                _selected.addAll(displayed);
+              } else {
+                _selected.removeAll(displayed);
+              }
+            }),
+            child: Row(children: [
+              Icon(
+                _selectAll
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                color: _selectAll ? _accent : _faint,
+                size: 21,
               ),
+              const SizedBox(width: 8),
+              Text('Tout sélectionner',
+                  style: TextStyle(
+                      color: _text.withValues(alpha: 0.65), fontSize: 14)),
+            ]),
+          ),
+          const Spacer(),
+          ElevatedButton.icon(
+            onPressed: _selected.isEmpty ? null : _startDownload,
+            icon: const Icon(Icons.download_rounded, size: 17),
+            label: Text(_selected.isEmpty
+                ? 'Télécharger'
+                : 'Télécharger (${_selected.length})'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _accent,
+              disabledBackgroundColor: _faint,
+              foregroundColor: Colors.white,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            const Spacer(),
-            ElevatedButton.icon(
-              onPressed: _selected.isEmpty
-                  ? null
-                  : () => widget
-                      .onDownload(_selected.map((i) => chapters[i]).toList()),
-              icon: const Icon(Icons.download_outlined, size: 18),
-              label: Text(_selected.isEmpty
-                  ? 'Télécharger'
-                  : 'Télécharger (${_selected.length})'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _accent,
-                disabledBackgroundColor: _card,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ]),
       ),
     );
   }
