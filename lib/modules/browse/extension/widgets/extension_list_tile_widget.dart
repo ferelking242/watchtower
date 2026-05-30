@@ -51,14 +51,12 @@ class _ExtensionListTileWidgetState
       '${_updateAvailable ? "Update" : "Install"} requested: "${widget.source.name}" v${widget.source.version}',
       tag: LogTag.extension_,
     );
-
     try {
       final provider = fetchItemSourcesListProvider(
         id: widget.source.id,
         reFresh: true,
         itemType: widget.source.itemType,
       );
-
       if (!(widget.source.isAdded ?? false)) ref.invalidate(provider);
       await ref.read(provider.future);
       AppLogger.log(
@@ -78,6 +76,84 @@ class _ExtensionListTileWidgetState
     }
   }
 
+  void _togglePin() {
+    isar.writeTxnSync(() {
+      isar.sources.putSync(
+        widget.source
+          ..isPinned = !(widget.source.isPinned ?? false)
+          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+      );
+    });
+  }
+
+  void _uninstall(BuildContext ctx) {
+    showDialog(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(widget.source.name!),
+        content: Text(
+          dialogCtx.l10n.uninstall_extension(widget.source.name!),
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(dialogCtx.l10n.cancel),
+              ),
+              const SizedBox(width: 15),
+              TextButton(
+                onPressed: () {
+                  final sourcePrefsIds = isar
+                      .sourcePreferences
+                      .filter()
+                      .sourceIdEqualTo(widget.source.id!)
+                      .findAllSync()
+                      .map((e) => e.id!)
+                      .toList();
+                  final sourcePrefsStringIds = isar
+                      .sourcePreferenceStringValues
+                      .filter()
+                      .sourceIdEqualTo(widget.source.id!)
+                      .findAllSync()
+                      .map((e) => e.id)
+                      .toList();
+                  isar.writeTxnSync(() {
+                    if (widget.source.isObsolete ?? false) {
+                      isar.sources.deleteSync(widget.source.id!);
+                      ref
+                          .read(synchingProvider(syncId: 1).notifier)
+                          .addChangedPart(
+                            ActionType.removeExtension,
+                            widget.source.id,
+                            "{}",
+                            false,
+                          );
+                    } else {
+                      isar.sources.putSync(
+                        widget.source
+                          ..sourceCode = ""
+                          ..isAdded = false
+                          ..isPinned = false
+                          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+                      );
+                    }
+                    isar.sourcePreferences.deleteAllSync(sourcePrefsIds);
+                    isar.sourcePreferenceStringValues
+                        .deleteAllSync(sourcePrefsStringIds);
+                  });
+                  Navigator.pop(dialogCtx);
+                },
+                child: Text(dialogCtx.l10n.ok),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTrailingButton(BuildContext context, String label) {
     final isInstall = label == context.l10n.install;
     final isUpdate = label == context.l10n.update;
@@ -93,10 +169,7 @@ class _ExtensionListTileWidgetState
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
-                ),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 splashRadius: 20,
                 onPressed: _isLoading
                     ? null
@@ -119,98 +192,6 @@ class _ExtensionListTileWidgetState
                   size: 22,
                 ),
               ),
-              if (_sourceNotEmpty)
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  splashRadius: 20,
-                  icon: const Icon(Icons.delete_outline, size: 22),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) {
-                        return AlertDialog(
-                          title: Text(widget.source.name!),
-                          content: Text(
-                            ctx.l10n.uninstall_extension(widget.source.name!),
-                          ),
-                          actions: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(ctx);
-                                  },
-                                  child: Text(ctx.l10n.cancel),
-                                ),
-                                const SizedBox(width: 15),
-                                TextButton(
-                                  onPressed: () {
-                                    final sourcePrefsIds = isar
-                                        .sourcePreferences
-                                        .filter()
-                                        .sourceIdEqualTo(widget.source.id!)
-                                        .findAllSync()
-                                        .map((e) => e.id!)
-                                        .toList();
-                                    final sourcePrefsStringIds = isar
-                                        .sourcePreferenceStringValues
-                                        .filter()
-                                        .sourceIdEqualTo(widget.source.id!)
-                                        .findAllSync()
-                                        .map((e) => e.id)
-                                        .toList();
-                                    isar.writeTxnSync(() {
-                                      if (widget.source.isObsolete ?? false) {
-                                        isar.sources.deleteSync(
-                                          widget.source.id!,
-                                        );
-                                        ref
-                                            .read(
-                                              synchingProvider(
-                                                syncId: 1,
-                                              ).notifier,
-                                            )
-                                            .addChangedPart(
-                                              ActionType.removeExtension,
-                                              widget.source.id,
-                                              "{}",
-                                              false,
-                                            );
-                                      } else {
-                                        isar.sources.putSync(
-                                          widget.source
-                                            ..sourceCode = ""
-                                            ..isAdded = false
-                                            ..isPinned = false
-                                            ..updatedAt = DateTime.now()
-                                                .millisecondsSinceEpoch,
-                                        );
-                                      }
-                                      isar.sourcePreferences.deleteAllSync(
-                                        sourcePrefsIds,
-                                      );
-                                      isar.sourcePreferenceStringValues
-                                          .deleteAllSync(sourcePrefsStringIds);
-                                    });
-
-                                    Navigator.pop(ctx);
-                                  },
-                                  child: Text(ctx.l10n.ok),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
             ],
           );
   }
@@ -230,7 +211,7 @@ class _ExtensionListTileWidgetState
     final isMihon = lang == SourceCodeLanguage.mihon;
     final isAniyomi = isMihon && widget.source.itemType == ItemType.anime;
 
-    return ListTile(
+    final tile = ListTile(
       onTap: _isLoading
           ? null
           : () {
@@ -247,23 +228,23 @@ class _ExtensionListTileWidgetState
               }
             },
       leading: Container(
-        height: 37,
-        width: 37,
+        height: 30,
+        width: 30,
         decoration: BoxDecoration(
           color: Theme.of(context).secondaryHeaderColor.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(5),
         ),
         child: widget.source.iconUrl!.isEmpty
-            ? const Icon(Icons.extension_rounded)
+            ? const Icon(Icons.extension_rounded, size: 18)
             : cachedNetworkImage(
                 imageUrl: widget.source.iconUrl!,
                 fit: BoxFit.contain,
-                width: 37,
-                height: 37,
+                width: 30,
+                height: 30,
                 errorWidget: const SizedBox(
-                  width: 37,
-                  height: 37,
-                  child: Center(child: Icon(Icons.extension_rounded)),
+                  width: 30,
+                  height: 30,
+                  child: Center(child: Icon(Icons.extension_rounded, size: 18)),
                 ),
                 useCustomNetworkImage: false,
               ),
@@ -284,9 +265,7 @@ class _ExtensionListTileWidgetState
             style: TextStyle(
               fontWeight: FontWeight.w300,
               fontSize: 12,
-              color: _updateAvailable
-                  ? Colors.orange.shade400
-                  : null,
+              color: _updateAvailable ? Colors.orange.shade400 : null,
             ),
           ),
           if (widget.source.isNsfw ?? false)
@@ -300,11 +279,7 @@ class _ExtensionListTileWidgetState
                 ),
                 child: const Text(
                   "NSFW",
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
             ),
@@ -319,11 +294,7 @@ class _ExtensionListTileWidgetState
                 ),
                 child: const Text(
                   "DART",
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
             ),
@@ -338,11 +309,7 @@ class _ExtensionListTileWidgetState
                 ),
                 child: const Text(
                   "JS",
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
             ),
@@ -359,11 +326,7 @@ class _ExtensionListTileWidgetState
                 ),
                 child: Text(
                   isAniyomi ? 'ANIYOMI' : 'MIHON',
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
             ),
@@ -372,7 +335,7 @@ class _ExtensionListTileWidgetState
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
                 "- ${widget.source.repo!.name!}",
-                style: TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
           if (widget.source.isObsolete ?? false)
@@ -390,6 +353,224 @@ class _ExtensionListTileWidgetState
         ],
       ),
       trailing: _buildTrailingButton(context, buttonLabel),
+    );
+
+    return _SwipeTile(
+      sourceNotEmpty: _sourceNotEmpty,
+      isPinned: widget.source.isPinned ?? false,
+      onUninstall: _sourceNotEmpty ? () => _uninstall(context) : null,
+      onPin: _togglePin,
+      onSettings: _sourceNotEmpty
+          ? () => context.push('/extension_detail', extra: widget.source)
+          : null,
+      child: tile,
+    );
+  }
+}
+
+// ── Swipe tile ────────────────────────────────────────────────────────────────
+
+class _SwipeTile extends StatefulWidget {
+  final Widget child;
+  final bool sourceNotEmpty;
+  final bool isPinned;
+  final VoidCallback? onUninstall;
+  final VoidCallback? onPin;
+  final VoidCallback? onSettings;
+
+  const _SwipeTile({
+    required this.child,
+    this.sourceNotEmpty = false,
+    this.isPinned = false,
+    this.onUninstall,
+    this.onPin,
+    this.onSettings,
+  });
+
+  @override
+  State<_SwipeTile> createState() => _SwipeTileState();
+}
+
+class _SwipeTileState extends State<_SwipeTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _snapCtrl;
+  late Animation<double> _snapAnim;
+  double _dx = 0;
+  bool _dragging = false;
+
+  static const double _revealW = 110.0;
+  static const double _deleteTh = 80.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _snapAnim = const AlwaysStoppedAnimation(0);
+  }
+
+  @override
+  void dispose() {
+    _snapCtrl.dispose();
+    super.dispose();
+  }
+
+  void _snapTo(double target) {
+    final start = _dx;
+    _snapAnim = Tween<double>(begin: start, end: target)
+        .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
+    _snapCtrl.forward(from: 0);
+    setState(() { _dx = target; _dragging = false; });
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    _snapCtrl.stop();
+    final next = (_dx + d.delta.dx).clamp(-_revealW, _deleteTh);
+    if (!mounted) return;
+    setState(() { _dx = next; _dragging = true; });
+  }
+
+  void _onDragEnd(DragEndDetails _) {
+    if (_dx >= _deleteTh * 0.78 && widget.onUninstall != null) {
+      _snapTo(0);
+      Future.microtask(() => widget.onUninstall?.call());
+    } else if (_dx <= -_revealW * 0.45 && widget.sourceNotEmpty) {
+      _snapTo(-_revealW);
+    } else {
+      _snapTo(0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _snapAnim,
+      builder: (ctx, _) {
+        final offset = _dragging ? _dx : _snapAnim.value;
+        final showDel = offset > 4;
+        final showOpt = offset < -4 && widget.sourceNotEmpty;
+        final delOp = (offset / _deleteTh).clamp(0.0, 1.0);
+        final optOp = (-offset / _revealW).clamp(0.0, 1.0);
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: _onDragUpdate,
+          onHorizontalDragEnd: _onDragEnd,
+          onTap: (!_dragging && offset != 0)
+              ? () => _snapTo(0)
+              : null,
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              // Delete background (right swipe)
+              if (showDel)
+                Positioned.fill(
+                  child: Container(
+                    color: cs.error.withValues(alpha: delOp * 0.9),
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: 20),
+                    child: Opacity(
+                      opacity: delOp,
+                      child: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              // Options background (left swipe)
+              if (showOpt)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: _revealW,
+                  child: Opacity(
+                    opacity: optOp,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              _snapTo(0);
+                              widget.onPin?.call();
+                            },
+                            child: Container(
+                              color: Colors.indigo.shade600,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    widget.isPinned
+                                        ? Icons.push_pin_rounded
+                                        : Icons.push_pin_outlined,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  const Text(
+                                    'Épingler',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              _snapTo(0);
+                              widget.onSettings?.call();
+                            },
+                            child: Container(
+                              color: Colors.blueGrey.shade600,
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.settings_outlined,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  SizedBox(height: 3),
+                                  Text(
+                                    'Réglages',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // The tile itself
+              Transform.translate(
+                offset: Offset(offset, 0),
+                child: Material(
+                  color: Theme.of(ctx).scaffoldBackgroundColor,
+                  child: widget.child,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

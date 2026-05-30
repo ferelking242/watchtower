@@ -353,7 +353,7 @@ Future<void> fetchSourcesList({
         ..isFullData = s.isFullData ?? false
         ..appMinVerReq = s.appMinVerReq ?? ''
         ..isAdded = false
-        ..isActive = false
+        ..isActive = true
         ..isPinned = false
         ..lastUsed = false
         ..isObsolete = false
@@ -486,6 +486,7 @@ Future<void> _updateSource(
         ? jsonEncode(preferenceList.map((e) => e.toJson()).toList())
         : null
     ..isAdded = true
+    ..isActive = true
     ..sourceCode = sourceCode
     ..sourceCodeUrl = source.sourceCodeUrl
     ..id = source.id

@@ -160,44 +160,24 @@ class SourceListTile extends StatelessWidget {
               ? source.name!
               : "${context.l10n.local_source} ${source.itemType.localized(context.l10n)}",
         ),
-        trailing: SizedBox(
-          width: 150,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Consumer(
-                builder: (context, ref, child) {
-                  return TextButton(
-                    style: const ButtonStyle(
-                      padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
+        trailing: !isLocal
+            ? IconButton(
+                padding: const EdgeInsets.all(0),
+                onPressed: () {
+                  isar.writeTxnSync(
+                    () => isar.sources.putSync(
+                      source
+                        ..isPinned = !source.isPinned!
+                        ..updatedAt = DateTime.now().millisecondsSinceEpoch,
                     ),
-                    onPressed: () =>
-                        context.push('/mangaHome', extra: (source, true)),
-                    child: Text(context.l10n.latest),
                   );
                 },
-              ),
-              const SizedBox(width: 10),
-              if (!isLocal)
-                IconButton(
-                  padding: const EdgeInsets.all(0),
-                  onPressed: () {
-                    isar.writeTxnSync(
-                      () => isar.sources.putSync(
-                        source
-                          ..isPinned = !source.isPinned!
-                          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-                      ),
-                    );
-                  },
-                  icon: Icon(
-                    Icons.push_pin_outlined,
-                    color: source.isPinned! ? context.primaryColor : null,
-                  ),
+                icon: Icon(
+                  source.isPinned! ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                  color: source.isPinned! ? context.primaryColor : null,
                 ),
-            ],
-          ),
-        ),
+              )
+            : null,
       ),
     );
   }

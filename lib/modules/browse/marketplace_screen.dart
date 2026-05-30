@@ -744,7 +744,12 @@ class _HomeTab extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final all = state._all;
     final featured = state._featured;
-    final mihon = all.where((e) => e.compat == SourceCodeLanguage.mihon).toList();
+    final keiyoushi = all.where((e) =>
+        e.compat == SourceCodeLanguage.mihon &&
+        e.contentType != ItemType.anime).toList();
+    final aniyomi = all.where((e) =>
+        e.compat == SourceCodeLanguage.mihon &&
+        e.contentType == ItemType.anime).toList();
     final ln = all.where((e) => e.compat == SourceCodeLanguage.lnreader).toList();
     final wt = all.where((e) =>
         e.compat == SourceCodeLanguage.javascript ||
@@ -756,18 +761,27 @@ class _HomeTab extends StatelessWidget {
         slivers: [
           // Stats bar
           SliverToBoxAdapter(child: _StatsBar(
-            mihon: mihon.length, wt: wt.length, ln: ln.length,
-            installed: state._installed.length, cs: cs,
+            keiyoushi: keiyoushi.length,
+            aniyomi: aniyomi.length,
+            wt: wt.length,
+            ln: ln.length,
+            installed: state._installed.length,
+            cs: cs,
           )),
           // Featured banner
           if (featured.isNotEmpty) ...[
             SliverToBoxAdapter(child: state.sectionTitle(cs, 'À la une', Icons.star_rounded, color: Colors.amber, subtitle: 'Extensions populaires')),
             SliverToBoxAdapter(child: state.buildBanner(featured, cs)),
           ],
-          // Mihon
-          if (mihon.isNotEmpty) ...[
-            SliverToBoxAdapter(child: state.sectionTitle(cs, 'Mihon · ${mihon.length}', Icons.android_rounded, color: const Color(0xFF2196F3), subtitle: 'Keiyoushi · Extensions manga Android')),
-            SliverToBoxAdapter(child: state.buildHorizontal(mihon, cs)),
+          // Keiyoushi — manga
+          if (keiyoushi.isNotEmpty) ...[
+            SliverToBoxAdapter(child: state.sectionTitle(cs, 'Keiyoushi · ${keiyoushi.length}', Icons.auto_stories_rounded, color: const Color(0xFF2196F3), subtitle: 'Extensions manga · compatible Mihon')),
+            SliverToBoxAdapter(child: state.buildHorizontal(keiyoushi, cs)),
+          ],
+          // Aniyomi — anime
+          if (aniyomi.isNotEmpty) ...[
+            SliverToBoxAdapter(child: state.sectionTitle(cs, 'Aniyomi · ${aniyomi.length}', Icons.live_tv_rounded, color: const Color(0xFF7B2FBE), subtitle: 'Extensions anime · compatible Aniyomi')),
+            SliverToBoxAdapter(child: state.buildHorizontal(aniyomi, cs)),
           ],
           // LNReader
           if (ln.isNotEmpty) ...[
@@ -1105,9 +1119,16 @@ class _MiniCard extends StatelessWidget {
 // ─── Stats bar ─────────────────────────────────────────────────────────────────
 
 class _StatsBar extends StatelessWidget {
-  final int mihon, wt, ln, installed;
+  final int keiyoushi, aniyomi, wt, ln, installed;
   final ColorScheme cs;
-  const _StatsBar({required this.mihon, required this.wt, required this.ln, required this.installed, required this.cs});
+  const _StatsBar({
+    required this.keiyoushi,
+    required this.aniyomi,
+    required this.wt,
+    required this.ln,
+    required this.installed,
+    required this.cs,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1122,7 +1143,9 @@ class _StatsBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _Pill('$mihon', 'Keiyoushi', const Color(0xFF2196F3)),
+          _Pill('$keiyoushi', 'Keiyoushi', const Color(0xFF2196F3)),
+          _vdivider(cs),
+          _Pill('$aniyomi', 'Aniyomi', const Color(0xFF7B2FBE)),
           _vdivider(cs),
           _Pill('$wt', 'Watchtower', const Color(0xFFF5A623)),
           if (ln > 0) ...[_vdivider(cs), _Pill('$ln', 'LNReader', const Color(0xFF4CAF50))],
