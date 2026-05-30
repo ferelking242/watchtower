@@ -2,6 +2,7 @@
 // Conditionally imported by watch_detail_view.dart via:
 //   import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -47,7 +48,6 @@ class WatchInlinePlayer {
   /// Overlay shown on top of the poster inside the SliverAppBar banner.
   Widget buildBannerOverlay({
     required BuildContext context,
-    required List<Chapter> chapters,
   }) {
     if (!hasVideoUrl) return const SizedBox.shrink();
 
@@ -56,32 +56,37 @@ class WatchInlinePlayer {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Video(
-          controller: _controller,
-          fit: BoxFit.contain,
-          controls: NoVideoControls,
+        // IgnorePointer so touches reach the controls below
+        IgnorePointer(
+          child: Video(
+            controller: _controller,
+            fit: BoxFit.contain,
+            controls: NoVideoControls,
+          ),
         ),
         // gradient for readability of controls
         Positioned(
           left: 0, right: 0, bottom: 0,
-          child: Container(
-            height: 52,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [Color(0xCC000000), Colors.transparent],
+          child: IgnorePointer(
+            child: Container(
+              height: 52,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xCC000000), Colors.transparent],
+                ),
               ),
             ),
           ),
         ),
-        // Controls bar
+        // Controls bar — receives all pointer events
         Positioned(
           left: 0, right: 0, bottom: 0,
           child: _InlineControls(
             player: _player,
+            controller: _controller,
             accent: accent,
-            chapters: chapters,
           ),
         ),
       ],
@@ -98,17 +103,58 @@ class WatchInlinePlayer {
   }
 }
 
+// ─── Fullscreen player page ────────────────────────────────────────────────────
+
+class _FullscreenPlayerPage extends StatefulWidget {
+  final VideoController controller;
+  const _FullscreenPlayerPage({required this.controller});
+
+  @override
+  State<_FullscreenPlayerPage> createState() => _FullscreenPlayerPageState();
+}
+
+class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Video(
+        controller: widget.controller,
+        fit: BoxFit.contain,
+        controls: MaterialVideoControls,
+      ),
+    );
+  }
+}
+
 // ─── Inline controls widget ───────────────────────────────────────────────────
 
 class _InlineControls extends StatelessWidget {
   final Player player;
+  final VideoController controller;
   final Color accent;
-  final List<Chapter> chapters;
 
   const _InlineControls({
     required this.player,
+    required this.controller,
     required this.accent,
-    required this.chapters,
   });
 
   String _fmt(Duration d) {
@@ -211,10 +257,12 @@ class _InlineControls extends StatelessWidget {
           // ── Fullscreen ────────────────────────────────
           IconButton(
             icon: const Icon(Icons.fullscreen, color: Colors.white, size: 22),
-            onPressed: chapters.isEmpty
-                ? null
-                : () => chapters.first
-                    .pushToReaderView(context, ignoreIsRead: true),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => _FullscreenPlayerPage(controller: controller),
+              ),
+            ),
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
           ),

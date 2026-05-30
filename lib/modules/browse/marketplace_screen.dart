@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1387,67 +1388,115 @@ class _BannerCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
     final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
+    final hasIcon = entry.iconUrl != null && entry.iconUrl!.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [typeColor.withValues(alpha: 0.82), compatColor.withValues(alpha: 0.6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: typeColor.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: typeColor.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 5))],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 60),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            // Background: blurred icon image or gradient fallback
+            if (hasIcon)
+              ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
+                child: Image.network(
+                  entry.iconUrl!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [typeColor, compatColor],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [typeColor.withValues(alpha: 0.85), compatColor.withValues(alpha: 0.65)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            // Dark gradient overlay for text readability
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.62),
+                    typeColor.withValues(alpha: 0.55),
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  Text(entry.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white), maxLines: 2, overflow: TextOverflow.ellipsis),
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(5)),
-                      child: Text(_MarketplaceScreenState._compatLabel(entry.compat), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(5)),
-                      child: Text(_MarketplaceScreenState._langCode(entry.lang), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
-                    ),
-                  ]),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 32,
-                    child: installed
-                        ? Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(8)),
-                            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              Icon(Icons.check_rounded, size: 14, color: Colors.white),
-                              SizedBox(width: 5),
-                              Text('Installée', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
-                            ]),
-                          )
-                        : FilledButton(
-                            onPressed: busy ? null : onInstall,
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              backgroundColor: Colors.white.withValues(alpha: 0.25),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: busy
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Text('Installer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                  _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 60),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Text(entry.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white, shadows: [Shadow(blurRadius: 4, color: Colors.black45)]), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        Row(children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(5)),
+                            child: Text(_MarketplaceScreenState._compatLabel(entry.compat), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
                           ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(5)),
+                            child: Text(_MarketplaceScreenState._langCode(entry.lang), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
+                          ),
+                        ]),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 32,
+                          child: installed
+                              ? Container(
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(8)),
+                                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                    Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                                    SizedBox(width: 5),
+                                    Text('Installée', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
+                                  ]),
+                                )
+                              : FilledButton(
+                                  onPressed: busy ? null : onInstall,
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    backgroundColor: Colors.white.withValues(alpha: 0.25),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: busy
+                                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('Installer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

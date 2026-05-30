@@ -1,6 +1,7 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
@@ -589,8 +590,18 @@ class _ExtensionDiagnosticScreenState
     return Column(
       children: [
         // Summary header
-        _DoneHeader(ok: ok, failed: failed, total: _results.length,
-            savedPath: _savedPath, cs: cs),
+        _DoneHeader(
+          ok: ok,
+          failed: failed,
+          total: _results.length,
+          savedPath: _savedPath,
+          cs: cs,
+          reportContent: generateMarkdownReport(
+            results: _results,
+            itemType: widget.itemType,
+            scopeLabel: _scopeLabel,
+          ),
+        ),
         // Tabs: log + results
         Expanded(
           child: DefaultTabController(
@@ -774,6 +785,7 @@ class _DoneHeader extends StatelessWidget {
   final int failed;
   final int total;
   final String? savedPath;
+  final String? reportContent;
   final ColorScheme cs;
 
   const _DoneHeader({
@@ -782,6 +794,7 @@ class _DoneHeader extends StatelessWidget {
     required this.total,
     required this.savedPath,
     required this.cs,
+    this.reportContent,
   });
 
   @override
@@ -806,15 +819,35 @@ class _DoneHeader extends StatelessWidget {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
-              failed > 0
-                  ? '$failed échec(s) · $ok OK sur $total'
-                  : 'Tout OK — $total extensions',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: failed > 0 ? cs.error : Colors.green.shade700,
+            Expanded(
+              child: Text(
+                failed > 0
+                    ? '$failed échec(s) · $ok OK sur $total'
+                    : 'Tout OK — $total extensions',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: failed > 0 ? cs.error : Colors.green.shade700,
+                ),
               ),
             ),
+            if (reportContent != null)
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                tooltip: 'Copier le rapport',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                color: cs.onSurfaceVariant,
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: reportContent!));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      content: Text('Rapport copié dans le presse-papiers'),
+                      duration: Duration(seconds: 2),
+                    ));
+                  }
+                },
+              ),
           ]),
           if (savedPath != null) ...[
             const SizedBox(height: 5),
@@ -1014,6 +1047,20 @@ class _ExtDiagCardState extends State<_ExtDiagCard> {
                   size: 18,
                 ),
                 const SizedBox(width: 8),
+                // Real extension icon
+                if ((src.iconUrl ?? '').isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: Image.network(
+                      src.iconUrl!,
+                      width: 24,
+                      height: 24,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                ],
                 Expanded(
                   child: Text(
                     src.name ?? 'Unknown',

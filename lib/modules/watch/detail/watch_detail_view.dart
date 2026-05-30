@@ -268,7 +268,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       children: [
         _buildBannerImageOnly(),
 
-        _player.buildBannerOverlay(context: context, chapters: chapters),
+        _player.buildBannerOverlay(context: context),
 
         if (!_player.hasVideoUrl && chapters.isNotEmpty)
           const _LoadingBannerPulse(),
@@ -900,7 +900,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         else if (isMovie)
           _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
         else
-          _buildEpisodeStrip(filtered),
+          _buildEpisodeStrip(_sortedEpisodes(filtered)),
       ],
     );
   }
@@ -1030,6 +1030,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
       ),
     );
+  }
+
+  // ─── EPISODE SORT ────────────────────────────────────────────────────────────
+  // Sort episodes by number (descending: latest first). Uses first digit sequence
+  // found in the chapter name; falls back to chapter index.
+
+  List<Chapter> _sortedEpisodes(List<Chapter> chapters) {
+    final indexed = chapters.asMap().entries.toList();
+    indexed.sort((a, b) {
+      final na = _epNum(a.value.name, a.key);
+      final nb = _epNum(b.value.name, b.key);
+      return nb.compareTo(na); // descending
+    });
+    return indexed.map((e) => e.value).toList();
+  }
+
+  int _epNum(String? name, int fallback) {
+    if (name == null || name.isEmpty) return fallback;
+    final m = RegExp(r'\d+').firstMatch(name);
+    return m != null ? (int.tryParse(m.group(0)!) ?? fallback) : fallback;
   }
 
   // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
