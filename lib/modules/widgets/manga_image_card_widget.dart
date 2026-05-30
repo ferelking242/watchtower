@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -62,6 +63,16 @@ class MangaImageCardWidget extends ConsumerWidget {
           image: hasData && mangaList.first.customCoverImage != null
               ? MemoryImage(mangaList.first.customCoverImage as Uint8List)
                     as ImageProvider
+              : kIsWeb
+              ? NetworkImage(
+                  toImgUrl(
+                    hasData
+                        ? mangaList.first.customCoverFromTracker ??
+                              mangaList.first.imageUrl ??
+                              ""
+                        : getMangaDetail!.imageUrl ?? "",
+                  ),
+                )
               : CustomExtendedNetworkImageProvider(
                   toImgUrl(
                     hasData

@@ -13,8 +13,19 @@ Widget cachedNetworkImage({
   bool useCustomNetworkImage = true,
   Widget errorWidget = const Icon(Icons.error, size: 50),
 }) {
+  if (kIsWeb) {
+    return Image.network(
+      imageUrl,
+      width: width,
+      height: height,
+      fit: fit,
+      alignment: alignment ?? Alignment.center,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, __, ___) => errorWidget,
+    );
+  }
   return ExtendedImage(
-    image: (useCustomNetworkImage && !kIsWeb)
+    image: useCustomNetworkImage
         ? CustomExtendedNetworkImageProvider(imageUrl, headers: headers)
         : ExtendedNetworkImageProvider(imageUrl, headers: headers),
     width: width,
@@ -43,9 +54,20 @@ Widget cachedCompressedNetworkImage({
   Widget errorWidget = const Icon(Icons.error, size: 50),
   int maxBytes = 5 << 10,
 }) {
+  if (kIsWeb) {
+    return Image.network(
+      imageUrl,
+      width: width,
+      height: height,
+      fit: fit,
+      alignment: alignment ?? Alignment.center,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, __, ___) => errorWidget,
+    );
+  }
   return ExtendedImage(
     image: ExtendedResizeImage(
-      (useCustomNetworkImage && !kIsWeb)
+      useCustomNetworkImage
           ? CustomExtendedNetworkImageProvider(imageUrl, headers: headers)
           : ExtendedNetworkImageProvider(imageUrl, headers: headers),
       maxBytes: maxBytes,
