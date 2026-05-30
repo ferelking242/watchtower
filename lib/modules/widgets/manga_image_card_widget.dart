@@ -199,17 +199,20 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
                   .toList()
             : [];
         hasData = hasData && mangaList.isNotEmpty;
+        final _imgUrl = toImgUrl(
+          hasData
+              ? mangaList.first.customCoverFromTracker ??
+                    mangaList.first.imageUrl ??
+                    ""
+              : getMangaDetail!.imageUrl ?? "",
+        );
         final image = hasData && mangaList.first.customCoverImage != null
             ? MemoryImage(mangaList.first.customCoverImage as Uint8List)
                   as ImageProvider
+            : kIsWeb
+            ? NetworkImage(_imgUrl)
             : CustomExtendedNetworkImageProvider(
-                toImgUrl(
-                  hasData
-                      ? mangaList.first.customCoverFromTracker ??
-                            mangaList.first.imageUrl ??
-                            ""
-                      : getMangaDetail!.imageUrl ?? "",
-                ),
+                _imgUrl,
                 headers: ref.watch(
                   headersProvider(
                     source: source.name!,
