@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/utils/language.dart';
@@ -123,6 +124,10 @@ class _ExtensionDiagnosticScreenState
   String? _selectedLang;
   Source? _selectedSource;
 
+  // Extension filters
+  SourceCodeLanguage? _compatFilter;  // null = all compat types
+  bool? _nsfwFilter;                  // null = all, true = NSFW only, false = non-NSFW only
+
   // Running / done
   final List<String> _logLines = [];
   final List<ExtDiagResult> _results = [];
@@ -140,16 +145,25 @@ class _ExtensionDiagnosticScreenState
 
   // ── Source helpers ─────────────────────────────────────────────────────────
 
-  List<Source> _allSources() => isar.sources
-      .filter()
-      .idIsNotNull()
-      .and()
-      .isAddedEqualTo(true)
-      .and()
-      .itemTypeEqualTo(widget.itemType)
-      .findAllSync()
-      .where((s) => !(s.name == 'local' && (s.lang?.isEmpty ?? true)))
-      .toList();
+  List<Source> _allSources() {
+    var list = isar.sources
+        .filter()
+        .idIsNotNull()
+        .and()
+        .isAddedEqualTo(true)
+        .and()
+        .itemTypeEqualTo(widget.itemType)
+        .findAllSync()
+        .where((s) => !(s.name == 'local' && (s.lang?.isEmpty ?? true)))
+        .toList();
+    if (_compatFilter != null) {
+      list = list.where((s) => s.sourceCodeLanguage == _compatFilter).toList();
+    }
+    if (_nsfwFilter != null) {
+      list = list.where((s) => (s.isNsfw ?? false) == _nsfwFilter).toList();
+    }
+    return list;
+  }
 
   List<String> _availableLangs() {
     final langs = _allSources()
@@ -425,6 +439,102 @@ class _ExtensionDiagnosticScreenState
                 onChanged: (v) => setState(() => _selectedSource = v),
               ),
             ),
+
+          const SizedBox(height: 22),
+
+          // ── Compat filter ──────────────────────────────────────────────────
+          Text(
+            'Type de source',
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              (null, Icons.apps_rounded, 'Toutes'),
+              (SourceCodeLanguage.dart, Icons.flutter_dash, 'Dart / Natif'),
+              (SourceCodeLanguage.javascript, Icons.code_rounded, 'JS'),
+              (SourceCodeLanguage.mihon, Icons.android_rounded, 'Mihon/Aniyomi'),
+              (SourceCodeLanguage.lnreader, Icons.menu_book_outlined, 'LNReader'),
+            ].map<Widget>(((SourceCodeLanguage?, IconData, String) item) {
+              final (lang, icon, label) = item;
+              final sel = _compatFilter == lang;
+              final cs = Theme.of(context).colorScheme;
+              return GestureDetector(
+                onTap: () => setState(() => _compatFilter = lang),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: sel ? cs.primary : cs.outlineVariant,
+                      width: sel ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(icon, size: 13, color: sel ? cs.primary : cs.onSurfaceVariant),
+                    const SizedBox(width: 5),
+                    Text(label, style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600,
+                        color: sel ? cs.primary : cs.onSurface)),
+                  ]),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 18),
+
+          // ── Tag filters ───────────────────────────────────────────────────
+          Text(
+            'Tags',
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              (null, Icons.all_inclusive_rounded, 'Tout contenu'),
+              (false, Icons.child_care_rounded, 'Sans NSFW'),
+              (true, Icons.eighteen_up_rating_rounded, 'NSFW seulement'),
+            ].map<Widget>(((bool?, IconData, String) item) {
+              final (val, icon, label) = item;
+              final sel = _nsfwFilter == val;
+              final cs = Theme.of(context).colorScheme;
+              return GestureDetector(
+                onTap: () => setState(() => _nsfwFilter = val),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: sel ? cs.primary : cs.outlineVariant,
+                      width: sel ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(icon, size: 13, color: sel ? cs.primary : cs.onSurfaceVariant),
+                    const SizedBox(width: 5),
+                    Text(label, style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600,
+                        color: sel ? cs.primary : cs.onSurface)),
+                  ]),
+                ),
+              );
+            }).toList(),
+          ),
 
           const SizedBox(height: 36),
 
@@ -758,7 +868,7 @@ class _LogLine extends StatelessWidget {
 
   static const _tagPrefixes = {
     '[FAIL]', '[OK]', '[START]', '[DONE]', '[RUN]', '[SKIP]',
-    '[URL]', '[POP]', '[LAT]', '[DET]', '[VID]',
+    '[URL]', '[HTTP]', '[POP]', '[LAT]', '[DET]', '[VID]',
   };
 
   (IconData?, Color?) _parse() {
@@ -769,6 +879,9 @@ class _LogLine extends StatelessWidget {
     if (line.contains('[RUN]'))  return (Icons.timer_outlined, cs.primary);
     if (line.contains('[SKIP]')) return (Icons.skip_next_rounded, cs.onSurfaceVariant.withOpacity(0.55));
     if (line.contains('[URL]'))  return (Icons.link_rounded, cs.primary.withOpacity(0.75));
+    if (line.contains('[HTTP]') && line.contains('[OK]'))  return (Icons.wifi_rounded, Colors.green.shade700);
+    if (line.contains('[HTTP]') && line.contains('[FAIL]')) return (Icons.wifi_off_rounded, cs.error);
+    if (line.contains('[HTTP]')) return (Icons.http_rounded, cs.primary.withOpacity(0.7));
     if (line.contains('[POP]'))  return (Icons.list_rounded, cs.onSurfaceVariant);
     if (line.contains('[LAT]'))  return (Icons.update_rounded, cs.onSurfaceVariant);
     if (line.contains('[DET]'))  return (Icons.info_outline_rounded, cs.onSurfaceVariant);
