@@ -97,24 +97,24 @@ Future<List<ExtDiagResult>> runDiagnosticsForSources(
   OnExtResult? onResult,
   void Function(String line)? onLog,
 }) async {
-  onLog?.call('${_nowTime()}  🔬 Démarrage — ${sources.length} extension(s)');
+  onLog?.call('${_nowTime()}  [START] Démarrage — ${sources.length} extension(s)');
 
   final results = <ExtDiagResult>[];
   for (final src in sources) {
     onLog?.call('');
-    onLog?.call('${_nowTime()}  ⏱ "${src.name}" [${(src.lang ?? "?").toUpperCase()}]…');
+    onLog?.call('${_nowTime()}  [RUN] "${src.name}" [${(src.lang ?? "?").toUpperCase()}]…');
     final result = await _diagnoseSourceWithLog(src, itemType, onLog);
     results.add(result);
     onResult?.call(result);
     final okCount = result.steps.values.where((s) => s.ok).length;
     onLog?.call(
-      '${_nowTime()}  ${result.allOk ? "✅" : "❌"} "${src.name}" — $okCount/${result.steps.length} étapes OK',
+      '${_nowTime()}  ${result.allOk ? "[OK]" : "[FAIL]"} "${src.name}" — $okCount/${result.steps.length} étapes OK',
     );
   }
 
   final ok = results.where((r) => r.allOk).length;
   onLog?.call('');
-  onLog?.call('${_nowTime()}  🏁 Terminé — $ok/${results.length} extensions OK');
+  onLog?.call('${_nowTime()}  [DONE] Terminé — $ok/${results.length} extensions OK');
   return results;
 }
 
@@ -145,14 +145,14 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         error: count == 0 ? 'Aucun résultat' : null,
       );
       onLog?.call(
-        '${_nowTime()}    📋 Popular: ${count > 0 ? "✅ $count entrées" : "❌ Aucun résultat"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}    [POP] Popular: ${count > 0 ? "[OK] $count entrées" : "[FAIL] Aucun résultat"} (${sw.elapsedMilliseconds}ms)',
       );
     } catch (e) {
       sw.stop();
       final err = e.toString().split('\n').first;
       steps[DiagStep.popular] =
           DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
-      onLog?.call('${_nowTime()}    📋 Popular: ❌ $err (${sw.elapsedMilliseconds}ms)');
+      onLog?.call('${_nowTime()}    [POP] Popular: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
     }
   }
 
@@ -172,14 +172,14 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         error: count == 0 ? 'Aucun résultat' : null,
       );
       onLog?.call(
-        '${_nowTime()}    🕐 Latest: ${count > 0 ? "✅ $count entrées" : "❌ Aucun résultat"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}    [LAT] Latest: ${count > 0 ? "[OK] $count entrées" : "[FAIL] Aucun résultat"} (${sw.elapsedMilliseconds}ms)',
       );
     } catch (e) {
       sw.stop();
       final err = e.toString().split('\n').first;
       steps[DiagStep.latest] =
           DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
-      onLog?.call('${_nowTime()}    🕐 Latest: ❌ $err (${sw.elapsedMilliseconds}ms)');
+      onLog?.call('${_nowTime()}    [LAT] Latest: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
     }
   }
 
@@ -202,14 +202,14 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         error: ok ? null : 'Détail vide',
       );
       onLog?.call(
-        '${_nowTime()}    🔍 Détail: ${ok ? "✅ $chapCount chapitres/épisodes" : "❌ Détail vide"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}    [DET] Détail: ${ok ? "[OK] $chapCount chapitres/épisodes" : "[FAIL] Détail vide"} (${sw.elapsedMilliseconds}ms)',
       );
     } catch (e) {
       sw.stop();
       final err = e.toString().split('\n').first;
       steps[DiagStep.detail] =
           DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
-      onLog?.call('${_nowTime()}    🔍 Détail: ❌ $err (${sw.elapsedMilliseconds}ms)');
+      onLog?.call('${_nowTime()}    [DET] Détail: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
     }
   } else {
     steps[DiagStep.detail] = const DiagStepResult(
@@ -217,7 +217,7 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
       error: "Ignoré (popular échoué)",
       ms: 0,
     );
-    onLog?.call("${_nowTime()}    🔍 Détail: ⏭ Ignoré (popular échoué)");
+    onLog?.call("${_nowTime()}    [DET] Détail: [SKIP] Ignoré (popular échoué)");
   }
 
   // ── Step 4 : Media (getVideoList / getPageList) ───────────────────────────
@@ -225,7 +225,6 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
     final sw = Stopwatch()..start();
     final svcType =
         itemType == ItemType.anime ? 'getVideoList' : 'getPageList';
-    final mediaEmoji = itemType == ItemType.anime ? '▶️' : '📄';
     final mediaLabel = itemType == ItemType.anime ? 'Vidéos' : 'Pages';
     try {
       final list = await getIsolateService
@@ -244,15 +243,28 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         error: count == 0 ? 'Aucun média' : null,
       );
       onLog?.call(
-        '${_nowTime()}    $mediaEmoji $mediaLabel: ${count > 0 ? "✅ $count sources" : "❌ Aucun média"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}    [VID] $mediaLabel: ${count > 0 ? "[OK] $count source(s)" : "[FAIL] Aucun média"} (${sw.elapsedMilliseconds}ms)',
       );
+      // Afficher l'URL directe du flux (vérification URL uniquement, pas la lecture)
+      if (count > 0) {
+        try {
+          final rawUrl = (list.first as dynamic).url?.toString() ?? '';
+          if (rawUrl.isNotEmpty) {
+            final truncated = rawUrl.length > 90
+                ? '${rawUrl.substring(0, 87)}...'
+                : rawUrl;
+            onLog?.call('${_nowTime()}      [URL] $truncated');
+          }
+        } catch (_) {}
+        onLog?.call('${_nowTime()}      (URL obtenue — lecture non vérifiée par le diagnostic)');
+      }
     } catch (e) {
       sw.stop();
       final err = e.toString().split('\n').first;
       steps[DiagStep.media] =
           DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
       onLog?.call(
-          '${_nowTime()}    $mediaEmoji $mediaLabel: ❌ $err (${sw.elapsedMilliseconds}ms)');
+          '${_nowTime()}    [VID] $mediaLabel: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
     }
   } else {
     steps[DiagStep.media] = const DiagStepResult(
@@ -261,7 +273,7 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
       ms: 0,
     );
     onLog?.call(
-        "${_nowTime()}    ${itemType == ItemType.anime ? '▶️' : '📄'} Médias: ⏭ Ignoré (détail échoué)");
+        "${_nowTime()}    [VID] Médias: [SKIP] Ignoré (détail échoué)");
   }
 
   return ExtDiagResult(source: src, steps: steps);

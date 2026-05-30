@@ -69,7 +69,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _player = WatchInlinePlayer();
   }
 
@@ -152,63 +152,84 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── PORTRAIT ───────────────────────────────────────────────────────────────
 
   Widget _buildPortrait(List<Chapter> chapters) {
-    return NestedScrollView(
-      headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
-        SliverAppBar(
-          expandedHeight: 230,
-          pinned: true,
-          backgroundColor: _bg,
-          automaticallyImplyLeading: false,
-          // ── Back button ──────────────────────────────────────────────────────
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          // ── Actions (loading + Aide) ─────────────────────────────────────────
-          actions: [
-            if (widget.isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 14),
-                child: SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
+    final topPad = MediaQuery.of(context).padding.top;
+    return Column(
+      children: [
+        // ── Player — toujours fixé, ne scrolle jamais ─────────────────────────
+        SizedBox(
+          height: 230 + topPad,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildBanner(chapters),
+              Positioned(
+                top: topPad,
+                left: 0,
+                right: 0,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const Spacer(),
+                    if (widget.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 14),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        ),
+                      ),
+                    _AideButton(
+                        onTap: () =>
+                            _showOptionsSheet(context, chapters)),
+                    const SizedBox(width: 4),
+                  ],
                 ),
               ),
-            _AideButton(onTap: () => _showOptionsSheet(context, chapters)),
-            const SizedBox(width: 4),
-          ],
-          flexibleSpace: FlexibleSpaceBar(
-            background: _buildBanner(chapters),
+            ],
           ),
         ),
-        SliverToBoxAdapter(child: _buildMetadataBlock(chapters)),
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _TabBarDelegate(
-            TabBar(
+        // ── Contenu scrollable ────────────────────────────────────────────────
+        Expanded(
+          child: NestedScrollView(
+            headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
+              SliverToBoxAdapter(child: _buildMetadataBlock(chapters)),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _TabBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    indicatorColor: _accent,
+                    indicatorWeight: 2.5,
+                    labelColor: _textPrimary,
+                    unselectedLabelColor: _grey,
+                    dividerColor: Colors.transparent,
+                    tabs: const [
+                      Tab(text: 'Détails'),
+                      Tab(text: 'Pour vous'),
+                      Tab(text: 'Commentaires'),
+                    ],
+                  ),
+                  color: _bg,
+                ),
+              ),
+            ],
+            body: TabBarView(
               controller: _tabController,
-              indicatorColor: _accent,
-              indicatorWeight: 2.5,
-              labelColor: _textPrimary,
-              unselectedLabelColor: _grey,
-              dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'Pour vous'),
-                Tab(text: 'Commentaires'),
+              children: [
+                _buildDetailsTab(),
+                _buildRecommendationsTab(),
+                _buildCommentsTab(),
               ],
             ),
-            color: _bg,
           ),
         ),
       ],
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildRecommendationsTab(),
-          _buildCommentsTab(),
-        ],
-      ),
     );
   }
 
@@ -254,19 +275,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
           ),
 
-        // Gradient blend
-        DecoratedBox(
+        // Top shadow uniquement pour lisibilité des contrôles — bord bas net
+        const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              stops: const [0.0, 0.3, 0.65, 1.0],
-              colors: [
-                _bg.withValues(alpha: 0.72),
-                _bg.withValues(alpha: 0.0),
-                _bg.withValues(alpha: 0.27),
-                _bg,
-              ],
+              stops: [0.0, 0.40],
+              colors: [Color(0xAA000000), Colors.transparent],
             ),
           ),
         ),
@@ -1075,14 +1091,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     width: 48,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: watched
-                          ? _card
-                          : _accent.withValues(alpha: 0.10),
+                      color: _card,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: watched
-                            ? _faint
-                            : _accent.withValues(alpha: 0.50),
+                        color: _faint,
                         width: 1,
                       ),
                     ),
@@ -1090,7 +1102,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     child: Text(
                       label,
                       style: TextStyle(
-                        color: watched ? _grey : _textPrimary,
+                        color: watched ? _faint : _textPrimary,
                         fontSize: 13,
                         fontWeight: watched
                             ? FontWeight.normal
@@ -1108,6 +1120,126 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── TABS ────────────────────────────────────────────────────────────────────
+
+  Widget _buildDetailsTab() {
+    final manga = widget.manga;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Synopsis
+          if ((manga.description ?? '').isNotEmpty) ...[
+            _sectionLabel('Synopsis'),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (c, setSt) => GestureDetector(
+                onTap: () => setSt(
+                    () => _isDescriptionExpanded = !_isDescriptionExpanded),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      manga.description ?? '',
+                      maxLines: _isDescriptionExpanded ? null : 5,
+                      overflow: _isDescriptionExpanded
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: _grey, fontSize: 13, height: 1.55),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _isDescriptionExpanded ? 'Voir moins' : 'Voir plus',
+                      style: TextStyle(color: _accent, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          // Réalisateur / auteur
+          if ((manga.author ?? '').isNotEmpty) ...[
+            _sectionLabel('Réalisateur'),
+            const SizedBox(height: 8),
+            _detailRow(Icons.person_outline_rounded, manga.author!),
+            const SizedBox(height: 16),
+          ],
+          // Casting
+          if ((manga.artist ?? '').isNotEmpty) ...[
+            _sectionLabel('Casting'),
+            const SizedBox(height: 8),
+            _detailRow(Icons.groups_2_outlined, manga.artist!),
+            const SizedBox(height: 16),
+          ],
+          // Genres
+          if ((manga.genre?.isNotEmpty ?? false)) ...[
+            _sectionLabel('Genres'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final g in (manga.genre ?? []))
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 13, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: _accent.withValues(alpha: 0.30),
+                          width: 0.8),
+                    ),
+                    child: Text(
+                      g,
+                      style: TextStyle(
+                          color: _onSurface.withValues(alpha: 0.75),
+                          fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          // Source & langue
+          _sectionLabel('Source'),
+          const SizedBox(height: 8),
+          _detailRow(
+              Icons.storage_outlined, manga.source ?? '—'),
+          if ((manga.lang ?? '').isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _detailRow(Icons.language_rounded,
+                (manga.lang ?? '').toUpperCase()),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) => Text(
+        text,
+        style: TextStyle(
+            color: _textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700),
+      );
+
+  Widget _detailRow(IconData icon, String text) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: _grey),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style:
+                  TextStyle(color: _grey, fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      );
 
   Widget _buildRecommendationsTab() {
     return Center(

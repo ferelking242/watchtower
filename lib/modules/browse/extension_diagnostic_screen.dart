@@ -216,7 +216,7 @@ class _ExtensionDiagnosticScreenState
     await _DiagNotifService.showProgress(
       done: 0,
       total: sources.length,
-      title: '🔬 Diagnostic ${_typeLabelShort()} en cours…',
+      title: 'Diagnostic ${_typeLabelShort()} en cours…',
     );
 
     await runDiagnosticsForSources(
@@ -231,7 +231,7 @@ class _ExtensionDiagnosticScreenState
         _DiagNotifService.showProgress(
           done: _done,
           total: _total,
-          title: '🔬 Diagnostic ${_typeLabelShort()}',
+          title: 'Diagnostic ${_typeLabelShort()}',
           body: '$_done / $_total — ${result.source.name}',
         );
       },
@@ -265,7 +265,7 @@ class _ExtensionDiagnosticScreenState
     await _DiagNotifService.showProgress(
       done: _results.length,
       total: _results.length,
-      title: '${failed > 0 ? "⚠️" : "✅"} Diagnostic terminé',
+      title: 'Diagnostic terminé',
       body: '$ok OK · $failed échec(s) sur ${_results.length}',
     );
 
@@ -698,8 +698,8 @@ class _DoneHeader extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               failed > 0
-                  ? '❌ $failed échec(s) · $ok OK sur $total'
-                  : '✅ Tout OK — $total extensions',
+                  ? '$failed échec(s) · $ok OK sur $total'
+                  : 'Tout OK — $total extensions',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: failed > 0 ? cs.error : Colors.green.shade700,
@@ -756,38 +756,62 @@ class _LogLine extends StatelessWidget {
   final ColorScheme cs;
   const _LogLine({required this.line, required this.cs});
 
+  static const _tagPrefixes = {
+    '[FAIL]', '[OK]', '[START]', '[DONE]', '[RUN]', '[SKIP]',
+    '[URL]', '[POP]', '[LAT]', '[DET]', '[VID]',
+  };
+
+  (IconData?, Color?) _parse() {
+    if (line.contains('[FAIL]')) return (Icons.error_outline_rounded, cs.error);
+    if (line.contains('[OK]'))   return (Icons.check_circle_outline_rounded, Colors.green.shade700);
+    if (line.contains('[START]')) return (Icons.science_outlined, cs.primary);
+    if (line.contains('[DONE]')) return (Icons.flag_outlined, cs.secondary);
+    if (line.contains('[RUN]'))  return (Icons.timer_outlined, cs.primary);
+    if (line.contains('[SKIP]')) return (Icons.skip_next_rounded, cs.onSurfaceVariant.withOpacity(0.55));
+    if (line.contains('[URL]'))  return (Icons.link_rounded, cs.primary.withOpacity(0.75));
+    if (line.contains('[POP]'))  return (Icons.list_rounded, cs.onSurfaceVariant);
+    if (line.contains('[LAT]'))  return (Icons.update_rounded, cs.onSurfaceVariant);
+    if (line.contains('[DET]'))  return (Icons.info_outline_rounded, cs.onSurfaceVariant);
+    if (line.contains('[VID]'))  return (Icons.play_circle_outline_rounded, cs.onSurfaceVariant);
+    return (null, null);
+  }
+
+  String _clean() {
+    var s = line;
+    for (final tag in _tagPrefixes) {
+      s = s.replaceAll(tag, '');
+    }
+    return s.trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (line.isEmpty) return const SizedBox(height: 6);
-    Color? color;
-    if (line.contains('❌')) {
-      color = cs.error;
-    } else if (line.contains('✅') &&
-        !line.contains('📋') &&
-        !line.contains('🕐') &&
-        !line.contains('🔍') &&
-        !line.contains('▶') &&
-        !line.contains('📄')) {
-      color = Colors.green.shade700;
-    } else if (line.contains('⏱')) {
-      color = cs.primary;
-    } else if (line.contains('🏁')) {
-      color = cs.secondary;
-    } else if (line.contains('⏭')) {
-      color = cs.onSurfaceVariant.withOpacity(0.6);
-    }
-
+    final (icon, color) = _parse();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1.5),
-      child: Text(
-        line,
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 11.5,
-          color: color ?? cs.onSurfaceVariant,
-          fontWeight:
-              color != null ? FontWeight.w500 : FontWeight.normal,
-        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 16,
+            child: icon != null
+                ? Icon(icon, size: 12, color: color)
+                : null,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              _clean(),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11.5,
+                color: color ?? cs.onSurfaceVariant,
+                fontWeight: color != null ? FontWeight.w500 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -978,45 +1002,56 @@ class _StepChip extends StatelessWidget {
     required this.itemType,
   });
 
+  IconData get _stepIcon => switch (step) {
+        DiagStep.popular => Icons.list_rounded,
+        DiagStep.latest  => Icons.update_rounded,
+        DiagStep.detail  => Icons.info_outline_rounded,
+        DiagStep.media   => itemType == ItemType.anime
+            ? Icons.play_circle_outline_rounded
+            : Icons.description_rounded,
+      };
+
+  String get _stepName => switch (step) {
+        DiagStep.popular => 'Popular',
+        DiagStep.latest  => 'Latest',
+        DiagStep.detail  => 'Détail',
+        DiagStep.media   => itemType == ItemType.anime ? 'Vidéos' : 'Pages',
+      };
+
   @override
   Widget build(BuildContext context) {
     if (result == null) {
-      return _chip('…', cs.surfaceContainerHighest, cs.onSurfaceVariant);
+      return _chip(null, '…', cs.surfaceContainerHighest, cs.onSurfaceVariant);
     }
     final ok = result!.ok;
     final bg = ok
         ? Colors.green.withOpacity(0.12)
         : cs.errorContainer.withOpacity(0.5);
     final fg = ok ? Colors.green.shade700 : cs.onErrorContainer;
-    return _chip(_label(), bg, fg);
-  }
-
-  String _label() {
-    final emoji = switch (step) {
-      DiagStep.popular => '📋',
-      DiagStep.latest => '🕐',
-      DiagStep.detail => '🔍',
-      DiagStep.media => itemType == ItemType.anime ? '▶️' : '📄',
-    };
-    final name = switch (step) {
-      DiagStep.popular => 'Popular',
-      DiagStep.latest => 'Latest',
-      DiagStep.detail => 'Détail',
-      DiagStep.media => itemType == ItemType.anime ? 'Vidéos' : 'Pages',
-    };
-    final status = result!.ok ? '✓' : '✗';
     final count = result!.count != null ? ' ${result!.count}' : '';
-    return '$emoji $name $status$count · ${result!.ms}ms';
+    final label = '$_stepName$count · ${result!.ms}ms';
+    return _chip(ok ? Icons.check_rounded : Icons.close_rounded, label, bg, fg);
   }
 
-  Widget _chip(String label, Color bg, Color fg) {
+  Widget _chip(IconData? statusIcon, String label, Color bg, Color fg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 11, color: fg, fontWeight: FontWeight.w600)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_stepIcon, size: 11, color: fg),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, color: fg, fontWeight: FontWeight.w600)),
+          if (statusIcon != null) ...[
+            const SizedBox(width: 3),
+            Icon(statusIcon, size: 11, color: fg),
+          ],
+        ],
+      ),
     );
   }
 }
