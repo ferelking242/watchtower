@@ -431,18 +431,37 @@ Future<void> _updateSource(
   List<SourcePreference>? preferenceList;
   source.sourceCode = sourceCode;
   if (source.sourceCodeLanguage == SourceCodeLanguage.mihon) {
-    headers = await fetchHeadersDalvik(http, source, androidProxyServer);
-    supportLatest = await fetchSupportLatestDalvik(
-      http,
-      source,
-      androidProxyServer,
-    );
-    filterList = await fetchFilterListDalvik(http, source, androidProxyServer);
-    preferenceList = await fetchPreferencesDalvik(
-      http,
-      source,
-      androidProxyServer,
-    );
+    // Dalvik calls require ApkBridge at androidProxyServer.
+    // If it is not running we still save the extension (APK downloaded +
+    // isAdded = true) so it appears in Browse. Metadata will be populated
+    // the next time the user opens the extension with ApkBridge running.
+    try {
+      headers = await fetchHeadersDalvik(http, source, androidProxyServer);
+    } catch (e) {
+      AppLogger.log(
+        '_updateSource: fetchHeadersDalvik failed for "${source.name}" '
+        '(ApkBridge may not be running): $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.extension_,
+      );
+    }
+    try {
+      supportLatest = await fetchSupportLatestDalvik(
+        http,
+        source,
+        androidProxyServer,
+      );
+    } catch (_) {}
+    try {
+      filterList = await fetchFilterListDalvik(http, source, androidProxyServer);
+    } catch (_) {}
+    try {
+      preferenceList = await fetchPreferencesDalvik(
+        http,
+        source,
+        androidProxyServer,
+      );
+    } catch (_) {}
   } else {
     try {
       headers = await getIsolateService.get<Map<String, String>>(

@@ -72,11 +72,15 @@ package com.watchtower.app
                                   info.packageName.startsWith("eu.kanade.tachiyomi.extension.") ||
                                   info.packageName.startsWith("eu.kanade.tachiyomi.animeextension.")
                               }
-                              .map { info ->
-                                  mapOf(
-                                      "pkg" to info.packageName,
-                                      "versionName" to (info.versionName ?: "")
-                                  )
+                              .mapNotNull { info ->
+                                  try {
+                                      val appInfo = pm.getApplicationInfo(info.packageName, 0)
+                                      mapOf(
+                                          "pkg"         to info.packageName,
+                                          "versionName" to (info.versionName ?: ""),
+                                          "sourceDir"   to (appInfo.sourceDir ?: "")
+                                      )
+                                  } catch (_: Exception) { null }
                               }
                           result.success(mihonPkgs)
                       } catch (e: Exception) {

@@ -1,6 +1,7 @@
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/services/device_extension_sync.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -13,15 +14,17 @@ Future<void> fetchItemSourcesList(
   required bool reFresh,
   required ItemType itemType,
 }) async {
+  final androidProxyServer = ref.watch(androidProxyServerStateProvider);
+  final repos = ref.watch(extensionsRepoStateProvider(itemType));
+
   if (ref.watch(checkForExtensionsUpdateStateProvider) || reFresh) {
-    final repos = ref.watch(extensionsRepoStateProvider(itemType));
     for (Repo repo in repos) {
       try {
         await fetchSourcesList(
           repo: repo,
           refresh: reFresh,
           id: id,
-          androidProxyServer: ref.watch(androidProxyServerStateProvider),
+          androidProxyServer: androidProxyServer,
           autoUpdateExtensions: ref.watch(autoUpdateExtensionsStateProvider),
           itemType: itemType,
         );
@@ -35,5 +38,15 @@ Future<void> fetchItemSourcesList(
         );
       }
     }
+  }
+
+  // After the index is loaded, auto-install extensions that are already
+  // installed on the device via Mihon / Aniyomi (Android only).
+  // Only runs for full loads, not targeted single-extension installs.
+  if (id == null) {
+    await syncDeviceExtensions(
+      itemType: itemType,
+      androidProxyServer: androidProxyServer,
+    );
   }
 }

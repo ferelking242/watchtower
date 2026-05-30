@@ -5,6 +5,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/changed.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
@@ -226,6 +227,8 @@ class _ExtensionListTileWidgetState
     final lang = widget.source.sourceCodeLanguage;
     final isJs = lang == SourceCodeLanguage.javascript;
     final isDart = lang == SourceCodeLanguage.dart;
+    final isMihon = lang == SourceCodeLanguage.mihon;
+    final isAniyomi = isMihon && widget.source.itemType == ItemType.anime;
 
     return ListTile(
       onTap: _isLoading
@@ -336,6 +339,27 @@ class _ExtensionListTileWidgetState
                 child: const Text(
                   "JS",
                   style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          if (isMihon)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isAniyomi
+                      ? const Color(0xFF7B2FBE).withValues(alpha: 0.9)
+                      : Colors.indigo.shade600.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  isAniyomi ? 'ANIYOMI' : 'MIHON',
+                  style: const TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
