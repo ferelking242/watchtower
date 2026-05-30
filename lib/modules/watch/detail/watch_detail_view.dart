@@ -274,13 +274,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           const _LoadingBannerPulse(),
 
         // Top shadow uniquement pour lisibilité des contrôles — bord bas net
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              stops: [0.0, 0.40],
-              colors: [Color(0xAA000000), Colors.transparent],
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0.0, 0.40],
+                colors: [Color(0xAA000000), Colors.transparent],
+              ),
             ),
           ),
         ),
@@ -725,7 +727,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final genres =
         (widget.manga.genre ?? []).map((g) => g.toLowerCase().trim()).toList();
     if (genres.contains('film') || genres.contains('movie')) return true;
-    if (chapters.length == 1) return true;
     return false;
   }
 
@@ -1705,7 +1706,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   @override
   Widget build(BuildContext context) {
     final displayed = _displayChapters;
-    final maxH = MediaQuery.of(context).size.height * 0.88;
+    final screen  = MediaQuery.of(context).size.height;
+    final statusH = MediaQuery.of(context).padding.top;
+    final maxH    = screen - 230 - statusH; // never overlap the player
     final langs = _langs;
     final seasons = _seasons;
     final qualities = _qualities;
