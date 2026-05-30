@@ -18,6 +18,7 @@ import 'package:watchtower/services/download_manager/active_download_registry.da
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
@@ -318,14 +319,11 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     });
   }
 
-  /// Open: navigate to the manga/anime detail page
+  /// Open: directly launch the reader/player for the downloaded chapter
   void _openDownload(Download element, BuildContext context) {
-    final manga = element.chapter.value?.manga.value;
-    if (manga?.id == null) return;
-    Navigator.of(context).pushNamed(
-      '/manga-detail',
-      arguments: manga,
-    );
+    final chapter = element.chapter.value;
+    if (chapter == null) return;
+    chapter.pushToReaderView(context, ignoreIsRead: true);
   }
 
   void _retryDownload(

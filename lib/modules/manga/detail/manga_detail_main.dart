@@ -82,6 +82,25 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
                 .watch(fireImmediately: true),
             builder: (context, snapshot) {
               final sourceExist = snapshot.hasData && snapshot.data!.isNotEmpty;
+
+              // Cross-check the source's declared itemType (prevents manga-type
+              // extensions from opening in WatchDetailView due to a stale DB entry).
+              final sourceForType = isar.sources
+                  .filter()
+                  .nameContains(manga.source!, caseSensitive: false)
+                  .findFirstSync();
+              final effectiveType = sourceForType?.itemType ?? manga.itemType;
+
+              // Silently correct the stored type if it disagrees with the source
+              if (sourceForType != null &&
+                  sourceForType.itemType != manga.itemType) {
+                isar.writeTxnSync(() {
+                  isar.mangas.putSync(
+                    manga..itemType = sourceForType.itemType,
+                  );
+                });
+              }
+
               return RefreshIndicator(
                 onRefresh: () async {
                   if (sourceExist && !_isLoading) {
@@ -93,7 +112,7 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
                     );
                   }
                 },
-                child: manga.itemType == ItemType.anime
+                child: effectiveType == ItemType.anime
                     ? WatchDetailView(
                         manga: manga,
                         sourceExist: sourceExist,

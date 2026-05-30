@@ -2,8 +2,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -810,9 +812,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Header: "Ressources   Ajouté par [icon] [name]  [?]" ─────────────
+        // ── Header: [icon] Ressources ······ [ext_icon] [ext_name] [⋮] ─────────
         Row(
           children: [
+            Icon(Icons.video_library_outlined,
+                size: 16, color: _textPrimary),
+            const SizedBox(width: 6),
             Text(
               'Ressources',
               style: TextStyle(
@@ -820,14 +825,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   fontSize: 15,
                   fontWeight: FontWeight.w600),
             ),
+            const Spacer(),
             if (source != null) ...[
-              const SizedBox(width: 10),
-              Text(
-                'Ajouté par',
-                style: TextStyle(color: _grey, fontSize: 12),
-              ),
-              const SizedBox(width: 5),
-              // Extension icon
+              // Extension icon (extreme right, before options btn)
               if ((source.iconUrl ?? '').isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
@@ -839,7 +839,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   ),
                 ),
               const SizedBox(width: 4),
-              // Extension name
               Text(
                 source.name ?? '',
                 style: TextStyle(
@@ -847,14 +846,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     fontSize: 12,
                     fontWeight: FontWeight.w500),
               ),
-              const SizedBox(width: 6),
-              // Help icon
-              GestureDetector(
-                onTap: () => _showOptionsSheet(context, chapters),
-                child: Icon(Icons.help_outline_rounded,
-                    size: 15, color: _grey),
-              ),
+              const SizedBox(width: 8),
             ],
+            GestureDetector(
+              onTap: () => _showOptionsSheet(context, chapters),
+              child: Icon(Icons.more_vert_rounded, size: 20, color: _grey),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -1437,6 +1434,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             _detailRow(Icons.language_rounded,
                 (manga.lang ?? '').toUpperCase()),
           ],
+          const SizedBox(height: 20),
+          Divider(color: _faint, thickness: 0.8),
         ],
       ),
     );
@@ -1635,7 +1634,24 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── OPTIONS SHEET ──────────────────────────────────────────────────────────
 
+  Future<void> _openInBrowser() async {
+    final source = getSource(
+        widget.manga.lang ?? '',
+        widget.manga.source ?? '',
+        widget.manga.sourceId);
+    if (source == null || (widget.manga.link ?? '').isEmpty) return;
+    final raw = '${source.baseUrl}${widget.manga.link!.getUrlWithoutDomain}';
+    final uri = Uri.tryParse(raw);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   void _showOptionsSheet(BuildContext ctx, List<Chapter> chapters) {
+    final source = getSource(
+        widget.manga.lang ?? '',
+        widget.manga.source ?? '',
+        widget.manga.sourceId);
     showModalBottomSheet(
       context: ctx,
       backgroundColor: _surface,
@@ -1661,6 +1677,25 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 widget.checkForUpdate(true);
               },
             ),
+            ListTile(
+              leading: Icon(Icons.open_in_browser_outlined, color: _grey),
+              title: Text('Ouvrir dans le navigateur',
+                  style: TextStyle(color: _textPrimary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openInBrowser();
+              },
+            ),
+            if (source != null)
+              ListTile(
+                leading: Icon(Icons.settings_outlined, color: _grey),
+                title: Text("Paramètres de l'extension",
+                    style: TextStyle(color: _textPrimary)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ctx.pushNamed('extension_detail', extra: source);
+                },
+              ),
             ListTile(
               leading: Icon(Icons.share, color: _grey),
               title: Text('Partager',

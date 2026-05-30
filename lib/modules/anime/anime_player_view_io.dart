@@ -149,21 +149,33 @@ class _AnimePlayerViewState extends riv.ConsumerState<AnimePlayerView> {
       loading: () {
         return Scaffold(
           backgroundColor: Colors.black,
-          extendBodyBehindAppBar: true,
-          appBar: AppBar(
-            title: const Text(''),
-            leading: BackButton(
-              color: Colors.white,
-              onPressed: () {
-                SystemChrome.setEnabledSystemUIMode(
-                  SystemUiMode.manual,
-                  overlays: SystemUiOverlay.values,
-                );
-                Navigator.pop(context);
-              },
-            ),
+          body: Stack(
+            children: [
+              const Center(child: ProgressCenter()),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back,
+                            color: Colors.white),
+                        onPressed: () {
+                          SystemChrome.setEnabledSystemUIMode(
+                            SystemUiMode.manual,
+                            overlays: SystemUiOverlay.values,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          body: const ProgressCenter(),
         );
       },
     );

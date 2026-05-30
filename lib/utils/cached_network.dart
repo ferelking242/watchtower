@@ -35,6 +35,9 @@ Widget cachedNetworkImage({
     mode: ExtendedImageMode.none,
     handleLoadingProgress: true,
     loadStateChanged: (state) {
+      if (state.extendedImageLoadState == LoadState.loading) {
+        return const _SkeletonShimmer();
+      }
       if (state.extendedImageLoadState == LoadState.failed) {
         return errorWidget;
       }
@@ -80,10 +83,55 @@ Widget cachedCompressedNetworkImage({
     handleLoadingProgress: true,
     clearMemoryCacheWhenDispose: true,
     loadStateChanged: (state) {
+      if (state.extendedImageLoadState == LoadState.loading) {
+        return const _SkeletonShimmer();
+      }
       if (state.extendedImageLoadState == LoadState.failed) {
         return errorWidget;
       }
       return null;
     },
   );
+}
+
+class _SkeletonShimmer extends StatefulWidget {
+  const _SkeletonShimmer();
+
+  @override
+  State<_SkeletonShimmer> createState() => _SkeletonShimmerState();
+}
+
+class _SkeletonShimmerState extends State<_SkeletonShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  static const _dark = Color(0xFF1A1A2E);
+  static const _light = Color(0xFF3A3A5C);
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        color: Color.lerp(_dark, _light, _anim.value),
+      ),
+    );
+  }
 }
