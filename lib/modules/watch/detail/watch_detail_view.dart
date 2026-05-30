@@ -271,13 +271,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         _player.buildBannerOverlay(context: context, chapters: chapters),
 
         if (!_player.hasVideoUrl && chapters.isNotEmpty)
-          const Center(
-            child: SizedBox(
-              width: 34, height: 34,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2.5, color: Colors.white),
-            ),
-          ),
+          const _LoadingBannerPulse(),
 
         // Top shadow uniquement pour lisibilité des contrôles — bord bas net
         const DecoratedBox(
@@ -2099,4 +2093,71 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_TabBarDelegate old) =>
       old.tabBar != tabBar || old.color != color;
+}
+
+// ─── Pulsing loading overlay for the banner ────────────────────────────────────
+
+class _LoadingBannerPulse extends StatefulWidget {
+  const _LoadingBannerPulse();
+
+  @override
+  State<_LoadingBannerPulse> createState() => _LoadingBannerPulseState();
+}
+
+class _LoadingBannerPulseState extends State<_LoadingBannerPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.15, end: 0.42).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        color: Colors.black.withValues(alpha: _anim.value),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Chargement…',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.70),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
