@@ -74,7 +74,9 @@ Future<void> syncExtensions({
   final notInstalled = await isar.sources
       .filter()
       .itemTypeEqualTo(itemType)
+      .and()
       .isAddedEqualTo(false)
+      .and()
       .sourceCodeLanguageEqualTo(SourceCodeLanguage.mihon)
       .findAll();
 

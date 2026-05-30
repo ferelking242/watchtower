@@ -81,6 +81,7 @@ Future<void> _handleInstalled(_ExtEvent e) async {
   final matches = await isar.sources
       .filter()
       .isAddedEqualTo(false)
+      .and()
       .sourceCodeLanguageEqualTo(SourceCodeLanguage.mihon)
       .findAll();
 
@@ -131,6 +132,7 @@ Future<void> _handleRemoved(String pkg) async {
   final installed = await isar.sources
       .filter()
       .isAddedEqualTo(true)
+      .and()
       .sourceCodeLanguageEqualTo(SourceCodeLanguage.mihon)
       .findAll();
 
