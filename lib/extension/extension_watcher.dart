@@ -78,12 +78,12 @@ Future<void> _handleInstalled(_ExtEvent e) async {
   if (e.sourceDir.isEmpty) return;
 
   // Find matching source in DB (any itemType, since we don't know upfront)
-  final matches = await isar.sources
+  final matches = isar.sources
       .filter()
       .isAddedEqualTo(false)
-      .and()
-      .sourceCodeLanguageEqualTo(SourceCodeLanguage.mihon)
-      .findAll();
+      .findAllSync()
+      .where((s) => s.sourceCodeLanguage == SourceCodeLanguage.mihon)
+      .toList();
 
   final suffix = e.pkg
       .replaceFirst('eu.kanade.tachiyomi.animeextension.', '')
@@ -129,12 +129,12 @@ Future<void> _handleRemoved(String pkg) async {
       .replaceFirst('eu.kanade.tachiyomi.animeextension.', '')
       .replaceFirst('eu.kanade.tachiyomi.extension.', '');
 
-  final installed = await isar.sources
+  final installed = isar.sources
       .filter()
       .isAddedEqualTo(true)
-      .and()
-      .sourceCodeLanguageEqualTo(SourceCodeLanguage.mihon)
-      .findAll();
+      .findAllSync()
+      .where((s) => s.sourceCodeLanguage == SourceCodeLanguage.mihon)
+      .toList();
 
   final toUpdate = <Source>[];
   for (final s in installed) {

@@ -71,14 +71,15 @@ Future<void> syncExtensions({
   );
 
   // ── 2. Match against DB sources that are not yet installed ─────────────
-  final notInstalled = await isar.sources
+  // isar_community 3.3.2: use .findAllSync() with max 2 chained conditions;
+  // filter the third condition in Dart (avoids unsupported .and()/.findAll() combos).
+  final notInstalled = isar.sources
       .filter()
       .itemTypeEqualTo(itemType)
-      .and()
       .isAddedEqualTo(false)
-      .and()
-      .sourceCodeLanguageEqualTo(SourceCodeLanguage.mihon)
-      .findAll();
+      .findAllSync()
+      .where((s) => s.sourceCodeLanguage == SourceCodeLanguage.mihon)
+      .toList();
 
   // Build suffix→sourceDir lookup once
   // pkg: eu.kanade.tachiyomi.extension.en.cubari      → suffix en.cubari
