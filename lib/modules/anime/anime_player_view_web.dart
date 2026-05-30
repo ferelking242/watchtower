@@ -134,12 +134,42 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
   Widget _buildTopBar() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).pop(),
+            // Bouton retour "<" collé au lecteur
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => Navigator.of(context).pop(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  child: const Icon(Icons.chevron_left,
+                      color: Colors.white, size: 28),
+                ),
+              ),
+            ),
+            // Bouton Aide — collé directement après "<"
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {},
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 8),
+                  child: const Text(
+                    'Aide',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             Expanded(
@@ -153,11 +183,6 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.help_outline, color: Colors.white, size: 20),
-              onPressed: () {},
-              tooltip: 'Aide',
             ),
             IconButton(
               icon: const Icon(Icons.settings_outlined,

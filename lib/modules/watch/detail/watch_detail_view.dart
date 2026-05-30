@@ -368,6 +368,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final author = widget.manga.author?.trim() ?? '';
     if (author.isNotEmpty) parts.add(author);
 
+    // Language/country code
+    final lang = widget.manga.lang?.trim().toUpperCase() ?? '';
+    if (lang.isNotEmpty) parts.add(lang);
+
     // First genre that isn't "film"/"movie"/"serie"
     final typeGenre = (widget.manga.genre ?? [])
         .where((g) {
@@ -378,36 +382,36 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         .firstOrNull;
     if (typeGenre != null && typeGenre.isNotEmpty) parts.add(typeGenre);
 
+    // Seasons count for series
+    if (!isMovie) {
+      final seasons = _detectSeasons(chapters);
+      if (seasons.isNotEmpty) {
+        parts.add('${seasons.length} saison${seasons.length > 1 ? 's' : ''}');
+      }
+    } else {
+      parts.add('Film');
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // SVG icon — coloured with secondary text colour
         SvgPicture.string(
           _kFilmSvg,
           width: 14,
           height: 14,
           colorFilter: ColorFilter.mode(_grey, BlendMode.srcIn),
         ),
-        if (parts.isNotEmpty) ...[
-          const SizedBox(width: 7),
-          // ★ star
-          const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
-          const SizedBox(width: 3),
-          Expanded(
-            child: Text(
-              parts.join('  |  '),
-              style: TextStyle(color: _grey, fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ] else ...[
-          const SizedBox(width: 6),
-          Text(
-            isMovie ? 'Film' : 'Série',
+        const SizedBox(width: 7),
+        const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
+        const SizedBox(width: 3),
+        Expanded(
+          child: Text(
+            parts.join('  |  '),
             style: TextStyle(color: _grey, fontSize: 12),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
+        ),
       ],
     );
   }
@@ -840,103 +844,144 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
         const SizedBox(height: 12),
 
-        // ── Language selector (only if multiple languages) ────────────────────
-        if (languages.length > 1) ...[
-          _buildSelectorRow(
-            icon: Icons.language_outlined,
-            items: languages,
-            selected: _selectedLanguage,
-            onSelected: (v) =>
-                setState(() => _selectedLanguage = v),
+        // ── Dropdown pills row (MovieBox style) ──────────────────────────────
+        if (languages.isNotEmpty || (!isMovie && seasons.length > 1)) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (languages.isNotEmpty)
+                  _buildDropdownPill(
+                    label: _selectedLanguage ?? languages.first,
+                    items: languages,
+                    onSelect: (v) => setState(() => _selectedLanguage = v),
+                  ),
+                if (languages.isNotEmpty && !isMovie && seasons.length > 1)
+                  const SizedBox(width: 8),
+                if (!isMovie && seasons.length > 1)
+                  _buildDropdownPill(
+                    label: _selectedSeason ?? seasons.first,
+                    items: seasons,
+                    onSelect: (v) => setState(() => _selectedSeason = v),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-        ],
-
-        // ── Season selector ───────────────────────────────────────────────────
-        if (!isMovie && seasons.length > 1) ...[
-          _buildSelectorRow(
-            icon: Icons.layers_outlined,
-            items: seasons,
-            selected: _selectedSeason,
-            onSelected: (v) =>
-                setState(() => _selectedSeason = v),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
         ],
 
         // ── Content ───────────────────────────────────────────────────────────
         if (chapters.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Column(
-                children: [
-                  Icon(Icons.video_library_outlined,
-                      color: _grey, size: 40),
-                  const SizedBox(height: 8),
-                  Text('Aucun épisode disponible',
-                      style: TextStyle(color: _grey)),
-                ],
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              children: [
+                Icon(Icons.video_library_outlined, color: _grey, size: 40),
+                const SizedBox(height: 8),
+                Text('Aucun épisode disponible',
+                    style: TextStyle(color: _grey)),
+              ],
             ),
           )
         else if (isMovie)
-          _buildMovieBox(
-              filtered.isNotEmpty ? filtered.first : chapters.first)
+          _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
         else
-          _buildEpisodeGrid(filtered),
+          _buildEpisodeStrip(filtered),
       ],
     );
   }
 
-  Widget _buildSelectorRow({
-    required IconData icon,
+  // ── Dropdown pill (MovieBox style: "French dub ▼") ───────────────────────────
+  Widget _buildDropdownPill({
+    required String label,
     required List<String> items,
-    required String? selected,
-    required void Function(String?) onSelected,
+    required void Function(String) onSelect,
   }) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          Icon(icon, color: _grey, size: 16),
-          const SizedBox(width: 8),
-          ...items.map((item) {
-            final isSel = selected == item;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => onSelected(isSel ? null : item),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isSel
-                        ? _accent.withValues(alpha: 0.12)
-                        : _card,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSel ? _accent : _faint,
-                      width: isSel ? 1.2 : 0.8,
-                    ),
-                  ),
-                  child: Text(
-                    item,
-                    style: TextStyle(
-                      color: isSel ? _accent : _onSurface.withValues(alpha: 0.7),
-                      fontSize: 13,
-                      fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
+    return GestureDetector(
+      onTap: () => _showDropdownSheet(items, onSelect),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _faint, width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                  color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
+          ],
+        ),
       ),
     );
   }
+
+  void _showDropdownSheet(List<String> items, void Function(String) onSelect) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _faint,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ...items.map((item) {
+                final isSel = item == _selectedLanguage || item == _selectedSeason;
+                return InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onSelect(item);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 15),
+                    child: Row(
+                      children: [
+                        Text(
+                          item,
+                          style: TextStyle(
+                            color: isSel ? _accent : _textPrimary,
+                            fontSize: 15,
+                            fontWeight: isSel
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (isSel)
+                          Icon(Icons.check_rounded, color: _accent, size: 18),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // _buildSelectorRow replaced by _buildDropdownPill + _showDropdownSheet above
 
   // ─── MOVIE BOX — small rectangle, title only ─────────────────────────────────
 
@@ -973,55 +1018,92 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // ─── EPISODE GRID ───────────────────────────────────────────────────────────
+  // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
 
-  Widget _buildEpisodeGrid(List<Chapter> chapters) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: List.generate(chapters.length, (i) {
-        final chapter = chapters[i];
-        final watched = chapter.isRead ?? false;
-        final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
-        final epNum = numMatch != null
-            ? (int.tryParse(numMatch.group(0)!) ?? (i + 1))
-            : (i + 1);
-        final label = epNum.toString().padLeft(2, '0');
+  Widget _buildEpisodeStrip(List<Chapter> chapters) {
+    return SizedBox(
+      height: 72,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: chapters.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedSeason = null;
+                    _selectedLanguage = null;
+                  }),
+                  child: Text(
+                    'Tous',
+                    style: TextStyle(
+                      color: _textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+          final chapter = chapters[index - 1];
+          final watched = chapter.isRead ?? false;
+          final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
+          final epNum = numMatch != null
+              ? (int.tryParse(numMatch.group(0)!) ?? index)
+              : index;
+          final label = epNum.toString().padLeft(2, '0');
 
-        return GestureDetector(
-          onTap: () =>
-              chapter.pushToReaderView(context, ignoreIsRead: true),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 52,
-            height: 40,
-            decoration: BoxDecoration(
-              color: watched
-                  ? _card
-                  : _accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: watched
-                    ? _faint
-                    : _accent.withValues(alpha: 0.50),
-                width: 1,
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () =>
+                  chapter.pushToReaderView(context, ignoreIsRead: true),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.download_outlined,
+                    size: 11,
+                    color: watched ? _faint : _grey,
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 48,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: watched
+                          ? _card
+                          : _accent.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: watched
+                            ? _faint
+                            : _accent.withValues(alpha: 0.50),
+                        width: 1,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: watched ? _grey : _textPrimary,
+                        fontSize: 13,
+                        fontWeight: watched
+                            ? FontWeight.normal
+                            : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: watched
-                    ? _grey
-                    : _textPrimary,
-                fontSize: 13,
-                fontWeight:
-                    watched ? FontWeight.normal : FontWeight.w600,
-              ),
-            ),
-          ),
-        );
-      }),
+          );
+        },
+      ),
     );
   }
 
