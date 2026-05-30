@@ -327,7 +327,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       if (!mounted) return;
       if (widget.seekingNotifier.value) return; // seek overlay handled separately
       if (buffering) {
-        final buffered = widget.player.state.buffered;
+        final buffered = widget.player.state.buffer;
         final duration = widget.player.state.duration;
         final pct = duration.inMilliseconds > 0
             ? (buffered.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
