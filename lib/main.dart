@@ -58,8 +58,6 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart'
-    if (dart.library.js_interop) 'package:watchtower/utils/shorebird_stub.dart';
 
 late Isar isar;
 DiscordRPC? discordRpc;
@@ -207,11 +205,6 @@ void main(List<String> args) async {
 
 Future<void> _postLaunchInit(StorageProvider storage) async {
   await AppLogger.init();
-  // Silently check for a Shorebird OTA patch in the background (Android only).
-  // The patch downloads and applies on the next app restart — no UI disruption.
-  if (!kIsWeb && Platform.isAndroid) {
-    unawaited(_checkForShorebirdPatch());
-  }
   if (!kIsWeb) {
     unawaited(MDownloader.initializeIsolatePool(poolSize: 6));
   }
@@ -231,35 +224,6 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
       if (!needsOnboarding) {
         unawaited(BypassNotificationService.instance.init());
       }
-  }
-}
-
-/// Checks for a Shorebird OTA patch and downloads it silently.
-/// Called once per app launch, errors never crash the app.
-Future<void> _checkForShorebirdPatch() async {
-  try {
-    final updater = ShorebirdUpdater();
-    final status = await updater.checkForUpdate();
-    AppLogger.log(
-      'Shorebird: update status = $status',
-      tag: LogTag.extension_,
-    );
-    if (status == UpdateStatus.outdated) {
-      AppLogger.log('Shorebird: patch available, downloading...', tag: LogTag.extension_);
-      await updater.update();
-      AppLogger.log(
-        'Shorebird: patch downloaded — will apply on next launch',
-        tag: LogTag.extension_,
-      );
-    }
-  } catch (e) {
-    // Network unavailable, Shorebird not yet initialized, etc.
-    // This is best-effort: never block the app for an optional update.
-    AppLogger.log(
-      'Shorebird: update check skipped ($e)',
-      logLevel: LogLevel.warning,
-      tag: LogTag.extension_,
-    );
   }
 }
 
