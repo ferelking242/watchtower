@@ -1,6 +1,6 @@
 // ignore_for_file: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
-import 'dart:ui' as ui;
+import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,7 +70,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
 
     _video!.onLoadedMetadata.listen((_) {
       if (mounted) setState(() {
-        _duration = _video!.duration.isNaN ? 1.0 : _video!.duration;
+        _duration = _video!.duration.isNaN ? 1.0 : _video!.duration.toDouble();
         _videoReady = true;
       });
     });
@@ -88,8 +88,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
       if (mounted) setState(() => _isPlaying = false);
     });
 
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(_viewType, (_) => _video!);
+    ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) => _video!);
 
     if (mounted) setState(() {});
   }
