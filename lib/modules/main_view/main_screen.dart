@@ -335,16 +335,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           // not toggle visibility.
                           if (n.metrics.axis != Axis.vertical) return false;
                           final hidden = ref.read(dockHiddenProvider);
+                          final atTop = n.metrics.pixels <= n.metrics.minScrollExtent;
+                          // Only hide when actually scrolling down AND not already at the top.
+                          // This prevents the dock from hiding when there isn't enough content
+                          // to scroll back up — which would leave it stuck hidden forever.
                           if (n.direction == ScrollDirection.reverse &&
-                              !hidden) {
+                              !hidden &&
+                              !atTop) {
                             ref.read(dockHiddenProvider.notifier).set(true);
-                          } else if (n.direction == ScrollDirection.forward &&
-                              hidden) {
-                            ref.read(dockHiddenProvider.notifier).set(false);
-                          } else if (n.direction == ScrollDirection.idle &&
-                              n.metrics.pixels <= 0 &&
-                              hidden) {
-                            // Reveal again when bouncing back to the top.
+                          } else if (hidden &&
+                              (n.direction == ScrollDirection.forward || atTop)) {
+                            // Reveal when scrolling up OR when we're already at the top
+                            // (covers the case where there's not enough content to scroll).
                             ref.read(dockHiddenProvider.notifier).set(false);
                           }
                           return false;

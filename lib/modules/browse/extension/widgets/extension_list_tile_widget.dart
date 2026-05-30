@@ -157,43 +157,44 @@ class _ExtensionListTileWidgetState
   Widget _buildTrailingButton(BuildContext context, String label) {
     final isInstall = label == context.l10n.install;
     final isUpdate = label == context.l10n.update;
-    return _isLoading
-        ? const SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.0),
-          )
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                splashRadius: 20,
-                onPressed: _isLoading
-                    ? null
-                    : () {
-                        if (!_updateAvailable && _sourceNotEmpty) {
-                          context.push(
-                            '/extension_detail',
-                            extra: widget.source,
-                          );
-                        } else {
-                          _handleSourceFetch();
-                        }
-                      },
-                icon: Icon(
-                  isInstall
-                      ? Icons.download_outlined
-                      : isUpdate
-                      ? Icons.system_update_alt_outlined
-                      : Icons.settings_outlined,
-                  size: 22,
-                ),
-              ),
-            ],
-          );
+    if (_isLoading) {
+      return const SizedBox(
+        height: 20,
+        width: 20,
+        child: CircularProgressIndicator(strokeWidth: 2.0),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Gear icon — always visible for installed extensions
+        if (_sourceNotEmpty)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            splashRadius: 20,
+            tooltip: context.l10n.settings,
+            onPressed: () => context.push('/extension_detail', extra: widget.source),
+            icon: const Icon(Icons.settings_outlined, size: 22),
+          ),
+        // Install / Update button (hidden once installed with no update)
+        if (isInstall || isUpdate)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            splashRadius: 20,
+            onPressed: _isLoading ? null : _handleSourceFetch,
+            icon: Icon(
+              isInstall
+                  ? Icons.download_outlined
+                  : Icons.system_update_alt_outlined,
+              size: 22,
+            ),
+          ),
+      ],
+    );
   }
 
   @override

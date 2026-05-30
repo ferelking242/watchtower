@@ -632,6 +632,8 @@ Future<void> downloadChapter(
         connectivity.contains(ConnectivityResult.ethernet);
     if (onlyOnWifi && !isOnWifi) {
       botToast(navigatorKey.currentContext!.l10n.downloads_are_limited_to_wifi);
+      callback?.call();
+      keepAlive.close();
       return;
     }
 
@@ -1346,11 +1348,12 @@ Future<void> downloadChapter(
       }
     }
 
-    if (callback != null) {
-      callback();
-    }
+    callback?.call();
     keepAlive.close();
   } catch (_) {
+    // Always fire the callback even on error so processDownloads can unblock
+    // its slot counter and exit cleanly instead of looping forever.
+    callback?.call();
     keepAlive.close();
   } finally {
     // Cancel the periodic Timer no matter how we exit, so a failed
