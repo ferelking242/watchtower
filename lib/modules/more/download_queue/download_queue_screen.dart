@@ -152,6 +152,14 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               ),
             ],
           ),
+          floatingActionButton: FloatingActionButton(
+            heroTag: 'dlq_manage',
+            onPressed: () => _showGererSheet(context, entries, ref),
+            backgroundColor: scheme.primaryContainer,
+            foregroundColor: scheme.onPrimaryContainer,
+            elevation: 3,
+            child: const Icon(Icons.tune_rounded, size: 22),
+          ),
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -165,20 +173,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                         watchCount: watchEntries.length,
                         mangaCount: mangaEntries.length,
                         novelCount: novelEntries.length,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _showGererSheet(context, entries, ref),
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 8, right: 4),
-                        child: Text(
-                          'Gérer',
-                          style: TextStyle(
-                            color: scheme.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -449,74 +443,598 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
 
   void _showGererSheet(
       BuildContext context, List<Download> entries, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
-      backgroundColor: scheme.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GererSheet(entries: entries, parentRef: ref),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Gérer Sheet — rich settings bottom sheet
+// ──────────────────────────────────────────────────────────────
+
+class _GererSheet extends ConsumerStatefulWidget {
+  final List<Download> entries;
+  final WidgetRef parentRef;
+  const _GererSheet({required this.entries, required this.parentRef});
+
+  @override
+  ConsumerState<_GererSheet> createState() => _GererSheetState();
+}
+
+class _GererSheetState extends ConsumerState<_GererSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final entries = widget.entries;
+
+    final watchTotal = ref.watch(watchSimultaneousStateProvider);
+    final mangaTotal = ref.watch(mangaSimultaneousStateProvider);
+    final novelTotal = ref.watch(novelSimultaneousStateProvider);
+    final watchPerSrc = ref.watch(watchSimultaneousPerSourceStateProvider);
+    final mangaPerSrc = ref.watch(mangaSimultaneousPerSourceStateProvider);
+    final novelPerSrc = ref.watch(novelSimultaneousPerSourceStateProvider);
+    final layout = ref.watch(downloadCardLayoutStateProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (ctx, scrollCtrl) => Column(
           children: [
+            // ── Drag handle ──
             Container(
               width: 40,
               height: 4,
-              margin: const EdgeInsets.only(top: 10, bottom: 8),
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
               decoration: BoxDecoration(
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            _sheetTile(
-              label: 'Tout mettre en pause',
-              textColor: scheme.onSurface,
-              onTap: () {
-                Navigator.pop(context);
-                final ids = entries.map((e) => e.id ?? -1).toList();
-                ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
-              },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, size: 18, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Gérer les téléchargements',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
             ),
             Divider(height: 1, color: scheme.outlineVariant),
-            _sheetTile(
-              label: 'Télécharger en arrière-plan',
-              textColor: scheme.onSurface,
-              onTap: () {
-                Navigator.pop(context);
-                botToast('Téléchargement en arrière-plan activé');
-              },
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                children: [
+
+                  // ── Actions rapides ──────────────────────────────────────
+                  _SheetSection(label: 'Actions rapides', scheme: scheme),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _ActionBtn(
+                        icon: Icons.play_arrow_rounded,
+                        label: 'Démarrer\ntout',
+                        color: scheme.primary,
+                        onTap: () {
+                          Navigator.pop(context);
+                          widget.parentRef.read(downloadQueueStateProvider.notifier).resumeAll();
+                          widget.parentRef.read(processDownloadsProvider());
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _ActionBtn(
+                        icon: Icons.pause_rounded,
+                        label: 'Pause\ntout',
+                        color: Colors.orange,
+                        onTap: () {
+                          Navigator.pop(context);
+                          final ids = entries.map((e) => e.id ?? -1).toList();
+                          widget.parentRef.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _ActionBtn(
+                        icon: Icons.stop_rounded,
+                        label: 'Arrêter\ntout',
+                        color: Colors.redAccent,
+                        onTap: () {
+                          Navigator.pop(context);
+                          for (final e in entries) {
+                            if (e.id != null) ActiveDownloadRegistry.cancel(e.id!);
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _ActionBtn(
+                        icon: Icons.replay_rounded,
+                        label: 'Réessayer\néchecs',
+                        color: scheme.secondary,
+                        onTap: () {
+                          Navigator.pop(context);
+                          for (final e in entries) {
+                            if ((e.failed ?? 0) > 0 && e.chapter.value != null) {
+                              widget.parentRef.read(downloadQueueStateProvider.notifier).incrementRetry(e.id ?? -1);
+                              widget.parentRef.read(downloadChapterProvider(chapter: e.chapter.value!));
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ── Simultanés par type ──────────────────────────────────
+                  _SheetSection(label: 'Téléchargements simultanés', scheme: scheme),
+                  const SizedBox(height: 10),
+
+                  _SimultaneousRow(
+                    icon: Icons.play_circle_outline,
+                    label: 'Watch',
+                    iconColor: scheme.primary,
+                    total: watchTotal,
+                    perSource: watchPerSrc,
+                    maxTotal: 10,
+                    maxPerSource: 5,
+                    onTotalChanged: (v) => ref.read(watchSimultaneousStateProvider.notifier).set(v),
+                    onPerSourceChanged: (v) => ref.read(watchSimultaneousPerSourceStateProvider.notifier).set(v),
+                    scheme: scheme,
+                  ),
+                  const SizedBox(height: 8),
+                  _SimultaneousRow(
+                    icon: Icons.menu_book_outlined,
+                    label: 'Manga',
+                    iconColor: scheme.secondary,
+                    total: mangaTotal,
+                    perSource: mangaPerSrc,
+                    maxTotal: 10,
+                    maxPerSource: 5,
+                    onTotalChanged: (v) => ref.read(mangaSimultaneousStateProvider.notifier).set(v),
+                    onPerSourceChanged: (v) => ref.read(mangaSimultaneousPerSourceStateProvider.notifier).set(v),
+                    scheme: scheme,
+                  ),
+                  const SizedBox(height: 8),
+                  _SimultaneousRow(
+                    icon: Icons.auto_stories_outlined,
+                    label: 'Roman',
+                    iconColor: scheme.tertiary,
+                    total: novelTotal,
+                    perSource: novelPerSrc,
+                    maxTotal: 10,
+                    maxPerSource: 5,
+                    onTotalChanged: (v) => ref.read(novelSimultaneousStateProvider.notifier).set(v),
+                    onPerSourceChanged: (v) => ref.read(novelSimultaneousPerSourceStateProvider.notifier).set(v),
+                    scheme: scheme,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ── Disposition des cartes ───────────────────────────────
+                  _SheetSection(label: 'Disposition des cartes', scheme: scheme),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: DownloadCardLayout.values.map((l) {
+                      final selected = layout == l;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: GestureDetector(
+                            onTap: () => ref.read(downloadCardLayoutStateProvider.notifier).set(l),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? scheme.primary.withValues(alpha: 0.15)
+                                    : scheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selected
+                                      ? scheme.primary
+                                      : scheme.outlineVariant,
+                                  width: selected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(l.icon,
+                                      size: 20,
+                                      color: selected ? scheme.primary : scheme.onSurfaceVariant),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l.label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                                      color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ── Options ─────────────────────────────────────────────
+                  _SheetSection(label: 'Options', scheme: scheme),
+                  const SizedBox(height: 6),
+                  _OptionTile(
+                    icon: Icons.cloud_sync_outlined,
+                    label: 'Arrière-plan',
+                    subtitle: 'Continuer même app fermée',
+                    scheme: scheme,
+                    onTap: () => botToast('Téléchargement en arrière-plan activé'),
+                  ),
+                  _OptionTile(
+                    icon: Icons.delete_sweep_outlined,
+                    label: 'Effacer les terminés',
+                    subtitle: 'Retirer de la file les éléments finis',
+                    scheme: scheme,
+                    isDestructive: true,
+                    onTap: () {
+                      Navigator.pop(context);
+                      isar.writeTxnSync(() {
+                        final completed = isar.downloads
+                            .filter()
+                            .isDownloadEqualTo(true)
+                            .findAllSync();
+                        for (final d in completed) {
+                          if (d.id != null) isar.downloads.deleteSync(d.id!);
+                        }
+                      });
+                      botToast('Terminés supprimés de la file');
+                    },
+                  ),
+                ],
+              ),
             ),
-            Divider(height: 1, color: scheme.outlineVariant),
-            _sheetTile(
-              label: 'Annuler',
-              textColor: Colors.redAccent,
-              onTap: () => Navigator.pop(context),
-            ),
-            const SizedBox(height: 8),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _sheetTile({
-    required String label,
-    required VoidCallback onTap,
-    required Color textColor,
-  }) {
+// ── Sheet helpers ──────────────────────────────────────────────────────────────
+
+class _SheetSection extends StatelessWidget {
+  final String label;
+  final ColorScheme scheme;
+  const _SheetSection({required this.label, required this.scheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurfaceVariant,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Divider(color: scheme.outlineVariant, height: 1)),
+      ],
+    );
+  }
+}
+
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _ActionBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SimultaneousRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color iconColor;
+  final int total;
+  final int perSource;
+  final int maxTotal;
+  final int maxPerSource;
+  final ValueChanged<int> onTotalChanged;
+  final ValueChanged<int> onPerSourceChanged;
+  final ColorScheme scheme;
+
+  const _SimultaneousRow({
+    required this.icon,
+    required this.label,
+    required this.iconColor,
+    required this.total,
+    required this.perSource,
+    required this.maxTotal,
+    required this.maxPerSource,
+    required this.onTotalChanged,
+    required this.onPerSourceChanged,
+    required this.scheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outlineVariant, width: 1),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: iconColor),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _CounterField(
+                  label: 'Total',
+                  value: total,
+                  min: 1,
+                  max: maxTotal,
+                  onChanged: onTotalChanged,
+                  scheme: scheme,
+                  accentColor: iconColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CounterField(
+                  label: 'Par source',
+                  value: perSource,
+                  min: 1,
+                  max: maxPerSource,
+                  onChanged: onPerSourceChanged,
+                  scheme: scheme,
+                  accentColor: iconColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CounterField extends StatelessWidget {
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+  final ColorScheme scheme;
+  final Color accentColor;
+
+  const _CounterField({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    required this.scheme,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            _CircleBtn(
+              icon: Icons.remove,
+              enabled: value > min,
+              color: accentColor,
+              onTap: value > min ? () => onChanged(value - 1) : null,
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '$value',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
+            _CircleBtn(
+              icon: Icons.add,
+              enabled: value < max,
+              color: accentColor,
+              onTap: value < max ? () => onChanged(value + 1) : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CircleBtn extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final Color color;
+  final VoidCallback? onTap;
+  const _CircleBtn({
+    required this.icon,
+    required this.enabled,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: enabled
+              ? color.withValues(alpha: 0.15)
+              : Colors.transparent,
+          border: Border.all(
+            color: enabled
+                ? color.withValues(alpha: 0.5)
+                : Theme.of(context).colorScheme.outlineVariant,
+            width: 1,
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: enabled ? color : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final ColorScheme scheme;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _OptionTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.scheme,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? Colors.redAccent : scheme.onSurface;
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 16,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color.withValues(alpha: isDestructive ? 1 : 0.7)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: color,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            Icon(Icons.chevron_right, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+          ],
         ),
       ),
     );
@@ -709,7 +1227,8 @@ class _DownloadCard extends ConsumerWidget {
     final manga = download.chapter.value?.manga.value;
     final chapter = download.chapter.value;
     final itemType = manga?.itemType ?? ItemType.manga;
-    final cardButtons = ref.watch(cardButtonsStateProvider);
+    ref.watch(cardButtonsStateProvider);
+    final layout = ref.watch(downloadCardLayoutStateProvider);
 
     // Progress calculation
     final succeeded = download.succeeded ?? 0;
@@ -739,23 +1258,209 @@ class _DownloadCard extends ConsumerWidget {
                 ? Colors.orange
                 : scheme.onSurface.withValues(alpha: 0.54);
 
-    final Color actionColor =
-        hasFailed ? Colors.redAccent : scheme.primary;
+    final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
-    Widget card = Container(
+    final progressBar = progress > 0 && !isComplete
+        ? TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+            tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
+            builder: (_, val, __) => ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: val,
+                minHeight: layout == DownloadCardLayout.compact ? 2 : 3,
+                backgroundColor: scheme.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  hasFailed
+                      ? Colors.redAccent
+                      : isPaused
+                          ? Colors.orange
+                          : scheme.primary,
+                ),
+              ),
+            ),
+          )
+        : null;
+
+    final actionBtn = GestureDetector(
+      onTap: hasFailed
+          ? onRetry
+          : isPaused
+              ? onPauseResume
+              : isComplete
+                  ? onOpen
+                  : onPauseResume,
+      child: Container(
+        width: layout == DownloadCardLayout.full ? 40 : 36,
+        height: layout == DownloadCardLayout.full ? 40 : 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: actionColor.withValues(alpha: 0.15),
+          border: Border.all(color: actionColor.withValues(alpha: 0.5), width: 1),
+        ),
+        child: Icon(
+          isComplete
+              ? Icons.folder_open_outlined
+              : hasFailed
+                  ? Icons.replay
+                  : isPaused
+                      ? Icons.play_arrow_rounded
+                      : Icons.download_rounded,
+          color: actionColor,
+          size: layout == DownloadCardLayout.full ? 20 : 18,
+        ),
+      ),
+    );
+
+    // ── Compact layout ──────────────────────────────────────────────────────
+    if (layout == DownloadCardLayout.compact) {
+      return Container(
+        color: scheme.surface,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        manga?.name ?? 'Inconnu',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        chapter?.name ?? '',
+                        style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  statusText,
+                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 8),
+                actionBtn,
+              ],
+            ),
+            if (progressBar != null) ...[
+              const SizedBox(height: 4),
+              progressBar,
+            ],
+          ],
+        ),
+      );
+    }
+
+    // ── Full / Étendu layout ────────────────────────────────────────────────
+    if (layout == DownloadCardLayout.full) {
+      return Container(
+        color: scheme.surface,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Larger cover
+            _CoverThumbnail(
+              imageUrl: manga?.imageUrl,
+              customBytes: manga?.customCoverImage?.cast<int>(),
+              itemType: itemType,
+              width: 60,
+              height: 82,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    manga?.name ?? 'Inconnu',
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    chapter?.name ?? '',
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          engine,
+                          style: TextStyle(
+                            color: scheme.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        statusText,
+                        style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isComplete
+                        ? 'Téléchargement terminé'
+                        : _buildProgressLabel(itemType, succeeded, total, failed),
+                    style: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 11),
+                  ),
+                  if (progressBar != null) ...[
+                    const SizedBox(height: 6),
+                    progressBar,
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            actionBtn,
+          ],
+        ),
+      );
+    }
+
+    // ── Standard layout (default) ───────────────────────────────────────────
+    return Container(
       color: scheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
-          // ── Cover image (left) ──
           _CoverThumbnail(
             imageUrl: manga?.imageUrl,
             customBytes: manga?.customCoverImage?.cast<int>(),
             itemType: itemType,
           ),
           const SizedBox(width: 12),
-
-          // ── Content ──
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -763,21 +1468,14 @@ class _DownloadCard extends ConsumerWidget {
               children: [
                 Text(
                   manga?.name ?? 'Inconnu',
-                  style: TextStyle(
-                    color: scheme.onSurface,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(color: scheme.onSurface, fontSize: 14, fontWeight: FontWeight.w600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   chapter?.name ?? '',
-                  style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -788,87 +1486,27 @@ class _DownloadCard extends ConsumerWidget {
                       isComplete
                           ? 'Terminé'
                           : _buildProgressLabel(itemType, succeeded, total, failed),
-                      style: TextStyle(
-                          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          fontSize: 11),
+                      style: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 11),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       statusText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
-                if (progress > 0 && !isComplete) ...[
+                if (progressBar != null) ...[
                   const SizedBox(height: 5),
-                  TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeOut,
-                    tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
-                    builder: (_, val, __) => ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: val,
-                        minHeight: 3,
-                        backgroundColor: scheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          hasFailed
-                              ? Colors.redAccent
-                              : isPaused
-                                  ? Colors.orange
-                                  : scheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
+                  progressBar,
                 ],
               ],
             ),
           ),
           const SizedBox(width: 8),
-
-          // ── Right action button ──
-          GestureDetector(
-            onTap: hasFailed
-                ? onRetry
-                : isPaused
-                    ? onPauseResume
-                    : isComplete
-                        ? onOpen
-                        : onPauseResume,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: actionColor.withValues(alpha: 0.15),
-                border: Border.all(
-                  color: actionColor.withValues(alpha: 0.5),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                isComplete
-                    ? Icons.folder_open_outlined
-                    : hasFailed
-                        ? Icons.replay
-                        : isPaused
-                            ? Icons.play_arrow_rounded
-                            : Icons.download_rounded,
-                color: actionColor,
-                size: 18,
-              ),
-            ),
-          ),
+          actionBtn,
         ],
       ),
     );
-
-    return card;
   }
 
   String _buildProgressLabel(ItemType itemType, int succeeded, int total, int failed) {
@@ -931,19 +1569,25 @@ class _CoverThumbnail extends StatelessWidget {
   final String? imageUrl;
   final List<dynamic>? customBytes;
   final ItemType itemType;
+  final double width;
+  final double height;
 
   const _CoverThumbnail({
     required this.imageUrl,
     required this.customBytes,
     required this.itemType,
+    this.width = 46,
+    this.height = 62,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final w = width;
+    final h = height;
     final placeholder = Container(
-      width: 46,
-      height: 62,
+      width: w,
+      height: h,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(6),
@@ -966,8 +1610,8 @@ class _CoverThumbnail extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           child: Image.memory(
             bytes,
-            width: 46,
-            height: 62,
+            width: w,
+            height: h,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => placeholder,
           ),
@@ -980,8 +1624,8 @@ class _CoverThumbnail extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         child: cachedNetworkImage(
           imageUrl: imageUrl!,
-          width: 46,
-          height: 62,
+          width: w,
+          height: h,
           fit: BoxFit.cover,
           errorWidget: placeholder,
         ),

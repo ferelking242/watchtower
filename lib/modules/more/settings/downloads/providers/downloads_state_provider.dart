@@ -442,6 +442,66 @@ class NovelSimultaneousState extends _$NovelSimultaneousState {
   }
 }
 
+// ── Per-source simultaneous downloads ─────────────────────────────────────────
+
+@riverpod
+class WatchSimultaneousPerSourceState extends _$WatchSimultaneousPerSourceState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.watchSimultaneousPerSource;
+  }
+
+  Future<void> set(int v) async {
+    state = v;
+    await DownloadSettingsService.instance.setWatchSimultaneousPerSource(v);
+  }
+}
+
+@riverpod
+class MangaSimultaneousPerSourceState extends _$MangaSimultaneousPerSourceState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.mangaSimultaneousPerSource;
+  }
+
+  Future<void> set(int v) async {
+    state = v;
+    await DownloadSettingsService.instance.setMangaSimultaneousPerSource(v);
+  }
+}
+
+@riverpod
+class NovelSimultaneousPerSourceState extends _$NovelSimultaneousPerSourceState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.novelSimultaneousPerSource;
+  }
+
+  Future<void> set(int v) async {
+    state = v;
+    await DownloadSettingsService.instance.setNovelSimultaneousPerSource(v);
+  }
+}
+
+// ── Download card layout ───────────────────────────────────────────────────────
+
+@riverpod
+class DownloadCardLayoutState extends _$DownloadCardLayoutState {
+  @override
+  DownloadCardLayout build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.downloadCardLayout;
+  }
+
+  Future<void> set(DownloadCardLayout v) async {
+    state = v;
+    await DownloadSettingsService.instance.setDownloadCardLayout(v);
+  }
+}
+
 // ── Card buttons ──────────────────────────────────────────────────────────────
 
 @riverpod

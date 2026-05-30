@@ -325,6 +325,41 @@ class DownloadSettingsService {
     await _save();
   }
 
+  // ── Per-source simultaneous downloads ─────────────────────────────────────
+
+  int get watchSimultaneousPerSource =>
+      (_data['watchSimPerSource'] as int? ?? 1).clamp(1, 5);
+  Future<void> setWatchSimultaneousPerSource(int v) async {
+    _data['watchSimPerSource'] = v.clamp(1, 5);
+    await _save();
+  }
+
+  int get mangaSimultaneousPerSource =>
+      (_data['mangaSimPerSource'] as int? ?? 2).clamp(1, 5);
+  Future<void> setMangaSimultaneousPerSource(int v) async {
+    _data['mangaSimPerSource'] = v.clamp(1, 5);
+    await _save();
+  }
+
+  int get novelSimultaneousPerSource =>
+      (_data['novelSimPerSource'] as int? ?? 2).clamp(1, 5);
+  Future<void> setNovelSimultaneousPerSource(int v) async {
+    _data['novelSimPerSource'] = v.clamp(1, 5);
+    await _save();
+  }
+
+  // ── Download card layout ───────────────────────────────────────────────────
+
+  DownloadCardLayout get downloadCardLayout {
+    final idx = _data['cardLayout'] as int? ?? DownloadCardLayout.standard.index;
+    return DownloadCardLayout.values[idx.clamp(0, DownloadCardLayout.values.length - 1)];
+  }
+
+  Future<void> setDownloadCardLayout(DownloadCardLayout v) async {
+    _data['cardLayout'] = v.index;
+    await _save();
+  }
+
   // ── Card buttons (which action buttons appear on each download card) ────────
 
   /// Returns the set of enabled card button names.
@@ -368,6 +403,34 @@ class DownloadSettingsService {
   Future<void> setSwipeRightAction(SwipeAction action) async {
     _data['swipeRightAction'] = action.index;
     await _save();
+  }
+}
+
+// ── Card layout enum ──────────────────────────────────────────────────────────
+
+enum DownloadCardLayout { compact, standard, full }
+
+extension DownloadCardLayoutExt on DownloadCardLayout {
+  String get label {
+    switch (this) {
+      case DownloadCardLayout.compact:
+        return 'Compact';
+      case DownloadCardLayout.standard:
+        return 'Standard';
+      case DownloadCardLayout.full:
+        return 'Étendu';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case DownloadCardLayout.compact:
+        return Icons.view_agenda_outlined;
+      case DownloadCardLayout.standard:
+        return Icons.view_stream_outlined;
+      case DownloadCardLayout.full:
+        return Icons.view_day_outlined;
+    }
   }
 }
 
