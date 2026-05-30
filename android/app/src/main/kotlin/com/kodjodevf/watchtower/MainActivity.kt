@@ -1,110 +1,242 @@
 package com.watchtower.app
 
-  import androidx.annotation.NonNull
-  import libmtorrentserver.Libmtorrentserver
-  import io.flutter.embedding.engine.FlutterEngine
-  import io.flutter.plugin.common.MethodChannel
-  import io.flutter.plugin.common.StandardMethodCodec
-  import io.flutter.embedding.android.FlutterFragmentActivity
-  import androidx.core.content.FileProvider
-  import android.content.Intent
-  import android.os.Build
-  import android.net.Uri
-  import java.io.File
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
+import android.os.Build
+import androidx.annotation.NonNull
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.StandardMethodCodec
+import libmtorrentserver.Libmtorrentserver
+import java.io.File
 
-  class MainActivity: FlutterFragmentActivity() {
+class MainActivity : FlutterFragmentActivity() {
 
-      override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
-          super.configureFlutterEngine(flutterEngine)
-          MethodChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "com.watchtower.app.libmtorrentserver",
-              StandardMethodCodec.INSTANCE,
-              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
-          ).setMethodCallHandler { call, result ->
-              when (call.method) {
-                  "start" -> {
-                      val config = call.argument<String>("config")
-                      try {
-                          val port = Libmtorrentserver.start(config)
-                          result.success(port)
-                      } catch (e: Exception) {
-                          result.error("ERROR", e.message, null)
-                      }
-                  }
-                  else -> {
-                      result.notImplemented()
-                  }
-              }
-          }
+    // ── Mihon constants (mirrors ExtensionLoader.kt) ──────────────────────
+    companion object {
+        /** Feature flag declared in every Tachiyomi-compatible extension APK manifest.
+         *  Detection uses this, NOT package-name prefix — exactly like Mihon. */
+        private const val EXT_FEATURE     = "tachiyomi.extension"
+        private const val PRIVATE_EXT_DIR = "exts"
+        private const val PRIVATE_EXT_EXT = ".ext"
 
-          MethodChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "com.watchtower.app.apk_install",
-              StandardMethodCodec.INSTANCE,
-              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
-          ).setMethodCallHandler { call, result ->
-              when (call.method) {
-                  "installApk" -> {
-                      val filePath = call.argument<String>("filePath")
-                      installApk(filePath)
-                      result.success(null)
-                  }
-                  else -> {
-                      result.notImplemented()
-                  }
-              }
-          }
+        @Suppress("DEPRECATION")
+        private val PKG_FLAGS =
+            android.content.pm.PackageManager.GET_CONFIGURATIONS or
+            android.content.pm.PackageManager.GET_META_DATA
+    }
 
-          MethodChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "com.watchtower.app.package_scanner",
-              StandardMethodCodec.INSTANCE,
-              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
-          ).setMethodCallHandler { call, result ->
-              when (call.method) {
-                  "getInstalledMihonExtensions" -> {
-                      try {
-                          val pm = packageManager
-                          val allPkgs = pm.getInstalledPackages(0)
-                          val mihonPkgs = allPkgs
-                              .filter { info ->
-                                  info.packageName.startsWith("eu.kanade.tachiyomi.extension.") ||
-                                  info.packageName.startsWith("eu.kanade.tachiyomi.animeextension.")
-                              }
-                              .mapNotNull { info ->
-                                  try {
-                                      val appInfo = pm.getApplicationInfo(info.packageName, 0)
-                                      mapOf(
-                                          "pkg"         to info.packageName,
-                                          "versionName" to (info.versionName ?: ""),
-                                          "sourceDir"   to (appInfo.sourceDir ?: "")
-                                      )
-                                  } catch (_: Exception) { null }
-                              }
-                          result.success(mihonPkgs)
-                      } catch (e: Exception) {
-                          result.error("SCAN_ERROR", e.message, null)
-                      }
-                  }
-                  else -> result.notImplemented()
-              }
-          }
-      }
+    // EventSink for the live extension watcher (mirrors ExtensionInstallReceiver)
+    private var extEventSink: EventChannel.EventSink? = null
 
-      private fun installApk(filePath: String?) {
-          if (filePath == null) return
-          val file = File(filePath)
-          val intent = Intent(Intent.ACTION_VIEW)
-          intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-          val apkUri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-              intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-              FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-          } else {
-              Uri.fromFile(file)
-          }
-          intent.setDataAndType(apkUri, "application/vnd.android.package-archive")
-          startActivity(intent)
-      }
-  }
-  
+    /** BroadcastReceiver — mirrors Mihon's ExtensionInstallReceiver.
+     *  Fires for ANY app's install/replace/remove of a Tachiyomi extension. */
+    private val extReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context, intent: Intent?) {
+            val pkg   = intent?.data?.schemeSpecificPart ?: return
+            val event = when (intent.action) {
+                Intent.ACTION_PACKAGE_ADDED    -> "added"
+                Intent.ACTION_PACKAGE_REPLACED -> "replaced"
+                Intent.ACTION_PACKAGE_REMOVED  -> "removed"
+                else -> return
+            }
+            if (event == "removed") {
+                // Package is gone — just signal removal, no PackageManager call needed
+                extEventSink?.success(mapOf("event" to event, "pkg" to pkg))
+                return
+            }
+            // Verify it carries the tachiyomi.extension feature before notifying
+            try {
+                val pm = applicationContext.packageManager
+                val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.getPackageInfo(pkg,
+                        android.content.pm.PackageManager.PackageInfoFlags.of(PKG_FLAGS.toLong()))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageInfo(pkg, PKG_FLAGS)
+                }
+                val isExt = info.reqFeatures?.any { it.name == EXT_FEATURE } == true
+                if (isExt) extEventSink?.success(mapOf(
+                    "event"     to event,
+                    "pkg"       to pkg,
+                    "sourceDir" to (info.applicationInfo?.sourceDir ?: "")
+                ))
+            } catch (_: Exception) {}
+        }
+    }
+
+    override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+
+        // ── 1. Torrent server ─────────────────────────────────────────────
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.watchtower.app.libmtorrentserver",
+            StandardMethodCodec.INSTANCE,
+            flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> try {
+                    result.success(Libmtorrentserver.start(call.argument("config")))
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // ── 2. APK installer ──────────────────────────────────────────────
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.watchtower.app.apk_install",
+            StandardMethodCodec.INSTANCE,
+            flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "installApk" -> { installApk(call.argument("filePath")); result.success(null) }
+                else         -> result.notImplemented()
+            }
+        }
+
+        // ── 3. Extension loader (MethodChannel) ───────────────────────────
+        // Clones Mihon's ExtensionLoader.kt:
+        //   • detects by reqFeatures "tachiyomi.extension" — NOT package-name prefix
+        //   • returns sourceDir so Dart reads APK bytes directly, zero download
+        //   • exposes private-extensions dir (filesDir/exts/) like Mihon's private extensions
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.watchtower.app.ext_loader",
+            StandardMethodCodec.INSTANCE,
+            flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+
+                // All system-installed Tachiyomi extensions — detected by reqFeatures
+                "getInstalledExtensions" -> try {
+                    val pm = packageManager
+                    val allPkgs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        pm.getInstalledPackages(android.content.pm.PackageManager.PackageInfoFlags.of(PKG_FLAGS.toLong()))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        pm.getInstalledPackages(PKG_FLAGS)
+                    }
+                    val exts = allPkgs
+                        .filter { it.reqFeatures?.any { f -> f.name == EXT_FEATURE } == true }
+                        .mapNotNull { info ->
+                            try { mapOf(
+                                "pkg"         to info.packageName,
+                                "versionName" to (info.versionName ?: ""),
+                                "sourceDir"   to (info.applicationInfo?.sourceDir ?: "")
+                            )} catch (_: Exception) { null }
+                        }
+                    result.success(exts)
+                } catch (e: Exception) {
+                    result.error("SCAN_ERROR", e.message, null)
+                }
+
+                // Returns path to the private extensions directory (like Mihon's filesDir/exts/)
+                "getPrivateExtensionsDir" -> {
+                    val dir = File(filesDir, PRIVATE_EXT_DIR).also { it.mkdirs() }
+                    result.success(dir.absolutePath)
+                }
+
+                // Lists all .ext files in the private extensions directory
+                "listPrivateExtensions" -> {
+                    val files = File(filesDir, PRIVATE_EXT_DIR)
+                        .listFiles()
+                        ?.filter { it.isFile && it.name.endsWith(PRIVATE_EXT_EXT) }
+                        ?.map { mapOf("path" to it.absolutePath, "filename" to it.name) }
+                        ?: emptyList<Map<String, String>>()
+                    result.success(files)
+                }
+
+                // Copy an APK from a local path into the private extensions dir as a .ext file
+                "installPrivateExtension" -> {
+                    val srcPath = call.argument<String>("path") ?: run {
+                        result.error("NO_PATH", "path required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val pm = packageManager
+                        val info = pm.getPackageArchiveInfo(srcPath, PKG_FLAGS)
+                        if (info == null || info.reqFeatures?.any { it.name == EXT_FEATURE } != true) {
+                            result.error("NOT_EXT", "Not a Tachiyomi extension", null)
+                            return@setMethodCallHandler
+                        }
+                        val dest = File(
+                            File(filesDir, PRIVATE_EXT_DIR).also { it.mkdirs() },
+                            "${info.packageName}$PRIVATE_EXT_EXT"
+                        )
+                        File(srcPath).copyTo(dest, overwrite = true)
+                        result.success(mapOf(
+                            "pkg"       to info.packageName,
+                            "sourceDir" to dest.absolutePath
+                        ))
+                    } catch (e: Exception) {
+                        result.error("INSTALL_ERROR", e.message, null)
+                    }
+                }
+
+                // Remove a private extension by package name
+                "removePrivateExtension" -> {
+                    val pkg = call.argument<String>("pkg") ?: run {
+                        result.error("NO_PKG", "pkg required", null)
+                        return@setMethodCallHandler
+                    }
+                    File(File(filesDir, PRIVATE_EXT_DIR), "$pkg$PRIVATE_EXT_EXT").delete()
+                    result.success(null)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
+        // ── 4. Extension watcher (EventChannel) ───────────────────────────
+        // Clones Mihon's ExtensionInstallReceiver.kt:
+        // fires {event, pkg, sourceDir?} for every extension install/update/remove
+        // on the device — regardless of which app performed it.
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.watchtower.app.ext_watcher"
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                extEventSink = events
+                val filter = IntentFilter().apply {
+                    addAction(Intent.ACTION_PACKAGE_ADDED)
+                    addAction(Intent.ACTION_PACKAGE_REPLACED)
+                    addAction(Intent.ACTION_PACKAGE_REMOVED)
+                    addDataScheme("package")
+                }
+                ContextCompat.registerReceiver(
+                    applicationContext, extReceiver, filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+            }
+            override fun onCancel(arguments: Any?) {
+                try { applicationContext.unregisterReceiver(extReceiver) } catch (_: Exception) {}
+                extEventSink = null
+            }
+        })
+    }
+
+    private fun installApk(filePath: String?) {
+        if (filePath == null) return
+        val file   = File(filePath)
+        val intent = Intent(Intent.ACTION_VIEW).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+        val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            intent.flags = intent.flags or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        } else {
+            Uri.fromFile(file)
+        }
+        intent.setDataAndType(uri, "application/vnd.android.package-archive")
+        startActivity(intent)
+    }
+}
