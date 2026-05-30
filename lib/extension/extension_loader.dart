@@ -71,14 +71,13 @@ Future<void> syncExtensions({
   );
 
   // ── 2. Match against DB sources that are not yet installed ─────────────
-  // isar_community 3.3.2: only single-condition filter supports async findAll.
-  // Use one DB condition, filter the rest in Dart.
-  final candidates = await isar.sources
-      .filter()
-      .itemTypeEqualTo(itemType)
-      .findAll();
-  final notInstalled = candidates
+  // isar_community 3.3.2: findAll() after .filter() is not defined on
+  // QAfterFilterCondition. Only buildQuery<T>().findAll() works for async.
+  // All conditions are applied in Dart.
+  final allSources = await isar.sources.buildQuery<Source>().findAll();
+  final notInstalled = allSources
       .where((s) =>
+          s.itemType == itemType &&
           s.isAdded != true &&
           s.sourceCodeLanguage == SourceCodeLanguage.mihon)
       .toList();
