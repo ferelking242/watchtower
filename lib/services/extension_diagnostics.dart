@@ -1,5 +1,6 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/eval/model/m_manga.dart';
@@ -194,12 +195,12 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
       sw.stop();
       final chapCount = detail.chapters?.length ?? 0;
       firstEpisodeUrl = chapCount > 0 ? detail.chapters!.first.url : null;
-      final ok = detail.name != null && detail.name!.isNotEmpty;
+      final ok = (detail.name != null && detail.name!.isNotEmpty) || chapCount > 0;
       steps[DiagStep.detail] = DiagStepResult(
         ok: ok,
         count: chapCount,
         ms: sw.elapsedMilliseconds,
-        error: ok ? null : 'Détail vide',
+        error: ok ? null : 'Détail vide (nom absent, 0 chapitres)',
       );
       onLog?.call(
         '${_nowTime()}    [DET] Détail: ${ok ? "[OK] $chapCount chapitres/épisodes" : "[FAIL] Détail vide"} (${sw.elapsedMilliseconds}ms)',
@@ -247,8 +248,9 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
       );
       // Afficher l'URL directe du flux (vérification URL uniquement, pas la lecture)
       if (count > 0) {
+        String rawUrl = '';
         try {
-          final rawUrl = (list.first as dynamic).url?.toString() ?? '';
+          rawUrl = (list.first as dynamic).url?.toString() ?? '';
           if (rawUrl.isNotEmpty) {
             final truncated = rawUrl.length > 90
                 ? '${rawUrl.substring(0, 87)}...'
@@ -256,7 +258,46 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
             onLog?.call('${_nowTime()}      [URL] $truncated');
           }
         } catch (_) {}
-        onLog?.call('${_nowTime()}      (URL obtenue — lecture non vérifiée par le diagnostic)');
+        // Verify URL accessibility via HTTP HEAD (or GET with Range if HEAD fails)
+        if (rawUrl.isNotEmpty && !kIsWeb) {
+          try {
+            final Map<String, String>? hdrs = (() {
+              try {
+                final h = (list.first as dynamic).headers;
+                if (h is Map) return Map<String, String>.from(h);
+              } catch (_) {}
+              return null;
+            })();
+            final uri = Uri.parse(rawUrl);
+            http.Response httpResp;
+            try {
+              httpResp = await http.head(uri, headers: hdrs)
+                  .timeout(const Duration(seconds: 15));
+            } catch (_) {
+              final req = http.Request('GET', uri);
+              req.headers['Range'] = 'bytes=0-1023';
+              if (hdrs != null) req.headers.addAll(hdrs);
+              final stream = await http.Client()
+                  .send(req)
+                  .timeout(const Duration(seconds: 15));
+              httpResp = await http.Response.fromStream(stream);
+            }
+            final statusOk = httpResp.statusCode < 400;
+            onLog?.call(
+              '${_nowTime()}      [HTTP] ${httpResp.statusCode} — ${statusOk ? "[OK] URL accessible" : "[FAIL] URL inaccessible"}',
+            );
+            if (!statusOk) {
+              steps[DiagStep.media] = DiagStepResult(
+                ok: false,
+                count: count,
+                ms: sw.elapsedMilliseconds,
+                error: 'HTTP ${httpResp.statusCode} — URL inaccessible',
+              );
+            }
+          } catch (httpErr) {
+            onLog?.call('${_nowTime()}      [HTTP] Vérification impossible: $httpErr');
+          }
+        }
       }
     } catch (e) {
       sw.stop();
@@ -392,12 +433,22 @@ Future<String?> saveDiagnosticReport({
     final devDir = Directory(p.join(baseDir.path, 'dev'));
     await devDir.create(recursive: true);
 
-    final now = DateTime.now();
-    final stamp =
-        '${now.year}${now.month.toString().padLeft(2, "0")}${now.day.toString().padLeft(2, "0")}'
-        '_${now.hour.toString().padLeft(2, "0")}${now.minute.toString().padLeft(2, "0")}${now.second.toString().padLeft(2, "0")}';
-    final filePath =
-        p.join(devDir.path, 'diagnostic_${itemType.name}_$stamp.md');
+    // Auto-increment: Diagnostic_n001.md, Diagnostic_n002.md, …
+    int nextN = 1;
+    try {
+      final existing = devDir
+          .listSync()
+          .whereType<File>()
+          .map((f) => p.basename(f.path))
+          .where((name) => RegExp(r'^Diagnostic_n\d+\.md$').hasMatch(name))
+          .map((name) {
+            final m = RegExp(r'Diagnostic_n(\d+)\.md').firstMatch(name);
+            return m != null ? (int.tryParse(m.group(1)!) ?? 0) : 0;
+          })
+          .toList();
+      if (existing.isNotEmpty) nextN = existing.reduce((a, b) => a > b ? a : b) + 1;
+    } catch (_) {}
+    final filePath = p.join(devDir.path, 'Diagnostic_n${nextN.toString().padLeft(3, "0")}.md');
 
     await File(filePath).writeAsString(content);
     AppLogger.log(
