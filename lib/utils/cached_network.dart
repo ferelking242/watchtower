@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 
@@ -13,7 +14,7 @@ Widget cachedNetworkImage({
   Widget errorWidget = const Icon(Icons.error, size: 50),
 }) {
   return ExtendedImage(
-    image: useCustomNetworkImage
+    image: (useCustomNetworkImage && !kIsWeb)
         ? CustomExtendedNetworkImageProvider(imageUrl, headers: headers)
         : ExtendedNetworkImageProvider(imageUrl, headers: headers),
     width: width,
@@ -44,7 +45,7 @@ Widget cachedCompressedNetworkImage({
 }) {
   return ExtendedImage(
     image: ExtendedResizeImage(
-      useCustomNetworkImage
+      (useCustomNetworkImage && !kIsWeb)
           ? CustomExtendedNetworkImageProvider(imageUrl, headers: headers)
           : ExtendedNetworkImageProvider(imageUrl, headers: headers),
       maxBytes: maxBytes,

@@ -1,5 +1,12 @@
+// ignore_for_file: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar_community/isar.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/chapter.dart';
 
 class AnimePlayerView extends ConsumerStatefulWidget {
   final int episodeId;
@@ -11,48 +18,115 @@ class AnimePlayerView extends ConsumerStatefulWidget {
 
 class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
   bool _showControls = true;
-  bool _isPlaying = false;
+  bool _isPlaying = true;
   bool _showLangPanel = false;
   bool _subtitlesEnabled = true;
   bool _bilingueEnabled = false;
   String _selectedAudio = 'Original Audio';
   String _selectedSubtitle = 'Français';
-  double _currentPosition = 151.0;
-  static const double _duration = 1382.0;
+  double _currentPosition = 0.0;
+  double _duration = 1.0;
+  bool _videoReady = false;
 
   static const _bg = Color(0xFF0A0A0A);
   static const _teal = Color(0xFF1DB954);
-  static const _overlay = Color(0x99000000);
 
   final List<String> _audioTracks = [
-    'Original Audio',
-    'French dub',
-    'Spanish dub',
-    'esla dub',
-    'ptbr dub',
+    'Original Audio', 'French dub', 'Spanish dub', 'esla dub', 'ptbr dub',
   ];
   final List<String> _subtitleTracks = [
-    'Français',
-    'العربية',
-    'বাংলা',
-    'English',
-    'Indonesian',
+    'Français', 'العربية', 'বাংলা', 'English', 'Indonesian',
   ];
 
-  String _formatTime(double seconds) {
-    final m = (seconds ~/ 60).toString().padLeft(2, '0');
-    final s = (seconds % 60).toInt().toString().padLeft(2, '0');
-    return '$m:$s';
+  late final String _viewType;
+  html.VideoElement? _video;
+  Chapter? _chapter;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewType = 'wt-video-${widget.episodeId}';
+    _loadChapter();
+  }
+
+  void _loadChapter() {
+    final ch = isar.chapters
+        .filter()
+        .idEqualTo(widget.episodeId)
+        .findFirstSync();
+    if (ch == null) return;
+    _chapter = ch;
+
+    final url = ch.url ?? '';
+    if (url.isEmpty) return;
+
+    _video = html.VideoElement()
+      ..src = url
+      ..autoplay = true
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..style.objectFit = 'contain'
+      ..style.background = '#000';
+
+    _video!.onLoadedMetadata.listen((_) {
+      if (mounted) setState(() {
+        _duration = _video!.duration.isNaN ? 1.0 : _video!.duration;
+        _videoReady = true;
+      });
+    });
+
+    _video!.onTimeUpdate.listen((_) {
+      if (mounted) setState(() {
+        _currentPosition = _video!.currentTime.toDouble();
+      });
+    });
+
+    _video!.onPlay.listen((_) {
+      if (mounted) setState(() => _isPlaying = true);
+    });
+    _video!.onPause.listen((_) {
+      if (mounted) setState(() => _isPlaying = false);
+    });
+
+    // ignore: undefined_prefixed_name
+    ui.platformViewRegistry.registerViewFactory(_viewType, (_) => _video!);
+
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _video?.pause();
+    super.dispose();
+  }
+
+  String _fmt(double s) {
+    final m = (s ~/ 60).toString().padLeft(2, '0');
+    final sec = (s % 60).toInt().toString().padLeft(2, '0');
+    return '$m:$sec';
+  }
+
+  void _togglePlay() {
+    if (_video == null) return;
+    if (_isPlaying) {
+      _video!.pause();
+    } else {
+      _video!.play();
+    }
+  }
+
+  void _seek(double delta) {
+    if (_video == null) return;
+    final next = (_video!.currentTime + delta).clamp(0.0, _duration);
+    _video!.currentTime = next;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-
     return Scaffold(
       backgroundColor: _bg,
       body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           if (_showLangPanel) {
             setState(() => _showLangPanel = false);
@@ -62,9 +136,12 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
         },
         child: Stack(
           children: [
-            _buildVideoArea(isLandscape),
+            // ── Video area ──────────────────────────────────────────────────
+            _buildVideoArea(),
+            // ── Controls overlay ────────────────────────────────────────────
             if (_showControls && !_showLangPanel)
-              _buildControlsOverlay(isLandscape),
+              _buildControlsOverlay(),
+            // ── Lang panel ──────────────────────────────────────────────────
             if (_showLangPanel) _buildLanguagePanel(),
           ],
         ),
@@ -72,47 +149,28 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
     );
   }
 
-  Widget _buildVideoArea(bool isLandscape) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: _bg,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _isPlaying ? Icons.play_circle_outline : Icons.pause_circle_outline,
-              size: 64,
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Lecture non disponible sur web',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.15),
-                fontSize: 13,
-              ),
-            ),
-          ],
+  Widget _buildVideoArea() {
+    if (_video == null) {
+      return Container(
+        color: _bg,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white38, strokeWidth: 2),
         ),
-      ),
+      );
+    }
+    return SizedBox.expand(
+      child: HtmlElementView(viewType: _viewType),
     );
   }
 
-  Widget _buildControlsOverlay(bool isLandscape) {
+  Widget _buildControlsOverlay() {
     return Positioned.fill(
       child: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xCC000000),
-              Color(0x00000000),
-              Color(0x00000000),
-              Color(0xCC000000),
-            ],
+            colors: [Color(0xCC000000), Color(0x00000000), Color(0x00000000), Color(0xCC000000)],
             stops: [0.0, 0.2, 0.7, 1.0],
           ),
         ),
@@ -132,63 +190,49 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
   }
 
   Widget _buildTopBar() {
+    final title = _chapter?.name ?? 'Watchtower';
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: [
-            // Bouton retour "<" collé au lecteur
+            // "<" retour collé au lecteur
             Material(
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => Navigator.of(context).pop(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
-                  child: const Icon(Icons.chevron_left,
-                      color: Colors.white, size: 28),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: Icon(Icons.chevron_left, color: Colors.white, size: 28),
                 ),
               ),
             ),
-            // Bouton Aide — collé directement après "<"
+            // "Aide" collé directement après
             Material(
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () {},
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 8),
-                  child: const Text(
-                    'Aide',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Text('Aide',
+                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
                 ),
               ),
             ),
             const SizedBox(width: 4),
             Expanded(
-              child: const Text(
-                'Le Monde Incroyable de Gumball S01 E01 · The DVD',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.settings_outlined,
-                  color: Colors.white, size: 20),
+              icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 20),
               onPressed: () {},
-              tooltip: 'Paramètres',
             ),
           ],
         ),
@@ -200,74 +244,47 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(right: 40),
-          child: Column(
-            children: [
-              Icon(Icons.lock_open_outlined,
-                  color: Colors.white70, size: 20),
-              const SizedBox(height: 4),
-              const Text(
-                'Verrouiller',
-                style: TextStyle(color: Colors.white70, fontSize: 11),
-              ),
-            ],
-          ),
-        ),
-        _SeekButton(seconds: -10, onTap: () {
-          setState(() => _currentPosition =
-              (_currentPosition - 10).clamp(0.0, _duration));
-        }),
+        _SeekButton(seconds: -10, onTap: () => _seek(-10)),
         const SizedBox(width: 32),
         GestureDetector(
-          onTap: () => setState(() => _isPlaying = !_isPlaying),
+          onTap: _togglePlay,
           child: Container(
-            width: 52,
-            height: 52,
+            width: 56, height: 56,
             decoration: const BoxDecoration(shape: BoxShape.circle),
             child: Icon(
               _isPlaying ? Icons.pause : Icons.play_arrow,
-              color: Colors.white,
-              size: 36,
+              color: Colors.white, size: 38,
             ),
           ),
         ),
         const SizedBox(width: 32),
-        _SeekButton(seconds: 10, onTap: () {
-          setState(() =>
-              _currentPosition = (_currentPosition + 10).clamp(0.0, _duration));
-        }),
-        const SizedBox(width: 40),
-        const SizedBox(width: 20),
+        _SeekButton(seconds: 10, onTap: () => _seek(10)),
       ],
     );
   }
 
   Widget _buildProgressBar() {
-    final progress = _currentPosition / _duration;
+    final progress = _duration > 0 ? (_currentPosition / _duration).clamp(0.0, 1.0) : 0.0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 2.5,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape:
-                  const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: _teal,
-              inactiveTrackColor: Colors.white24,
-              thumbColor: Colors.white,
-              overlayColor: Colors.white24,
-            ),
-            child: Slider(
-              value: progress,
-              onChanged: (v) =>
-                  setState(() => _currentPosition = v * _duration),
-            ),
-          ),
-        ],
+      child: SliderTheme(
+        data: SliderThemeData(
+          trackHeight: 2.5,
+          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+          overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+          activeTrackColor: _teal,
+          inactiveTrackColor: Colors.white24,
+          thumbColor: Colors.white,
+          overlayColor: Colors.white24,
+        ),
+        child: Slider(
+          value: progress,
+          onChanged: (v) {
+            final target = v * _duration;
+            if (_video != null) _video!.currentTime = target;
+            setState(() => _currentPosition = target);
+          },
+        ),
       ),
     );
   }
@@ -277,24 +294,17 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          IconButton(
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.pause, color: Colors.white, size: 22),
-            onPressed: () => setState(() => _isPlaying = !_isPlaying),
+          GestureDetector(
+            onTap: _togglePlay,
+            child: Icon(_isPlaying ? Icons.pause : Icons.play_arrow,
+                color: Colors.white, size: 22),
           ),
-          const SizedBox(width: 4),
-          IconButton(
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.skip_next, color: Colors.white, size: 22),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Text(
-            '${_formatTime(_currentPosition)} — ${_formatTime(_duration)}',
+            '${_fmt(_currentPosition)} — ${_fmt(_duration)}',
             style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
           const Spacer(),
-          _BottomBarButton(label: 'Ajuster', onTap: () {}),
           _BottomBarButton(
             label: 'Langue',
             onTap: () => setState(() => _showLangPanel = true),
@@ -333,8 +343,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
 
   Widget _buildAudioPanel() {
     return Container(
-      width: 180,
-      height: 360,
+      width: 180, height: 360,
       color: const Color(0xCC1A0808),
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
@@ -342,14 +351,8 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Text(
-              'Audio',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: Text('Audio',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
           ),
           const Divider(color: Colors.white12, height: 16),
           Expanded(
@@ -361,22 +364,15 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
                 return InkWell(
                   onTap: () => setState(() => _selectedAudio = track),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            track,
-                            style: TextStyle(
-                              color: selected ? _teal : Colors.white,
-                              fontSize: 13,
-                            ),
-                          ),
+                          child: Text(track,
+                              style: TextStyle(
+                                  color: selected ? _teal : Colors.white, fontSize: 13)),
                         ),
-                        if (selected)
-                          const Icon(Icons.check,
-                              color: _teal, size: 16),
+                        if (selected) const Icon(Icons.check, color: _teal, size: 16),
                       ],
                     ),
                   ),
@@ -391,46 +387,34 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
 
   Widget _buildSubtitlePanel() {
     return Container(
-      width: 180,
-      height: 360,
+      width: 180, height: 360,
       color: const Color(0xCC080808),
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
               children: [
-                const Text(
-                  'Sous-titre',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                const Text('Sous-titre',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 Switch(
                   value: _subtitlesEnabled,
-                  onChanged: (v) =>
-                      setState(() => _subtitlesEnabled = v),
+                  onChanged: (v) => setState(() => _subtitlesEnabled = v),
                   activeColor: _teal,
-                  materialTapTargetSize:
-                      MaterialTapTargetSize.shrinkWrap,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ],
             ),
           ),
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 const Text('Bilingue',
-                    style: TextStyle(
-                        color: Colors.white70, fontSize: 13)),
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
                 const Spacer(),
                 Switch(
                   value: _bilingueEnabled,
@@ -438,8 +422,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
                       ? (v) => setState(() => _bilingueEnabled = v)
                       : null,
                   activeColor: _teal,
-                  materialTapTargetSize:
-                      MaterialTapTargetSize.shrinkWrap,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ],
             ),
@@ -450,71 +433,32 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
               itemCount: _subtitleTracks.length,
               itemBuilder: (_, i) {
                 final track = _subtitleTracks[i];
-                final selected =
-                    track == _selectedSubtitle && _subtitlesEnabled;
+                final selected = track == _selectedSubtitle && _subtitlesEnabled;
                 return InkWell(
                   onTap: _subtitlesEnabled
                       ? () => setState(() => _selectedSubtitle = track)
                       : null,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            track,
-                            style: TextStyle(
-                              color: _subtitlesEnabled
-                                  ? (selected ? _teal : Colors.white)
-                                  : Colors.white30,
-                              fontSize: 13,
-                            ),
-                          ),
+                          child: Text(track,
+                              style: TextStyle(
+                                color: _subtitlesEnabled
+                                    ? (selected ? _teal : Colors.white)
+                                    : Colors.white30,
+                                fontSize: 13,
+                              )),
                         ),
-                        Icon(
-                          Icons.download_outlined,
-                          color: _subtitlesEnabled
-                              ? Colors.white54
-                              : Colors.white12,
-                          size: 16,
-                        ),
+                        Icon(Icons.download_outlined,
+                            color: _subtitlesEnabled ? Colors.white54 : Colors.white12,
+                            size: 16),
                       ],
                     ),
                   ),
                 );
               },
-            ),
-          ),
-          const Divider(color: Colors.white12, height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.text_format,
-                      size: 14, color: Colors.white54),
-                  label: const Text('Style',
-                      style: TextStyle(
-                          color: Colors.white54, fontSize: 12)),
-                  style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0)),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.schedule,
-                      size: 14, color: Colors.white54),
-                  label: const Text('Délai',
-                      style: TextStyle(
-                          color: Colors.white54, fontSize: 12)),
-                  style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0)),
-                ),
-              ],
             ),
           ),
         ],
@@ -523,10 +467,11 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
   }
 }
 
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
 class _SeekButton extends StatelessWidget {
   final int seconds;
   final VoidCallback onTap;
-
   const _SeekButton({required this.seconds, required this.onTap});
 
   @override
@@ -535,28 +480,19 @@ class _SeekButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: 52,
-        height: 52,
+        width: 52, height: 52,
         child: Stack(
           alignment: Alignment.center,
           children: [
             Icon(
-              isForward
-                  ? Icons.rotate_right_outlined
-                  : Icons.rotate_left_outlined,
-              color: Colors.white,
-              size: 40,
+              isForward ? Icons.rotate_right_outlined : Icons.rotate_left_outlined,
+              color: Colors.white, size: 40,
             ),
             Positioned(
               bottom: 10,
-              child: Text(
-                '${seconds.abs()}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: Text('${seconds.abs()}',
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -568,7 +504,6 @@ class _SeekButton extends StatelessWidget {
 class _BottomBarButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
-
   const _BottomBarButton({required this.label, required this.onTap});
 
   @override
@@ -579,17 +514,15 @@ class _BottomBarButton extends StatelessWidget {
         margin: const EdgeInsets.only(left: 8),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white12,
-          borderRadius: BorderRadius.circular(4),
+          color: Colors.white12, borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 11),
-        ),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
       ),
     );
   }
 }
+
+// ── Route entry point ─────────────────────────────────────────────────────────
 
 class AnimeStreamPage extends ConsumerWidget {
   final int episodeId;
@@ -609,15 +542,10 @@ class VideoPrefs {
   final bool skipButton;
   final bool autoPlay;
   const VideoPrefs({
-    this.fit = false,
-    this.brightness = 0,
-    this.volume = 100,
-    this.playbackSpeed = 1.0,
-    this.skipButton = true,
-    this.autoPlay = true,
+    this.fit = false, this.brightness = 0, this.volume = 100,
+    this.playbackSpeed = 1.0, this.skipButton = true, this.autoPlay = true,
   });
 }
 
-Widget seekIndicatorTextWidget(Duration duration, Duration currentPosition) {
-  return const SizedBox.shrink();
-}
+Widget seekIndicatorTextWidget(Duration duration, Duration currentPosition) =>
+    const SizedBox.shrink();

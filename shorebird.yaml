@@ -1,12 +1,8 @@
-# Shorebird OTA configuration
-# Steps to complete setup:
-#   1. Create a Shorebird account at https://console.shorebird.dev
-#   2. Install Shorebird CLI: curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
-#   3. Run: shorebird login
-#   4. Run in this project root: shorebird init
-#      → This replaces the app_id below with your real UUID
-#   5. Build the initial release APK with: shorebird build apk --target-platform android-arm64
-#   6. For CI patches: shorebird login --ci → store the token as GitHub secret SHOREBIRD_TOKEN
-#   7. To push a patch: shorebird patch android (or use the GitHub Actions workflow shorebird_patch.yml)
-
-app_id: REPLACE_WITH_SHOREBIRD_APP_ID
+# Shorebird a annoncé la fermeture de son service le 8 août 2026.
+  # Les nouvelles inscriptions sont fermées.
+  # Ce fichier est conservé pour référence historique uniquement.
+  # Pour les mises à jour OTA Flutter, voir les alternatives :
+  # - Play Store in-app updates (package: in_app_update)
+  # - GitHub Releases auto-update
+  app_id: deprecated
+  
