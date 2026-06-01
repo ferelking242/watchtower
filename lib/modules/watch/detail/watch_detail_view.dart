@@ -228,7 +228,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             body: TabBarView(
               controller: _tabController,
               children: [
-                _buildDetailsTab(),
+                _buildDetailsTab(chapters),
                 _buildRecommendationsTab(),
                 _buildCommentsTab(),
               ],
@@ -377,14 +377,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── META ROW ───────────────────────────────────────────────────────────────
-  // SVG icon | ★ rating | year | country | type
+  // [SVG] | [★ score] | lang | genre | ...
 
   Widget _buildMetaRow(List<Chapter> chapters) {
     final isMovie = _isMovie(chapters);
     final parts = <String>[];
-
-    final author = widget.manga.author?.trim() ?? '';
-    if (author.isNotEmpty) parts.add(author);
 
     // Language/country code
     final lang = widget.manga.lang?.trim().toUpperCase() ?? '';
@@ -410,6 +407,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       parts.add('Film');
     }
 
+    Widget vbar() => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text('|', style: TextStyle(color: _faint, fontSize: 12)),
+        );
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -419,17 +421,22 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           height: 14,
           colorFilter: ColorFilter.mode(_grey, BlendMode.srcIn),
         ),
-        const SizedBox(width: 7),
+        vbar(),
         const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
-        const SizedBox(width: 3),
-        Expanded(
-          child: Text(
-            parts.join('  |  '),
-            style: TextStyle(color: _grey, fontSize: 12),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        const SizedBox(width: 4),
+        Text('N/A', style: TextStyle(color: _grey, fontSize: 12)),
+        if (parts.isNotEmpty) ...[
+          vbar(),
+          Expanded(
+            child: Text(
+              parts.join('  |  '),
+              style: TextStyle(color: _grey, fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
+        ] else
+          const Expanded(child: SizedBox.shrink()),
       ],
     );
   }
@@ -1342,8 +1349,43 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── TABS ────────────────────────────────────────────────────────────────────
 
-  Widget _buildDetailsTab() {
+  Widget _buildDetailsTab(List<Chapter> chapters) {
     final manga = widget.manga;
+
+    // Status badge
+    String statusLabel = '';
+    Color statusColor = _grey;
+    switch (manga.status) {
+      case Status.ongoing:
+        statusLabel = 'En cours';
+        statusColor = Colors.green.shade400;
+        break;
+      case Status.completed:
+        statusLabel = 'Terminé';
+        statusColor = _accent;
+        break;
+      case Status.publishingFinished:
+        statusLabel = 'Terminé';
+        statusColor = _accent;
+        break;
+      case Status.canceled:
+        statusLabel = 'Annulé';
+        statusColor = Colors.red.shade400;
+        break;
+      case Status.onHiatus:
+        statusLabel = 'En pause';
+        statusColor = Colors.orange.shade400;
+        break;
+      default:
+        statusLabel = '';
+    }
+
+    // Detect type keyword from genres (TV, Movie, OVA, etc.)
+    const typeKws = ['TV', 'Movie', 'Film', 'OVA', 'ONA', 'Special', 'Music'];
+    final typeTag = (manga.genre ?? [])
+        .where((g) => typeKws.any((k) => g.toLowerCase() == k.toLowerCase()))
+        .firstOrNull;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       child: Column(
@@ -1380,20 +1422,56 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
             const SizedBox(height: 20),
           ],
-          // Réalisateur / auteur
-          if ((manga.author ?? '').isNotEmpty) ...[
-            _sectionLabel('Réalisateur'),
-            const SizedBox(height: 8),
-            _detailRow(Icons.person_outline_rounded, manga.author!),
-            const SizedBox(height: 16),
-          ],
-          // Casting
-          if ((manga.artist ?? '').isNotEmpty) ...[
-            _sectionLabel('Casting'),
-            const SizedBox(height: 8),
-            _detailRow(Icons.groups_2_outlined, manga.artist!),
-            const SizedBox(height: 16),
-          ],
+          // Informations générales
+          _sectionLabel('Informations'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              // Nombre d'épisodes
+              if (chapters.isNotEmpty)
+                _infoChip(
+                  Icons.play_circle_outline_rounded,
+                  '${chapters.length} épisode${chapters.length > 1 ? 's' : ''}',
+                  _accent.withValues(alpha: 0.10),
+                  _accent,
+                ),
+              // Statut
+              if (statusLabel.isNotEmpty)
+                _infoChip(
+                  Icons.circle,
+                  statusLabel,
+                  statusColor.withValues(alpha: 0.10),
+                  statusColor,
+                ),
+              // Langue
+              if ((manga.lang?.isNotEmpty ?? false))
+                _infoChip(
+                  Icons.language_rounded,
+                  manga.lang!.toUpperCase(),
+                  _card,
+                  _grey,
+                ),
+              // Type (TV / Movie / OVA …)
+              if (typeTag != null)
+                _infoChip(
+                  Icons.videocam_outlined,
+                  typeTag,
+                  _card,
+                  _grey,
+                ),
+              // Source
+              if ((manga.source?.isNotEmpty ?? false))
+                _infoChip(
+                  Icons.storage_outlined,
+                  manga.source!,
+                  _card,
+                  _grey,
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
           // Genres
           if ((manga.genre?.isNotEmpty ?? false)) ...[
             _sectionLabel('Genres'),
@@ -1405,37 +1483,74 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 for (final g in (manga.genre ?? []))
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 13, vertical: 6),
+                        horizontal: 12, vertical: 5),
                     decoration: BoxDecoration(
                       color: _accent.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: _accent.withValues(alpha: 0.30),
+                          color: _accent.withValues(alpha: 0.25),
                           width: 0.8),
                     ),
                     child: Text(
                       g,
                       style: TextStyle(
                           color: _onSurface.withValues(alpha: 0.75),
-                          fontSize: 12),
+                          fontSize: 11.5),
                     ),
                   ),
               ],
             ),
+            const SizedBox(height: 20),
+          ],
+          // Réalisateur / auteur
+          if ((manga.author ?? '').isNotEmpty) ...[
+            _sectionLabel('Réalisateur'),
+            const SizedBox(height: 8),
+            _detailRow(Icons.person_outline_rounded, manga.author!),
             const SizedBox(height: 16),
           ],
-          // Source & langue
-          _sectionLabel('Source'),
-          const SizedBox(height: 8),
-          _detailRow(
-              Icons.storage_outlined, manga.source ?? '—'),
-          if ((manga.lang ?? '').isNotEmpty) ...[
-            const SizedBox(height: 6),
-            _detailRow(Icons.language_rounded,
-                (manga.lang ?? '').toUpperCase()),
+          // Casting / artiste
+          if ((manga.artist ?? '').isNotEmpty) ...[
+            _sectionLabel('Casting'),
+            const SizedBox(height: 8),
+            _detailRow(Icons.groups_2_outlined, manga.artist!),
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 4),
           Divider(color: _faint, thickness: 0.8),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoChip(IconData icon, String label, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fg.withValues(alpha: 0.20), width: 0.7),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon == Icons.circle)
+            Container(
+              width: 7,
+              height: 7,
+              decoration:
+                  BoxDecoration(shape: BoxShape.circle, color: fg),
+            )
+          else
+            Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+                color: fg,
+                fontSize: 12,
+                fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );
@@ -1465,31 +1580,44 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       );
 
   Widget _buildRecommendationsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(
-              color: _card,
-              shape: BoxShape.circle,
-              border: Border.all(color: _faint, width: 1.5),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(color: _faint, thickness: 0.8, height: 1),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: _card,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _faint, width: 1.5),
+                  ),
+                  child: Icon(Icons.movie_filter_outlined, color: _grey, size: 26),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Les recommandations arrivent bientôt',
+                  style: TextStyle(
+                      color: _onSurface.withValues(alpha: 0.7),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Découvrez du contenu similaire dans la bibliothèque.',
+                  style: TextStyle(color: _grey, fontSize: 12),
+                ),
+              ],
             ),
-            child: Icon(Icons.movie_filter_outlined, color: _grey, size: 36),
           ),
-          const SizedBox(height: 16),
-          Text('Les recommandations arrivent bientôt',
-              style: TextStyle(color: _onSurface.withValues(alpha: 0.7),
-                  fontSize: 14)),
-          const SizedBox(height: 6),
-          Text(
-            'Découvrez du contenu similaire dans la bibliothèque',
-            style: TextStyle(color: _grey, fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
