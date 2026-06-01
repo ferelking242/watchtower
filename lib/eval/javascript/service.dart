@@ -376,15 +376,6 @@ var extention = new DefaultExtension();
   }
 
   Future<T> _extensionCallAsync<T>(String call) async {
-    if (kIsWeb) {
-      throw Exception(
-        '⚠️ Extensions non disponibles en version web\n\n'
-        'Le moteur JavaScript des extensions (QuickJS) ne fonctionne pas '
-        'dans un navigateur. Utilisez l\'application Android pour accéder '
-        'aux sources.',
-      );
-    }
-
     _init();
 
     final promised = await runtime.handlePromise(
