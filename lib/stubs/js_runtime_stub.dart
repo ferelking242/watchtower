@@ -1,11 +1,10 @@
-// js_runtime_stub.dart — Web JS runtime using the browser's native engine.
-  // Selected via: export '...' if (dart.library.js_interop) 'js_runtime_stub.dart'
+// js_runtime_stub.dart — Flutter web JS runtime via dart:js_interop.
+  // This file is conditionally imported instead of flutter_qjs on web builds.
   import 'dart:async';
   import 'dart:convert';
   import 'dart:js_interop';
-  import 'package:web/web.dart' as web;
 
-  // ─── Value types ─────────────────────────────────────────────────────────────
+  // ─── Shared value type ────────────────────────────────────────────────────────
 
   class JsEvalResult {
     final String stringResult;
@@ -20,7 +19,7 @@
     String toString() => stringResult;
   }
 
-  // ─── Abstract runtime ─────────────────────────────────────────────────────────
+  // ─── Abstract interface ───────────────────────────────────────────────────────
 
   abstract class JavascriptRuntime {
     static bool debugEnabled = false;
@@ -44,7 +43,8 @@
     }
   }
 
-  // ─── JS interop helpers ───────────────────────────────────────────────────────
+  // ─── Top-level @JS interop ────────────────────────────────────────────────────
+  // All @JS external declarations must be at library scope, not inside a class.
 
   @JS('JSON.stringify')
   external JSString? _jsStringify(JSAny? value);
@@ -52,15 +52,23 @@
   @JS('eval')
   external JSAny? _jsEval(JSString code);
 
-  @JS('Error')
-  external JSObject _newJsError(JSString message);
+  /// Slot for the sendMessage Dart callback (set before each extension call).
+  @JS('window.__wt_cb')
+  external set _wtCb(JSFunction? fn);
+
+  /// Temporary slot for Promise fulfilled callback.
+  @JS('window.__wt_res')
+  external set _wtRes(JSFunction? fn);
+
+  /// Temporary slot for Promise rejected callback.
+  @JS('window.__wt_rej')
+  external set _wtRej(JSFunction? fn);
 
   // ─── Browser-native runtime ───────────────────────────────────────────────────
 
   class QuickJsRuntime2 extends JavascriptRuntime {
     static int _counter = 0;
     final int _instanceId = ++_counter;
-    String get _bk => '__wt_${_instanceId}';
 
     final Map<String, dynamic Function(dynamic)> _channels = {};
 
@@ -69,42 +77,35 @@
     }
 
     void _bootstrap() {
-      final bk = _bk;
-      // Install bridge object on window. bk is safe alphanumeric — embed directly.
+      final bk = '__wt_${_instanceId}';
       _jsEval('''
   (function(){
     var k="${bk}";
     if(window[k])return;
     var p={},s=0;
-    window[k]={
-      p:p,
-      cb:null,
+    window[k]={p:p,
       send:function(ch,aj){
-        return new Promise(function(res,rej){
-          var id=++s;
-          p[id]={res:res,rej:rej};
-          if(window[k].cb){window[k].cb(ch,aj,id);}
-          else{rej(new Error("Dart not ready: "+ch));}
+        return new Promise(function(rs,rj){
+          var id=++s; p[id]={rs:rs,rj:rj};
+          if(window.__wt_cb){ window.__wt_cb(ch,aj,id); }
+          else { rj(new Error("Dart not ready: "+ch)); }
         });
       }
     };
-    window.sendMessage=function(ch,aj){return window[k].send(ch,aj);};
+    window.sendMessage=function(ch,aj){ return window[k].send(ch,aj); };
   })();
   '''.toJS);
 
-      // Install Dart callback via setProperty — no eval string, no escaping issues.
-      final dartCb = ((JSString ch, JSString aj, JSNumber id) {
+      // Register Dart dispatch callback via @JS external setter.
+      _wtCb = ((JSString ch, JSString aj, JSNumber id) {
         _dispatch(ch.toDart, aj.toDart, id.toDartInt);
       }).toJS;
-
-      final bridge = (web.window as JSObject).getProperty(bk.toJS) as JSObject;
-      bridge.setProperty('cb'.toJS, dartCb);
     }
 
     void _dispatch(String channel, String argsJson, int id) {
       final handler = _channels[channel];
       if (handler == null) {
-        _reject(id, 'No handler: $channel');
+        _evalReject(id, 'No handler: $channel');
         return;
       }
       Future.microtask(() async {
@@ -112,61 +113,36 @@
           dynamic args;
           try {
             args = (argsJson.isEmpty || argsJson == 'null')
-                ? <dynamic>[]
-                : jsonDecode(argsJson);
+                ? <dynamic>[] : jsonDecode(argsJson);
           } catch (_) {
             args = <dynamic>[];
           }
           final result = await handler(args);
-          _resolve(id, result == null ? 'null' : result.toString());
+          _evalResolve(id, result == null ? 'null' : result.toString());
         } catch (e) {
-          _reject(id, e.toString());
+          _evalReject(id, e.toString());
         }
       });
     }
 
-    JSObject? _getPendingEntry(int id) {
-      final bridge = (web.window as JSObject).getProperty(_bk.toJS);
-      if (bridge == null) return null;
-      final p = (bridge as JSObject).getProperty('p'.toJS);
-      if (p == null) return null;
-      final entry = (p as JSObject).getProperty(id.toJS);
-      if (entry == null) return null;
-      return entry as JSObject;
+    // Safe resolve: JSON.stringify the result string for eval embedding.
+    void _evalResolve(int id, String result) {
+      final bk = '__wt_${_instanceId}';
+      // _jsStringify returns the JSON-encoded form of the string (with quotes).
+      final encoded = _jsStringify(result.toJS)?.toDart ?? jsonEncode(result);
+      _jsEval('(function(){var b=window["${bk}"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rs($encoded);})()'.toJS);
     }
 
-    void _removePending(int id) {
-      final bridge = (web.window as JSObject).getProperty(_bk.toJS);
-      if (bridge == null) return;
-      final p = (bridge as JSObject).getProperty('p'.toJS);
-      if (p != null) (p as JSObject).delete(id.toJS);
+    void _evalReject(int id, String error) {
+      final bk = '__wt_${_instanceId}';
+      final encoded = _jsStringify(error.toJS)?.toDart ?? jsonEncode(error);
+      _jsEval('(function(){var b=window["${bk}"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rj(new Error($encoded));})()'.toJS);
     }
-
-    void _resolve(int id, String result) {
-      final entry = _getPendingEntry(id);
-      if (entry == null) return;
-      final fn = entry.getProperty('res'.toJS);
-      if (fn != null) (fn as JSFunction).callAsFunction(null, result.toJS);
-      _removePending(id);
-    }
-
-    void _reject(int id, String error) {
-      final entry = _getPendingEntry(id);
-      if (entry == null) return;
-      final fn = entry.getProperty('rej'.toJS);
-      if (fn != null) {
-        final errObj = _newJsError(error.toJS);
-        (fn as JSFunction).callAsFunction(null, errObj as JSAny);
-      }
-      _removePending(id);
-    }
-
-    // ── JavascriptRuntime interface ────────────────────────────────────────────
 
     @override
     void dispose() {
       _channels.clear();
-      _jsEval('(function(){delete window["${_bk}"];})()'.toJS);
+      _jsEval('delete window["__wt_${_instanceId}"];'.toJS);
     }
 
     @override
@@ -185,54 +161,62 @@
 
     @override
     Future<JsEvalResult> evaluateAsync(String code, {String? sourceUrl}) async {
+      // Evaluate code and store result in window.__wt_ev for Promise detection.
+      // We wrap the eval so JS stores the result we can check.
       try {
-        final result = _jsEval(code.toJS);
-        if (result == null) return JsEvalResult('', null);
+        _jsEval('window.__wt_ev=void 0;'.toJS);
+        final wrapped = '(function(){try{window.__wt_ev=(${code});}catch(e){window.__wt_ev=Promise.reject(e);}})()';
+        _jsEval(wrapped.toJS);
 
-        // Detect Promise by checking for callable .then
-        if (!result.typeofEquals('string') &&
-            !result.typeofEquals('number') &&
-            !result.typeofEquals('boolean')) {
-          final obj = result as JSObject;
-          final thenFn = obj.getProperty('then'.toJS);
-          if (thenFn != null && (thenFn as JSAny).typeofEquals('function')) {
-            final completer = Completer<JsEvalResult>();
-            void done(JsEvalResult r) {
-              if (!completer.isCompleted) completer.complete(r);
-            }
+        // Check if window.__wt_ev is a Promise (has .then)
+        final isPromise = _jsEval(
+          'typeof window.__wt_ev==="object"&&window.__wt_ev!==null&&typeof window.__wt_ev.then==="function"'.toJS,
+        );
+        final isPromiseBool = isPromise != null &&
+            isPromise.typeofEquals('boolean') &&
+            (isPromise as JSBoolean).toDart;
 
-            final onFulfilled = ((JSAny? val) {
-              if (val == null) {
-                done(JsEvalResult('', null, isPromise: true));
-              } else if (val.typeofEquals('string')) {
-                // jsonStringify() resolved to a JS string — take it as-is.
-                done(JsEvalResult((val as JSString).toDart, val, isPromise: true));
-              } else {
-                done(JsEvalResult(
-                  _jsStringify(val)?.toDart ?? '', val, isPromise: true));
-              }
-            }).toJS;
-
-            final onRejected = ((JSAny? err) {
-              String msg = 'Promise rejected';
-              if (err != null) {
-                if (!err.typeofEquals('string')) {
-                  final m = (err as JSObject).getProperty('message'.toJS);
-                  msg = (m != null && (m as JSAny).typeofEquals('string'))
-                      ? (m as JSString).toDart
-                      : (_jsStringify(err)?.toDart ?? 'error');
-                } else {
-                  msg = (err as JSString).toDart;
-                }
-              }
-              done(JsEvalResult(msg, err, isError: true, isPromise: true));
-            }).toJS;
-
-            obj.callMethod('then'.toJS, onFulfilled, onRejected);
-            return completer.future;
+        if (isPromiseBool) {
+          final completer = Completer<JsEvalResult>();
+          void done(JsEvalResult r) {
+            if (!completer.isCompleted) completer.complete(r);
           }
+
+          // Set fulfilled callback via @JS setter
+          _wtRes = ((JSAny? val) {
+            String str;
+            if (val == null) { str = ''; }
+            else if (val.typeofEquals('string')) { str = (val as JSString).toDart; }
+            else { str = _jsStringify(val)?.toDart ?? ''; }
+            done(JsEvalResult(str, val, isPromise: true));
+          }).toJS;
+
+          // Set rejected callback via @JS setter
+          _wtRej = ((JSAny? err) {
+            String msg = 'Promise rejected';
+            if (err != null) {
+              msg = err.typeofEquals('string')
+                  ? (err as JSString).toDart
+                  : _jsStringify(err)?.toDart ?? 'error';
+            }
+            done(JsEvalResult(msg, err, isError: true, isPromise: true));
+          }).toJS;
+
+          // Attach .then via eval — window.__wt_ev, window.__wt_res, window.__wt_rej are all set
+          _jsEval('window.__wt_ev.then(window.__wt_res,window.__wt_rej);delete window.__wt_ev;'.toJS);
+
+          // Clean up callback slots after completion
+          completer.future.whenComplete(() {
+            _wtRes = null;
+            _wtRej = null;
+          });
+
+          return completer.future;
         }
 
+        // Not a Promise — read the value
+        final result = _jsEval('(function(){var v=window.__wt_ev;delete window.__wt_ev;return v;})()'.toJS);
+        if (result == null) return JsEvalResult('', null);
         if (result.typeofEquals('string')) {
           return JsEvalResult((result as JSString).toDart, result);
         }
@@ -281,20 +265,14 @@
 
   JavascriptRuntime getJavascriptRuntime({
     Map<String, dynamic>? extraArgs = const {},
-  }) =>
-      QuickJsRuntime2();
+  }) => QuickJsRuntime2();
 
-  // ─── HandlePromises ───────────────────────────────────────────────────────────
+  // ─── HandlePromises extension ─────────────────────────────────────────────────
 
   extension HandlePromises on JavascriptRuntime {
     void enableHandlePromises() {}
 
-    /// evaluateAsync already awaits Promises internally on web.
-    /// This extension just returns the already-resolved result.
-    Future<JsEvalResult> handlePromise(
-      JsEvalResult value, {
-      Duration? timeout,
-    }) async =>
-        value;
+    /// evaluateAsync already awaits Promises internally.
+    Future<JsEvalResult> handlePromise(JsEvalResult value, {Duration? timeout}) async => value;
   }
   
