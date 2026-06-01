@@ -1,5 +1,6 @@
 // js_runtime_stub.dart — Flutter web JS runtime via dart:js_interop.
-  // This file is conditionally imported instead of flutter_qjs on web builds.
+  // Uses <script> injection for evaluate() so class/var declarations persist
+  // in global scope across multiple calls.
   import 'dart:async';
   import 'dart:convert';
   import 'dart:js_interop';
@@ -44,7 +45,6 @@
   }
 
   // ─── Top-level @JS interop ────────────────────────────────────────────────────
-  // All @JS external declarations must be at library scope, not inside a class.
 
   @JS('JSON.stringify')
   external JSString? _jsStringify(JSAny? value);
@@ -52,15 +52,19 @@
   @JS('eval')
   external JSAny? _jsEval(JSString code);
 
-  /// Slot for the sendMessage Dart callback (set before each extension call).
+  /// Slot: code string to inject via <script> (avoids eval escaping issues).
+  @JS('window.__wt_code')
+  external set _wtCode(JSString? code);
+
+  /// Slot: Dart sendMessage callback.
   @JS('window.__wt_cb')
   external set _wtCb(JSFunction? fn);
 
-  /// Temporary slot for Promise fulfilled callback.
+  /// Slot: Promise fulfilled callback.
   @JS('window.__wt_res')
   external set _wtRes(JSFunction? fn);
 
-  /// Temporary slot for Promise rejected callback.
+  /// Slot: Promise rejected callback.
   @JS('window.__wt_rej')
   external set _wtRej(JSFunction? fn);
 
@@ -78,7 +82,8 @@
 
     void _bootstrap() {
       final bk = '__wt_${_instanceId}';
-      _jsEval('''
+      // Install the per-instance sendMessage bridge via script injection.
+      _injectScript('''
   (function(){
     var k="${bk}";
     if(window[k])return;
@@ -94,13 +99,39 @@
     };
     window.sendMessage=function(ch,aj){ return window[k].send(ch,aj); };
   })();
-  '''.toJS);
+  ''');
 
-      // Register Dart dispatch callback via @JS external setter.
       _wtCb = ((JSString ch, JSString aj, JSNumber id) {
         _dispatch(ch.toDart, aj.toDart, id.toDartInt);
       }).toJS;
     }
+
+    // ── Script injection ──────────────────────────────────────────────────────
+    // Injects code via a <script> tag so class/var/function declarations
+    // persist in global scope across multiple evaluate() calls.
+    // Returns the text content of window.__wt_err if the script threw,
+    // or null on success.
+    void _injectScript(String code) {
+      _wtCode = code.toJS;
+      _jsEval('''
+  (function(){
+    var s=document.createElement("script");
+    s.textContent=window.__wt_code;
+    delete window.__wt_code;
+    window.__wt_err=null;
+    try{ document.head.appendChild(s); document.head.removeChild(s); }
+    catch(e){ window.__wt_err=e&&e.message?e.message:String(e); }
+  })();
+  '''.toJS);
+    }
+
+    String? _lastScriptError() {
+      final r = _jsEval('(window.__wt_err||null)'.toJS);
+      if (r == null || !r.typeofEquals('string')) return null;
+      return (r as JSString).toDart;
+    }
+
+    // ── Dart ↔ JS bridge ─────────────────────────────────────────────────────
 
     void _dispatch(String channel, String argsJson, int id) {
       final handler = _channels[channel];
@@ -114,9 +145,7 @@
           try {
             args = (argsJson.isEmpty || argsJson == 'null')
                 ? <dynamic>[] : jsonDecode(argsJson);
-          } catch (_) {
-            args = <dynamic>[];
-          }
+          } catch (_) { args = <dynamic>[]; }
           final result = await handler(args);
           _evalResolve(id, result == null ? 'null' : result.toString());
         } catch (e) {
@@ -125,10 +154,8 @@
       });
     }
 
-    // Safe resolve: JSON.stringify the result string for eval embedding.
     void _evalResolve(int id, String result) {
       final bk = '__wt_${_instanceId}';
-      // _jsStringify returns the JSON-encoded form of the string (with quotes).
       final encoded = _jsStringify(result.toJS)?.toDart ?? jsonEncode(result);
       _jsEval('(function(){var b=window["${bk}"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rs($encoded);})()'.toJS);
     }
@@ -139,36 +166,48 @@
       _jsEval('(function(){var b=window["${bk}"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rj(new Error($encoded));})()'.toJS);
     }
 
+    // ── JavascriptRuntime interface ───────────────────────────────────────────
+
     @override
     void dispose() {
       _channels.clear();
       _jsEval('delete window["__wt_${_instanceId}"];'.toJS);
     }
 
+    /// Executes [code] via <script> injection so that class/var/function
+    /// declarations persist in the global scope across multiple calls.
+    /// Returns an error JsEvalResult if the script threw.
     @override
     JsEvalResult evaluate(String code, {String? sourceUrl}) {
       try {
-        final result = _jsEval(code.toJS);
-        if (result == null) return JsEvalResult('', null);
-        if (result.typeofEquals('string')) {
-          return JsEvalResult((result as JSString).toDart, result);
+        _injectScript(code);
+        final err = _lastScriptError();
+        if (err != null) {
+          return JsEvalResult(err, null, isError: true);
         }
-        return JsEvalResult(_jsStringify(result)?.toDart ?? '', result);
+        return JsEvalResult('', null);
       } catch (e) {
         return JsEvalResult(e.toString(), null, isError: true);
       }
     }
 
+    /// Executes [code] via eval() and awaits any returned Promise.
+    /// By the time this is called, all globals (MProvider, extention, etc.)
+    /// are already in global scope from evaluate() calls above.
     @override
     Future<JsEvalResult> evaluateAsync(String code, {String? sourceUrl}) async {
-      // Evaluate code and store result in window.__wt_ev for Promise detection.
-      // We wrap the eval so JS stores the result we can check.
       try {
-        _jsEval('window.__wt_ev=void 0;'.toJS);
-        final wrapped = '(function(){try{window.__wt_ev=(${code});}catch(e){window.__wt_ev=Promise.reject(e);}})()';
-        _jsEval(wrapped.toJS);
+        // Wrap into a try/catch that stores result/error in window.__wt_ev.
+        _wtCode = code.toJS;
+        _jsEval('''
+  (function(){
+    try { window.__wt_ev=(0,eval)(window.__wt_code); }
+    catch(e){ window.__wt_ev=Promise.reject(e); }
+    delete window.__wt_code;
+  })();
+  '''.toJS);
 
-        // Check if window.__wt_ev is a Promise (has .then)
+        // Check if window.__wt_ev is a Promise.
         final isPromise = _jsEval(
           'typeof window.__wt_ev==="object"&&window.__wt_ev!==null&&typeof window.__wt_ev.then==="function"'.toJS,
         );
@@ -182,7 +221,6 @@
             if (!completer.isCompleted) completer.complete(r);
           }
 
-          // Set fulfilled callback via @JS setter
           _wtRes = ((JSAny? val) {
             String str;
             if (val == null) { str = ''; }
@@ -191,7 +229,6 @@
             done(JsEvalResult(str, val, isPromise: true));
           }).toJS;
 
-          // Set rejected callback via @JS setter
           _wtRej = ((JSAny? err) {
             String msg = 'Promise rejected';
             if (err != null) {
@@ -202,10 +239,8 @@
             done(JsEvalResult(msg, err, isError: true, isPromise: true));
           }).toJS;
 
-          // Attach .then via eval — window.__wt_ev, window.__wt_res, window.__wt_rej are all set
           _jsEval('window.__wt_ev.then(window.__wt_res,window.__wt_rej);delete window.__wt_ev;'.toJS);
 
-          // Clean up callback slots after completion
           completer.future.whenComplete(() {
             _wtRes = null;
             _wtRej = null;
@@ -214,7 +249,7 @@
           return completer.future;
         }
 
-        // Not a Promise — read the value
+        // Not a Promise — read the result.
         final result = _jsEval('(function(){var v=window.__wt_ev;delete window.__wt_ev;return v;})()'.toJS);
         if (result == null) return JsEvalResult('', null);
         if (result.typeofEquals('string')) {
