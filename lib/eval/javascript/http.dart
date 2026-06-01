@@ -282,7 +282,26 @@ Future<String> _toHttpResponseViaProxy(
       error: e,
       stackTrace: st,
     );
-    rethrow;
+    // Return a valid JSON error response so the JS extension gets parseable data
+    // instead of an unhandled exception that rejects the Promise with an opaque object.
+    return jsonEncode({
+      'body': '',
+      'statusCode': 0,
+      'headers': <String, String>{},
+      'isRedirect': false,
+      'persistentConnection': false,
+      'reasonPhrase': 'Proxy error: $e',
+      'request': {
+        'contentLength': null,
+        'finalized': false,
+        'followRedirects': true,
+        'headers': headers ?? <String, String>{},
+        'maxRedirects': 5,
+        'method': method,
+        'persistentConnection': false,
+        'url': url,
+      },
+    });
   }
 }
 
