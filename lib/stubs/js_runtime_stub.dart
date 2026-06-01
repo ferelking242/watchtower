@@ -68,6 +68,10 @@
   @JS('window.__wt_rej')
   external set _wtRej(JSFunction? fn);
 
+  /// Temporary slot to pass any JS value from Dart to an eval() snippet.
+  @JS('window.__wt_err_obj')
+  external set _wtErrObj(JSAny? v);
+
   // ─── Browser-native runtime ───────────────────────────────────────────────────
 
   class QuickJsRuntime2 extends JavascriptRuntime {
@@ -232,9 +236,19 @@
           _wtRej = ((JSAny? err) {
             String msg = 'Promise rejected';
             if (err != null) {
-              msg = err.typeofEquals('string')
-                  ? (err as JSString).toDart
-                  : _jsStringify(err)?.toDart ?? 'error';
+              if (err.typeofEquals('string')) {
+                msg = (err as JSString).toDart;
+              } else {
+                // JSON.stringify(Error) always returns "{}" — extract .message via eval.
+                _wtErrObj = err;
+                final m = _jsEval(
+                  '(function(){var e=window.__wt_err_obj;delete window.__wt_err_obj;'
+                  'return e instanceof Error?e.message:(e&&e.message!=null?String(e.message):JSON.stringify(e)||String(e));})()'.toJS,
+                );
+                if (m != null && m.typeofEquals('string')) {
+                  msg = (m as JSString).toDart;
+                }
+              }
             }
             done(JsEvalResult(msg, err, isError: true, isPromise: true));
           }).toJS;
