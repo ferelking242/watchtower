@@ -12,6 +12,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:go_router/go_router.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -165,6 +166,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   List<_ExtEntry> _all = [];
   Set<int> _installed = {};
   final Map<int, bool> _busy = {};
+  Map<int, String> _installedVersions = {};
+  Map<int, Source> _installedSources = {};
   bool _loading = true;
   String? _error;
 
@@ -232,8 +235,16 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       final allSrcs = await isar.sources.buildQuery<Source>().findAll();
       final sources = allSrcs.where((s) => s.isAdded == true).toList();
       if (mounted) {
-        setState(() =>
-            _installed = sources.map((s) => s.id).whereType<int>().toSet());
+        setState(() {
+          _installed = sources.map((s) => s.id).whereType<int>().toSet();
+          _installedVersions = {
+            for (final s in sources)
+              if (s.id != null && s.version != null) s.id!: s.version!,
+          };
+          _installedSources = {
+            for (final s in sources) if (s.id != null) s.id!: s,
+          };
+        });
       }
     } catch (_) {}
   }
@@ -655,8 +666,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         onPageChanged: (p) => _bannerPage = p,
         itemBuilder: (ctx, i) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: _BannerCard(entry: show[i], installed: _installed.contains(show[i].id),
-              busy: _busy[show[i].id] == true, onInstall: () => _install(show[i])),
+          child: _BannerCard(
+            entry: show[i],
+            installed: _installed.contains(show[i].id),
+            hasUpdate: _hasUpdate(show[i].id, show[i].version),
+            busy: _busy[show[i].id] == true,
+            onInstall: () => _install(show[i]),
+            onSettings: _installed.contains(show[i].id) ? () => _openSettings(show[i].id) : null,
+          ),
         ),
       ),
     );
@@ -675,8 +692,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         itemBuilder: (ctx, i) => _MiniCard(
           entry: show[i],
           installed: _installed.contains(show[i].id),
+          hasUpdate: _hasUpdate(show[i].id, show[i].version),
           busy: _busy[show[i].id] == true,
           onInstall: () => _install(show[i]),
+          onSettings: _installed.contains(show[i].id) ? () => _openSettings(show[i].id) : null,
         ),
       ),
     );
@@ -754,8 +773,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           itemBuilder: (ctx, i) => _PlayStoreCard(
                             entry: _searchResults[i],
                             installed: _installed.contains(_searchResults[i].id),
+                            hasUpdate: _hasUpdate(_searchResults[i].id, _searchResults[i].version),
                             busy: _busy[_searchResults[i].id] == true,
                             onInstall: () => _install(_searchResults[i]),
+                            onSettings: _installed.contains(_searchResults[i].id) ? () => _openSettings(_searchResults[i].id) : null,
                           ),
                         ),
             ),
@@ -774,13 +795,37 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           ..._featured.take(5).map((e) => _PlayStoreCard(
             entry: e,
             installed: _installed.contains(e.id),
+            hasUpdate: _hasUpdate(e.id, e.version),
             busy: _busy[e.id] == true,
             onInstall: () => _install(e),
+            onSettings: _installed.contains(e.id) ? () => _openSettings(e.id) : null,
           )),
           const SizedBox(height: 40),
         ],
       ),
     );
+  }
+
+  // ── Update detection ──────────────────────────────────────────────────────────
+
+  bool _hasUpdate(int id, String availableVersion) {
+    final installed = _installedVersions[id];
+    if (installed == null) return false;
+    try {
+      return compareVersions(installed, availableVersion) < 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int get _updatableCount => _all
+      .where((e) => _installed.contains(e.id) && _hasUpdate(e.id, e.version))
+      .length;
+
+  void _openSettings(int id) {
+    final source = _installedSources[id];
+    if (source == null) return;
+    context.push('/extension_detail', extra: source);
   }
 
   // ── Compat filter strip ────────────────────────────────────────────────────────
@@ -853,6 +898,37 @@ class _HomeTab extends StatelessWidget {
           ],
           // Mass install card
           SliverToBoxAdapter(child: _MassInstallCard(state: state)),
+          // Updates available banner
+          if (state._updatableCount > 0)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade700.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: Colors.orange.shade700.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.system_update_alt_rounded, color: Colors.orange.shade700, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${state._updatableCount} mise${state._updatableCount > 1 ? "s" : ""} à jour disponible${state._updatableCount > 1 ? "s" : ""}',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.orange.shade800),
+                        ),
+                      ),
+                      Text(
+                        'Appuie sur "Màj ↑"',
+                        style: TextStyle(fontSize: 10.5, color: Colors.orange.shade700.withValues(alpha: 0.8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           // Anime & Films & Séries
           if (animeExt.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -1021,8 +1097,10 @@ class _TypeTab extends StatelessWidget {
                 (ctx, i) => _PlayStoreCard(
                   entry: entries[i],
                   installed: state._installed.contains(entries[i].id),
+                  hasUpdate: state._hasUpdate(entries[i].id, entries[i].version),
                   busy: state._busy[entries[i].id] == true,
                   onInstall: () => state._install(entries[i]),
+                  onSettings: state._installed.contains(entries[i].id) ? () => state._openSettings(entries[i].id) : null,
                 ),
                 childCount: entries.length.clamp(0, 300),
               ),
@@ -1263,11 +1341,17 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
 class _PlayStoreCard extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
+  final bool hasUpdate;
   final bool busy;
   final VoidCallback onInstall;
+  final VoidCallback? onSettings;
   const _PlayStoreCard({
-    required this.entry, required this.installed,
-    required this.busy, required this.onInstall,
+    required this.entry,
+    required this.installed,
+    this.hasUpdate = false,
+    required this.busy,
+    required this.onInstall,
+    this.onSettings,
   });
 
   @override
@@ -1339,34 +1423,71 @@ class _PlayStoreCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            // ── Install button ─────────────────────────────────────────────
-            installed
-                ? Container(
-                    width: 72,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.check_rounded, size: 18, color: cs.primary),
-                  )
-                : SizedBox(
-                    width: 80,
-                    height: 32,
-                    child: FilledButton(
-                      onPressed: busy ? null : onInstall,
-                      style: FilledButton.styleFrom(
+            const SizedBox(width: 8),
+            // ── Action area ────────────────────────────────────────────────
+            if (installed)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Gear: settings
+                  if (onSettings != null)
+                    SizedBox(
+                      width: 30,
+                      height: 30,
+                      child: IconButton(
+                        visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        backgroundColor: cs.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        icon: Icon(Icons.settings_outlined, size: 17, color: cs.onSurfaceVariant),
+                        onPressed: onSettings,
+                        tooltip: 'Paramètres',
                       ),
-                      child: busy
-                          ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary))
-                          : Text('Installer', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cs.onPrimary)),
                     ),
+                  const SizedBox(width: 6),
+                  // Update or installed indicator
+                  hasUpdate
+                      ? SizedBox(
+                          width: 64,
+                          height: 32,
+                          child: FilledButton(
+                            onPressed: busy ? null : onInstall,
+                            style: FilledButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              backgroundColor: Colors.orange.shade700,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: busy
+                                ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Text('Màj ↑', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        )
+                      : Container(
+                          width: 36,
+                          height: 32,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: cs.primaryContainer.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.check_rounded, size: 18, color: cs.primary),
+                        ),
+                ],
+              )
+            else
+              SizedBox(
+                width: 80,
+                height: 32,
+                child: FilledButton(
+                  onPressed: busy ? null : onInstall,
+                  style: FilledButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    backgroundColor: cs.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
+                  child: busy
+                      ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary))
+                      : Text('Installer', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cs.onPrimary)),
+                ),
+              ),
           ],
         ),
       ),
@@ -1379,9 +1500,18 @@ class _PlayStoreCard extends StatelessWidget {
 class _BannerCard extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
+  final bool hasUpdate;
   final bool busy;
   final VoidCallback onInstall;
-  const _BannerCard({required this.entry, required this.installed, required this.busy, required this.onInstall});
+  final VoidCallback? onSettings;
+  const _BannerCard({
+    required this.entry,
+    required this.installed,
+    this.hasUpdate = false,
+    required this.busy,
+    required this.onInstall,
+    this.onSettings,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1474,15 +1604,53 @@ class _BannerCard extends StatelessWidget {
                           width: double.infinity,
                           height: 32,
                           child: installed
-                              ? Container(
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(8)),
-                                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                    Icon(Icons.check_rounded, size: 14, color: Colors.white),
-                                    SizedBox(width: 5),
-                                    Text('Installée', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
-                                  ]),
-                                )
+                              ? Row(children: [
+                                  // Gear icon
+                                  if (onSettings != null)
+                                    GestureDetector(
+                                      onTap: onSettings,
+                                      child: Container(
+                                        width: 34, height: 32,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.22),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.settings_outlined, size: 15, color: Colors.white),
+                                      ),
+                                    ),
+                                  if (onSettings != null) const SizedBox(width: 6),
+                                  Expanded(
+                                    child: hasUpdate
+                                        ? GestureDetector(
+                                            onTap: busy ? null : onInstall,
+                                            child: Container(
+                                              height: 32,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange.shade700.withValues(alpha: 0.85),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: busy
+                                                  ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                                  : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                                      Icon(Icons.system_update_alt_rounded, size: 13, color: Colors.white),
+                                                      SizedBox(width: 5),
+                                                      Text('Màj dispo', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700)),
+                                                    ]),
+                                            ),
+                                          )
+                                        : Container(
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(8)),
+                                            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                              Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                                              SizedBox(width: 5),
+                                              Text('Installée', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
+                                            ]),
+                                          ),
+                                  ),
+                                ])
                               : FilledButton(
                                   onPressed: busy ? null : onInstall,
                                   style: FilledButton.styleFrom(
@@ -1513,9 +1681,18 @@ class _BannerCard extends StatelessWidget {
 class _MiniCard extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
+  final bool hasUpdate;
   final bool busy;
   final VoidCallback onInstall;
-  const _MiniCard({required this.entry, required this.installed, required this.busy, required this.onInstall});
+  final VoidCallback? onSettings;
+  const _MiniCard({
+    required this.entry,
+    required this.installed,
+    this.hasUpdate = false,
+    required this.busy,
+    required this.onInstall,
+    this.onSettings,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1550,11 +1727,31 @@ class _MiniCard extends StatelessWidget {
             width: double.infinity,
             height: 26,
             child: installed
-                ? OutlinedButton(
-                    onPressed: null,
-                    style: OutlinedButton.styleFrom(padding: EdgeInsets.zero, side: BorderSide(color: cs.primary.withValues(alpha: 0.4)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7))),
-                    child: Icon(Icons.check_rounded, size: 13, color: cs.primary),
-                  )
+                ? hasUpdate
+                    ? FilledButton(
+                        onPressed: busy ? null : onInstall,
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor: Colors.orange.shade700,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                        ),
+                        child: busy
+                            ? const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
+                            : const Text('Màj', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
+                      )
+                    : OutlinedButton(
+                        onPressed: onSettings,
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          side: BorderSide(color: cs.primary.withValues(alpha: 0.4)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.settings_outlined, size: 11, color: cs.primary),
+                          const SizedBox(width: 2),
+                          Icon(Icons.check_rounded, size: 11, color: cs.primary),
+                        ]),
+                      )
                 : FilledButton(
                     onPressed: busy ? null : onInstall,
                     style: FilledButton.styleFrom(padding: EdgeInsets.zero, backgroundColor: cs.primaryContainer, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7))),

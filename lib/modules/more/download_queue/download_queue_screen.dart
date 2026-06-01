@@ -39,6 +39,11 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    // Kick off any pending downloads that were left in queue
+    // when the app was closed or the screen was dismissed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(processDownloadsProvider());
+    });
   }
 
   @override

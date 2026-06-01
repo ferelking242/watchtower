@@ -240,6 +240,15 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
         if (audioPreferredLang.isNotEmpty) "alang": audioPreferredLang,
         if (enableAudioPitchCorrection) "audio-pitch-correction": "yes",
         "volume-max": "${volumeBoostCap + 100}",
+        // ── Buffering / network optimisation ─────────────────────────────
+        // Buffer 30 s ahead so stalls only appear on very slow connections.
+        "demuxer-readahead-secs": "30",
+        // Allow up to 150 MiB of in-memory demuxer cache (streams + HLS).
+        "demuxer-max-bytes": "157286400",
+        // Keep 50 MiB of already-played content so seeks backward are instant.
+        "demuxer-max-back-bytes": "52428800",
+        // Abort a stalled HTTP connection faster (default is no timeout).
+        "network-timeout": "15",
         if (audioChannel != AudioChannel.reverseStereo)
           "audio-channels": audioChannel.mpvName,
         if (audioChannel == AudioChannel.reverseStereo)
