@@ -114,6 +114,19 @@ List<Manga> _mockMangas() => [
         author: 'George Kay & François Uzan',
         genre: ['Policier', 'Thriller', 'Aventure', '2021'],
       ),
+      _series(
+        id: 1007,
+        name: 'The Amazing World of Gumball',
+        description:
+            'Gumball Watterson, un chat bleu de 12 ans, vit à Elmore avec sa famille. '
+            'Accompagné de Darwin (un poisson à pattes), il vit des aventures loufoques. '
+            '6 saisons, 246 épisodes de pur dessin animé.',
+        imageUrl:
+            'https://upload.wikimedia.org/wikipedia/en/thumb/3/3e/'
+            'The_Amazing_World_of_Gumball.png/220px-The_Amazing_World_of_Gumball.png',
+        author: 'Ben Bocquelet',
+        genre: ['Animation', 'Comédie', 'Aventure', 'Famille'],
+      ),
     ];
 
 List<Chapter> _mockChapters() => [
@@ -157,6 +170,7 @@ List<Chapter> _mockChapters() => [
         name: 'S01E05 — La vérité sur Pellegrini',
         duration: '55min',
       ),
+      ..._gumballChapters(),
     ];
 
 List<Chapter> _gumballChapters() {
