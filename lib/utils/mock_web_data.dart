@@ -159,7 +159,34 @@ List<Chapter> _mockChapters() => [
       ),
     ];
 
-Manga _movie({
+List<Chapter> _gumballChapters() {
+    const Map<int, int> seasons = {1: 36, 2: 40, 3: 40, 4: 42, 5: 44, 6: 44};
+    final result = <Chapter>[];
+    int id = 3000;
+    for (final entry in seasons.entries) {
+      final season = entry.key;
+      final count = entry.value;
+      final lang = season <= 3 ? 'VF' : 'VOSTFR';
+      for (int ep = 1; ep <= count; ep++) {
+        result.add(
+          Chapter(
+            mangaId: 1007,
+            name: 'Saison $season - Épisode ${ep.toString().padLeft(2, '0')}',
+            url:
+                'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+            dateUpload: '${2011 + season - 1}-01-01',
+            isBookmarked: false,
+            scanlator: lang,
+            isRead: false,
+            duration: '11min',
+          )..id = id++,
+        );
+      }
+    }
+    return result;
+  }
+
+  Manga _movie({
   required int id,
   required String name,
   required String description,
