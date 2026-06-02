@@ -58,6 +58,7 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
+import 'package:watchtower/utils/dev_seed.dart';
 
 late Isar isar;
 DiscordRPC? discordRpc;
@@ -205,6 +206,9 @@ void main(List<String> args) async {
 
 Future<void> _postLaunchInit(StorageProvider storage) async {
   await AppLogger.init();
+  if (!kIsWeb) {
+    unawaited(DevSeed.seedGumball().catchError((_) {}));
+  }
   if (!kIsWeb) {
     unawaited(MDownloader.initializeIsolatePool(poolSize: 6));
   }
