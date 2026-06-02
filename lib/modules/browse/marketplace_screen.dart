@@ -2099,8 +2099,7 @@ class _IconChip extends StatelessWidget {
             children: [
               Icon(Icons.add_circle_outline_rounded, color: cs.primary, size: 28),
               const SizedBox(height: 6),
-              Text('Ajouter
-un dépôt', textAlign: TextAlign.center, style: TextStyle(color: cs.onSurface, fontSize: 12, fontWeight: FontWeight.w700)),
+              Text('Ajouter un dépôt', textAlign: TextAlign.center, style: TextStyle(color: cs.onSurface, fontSize: 12, fontWeight: FontWeight.w700)),
             ],
           ),
         ),
