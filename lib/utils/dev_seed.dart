@@ -27,7 +27,7 @@ import 'package:watchtower/main.dart';
       final existing = await isar.mangas
           .filter()
           .nameEqualTo(_seriesName)
-          .findFirstAsync();
+          .findFirst();
       if (existing != null) {
         await existing.chapters.load();
         return 'Gumball déjà présent — '
@@ -94,7 +94,7 @@ import 'package:watchtower/main.dart';
       final existing = await isar.mangas
           .filter()
           .nameEqualTo(_seriesName)
-          .findFirstAsync();
+          .findFirst();
       if (existing == null) return 'Gumball introuvable.';
       await existing.chapters.load();
       final chIds = existing.chapters
