@@ -1,21 +1,10 @@
 allprojects {
     repositories {
         google()
-        // JetBrains CDN proxy — avoids 403/rate-limit on GitHub Actions for kotlin-stdlib
+        // JetBrains CDN proxy for Maven Central — avoids 403 on GitHub Actions IPs
+        // (only proxies Maven Central artifacts, Flutter artifacts still come from google())
         maven { url "https://cache-redirector.jetbrains.com/maven-central" }
         mavenCentral()
-        maven { url "https://maven.pkg.jetbrains.space/public/p/kotlin/bootstrap" }
-    }
-    configurations.all {
-        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
-            // If any dep pulls kotlin-stdlib 2.0.21 (which 403s on Maven Central),
-            // redirect to 2.0.20 which is reliably available everywhere.
-            if (details.requested.group == 'org.jetbrains.kotlin' &&
-                details.requested.version == '2.0.21') {
-                details.useVersion '2.0.20'
-                details.because 'kotlin-stdlib 2.0.21 returns 403 from Maven Central in GitHub Actions'
-            }
-        }
     }
 }
 
