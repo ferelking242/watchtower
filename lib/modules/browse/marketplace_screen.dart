@@ -17,7 +17,7 @@ import 'package:go_router/go_router.dart';
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const _kWtBase =
-    'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
+    'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
 const _kKeiyoushiBase =
     'https://raw.githubusercontent.com/keiyoushi/extensions/repo';
 const _kAniyomiBase =
@@ -317,6 +317,77 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
   }
 
+
+  // ── Uninstall ─────────────────────────────────────────────────────────────────
+
+  Future<void> _uninstall(_ExtEntry entry) async {
+    final source = _installedSources[entry.id];
+    if (source == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Désinstaller ${entry.name}'),
+        content: const Text("L'extension sera désinstallée. Réinstallable à tout moment."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Désinstaller'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy[entry.id] = true);
+    try {
+      await isar.writeTxn(() async {
+        final s = await isar.sources.get(source.id!);
+        if (s != null) {
+          await isar.sources.put(s
+            ..isAdded = false
+            ..sourceCode = null
+            ..updatedAt = DateTime.now().millisecondsSinceEpoch);
+        }
+      });
+      await _refreshInstalled();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('${entry.name} désinstallée ✓'),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Erreur désinstallation : $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(entry.id));
+    }
+  }
+
+  // ── Marketplace settings ──────────────────────────────────────────────────────
+
+  void _showMarketplaceSettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _MarketplaceSettingsSheet(state: this),
+    );
+  }
   // ── Filter helpers ────────────────────────────────────────────────────────────
 
   List<_ExtEntry> _forTab(int tab) {
@@ -574,6 +645,18 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     size: 38,
                     onTap: () => showAccountSheet(context),
                   ),
+                  const SizedBox(width: 4),
+                  // Settings button
+                  SizedBox(
+                    width: 38,
+                    height: 38,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: Icon(Icons.tune_rounded, size: 20, color: cs.onSurfaceVariant),
+                      tooltip: 'Paramètres marketplace',
+                      onPressed: _showMarketplaceSettings,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -777,6 +860,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                             busy: _busy[_searchResults[i].id] == true,
                             onInstall: () => _install(_searchResults[i]),
                             onSettings: _installed.contains(_searchResults[i].id) ? () => _openSettings(_searchResults[i].id) : null,
+                            onUninstall: _installed.contains(_searchResults[i].id) ? () => _uninstall(_searchResults[i]) : null,
                           ),
                         ),
             ),
@@ -799,6 +883,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             busy: _busy[e.id] == true,
             onInstall: () => _install(e),
             onSettings: _installed.contains(e.id) ? () => _openSettings(e.id) : null,
+            onUninstall: () => _uninstall(e),
           )),
           const SizedBox(height: 40),
         ],
@@ -886,16 +971,17 @@ class _HomeTab extends StatelessWidget {
       child: CustomScrollView(
         slivers: [
           // Featured banner
-          if (featured.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: state.sectionTitle(
-                cs, 'À la une', Icons.star_rounded,
-                color: Colors.amber,
-                subtitle: 'Extensions populaires',
-              ),
+          // ── Dépôts d'extensions ──────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: state.sectionTitle(
+              cs, "Dépôts d'extensions", Icons.source_rounded,
+              color: cs.primary,
+              subtitle: 'Sources actives · gérez vos dépôts',
             ),
-            SliverToBoxAdapter(child: state.buildBanner(featured, cs)),
-          ],
+          ),
+          SliverToBoxAdapter(
+            child: _RepoCarousel(state: state),
+          ),
           // Mass install card
           SliverToBoxAdapter(child: _MassInstallCard(state: state)),
           // Updates available banner
@@ -1101,6 +1187,7 @@ class _TypeTab extends StatelessWidget {
                   busy: state._busy[entries[i].id] == true,
                   onInstall: () => state._install(entries[i]),
                   onSettings: state._installed.contains(entries[i].id) ? () => state._openSettings(entries[i].id) : null,
+                  onUninstall: state._installed.contains(entries[i].id) ? () => state._uninstall(entries[i]) : null,
                 ),
                 childCount: entries.length.clamp(0, 300),
               ),
@@ -1345,6 +1432,7 @@ class _PlayStoreCard extends StatelessWidget {
   final bool busy;
   final VoidCallback onInstall;
   final VoidCallback? onSettings;
+  final VoidCallback? onUninstall;
   const _PlayStoreCard({
     required this.entry,
     required this.installed,
@@ -1352,6 +1440,7 @@ class _PlayStoreCard extends StatelessWidget {
     required this.busy,
     required this.onInstall,
     this.onSettings,
+    this.onUninstall,
   });
 
   @override
@@ -1362,7 +1451,9 @@ class _PlayStoreCard extends StatelessWidget {
     final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
     final langCode = _MarketplaceScreenState._langCode(entry.lang);
 
-    return InkWell(
+    return GestureDetector(
+        onLongPress: (installed && onUninstall != null) ? onUninstall : null,
+        child: InkWell(
       onTap: null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1490,6 +1581,7 @@ class _PlayStoreCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1886,3 +1978,278 @@ class _IconChip extends StatelessWidget {
     );
   }
 }
+
+
+  // ─── Repo Carousel ─────────────────────────────────────────────────────────────
+
+  class _RepoCarousel extends StatelessWidget {
+    final _MarketplaceScreenState state;
+    const _RepoCarousel({required this.state});
+
+    static const _repos = [
+      _RepoInfo(
+        name: 'Watchtower',
+        description: 'Extensions officielles Watchtower (anime, manga, novel)',
+        icon: Icons.whatshot_rounded,
+        color: Color(0xFF6C63FF),
+        tag: 'Officiel',
+      ),
+      _RepoInfo(
+        name: 'Keiyoushi',
+        description: 'Extensions manga multi-langues (Mihon-compatible)',
+        icon: Icons.auto_stories_rounded,
+        color: Color(0xFFE91E63),
+        tag: 'Mihon',
+      ),
+      _RepoInfo(
+        name: 'Aniyomi',
+        description: 'Extensions anime populaires (Aniyomi-compatible)',
+        icon: Icons.live_tv_rounded,
+        color: Color(0xFF9C27B0),
+        tag: 'Anime',
+      ),
+    ];
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final allCount = state._all.length;
+      final installedCount = state._installed.length;
+
+      return SizedBox(
+        height: 112,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          children: [
+            // Stats card for current repo
+            _buildStatsCard(cs, allCount, installedCount),
+            const SizedBox(width: 10),
+            // Add repo button
+            _buildAddRepoCard(context, cs),
+          ],
+        ),
+      );
+    }
+
+    Widget _buildStatsCard(ColorScheme cs, int total, int installed) {
+      return Container(
+        width: 200,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [const Color(0xFF6C63FF), const Color(0xFF9C27B0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(children: [
+              const Icon(Icons.whatshot_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 6),
+              const Expanded(child: Text('Watchtower', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(6)),
+                child: const Text('Officiel', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${total}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
+                const Text('disponibles', style: TextStyle(color: Colors.white70, fontSize: 10)),
+              ]),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('${installed}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
+                const Text('installées', style: TextStyle(color: Colors.white70, fontSize: 10)),
+              ]),
+            ]),
+          ],
+        ),
+      );
+    }
+
+    Widget _buildAddRepoCard(BuildContext context, ColorScheme cs) {
+      return InkWell(
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Ouvrez Paramètres › Dépôts pour ajouter un repo'),
+            duration: Duration(seconds: 3),
+          ));
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 130,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+            boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_circle_outline_rounded, color: cs.primary, size: 28),
+              const SizedBox(height: 6),
+              Text('Ajouter
+un dépôt', textAlign: TextAlign.center, style: TextStyle(color: cs.onSurface, fontSize: 12, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  class _RepoInfo {
+    final String name;
+    final String description;
+    final IconData icon;
+    final Color color;
+    final String tag;
+    const _RepoInfo({required this.name, required this.description, required this.icon, required this.color, required this.tag});
+  }
+
+  // ─── Marketplace Settings Sheet ───────────────────────────────────────────────
+
+  class _MarketplaceSettingsSheet extends ConsumerWidget {
+    final _MarketplaceScreenState state;
+    const _MarketplaceSettingsSheet({required this.state});
+
+    @override
+    Widget build(BuildContext context, WidgetRef ref) {
+      final cs = Theme.of(context).colorScheme;
+      final showNsfw = ref.watch(showNSFWStateProvider);
+      final autoUpdate = ref.watch(autoUpdateExtensionsStateProvider);
+      final checkUpdates = ref.watch(checkForExtensionsUpdateStateProvider);
+
+      return DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, sc) => Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 36, height: 4, decoration: BoxDecoration(color: cs.outline.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(children: [
+                Icon(Icons.tune_rounded, size: 20, color: cs.primary),
+                const SizedBox(width: 10),
+                Text('Paramètres marketplace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
+              ]),
+            ),
+            const SizedBox(height: 8),
+            Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
+            Expanded(
+              child: ListView(
+                controller: sc,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                children: [
+                  _SettingsTile(
+                    icon: Icons.update_rounded,
+                    title: 'Vérifier les mises à jour',
+                    subtitle: 'Vérifie les nouvelles versions au démarrage',
+                    value: checkUpdates,
+                    onChanged: (v) => ref.read(checkForExtensionsUpdateStateProvider.notifier).set(v),
+                    cs: cs,
+                  ),
+                  _SettingsTile(
+                    icon: Icons.system_update_alt_rounded,
+                    title: 'Mise à jour automatique',
+                    subtitle: 'Met à jour les extensions automatiquement',
+                    value: autoUpdate,
+                    onChanged: (v) => ref.read(autoUpdateExtensionsStateProvider.notifier).set(v),
+                    cs: cs,
+                  ),
+                  _SettingsTile(
+                    icon: Icons.no_adult_content_rounded,
+                    title: 'Contenu adulte (18+)',
+                    subtitle: 'Afficher les extensions NSFW dans le marketplace',
+                    value: showNsfw,
+                    onChanged: (v) => ref.read(showNSFWStateProvider.notifier).set(v),
+                    cs: cs,
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Dépôts d\'extensions', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+                  ),
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.folder_special_rounded, size: 18),
+                        label: const Text('Gérer les dépôts'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          context.push('/browse/source-repositories');
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Recharger le marketplace'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          state._loadAll();
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  class _SettingsTile extends StatelessWidget {
+    final IconData icon;
+    final String title;
+    final String subtitle;
+    final bool value;
+    final ValueChanged<bool> onChanged;
+    final ColorScheme cs;
+    const _SettingsTile({required this.icon, required this.title, required this.subtitle, required this.value, required this.onChanged, required this.cs});
+
+    @override
+    Widget build(BuildContext context) {
+      return SwitchListTile.adaptive(
+        secondary: Icon(icon, size: 22, color: cs.primary),
+        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+        value: value,
+        onChanged: onChanged,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      );
+    }
+  }
+  
