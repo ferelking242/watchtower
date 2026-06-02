@@ -251,8 +251,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   Future<List<_ExtEntry>> _fetch(String url) async {
+    final bust = '?t=${DateTime.now().millisecondsSinceEpoch}';
+    final bustUrl = url.contains('?') ? url : url + bust;
     final r = await http
-        .get(Uri.parse(url))
+        .get(Uri.parse(bustUrl), headers: {
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache',
+        })
         .timeout(const Duration(seconds: 25));
     final maps = r.bodyBytes.length > 80000
         ? await compute(_parseIndexIsolate, {'body': r.body, 'url': url})
