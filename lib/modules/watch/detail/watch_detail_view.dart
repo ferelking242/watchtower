@@ -450,7 +450,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      // barrierColor stays default (dim)
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (sheetCtx) {
         final screen  = MediaQuery.of(ctx).size.height;
         final statusH = MediaQuery.of(ctx).padding.top;
@@ -460,7 +460,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           height: maxH,
           decoration: BoxDecoration(
             color: _surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -733,10 +732,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   bool _isMovie(List<Chapter> chapters) {
     if (widget.isLoading) return false;
     if (chapters.isEmpty) return false;
-    final genres =
-        (widget.manga.genre ?? []).map((g) => g.toLowerCase().trim()).toList();
-    if (genres.contains('film') || genres.contains('movie')) return true;
-    return false;
+    // 1 episode → movie/single; 2+ → series
+    return chapters.length == 1;
   }
 
   List<String> _detectSeasons(List<Chapter> chapters) {
@@ -952,7 +949,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         return Container(
           decoration: BoxDecoration(
             color: _surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1071,18 +1067,25 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         itemBuilder: (context, index) {
           if (index == 0) {
             return Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: Center(
-                child: GestureDetector(
-                  onTap: () => _showAllEpisodesSheet(context, allChapters),
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => _showAllEpisodesSheet(context, allChapters),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 56,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _card,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _accent.withValues(alpha: 0.6), width: 1),
+                  ),
+                  alignment: Alignment.center,
                   child: Text(
                     'Tous',
                     style: TextStyle(
                       color: _accent,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                      decorationColor: _accent,
                     ),
                   ),
                 ),
@@ -1105,12 +1108,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.download_outlined,
-                    size: 11,
-                    color: watched ? _faint : _grey,
-                  ),
-                  const SizedBox(height: 4),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     width: 48,
@@ -1182,17 +1179,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             final grey = onSurface.withValues(alpha: 0.50);
             final faint = onSurface.withValues(alpha: 0.25);
 
+            final _maxFrac = ((MediaQuery.of(ctx).size.height - 230 - MediaQuery.of(ctx).padding.top) / MediaQuery.of(ctx).size.height).clamp(0.40, 0.92);
             return DraggableScrollableSheet(
-              initialChildSize: 0.60,
+              initialChildSize: (_maxFrac * 0.85).clamp(0.40, _maxFrac),
               minChildSize: 0.40,
-              maxChildSize: 0.92,
+              maxChildSize: _maxFrac,
               expand: false,
               builder: (_, scrollCtrl) {
                 return Container(
                   decoration: BoxDecoration(
                     color: bg,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   child: Column(
                     children: [
@@ -1659,8 +1655,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       context: ctx,
       backgroundColor: _surface,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => _DownloadSheet(
         manga: widget.manga,
         chapters: chapters,
@@ -1685,8 +1680,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     showModalBottomSheet(
       context: ctx,
       backgroundColor: _surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
@@ -1783,8 +1777,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     showModalBottomSheet(
       context: ctx,
       backgroundColor: _surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
