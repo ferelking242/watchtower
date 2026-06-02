@@ -8,7 +8,6 @@ import 'package:watchtower/modules/more/widgets/file_explorer_widget.dart';
 import 'package:watchtower/modules/more/widgets/incognito_mode_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/dev_seed.dart';
 
 // ── Small helpers ──────────────────────────────────────────────────────────
 
@@ -390,107 +389,7 @@ class _TogglesSection extends StatelessWidget {
   }
 }
 
-// ── Dev seed tile ────────────────────────────────────────────────────────────
-
-  class _DevSeedTile extends StatefulWidget {
-    const _DevSeedTile();
-    @override
-    State<_DevSeedTile> createState() => _DevSeedTileState();
-  }
-
-  class _DevSeedTileState extends State<_DevSeedTile> {
-    bool _loading = false;
-    String? _message;
-
-    Future<void> _run(Future<String> Function() action) async {
-      setState(() { _loading = true; _message = null; });
-      try {
-        final msg = await action();
-        if (mounted) setState(() { _loading = false; _message = msg; });
-      } catch (e) {
-        if (mounted) setState(() { _loading = false; _message = 'Erreur: $e'; });
-      }
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      final cs = Theme.of(context).colorScheme;
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.science_outlined, size: 14,
-                    color: cs.onSurface.withValues(alpha: 0.45)),
-                const SizedBox(width: 6),
-                Text(
-                  'Données de test',
-                  style: TextStyle(
-                    color: cs.onSurface.withValues(alpha: 0.45),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _loading
-                      ? const LinearProgressIndicator(minHeight: 2)
-                      : OutlinedButton.icon(
-                          onPressed: () => _run(DevSeed.seedGumball),
-                          icon: const Icon(Icons.add_circle_outline, size: 16),
-                          label: const Text('Ajouter Gumball (test série)'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: cs.primary,
-                            side: BorderSide(
-                                color: cs.primary.withValues(alpha: 0.5)),
-                            textStyle: const TextStyle(fontSize: 13),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Supprimer Gumball',
-                  onPressed: _loading
-                      ? null
-                      : () => _run(DevSeed.removeGumball),
-                  icon: Icon(Icons.delete_outline,
-                      color: cs.error.withValues(alpha: 0.75)),
-                  style: IconButton.styleFrom(
-                    side: BorderSide(
-                        color: cs.error.withValues(alpha: 0.3)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
-            ),
-            if (_message != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                _message!,
-                style: TextStyle(
-                    color: cs.onSurface.withValues(alpha: 0.6),
-                    fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 4),
-            Divider(color: cs.outlineVariant.withValues(alpha: 0.4)),
-          ],
-        ),
-      );
-    }
-  }
-
-  // ── Main screen ────────────────────────────────────────────────────────────
+// ── Main screen ────────────────────────────────────────────────────────────
 
 class MoreScreen extends ConsumerStatefulWidget {
   const MoreScreen({super.key});
@@ -570,7 +469,6 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
             const Divider(height: 1),
             const _TogglesSection(),
             const Divider(height: 1),
-            const _DevSeedTile(),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: GridView.builder(
