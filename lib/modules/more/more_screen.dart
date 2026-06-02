@@ -570,6 +570,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
             const Divider(height: 1),
             const _TogglesSection(),
             const Divider(height: 1),
+            const _DevSeedTile(),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: GridView.builder(
