@@ -1,5 +1,6 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:async';
+import 'dart:ui';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -332,7 +333,12 @@ class _MobileControllerWidgetState
                   clipBehavior: Clip.none,
                   alignment: Alignment.center,
                   children: [
-                    Positioned.fill(child: Container(color: backdropColor)),
+                    Positioned.fill(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                        child: Container(color: backdropColor),
+                      ),
+                    ),
                     // We are adding 16.0 boundary around the actual controls (which contain the vertical drag gesture detectors).
                     // This will make the hit-test on edges (e.g. swiping to: show status-bar, show navigation-bar, go back in navigation) not activate the swipe gesture annoyingly.
                     Positioned.fill(
@@ -731,29 +737,40 @@ class _BackwardSeekIndicator extends StatefulWidget {
   State<_BackwardSeekIndicator> createState() => _BackwardSeekIndicatorState();
 }
 
-class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator> {
+class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
+    with SingleTickerProviderStateMixin {
   late Duration value = Duration(seconds: widget.skipDuration);
-
   Timer? timer;
+  late final AnimationController _ripple;
 
   @override
   void setState(VoidCallback fn) {
-    if (mounted) {
-      super.setState(fn);
-    }
+    if (mounted) super.setState(fn);
   }
 
   @override
   void initState() {
     super.initState();
-    timer = Timer(const Duration(milliseconds: 400), () {
+    _ripple = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..forward();
+    timer = Timer(const Duration(milliseconds: 800), () {
       widget.onSubmitted.call(value);
     });
   }
 
+  @override
+  void dispose() {
+    _ripple.dispose();
+    timer?.cancel();
+    super.dispose();
+  }
+
   void increment() {
     timer?.cancel();
-    timer = Timer(const Duration(milliseconds: 400), () {
+    _ripple.forward(from: 0);
+    timer = Timer(const Duration(milliseconds: 800), () {
       widget.onSubmitted.call(value);
     });
     widget.onChanged.call(value);
@@ -764,34 +781,46 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0x88767676), Color(0x00767676)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+    return GestureDetector(
+      onTap: increment,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0x55000000), Color(0x00000000)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
         ),
-      ),
-      child: InkWell(
-        splashColor: const Color(0x44767676),
-        onTap: increment,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.fast_rewind,
-                size: 24.0,
-                color: Color(0xFFFFFFFF),
+              AnimatedBuilder(
+                animation: _ripple,
+                builder: (context, _) {
+                  final scale = 0.8 + 0.4 * _ripple.value;
+                  final opacity = (1.0 - _ripple.value * 0.4).clamp(0.0, 1.0);
+                  return Opacity(
+                    opacity: opacity,
+                    child: Transform.scale(
+                      scale: scale,
+                      child: const Icon(
+                        Icons.fast_rewind_rounded,
+                        size: 38,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 8.0),
+              const SizedBox(height: 6),
               Text(
-                '${value.inSeconds} seconds',
+                '-${value.inSeconds}s',
                 style: const TextStyle(
-                  fontSize: 12.0,
-                  color: Color(0xFFFFFFFF),
+                  fontSize: 13,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
                 ),
               ),
             ],
@@ -816,29 +845,40 @@ class _ForwardSeekIndicator extends StatefulWidget {
   State<_ForwardSeekIndicator> createState() => _ForwardSeekIndicatorState();
 }
 
-class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator> {
+class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
+    with SingleTickerProviderStateMixin {
   late Duration value = Duration(seconds: widget.skipDuration);
-
   Timer? timer;
+  late final AnimationController _ripple;
 
   @override
   void setState(VoidCallback fn) {
-    if (mounted) {
-      super.setState(fn);
-    }
+    if (mounted) super.setState(fn);
   }
 
   @override
   void initState() {
     super.initState();
-    timer = Timer(const Duration(milliseconds: 400), () {
+    _ripple = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..forward();
+    timer = Timer(const Duration(milliseconds: 800), () {
       widget.onSubmitted.call(value);
     });
   }
 
+  @override
+  void dispose() {
+    _ripple.dispose();
+    timer?.cancel();
+    super.dispose();
+  }
+
   void increment() {
     timer?.cancel();
-    timer = Timer(const Duration(milliseconds: 400), () {
+    _ripple.forward(from: 0);
+    timer = Timer(const Duration(milliseconds: 800), () {
       widget.onSubmitted.call(value);
     });
     widget.onChanged.call(value);
@@ -849,34 +889,46 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0x00767676), Color(0x88767676)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+    return GestureDetector(
+      onTap: increment,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0x00000000), Color(0x55000000)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
         ),
-      ),
-      child: InkWell(
-        splashColor: const Color(0x44767676),
-        onTap: increment,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.fast_forward,
-                size: 24.0,
-                color: Color(0xFFFFFFFF),
+              AnimatedBuilder(
+                animation: _ripple,
+                builder: (context, _) {
+                  final scale = 0.8 + 0.4 * _ripple.value;
+                  final opacity = (1.0 - _ripple.value * 0.4).clamp(0.0, 1.0);
+                  return Opacity(
+                    opacity: opacity,
+                    child: Transform.scale(
+                      scale: scale,
+                      child: const Icon(
+                        Icons.fast_forward_rounded,
+                        size: 38,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 8.0),
+              const SizedBox(height: 6),
               Text(
-                '${value.inSeconds} seconds',
+                '+${value.inSeconds}s',
                 style: const TextStyle(
-                  fontSize: 12.0,
-                  color: Color(0xFFFFFFFF),
+                  fontSize: 13,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
                 ),
               ),
             ],

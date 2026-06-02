@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'dart:convert';
 import 'dart:ffi';
@@ -2230,6 +2231,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
             ),
           ],
         ),
+        _VideoStatsOverlay(player: _player),
         if (enableAniSkip && (_hasOpeningSkip || _hasEndingSkip))
           Positioned(
             right: 0,
@@ -2549,4 +2551,160 @@ mixin _AlwaysOnTopStateMixin<T extends StatefulWidget> on State<T> {
   // Whether the platform support AlwaysOnTop feature.
   bool _supportAlwaysOnTop() =>
       !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+}
+
+// ── Stats vidéo overlay (résolution, codec, FPS, bitrate) ────────────────────
+
+class _VideoStatsOverlay extends StatefulWidget {
+  final Player player;
+  const _VideoStatsOverlay({required this.player});
+  @override
+  State<_VideoStatsOverlay> createState() => _VideoStatsOverlayState();
+}
+
+class _VideoStatsOverlayState extends State<_VideoStatsOverlay> {
+  bool _visible = false;
+  // Résolution live via stream width/height
+  double _w = 0, _h = 0;
+  double _fps = 0;
+  final List<StreamSubscription> _subs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    try { _w = (widget.player.state.width as num).toDouble(); } catch (_) {}
+    try { _h = (widget.player.state.height as num).toDouble(); } catch (_) {}
+    try {
+      _subs.add(widget.player.stream.width.listen((v) {
+        if (mounted) {
+          try { setState(() => _w = (v as num?)?.toDouble() ?? _w); } catch (_) {}
+        }
+      }));
+    } catch (_) {}
+    try {
+      _subs.add(widget.player.stream.height.listen((v) {
+        if (mounted) {
+          try { setState(() => _h = (v as num?)?.toDouble() ?? _h); } catch (_) {}
+        }
+      }));
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs) s.cancel();
+    super.dispose();
+  }
+
+  String get _resolution =>
+      (_w > 0 && _h > 0) ? '${_w.toInt()}×${_h.toInt()}' : '—';
+
+  String get _codec {
+    try {
+      final t = widget.player.state.track.video;
+      return (t as dynamic).codec as String? ?? '—';
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Stack(
+        children: [
+          Positioned(
+            top: 60,
+            right: 8,
+            child: GestureDetector(
+              onTap: () => setState(() => _visible = !_visible),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _visible ? 1.0 : 0.55,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    color: _visible ? Colors.amberAccent : Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_visible)
+            Positioned(
+              top: 55,
+              right: 44,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: DefaultTextStyle(
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        height: 1.6,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _statRow(Icons.aspect_ratio_rounded,
+                              'Résolution', _resolution),
+                          _statRow(Icons.movie_creation_outlined,
+                              'Codec', _codec),
+                          _statRow(Icons.speed_rounded, 'FPS',
+                              _fps > 0
+                                  ? _fps.toStringAsFixed(3)
+                                  : '—'),
+                          _statRow(Icons.graphic_eq_rounded, 'Bitrate',
+                              '—'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text('$label: ',
+              style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          Text(value,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 11)),
+        ],
+      ),
+    );
+  }
 }
