@@ -279,6 +279,9 @@ class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
             case FilterGroupType.not:
               return op.filters.isEmpty ||
                   !_matchesFilter(obj, op.filters.first);
+            case FilterGroupType.xor:
+              return op.filters.fold<bool>(false,
+                  (acc, f) => acc ^ _matchesFilter(obj, f));
           }
         }
         if (op is FilterCondition) {
