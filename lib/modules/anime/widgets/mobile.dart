@@ -738,10 +738,12 @@ class _BackwardSeekIndicator extends StatefulWidget {
 }
 
 class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late Duration value = Duration(seconds: widget.skipDuration);
   Timer? timer;
   late final AnimationController _ripple;
+  late final AnimationController _ring1;
+  late final AnimationController _ring2;
 
   @override
   void setState(VoidCallback fn) {
@@ -753,9 +755,20 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
     super.initState();
     _ripple = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500),
     )..forward();
-    timer = Timer(const Duration(milliseconds: 800), () {
+    _ring1 = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat();
+    _ring2 = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _ring2.repeat();
+    });
+    timer = Timer(const Duration(milliseconds: 900), () {
       widget.onSubmitted.call(value);
     });
   }
@@ -763,6 +776,8 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
   @override
   void dispose() {
     _ripple.dispose();
+    _ring1.dispose();
+    _ring2.dispose();
     timer?.cancel();
     super.dispose();
   }
@@ -770,7 +785,9 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
   void increment() {
     timer?.cancel();
     _ripple.forward(from: 0);
-    timer = Timer(const Duration(milliseconds: 800), () {
+    _ring1.forward(from: 0);
+    _ring2.forward(from: 0);
+    timer = Timer(const Duration(milliseconds: 900), () {
       widget.onSubmitted.call(value);
     });
     widget.onChanged.call(value);
@@ -783,49 +800,72 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: increment,
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0x55000000), Color(0x00000000)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Semi-oval tinted background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0x66000000), Color(0x00000000)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
           ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedBuilder(
-                animation: _ripple,
-                builder: (context, _) {
-                  final scale = 0.8 + 0.4 * _ripple.value;
-                  final opacity = (1.0 - _ripple.value * 0.4).clamp(0.0, 1.0);
-                  return Opacity(
-                    opacity: opacity,
-                    child: Transform.scale(
-                      scale: scale,
+          // Ripple rings
+          Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _RippleRing(controller: _ring1, maxRadius: 55),
+                _RippleRing(controller: _ring2, maxRadius: 55),
+              ],
+            ),
+          ),
+          // Icon + label
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: _ripple,
+                  builder: (context, _) {
+                    final t = CurvedAnimation(
+                      parent: _ripple,
+                      curve: Curves.elasticOut,
+                    ).value;
+                    return Transform.scale(
+                      scale: 0.7 + 0.3 * t,
                       child: const Icon(
                         Icons.fast_rewind_rounded,
-                        size: 38,
+                        size: 42,
                         color: Colors.white,
+                        shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '-${value.inSeconds}s',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                    );
+                  },
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '-${value.inSeconds}s',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -846,10 +886,12 @@ class _ForwardSeekIndicator extends StatefulWidget {
 }
 
 class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late Duration value = Duration(seconds: widget.skipDuration);
   Timer? timer;
   late final AnimationController _ripple;
+  late final AnimationController _ring1;
+  late final AnimationController _ring2;
 
   @override
   void setState(VoidCallback fn) {
@@ -861,9 +903,20 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
     super.initState();
     _ripple = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500),
     )..forward();
-    timer = Timer(const Duration(milliseconds: 800), () {
+    _ring1 = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat();
+    _ring2 = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _ring2.repeat();
+    });
+    timer = Timer(const Duration(milliseconds: 900), () {
       widget.onSubmitted.call(value);
     });
   }
@@ -871,6 +924,8 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
   @override
   void dispose() {
     _ripple.dispose();
+    _ring1.dispose();
+    _ring2.dispose();
     timer?.cancel();
     super.dispose();
   }
@@ -878,7 +933,9 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
   void increment() {
     timer?.cancel();
     _ripple.forward(from: 0);
-    timer = Timer(const Duration(milliseconds: 800), () {
+    _ring1.forward(from: 0);
+    _ring2.forward(from: 0);
+    timer = Timer(const Duration(milliseconds: 900), () {
       widget.onSubmitted.call(value);
     });
     widget.onChanged.call(value);
@@ -891,50 +948,106 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: increment,
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0x00000000), Color(0x55000000)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0x00000000), Color(0x66000000)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
           ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedBuilder(
-                animation: _ripple,
-                builder: (context, _) {
-                  final scale = 0.8 + 0.4 * _ripple.value;
-                  final opacity = (1.0 - _ripple.value * 0.4).clamp(0.0, 1.0);
-                  return Opacity(
-                    opacity: opacity,
-                    child: Transform.scale(
-                      scale: scale,
+          Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _RippleRing(controller: _ring1, maxRadius: 55),
+                _RippleRing(controller: _ring2, maxRadius: 55),
+              ],
+            ),
+          ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: _ripple,
+                  builder: (context, _) {
+                    final t = CurvedAnimation(
+                      parent: _ripple,
+                      curve: Curves.elasticOut,
+                    ).value;
+                    return Transform.scale(
+                      scale: 0.7 + 0.3 * t,
                       child: const Icon(
                         Icons.fast_forward_rounded,
-                        size: 38,
+                        size: 42,
                         color: Colors.white,
+                        shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '+${value.inSeconds}s',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                    );
+                  },
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '+${value.inSeconds}s',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+}
+
+// ─── Ripple ring widget ───────────────────────────────────────────────────────
+
+class _RippleRing extends StatelessWidget {
+  final AnimationController controller;
+  final double maxRadius;
+  const _RippleRing({required this.controller, required this.maxRadius});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) {
+        final t = CurvedAnimation(
+          parent: controller,
+          curve: Curves.easeOut,
+        ).value;
+        final radius = maxRadius * t;
+        final opacity = (1.0 - t).clamp(0.0, 1.0);
+        return SizedBox(
+          width: radius * 2,
+          height: radius * 2,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: opacity * 0.55),
+                width: 2.0,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -210,10 +211,17 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 delegate: _TabBarDelegate(
                   TabBar(
                     controller: _tabController,
+                    isScrollable: false,
                     indicatorColor: _accent,
                     indicatorWeight: 2.5,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicator: _AnimatedTabIndicator(color: _accent),
                     labelColor: _textPrimary,
                     unselectedLabelColor: _grey,
+                    labelStyle: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w600),
+                    unselectedLabelStyle: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w400),
                     dividerColor: Colors.transparent,
                     tabs: const [
                       Tab(text: 'Détails'),
@@ -1058,13 +1066,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
 
+  static const double _kEpCardW = 64.0;
+  static const double _kEpCardH = 54.0;
+  static const double _kEpRadius = 12.0;
+  static const double _kStripH   = 92.0;
+
   Widget _buildEpisodeStrip(List<Chapter> chapters, List<Chapter> allChapters) {
     return SizedBox(
-      height: 72,
+      height: _kStripH,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         itemCount: chapters.length + 1,
         itemBuilder: (context, index) {
+          // ── "Tous" card ──────────────────────────────────────────────────────
           if (index == 0) {
             return Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -1072,26 +1087,37 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 onTap: () => _showAllEpisodesSheet(context, allChapters),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  width: 56,
-                  height: 40,
+                  width: _kEpCardW,
+                  height: _kEpCardH,
                   decoration: BoxDecoration(
-                    color: _card,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _accent.withValues(alpha: 0.6), width: 1),
+                    color: _accent.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(_kEpRadius),
+                    border: Border.all(
+                        color: _accent.withValues(alpha: 0.70), width: 1.2),
                   ),
                   alignment: Alignment.center,
-                  child: Text(
-                    'Tous',
-                    style: TextStyle(
-                      color: _accent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.grid_view_rounded,
+                          size: 16, color: _accent.withValues(alpha: 0.85)),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Tous',
+                        style: TextStyle(
+                          color: _accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             );
           }
+
+          // ── Episode card ─────────────────────────────────────────────────────
           final chapter = chapters[index - 1];
           final watched = chapter.isRead ?? false;
           final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
@@ -1105,34 +1131,31 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             child: GestureDetector(
               onTap: () =>
                   chapter.pushToReaderView(context, ignoreIsRead: true),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 48,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _card,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _faint,
-                        width: 1,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: watched ? _faint : _textPrimary,
-                        fontSize: 13,
-                        fontWeight: watched
-                            ? FontWeight.normal
-                            : FontWeight.w600,
-                      ),
-                    ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: _kEpCardW,
+                height: _kEpCardH,
+                decoration: BoxDecoration(
+                  color: watched
+                      ? _accent.withValues(alpha: 0.85)
+                      : _card,
+                  borderRadius: BorderRadius.circular(_kEpRadius),
+                  border: Border.all(
+                    color: watched ? _accent : _faint,
+                    width: watched ? 0 : 0.8,
                   ),
-                ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: watched
+                        ? Colors.white
+                        : _textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           );
@@ -1653,9 +1676,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   void _showDownloadSheet(BuildContext ctx, List<Chapter> chapters) {
     showModalBottomSheet(
       context: ctx,
-      backgroundColor: _surface,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => _DownloadSheet(
         manga: widget.manga,
         chapters: chapters,
@@ -1870,9 +1895,9 @@ class _AideButton extends StatelessWidget {
   }
 }
 
-// ─── DOWNLOAD SHEET — engine + external downloader ───────────────────────────
+// ─── DOWNLOAD SHEET — Refonte complète style MovieBox ─────────────────────────
 
-enum _Downloader { hydra, zeus, aria2, external }
+enum _Downloader { internal, aria2, zeus, external }
 
 class _DownloadSheet extends ConsumerStatefulWidget {
   final Manga manga;
@@ -1890,23 +1915,25 @@ class _DownloadSheet extends ConsumerStatefulWidget {
 }
 
 class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
-  // ── Theme ────────────────────────────────────────────────────────────────────
-  Color get _accent => Theme.of(context).primaryColor;
-  Color get _bg     => Theme.of(context).scaffoldBackgroundColor;
-  Color get _text   => Theme.of(context).colorScheme.onSurface;
-  Color get _grey   => _text.withValues(alpha: 0.48);
-  Color get _faint  => _text.withValues(alpha: 0.13);
+  // ── Theme ─────────────────────────────────────────────────────────────────────
+  Color get _accent  => Theme.of(context).primaryColor;
+  Color get _bg      => Theme.of(context).scaffoldBackgroundColor;
+  Color get _card    => Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _text    => Theme.of(context).colorScheme.onSurface;
+  Color get _grey    => _text.withValues(alpha: 0.50);
+  Color get _faint   => _text.withValues(alpha: 0.13);
 
-  // ── State ────────────────────────────────────────────────────────────────────
+  // ── State ─────────────────────────────────────────────────────────────────────
   bool _loading = true;
   List<Video> _videos = [];
   String? _selectedQuality;
   String? _selectedLang;
   String? _selectedSeason;
-  _Downloader _downloader = _Downloader.hydra;
+  _Downloader _downloader = _Downloader.internal;
   String _externalApp = 'adm';
   final Set<Chapter> _selected = {};
   bool _selectAll = false;
+  bool _downloaderExpanded = false;
 
   static final _langRe =
       RegExp(r'\b(VF|VO|VOSTFR|VOSTA|MULTI|EN|FR|JAP?|ENG?)\b',
@@ -1914,12 +1941,11 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   static final _seasonRe =
       RegExp(r'(?:[Ss]aison|[Ss]eason|\bS)[ ]*(\d+)');
 
-  // ── Init ─────────────────────────────────────────────────────────────────────
+  // ── Init ──────────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    final pref =
-        DownloadSettingsService.instance.preferredExternalDownloader ?? '';
+    final pref = DownloadSettingsService.instance.preferredExternalDownloader ?? '';
     if (pref.isNotEmpty) _externalApp = pref;
     _loadVideos();
   }
@@ -1930,8 +1956,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
       return;
     }
     try {
-      final result = await ref
-          .read(getVideoListProvider(episode: widget.chapters.first).future);
+      final result =
+          await ref.read(getVideoListProvider(episode: widget.chapters.first).future);
       final videos = result.$1;
       final seen = <String>{};
       if (mounted) {
@@ -1945,9 +1971,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     }
   }
 
-  // ── Data derivations ─────────────────────────────────────────────────────────
+  // ── Data derivations ──────────────────────────────────────────────────────────
 
-  /// Language tags found in video quality strings — only shown if > 1.
   List<String> get _langs {
     final s = <String>{};
     for (final v in _videos) {
@@ -1957,7 +1982,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     return s.toList()..sort();
   }
 
-  /// Distinct season labels from chapter names — only shown if > 1.
   List<String> get _seasons {
     final s = <String>{};
     for (final ch in widget.chapters) {
@@ -1967,7 +1991,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     return s.toList()..sort();
   }
 
-  /// Chapters filtered by selected season (none selected = all).
   List<Chapter> get _displayChapters {
     if (_selectedSeason == null) return widget.chapters;
     final num = _selectedSeason!.replaceAll('Saison ', '');
@@ -1977,7 +2000,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     }).toList();
   }
 
-  /// Real quality labels from fetched videos (filtered by lang if any).
   List<String> get _qualities {
     var src = _videos;
     if (_selectedLang != null) {
@@ -1991,38 +2013,77 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   }
 
   static String _normQ(String raw) {
-    if (raw.trim().isEmpty) return 'Inconnu';
+    if (raw.trim().isEmpty) return 'Auto';
     final m = RegExp(r'^(\d{3,4})[pP]').firstMatch(raw);
-    if (m != null) return '${m.group(1)}p';
+    if (m != null) return '${m.group(1)}P';
     final s = raw.toLowerCase();
     if (s.contains('4k') || s.contains('2160')) return '4K';
-    if (s.contains('1080') || s.contains('fhd')) return '1080p';
-    if (s.contains('720') || s.contains('hd')) return '720p';
-    if (s.contains('480') || s.contains('sd')) return '480p';
-    if (s.contains('360')) return '360p';
-    if (s.contains('240')) return '240p';
+    if (s.contains('1080') || s.contains('fhd')) return '1080P';
+    if (s.contains('720') || s.contains('hd')) return '720P';
+    if (s.contains('480') || s.contains('sd')) return '480P';
+    if (s.contains('360')) return '360P';
+    if (s.contains('240')) return '240P';
     return raw.trim();
   }
 
-  // ── Download action ───────────────────────────────────────────────────────────
+  // ── Total size ────────────────────────────────────────────────────────────────
+  String _totalSizeLabel() {
+    if (_selected.isEmpty) return '';
+    double totalMB = 0;
+    bool anyKnown = false;
+    for (final ch in _selected) {
+      final sz = ch.downloadSize;
+      if (sz != null && sz.trim().isNotEmpty) {
+        final m = RegExp(r'([\d.]+)\s*(MB|GB|KB)', caseSensitive: false)
+            .firstMatch(sz);
+        if (m != null) {
+          anyKnown = true;
+          final num = double.tryParse(m.group(1)!) ?? 0;
+          final unit = m.group(2)!.toUpperCase();
+          if (unit == 'GB') totalMB += num * 1024;
+          else if (unit == 'KB') totalMB += num / 1024;
+          else totalMB += num;
+        }
+      }
+    }
+    if (!anyKnown) return '';
+    if (totalMB >= 1024) {
+      return '${(totalMB / 1024).toStringAsFixed(1)} GB';
+    }
+    return '${totalMB.toStringAsFixed(1)} MB';
+  }
 
+  String _epLabel(Chapter ch, int fallback) {
+    final m = RegExp(r'\d+').firstMatch(ch.name ?? '');
+    return m != null
+        ? 'E${m.group(0)!.padLeft(2, '0')}'
+        : 'E${(fallback + 1).toString().padLeft(2, '0')}';
+  }
+
+  String _downloaderLabel() {
+    switch (_downloader) {
+      case _Downloader.internal: return 'Interne';
+      case _Downloader.aria2: return 'Aria2';
+      case _Downloader.zeus: return 'Zeus';
+      case _Downloader.external: return _externalApp.toUpperCase();
+    }
+  }
+
+  // ── Download action ───────────────────────────────────────────────────────────
   Future<void> _startDownload() async {
     if (_selected.isEmpty) return;
     final chapters = _selected.toList();
 
     if (_downloader == _Downloader.external) {
-      // Close sheet first, then fetch each chapter's URL and launch external app
       if (mounted) Navigator.pop(context);
       for (final ch in chapters) {
         try {
-          final result =
-              await ref.read(getVideoListProvider(episode: ch).future);
+          final result = await ref.read(getVideoListProvider(episode: ch).future);
           final videos = result.$1;
           if (videos.isEmpty) {
             botToast('Aucun lien pour ${ch.name ?? '?'}');
             continue;
           }
-          // Pick best match for selected quality, else first
           Video best = videos.first;
           if (_selectedQuality != null) {
             final match = videos.cast<Video?>().firstWhere(
@@ -2037,15 +2098,13 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             headers: best.headers,
           );
           if (!launched && mounted) {
-            botToast(
-                'Impossible d\'ouvrir $_externalApp — vérifiez qu\'il est installé.');
+            botToast('Impossible d\'ouvrir $_externalApp — vérifiez qu\'il est installé.');
           }
         } catch (e) {
           if (mounted) botToast(e.toString().split('\n').first);
         }
       }
     } else {
-      // Internal engines — set quality preference then hand off
       if (_selectedQuality != null && _videos.isNotEmpty) {
         for (final ch in chapters) {
           if (ch.id == null) continue;
@@ -2063,61 +2122,46 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    final displayed = _displayChapters;
-    final screen  = MediaQuery.of(context).size.height;
-    final statusH = MediaQuery.of(context).padding.top;
-    final maxH    = screen - 230 - statusH; // never overlap the player
-    final langs = _langs;
-    final seasons = _seasons;
-    final qualities = _qualities;
+    final displayed  = _displayChapters;
+    final screenH    = MediaQuery.of(context).size.height;
+    final statusH    = MediaQuery.of(context).padding.top;
+    final maxH       = screenH - 230 - statusH;
+    final langs      = _langs;
+    final seasons    = _seasons;
+    final qualities  = _qualities;
+    final totalSz    = _totalSizeLabel();
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
-      color: _bg,
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            width: 36, height: 4,
-            margin: const EdgeInsets.only(top: 10, bottom: 2),
-            decoration: BoxDecoration(
-                color: _faint, borderRadius: BorderRadius.circular(2)),
-          ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-            child: Row(children: [
-              Text('Télécharger',
-                  style: TextStyle(
-                      color: _text,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700)),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Icon(Icons.close, color: _grey, size: 22),
-              ),
-            ]),
-          ),
-          // ── Filters (only real data) ────────────────────────────────────────
+          // ── Header poster + blur ──────────────────────────────────────────────
+          _buildHeader(),
+
+          // ── Loading bar ───────────────────────────────────────────────────────
           if (_loading)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: LinearProgressIndicator(
-                color: _accent,
-                backgroundColor: _faint,
-                minHeight: 2,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            )
-          else ...[
-            // Language — only if multiple languages available
+            LinearProgressIndicator(
+              color: _accent,
+              backgroundColor: _faint,
+              minHeight: 2,
+              borderRadius: BorderRadius.zero,
+            ),
+
+          // ── Quality cards ─────────────────────────────────────────────────────
+          if (!_loading && qualities.isNotEmpty)
+            _buildQualityCards(qualities),
+
+          // ── Language / Season filters (only if multiple) ──────────────────────
+          if (!_loading) ...[
             if (langs.length > 1)
-              _filterRow(
+              _buildFilterRow(
                 icon: Icons.language_rounded,
                 label: 'Langue',
                 items: langs,
@@ -2127,9 +2171,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                   _selectedQuality = null;
                 }),
               ),
-            // Season — only if multiple seasons detected
             if (seasons.length > 1)
-              _filterRow(
+              _buildFilterRow(
                 icon: Icons.layers_rounded,
                 label: 'Saison',
                 items: seasons,
@@ -2140,38 +2183,212 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                   _selectAll = false;
                 }),
               ),
-            // Quality — only if real data available from the extension
-            if (qualities.isNotEmpty)
-              _filterRow(
-                icon: Icons.hd_outlined,
-                label: 'Qualité',
-                items: qualities,
-                selected: _selectedQuality,
-                onSelect: (q) => setState(
-                    () => _selectedQuality = _selectedQuality == q ? null : q),
-              ),
           ],
-          // ── Downloader picker ───────────────────────────────────────────────
-          _buildDownloaderSection(),
-          // ── Episode list ────────────────────────────────────────────────────
-          Divider(height: 1, color: _faint),
+
+          // ── Downloader collapsible ────────────────────────────────────────────
+          _buildDownloaderCollapsible(),
+
+          // ── Divider ───────────────────────────────────────────────────────────
+          Divider(height: 1, thickness: 0.8, color: _faint),
+
+          // ── Select all header ─────────────────────────────────────────────────
+          _buildSelectAllHeader(displayed),
+
+          // ── Episode list ──────────────────────────────────────────────────────
           Flexible(
             child: ListView.builder(
               shrinkWrap: true,
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: 8),
               itemCount: displayed.length,
-              itemBuilder: (_, i) => _buildEpisodeRow(displayed[i]),
+              itemBuilder: (_, i) => _buildEpisodeCard(displayed[i], i),
             ),
           ),
-          _buildBottomBar(displayed),
+
+          // ── Download button ───────────────────────────────────────────────────
+          _buildDownloadButton(totalSz),
         ],
       ),
     );
   }
 
-  // ── Filter row ────────────────────────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────────
+  Widget _buildHeader() {
+    final manga  = widget.manga;
+    final imgUrl = toImgUrl(manga.customCoverFromTracker ?? manga.imageUrl ?? '');
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: SizedBox(
+        height: 108,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Blurred background
+            if (imgUrl.isNotEmpty)
+              cachedNetworkImage(
+                imageUrl: imgUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 108,
+              ),
+            BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(color: Colors.black.withValues(alpha: 0.62)),
+            ),
+            // Content row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              child: Row(
+                children: [
+                  // Poster thumbnail
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: cachedNetworkImage(
+                      imageUrl: imgUrl,
+                      width: 54,
+                      height: 76,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  // Title block
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Télécharger',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.58),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          manga.name ?? '',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Close button
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 0.8),
+                      ),
+                      child: const Icon(Icons.close,
+                          color: Colors.white, size: 17),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-  Widget _filterRow({
+  // ── Quality cards ─────────────────────────────────────────────────────────────
+  Widget _buildQualityCards(List<String> qualities) {
+    final effective = _selectedQuality ?? qualities.first;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.hd_outlined, size: 13, color: _grey),
+            const SizedBox(width: 5),
+            Text('Qualité',
+                style: TextStyle(
+                    color: _grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
+          ]),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: qualities.map((q) {
+                final sel = q == effective;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedQuality = q),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    margin: const EdgeInsets.only(right: 8),
+                    width: 72,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: sel
+                          ? LinearGradient(
+                              colors: [
+                                _accent,
+                                _accent.withValues(alpha: 0.65),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: sel ? null : _card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: sel ? Colors.transparent : _faint,
+                        width: 0.8,
+                      ),
+                      boxShadow: sel
+                          ? [
+                              BoxShadow(
+                                color: _accent.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      q,
+                      style: TextStyle(
+                        color: sel
+                            ? Colors.white
+                            : _text.withValues(alpha: 0.65),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Filter row (lang / season) ────────────────────────────────────────────────
+  Widget _buildFilterRow({
     required IconData icon,
     required String label,
     required List<String> items,
@@ -2179,36 +2396,38 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     required void Function(String) onSelect,
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: _grey),
+          Icon(icon, size: 13, color: _grey),
           const SizedBox(width: 6),
           Text(label,
-              style:
-                  TextStyle(color: _grey, fontSize: 12, fontWeight: FontWeight.w500)),
+              style: TextStyle(
+                  color: _grey,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(width: 10),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
               child: Row(
                 children: items.map((item) {
                   final sel = item == selected;
                   return GestureDetector(
                     onTap: () => onSelect(item),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 140),
+                      duration: const Duration(milliseconds: 150),
                       margin: const EdgeInsets.only(right: 6),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                          horizontal: 11, vertical: 5),
                       decoration: BoxDecoration(
                         color: sel
                             ? _accent.withValues(alpha: 0.12)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color:
-                              sel ? _accent : _faint,
+                          color: sel ? _accent : _faint,
                           width: sel ? 1.2 : 0.8,
                         ),
                       ),
@@ -2216,8 +2435,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                         item,
                         style: TextStyle(
                           color: sel ? _accent : _grey,
-                          fontSize: 12,
-                          fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+                          fontSize: 11.5,
+                          fontWeight:
+                              sel ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -2231,185 +2451,226 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
-  // ── Downloader section ────────────────────────────────────────────────────────
-
-  Widget _buildDownloaderSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(Icons.download_for_offline_outlined, size: 14, color: _grey),
-            const SizedBox(width: 6),
-            Text('Télécharger avec',
-                style: TextStyle(
-                    color: _grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500)),
-          ]),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              // ── Internal engines ────────────────────────────────────────────
-              _engineChip(
-                label: 'Hydra',
-                icon: Icons.water_drop_outlined,
-                value: _Downloader.hydra,
-              ),
-              const SizedBox(width: 6),
-              _engineChip(
-                label: 'Zeus',
-                icon: Icons.bolt_outlined,
-                value: _Downloader.zeus,
-              ),
-              const SizedBox(width: 6),
-              _engineChip(
-                label: 'Aria2',
-                icon: Icons.multiple_stop_rounded,
-                value: _Downloader.aria2,
-              ),
-              Container(
-                width: 1, height: 24,
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                color: _faint,
-              ),
-              // ── External apps ───────────────────────────────────────────────
-              _externalChip(label: 'ADM', appId: 'adm'),
-              const SizedBox(width: 6),
-              _externalChip(label: '1DM', appId: '1dm'),
-              const SizedBox(width: 6),
-              _externalChip(label: 'FDM', appId: 'fdm'),
-              const SizedBox(width: 6),
-              _externalChip(label: 'IDM+', appId: 'idm'),
-            ]),
-          ),
-          if (_downloader == _Downloader.external) ...[
-            const SizedBox(height: 6),
-            Row(children: [
-              Icon(Icons.info_outline_rounded, size: 12, color: _accent),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  'L\'URL du flux sera transmise à $_externalApp avec les en-têtes requis.',
-                  style: TextStyle(color: _accent, fontSize: 11),
+  // ── Downloader collapsible ────────────────────────────────────────────────────
+  Widget _buildDownloaderCollapsible() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _downloaderExpanded = !_downloaderExpanded),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Row(
+              children: [
+                Icon(Icons.download_for_offline_outlined,
+                    size: 15, color: _grey),
+                const SizedBox(width: 8),
+                Text('Télécharger avec',
+                    style: TextStyle(
+                        color: _text.withValues(alpha: 0.75),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500)),
+                const Spacer(),
+                Text(_downloaderLabel(),
+                    style: TextStyle(
+                        color: _accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: _downloaderExpanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 220),
+                  child: Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 18, color: _grey),
                 ),
-              ),
-            ]),
-          ],
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeInOut,
+          child: _downloaderExpanded
+              ? _buildDownloaderOptions()
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDownloaderOptions() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _downloaderTile(
+            icon: Icons.settings_input_component_outlined,
+            label: 'Downloader interne',
+            subtitle: 'Moteur intégré Watchtower',
+            value: _Downloader.internal,
+          ),
+          Divider(height: 1, indent: 52, color: _faint),
+          _downloaderTile(
+            icon: Icons.multiple_stop_rounded,
+            label: 'Aria2',
+            subtitle: 'Téléchargeur multi-connexions',
+            value: _Downloader.aria2,
+          ),
+          Divider(height: 1, indent: 52, color: _faint),
+          _downloaderTile(
+            icon: Icons.bolt_outlined,
+            label: 'Zeus',
+            subtitle: 'Téléchargeur haute vitesse',
+            value: _Downloader.zeus,
+          ),
+          Divider(height: 1, indent: 52, color: _faint),
+          _externalTile(),
         ],
       ),
     );
   }
 
-  Widget _engineChip({
-    required String label,
+  Widget _downloaderTile({
     required IconData icon,
+    required String label,
+    required String subtitle,
     required _Downloader value,
   }) {
-    final sel =
-        _downloader == value && _downloader != _Downloader.external;
-    return GestureDetector(
-      onTap: () => setState(() => _downloader = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: sel ? _accent.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: sel ? _accent : _faint,
-            width: sel ? 1.2 : 0.8,
-          ),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 13, color: sel ? _accent : _grey),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  color: sel ? _accent : _grey,
-                  fontSize: 12,
-                  fontWeight: sel ? FontWeight.w600 : FontWeight.normal)),
-        ]),
-      ),
-    );
-  }
-
-  Widget _externalChip({required String label, required String appId}) {
-    final sel =
-        _downloader == _Downloader.external && _externalApp == appId;
-    return GestureDetector(
-      onTap: () => setState(() {
-        _downloader = _Downloader.external;
-        _externalApp = appId;
-      }),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: sel ? _accent.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: sel ? _accent : _faint,
-            width: sel ? 1.2 : 0.8,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: sel ? _accent : _grey,
-            fontSize: 12,
-            fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Episode row ───────────────────────────────────────────────────────────────
-
-  Widget _buildEpisodeRow(Chapter chapter) {
-    final sel = _selected.contains(chapter);
+    final sel = _downloader == value;
     return InkWell(
-      onTap: () => setState(() {
-        sel ? _selected.remove(chapter) : _selected.add(chapter);
-        _selectAll = _selected.length == _displayChapters.length;
-      }),
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => setState(() => _downloader = value),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         child: Row(children: [
-          Icon(
-            sel ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-            color: sel ? _accent : _faint,
-            size: 21,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: sel
+                  ? _accent.withValues(alpha: 0.15)
+                  : _faint.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon,
+                size: 17, color: sel ? _accent : _grey),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              chapter.name ?? 'Épisode',
-              style: TextStyle(color: _text, fontSize: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: sel ? _accent : _text,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600)),
+                Text(subtitle,
+                    style: TextStyle(color: _grey, fontSize: 11)),
+              ],
             ),
           ),
-          if (chapter.duration?.isNotEmpty == true)
-            Text(chapter.duration!,
-                style: TextStyle(color: _grey, fontSize: 12)),
+          if (sel) Icon(Icons.check_rounded, color: _accent, size: 18),
         ]),
       ),
     );
   }
 
-  // ── Bottom bar ────────────────────────────────────────────────────────────────
-
-  Widget _buildBottomBar(List<Chapter> displayed) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: _faint)),
-        color: _bg,
+  Widget _externalTile() {
+    final sel = _downloader == _Downloader.external;
+    const apps = [
+      ('ADM', 'adm'),
+      ('1DM', '1dm'),
+      ('FDM', 'fdm'),
+      ('IDM+', 'idm'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: sel
+                  ? _accent.withValues(alpha: 0.15)
+                  : _faint.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(Icons.open_in_new_rounded,
+                size: 17, color: sel ? _accent : _grey),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Downloader Android',
+                    style: TextStyle(
+                        color: sel ? _accent : _text,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: apps.map((a) {
+                    final appSel =
+                        sel && _externalApp == a.$2;
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        _downloader = _Downloader.external;
+                        _externalApp = a.$2;
+                      }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: appSel
+                              ? _accent.withValues(alpha: 0.15)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: appSel ? _accent : _faint,
+                            width: appSel ? 1.2 : 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          a.$1,
+                          style: TextStyle(
+                            color: appSel ? _accent : _grey,
+                            fontSize: 12,
+                            fontWeight: appSel
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          if (sel) Icon(Icons.check_rounded, color: _accent, size: 18),
+        ],
       ),
-      child: SafeArea(
-        child: Row(children: [
+    );
+  }
+
+  // ── Select all header ─────────────────────────────────────────────────────────
+  Widget _buildSelectAllHeader(List<Chapter> displayed) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Row(
+        children: [
           GestureDetector(
             onTap: () => setState(() {
               _selectAll = !_selectAll;
@@ -2419,40 +2680,240 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                 _selected.removeAll(displayed);
               }
             }),
-            child: Row(children: [
-              Icon(
-                _selectAll
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: _selectAll ? _accent : _faint,
-                size: 21,
-              ),
-              const SizedBox(width: 8),
-              Text('Tout sélectionner',
+            child: Row(
+              children: [
+                _ModernCheckbox(checked: _selectAll, accent: _accent, faint: _faint),
+                const SizedBox(width: 10),
+                Text(
+                  'Tout sélectionner',
                   style: TextStyle(
-                      color: _text.withValues(alpha: 0.65), fontSize: 14)),
-            ]),
-          ),
-          const Spacer(),
-          ElevatedButton.icon(
-            onPressed: _selected.isEmpty ? null : _startDownload,
-            icon: const Icon(Icons.download_rounded, size: 17),
-            label: Text(_selected.isEmpty
-                ? 'Télécharger'
-                : 'Télécharger (${_selected.length})'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _accent,
-              disabledBackgroundColor: _faint,
-              foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                    color: _text.withValues(alpha: 0.75),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
-        ]),
+          const Spacer(),
+          Text(
+            '${displayed.length} épisode${displayed.length > 1 ? 's' : ''}',
+            style: TextStyle(color: _grey, fontSize: 12),
+          ),
+        ],
       ),
     );
+  }
+
+  // ── Episode card ──────────────────────────────────────────────────────────────
+  Widget _buildEpisodeCard(Chapter chapter, int index) {
+    final sel = _selected.contains(chapter);
+    final epLabel = _epLabel(chapter, index);
+    final rawSize = chapter.downloadSize?.trim();
+    final sizeLabel = (rawSize != null && rawSize.isNotEmpty) ? rawSize : '—';
+
+    return InkWell(
+      onTap: () => setState(() {
+        sel ? _selected.remove(chapter) : _selected.add(chapter);
+        _selectAll = _selected.length == _displayChapters.length;
+      }),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 3, 12, 3),
+        decoration: BoxDecoration(
+          color: sel ? _accent.withValues(alpha: 0.06) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: sel ? _accent.withValues(alpha: 0.35) : Colors.transparent,
+            width: 0.8,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+          child: Row(
+            children: [
+              _ModernCheckbox(checked: sel, accent: _accent, faint: _faint),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      epLabel,
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      sizeLabel,
+                      style: TextStyle(
+                        color: _grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Download button ───────────────────────────────────────────────────────────
+  Widget _buildDownloadButton(String totalSz) {
+    final empty = _selected.isEmpty;
+    final String label;
+    if (empty) {
+      label = 'Télécharger';
+    } else if (totalSz.isNotEmpty) {
+      label = 'Télécharger  •  $totalSz';
+    } else {
+      label = 'Télécharger  •  ${_selected.length} ep.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      decoration: BoxDecoration(
+        color: _bg,
+        border: Border(top: BorderSide(color: _faint)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              gradient: empty
+                  ? null
+                  : LinearGradient(
+                      colors: [
+                        _accent,
+                        _accent.withValues(alpha: 0.70),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+              color: empty ? _faint : null,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: empty
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: _accent.withValues(alpha: 0.38),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: empty ? null : _startDownload,
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.download_rounded,
+                        size: 18,
+                        color: empty
+                            ? _text.withValues(alpha: 0.35)
+                            : Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: empty
+                              ? _text.withValues(alpha: 0.35)
+                              : Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Modern checkbox ────────────────────────────────────────────────────────────
+class _ModernCheckbox extends StatelessWidget {
+  final bool checked;
+  final Color accent;
+  final Color faint;
+  const _ModernCheckbox({
+    required this.checked,
+    required this.accent,
+    required this.faint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: checked ? accent : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: checked ? accent : faint.withValues(alpha: 0.9),
+          width: 1.6,
+        ),
+      ),
+      child: checked
+          ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+          : null,
+    );
+  }
+}
+
+// ─── ANIMATED TAB INDICATOR ─────────────────────────────────────────────────
+
+class _AnimatedTabIndicator extends Decoration {
+  final Color color;
+  const _AnimatedTabIndicator({required this.color});
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _AnimatedTabIndicatorPainter(color: color, onChanged: onChanged);
+}
+
+class _AnimatedTabIndicatorPainter extends BoxPainter {
+  final Color color;
+  _AnimatedTabIndicatorPainter({required this.color, VoidCallback? onChanged})
+      : super(onChanged);
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration cfg) {
+    final rect = offset & cfg.size!;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    const h = 3.0;
+    const r = 1.5;
+    final bar = Rect.fromLTWH(
+      rect.left + 4,
+      rect.bottom - h,
+      rect.width - 8,
+      h,
+    );
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(bar, const Radius.circular(r)), paint);
   }
 }
 
