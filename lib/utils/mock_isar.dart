@@ -247,21 +247,80 @@ class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
   // ── query building ─────────────────────────────────────────────────────────
 
   @override
-  Query<R> buildQuery<R>({
-    List<WhereClause> whereClauses = const [],
-    bool whereDistinct = false,
-    Sort whereSort = Sort.asc,
-    FilterOperation? filter,
-    List<SortProperty> sortBy = const [],
-    List<DistinctProperty> distinctBy = const [],
-    int? offset,
-    int? limit,
-    String? property,
-  }) {
-    final data = _store.values.whereType<R>().toList();
-    List<R> liveData() => _store.values.whereType<R>().toList();
-    return MockQuery<R>(_mockIsar, data, _changes.stream, liveData);
-  }
+    Query<R> buildQuery<R>({
+      List<WhereClause> whereClauses = const [],
+      bool whereDistinct = false,
+      Sort whereSort = Sort.asc,
+      FilterOperation? filter,
+      List<SortProperty> sortBy = const [],
+      List<DistinctProperty> distinctBy = const [],
+      int? offset,
+      int? limit,
+      String? property,
+    }) {
+      final _f = filter;
+      List<R> applyFilter() => _store.values
+          .whereType<R>()
+          .where((item) => _f == null || _matchesFilter(item, _f))
+          .toList();
+      return MockQuery<R>(_mockIsar, applyFilter(), _changes.stream, applyFilter);
+    }
+
+    /// Evaluates an Isar [FilterOperation] against [obj] via its [toJson] map.
+    /// Defaults to true (keep) for any condition that cannot be evaluated.
+    static bool _matchesFilter(dynamic obj, FilterOperation op) {
+      try {
+        if (op is FilterGroup) {
+          switch (op.type) {
+            case FilterGroupType.and:
+              return op.filters.every((f) => _matchesFilter(obj, f));
+            case FilterGroupType.or:
+              return op.filters.any((f) => _matchesFilter(obj, f));
+            case FilterGroupType.not:
+              return op.filters.isEmpty ||
+                  !_matchesFilter(obj, op.filters.first);
+          }
+        }
+        if (op is FilterCondition) {
+          final Map<String, dynamic>? json =
+              (obj as dynamic).toJson() as Map<String, dynamic>?;
+          if (json == null) return true;
+          final prop = op.property;
+          if (prop == null) return true;
+          final dynamic fieldValue = json[prop];
+          switch (op.type) {
+            case FilterConditionType.isNull:
+              return fieldValue == null;
+            case FilterConditionType.isNotNull:
+              return fieldValue != null;
+            case FilterConditionType.equalTo:
+              final v1 = op.value1;
+              if (fieldValue == v1) return true;
+              // Enum stored as its .index — try comparing numerically
+              try {
+                final idx = (v1 as dynamic).index;
+                return fieldValue == idx;
+              } catch (_) {}
+              return false;
+            case FilterConditionType.greaterThan:
+            case FilterConditionType.lessThan:
+            case FilterConditionType.between:
+              // Used for list-length checks (isEmpty / isNotEmpty)
+              if (fieldValue is List) {
+                final v1 = op.value1;
+                final v2 = op.value2 ?? v1;
+                if (v1 is int && v2 is int) {
+                  return fieldValue.length >= v1 && fieldValue.length <= v2;
+                }
+              }
+              return true;
+            default:
+              return true;
+          }
+        }
+      } catch (_) {}
+      return true;
+    }
 
   // ── counts / sizes ─────────────────────────────────────────────────────────
 
