@@ -2007,9 +2007,16 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
             iconSize: 25,
             color: Colors.white,
             onPressed: () {
-              _setLandscapeMode(!isFullscreen);
-              ref.read(fullscreenProvider.notifier).state = !isFullscreen;
-              widget.desktopFullScreenPlayer.call(!isFullscreen);
+              if (isFullscreen) {
+                _setLandscapeMode(false);
+                ref.read(fullscreenProvider.notifier).state = false;
+                widget.desktopFullScreenPlayer.call(false);
+                if (mounted) Navigator.of(context).pop();
+              } else {
+                _setLandscapeMode(true);
+                ref.read(fullscreenProvider.notifier).state = true;
+                widget.desktopFullScreenPlayer.call(true);
+              }
             },
           ),
       ],

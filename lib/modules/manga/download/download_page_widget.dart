@@ -260,23 +260,7 @@ class ChapterPageDownload extends ConsumerWidget {
                       ),
                     );
             }
-            return IconButton(
-              splashRadius: 5,
-              iconSize: 17,
-              onPressed: () async {
-                if (chapter.manga.value?.itemType == ItemType.anime) {
-                  final ok = await showAnimeQualityPickerAndQueue(
-                    context: context,
-                    ref: ref,
-                    chapter: chapter,
-                  );
-                  if (!ok) return;
-                } else {
-                  _startDownload(null, null, ref);
-                }
-              },
-              icon: _downloadWidget(context, false),
-            );
+            return const SizedBox.shrink();
           },
         ),
       ),

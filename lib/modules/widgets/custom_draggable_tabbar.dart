@@ -129,10 +129,6 @@ Future<void> customDraggableTabBar({
               body: Container(
                 width: context.width(1) - width,
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
                   color: Theme.of(context).scaffoldBackgroundColor,
                 ),
                 child: DefaultTabController(
