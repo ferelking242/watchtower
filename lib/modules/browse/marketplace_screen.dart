@@ -2172,7 +2172,7 @@ un dépôt', textAlign: TextAlign.center, style: TextStyle(color: cs.onSurface, 
                     cs: cs,
                   ),
                   _SettingsTile(
-                    icon: Icons.no_adult_content_rounded,
+                    icon: Icons.explicit,
                     title: 'Contenu adulte (18+)',
                     subtitle: 'Afficher les extensions NSFW dans le marketplace',
                     value: showNsfw,
