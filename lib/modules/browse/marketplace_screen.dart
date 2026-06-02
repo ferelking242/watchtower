@@ -9,7 +9,6 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
@@ -158,6 +157,7 @@ const _kTabManga = 1;
 const _kTabAnime = 2;
 const _kTabNovel = 3;
 const _kTabGames = 4;
+const _kTabMusic = 5;
 
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     with TickerProviderStateMixin {
@@ -187,6 +187,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     _kTabAnime: _CompatF.all,
     _kTabNovel: _CompatF.all,
     _kTabGames: _CompatF.all,
+    _kTabMusic: _CompatF.all,
   };
 
   // ── Banner ───────────────────────────────────────────────────────────────────
@@ -213,7 +214,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 5, vsync: this);
+    _tabCtrl = TabController(length: 6, vsync: this);
     _loadAll();
     _refreshInstalled();
   }
@@ -266,6 +267,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         _fetch('$_kWtBase/manga/index.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kWtBase/watch/index.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kWtBase/novel/index.json').catchError((_) => <_ExtEntry>[]),
+        _fetch('$_kWtBase/music/index.json').catchError((_) => <_ExtEntry>[]),
+        _fetch('$_kWtBase/game/index.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kKeiyoushiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
         _fetch('$_kAniyomiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
       ]);
@@ -397,6 +400,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       case _kTabAnime: list = _all.where((e) => e.contentType == ItemType.anime).toList(); break;
       case _kTabNovel: list = _all.where((e) => e.contentType == ItemType.novel).toList(); break;
       case _kTabGames: list = _all.where((e) => e.contentType == ItemType.game).toList(); break;
+      case _kTabMusic: list = _all.where((e) => e.contentType == ItemType.music).toList(); break;
       default: return _all;
     }
     final cf = _compatF[tab] ?? _CompatF.all;
@@ -443,6 +447,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     ItemType.anime => Icons.live_tv_rounded,
     ItemType.manga => Icons.auto_stories_rounded,
     ItemType.novel => Icons.menu_book_rounded,
+    ItemType.music => Icons.music_note_rounded,
     _ => Icons.sports_esports_rounded,
   };
 
@@ -450,6 +455,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     ItemType.anime => const Color(0xFF9C27B0),
     ItemType.manga => const Color(0xFFE91E63),
     ItemType.novel => const Color(0xFF009688),
+    ItemType.music => const Color(0xFF0288D1),
     _ => const Color(0xFF607D8B),
   };
 
@@ -481,31 +487,34 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // ── Main content ─────────────────────────────────────────────────
-          Column(
-            children: [
-              // ── Top search bar + tabs ──────────────────────────────────
-              _buildTopBar(cs, theme),
-              // ── Tab content ───────────────────────────────────────────
-              Expanded(
-                child: _loading
-                    ? _buildLoading(cs)
-                    : _error != null
-                        ? _buildError(cs)
-                        : TabBarView(
-                            controller: _tabCtrl,
-                            children: [
-                              _HomeTab(state: this),
-                              _TypeTab(state: this, tab: _kTabManga),
-                              _TypeTab(state: this, tab: _kTabAnime),
-                              _TypeTab(state: this, tab: _kTabNovel),
-                              _TypeTab(state: this, tab: _kTabGames),
-                            ],
-                          ),
+          if (_loading)
+            _buildLoading(cs)
+          else if (_error != null)
+            _buildError(cs)
+          else
+            NestedScrollView(
+              headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
+                SliverToBoxAdapter(child: _buildLogoRow(cs, theme)),
+              ],
+              body: Column(
+                children: [
+                  _buildTabBarRow(cs, theme),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabCtrl,
+                      children: [
+                        _HomeTab(state: this),
+                        _TypeTab(state: this, tab: _kTabManga),
+                        _TypeTab(state: this, tab: _kTabAnime),
+                        _TypeTab(state: this, tab: _kTabNovel),
+                        _TypeTab(state: this, tab: _kTabGames),
+                        _TypeTab(state: this, tab: _kTabMusic),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          // ── Search overlay ────────────────────────────────────────────
+            ),
           if (_searchOpen) _buildSearchOverlay(cs, theme),
         ],
       ),
@@ -543,52 +552,28 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Top bar ───────────────────────────────────────────────────────────────────
 
-  Widget _buildTopBar(ColorScheme cs, ThemeData theme) {
+  Widget _buildLogoRow(ColorScheme cs, ThemeData theme) {
     return Container(
       color: theme.scaffoldBackgroundColor,
       child: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            // ── Logo + Search pill + Account ──────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-              child: Row(
-                children: [
-                  // Watchtower logo "W"
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [cs.primary, cs.tertiary],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: cs.primary.withValues(alpha: 0.30),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'W',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Search pill
-                  Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          child: Row(
+            children: [
+              // PlayStore icon
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/icons/playstore_icon.png',
+                  width: 38,
+                  height: 38,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Search pill (searches extensions in marketplace)
+              Expanded(
                     child: GestureDetector(
                       onTap: () {
                         setState(() => _searchOpen = true);
@@ -617,7 +602,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                                 ),
                               ),
                             ),
-                            if (!_loading && _all.isNotEmpty)
+                            if (_all.isNotEmpty)
                               Container(
                                 margin: const EdgeInsets.only(right: 10),
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -640,49 +625,67 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // Account button
-                  Account3DButton(
-                    size: 38,
-                    onTap: () => showAccountSheet(context),
-                  ),
-                  const SizedBox(width: 4),
-                  // Settings button
+                  // Global search icon
                   SizedBox(
                     width: 38,
                     height: 38,
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: Icon(Icons.tune_rounded, size: 20, color: cs.onSurfaceVariant),
-                      tooltip: 'Paramètres marketplace',
-                      onPressed: _showMarketplaceSettings,
+                      icon: Icon(Icons.search_rounded, size: 22, color: cs.onSurfaceVariant),
+                      tooltip: 'Recherche globale',
+                      onPressed: () => context.push('/globalSearch'),
                     ),
                   ),
                 ],
               ),
-            ),
-            // Tab bar
-            TabBar(
-              controller: _tabCtrl,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              labelColor: cs.primary,
-              unselectedLabelColor: theme.hintColor,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              tabs: const [
-                Tab(text: 'Pour vous'),
-                Tab(text: 'Manga'),
-                Tab(text: 'Anime'),
-                Tab(text: 'Novel'),
-                Tab(text: 'Jeux'),
-              ],
-            ),
-            Divider(height: 1, thickness: 1, color: cs.outline.withValues(alpha: 0.20)),
-          ],
         ),
+      ),
+    );
+  }
+
+  // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
+
+  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TabBar(
+            controller: _tabCtrl,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: cs.primary,
+            unselectedLabelColor: theme.hintColor,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tabs: [
+              _iconTab(Icons.home_outlined, 'Pour vous'),
+              _iconTab(Icons.auto_stories_outlined, 'Manga'),
+              _iconTab(Icons.live_tv_outlined, 'Anime'),
+              _iconTab(Icons.menu_book_outlined, 'Novel'),
+              _iconTab(Icons.sports_esports_outlined, 'Jeux'),
+              _iconTab(Icons.music_note_outlined, 'Music'),
+            ],
+          ),
+          Divider(height: 1, thickness: 1, color: cs.outline.withValues(alpha: 0.20)),
+        ],
+      ),
+    );
+  }
+
+  Tab _iconTab(IconData icon, String label) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14),
+          const SizedBox(width: 5),
+          Text(label),
+        ],
       ),
     );
   }
@@ -956,21 +959,17 @@ class _HomeTab extends StatelessWidget {
     final all = state._all;
     final featured = state._featured;
 
-    // Content-type sections
-    final animeExt = all.where((e) => e.contentType == ItemType.anime).toList();
-    final mangaExt = all.where((e) =>
-        e.contentType == ItemType.manga &&
-        !_manhuaLangs.contains(e.lang.toLowerCase())).toList();
-    final manhuaExt = all.where((e) =>
-        e.contentType == ItemType.manga &&
-        _manhuaLangs.contains(e.lang.toLowerCase())).toList();
+    // Content-type sections — order: Watch, Manga, Light Novel, Music, Game
+    final watchExt = all.where((e) => e.contentType == ItemType.anime).toList();
+    final mangaExt = all.where((e) => e.contentType == ItemType.manga).toList();
     final novelExt = all.where((e) => e.contentType == ItemType.novel).toList();
+    final musicExt = all.where((e) => e.contentType == ItemType.music).toList();
+    final gameExt  = all.where((e) => e.contentType == ItemType.game).toList();
 
     return RefreshIndicator(
       onRefresh: state._loadAll,
       child: CustomScrollView(
         slivers: [
-          // Featured banner
           // ── Dépôts d'extensions ──────────────────────────────────────────
           SliverToBoxAdapter(
             child: state.sectionTitle(
@@ -979,10 +978,8 @@ class _HomeTab extends StatelessWidget {
               subtitle: 'Sources actives · gérez vos dépôts',
             ),
           ),
-          SliverToBoxAdapter(
-            child: _RepoCarousel(state: state),
-          ),
-          // Mass install card
+          SliverToBoxAdapter(child: _RepoCarousel(state: state)),
+          // Install all repo card
           SliverToBoxAdapter(child: _MassInstallCard(state: state)),
           // Updates available banner
           if (state._updatableCount > 0)
@@ -1015,18 +1012,18 @@ class _HomeTab extends StatelessWidget {
                 ),
               ),
             ),
-          // Anime & Films & Séries
-          if (animeExt.isNotEmpty) ...[
+          // Watch (Anime · Films · Séries)
+          if (watchExt.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: state.sectionTitle(
-                cs, 'Anime · Films · Séries',
+                cs, 'Watch',
                 Icons.live_tv_rounded,
                 color: const Color(0xFF7B2FBE),
-                subtitle: '${animeExt.length} extensions · Aniyomi & Watchtower',
+                subtitle: '${watchExt.length} extensions · Aniyomi & Watchtower',
                 onSeeAll: () => state._tabCtrl.animateTo(_kTabAnime),
               ),
             ),
-            SliverToBoxAdapter(child: state.buildHorizontal(animeExt, cs)),
+            SliverToBoxAdapter(child: state.buildHorizontal(watchExt, cs)),
           ],
           // Manga
           if (mangaExt.isNotEmpty) ...[
@@ -1041,19 +1038,6 @@ class _HomeTab extends StatelessWidget {
             ),
             SliverToBoxAdapter(child: state.buildHorizontal(mangaExt, cs)),
           ],
-          // Manhua & Manhwa
-          if (manhuaExt.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: state.sectionTitle(
-                cs, 'Manhua · Manhwa · ${manhuaExt.length}',
-                Icons.auto_stories_rounded,
-                color: const Color(0xFFB71C1C),
-                subtitle: 'Chinois & Coréen',
-                onSeeAll: () => state._tabCtrl.animateTo(_kTabManga),
-              ),
-            ),
-            SliverToBoxAdapter(child: state.buildHorizontal(manhuaExt, cs)),
-          ],
           // Light Novels
           if (novelExt.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -1067,6 +1051,32 @@ class _HomeTab extends StatelessWidget {
             ),
             SliverToBoxAdapter(child: state.buildHorizontal(novelExt, cs)),
           ],
+          // Music
+          if (musicExt.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: state.sectionTitle(
+                cs, 'Music · ${musicExt.length}',
+                Icons.music_note_rounded,
+                color: const Color(0xFF0288D1),
+                subtitle: 'Extensions musicales',
+                onSeeAll: () => state._tabCtrl.animateTo(_kTabMusic),
+              ),
+            ),
+            SliverToBoxAdapter(child: state.buildHorizontal(musicExt, cs)),
+          ],
+          // Game
+          if (gameExt.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: state.sectionTitle(
+                cs, 'Game · ${gameExt.length}',
+                Icons.sports_esports_rounded,
+                color: const Color(0xFF607D8B),
+                subtitle: 'ROMs & émulateurs',
+                onSeeAll: () => state._tabCtrl.animateTo(_kTabGames),
+              ),
+            ),
+            SliverToBoxAdapter(child: state.buildHorizontal(gameExt, cs)),
+          ],
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
@@ -1076,68 +1086,169 @@ class _HomeTab extends StatelessWidget {
 
 // ─── Mass install card ─────────────────────────────────────────────────────────
 
-class _MassInstallCard extends StatelessWidget {
+class _MassOption {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Color color;
+  const _MassOption({required this.icon, required this.label, required this.subtitle, required this.onTap, required this.color});
+}
+
+class _MassInstallCard extends StatefulWidget {
   final _MarketplaceScreenState state;
   const _MassInstallCard({required this.state});
 
   @override
+  State<_MassInstallCard> createState() => _MassInstallCardState();
+}
+
+class _MassInstallCardState extends State<_MassInstallCard> {
+  bool _expanded = false;
+
+  String get _userLang {
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    return locale.languageCode;
+  }
+
+  void _doInstall(String lang) {
+    widget.state._massInstall(lang: lang);
+    setState(() => _expanded = false);
+  }
+
+  void _doInstallAll() {
+    for (final entry in widget.state._all) {
+      if (!widget.state._installed.contains(entry.id)) {
+        widget.state._install(entry);
+      }
+    }
+    setState(() => _expanded = false);
+  }
+
+  void _doSelectLang() {
+    widget.state._showMassInstallSheet();
+    setState(() => _expanded = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: state._showMassInstallSheet,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              cs.primary.withValues(alpha: 0.12),
-              cs.secondary.withValues(alpha: 0.08),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: cs.primary.withValues(alpha: 0.25), width: 1),
+
+    final options = [
+      _MassOption(
+        icon: Icons.language_rounded,
+        label: 'Pour ma langue',
+        subtitle: 'Extensions en ${_userLang.toUpperCase()}',
+        onTap: () => _doInstall(_userLang),
+        color: cs.primary,
+      ),
+      _MassOption(
+        icon: Icons.public_rounded,
+        label: 'All language',
+        subtitle: 'Toutes les langues disponibles',
+        onTap: () => _doInstall('all'),
+        color: const Color(0xFF0288D1),
+      ),
+      _MassOption(
+        icon: Icons.translate_rounded,
+        label: 'Sélect langue',
+        subtitle: 'Choisir une langue spécifique',
+        onTap: _doSelectLang,
+        color: const Color(0xFF009688),
+      ),
+      _MassOption(
+        icon: Icons.download_for_offline_rounded,
+        label: 'Tout complet',
+        subtitle: 'Installe absolutement tout',
+        onTap: _doInstallAll,
+        color: Colors.deepOrange,
+      ),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary.withValues(alpha: 0.12), cs.secondary.withValues(alpha: 0.08)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: cs.primary.withValues(alpha: 0.15),
-              ),
-              child: Icon(Icons.download_for_offline_rounded,
-                  color: cs.primary, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.25), width: 1),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              child: Row(
                 children: [
-                  Text(
-                    'Installer en masse',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        color: cs.onSurface),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: cs.primary.withValues(alpha: 0.15)),
+                    child: Icon(Icons.download_for_offline_rounded, color: cs.primary, size: 22),
                   ),
-                  Text(
-                    'Installer toutes les extensions d\'une langue ou d\'un dépôt',
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        color: cs.onSurfaceVariant),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Install all repo', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: cs.onSurface)),
+                        Text('Installe tout les extensions d\'un repo', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(Icons.expand_more_rounded, size: 22, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: cs.onSurfaceVariant),
-          ],
-        ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(height: 0, width: double.infinity),
+            secondChild: Column(
+              children: [
+                Divider(height: 1, color: cs.primary.withValues(alpha: 0.15)),
+                ...options.map((opt) => InkWell(
+                  onTap: opt.onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: opt.color.withValues(alpha: 0.12)),
+                          child: Icon(opt.icon, color: opt.color, size: 17),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(opt.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: cs.onSurface)),
+                              Text(opt.subtitle, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.chevron_right_rounded, size: 18, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                      ],
+                    ),
+                  ),
+                )),
+                const SizedBox(height: 4),
+              ],
+            ),
+            crossFadeState: _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 220),
+          ),
+        ],
       ),
     );
   }
@@ -1791,6 +1902,7 @@ class _MiniCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       width: 100,
+      height: 128,
       margin: const EdgeInsets.only(right: 10, bottom: 2),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -2022,11 +2134,12 @@ class _IconChip extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           children: [
-            // Stats card for current repo
             _buildStatsCard(cs, allCount, installedCount),
             const SizedBox(width: 10),
-            // Add repo button
-            _buildAddRepoCard(context, cs),
+            ..._repos.map((r) => Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: _buildRepoCard(cs, r),
+            )),
           ],
         ),
       );
@@ -2036,8 +2149,8 @@ class _IconChip extends StatelessWidget {
       return Container(
         width: 200,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [const Color(0xFF6C63FF), const Color(0xFF9C27B0)],
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -2062,11 +2175,11 @@ class _IconChip extends StatelessWidget {
             const SizedBox(height: 4),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${total}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
+                Text('$total', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
                 const Text('disponibles', style: TextStyle(color: Colors.white70, fontSize: 10)),
               ]),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('${installed}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
+                Text('$installed', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
                 const Text('installées', style: TextStyle(color: Colors.white70, fontSize: 10)),
               ]),
             ]),
@@ -2075,33 +2188,35 @@ class _IconChip extends StatelessWidget {
       );
     }
 
-    Widget _buildAddRepoCard(BuildContext context, ColorScheme cs) {
-      return InkWell(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('Ouvrez Paramètres › Dépôts pour ajouter un repo'),
-            duration: Duration(seconds: 3),
-          ));
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: 130,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
-            boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
+    Widget _buildRepoCard(ColorScheme cs, _RepoInfo r) {
+      return Container(
+        width: 160,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [r.color, r.color.withValues(alpha: 0.65)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add_circle_outline_rounded, color: cs.primary, size: 28),
-              const SizedBox(height: 6),
-              Text('Ajouter un dépôt', textAlign: TextAlign.center, style: TextStyle(color: cs.onSurface, fontSize: 12, fontWeight: FontWeight.w700)),
-            ],
-          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: r.color.withValues(alpha: 0.28), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(children: [
+              Icon(r.icon, color: Colors.white, size: 16),
+              const SizedBox(width: 5),
+              Expanded(child: Text(r.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12), overflow: TextOverflow.ellipsis)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(5)),
+                child: Text(r.tag, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
+              ),
+            ]),
+            Text(r.description, style: const TextStyle(color: Colors.white70, fontSize: 9.5), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
         ),
       );
     }
