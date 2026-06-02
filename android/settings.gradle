@@ -12,11 +12,15 @@ pluginManagement {
 
       repositories {
           google()
-          // Primary: Gradle Plugin Portal (always accessible from CI)
+          // JetBrains CDN proxy for Maven Central — avoids 403/rate-limit from GitHub Actions IPs
+          maven { url "https://cache-redirector.jetbrains.com/maven-central" }
+          // Primary plugin portal
           gradlePluginPortal()
-          // Gradle's own libs-releases repo — has kotlin-stdlib without Maven Central rate limits
+          // JetBrains Kotlin bootstrap repo — has all Kotlin versions including pre-releases
+          maven { url "https://maven.pkg.jetbrains.space/public/p/kotlin/bootstrap" }
+          // Gradle libs-releases for extra Gradle tooling artifacts
           maven { url "https://repo.gradle.org/gradle/libs-releases" }
-          // Fallback: JitPack (public, no rate limits)
+          // JitPack fallback
           maven { url "https://jitpack.io" }
           mavenCentral()
       }
