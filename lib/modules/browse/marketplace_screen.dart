@@ -572,70 +572,35 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 ),
               ),
               const SizedBox(width: 10),
-              // Search pill (searches extensions in marketplace)
-              Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _searchOpen = true);
-                        Future.delayed(const Duration(milliseconds: 80), () {
-                          _searchFocus.requestFocus();
-                        });
-                      },
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 14),
-                            Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Rechercher extensions, sources…',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                                ),
-                              ),
-                            ),
-                            if (_all.isNotEmpty)
-                              Container(
-                                margin: const EdgeInsets.only(right: 10),
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: cs.primaryContainer,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '${_all.length}',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: cs.onPrimaryContainer,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Global search icon
-                  SizedBox(
-                    width: 38,
-                    height: 38,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: Icon(Icons.search_rounded, size: 22, color: cs.onSurfaceVariant),
-                      tooltip: 'Recherche globale',
-                      onPressed: () => context.push('/globalSearch'),
-                    ),
-                  ),
+              const Spacer(),
+              // Search icon
+              SizedBox(
+                width: 38,
+                height: 38,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: Icon(Icons.search_rounded, size: 22, color: cs.onSurfaceVariant),
+                  tooltip: 'Rechercher',
+                  onPressed: () {
+                    setState(() => _searchOpen = true);
+                    Future.delayed(const Duration(milliseconds: 80), () {
+                      _searchFocus.requestFocus();
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Marketplace settings icon
+              SizedBox(
+                width: 38,
+                height: 38,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: Icon(Icons.tune_rounded, size: 22, color: cs.onSurfaceVariant),
+                  tooltip: 'Paramètres marketplace',
+                  onPressed: _showMarketplaceSettings,
+                ),
+              ),
                 ],
               ),
         ),
