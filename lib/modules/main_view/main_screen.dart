@@ -327,7 +327,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     child: Stack(
                       children: [
                     Scaffold(
-                      extendBody: true,
+                      extendBody: dockStyle == 'classic' || dockStyle == 'rounded_full',
                       body: NotificationListener<UserScrollNotification>(
                         onNotification: (n) {
                           // Only care about vertical primary scrolls so the
