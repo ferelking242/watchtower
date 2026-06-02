@@ -58,7 +58,8 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
-import 'package:watchtower/utils/dev_seed.dart';
+import 'package:watchtower/utils/dev_seed.dart'
+    if (dart.library.js_interop) 'package:watchtower/utils/dev_seed_stub.dart';
 
 late Isar isar;
 DiscordRPC? discordRpc;
