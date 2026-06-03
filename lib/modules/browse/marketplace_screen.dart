@@ -226,6 +226,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   @override
   void dispose() {
+    _accountOverlay?.remove();
+    _accountOverlay = null;
     _tabCtrl.dispose();
     _bannerTimer?.cancel();
     _bannerCtrl.dispose();
@@ -672,34 +674,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (mounted) setState(() => _accountOpen = false);
   }
 
-  // ── Extension detail overlay ──────────────────────────────────────────────────
-
-  void _showExtDetail(_ExtEntry entry) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.55),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _ExtDetailSheet(
-        entry: entry,
-        installed: _installed.contains(entry.id),
-        hasUpdate: _hasUpdate(entry.id, entry.version),
-        busy: _busy[entry.id] == true,
-        onInstall: () => _install(entry),
-        onUninstall: _installed.contains(entry.id) ? () {
-          Navigator.pop(context);
-          _uninstall(entry);
-        } : null,
-        onSettings: _installed.contains(entry.id) ? () {
-          Navigator.pop(context);
-          _openSettings(entry.id);
-        } : null,
-      ),
-    );
-  }
 
   // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
 
@@ -845,67 +819,89 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     );
   }
 
-  // ── Search overlay ─────────────────────────────────────────────────────────────
+  // ── Search overlay (Play Store style) ────────────────────────────────────────
+
+  void _closeSearch() {
+    setState(() {
+      _searchOpen = false;
+      _searchQuery = '';
+      _searchCtrl.clear();
+    });
+  }
 
   Widget _buildSearchOverlay(ColorScheme cs, ThemeData theme) {
     return Container(
       color: theme.scaffoldBackgroundColor,
       child: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Search field
+            // ── Search bar pill (Play Store style) ──────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    onPressed: () {
-                      setState(() {
-                        _searchOpen = false;
-                        _searchQuery = '';
-                        _searchCtrl.clear();
-                      });
-                    },
+                    icon: Icon(Icons.arrow_back_rounded, color: cs.onSurface),
+                    onPressed: _closeSearch,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      controller: _searchCtrl,
-                      focusNode: _searchFocus,
-                      autofocus: true,
-                      onChanged: (v) => setState(() => _searchQuery = v),
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher extensions, sources…',
-                        hintStyle: TextStyle(fontSize: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
-                        filled: true,
-                        fillColor: cs.surfaceContainerHigh,
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.close, size: 18),
-                                onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
-                              )
-                            : null,
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 16),
+                          Icon(Icons.search_rounded, size: 20, color: cs.onSurfaceVariant),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              focusNode: _searchFocus,
+                              autofocus: true,
+                              onChanged: (v) => setState(() => _searchQuery = v),
+                              style: TextStyle(fontSize: 15, color: cs.onSurface),
+                              decoration: InputDecoration(
+                                hintText: 'Rechercher des applis et des je…',
+                                hintStyle: TextStyle(fontSize: 15, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                          if (_searchQuery.isNotEmpty)
+                            IconButton(
+                              icon: Icon(Icons.close_rounded, size: 18, color: cs.onSurfaceVariant),
+                              onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.mic_rounded, size: 22, color: cs.onSurfaceVariant),
+                          const SizedBox(width: 12),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
                 ],
               ),
             ),
-            // Results
+
+            // ── Body ────────────────────────────────────────────────────────
             Expanded(
               child: _searchQuery.isEmpty
-                  ? _buildSearchEmpty(cs)
+                  ? _buildSearchBrowse(cs)
                   : _searchResults.isEmpty
                       ? Center(
                           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Text('(・_・;)', style: TextStyle(fontSize: 46, color: cs.onSurfaceVariant.withValues(alpha: 0.5))),
+                            Text('(・_・;)', style: TextStyle(fontSize: 46, color: cs.onSurfaceVariant.withValues(alpha: 0.4))),
                             const SizedBox(height: 12),
                             Text('Aucune extension trouvée', style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
                             const SizedBox(height: 4),
@@ -931,21 +927,98 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     );
   }
 
-  Widget _buildSearchEmpty(ColorScheme cs) {
+  Widget _buildSearchBrowse(ColorScheme cs) {
+    // Content type categories grid (Play Store style)
+    final categories = [
+      (_kTabAnime, Icons.live_tv_rounded, 'Anime', const Color(0xFF9C27B0)),
+      (_kTabManga, Icons.auto_stories_rounded, 'Manga', const Color(0xFFE91E63)),
+      (_kTabNovel, Icons.menu_book_rounded, 'Novel', const Color(0xFF009688)),
+      (_kTabMusic, Icons.music_note_rounded, 'Music', const Color(0xFF0288D1)),
+      (_kTabGames, Icons.sports_esports_rounded, 'Jeux', const Color(0xFF607D8B)),
+    ];
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          sectionTitle(cs, 'Extensions populaires', Icons.trending_up_rounded, color: cs.primary),
-          ..._featured.take(5).map((e) => _PlayStoreCard(
-            entry: e,
-            installed: _installed.contains(e.id),
-            hasUpdate: _hasUpdate(e.id, e.version),
-            busy: _busy[e.id] == true,
-            onInstall: () => _install(e),
-            onSettings: _installed.contains(e.id) ? () => _openSettings(e.id) : null,
-            onUninstall: () => _uninstall(e),
-          )),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Text(
+              'Parcourir les extensions',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface),
+            ),
+          ),
+          // 2-column grid of categories
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(
+              children: [
+                for (int i = 0; i < categories.length; i += 2)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(child: _SearchCategoryTile(
+                          icon: categories[i].$2,
+                          label: categories[i].$3,
+                          color: categories[i].$4,
+                          onTap: () {
+                            _closeSearch();
+                            _tabCtrl.animateTo(categories[i].$1);
+                          },
+                        )),
+                        const SizedBox(width: 8),
+                        if (i + 1 < categories.length)
+                          Expanded(child: _SearchCategoryTile(
+                            icon: categories[i + 1].$2,
+                            label: categories[i + 1].$3,
+                            color: categories[i + 1].$4,
+                            onTap: () {
+                              _closeSearch();
+                              _tabCtrl.animateTo(categories[i + 1].$1);
+                            },
+                          ))
+                        else
+                          const Expanded(child: SizedBox()),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Recommandations (featured horizontal)
+          if (_featured.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Row(
+                children: [
+                  Text('Recommandations', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
+                  const Spacer(),
+                  Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 136,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                itemCount: _featured.length.clamp(0, 12),
+                itemBuilder: (ctx, i) => _MiniCard(
+                  entry: _featured[i],
+                  installed: _installed.contains(_featured[i].id),
+                  hasUpdate: _hasUpdate(_featured[i].id, _featured[i].version),
+                  busy: _busy[_featured[i].id] == true,
+                  onInstall: () => _install(_featured[i]),
+                  onSettings: _installed.contains(_featured[i].id) ? () => _openSettings(_featured[i].id) : null,
+                ),
+              ),
+            ),
+          ],
+
           const SizedBox(height: 40),
         ],
       ),
@@ -1028,14 +1101,7 @@ class _HomeTab extends StatelessWidget {
       onRefresh: state._loadAll,
       child: CustomScrollView(
         slivers: [
-          // ── Dépôts d'extensions ──────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: state.sectionTitle(
-              cs, "Dépôts d'extensions", Icons.source_rounded,
-              color: cs.primary,
-              subtitle: 'Sources actives · gérez vos dépôts',
-            ),
-          ),
+          // ── Dépôts ───────────────────────────────────────────────────────
           SliverToBoxAdapter(child: _RepoCarousel(state: state)),
           // Install all repo card
           SliverToBoxAdapter(child: _MassInstallCard(state: state)),
@@ -1357,7 +1423,6 @@ class _TypeTab extends StatelessWidget {
                   onInstall: () => state._install(entries[i]),
                   onSettings: state._installed.contains(entries[i].id) ? () => state._openSettings(entries[i].id) : null,
                   onUninstall: state._installed.contains(entries[i].id) ? () => state._uninstall(entries[i]) : null,
-                  onTap: () => state._showExtDetail(entries[i]),
                 ),
                 childCount: entries.length.clamp(0, 300),
               ),
@@ -1603,7 +1668,6 @@ class _PlayStoreCard extends StatelessWidget {
   final VoidCallback onInstall;
   final VoidCallback? onSettings;
   final VoidCallback? onUninstall;
-  final VoidCallback? onTap;
   const _PlayStoreCard({
     required this.entry,
     required this.installed,
@@ -1612,150 +1676,160 @@ class _PlayStoreCard extends StatelessWidget {
     required this.onInstall,
     this.onSettings,
     this.onUninstall,
-    this.onTap,
   });
+
+  String _typeLabel(ItemType t) => switch (t) {
+    ItemType.anime => 'Anime',
+    ItemType.manga => 'Manga',
+    ItemType.novel => 'Novel',
+    ItemType.music => 'Music',
+    _ => 'Game',
+  };
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
     final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
-    final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
     final langCode = _MarketplaceScreenState._langCode(entry.lang);
+    final typeLabel = _typeLabel(entry.contentType);
+
+    // Subtitle line: "JS • FR • Anime" like Play Store category tags
+    final subtitle = '$compatLabel • $langCode • $typeLabel${entry.isNsfw ? ' • 18+' : ''}';
 
     return GestureDetector(
-        onLongPress: (installed && onUninstall != null) ? onUninstall : null,
-        child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
+      onLongPress: (installed && onUninstall != null) ? onUninstall : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ── Icon ───────────────────────────────────────────────────────
+            // ── Icon ─────────────────────────────────────────────────────────
             _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 56),
             const SizedBox(width: 14),
-            // ── Info ───────────────────────────────────────────────────────
+            // ── Info ─────────────────────────────────────────────────────────
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     entry.name,
-                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: compatColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: compatColor.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(compatLabel, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: compatColor, letterSpacing: 0.2)),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.3)),
-                        ),
-                        child: Text(langCode, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: _MarketplaceScreenState._langColor(entry.lang), letterSpacing: 0.3)),
-                      ),
-                      if (entry.isNsfw) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(color: Colors.red.shade400.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red.shade400.withValues(alpha: 0.3))),
-                          child: Text('18+', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.red.shade400)),
-                        ),
-                      ],
-                    ],
-                  ),
                   const SizedBox(height: 3),
-                  Row(children: [
-                    Icon(_MarketplaceScreenState._typeIcon(entry.contentType), size: 11, color: typeColor),
-                    const SizedBox(width: 4),
-                    Text('v${entry.version}', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                  ]),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.2),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'v${entry.version}',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            // ── Action area ────────────────────────────────────────────────
-            if (installed)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Gear: settings
-                  if (onSettings != null)
-                    SizedBox(
-                      width: 30,
-                      height: 30,
-                      child: IconButton(
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        icon: Icon(Icons.settings_outlined, size: 17, color: cs.onSurfaceVariant),
-                        onPressed: onSettings,
-                        tooltip: 'Paramètres',
-                      ),
-                    ),
-                  const SizedBox(width: 6),
-                  // Update or installed indicator
-                  hasUpdate
-                      ? SizedBox(
-                          width: 64,
-                          height: 32,
-                          child: FilledButton(
-                            onPressed: busy ? null : onInstall,
-                            style: FilledButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              backgroundColor: Colors.orange.shade700,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: busy
-                                ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Text('Màj ↑', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
-                          ),
-                        )
-                      : Container(
-                          width: 36,
-                          height: 32,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: cs.primaryContainer.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(Icons.check_rounded, size: 18, color: cs.primary),
-                        ),
-                ],
-              )
-            else
-              SizedBox(
-                width: 80,
-                height: 32,
-                child: FilledButton(
-                  onPressed: busy ? null : onInstall,
-                  style: FilledButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    backgroundColor: cs.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: busy
-                      ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary))
-                      : Text('Installer', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cs.onPrimary)),
-                ),
-              ),
+            const SizedBox(width: 10),
+            // ── Action ───────────────────────────────────────────────────────
+            _CardAction(
+              installed: installed,
+              hasUpdate: hasUpdate,
+              busy: busy,
+              onInstall: onInstall,
+              onSettings: onSettings,
+              cs: cs,
+            ),
           ],
         ),
       ),
-      ),
+    );
+  }
+}
+
+class _CardAction extends StatelessWidget {
+  final bool installed;
+  final bool hasUpdate;
+  final bool busy;
+  final VoidCallback onInstall;
+  final VoidCallback? onSettings;
+  final ColorScheme cs;
+  const _CardAction({
+    required this.installed,
+    required this.hasUpdate,
+    required this.busy,
+    required this.onInstall,
+    required this.onSettings,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!installed) {
+      return SizedBox(
+        width: 88,
+        height: 34,
+        child: FilledButton(
+          onPressed: busy ? null : onInstall,
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            backgroundColor: cs.primary,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+          child: busy
+              ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary))
+              : Text('Installer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onPrimary)),
+        ),
+      );
+    }
+    if (hasUpdate) {
+      return SizedBox(
+        width: 68,
+        height: 34,
+        child: FilledButton(
+          onPressed: busy ? null : onInstall,
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            backgroundColor: Colors.orange.shade700,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+          child: busy
+              ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Màj ↑', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+        ),
+      );
+    }
+    // Installed, no update
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onSettings != null)
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.settings_outlined, size: 17, color: cs.onSurfaceVariant),
+              onPressed: onSettings,
+              tooltip: 'Paramètres',
+            ),
+          ),
+        const SizedBox(width: 4),
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: cs.primaryContainer.withValues(alpha: 0.6),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.check_rounded, size: 17, color: cs.primary),
+        ),
+      ],
     );
   }
 }
@@ -2627,268 +2701,44 @@ class _DropDivider extends StatelessWidget {
   }
 }
 
-// ─── Extension detail sheet ───────────────────────────────────────────────────
+// ─── Search category tile ─────────────────────────────────────────────────────
 
-class _ExtDetailSheet extends StatefulWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onInstall;
-  final VoidCallback? onUninstall;
-  final VoidCallback? onSettings;
-  const _ExtDetailSheet({
-    required this.entry,
-    required this.installed,
-    this.hasUpdate = false,
-    required this.busy,
-    required this.onInstall,
-    this.onUninstall,
-    this.onSettings,
-  });
-
-  @override
-  State<_ExtDetailSheet> createState() => _ExtDetailSheetState();
-}
-
-class _ExtDetailSheetState extends State<_ExtDetailSheet> {
-  static const _kGradientStart = Color(0xFF7C3AED);
-  static const _kGradientEnd   = Color(0xFF06B6D4);
-
-  String get _compatLabel => _MarketplaceScreenState._compatLabel(widget.entry.compat);
-  Color get _compatColor   => _MarketplaceScreenState._compatColor(widget.entry.compat, Theme.of(context).colorScheme);
-  Color get _typeColor     => _MarketplaceScreenState._typeColor(widget.entry.contentType);
-  String get _langCode     => _MarketplaceScreenState._langCode(widget.entry.lang);
+class _SearchCategoryTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _SearchCategoryTile({required this.icon, required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0E27),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: _kGradientStart.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          const SizedBox(height: 10),
-          Center(
-            child: Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(2),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Header with gradient accent
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_kGradientStart.withValues(alpha: 0.18), _kGradientEnd.withValues(alpha: 0.10)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _kGradientStart.withValues(alpha: 0.30)),
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              child: Icon(icon, size: 26, color: color),
             ),
-            child: Row(
-              children: [
-                _ExtIcon(iconUrl: widget.entry.iconUrl, type: widget.entry.contentType, size: 64),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.entry.name,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          _DetailBadge(label: _compatLabel, color: _compatColor),
-                          _DetailBadge(label: _langCode, color: _MarketplaceScreenState._langColor(widget.entry.lang)),
-                          _DetailBadge(label: 'v${widget.entry.version}', color: Colors.white54),
-                          if (widget.entry.isNsfw) _DetailBadge(label: '18+', color: Colors.redAccent),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Type info row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Icon(_MarketplaceScreenState._typeIcon(widget.entry.contentType), size: 14, color: _typeColor),
-                const SizedBox(width: 6),
-                Text(
-                  _MarketplaceScreenState._compatLabel(widget.entry.compat),
-                  style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6)),
-                ),
-                const Spacer(),
-                if (widget.installed)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
-                    ),
-                    child: const Text('Installée', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w700)),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Action buttons
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-            child: Column(
-              children: [
-                // Primary action: install / update
-                if (!widget.installed || widget.hasUpdate)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [_kGradientStart, _kGradientEnd],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        icon: widget.busy
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Icon(widget.hasUpdate ? Icons.system_update_alt_rounded : Icons.download_rounded, size: 18),
-                        label: Text(
-                          widget.busy
-                              ? 'En cours…'
-                              : widget.hasUpdate
-                                  ? 'Mettre à jour'
-                                  : 'Installer',
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                        ),
-                        onPressed: widget.busy ? null : () {
-                          widget.onInstall();
-                          Navigator.pop(context);
-                        },
-                      ),
-                    ),
-                  ),
-
-                if (widget.installed && !widget.hasUpdate)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: _kGradientStart.withValues(alpha: 0.5)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.green),
-                      label: const Text('Installée', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      onPressed: null,
-                    ),
-                  ),
-
-                const SizedBox(height: 10),
-
-                // Secondary actions row
-                Row(
-                  children: [
-                    if (widget.onSettings != null)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            foregroundColor: Colors.white70,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          icon: const Icon(Icons.settings_outlined, size: 16),
-                          label: const Text('Paramètres', style: TextStyle(fontSize: 12)),
-                          onPressed: widget.onSettings,
-                        ),
-                      ),
-                    if (widget.onSettings != null && widget.onUninstall != null)
-                      const SizedBox(width: 10),
-                    if (widget.onUninstall != null)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: Colors.red.withValues(alpha: 0.35)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            foregroundColor: Colors.redAccent,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                          label: const Text('Désinstaller', style: TextStyle(fontSize: 12)),
-                          onPressed: widget.onUninstall,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Bottom safe area
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _DetailBadge({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color == Colors.white54 ? Colors.white54 : color),
+          ],
+        ),
       ),
     );
   }
