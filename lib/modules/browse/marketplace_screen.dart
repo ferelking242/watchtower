@@ -3373,6 +3373,9 @@ class _IconChip extends StatelessWidget {
                             Navigator.pop(context);
                             state._loadAll(bypassCache: true);
                           },
+                         ),
+                       ),
+                     ),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
