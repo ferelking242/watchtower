@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:watchtower/providers/storage_provider.dart';
-import 'package:watchtower/utils/cached_network.dart';
 
 const String _onboardingMarkerFileName = '.onboarding_complete';
 
@@ -33,68 +32,45 @@ Future<void> markOnboardingComplete() async {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Data
+// Data  (no imageUrl — all cards are rendered locally via gradient)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _MediaItem {
   final String title;
   final String label;
   final Color color;
-  final String imageUrl;
-  const _MediaItem(this.title, this.label, this.color, this.imageUrl);
+  const _MediaItem(this.title, this.label, this.color);
 }
 
 const _animeItems = [
-  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00),
-      'https://cdn.myanimelist.net/images/anime/1141/142503.jpg'),
-  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703),
-      'https://cdn.myanimelist.net/images/anime/1277/142240.jpg'),
-  _MediaItem('Hunter x Hunter', 'Anime', Color(0xFF06D6A0),
-      'https://cdn.myanimelist.net/images/anime/1337/99013.jpg'),
-  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF),
-      'https://cdn.myanimelist.net/images/anime/6/73245.jpg'),
-  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D),
-      'https://cdn.myanimelist.net/images/anime/10/47347.jpg'),
-  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC),
-      'https://cdn.myanimelist.net/images/anime/1286/99889.jpg'),
-  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6),
-      'https://cdn.myanimelist.net/images/anime/1171/109222.jpg'),
-  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4),
-      'https://cdn.myanimelist.net/images/anime/3/40451.jpg'),
+  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00)),
+  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703)),
+  _MediaItem('Hunter x Hunter', 'Anime', Color(0xFF06D6A0)),
+  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF)),
+  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D)),
+  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC)),
+  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6)),
+  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4)),
 ];
 
 const _mangaItems = [
-  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D),
-      'https://cdn.myanimelist.net/images/manga/1/157931.jpg'),
-  _MediaItem('Vagabond', 'Manga', Color(0xFF495057),
-      'https://cdn.myanimelist.net/images/manga/2/286785.jpg'),
-  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F),
-      'https://cdn.myanimelist.net/images/manga/2/188925.jpg'),
-  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD),
-      'https://cdn.myanimelist.net/images/manga/3/214566.jpg'),
-  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828),
-      'https://cdn.myanimelist.net/images/manga/3/216464.jpg'),
-  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557),
-      'https://cdn.myanimelist.net/images/manga/3/208225.jpg'),
-  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D),
-      'https://cdn.myanimelist.net/images/manga/3/117681.jpg'),
+  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D)),
+  _MediaItem('Vagabond', 'Manga', Color(0xFF495057)),
+  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F)),
+  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD)),
+  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828)),
+  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557)),
+  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D)),
 ];
 
 const _showItems = [
-  _MediaItem('Breaking Bad', 'Serie', Color(0xFF2DC653),
-      'https://image.tmdb.org/t/p/w342/ggFHVNu6YYI5L9pCfOacjizRGt.jpg'),
-  _MediaItem('Arcane', 'Serie', Color(0xFF7B2FBE),
-      'https://image.tmdb.org/t/p/w342/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg'),
-  _MediaItem('The Bear', 'Serie', Color(0xFFE63946),
-      'https://image.tmdb.org/t/p/w342/sHFlbKS3WLqMnp9t2ghADIJFnuQ.jpg'),
-  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C),
-      'https://image.tmdb.org/t/p/w342/8Gxv8giaFIelhEDznpaHCT4OMWJ.jpg'),
-  _MediaItem('Dune', 'Film', Color(0xFFD4A017),
-      'https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV61Dis7BXj5.jpg'),
-  _MediaItem('Shogun', 'Serie', Color(0xFFBC4749),
-      'https://image.tmdb.org/t/p/w342/7O4iVfOMQmdCSXhopOlTXVQ6tRF.jpg'),
-  _MediaItem('Severance', 'Serie', Color(0xFF0077B6),
-      'https://image.tmdb.org/t/p/w342/gBsPCDW0HjWtqO1f2D4GjZETZ2n.jpg'),
+  _MediaItem('Breaking Bad', 'Serie', Color(0xFF2DC653)),
+  _MediaItem('Arcane', 'Serie', Color(0xFF7B2FBE)),
+  _MediaItem('The Bear', 'Serie', Color(0xFFE63946)),
+  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C)),
+  _MediaItem('Dune', 'Film', Color(0xFFD4A017)),
+  _MediaItem('Shogun', 'Serie', Color(0xFFBC4749)),
+  _MediaItem('Severance', 'Serie', Color(0xFF0077B6)),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,12 +88,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   final _page = PageController();
   int _currentPage = 0;
 
+  // ── Required permissions ──────────────────────────────────────────────────
   bool _storageGranted = false;
   bool _notifGranted = false;
   bool _installGranted = false;
   bool _busyStorage = false;
   bool _busyNotif = false;
   bool _busyInstall = false;
+
+  // ── Optional permissions ──────────────────────────────────────────────────
+  bool _overlayGranted = false;  // PiP / draw-over-other-apps
+  bool _busyOverlay = false;
 
   @override
   void initState() {
@@ -138,6 +119,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _storageGranted = true;
           _notifGranted = true;
           _installGranted = true;
+          _overlayGranted = true;
         });
       }
       return;
@@ -145,11 +127,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final s = await Permission.manageExternalStorage.status;
     final n = await Permission.notification.status;
     final i = await Permission.requestInstallPackages.status;
+    final o = await Permission.systemAlertWindow.status;
     if (!mounted) return;
     setState(() {
       _storageGranted = s.isGranted;
       _notifGranted = n.isGranted;
       _installGranted = i.isGranted;
+      _overlayGranted = o.isGranted;
     });
   }
 
@@ -161,13 +145,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     bool granted = false;
     try {
       if (!kIsWeb && Platform.isAndroid) {
-        // On Android 11+, request() for manageExternalStorage opens the system
-        // "Allow management of all files" settings page directly — there is no
-        // runtime dialog for this permission. We simply await the result and let
-        // didChangeAppLifecycleState refresh the status when the user comes back.
-        // We must NOT call openAppSettings() afterwards; that would open the
-        // general app-settings page on top of the specific file-access page,
-        // causing a confusing double Settings navigation.
         final result = await Permission.manageExternalStorage.request();
         granted = result.isGranted;
       } else {
@@ -211,6 +188,25 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     });
   }
 
+  Future<void> _reqOverlay() async {
+    if (_busyOverlay) return;
+    setState(() => _busyOverlay = true);
+    bool granted = false;
+    try {
+      if (!kIsWeb && Platform.isAndroid) {
+        final result = await Permission.systemAlertWindow.request();
+        granted = result.isGranted;
+      } else {
+        granted = true;
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _overlayGranted = granted;
+      _busyOverlay = false;
+    });
+  }
+
   // ── Navigation ───────────────────────────────────────────────────────────
 
   void _next() {
@@ -251,12 +247,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   storageGranted: _storageGranted,
                   notifGranted: _notifGranted,
                   installGranted: _installGranted,
+                  overlayGranted: _overlayGranted,
                   busyStorage: _busyStorage,
                   busyNotif: _busyNotif,
                   busyInstall: _busyInstall,
+                  busyOverlay: _busyOverlay,
                   onStorage: _reqStorage,
                   onNotif: _reqNotif,
                   onInstall: _reqInstall,
+                  onOverlay: _reqOverlay,
                   onFinish: _finish,
                 ),
               ],
@@ -682,8 +681,9 @@ class _LaneState extends State<_Lane> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _Card — cover image with gradient overlay + label/title.
-// Falls back to a rich gradient card when image fails.
+// _Card — 100% local gradient card, zero network calls.
+// Each card gets a cinematic two-tone gradient from its accent color +
+// a subtle diagonal sheen painted on top.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Card extends StatelessWidget {
@@ -708,26 +708,24 @@ class _Card extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(11),
-        color: item.color.withOpacity(0.3),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            item.color.withOpacity(0.90),
+            item.color.withOpacity(0.52),
+            item.color.withOpacity(0.18),
+          ],
+          stops: const [0.0, 0.52, 1.0],
+        ),
       ),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Cover image — cached to avoid re-fetching on every rebuild
-          RepaintBoundary(
-            child: cachedNetworkImage(
-              imageUrl: item.imageUrl,
-              width: width,
-              height: height,
-              fit: BoxFit.cover,
-              headers: const {
-                'User-Agent': 'Mozilla/5.0 (compatible; Watchtower/1.0)',
-              },
-              errorWidget: _fallback(),
-            ),
-          ),
+          // Diagonal sheen (purely local, no assets needed)
+          CustomPaint(painter: _SheenPainter()),
 
-          // Gradient overlay for text legibility
+          // Bottom gradient for text legibility
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -789,32 +787,34 @@ class _Card extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _fallback() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            item.color.withOpacity(0.55),
-            item.color.withOpacity(0.18),
-          ],
-        ),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        item.title,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.75),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          height: 1.3,
-        ),
-      ),
-    );
+// Subtle diagonal sheen painted on gradient cards — no assets, pure canvas.
+class _SheenPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white.withOpacity(0.07);
+    // Left diagonal highlight
+    final left = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width * 0.48, 0)
+      ..lineTo(size.width * 0.24, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(left, paint);
+    // Top-right accent
+    paint.color = Colors.white.withOpacity(0.04);
+    final topRight = Path()
+      ..moveTo(size.width * 0.6, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, size.height * 0.38)
+      ..lineTo(size.width * 0.42, size.height)
+      ..close();
+    canvas.drawPath(topRight, paint);
   }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -822,20 +822,23 @@ class _Card extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PermissionsPage extends StatelessWidget {
-  final bool storageGranted, notifGranted, installGranted;
-  final bool busyStorage, busyNotif, busyInstall;
-  final VoidCallback onStorage, onNotif, onInstall, onFinish;
+  final bool storageGranted, notifGranted, installGranted, overlayGranted;
+  final bool busyStorage, busyNotif, busyInstall, busyOverlay;
+  final VoidCallback onStorage, onNotif, onInstall, onOverlay, onFinish;
 
   const _PermissionsPage({
     required this.storageGranted,
     required this.notifGranted,
     required this.installGranted,
+    required this.overlayGranted,
     required this.busyStorage,
     required this.busyNotif,
     required this.busyInstall,
+    required this.busyOverlay,
     required this.onStorage,
     required this.onNotif,
     required this.onInstall,
+    required this.onOverlay,
     required this.onFinish,
   });
 
@@ -844,8 +847,8 @@ class _PermissionsPage extends StatelessWidget {
     final all = storageGranted && notifGranted && installGranted;
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 52, 24, 60),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 52, 24, 72),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -868,11 +871,12 @@ class _PermissionsPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 44),
+
+            // ── Required ────────────────────────────────────────────────
             _PermRow(
               icon: Icons.folder_open_rounded,
               title: 'Stockage',
-              subtitle:
-                  'Sauvegarder telechargements, covers et bibliotheque.',
+              subtitle: 'Sauvegarder telechargements, covers et bibliotheque.',
               granted: storageGranted,
               busy: busyStorage,
               onTap: onStorage,
@@ -890,13 +894,49 @@ class _PermissionsPage extends StatelessWidget {
             _PermRow(
               icon: Icons.system_update_alt_rounded,
               title: "Installation d'apps",
-              subtitle:
-                  "Installer les mises a jour APK depuis l'application.",
+              subtitle: "Installer les mises a jour APK depuis l'application.",
               granted: installGranted,
               busy: busyInstall,
               onTap: onInstall,
             ),
-            const Spacer(),
+
+            const SizedBox(height: 40),
+
+            // ── Optional section ─────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: Divider(color: Colors.white.withOpacity(0.12)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    'OPTIONNEL',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.28),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Divider(color: Colors.white.withOpacity(0.12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _PermRow(
+              icon: Icons.picture_in_picture_rounded,
+              title: 'Overlay / PiP',
+              subtitle: "Afficher la video en flottant par-dessus d'autres apps.",
+              granted: overlayGranted,
+              busy: busyOverlay,
+              onTap: onOverlay,
+              optional: true,
+            ),
+
+            const SizedBox(height: 52),
             _WhiteButton(
               label: all ? "Acceder a Watchtower" : "Passer pour l'instant",
               onTap: onFinish,
@@ -916,6 +956,7 @@ class _PermRow extends StatelessWidget {
   final IconData icon;
   final String title, subtitle;
   final bool granted, busy;
+  final bool optional;
   final VoidCallback onTap;
 
   const _PermRow({
@@ -925,20 +966,23 @@ class _PermRow extends StatelessWidget {
     required this.granted,
     required this.busy,
     required this.onTap,
+    this.optional = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final dimmed = optional && !granted;
     return Row(
       children: [
         Container(
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withOpacity(dimmed ? 0.04 : 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: Colors.white.withOpacity(0.7), size: 22),
+          child: Icon(icon,
+              color: Colors.white.withOpacity(dimmed ? 0.35 : 0.7), size: 22),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -946,14 +990,14 @@ class _PermRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title,
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(dimmed ? 0.5 : 1.0),
                       fontSize: 15,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(subtitle,
                   style: TextStyle(
-                      color: Colors.white.withOpacity(0.42),
+                      color: Colors.white.withOpacity(dimmed ? 0.25 : 0.42),
                       fontSize: 12,
                       height: 1.4)),
             ],
@@ -980,10 +1024,11 @@ class _PermRow extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
                 color:
-                    Colors.white.withOpacity(busy ? 0.04 : 0.10),
+                    Colors.white.withOpacity(busy ? 0.04 : (dimmed ? 0.05 : 0.10)),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: Colors.white.withOpacity(0.15), width: 1),
+                    color: Colors.white.withOpacity(dimmed ? 0.08 : 0.15),
+                    width: 1),
               ),
               child: busy
                   ? const SizedBox(
@@ -992,9 +1037,9 @@ class _PermRow extends StatelessWidget {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Autoriser',
+                  : Text('Autoriser',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: Colors.white.withOpacity(dimmed ? 0.4 : 1.0),
                           fontSize: 13,
                           fontWeight: FontWeight.w600)),
             ),
