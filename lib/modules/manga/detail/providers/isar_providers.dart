@@ -23,8 +23,13 @@ Stream<List<Chapter>> getChaptersStream(
     yield all.where((c) => c.mangaId == mangaId).toList();
     return;
   }
+  // Use mangaIdEqualTo (denormalized field) instead of the IsarLink traversal.
+  // The IsarLink path (.manga((q) => q.idEqualTo(mangaId))) can return an empty
+  // result if the link was not properly persisted (e.g. saveSync() called on an
+  // unloaded IsarLink clears the relationship).  The mangaId field is always set
+  // when a chapter is created and is never cleared, so it is the safe source.
   yield* isar.chapters
       .filter()
-      .manga((q) => q.idEqualTo(mangaId))
+      .mangaIdEqualTo(mangaId)
       .watch(fireImmediately: true);
 }
