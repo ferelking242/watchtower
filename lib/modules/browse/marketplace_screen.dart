@@ -1958,179 +1958,280 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
 // ─── Play Store-style card ─────────────────────────────────────────────────────
 
 class _PlayStoreCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onInstall;
-  final VoidCallback? onSettings;
-  final VoidCallback? onUninstall;
-  const _PlayStoreCard({
-    required this.entry,
-    required this.installed,
-    this.hasUpdate = false,
-    required this.busy,
-    required this.onInstall,
-    this.onSettings,
-    this.onUninstall,
-  });
+    final _ExtEntry entry;
+    final bool installed;
+    final bool hasUpdate;
+    final bool busy;
+    final VoidCallback onInstall;
+    final VoidCallback? onSettings;
+    final VoidCallback? onUninstall;
+    const _PlayStoreCard({
+      required this.entry,
+      required this.installed,
+      this.hasUpdate = false,
+      required this.busy,
+      required this.onInstall,
+      this.onSettings,
+      this.onUninstall,
+    });
 
-  String _typeLabel(ItemType t) => switch (t) {
-    ItemType.anime => 'Anime',
-    ItemType.manga => 'Manga',
-    ItemType.novel => 'Novel',
-    ItemType.music => 'Music',
-    _ => 'Game',
-  };
+    String _slugify(String name) => name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
-    final langCode = _MarketplaceScreenState._langCode(entry.lang);
-    final typeLabel = _typeLabel(entry.contentType);
+    String _description(ItemType t, String lang, bool isNsfw) {
+      final typeName = switch (t) {
+        ItemType.anime  => 'anime et séries',
+        ItemType.manga  => 'manga et comics',
+        ItemType.novel  => 'romans et light novels',
+        ItemType.music  => 'musique',
+        _               => 'jeux',
+      };
+      final langCode = _MarketplaceScreenState._langCode(lang);
+      return 'Parcourez du $typeName en $langCode${isNsfw ? " (contenu adulte)" : ""}.';
+    }
 
-    // Subtitle line: "JS • FR • Anime" like Play Store category tags
-    final subtitle = '$compatLabel • $langCode • $typeLabel${entry.isNsfw ? ' • 18+' : ''}';
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
+      final langCode = _MarketplaceScreenState._langCode(entry.lang);
+      final slug = _slugify(entry.name);
+      final desc = _description(entry.contentType, entry.lang, entry.isNsfw);
 
-    return GestureDetector(
-      onLongPress: (installed && onUninstall != null) ? onUninstall : null,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // ── Icon ─────────────────────────────────────────────────────────
-            _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 56),
-            const SizedBox(width: 14),
-            // ── Info ─────────────────────────────────────────────────────────
-            Expanded(
-              child: Column(
+      return GestureDetector(
+        onLongPress: (installed && onUninstall != null) ? onUninstall : null,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header row ──────────────────────────────────────────
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    entry.name,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 48),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.name,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          slug,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.2),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'v${entry.version}',
-                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
+                  const SizedBox(width: 8),
+                  // ── Action button ────────────────────────────────────
+                  _CardAction(
+                    installed: installed,
+                    hasUpdate: hasUpdate,
+                    busy: busy,
+                    onInstall: onInstall,
+                    onSettings: onSettings,
+                    cs: cs,
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            // ── Action ───────────────────────────────────────────────────────
-            _CardAction(
-              installed: installed,
-              hasUpdate: hasUpdate,
-              busy: busy,
-              onInstall: onInstall,
-              onSettings: onSettings,
-              cs: cs,
-            ),
-          ],
+              const SizedBox(height: 10),
+              // ── Description ──────────────────────────────────────────
+              Text(
+                desc,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant,
+                  height: 1.45,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+              // ── Tags ─────────────────────────────────────────────────
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  _TagChip(label: langCode, cs: cs),
+                  _TagChip(label: compatLabel, cs: cs),
+                  if (entry.isNsfw)
+                    _TagChip(label: '18+', cs: cs, color: Colors.red.shade400),
+                  if (hasUpdate)
+                    _TagChip(
+                      label: '↑ v${entry.version}',
+                      cs: cs,
+                      color: Colors.orange.shade400,
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
-}
 
-class _CardAction extends StatelessWidget {
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onInstall;
-  final VoidCallback? onSettings;
-  final ColorScheme cs;
-  const _CardAction({
-    required this.installed,
-    required this.hasUpdate,
-    required this.busy,
-    required this.onInstall,
-    required this.onSettings,
-    required this.cs,
-  });
+  class _TagChip extends StatelessWidget {
+    final String label;
+    final ColorScheme cs;
+    final Color? color;
+    const _TagChip({required this.label, required this.cs, this.color});
 
-  @override
-  Widget build(BuildContext context) {
-    if (!installed) {
-      return SizedBox(
-        width: 88,
-        height: 34,
-        child: FilledButton(
-          onPressed: busy ? null : onInstall,
-          style: FilledButton.styleFrom(
-            padding: EdgeInsets.zero,
-            backgroundColor: cs.primary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    @override
+    Widget build(BuildContext context) {
+      final fg = color ?? cs.onSurfaceVariant;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: fg.withValues(alpha: 0.45)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: fg,
           ),
-          child: busy
-              ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary))
-              : Text('Installer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onPrimary)),
         ),
       );
     }
-    if (hasUpdate) {
-      return SizedBox(
-        width: 68,
-        height: 34,
-        child: FilledButton(
-          onPressed: busy ? null : onInstall,
-          style: FilledButton.styleFrom(
-            padding: EdgeInsets.zero,
-            backgroundColor: Colors.orange.shade700,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          ),
-          child: busy
-              ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Màj ↑', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
-        ),
-      );
-    }
-    // Installed, no update
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (onSettings != null)
-          SizedBox(
-            width: 32,
-            height: 32,
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              icon: Icon(Icons.settings_outlined, size: 17, color: cs.onSurfaceVariant),
-              onPressed: onSettings,
-              tooltip: 'Paramètres',
-            ),
-          ),
-        const SizedBox(width: 4),
-        Container(
-          width: 32,
-          height: 32,
-          alignment: Alignment.center,
+  }
+
+  class _CardAction extends StatelessWidget {
+    final bool installed;
+    final bool hasUpdate;
+    final bool busy;
+    final VoidCallback onInstall;
+    final VoidCallback? onSettings;
+    final ColorScheme cs;
+    const _CardAction({
+      required this.installed,
+      required this.hasUpdate,
+      required this.busy,
+      required this.onInstall,
+      required this.onSettings,
+      required this.cs,
+    });
+
+    @override
+    Widget build(BuildContext context) {
+      // Loading spinner
+      if (busy) {
+        return Container(
+          width: 36,
+          height: 36,
+          padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
-            color: cs.primaryContainer.withValues(alpha: 0.6),
-            shape: BoxShape.circle,
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(Icons.check_rounded, size: 17, color: cs.primary),
-        ),
-      ],
-    );
+          child: CircularProgressIndicator(strokeWidth: 2.2, color: cs.primary),
+        );
+      }
+      // Not installed → download icon button
+      if (!installed) {
+        return GestureDetector(
+          onTap: onInstall,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.download_rounded,
+              size: 20,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        );
+      }
+      // Has update → update button
+      if (hasUpdate) {
+        return GestureDetector(
+          onTap: onInstall,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.orange.shade700.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.system_update_alt_rounded,
+              size: 20,
+              color: Colors.orange.shade600,
+            ),
+          ),
+        );
+      }
+      // Installed + no update
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (onSettings != null)
+            Container(
+              width: 34,
+              height: 34,
+              margin: const EdgeInsets.only(right: 4),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.settings_outlined, size: 17, color: cs.onSurfaceVariant),
+                onPressed: onSettings,
+                tooltip: 'Paramètres',
+              ),
+            ),
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: cs.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.check_rounded, size: 20, color: cs.primary),
+          ),
+        ],
+      );
+    }
   }
-}
 
+  
 // ─── Banner card (featured) ────────────────────────────────────────────────────
 
 class _BannerCard extends StatelessWidget {
