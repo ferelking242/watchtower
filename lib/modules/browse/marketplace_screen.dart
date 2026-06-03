@@ -125,7 +125,14 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       });
     }
   }
-  return results;
+  // ── Deduplicate by (name, contentType) ─────────────────────────────────
+  final _seen = <String>{};
+  final _deduped = <Map<String, dynamic>>[];
+  for (final r in results) {
+    final k = '${r['name']}|${r['contentType']}';
+    if (_seen.add(k)) _deduped.add(r);
+  }
+  return _deduped;
 }
 
 List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
@@ -157,6 +164,7 @@ const _kTabAnime = 2;
 const _kTabNovel = 3;
 const _kTabGames = 4;
 const _kTabMusic = 5;
+const _kTabPlugin = 6;
 
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     with TickerProviderStateMixin {
@@ -188,6 +196,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     _kTabNovel: _CompatF.all,
     _kTabGames: _CompatF.all,
     _kTabMusic: _CompatF.all,
+    _kTabPlugin: _CompatF.all,
   };
 
   // ── Play Store enhanced filter state ─────────────────────────────────────────
@@ -198,6 +207,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   bool _installedOnly = false;
   bool _withUpdatesOnly = false;
   bool _showNsfw = true;
+
+  // ── Cache ─────────────────────────────────────────────────────────────────
+  static List<_ExtEntry>? _cachedAll;
+  static DateTime? _cacheTime;
   String? _globalLangFilter;
   String? _globalRepoFilter;
   SourceCodeLanguage? _globalProgLangFilter;
@@ -231,8 +244,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 6, vsync: this);
-    _loadAll();
+    _tabCtrl = TabController(length: 7, vsync: this);
+    if (_cachedAll != null && _cacheTime != null &&
+        DateTime.now().difference(_cacheTime!) < const Duration(minutes: 5)) {
+      _all = _cachedAll!;
+      _loading = false;
+    } else {
+      _loadAll();
+    }
     _refreshInstalled();
   }
 
@@ -269,6 +288,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     } catch (_) {}
   }
 
+
+    // ── Toast notification ───────────────────────────────────────────────────
+    void _showToast(BuildContext ctx, String message, {bool isError = false, IconData? icon}) {
+      final overlay = Overlay.of(ctx);
+      late OverlayEntry entry;
+      entry = OverlayEntry(builder: (_) => _WTToast(
+        message: message,
+        isError: isError,
+        icon: icon,
+        onDismiss: () { try { entry.remove(); } catch (_) {} },
+      ));
+      overlay.insert(entry);
+      Future.delayed(const Duration(milliseconds: 2800), () {
+        try { entry.remove(); } catch (_) {}
+      });
+    }
+
+  
   Future<List<_ExtEntry>> _fetch(String url) async {
     final bust = '?_=${DateTime.now().millisecondsSinceEpoch}';
     final bustUrl = url.contains('?') ? url : url + bust;
@@ -308,6 +345,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _loading = false;
           _refreshing = false;
           _error = null;
+          _cachedAll = _all;
+          _cacheTime = DateTime.now();
         });
       } catch (e) {
         if (mounted) setState(() {
@@ -340,22 +379,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       );
       await _refreshInstalled();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('${entry.name} installée ✓'),
-          duration: const Duration(seconds: 2),
-        ));
-      }
-    } catch (e) {
+        _showToast(context, '${entry.name} installée', icon: Icons.check_circle_rounded);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('Erreur : $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          duration: const Duration(seconds: 3),
-        ));
-      }
-    } finally {
+        _showToast(context, 'Erreur : $e', isError: true, icon: Icons.error_rounded);
       if (mounted) setState(() => _busy.remove(entry.id));
     }
   }
@@ -399,20 +425,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       });
       await _refreshInstalled();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('${entry.name} désinstallée ✓'),
-          duration: const Duration(seconds: 2),
-        ));
-      }
-    } catch (e) {
+      _showToast(context, '${entry.name} désinstallée', icon: Icons.delete_rounded);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('Erreur désinstallation : $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
-      }
+      _showToast(context, 'Erreur désinstallation : $e', isError: true);
     } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
     }
@@ -453,6 +468,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       case _kTabNovel: return _all.where((e) => e.contentType == ItemType.novel).toList();
       case _kTabGames: return _all.where((e) => e.contentType == ItemType.game).toList();
       case _kTabMusic: return _all.where((e) => e.contentType == ItemType.music).toList();
+      case _kTabPlugin: return [];
       default: return _all;
     }
   }
@@ -581,6 +597,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         _TypeTab(state: this, tab: _kTabNovel),
                         _TypeTab(state: this, tab: _kTabGames),
                         _TypeTab(state: this, tab: _kTabMusic),
+                        _TypeTab(state: this, tab: _kTabPlugin),
                       ],
                     ),
                   ),
@@ -739,10 +756,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _all.where((e) => e.contentType == ItemType.novel).length,
       _all.where((e) => e.contentType == ItemType.game).length,
       _all.where((e) => e.contentType == ItemType.music).length,
+      0,
     ];
-    final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music'];
+    final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music', 'Plugin'];
     final icons  = <IconData>[Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
-                              Icons.menu_book_rounded, Icons.sports_esports_rounded, Icons.music_note_rounded];
+                              Icons.menu_book_rounded, Icons.sports_esports_rounded, Icons.music_note_rounded,
+                              Icons.extension_rounded];
     return Container(
       color: theme.scaffoldBackgroundColor,
       child: Padding(
@@ -759,7 +778,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             ),
             child: Wrap(
               spacing: 2, runSpacing: 2,
-              children: List.generate(6, (i) {
+              children: List.generate(7, (i) {
                 final sel = _tabCtrl.index == i;
                 return GestureDetector(
                   onTap: () { _tabCtrl.animateTo(i); setState(() { _globalLangFilter = null; _globalRepoFilter = null; _globalProgLangFilter = null; }); },
@@ -1929,19 +1948,65 @@ class _TypeTab extends StatelessWidget {
                 ]),
               ),
             )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (ctx, i) => _PlayStoreCard(
-                  entry: entries[i],
-                  installed: state._installed.contains(entries[i].id),
-                  hasUpdate: state._hasUpdate(entries[i].id, entries[i].version),
-                  busy: state._busy[entries[i].id] == true,
-                  onInstall: () => state._install(entries[i]),
-                  onSettings: state._installed.contains(entries[i].id) ? () => state._openSettings(entries[i].id) : null,
-                  onUninstall: state._installed.contains(entries[i].id) ? () => state._uninstall(entries[i]) : null,
+          else ...[
+            // ── Count bar ──────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                child: Row(
+                  children: [
+                    Text(
+                      '${entries.length} extension${entries.length == 1 ? "" : "s"}',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () async {
+                        await state._refreshInstalled();
+                        final updates = state._updatableCount;
+                        if (context.mounted) {
+                          state._showToast(context, updates == 0 ? 'Tout est à jour ✓' : '$updates mise${updates == 1 ? '' : 's'} à jour disponible${updates == 1 ? '' : 's'}',
+                            icon: updates == 0 ? Icons.check_circle_rounded : Icons.system_update_alt_rounded);
+                        }
+                      },
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.refresh_rounded, size: 13, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Text('Vérifier màj', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary)),
+                      ]),
+                    ),
+                  ],
                 ),
-                childCount: entries.length.clamp(0, 500),
+              ),
+            ),
+            if (tab == _kTabPlugin) ...[
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.extension_rounded, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
+                    const SizedBox(height: 14),
+                    Text('Ya rien ici', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
+                    const SizedBox(height: 6),
+                    Text('Les plugins arrivent bientôt 👀', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.4))),
+                  ]),
+                ),
+              ),
+            ] else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => _PlayStoreCard(
+                    entry: entries[i],
+                    installed: state._installed.contains(entries[i].id),
+                    hasUpdate: state._hasUpdate(entries[i].id, entries[i].version),
+                    busy: state._busy[entries[i].id] == true,
+                    onInstall: () => state._install(entries[i]),
+                    onSettings: state._installed.contains(entries[i].id) ? () => state._openSettings(entries[i].id) : null,
+                    onUninstall: state._installed.contains(entries[i].id) ? () => state._uninstall(entries[i]) : null,
+                  ),
+                  childCount: entries.length.clamp(0, 500),
+                ),
+              ),
+          ],
               ),
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -2287,6 +2352,7 @@ class _PlayStoreCard extends StatelessWidget {
                       final url = Uri.parse(_codeUrl);
                       await launchUrl(url, mode: LaunchMode.externalApplication);
                     },
+                    onUninstall: onUninstall,
                     cs: cs,
                   ),
                 ],
@@ -2361,6 +2427,7 @@ class _CardAction extends StatelessWidget {
       final bool busy;
       final VoidCallback onInstall;
       final VoidCallback? onSettings;
+      final VoidCallback? onUninstall;
       final VoidCallback? onCode;
       final ColorScheme cs;
       const _CardAction({
@@ -2369,6 +2436,7 @@ class _CardAction extends StatelessWidget {
         required this.busy,
         required this.onInstall,
         required this.onSettings,
+        this.onUninstall,
         required this.onCode,
         required this.cs,
       });
@@ -2420,10 +2488,14 @@ class _CardAction extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               onSelected: (v) async {
                 if (v == 'update') onInstall();
-                else if (v == 'uninstall') {}
+                else if (v == 'uninstall') onUninstall?.call();
                 else if (v == 'code') onCode?.call();
               },
               itemBuilder: (_) => [
+                if (onUninstall != null) PopupMenuItem(value: 'uninstall', child: Row(children: [
+                  Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red.shade400),
+                  const SizedBox(width: 10), Text('Désinstaller', style: TextStyle(color: Colors.red.shade400)),
+                ])),
                 PopupMenuItem(value: 'code', child: Row(children: [
                   Icon(Icons.code_rounded, size: 16, color: cs.onSurfaceVariant),
                   const SizedBox(width: 10), const Text('Code source'),
@@ -3307,6 +3379,35 @@ class _IconChip extends StatelessWidget {
                           },
                         ),
                       ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.download_for_offline_rounded, size: 18),
+                        label: const Text('Installer tout'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          final toInstall = state._all.where((e) => !state._installed.contains(e.id)).toList();
+                          if (toInstall.isEmpty) {
+                            if (context.mounted) state._showToast(context, 'Tout est déjà installé ✓', icon: Icons.check_circle_rounded);
+                            return;
+                          }
+                          if (context.mounted) state._showToast(context, 'Installation de ${toInstall.length} extensions…', icon: Icons.download_rounded);
+                          for (final e in toInstall) {
+                            await state._install(e).catchError((_) {});
+                          }
+                          if (context.mounted) state._showToast(context, 'Toutes les extensions installées ✓', icon: Icons.check_circle_rounded);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                     ),
                   ],
                 ),
@@ -4240,24 +4341,36 @@ class _ActiveFiltersSummary extends StatelessWidget {
 
     Widget _skeletonCard() {
       return Container(
-        width: 138,
-        margin: const EdgeInsets.only(right: 10, bottom: 2),
-        padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
+          color: widget.cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: widget.cs.outline.withValues(alpha: 0.12)),
+          border: Border.all(color: widget.cs.outlineVariant.withValues(alpha: 0.25)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _bone(width: 54, height: 54, radius: 14),
-            const SizedBox(height: 8),
-            _bone(width: 90, height: 12),
-            const SizedBox(height: 6),
-            _bone(width: 50, height: 10),
-            const SizedBox(height: 10),
-            _bone(width: double.infinity, height: 28, radius: 8),
+            _bone(width: 48, height: 48, radius: 12),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _bone(width: double.infinity, height: 14, radius: 7),
+                  const SizedBox(height: 6),
+                  _bone(width: 140, height: 11, radius: 6),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    _bone(width: 48, height: 20, radius: 6),
+                    const SizedBox(width: 8),
+                    _bone(width: 64, height: 20, radius: 6),
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            _bone(width: 36, height: 36, radius: 10),
           ],
         ),
       );
@@ -4265,68 +4378,25 @@ class _ActiveFiltersSummary extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-      return SingleChildScrollView(
+      return ListView.builder(
         physics: const NeverScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Section title bone
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-              child: Row(children: [
-                _bone(width: 16, height: 16, radius: 4),
-                const SizedBox(width: 8),
-                _bone(width: 120, height: 14),
-              ]),
-            ),
-            // Horizontal card strip
-            SizedBox(
-              height: 192,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-                itemCount: 5,
-                itemBuilder: (_, __) => _skeletonCard(),
+        padding: const EdgeInsets.only(top: 14, bottom: 100),
+        itemCount: 8,
+        itemBuilder: (_, i) => i == 0
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                child: Row(children: [
+                  _bone(width: 16, height: 16, radius: 4),
+                  const SizedBox(width: 8),
+                  _bone(width: 80, height: 12),
+                  const Spacer(),
+                  _bone(width: 90, height: 12),
+                ]),
               ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-              child: Row(children: [
-                _bone(width: 16, height: 16, radius: 4),
-                const SizedBox(width: 8),
-                _bone(width: 140, height: 14),
-              ]),
-            ),
-            SizedBox(
-              height: 192,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-                itemCount: 5,
-                itemBuilder: (_, __) => _skeletonCard(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-              child: Row(children: [
-                _bone(width: 16, height: 16, radius: 4),
-                const SizedBox(width: 8),
-                _bone(width: 100, height: 14),
-              ]),
-            ),
-            SizedBox(
-              height: 192,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-                itemCount: 5,
-                itemBuilder: (_, __) => _skeletonCard(),
-              ),
-            ),
-          ],
-        ),
+              _skeletonCard(),
+            ])
+          : _skeletonCard(),
       );
     }
   }
@@ -4514,3 +4584,87 @@ class _ActiveFiltersSummary extends StatelessWidget {
       );
     }
   }
+
+  // ─── Glass toast notification ─────────────────────────────────────────────
+
+  class _WTToast extends StatefulWidget {
+    final String message;
+    final bool isError;
+    final IconData? icon;
+    final VoidCallback onDismiss;
+    const _WTToast({required this.message, required this.onDismiss, this.isError = false, this.icon});
+
+    @override
+    State<_WTToast> createState() => _WTToastState();
+  }
+
+  class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin {
+    late final AnimationController _ctrl;
+    late final Animation<Offset> _slide;
+    late final Animation<double> _fade;
+
+    @override
+    void initState() {
+      super.initState();
+      _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+      _slide = Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero)
+          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+      _ctrl.forward();
+
+      Future.delayed(const Duration(milliseconds: 2200), () async {
+        if (!mounted) return;
+        await _ctrl.reverse();
+        widget.onDismiss();
+      });
+    }
+
+    @override
+    void dispose() { _ctrl.dispose(); super.dispose(); }
+
+    @override
+    Widget build(BuildContext context) {
+      final accent = widget.isError ? Colors.red.shade500 : Colors.deepPurple.shade400;
+      return Positioned(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+        left: 32, right: 32,
+        child: SlideTransition(
+          position: _slide,
+          child: FadeTransition(
+            opacity: _fade,
+            child: SafeArea(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF18181B).withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: accent.withValues(alpha: 0.35), width: 1),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2),
+                      ],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(widget.icon ?? (widget.isError ? Icons.error_rounded : Icons.info_rounded),
+                          size: 18, color: accent),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(widget.message,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFE4E4E7)),
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+  
