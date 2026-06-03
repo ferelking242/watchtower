@@ -67,63 +67,94 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             sources = sources.where((s) => seen.add(s.name ?? s.id.toString())).toList();
           }
           if (sources.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'ヽ(°〇°)ﾉ',
-                    style: TextStyle(
-                      fontSize: 52,
-                      color: Theme.of(context).hintColor.withValues(alpha: 0.55),
+            // Split into two zones so the emoji/text is truly centered
+            // (ignoring the local source row at the bottom).
+            return Column(
+              children: [
+                // ── Centered empty-state ──────────────────────────────────
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 36),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'ヽ(°〇°)ﾉ',
+                            style: TextStyle(
+                              fontSize: 52,
+                              color: Theme.of(context)
+                                  .hintColor
+                                  .withValues(alpha: 0.55),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Nothing here",
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).hintColor,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            context.l10n.no_sources_installed,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .hintColor
+                                      .withValues(alpha: 0.7),
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 28),
+                          FilledButton.icon(
+                            onPressed: widget.onShowExtensions,
+                            icon:
+                                const Icon(Icons.storefront_rounded, size: 18),
+                            label: const Text('Go to Market'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Nothing here",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).hintColor,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    context.l10n.no_sources_installed,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).hintColor.withValues(alpha: 0.7),
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 28),
-                  FilledButton.icon(
-                    onPressed: widget.onShowExtensions,
-                    icon: const Icon(Icons.storefront_rounded, size: 18),
-                    label: const Text('Go to Market'),
-                  ),
-                  const SizedBox(height: 24),
-                  Divider(
-                    indent: 40,
-                    endIndent: 40,
-                    color: Theme.of(context).hintColor.withValues(alpha: 0.2),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.other,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).hintColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  SourceListTile(
-                    source: Source(
-                      name: "local",
-                      lang: "",
-                      itemType: widget.itemType,
+                ),
+                // ── Local source pinned at bottom ─────────────────────────
+                Divider(
+                  indent: 40,
+                  endIndent: 40,
+                  color:
+                      Theme.of(context).hintColor.withValues(alpha: 0.15),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 14, top: 4, bottom: 4, right: 14),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l10n.other,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).hintColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
+                  ),
+                ),
+                SourceListTile(
+                  source: Source(
+                    name: "local",
+                    lang: "",
                     itemType: widget.itemType,
                   ),
-                ],
-              ),
+                  itemType: widget.itemType,
+                ),
+                const SizedBox(height: 12),
+              ],
             );
           }
           final lastUsedEntries = sources
