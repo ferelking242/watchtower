@@ -28,11 +28,14 @@ import 'package:watchtower/modules/manga/home/widget/mangas_card_selector.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/gridview_widget.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:marquee/marquee.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:flutter_popup/flutter_popup.dart';
+
+enum _HomeMenuAction { openBrowser, cookies, settings, diagnostic }
 
 class MangaHomeScreen extends ConsumerStatefulWidget {
   final Source source;
@@ -167,6 +170,26 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   late final _textEditingController = TextEditingController(text: widget.query);
   late String _query = widget.query;
   late bool _isSearch = widget.isSearch;
+
+  Future<void> _handleHomeMenuAction(
+      BuildContext ctx, _HomeMenuAction action) async {
+    switch (action) {
+      case _HomeMenuAction.openBrowser:
+        final baseUrl = ref.read(sourceBaseUrlProvider(source: source));
+        ctx.push('/mangawebview', extra: {
+          'url': baseUrl,
+          'sourceId': source.id.toString(),
+          'title': '',
+        });
+      case _HomeMenuAction.cookies:
+        ctx.push('/extension-cookies');
+      case _HomeMenuAction.settings:
+        final res = await ctx.push('/extension_detail', extra: source);
+        if (res != null && mounted) setState(() => source = res as Source);
+      case _HomeMenuAction.diagnostic:
+        ctx.push('/extensionDiagnostic', extra: source.itemType);
+    }
+  }
   AsyncValue<MPages?>? _getManga;
   int _length = 0;
   bool _isFiltering = false;
@@ -284,96 +307,99 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                   },
                   icon: Icon(Icons.search, color: Theme.of(context).hintColor),
                 ),
-          CustomPopup(
-            contentPadding: EdgeInsets.zero,
-            content: Consumer(
-              builder: (ctx, ref2, _) {
-                final displayType =
-                    ref2.watch(mangaHomeDisplayTypeStateProvider);
-                final notifier = ref2
-                    .read(mangaHomeDisplayTypeStateProvider.notifier);
-                Widget tile(IconData icon, String label, DisplayType val) =>
-                    RadioListTile<DisplayType>(
-                      secondary: Icon(icon, size: 20),
-                      title: Text(label, style: const TextStyle(fontSize: 14)),
-                      value: val,
-                      groupValue: displayType,
-                      dense: true,
-                      onChanged: (v) => notifier.setMangaHomeDisplayType(v!),
-                    );
-                return IntrinsicWidth(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      tile(Icons.grid_view, ctx.l10n.compact_grid, DisplayType.compactGrid),
-                      tile(Icons.view_module, ctx.l10n.comfortable_grid, DisplayType.comfortableGrid),
-                      tile(Icons.image_outlined, ctx.l10n.cover_only_grid, DisplayType.coverOnlyGrid),
-                      tile(Icons.dashboard_outlined, 'Grille large', DisplayType.largeGrid),
-                      tile(Icons.view_list, ctx.l10n.list, DisplayType.list),
-                      tile(Icons.view_agenda_outlined, 'Liste étendue', DisplayType.wideList),
-                    ],
-                  ),
-                );
-              },
+          Builder(
+            builder: (ctx) => CustomPopup(
+              backgroundColor:
+                  Theme.of(ctx).colorScheme.surfaceContainerHigh,
+              contentPadding: EdgeInsets.zero,
+              content: Consumer(
+                builder: (ctx2, ref2, _) {
+                  final displayType =
+                      ref2.watch(mangaHomeDisplayTypeStateProvider);
+                  final notifier = ref2
+                      .read(mangaHomeDisplayTypeStateProvider.notifier);
+                  Widget tile(
+                          IconData icon, String label, DisplayType val) =>
+                      RadioListTile<DisplayType>(
+                        secondary: Icon(icon, size: 20),
+                        title:
+                            Text(label, style: const TextStyle(fontSize: 14)),
+                        value: val,
+                        groupValue: displayType,
+                        dense: true,
+                        onChanged: (v) => notifier.setMangaHomeDisplayType(v!),
+                      );
+                  return IntrinsicWidth(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        tile(Icons.grid_view, ctx2.l10n.compact_grid,
+                            DisplayType.compactGrid),
+                        tile(Icons.view_module, ctx2.l10n.comfortable_grid,
+                            DisplayType.comfortableGrid),
+                        tile(Icons.image_outlined, ctx2.l10n.cover_only_grid,
+                            DisplayType.coverOnlyGrid),
+                        tile(Icons.dashboard_outlined, 'Grille large',
+                            DisplayType.largeGrid),
+                        tile(Icons.view_list, ctx2.l10n.list, DisplayType.list),
+                        tile(Icons.view_agenda_outlined, 'Liste étendue',
+                            DisplayType.wideList),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Icon(displayTypeIcon, color: Theme.of(ctx).hintColor),
+              ),
             ),
-            child: Icon(displayTypeIcon, color: Theme.of(context).hintColor),
           ),
           const SizedBox(width: 2),
           if (!isLocal)
             Builder(
-              builder: (ctx) => CustomPopup(
-                contentPadding: EdgeInsets.zero,
-                content: IntrinsicWidth(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.open_in_browser_rounded, size: 20),
-                        title: Text(ctx.l10n.open_in_browser, style: const TextStyle(fontSize: 14)),
-                        onTap: () {
-                          final baseUrl = ref.read(
-                            sourceBaseUrlProvider(source: source),
-                          );
-                          final data = {
-                            'url': baseUrl,
-                            'sourceId': source.id.toString(),
-                            'title': '',
-                          };
-                          ctx.push("/mangawebview", extra: data);
-                        },
-                      ),
-                      ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.cookie_outlined, size: 20),
-                        title: const Text('Cookies', style: TextStyle(fontSize: 14)),
-                        onTap: () => ctx.push('/extension-cookies'),
-                      ),
-                      const Divider(height: 1, thickness: 0.5),
-                      ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.settings_outlined, size: 20),
-                        title: Text(ctx.l10n.settings, style: const TextStyle(fontSize: 14)),
-                        onTap: () async {
-                          final res = await ctx.push(
-                            '/extension_detail',
-                            extra: source,
-                          );
-                          if (res != null && mounted) {
-                            setState(() => source = res as Source);
-                          }
-                        },
-                      ),
-                      ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.bug_report_outlined, size: 20),
-                        title: const Text('Diagnostic', style: TextStyle(fontSize: 14)),
-                        onTap: () => ctx.push('/extensionDiagnostic', extra: source.itemType),
-                      ),
-                    ],
+              builder: (ctx) => ArrowPopupMenuButton<_HomeMenuAction>(
+                padding: const EdgeInsets.all(10),
+                icon: Icon(Icons.more_vert, color: Theme.of(ctx).hintColor),
+                onSelected: (action) => _handleHomeMenuAction(ctx, action),
+                itemBuilder: (menuCtx) => [
+                  PopupMenuItem(
+                    value: _HomeMenuAction.openBrowser,
+                    child: Row(children: [
+                      const Icon(Icons.open_in_browser_rounded, size: 20),
+                      const SizedBox(width: 12),
+                      Flexible(child: Text(menuCtx.l10n.open_in_browser,
+                          style: const TextStyle(fontSize: 14))),
+                    ]),
                   ),
-                ),
-                child: Icon(Icons.more_vert, color: Theme.of(ctx).hintColor),
+                  PopupMenuItem(
+                    value: _HomeMenuAction.cookies,
+                    child: Row(children: [
+                      const Icon(Icons.cookie_outlined, size: 20),
+                      const SizedBox(width: 12),
+                      const Text('Cookies', style: TextStyle(fontSize: 14)),
+                    ]),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: _HomeMenuAction.settings,
+                    child: Row(children: [
+                      const Icon(Icons.settings_outlined, size: 20),
+                      const SizedBox(width: 12),
+                      Flexible(child: Text(menuCtx.l10n.settings,
+                          style: const TextStyle(fontSize: 14))),
+                    ]),
+                  ),
+                  PopupMenuItem(
+                    value: _HomeMenuAction.diagnostic,
+                    child: Row(children: [
+                      const Icon(Icons.bug_report_outlined, size: 20),
+                      const SizedBox(width: 12),
+                      const Text('Diagnostic',
+                          style: TextStyle(fontSize: 14)),
+                    ]),
+                  ),
+                ],
               ),
             ),
         ],
