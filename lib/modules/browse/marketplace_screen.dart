@@ -125,14 +125,11 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       });
     }
   }
-  // ── Deduplicate by (name, contentType) ─────────────────────────────────
-  final _seen = <String>{};
-  final _deduped = <Map<String, dynamic>>[];
-  for (final r in results) {
-    final k = '${r['name']}|${r['contentType']}';
-    if (_seen.add(k)) _deduped.add(r);
-  }
-  return _deduped;
+  final seen = <String>{};
+  return results.where((r) {
+    final k = '${r["name"]}|${r["contentType"]}';
+    return seen.add(k);
+  }).toList();
 }
 
 List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
@@ -208,7 +205,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   bool _withUpdatesOnly = false;
   bool _showNsfw = true;
 
-  // ── Cache ─────────────────────────────────────────────────────────────────
+  // ── Cache (survives navigation) ──────────────────────────────────────────
   static List<_ExtEntry>? _cachedAll;
   static DateTime? _cacheTime;
   String? _globalLangFilter;
@@ -288,24 +285,20 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     } catch (_) {}
   }
 
+  // ── Toast notification ─────────────────────────────────────────────────
+  void _showToast(BuildContext ctx, String message, {bool isError = false, IconData? icon}) {
+    final overlay = Overlay.of(ctx);
+    late OverlayEntry oe;
+    oe = OverlayEntry(builder: (_) => _WTToast(
+      message: message, isError: isError, icon: icon,
+      onDismiss: () { try { oe.remove(); } catch (_) {} },
+    ));
+    overlay.insert(oe);
+    Future.delayed(const Duration(milliseconds: 2800), () {
+      try { oe.remove(); } catch (_) {}
+    });
+  }
 
-    // ── Toast notification ───────────────────────────────────────────────────
-    void _showToast(BuildContext ctx, String message, {bool isError = false, IconData? icon}) {
-      final overlay = Overlay.of(ctx);
-      late OverlayEntry entry;
-      entry = OverlayEntry(builder: (_) => _WTToast(
-        message: message,
-        isError: isError,
-        icon: icon,
-        onDismiss: () { try { entry.remove(); } catch (_) {} },
-      ));
-      overlay.insert(entry);
-      Future.delayed(const Duration(milliseconds: 2800), () {
-        try { entry.remove(); } catch (_) {}
-      });
-    }
-
-  
   Future<List<_ExtEntry>> _fetch(String url) async {
     final bust = '?_=${DateTime.now().millisecondsSinceEpoch}';
     final bustUrl = url.contains('?') ? url : url + bust;
@@ -328,6 +321,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       // First entry: skeleton loading. Refresh: keep UI alive, show progress bar.
       if (_all.isEmpty) {
         setState(() { _loading = true; _error = null; });
+          _cachedAll = _all;
+          _cacheTime = DateTime.now();
       } else {
         setState(() { _refreshing = true; });
       }
@@ -345,8 +340,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _loading = false;
           _refreshing = false;
           _error = null;
-          _cachedAll = _all;
-          _cacheTime = DateTime.now();
         });
       } catch (e) {
         if (mounted) setState(() {
@@ -380,8 +373,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       await _refreshInstalled();
       if (mounted) {
         _showToast(context, '${entry.name} installée', icon: Icons.check_circle_rounded);
+      }
+    } catch (e) {
       if (mounted) {
         _showToast(context, 'Erreur : $e', isError: true, icon: Icons.error_rounded);
+      }
+    } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
     }
   }
@@ -426,8 +423,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       await _refreshInstalled();
       if (mounted) {
       _showToast(context, '${entry.name} désinstallée', icon: Icons.delete_rounded);
+      }
+    } catch (e) {
       if (mounted) {
       _showToast(context, 'Erreur désinstallation : $e', isError: true);
+      }
     } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
     }
@@ -1949,49 +1949,47 @@ class _TypeTab extends StatelessWidget {
               ),
             )
           else ...[
-            // ── Count bar ──────────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                child: Row(
-                  children: [
-                    Text(
-                      '${entries.length} extension${entries.length == 1 ? "" : "s"}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () async {
-                        await state._refreshInstalled();
-                        final updates = state._updatableCount;
-                        if (context.mounted) {
-                          state._showToast(context, updates == 0 ? 'Tout est à jour ✓' : '$updates mise${updates == 1 ? "" : "s"} à jour disponible${updates == 1 ? "" : "s"}',
-                            icon: updates == 0 ? Icons.check_circle_rounded : Icons.system_update_alt_rounded);
-                        }
-                      },
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.refresh_rounded, size: 13, color: cs.primary),
-                        const SizedBox(width: 4),
-                        Text('Vérifier màj', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary)),
-                      ]),
-                    ),
-                  ],
-                ),
+                child: Row(children: [
+                  Text(
+                    '${entries.length} extension${entries.length == 1 ? "" : "s"}',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () async {
+                      await state._refreshInstalled();
+                      final upd = state._updatableCount;
+                      if (context.mounted) {
+                        state._showToast(
+                          context,
+                          upd == 0 ? 'Tout est à jour ✓' : '$upd mise${upd == 1 ? "" : "s"} à jour disponible${upd == 1 ? "" : "s"}',
+                          icon: upd == 0 ? Icons.check_circle_rounded : Icons.system_update_alt_rounded,
+                        );
+                      }
+                    },
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.refresh_rounded, size: 13, color: cs.primary),
+                      const SizedBox(width: 4),
+                      Text('Vérifier màj', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary)),
+                    ]),
+                  ),
+                ]),
               ),
             ),
-            if (tab == _kTabPlugin) ...[
+            if (tab == _kTabPlugin)
               SliverFillRemaining(
-                child: Center(
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.extension_rounded, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
-                    const SizedBox(height: 14),
-                    Text('Ya rien ici', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
-                    const SizedBox(height: 6),
-                    Text('Les plugins arrivent bientôt 👀', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.4))),
-                  ]),
-                ),
-              ),
-            ] else
+                child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.extension_rounded, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
+                  const SizedBox(height: 14),
+                  Text('Ya rien ici', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
+                  const SizedBox(height: 6),
+                  Text('Les plugins arrivent bientôt 👀', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.4))),
+                ])),
+              )
+            else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => _PlayStoreCard(
@@ -2007,8 +2005,6 @@ class _TypeTab extends StatelessWidget {
                 ),
               ),
           ],
-              ),
-            ),
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
@@ -2495,7 +2491,7 @@ class _CardAction extends StatelessWidget {
                 if (onUninstall != null) PopupMenuItem(value: 'uninstall', child: Row(children: [
                   Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red.shade400),
                   const SizedBox(width: 10), Text('Désinstaller', style: TextStyle(color: Colors.red.shade400)),
-                ])),
+])),
                 PopupMenuItem(value: 'code', child: Row(children: [
                   Icon(Icons.code_rounded, size: 16, color: cs.onSurfaceVariant),
                   const SizedBox(width: 10), const Text('Code source'),
@@ -3377,8 +3373,6 @@ class _IconChip extends StatelessWidget {
                             Navigator.pop(context);
                             state._loadAll(bypassCache: true);
                           },
-                        ),
-                      ),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -3408,6 +3402,8 @@ class _IconChip extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -4348,31 +4344,19 @@ class _ActiveFiltersSummary extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: widget.cs.outlineVariant.withValues(alpha: 0.25)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _bone(width: 48, height: 48, radius: 12),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _bone(width: double.infinity, height: 14, radius: 7),
-                  const SizedBox(height: 6),
-                  _bone(width: 140, height: 11, radius: 6),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    _bone(width: 48, height: 20, radius: 6),
-                    const SizedBox(width: 8),
-                    _bone(width: 64, height: 20, radius: 6),
-                  ]),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            _bone(width: 36, height: 36, radius: 10),
-          ],
-        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          _bone(width: 48, height: 48, radius: 12),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _bone(height: 14, radius: 7),
+            const SizedBox(height: 6),
+            _bone(width: 140, height: 11, radius: 6),
+            const SizedBox(height: 8),
+            Row(children: [_bone(width: 48, height: 20, radius: 6), const SizedBox(width: 8), _bone(width: 64, height: 20, radius: 6)]),
+          ])),
+          const SizedBox(width: 10),
+          _bone(width: 36, height: 36, radius: 10),
+        ]),
       );
     }
 
@@ -4382,21 +4366,84 @@ class _ActiveFiltersSummary extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 14, bottom: 100),
         itemCount: 8,
-        itemBuilder: (_, i) => i == 0
-          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                child: Row(children: [
-                  _bone(width: 16, height: 16, radius: 4),
-                  const SizedBox(width: 8),
-                  _bone(width: 80, height: 12),
-                  const Spacer(),
-                  _bone(width: 90, height: 12),
-                ]),
+        itemBuilder: (_, i) {
+          if (i == 0) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+              child: Row(children: [
+                _bone(width: 80, height: 12, radius: 6),
+                const Spacer(),
+                _bone(width: 90, height: 12, radius: 6),
+              ]),
+            ),
+            _skeletonCard(),
+          ]);
+          return _skeletonCard();
+        },
+      );
+    }
+      return SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section title bone
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+              child: Row(children: [
+                _bone(width: 16, height: 16, radius: 4),
+                const SizedBox(width: 8),
+                _bone(width: 120, height: 14),
+              ]),
+            ),
+            // Horizontal card strip
+            SizedBox(
+              height: 192,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                itemCount: 5,
+                itemBuilder: (_, __) => _skeletonCard(),
               ),
-              _skeletonCard(),
-            ])
-          : _skeletonCard(),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Row(children: [
+                _bone(width: 16, height: 16, radius: 4),
+                const SizedBox(width: 8),
+                _bone(width: 140, height: 14),
+              ]),
+            ),
+            SizedBox(
+              height: 192,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                itemCount: 5,
+                itemBuilder: (_, __) => _skeletonCard(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Row(children: [
+                _bone(width: 16, height: 16, radius: 4),
+                const SizedBox(width: 8),
+                _bone(width: 100, height: 14),
+              ]),
+            ),
+            SizedBox(
+              height: 192,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                itemCount: 5,
+                itemBuilder: (_, __) => _skeletonCard(),
+              ),
+            ),
+          ],
+        ),
       );
     }
   }
@@ -4585,86 +4632,77 @@ class _ActiveFiltersSummary extends StatelessWidget {
     }
   }
 
-  // ─── Glass toast notification ─────────────────────────────────────────────
+// ─── Glass toast notification ─────────────────────────────────────────────────
 
-  class _WTToast extends StatefulWidget {
-    final String message;
-    final bool isError;
-    final IconData? icon;
-    final VoidCallback onDismiss;
-    const _WTToast({required this.message, required this.onDismiss, this.isError = false, this.icon});
+class _WTToast extends StatefulWidget {
+  final String message;
+  final bool isError;
+  final IconData? icon;
+  final VoidCallback onDismiss;
+  const _WTToast({required this.message, required this.onDismiss, this.isError = false, this.icon});
+  @override
+  State<_WTToast> createState() => _WTToastState();
+}
 
-    @override
-    State<_WTToast> createState() => _WTToastState();
+class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _slide = Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+    Future.delayed(const Duration(milliseconds: 2200), () async {
+      if (!mounted) return;
+      await _ctrl.reverse();
+      widget.onDismiss();
+    });
   }
 
-  class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin {
-    late final AnimationController _ctrl;
-    late final Animation<Offset> _slide;
-    late final Animation<double> _fade;
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
-    @override
-    void initState() {
-      super.initState();
-      _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
-      _slide = Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero)
-          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-      _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-      _ctrl.forward();
-
-      Future.delayed(const Duration(milliseconds: 2200), () async {
-        if (!mounted) return;
-        await _ctrl.reverse();
-        widget.onDismiss();
-      });
-    }
-
-    @override
-    void dispose() { _ctrl.dispose(); super.dispose(); }
-
-    @override
-    Widget build(BuildContext context) {
-      final accent = widget.isError ? Colors.red.shade500 : Colors.deepPurple.shade400;
-      return Positioned(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-        left: 32, right: 32,
-        child: SlideTransition(
-          position: _slide,
-          child: FadeTransition(
-            opacity: _fade,
-            child: SafeArea(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF18181B).withValues(alpha: 0.88),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: accent.withValues(alpha: 0.35), width: 1),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2),
-                      ],
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(widget.icon ?? (widget.isError ? Icons.error_rounded : Icons.info_rounded),
-                          size: 18, color: accent),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(widget.message,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFE4E4E7)),
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ]),
+  @override
+  Widget build(BuildContext context) {
+    final accent = widget.isError ? Colors.red.shade500 : Colors.deepPurple.shade400;
+    return Positioned(
+      bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+      left: 32, right: 32,
+      child: SlideTransition(
+        position: _slide,
+        child: FadeTransition(
+          opacity: _fade,
+          child: SafeArea(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF18181B).withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: accent.withValues(alpha: 0.35), width: 1),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2)],
                   ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(widget.icon ?? (widget.isError ? Icons.error_rounded : Icons.info_rounded), size: 18, color: accent),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(widget.message,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFE4E4E7)),
+                      maxLines: 2, overflow: TextOverflow.ellipsis)),
+                  ]),
                 ),
               ),
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
   }
-  
+}
