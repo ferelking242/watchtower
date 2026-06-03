@@ -698,5 +698,18 @@
   "checking_files": "Checking files",
   "downloaded_bundle_missing_expected_files": "The downloaded bundle does not contain the expected files.",
   "android_proxy_server_mihon": "Android Proxy Server (Mihon)",
-  "select_extension_server_jar": "Select extension server JAR"
+  "select_extension_server_jar": "Select extension server JAR",
+  "tts": "ข้อความเป็นเสียง",
+  "tts_speed": "ความเร็ว",
+  "tts_pitch": "ระดับเสียง",
+  "tts_language": "ภาษา",
+  "tts_voice": "เสียง",
+  "tts_stop": "หยุด",
+  "tts_play": "เล่น",
+  "tts_pause": "หยุดชั่วคราว",
+  "tts_previous": "ย่อหน้าก่อนหน้า",
+  "tts_next": "ย่อหน้าถัดไป",
+  "tts_paragraph_progress": "ย่อหน้า {current} จาก {total}",
+  "tts_settings": "ตั้งค่า TTS",
+  "tts_default": "ค่าเริ่มต้น"
 }
