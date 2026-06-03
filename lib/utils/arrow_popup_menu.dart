@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 /// A drop-in replacement for [PopupMenuButton] that pops the menu open
 /// directly under (or above) the trigger button, with a small triangular
-/// caret that points back at the button.
+/// caret whose horizontal position is dynamically aligned with the button.
 class ArrowPopupMenuButton<T> extends StatefulWidget {
   const ArrowPopupMenuButton({
     super.key,
@@ -122,7 +122,8 @@ class _ArrowPopupMenuButtonState<T> extends State<ArrowPopupMenuButton<T>> {
   }
 }
 
-/// Shows a menu anchored to the given [anchorGlobalPos] with a small caret.
+/// Shows a menu anchored to the given [anchorGlobalPos] with a small caret
+/// that dynamically aligns with the anchor's horizontal center.
 Future<T?> _showArrowMenu<T>({
   required BuildContext context,
   required Offset anchorGlobalPos,
@@ -248,7 +249,7 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
     final theme = Theme.of(context);
     final bg = backgroundColor ??
         theme.popupMenuTheme.color ??
-        theme.colorScheme.surfaceContainer;
+        theme.colorScheme.surfaceContainerHigh;
 
     // Anchor bottom edge (where menu would start if shown below)
     final anchorBottomY =
@@ -285,6 +286,17 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
       mq.size.width - width - screenPadding,
     );
 
+    // ── Dynamic caret position ────────────────────────────────────────────────
+    // After clamping, the popup box may no longer be centered under the button.
+    // Compute how far the button's center is from the popup's left edge so the
+    // caret points EXACTLY at the trigger button regardless of screen position.
+    final anchorCenterX = anchorGlobalPos.dx + anchorSize.width / 2.0;
+    // Clamp so the caret tip stays within the visible rounded-corner area.
+    final caretFraction =
+        ((anchorCenterX - left) / width).clamp(0.06, 0.94);
+    // Alignment uses [-1, 1] range: -1 = left edge, 0 = center, 1 = right edge.
+    final caretAlignX = caretFraction * 2.0 - 1.0;
+
     return Stack(
       children: [
         Positioned(
@@ -310,9 +322,10 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Top caret (shown when menu opens below the button)
                     if (!showAbove)
                       Align(
-                        alignment: Alignment.topCenter,
+                        alignment: Alignment(caretAlignX, 0),
                         child: CustomPaint(
                           size: const Size(caretWidth, caretHeight),
                           painter: _CaretPainter(color: bg, pointDown: false),
@@ -335,15 +348,16 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               for (final e in entries)
-                                _renderEntry(context, e),
+                                _renderEntry(context, e, bg),
                             ],
                           ),
                         ),
                       ),
                     ),
+                    // Bottom caret (shown when menu opens above the button)
                     if (showAbove)
                       Align(
-                        alignment: Alignment.bottomCenter,
+                        alignment: Alignment(caretAlignX, 0),
                         child: CustomPaint(
                           size: const Size(caretWidth, caretHeight),
                           painter: _CaretPainter(color: bg, pointDown: true),
@@ -359,9 +373,19 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
     );
   }
 
-  Widget _renderEntry(BuildContext context, PopupMenuEntry<T> e) {
+  Widget _renderEntry(BuildContext context, PopupMenuEntry<T> e, Color bg) {
+    final theme = Theme.of(context);
+    // Derive a readable text color from the background (important in dark mode).
+    final textColor =
+        ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
+            ? Colors.white
+            : Colors.black87;
+
     if (e is PopupMenuDivider) {
-      return const Divider(height: 1);
+      return Divider(
+        height: 1,
+        color: textColor.withValues(alpha: 0.12),
+      );
     }
     if (e is PopupMenuItem<T>) {
       final enabled = e.enabled;
@@ -381,16 +405,16 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
           padding: (e.padding as EdgeInsetsGeometry?) ??
               const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           color: selected
-              ? Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.08)
+              ? theme.colorScheme.primary.withValues(alpha: 0.08)
               : null,
           alignment: Alignment.centerLeft,
           child: DefaultTextStyle(
-            style: Theme.of(context).textTheme.bodyMedium ??
-                const TextStyle(),
-            child: e.child ?? const SizedBox.shrink(),
+            style: (theme.textTheme.bodyMedium ?? const TextStyle())
+                .copyWith(color: textColor),
+            child: IconTheme(
+              data: IconThemeData(color: textColor.withValues(alpha: 0.7)),
+              child: e.child ?? const SizedBox.shrink(),
+            ),
           ),
         ),
       );
