@@ -3884,7 +3884,7 @@ class _ActiveFiltersSummary extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'L'historique détaillé sera disponible\nquand l'extension supporte les versions.',
+                          "L'historique détaillé sera disponible\nquand l'extension supporte les versions.",
                           style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.5),
                           textAlign: TextAlign.center,
                         ),

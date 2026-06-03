@@ -63,7 +63,7 @@ import 'package:flutter/material.dart';
                 const SizedBox(height: 10),
                 Center(
                   child: Text(
-                    'Les plugins ajoutent des fonctionnalités\ndirectement à l'application.',
+                    "Les plugins ajoutent des fonctionnalités\ndirectement à l'application.",
                     style: TextStyle(
                       fontSize: 14,
                       color: cs.onSurfaceVariant,
@@ -105,7 +105,7 @@ import 'package:flutter/material.dart';
                       Text(
                         'Le système de plugins est en cours de développement. '
                         'Contrairement aux extensions (qui ajoutent des sources de contenu), '
-                        'les plugins étendront les fonctionnalités de l'application elle-même.',
+                        "les plugins étendront les fonctionnalités de l'application elle-même.",
                         style: TextStyle(
                           fontSize: 13,
                           color: cs.onSurfaceVariant,
@@ -120,13 +120,13 @@ import 'package:flutter/material.dart';
                 _FeaturePreviewTile(
                   icon: Icons.dark_mode_rounded,
                   label: 'Thèmes avancés',
-                  desc: 'Thèmes personnalisés pour l'interface',
+                  desc: "Thèmes personnalisés pour l'interface",
                   cs: cs,
                 ),
                 _FeaturePreviewTile(
                   icon: Icons.translate_rounded,
                   label: 'Traduction intégrée',
-                  desc: 'Traduire le contenu directement dans l'app',
+                  desc: "Traduire le contenu directement dans l'app",
                   cs: cs,
                 ),
                 _FeaturePreviewTile(
