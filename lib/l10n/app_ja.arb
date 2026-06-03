@@ -804,5 +804,18 @@
   "checking_files": "Checking files",
   "downloaded_bundle_missing_expected_files": "The downloaded bundle does not contain the expected files.",
   "android_proxy_server_mihon": "Android Proxy Server (Mihon)",
-  "select_extension_server_jar": "Select extension server JAR"
+  "select_extension_server_jar": "Select extension server JAR",
+  "tts": "テキスト読み上げ",
+  "tts_speed": "速度",
+  "tts_pitch": "ピッチ",
+  "tts_language": "言語",
+  "tts_voice": "音声",
+  "tts_stop": "停止",
+  "tts_play": "再生",
+  "tts_pause": "一時停止",
+  "tts_previous": "前の段落",
+  "tts_next": "次の段落",
+  "tts_paragraph_progress": "段落 {current} / {total}",
+  "tts_settings": "TTS設定",
+  "tts_default": "デフォルト"
 }
