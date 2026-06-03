@@ -456,42 +456,52 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   List<_ExtEntry> _forTab(int tab) {
-    List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
-    // 1. NSFW
-    if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
-    // 2. Compat chips (JS/Dart filter)
-    final cf = _compatF[tab] ?? _CompatF.all;
-    if (cf != _CompatF.all) {
-      list = list.where((e) =>
-          e.compat == SourceCodeLanguage.javascript ||
-          e.compat == SourceCodeLanguage.dart).toList();
+      List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
+      // 1. Search query
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        list = list.where((e) =>
+            e.name.toLowerCase().contains(q) ||
+            e.lang.toLowerCase().contains(q)).toList();
+      }
+      // 2. NSFW
+      if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
+      // 3. Compat chips
+      final cf = _compatF[tab] ?? _CompatF.all;
+      if (cf != _CompatF.all) {
+        list = list.where((e) =>
+            e.compat == SourceCodeLanguage.javascript ||
+            e.compat == SourceCodeLanguage.dart).toList();
+      }
+      // 4. Repo filter
+      final repo = _repoFilter[tab];
+      if (repo != null) list = list.where((e) => e.repoUrl.contains(repo)).toList();
+      // 5. Global language filter (dropdown)
+      if (_globalLangFilter != null) {
+        list = list.where((e) => e.lang == _globalLangFilter).toList();
+      }
+      // 6. Per-tab language filter (legacy)
+      final lang = _langFilter[tab];
+      if (lang != null) list = list.where((e) => e.lang == lang).toList();
+      // 7. Prog-lang filter
+      final prog = _progLangFilter[tab];
+      if (prog != null) list = list.where((e) => e.compat == prog).toList();
+      // 8. Advanced toggles
+      if (_installedOnly) list = list.where((e) => _installed.contains(e.id)).toList();
+      if (_withUpdatesOnly) list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
+      // 9. Sort
+      if (_sortBy == 'alpha') {
+        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      } else if (_sortBy == 'installed') {
+        list.sort((a, b) {
+          final ai = _installed.contains(a.id) ? 0 : 1;
+          final bi = _installed.contains(b.id) ? 0 : 1;
+          if (ai != bi) return ai.compareTo(bi);
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+      }
+      return list;
     }
-    // 3. Repo filter
-    final repo = _repoFilter[tab];
-    if (repo != null) list = list.where((e) => e.repoUrl.contains(repo)).toList();
-    // 4. Language filter
-    final lang = _langFilter[tab];
-    if (lang != null) list = list.where((e) => e.lang == lang).toList();
-    // 5. Prog-lang filter
-    final prog = _progLangFilter[tab];
-    if (prog != null) list = list.where((e) => e.compat == prog).toList();
-    // 6. Advanced toggles
-    if (_installedOnly) list = list.where((e) => _installed.contains(e.id)).toList();
-    if (_withUpdatesOnly) list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
-    // 7. Sort
-    if (_sortBy == 'alpha') {
-      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    } else if (_sortBy == 'installed') {
-      list.sort((a, b) {
-        final ai = _installed.contains(a.id) ? 0 : 1;
-        final bi = _installed.contains(b.id) ? 0 : 1;
-        if (ai != bi) return ai.compareTo(bi);
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
-    }
-    return list;
-  }
-
   List<_ExtEntry> get _searchResults {
     if (_searchQuery.isEmpty) return [];
     final q = _searchQuery.toLowerCase();
@@ -557,31 +567,30 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-    _showNsfw = ref.watch(showNSFWStateProvider);
+      final cs = Theme.of(context).colorScheme;
+      final theme = Theme.of(context);
+      _showNsfw = ref.watch(showNSFWStateProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          if (_error != null && _all.isEmpty)
-            _buildError(cs)
-          else
-            NestedScrollView(
-              headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
-                SliverToBoxAdapter(child: _buildLogoRow(cs, theme)),
-              ],
-              body: Column(
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            if (_error != null && _all.isEmpty)
+              _buildError(cs)
+            else
+              Column(
                 children: [
+                  _buildLogoRow(cs, theme),
+                  _buildPersistentSearch(cs, theme),
                   _buildTabBarRow(cs, theme),
+                  _buildLangDropdown(cs, theme),
                   Expanded(
                     child: TabBarView(
                       controller: _tabCtrl,
                       children: [
-                        _HomeTab(state: this),
-                        _TypeTab(state: this, tab: _kTabManga),
+                        _TypeTab(state: this, tab: _kTabHome),
                         _TypeTab(state: this, tab: _kTabAnime),
+                        _TypeTab(state: this, tab: _kTabManga),
                         _TypeTab(state: this, tab: _kTabNovel),
                         _TypeTab(state: this, tab: _kTabGames),
                         _TypeTab(state: this, tab: _kTabMusic),
@@ -590,8 +599,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                   ),
                 ],
               ),
-            ),
-          if (_searchOpen) _buildSearchOverlay(cs, theme),
             if (_refreshing)
               Positioned(
                 top: 0, left: 0, right: 0,
@@ -910,357 +917,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       );
     }
 
-    // ── Loading / Error ────────────────────────────────────────────────────────────
-  List<_ExtEntry> _forTab(int tab) {
-      List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
-      // 1. Search query
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        list = list.where((e) =>
-            e.name.toLowerCase().contains(q) ||
-            e.lang.toLowerCase().contains(q)).toList();
-      }
-      // 2. NSFW
-      if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
-      // 3. Compat chips (JS/Dart filter)
-      final cf = _compatF[tab] ?? _CompatF.all;
-      if (cf != _CompatF.all) {
-        list = list.where((e) =>
-            e.compat == SourceCodeLanguage.javascript ||
-            e.compat == SourceCodeLanguage.dart).toList();
-      }
-      // 4. Repo filter
-      final repo = _repoFilter[tab];
-      if (repo != null) list = list.where((e) => e.repoUrl.contains(repo)).toList();
-      // 5. Language filter (global dropdown)
-      if (_globalLangFilter != null) {
-        list = list.where((e) => e.lang == _globalLangFilter).toList();
-      }
-      // 6. Per-tab language filter (legacy)
-      final lang = _langFilter[tab];
-      if (lang != null) list = list.where((e) => e.lang == lang).toList();
-      // 7. Prog-lang filter
-      final prog = _progLangFilter[tab];
-      if (prog != null) list = list.where((e) => e.compat == prog).toList();
-      // 8. Advanced toggles
-      if (_installedOnly) list = list.where((e) => _installed.contains(e.id)).toList();
-      if (_withUpdatesOnly) list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
-      // 9. Sort
-      if (_sortBy == 'alpha') {
-        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      } else if (_sortBy == 'installed') {
-        list.sort((a, b) {
-          final ai = _installed.contains(a.id) ? 0 : 1;
-          final bi = _installed.contains(b.id) ? 0 : 1;
-          if (ai != bi) return ai.compareTo(bi);
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        });
-      }
-      return list;
-    }
-  List<_ExtEntry> get _searchResults {
-    if (_searchQuery.isEmpty) return [];
-    final q = _searchQuery.toLowerCase();
-    return _all.where((e) =>
-        e.name.toLowerCase().contains(q) ||
-        e.lang.toLowerCase().contains(q)).take(60).toList();
-  }
-
-  List<_ExtEntry> get _featured => _all
-      .where((e) => _kFeaturedNames.contains(e.name))
-      .toList()..sort((a, b) => a.name.compareTo(b.name));
-
-  // ── Static helpers ────────────────────────────────────────────────────────────
-
-  static String _compatLabel(SourceCodeLanguage c) => switch (c) {
-    SourceCodeLanguage.mihon => 'APK',
-    SourceCodeLanguage.lnreader => 'Plugin',
-    SourceCodeLanguage.javascript => 'JS',
-    SourceCodeLanguage.dart => 'Dart',
-  };
-
-  static Color _compatColor(SourceCodeLanguage c, ColorScheme cs) => switch (c) {
-    SourceCodeLanguage.mihon => const Color(0xFF2196F3),
-    SourceCodeLanguage.lnreader => const Color(0xFF4CAF50),
-    SourceCodeLanguage.javascript => const Color(0xFFF5A623),
-    SourceCodeLanguage.dart => const Color(0xFF00B4D8),
-  };
-
-  static IconData _typeIcon(ItemType t) => switch (t) {
-    ItemType.anime => Icons.live_tv_rounded,
-    ItemType.manga => Icons.auto_stories_rounded,
-    ItemType.novel => Icons.menu_book_rounded,
-    ItemType.music => Icons.music_note_rounded,
-    _ => Icons.sports_esports_rounded,
-  };
-
-  static Color _typeColor(ItemType t) => switch (t) {
-    ItemType.anime => const Color(0xFF9C27B0),
-    ItemType.manga => const Color(0xFFE91E63),
-    ItemType.novel => const Color(0xFF009688),
-    ItemType.music => const Color(0xFF0288D1),
-    _ => const Color(0xFF607D8B),
-  };
-
-  static String _langCode(String lang) {
-    final l = lang.toLowerCase();
-    if (l == 'all' || l == 'multi') return 'MULTI';
-    if (l.contains('-')) return l.split('-').map((p) => p.toUpperCase()).join('-');
-    return l.length > 3 ? l.substring(0, 3).toUpperCase() : l.toUpperCase();
-  }
-
-  static Color _langColor(String lang) {
-    const colors = <String, Color>{
-      'en': Color(0xFF1565C0), 'fr': Color(0xFFC62828), 'ja': Color(0xFFAD1457),
-      'zh': Color(0xFFB71C1C), 'ko': Color(0xFF283593), 'es': Color(0xFFF57F17),
-      'pt': Color(0xFF2E7D32), 'de': Color(0xFF37474F), 'it': Color(0xFF558B2F),
-      'ru': Color(0xFF4527A0), 'ar': Color(0xFF00695C), 'tr': Color(0xFFBF360C),
-    };
-    return colors[lang.toLowerCase()] ?? const Color(0xFF546E7A);
-  }
-
-  // ── Build ─────────────────────────────────────────────────────────────────────
-
-  @override
-  Widget build(BuildContext context) {
-      final cs = Theme.of(context).colorScheme;
-      final theme = Theme.of(context);
-      _showNsfw = ref.watch(showNSFWStateProvider);
-
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Stack(
-          children: [
-            if (_error != null && _all.isEmpty)
-              _buildError(cs)
-            else
-              Column(
-                children: [
-                  _buildLogoRow(cs, theme),
-                  _buildPersistentSearch(cs, theme),
-                  _buildTabBarRow(cs, theme),
-                  _buildLangDropdown(cs, theme),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabCtrl,
-                      children: [
-                        _TypeTab(state: this, tab: _kTabHome),
-                        _TypeTab(state: this, tab: _kTabAnime),
-                        _TypeTab(state: this, tab: _kTabManga),
-                        _TypeTab(state: this, tab: _kTabNovel),
-                        _TypeTab(state: this, tab: _kTabGames),
-                        _TypeTab(state: this, tab: _kTabMusic),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            if (_refreshing)
-              Positioned(
-                top: 0, left: 0, right: 0,
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  color: cs.primary,
-                  backgroundColor: Colors.transparent,
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    // ── Mass install ─────────────────────────────────────────────────────────────
-
-  Future<void> _massInstall({required String lang, SourceCodeLanguage? compat}) async {
-    var toInstall = _all
-        .where((e) => e.lang == lang && !_installed.contains(e.id))
-        .toList();
-    if (compat != null) {
-      toInstall = toInstall.where((e) => e.compat == compat).toList();
-    }
-    for (final entry in toInstall) {
-      await _install(entry);
-    }
-  }
-
-  void _showMassInstallSheet() {
-    final langs = _all.map((e) => e.lang).toSet().toList()..sort();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => _MassInstallSheet(
-        state: this,
-        langs: langs,
-        installedIds: _installed,
-      ),
-    );
-  }
-
-  // ── Top bar ───────────────────────────────────────────────────────────────────
-
-  Widget _buildLogoRow(ColorScheme cs, ThemeData theme) {
-    return Container(
-      color: theme.scaffoldBackgroundColor,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-          child: Row(
-            children: [
-              // PlayStore icon
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  'assets/icons/playstore_icon.png',
-                  width: 38,
-                  height: 38,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Spacer(),
-              // Search icon
-              SizedBox(
-                width: 38,
-                height: 38,
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: Icon(Icons.search_rounded, size: 22, color: cs.onSurfaceVariant),
-                  tooltip: 'Rechercher',
-                  onPressed: () {
-                    setState(() => _searchOpen = true);
-                    Future.delayed(const Duration(milliseconds: 80), () {
-                      _searchFocus.requestFocus();
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Account icon with dropdown
-              SizedBox(
-                key: _accountKey,
-                width: 38,
-                height: 38,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _accountOpen
-                        ? const Color(0xFF7C3AED).withValues(alpha: 0.18)
-                        : Colors.transparent,
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      Icons.account_circle_rounded,
-                      size: 26,
-                      color: _accountOpen ? const Color(0xFF7C3AED) : cs.onSurfaceVariant,
-                    ),
-                    tooltip: 'Compte',
-                    onPressed: _toggleAccountDropdown,
-                  ),
-                ),
-              ),
-                ],
-              ),
-        ),
-      ),
-    );
-  }
-
-  // ── Account dropdown ──────────────────────────────────────────────────────────
-
-  void _toggleAccountDropdown() {
-    if (_accountOpen) {
-      _closeAccountDropdown();
-    } else {
-      _openAccountDropdown();
-    }
-  }
-
-  void _openAccountDropdown() {
-    setState(() => _accountOpen = true);
-    final renderBox = _accountKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-    final offset = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-
-    _accountOverlay = OverlayEntry(
-      builder: (_) => _AccountDropdownOverlay(
-        position: Offset(offset.dx + size.width, offset.dy + size.height + 6),
-        onDismiss: _closeAccountDropdown,
-        onSettings: () {
-          _closeAccountDropdown();
-          _showMarketplaceSettings();
-        },
-        onRepos: () {
-          _closeAccountDropdown();
-          context.push('/browse/source-repositories');
-        },
-      ),
-    );
-    Overlay.of(context).insert(_accountOverlay!);
-  }
-
-  void _closeAccountDropdown() {
-    _accountOverlay?.remove();
-    _accountOverlay = null;
-    if (mounted) setState(() => _accountOpen = false);
-  }
-
-
-  // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
-
-  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
-    return Container(
-      color: theme.scaffoldBackgroundColor,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TabBar(
-            controller: _tabCtrl,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            indicatorSize: TabBarIndicatorSize.tab,
-            dividerColor: Colors.transparent,
-            labelColor: cs.primary,
-            unselectedLabelColor: theme.hintColor,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            tabs: [
-              _iconTab(Icons.home_outlined, 'Pour vous'),
-              _iconTab(Icons.auto_stories_outlined, 'Manga'),
-              _iconTab(Icons.live_tv_outlined, 'Anime'),
-              _iconTab(Icons.menu_book_outlined, 'Novel'),
-              _iconTab(Icons.sports_esports_outlined, 'Jeux'),
-              _iconTab(Icons.music_note_outlined, 'Music'),
-            ],
-          ),
-          Divider(height: 1, thickness: 1, color: cs.outline.withValues(alpha: 0.20)),
-        ],
-      ),
-    );
-  }
-
-  Tab _iconTab(IconData icon, String label) {
-    return Tab(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14),
-          const SizedBox(width: 5),
-          Text(label),
-        ],
-      ),
-    );
-  }
-
-  // ── Loading / Error ────────────────────────────────────────────────────────────
-
-  Widget _buildLoading(ColorScheme cs) => Center(
+    // ── Loading / Error ────────────────────────────────────────────────────────────────────────────
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       CircularProgressIndicator(color: cs.primary),
       const SizedBox(height: 14),
