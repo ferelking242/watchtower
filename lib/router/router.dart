@@ -21,6 +21,7 @@ import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/mass_migration/mass_migration_source_selection_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
+import 'package:watchtower/modules/plugins/plugins_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
@@ -240,6 +241,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) =>
           AnilistBrowseScreen(filter: data.$1, title: data.$2),
     ),
+    _genericRoute(name: "plugins", child: const PluginsScreen()),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),
     _genericRoute(name: "track", child: const TrackScreen()),

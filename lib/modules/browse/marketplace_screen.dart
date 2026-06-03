@@ -18,10 +18,6 @@ import 'package:go_router/go_router.dart';
 
 const _kWtBase =
     'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
-const _kKeiyoushiBase =
-    'https://raw.githubusercontent.com/keiyoushi/extensions/repo';
-const _kAniyomiBase =
-    'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo';
 
 const _kFeaturedNames = {
   'MangaDex', 'Webtoons', 'Comick', 'MangaPlus', 'NovelUpdates',
@@ -30,7 +26,7 @@ const _kFeaturedNames = {
 
 // ─── Compat filter ─────────────────────────────────────────────────────────────
 
-enum _CompatF { all, mihon, lnreader, js }
+enum _CompatF { all, js }
 
 // ─── Data model ────────────────────────────────────────────────────────────────
 
@@ -44,6 +40,7 @@ class _ExtEntry {
   final SourceCodeLanguage compat;
   final bool isNsfw;
   final String repoUrl;
+  final List<_ExtVersionEntry> versions;
 
   const _ExtEntry({
     required this.id,
@@ -55,6 +52,7 @@ class _ExtEntry {
     required this.compat,
     this.isNsfw = false,
     required this.repoUrl,
+    this.versions = const [],
   });
 }
 
@@ -88,7 +86,7 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       final langs = sources.map((s) => (s['lang'] ?? 'en') as String).toSet();
       final lang = langs.length == 1 ? langs.first.toLowerCase() : 'multi';
       results.add({
-        'id': 'mihon-${firstSrc['id']}'.hashCode,
+        'id': 'ext-${firstSrc['id']}'.hashCode,
         'name': (e['name'] ?? firstSrc['name'] ?? '?') as String,
         'iconUrl': iconUrl,
         'lang': lang,
@@ -170,6 +168,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Map<int, String> _installedVersions = {};
   Map<int, Source> _installedSources = {};
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
 
   // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -285,23 +284,36 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     return _mapsToEntries(maps);
   }
 
-  Future<void> _loadAll() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final results = await Future.wait([
-        _fetch('$_kWtBase/manga/index.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/watch/index.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/novel/index.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/music/index.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/game/index.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kKeiyoushiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kAniyomiBase/index.min.json').catchError((_) => <_ExtEntry>[]),
-      ]);
-      if (mounted) setState(() { _all = results.expand((l) => l).toList(); _loading = false; });
-    } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+  Future<void> _loadAll({bool bypassCache = false}) async {
+      // First entry: skeleton loading. Refresh: keep UI alive, show progress bar.
+      if (_all.isEmpty) {
+        setState(() { _loading = true; _error = null; });
+      } else {
+        setState(() { _refreshing = true; });
+      }
+      try {
+        final suffix = bypassCache ? '?_=${DateTime.now().millisecondsSinceEpoch}' : '';
+        final results = await Future.wait([
+          _fetch('$_kWtBase/manga/index.json$suffix').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/watch/index.json$suffix').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/novel/index.json$suffix').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/music/index.json$suffix').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/game/index.json$suffix').catchError((_) => <_ExtEntry>[]),
+        ]);
+        if (mounted) setState(() {
+          _all = results.expand((l) => l).toList();
+          _loading = false;
+          _refreshing = false;
+          _error = null;
+        });
+      } catch (e) {
+        if (mounted) setState(() {
+          _error = e.toString();
+          _loading = false;
+          _refreshing = false;
+        });
+      }
     }
-  }
 
   // ── Install ───────────────────────────────────────────────────────────────────
 
@@ -405,7 +417,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Marketplace settings ──────────────────────────────────────────────────────
 
-  void _showMarketplaceSettings() {
+  void _showVersionHistory(_ExtEntry entry) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _VersionHistorySheet(entry: entry, state: this),
+      );
+    }
+
+    void _showMarketplaceSettings() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -434,15 +458,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
     // 1. NSFW
     if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
-    // 2. Legacy compat chips
+    // 2. Compat chips (JS/Dart filter)
     final cf = _compatF[tab] ?? _CompatF.all;
     if (cf != _CompatF.all) {
-      final c = cf == _CompatF.mihon
-          ? SourceCodeLanguage.mihon
-          : cf == _CompatF.lnreader
-              ? SourceCodeLanguage.lnreader
-              : SourceCodeLanguage.javascript;
-      list = list.where((e) => e.compat == c).toList();
+      list = list.where((e) =>
+          e.compat == SourceCodeLanguage.javascript ||
+          e.compat == SourceCodeLanguage.dart).toList();
     }
     // 3. Repo filter
     final repo = _repoFilter[tab];
@@ -485,8 +506,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Static helpers ────────────────────────────────────────────────────────────
 
   static String _compatLabel(SourceCodeLanguage c) => switch (c) {
-    SourceCodeLanguage.mihon => 'Mihon',
-    SourceCodeLanguage.lnreader => 'LNReader',
+    SourceCodeLanguage.mihon => 'APK',
+    SourceCodeLanguage.lnreader => 'Plugin',
     SourceCodeLanguage.javascript => 'JS',
     SourceCodeLanguage.dart => 'Dart',
   };
@@ -543,9 +564,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          if (_loading)
-            _buildLoading(cs)
-          else if (_error != null)
+          if (_error != null && _all.isEmpty)
             _buildError(cs)
           else
             NestedScrollView(
@@ -572,12 +591,21 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ),
             ),
           if (_searchOpen) _buildSearchOverlay(cs, theme),
-        ],
-      ),
-    );
-  }
+            if (_refreshing)
+              Positioned(
+                top: 0, left: 0, right: 0,
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: cs.primary,
+                  backgroundColor: Colors.transparent,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
 
-  // ── Mass install ─────────────────────────────────────────────────────────────
+    // ── Mass install ─────────────────────────────────────────────────────────────
 
   Future<void> _massInstall({required String lang, SourceCodeLanguage? compat}) async {
     var toInstall = _all
@@ -1096,8 +1124,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Widget buildCompatFilter(ColorScheme cs, int tab) {
     final items = [
       (_CompatF.all, Icons.apps_rounded, 'Tout'),
-      (_CompatF.mihon, Icons.android_rounded, 'Mihon'),
-      (_CompatF.lnreader, Icons.menu_book_outlined, 'LNReader'),
+      
       (_CompatF.js, Icons.code_rounded, 'JS / Dart'),
     ];
     final cf = _compatF[tab] ?? _CompatF.all;
@@ -1122,8 +1149,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Play Store filter strip (3 dropdowns + funnel) ───────────────────────────
 
   static String _repoLabel(String url) {
-    if (url.contains('keiyoushi')) return 'Keiyoushi (Mihon)';
-    if (url.contains('aniyomi')) return 'Aniyomi';
     if (url.contains('ferelking') || url.contains('watchtower-extensions')) {
       if (url.contains('/manga/')) return 'Watchtower Manga';
       if (url.contains('/watch/')) return 'Watchtower Watch';
@@ -1137,8 +1162,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   static String _repoShortLabel(String url) {
-    if (url.contains('keiyoushi')) return 'Mihon';
-    if (url.contains('aniyomi')) return 'Aniyomi';
     if (url.contains('ferelking') || url.contains('watchtower-extensions')) {
       if (url.contains('/manga/')) return 'WT Manga';
       if (url.contains('/watch/')) return 'WT Watch';
@@ -1350,6 +1373,7 @@ class _HomeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    if (state._loading) return _MarketplaceSkeleton(cs: cs);
     final all = state._all;
     final featured = state._featured;
 
@@ -1406,7 +1430,7 @@ class _HomeTab extends StatelessWidget {
                 cs, 'Watch',
                 Icons.live_tv_rounded,
                 color: const Color(0xFF7B2FBE),
-                subtitle: '${watchExt.length} extensions · Aniyomi & Watchtower',
+                subtitle: '${watchExt.length} extensions · Watchtower',
                 onSeeAll: () => state._tabCtrl.animateTo(_kTabAnime),
               ),
             ),
@@ -1651,6 +1675,7 @@ class _TypeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    if (state._loading) return _MarketplaceSkeleton(cs: cs);
     final entries = state._forTab(tab);
     return RefreshIndicator(
       onRefresh: state._loadAll,
@@ -1758,7 +1783,7 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
 
     final compatItems = [
       (null, Icons.apps_rounded, 'Tous types'),
-      (SourceCodeLanguage.mihon, Icons.android_rounded, 'Mihon/Aniyomi'),
+      (SourceCodeLanguage.javascript, Icons.code_rounded, 'JS/Web'),
       (SourceCodeLanguage.dart, Icons.flutter_dash, 'Dart'),
       (SourceCodeLanguage.javascript, Icons.code_rounded, 'JS'),
     ];
@@ -2296,6 +2321,7 @@ class _MiniCard extends StatelessWidget {
   final bool busy;
   final VoidCallback onInstall;
   final VoidCallback? onSettings;
+  final VoidCallback? onHistory;
   const _MiniCard({
     required this.entry,
     required this.installed,
@@ -2303,6 +2329,7 @@ class _MiniCard extends StatelessWidget {
     required this.busy,
     required this.onInstall,
     this.onSettings,
+    this.onHistory,
   });
 
   String get _codeUrl {
@@ -2310,8 +2337,6 @@ class _MiniCard extends StatelessWidget {
     if (url.contains('ferelking242') || url.contains('watchtower-extensions')) {
       return 'https://github.com/ferelking242/watchtower-extensions';
     }
-    if (url.contains('keiyoushi')) return 'https://github.com/keiyoushi/extensions';
-    if (url.contains('aniyomi')) return 'https://github.com/aniyomiorg/aniyomi-extensions';
     return url;
   }
 
@@ -2483,47 +2508,38 @@ class _MiniCard extends StatelessWidget {
 // ─── Stats bar ─────────────────────────────────────────────────────────────────
 
 class _StatsBar extends StatelessWidget {
-  final int keiyoushi, aniyomi, wt, ln, installed;
-  final ColorScheme cs;
-  const _StatsBar({
-    required this.keiyoushi,
-    required this.aniyomi,
-    required this.wt,
-    required this.ln,
-    required this.installed,
-    required this.cs,
-  });
+    final int wt, ln, installed;
+    final ColorScheme cs;
+    const _StatsBar({
+      required this.wt,
+      required this.ln,
+      required this.installed,
+      required this.cs,
+    });
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _Pill('$keiyoushi', 'Keiyoushi', const Color(0xFF2196F3)),
-          _vdivider(cs),
-          _Pill('$aniyomi', 'Aniyomi', const Color(0xFF7B2FBE)),
-          _vdivider(cs),
-          _Pill('$wt', 'Watchtower', const Color(0xFFF5A623)),
-          if (ln > 0) ...[_vdivider(cs), _Pill('$ln', 'LNReader', const Color(0xFF4CAF50))],
-          _vdivider(cs),
-          _Pill('$installed', 'Installées', cs.primary),
-        ],
-      ),
-    );
+    @override
+    Widget build(BuildContext context) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _Pill('$wt', 'Watchtower', const Color(0xFF7C3AED)),
+            _vdivider(cs),
+            _Pill('$ln', 'Light Novel', const Color(0xFF009688)),
+            _vdivider(cs),
+            _Pill('$installed', 'Installées', const Color(0xFF43A047)),
+          ],
+        ),
+      );
+    }
   }
-
-  Widget _vdivider(ColorScheme cs) =>
-      Container(width: 1, height: 28, color: cs.outline.withValues(alpha: 0.2));
-}
-
 class _Pill extends StatelessWidget {
   final String count, label;
   final Color color;
@@ -2624,22 +2640,6 @@ class _IconChip extends StatelessWidget {
         color: Color(0xFF6C63FF),
         tag: 'Officiel',
         githubUrl: 'https://github.com/ferelking242/watchtower-extensions',
-      ),
-      _RepoInfo(
-        name: 'Keiyoushi',
-        description: 'Extensions manga multi-langues (Mihon-compatible)',
-        icon: Icons.auto_stories_rounded,
-        color: Color(0xFFE91E63),
-        tag: 'Mihon',
-        githubUrl: 'https://github.com/keiyoushi/extensions',
-      ),
-      _RepoInfo(
-        name: 'Aniyomi',
-        description: 'Extensions anime populaires (Aniyomi-compatible)',
-        icon: Icons.live_tv_rounded,
-        color: Color(0xFF9C27B0),
-        tag: 'Anime',
-        githubUrl: 'https://github.com/aniyomiorg/aniyomi-extensions',
       ),
     ];
 
@@ -2926,16 +2926,36 @@ class _IconChip extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () {
-                          Navigator.pop(context);
-                          state._loadAll();
-                        },
+                            Navigator.pop(context);
+                            state._loadAll();
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.cloud_sync_rounded, size: 18),
+                          label: const Text('Forcer rechargement (bypass cache)'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            state._loadAll(bypassCache: true);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+  
         ),
       );
     }
@@ -3632,3 +3652,327 @@ class _ActiveFiltersSummary extends StatelessWidget {
     );
   }
 }
+
+  // ─── Marketplace skeleton loading ──────────────────────────────────────────────
+
+  class _MarketplaceSkeleton extends StatefulWidget {
+    final ColorScheme cs;
+    const _MarketplaceSkeleton({required this.cs});
+
+    @override
+    State<_MarketplaceSkeleton> createState() => _MarketplaceSkeletonState();
+  }
+
+  class _MarketplaceSkeletonState extends State<_MarketplaceSkeleton>
+      with SingleTickerProviderStateMixin {
+    late final AnimationController _ctrl;
+    late final Animation<double> _anim;
+
+    @override
+    void initState() {
+      super.initState();
+      _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
+        ..repeat(reverse: true);
+      _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    }
+
+    @override
+    void dispose() {
+      _ctrl.dispose();
+      super.dispose();
+    }
+
+    Widget _bone({double width = double.infinity, double height = 14, double radius = 8}) {
+      return AnimatedBuilder(
+        animation: _anim,
+        builder: (_, __) => Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            color: Color.lerp(
+              widget.cs.surfaceContainerHigh,
+              widget.cs.surfaceContainerHighest,
+              _anim.value,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget _skeletonCard() {
+      return Container(
+        width: 138,
+        margin: const EdgeInsets.only(right: 10, bottom: 2),
+        padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: widget.cs.outline.withValues(alpha: 0.12)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _bone(width: 54, height: 54, radius: 14),
+            const SizedBox(height: 8),
+            _bone(width: 90, height: 12),
+            const SizedBox(height: 6),
+            _bone(width: 50, height: 10),
+            const SizedBox(height: 10),
+            _bone(width: double.infinity, height: 28, radius: 8),
+          ],
+        ),
+      );
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section title bone
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+              child: Row(children: [
+                _bone(width: 16, height: 16, radius: 4),
+                const SizedBox(width: 8),
+                _bone(width: 120, height: 14),
+              ]),
+            ),
+            // Horizontal card strip
+            SizedBox(
+              height: 192,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                itemCount: 5,
+                itemBuilder: (_, __) => _skeletonCard(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Row(children: [
+                _bone(width: 16, height: 16, radius: 4),
+                const SizedBox(width: 8),
+                _bone(width: 140, height: 14),
+              ]),
+            ),
+            SizedBox(
+              height: 192,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                itemCount: 5,
+                itemBuilder: (_, __) => _skeletonCard(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Row(children: [
+                _bone(width: 16, height: 16, radius: 4),
+                const SizedBox(width: 8),
+                _bone(width: 100, height: 14),
+              ]),
+            ),
+            SizedBox(
+              height: 192,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                itemCount: 5,
+                itemBuilder: (_, __) => _skeletonCard(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // ─── Extension version entry ────────────────────────────────────────────────────
+
+  class _ExtVersionEntry {
+    final String version;
+    final String? date;
+    final String? changelog;
+    final List<String> tags;
+    const _ExtVersionEntry({
+      required this.version,
+      this.date,
+      this.changelog,
+      this.tags = const [],
+    });
+  }
+
+  // ─── Version history bottom sheet ──────────────────────────────────────────────
+
+  class _VersionHistorySheet extends StatelessWidget {
+    final _ExtEntry entry;
+    final _MarketplaceScreenState state;
+    const _VersionHistorySheet({required this.entry, required this.state});
+
+    static Color _tagColor(String tag, ColorScheme cs) {
+      switch (tag) {
+        case 'stable': return const Color(0xFF43A047);
+        case 'broken': return const Color(0xFFE53935);
+        case 'unstable': return const Color(0xFFFB8C00);
+        case 'major-fix': return const Color(0xFF1E88E5);
+        case 'deprecated': return const Color(0xFF757575);
+        default: return cs.primary;
+      }
+    }
+
+    static IconData _tagIcon(String tag) {
+      switch (tag) {
+        case 'stable': return Icons.verified_rounded;
+        case 'broken': return Icons.broken_image_rounded;
+        case 'unstable': return Icons.warning_amber_rounded;
+        case 'major-fix': return Icons.build_circle_rounded;
+        case 'deprecated': return Icons.archive_rounded;
+        default: return Icons.label_rounded;
+      }
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final versions = entry.versions;
+      return DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.35,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (_, ctrl) => Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: cs.outline.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(children: [
+                _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 36),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(entry.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cs.onSurface)),
+                    Text('Historique des versions', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  ]),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
+            Expanded(
+              child: versions.isEmpty
+                  ? Center(
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.history_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Version actuelle : v${entry.version}',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: cs.onSurface),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'L'historique détaillé sera disponible\nquand l'extension supporte les versions.',
+                          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.5),
+                          textAlign: TextAlign.center,
+                        ),
+                      ]),
+                    )
+                  : ListView.separated(
+                      controller: ctrl,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      separatorBuilder: (_, __) => Divider(height: 1, indent: 16, endIndent: 16, color: cs.outline.withValues(alpha: 0.10)),
+                      itemCount: versions.length,
+                      itemBuilder: (ctx, i) {
+                        final v = versions[i];
+                        final isCurrent = v.version == entry.version;
+                        return ListTile(
+                          leading: Container(
+                            width: 40, height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isCurrent ? cs.primaryContainer : cs.surfaceContainerHigh,
+                            ),
+                            child: Icon(
+                              isCurrent ? Icons.check_circle_rounded : Icons.history_rounded,
+                              size: 20,
+                              color: isCurrent ? cs.primary : cs.onSurfaceVariant,
+                            ),
+                          ),
+                          title: Row(children: [
+                            Text('v${v.version}', style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface)),
+                            if (isCurrent) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: cs.primaryContainer,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text('installée', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: cs.primary)),
+                              ),
+                            ],
+                            ...v.tags.map((tag) => Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _tagColor(tag, cs).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: _tagColor(tag, cs).withValues(alpha: 0.4)),
+                                ),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Icon(_tagIcon(tag), size: 9, color: _tagColor(tag, cs)),
+                                  const SizedBox(width: 3),
+                                  Text(tag, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _tagColor(tag, cs))),
+                                ]),
+                              ),
+                            )),
+                          ]),
+                          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            if (v.date != null)
+                              Text(v.date!, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                            if (v.changelog != null && v.changelog!.isNotEmpty)
+                              Text(v.changelog!, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.4)),
+                          ]),
+                          trailing: isCurrent
+                              ? null
+                              : TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    // Trigger install of this specific version
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      content: Text('Retour à v${v.version} en cours…'),
+                                      duration: const Duration(seconds: 2),
+                                    ));
+                                    state._install(entry);
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    minimumSize: const Size(0, 28),
+                                  ),
+                                  child: Text('Wayback', style: TextStyle(fontSize: 11, color: cs.primary)),
+                                ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
