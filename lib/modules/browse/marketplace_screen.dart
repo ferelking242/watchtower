@@ -199,6 +199,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   bool _withUpdatesOnly = false;
   bool _showNsfw = true;
   String? _globalLangFilter;
+  String? _globalRepoFilter;
+  SourceCodeLanguage? _globalProgLangFilter;
 
   // ── Account dropdown ─────────────────────────────────────────────────────────
   final _accountKey = GlobalKey();
@@ -464,21 +466,15 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             e.lang.toLowerCase().contains(q)).toList();
       }
       if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
-      final cf = _compatF[tab] ?? _CompatF.all;
-      if (cf != _CompatF.all) {
-        list = list.where((e) =>
-            e.compat == SourceCodeLanguage.javascript ||
-            e.compat == SourceCodeLanguage.dart).toList();
+      if (_globalRepoFilter != null) {
+        list = list.where((e) => e.repoUrl.contains(_globalRepoFilter!)).toList();
       }
-      final repo = _repoFilter[tab];
-      if (repo != null) list = list.where((e) => e.repoUrl.contains(repo)).toList();
+      if (_globalProgLangFilter != null) {
+        list = list.where((e) => e.compat == _globalProgLangFilter).toList();
+      }
       if (_globalLangFilter != null) {
         list = list.where((e) => e.lang == _globalLangFilter).toList();
       }
-      final lang = _langFilter[tab];
-      if (lang != null) list = list.where((e) => e.lang == lang).toList();
-      final prog = _progLangFilter[tab];
-      if (prog != null) list = list.where((e) => e.compat == prog).toList();
       if (_installedOnly) list = list.where((e) => _installed.contains(e.id)).toList();
       if (_withUpdatesOnly) list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
       if (_sortBy == 'alpha') {
@@ -574,7 +570,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                   _buildLogoRow(cs, theme),
                   _buildPersistentSearch(cs, theme),
                   _buildTabBarRow(cs, theme),
-                  _buildLangDropdown(cs, theme),
+                  _buildFilterRows(cs, theme),
                   Expanded(
                     child: TabBarView(
                       controller: _tabCtrl,
@@ -748,90 +744,94 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
       return Container(
         color: theme.scaffoldBackgroundColor,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-              child: AnimatedBuilder(
-                animation: _tabCtrl,
-                builder: (_, __) {
-                  return Wrap(
-                    spacing: 7,
-                    runSpacing: 6,
-                    children: List.generate(6, (i) {
-                      final selected = _tabCtrl.index == i;
-                      return GestureDetector(
-                        onTap: () => _tabCtrl.animateTo(i),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: selected ? cs.primary : Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: selected ? Colors.transparent : cs.outline.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(labels[i],
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                                  color: selected ? cs.onPrimary : cs.onSurfaceVariant)),
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: selected
-                                      ? cs.onPrimary.withValues(alpha: 0.22)
-                                      : cs.surfaceContainerHigh,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text('${counts[i]}',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
-                                    color: selected ? cs.onPrimary : cs.onSurfaceVariant)),
-                              ),
-                            ],
-                          ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+          child: AnimatedBuilder(
+            animation: _tabCtrl,
+            builder: (_, __) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF18181B),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF27272A)),
+                ),
+                child: Wrap(
+                  spacing: 2,
+                  runSpacing: 2,
+                  children: List.generate(6, (i) {
+                    final sel = _tabCtrl.index == i;
+                    return GestureDetector(
+                      onTap: () => _tabCtrl.animateTo(i),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: sel ? const Color(0xFF27272A) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(7),
                         ),
-                      );
-                    }),
-                  );
-                },
-              ),
-            ),
-            Divider(height: 1, thickness: 1, color: cs.outline.withValues(alpha: 0.15)),
-          ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(labels[i],
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                                color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF71717A),
+                              )),
+                            const SizedBox(width: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: sel ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text('${counts[i]}',
+                                style: TextStyle(
+                                  fontSize: 10, fontWeight: FontWeight.w600,
+                                  color: sel ? const Color(0xFFE0E7FF) : const Color(0xFFA1A1AA),
+                                )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              );
+            },
+          ),
         ),
       );
     }
-
-    Widget _buildPersistentSearch(ColorScheme cs, ThemeData theme) {
+  
+  Widget _buildPersistentSearch(ColorScheme cs, ThemeData theme) {
       return Container(
         color: theme.scaffoldBackgroundColor,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
           child: Container(
-            height: 46,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Color(0xFF1C1C1F),
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+              border: Border.fromBorderSide(
+                BorderSide(color: Color(0xFF2A2A2E)),
+              ),
             ),
             child: Row(
               children: [
-                const SizedBox(width: 14),
-                Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
+                const Icon(Icons.search_rounded, size: 16, color: Color(0xFF71717A)),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _searchCtrl,
                     onChanged: (v) => setState(() => _searchQuery = v),
-                    style: TextStyle(fontSize: 14, color: cs.onSurface),
+                    style: const TextStyle(fontSize: 14, color: Color(0xFFE4E4E7)),
                     decoration: InputDecoration(
                       hintText: 'Rechercher une extension…',
-                      hintStyle: TextStyle(fontSize: 14,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                      hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF52525B)),
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
@@ -840,7 +840,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 ),
                 if (_searchQuery.isNotEmpty)
                   IconButton(
-                    icon: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+                    icon: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF71717A)),
                     onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
@@ -852,44 +852,162 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         ),
       );
     }
+  
+  Widget _buildFilterRows(ColorScheme cs, ThemeData theme) {
+      // Repos from current extensions
+      final repoSet = <String>{};
+      for (final e in _all) {
+        final m = RegExp(r'github\.com/([^/]+/[^/]+)').firstMatch(e.repoUrl);
+        if (m != null) repoSet.add(m.group(1)!);
+      }
+      final repos = repoSet.toList()..sort();
 
-    Widget _buildLangDropdown(ColorScheme cs, ThemeData theme) {
-      final langs = (_all.map((e) => e.lang).toSet().toList()..sort());
+      // Human languages for current tab
+      final tabItems = _forTabRaw(_tabCtrl.index);
+      final langs = tabItems.map((e) => e.lang).toSet().toList()..sort();
+
+      final activeCount = (_globalRepoFilter != null ? 1 : 0)
+          + (_globalProgLangFilter != null ? 1 : 0)
+          + (_globalLangFilter != null ? 1 : 0);
+
+      BoxDecoration deco(bool active) => BoxDecoration(
+        color: const Color(0xFF18181B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: active ? const Color(0xFF4F46E5) : const Color(0xFF27272A)),
+      );
+
+      Widget selectBox({required Widget child, bool active = false}) => Container(
+        height: 36, padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: deco(active), child: child,
+      );
+
       return Container(
         color: theme.scaffoldBackgroundColor,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: cs.outline.withValues(alpha: 0.22)),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String?>(
-                    value: _globalLangFilter,
-                    isExpanded: true,
-                    icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant, size: 20),
-                    hint: Text('Toutes les langues',
-                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5)),
-                    style: TextStyle(color: cs.onSurface, fontSize: 13.5),
-                    dropdownColor: cs.surfaceContainerHighest,
-                    items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Toutes les langues')),
-                      ...langs.map((l) => DropdownMenuItem<String?>(value: l, child: Text(l))),
-                    ],
-                    onChanged: (v) => setState(() => _globalLangFilter = v),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Row 1: Dépôt + Lang (prog)
+              Row(
+                children: [
+                  Expanded(
+                    child: selectBox(
+                      active: _globalRepoFilter != null,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _globalRepoFilter,
+                          isExpanded: true,
+                          isDense: true,
+                          icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
+                          style: TextStyle(fontSize: 12,
+                              color: _globalRepoFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                          dropdownColor: const Color(0xFF18181B),
+                          items: [
+                            const DropdownMenuItem<String?>(value: null,
+                                child: Text('D\u00e9p\u00f4t', style: TextStyle(color: Color(0xFFA1A1AA)))),
+                            ...repos.map((r) => DropdownMenuItem<String?>(value: r,
+                                child: Text(r.split('/').lastOrNull ?? r,
+                                    style: const TextStyle(color: Color(0xFFE4E4E7))))),
+                          ],
+                          onChanged: (v) => setState(() => _globalRepoFilter = v),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 90,
+                    child: selectBox(
+                      active: _globalProgLangFilter != null,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<SourceCodeLanguage?>(
+                          value: _globalProgLangFilter,
+                          isExpanded: true,
+                          isDense: true,
+                          icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
+                          style: TextStyle(fontSize: 12,
+                              color: _globalProgLangFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                          dropdownColor: const Color(0xFF18181B),
+                          items: const [
+                            DropdownMenuItem<SourceCodeLanguage?>(value: null,
+                                child: Text('Lang', style: TextStyle(color: Color(0xFFA1A1AA)))),
+                            DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.javascript,
+                                child: Text('JS', style: TextStyle(color: Color(0xFFE4E4E7)))),
+                            DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.dart,
+                                child: Text('Dart', style: TextStyle(color: Color(0xFFE4E4E7)))),
+                          ],
+                          onChanged: (v) => setState(() => _globalProgLangFilter = v),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Divider(height: 1, thickness: 1, color: cs.outline.withValues(alpha: 0.15)),
-          ],
+              const SizedBox(height: 6),
+              // Row 2: Langue + filter icon
+              Row(
+                children: [
+                  Expanded(
+                    child: selectBox(
+                      active: _globalLangFilter != null,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _globalLangFilter,
+                          isExpanded: true,
+                          isDense: true,
+                          icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
+                          style: TextStyle(fontSize: 12,
+                              color: _globalLangFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                          dropdownColor: const Color(0xFF18181B),
+                          items: [
+                            const DropdownMenuItem<String?>(value: null,
+                                child: Text('Langue', style: TextStyle(color: Color(0xFFA1A1AA)))),
+                            ...langs.map((l) => DropdownMenuItem<String?>(value: l,
+                                child: Text(l, style: const TextStyle(color: Color(0xFFE4E4E7))))),
+                          ],
+                          onChanged: (v) => setState(() => _globalLangFilter = v),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      GestureDetector(
+                        onTap: _showMarketplaceSettings,
+                        child: Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF18181B),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: activeCount > 0 ? const Color(0xFF4F46E5) : const Color(0xFF27272A),
+                            ),
+                          ),
+                          child: Icon(Icons.tune_rounded, size: 16,
+                            color: activeCount > 0 ? const Color(0xFF818CF8) : const Color(0xFF71717A)),
+                        ),
+                      ),
+                      if (activeCount > 0)
+                        Positioned(
+                          top: -5, right: -5,
+                          child: Container(
+                            width: 14, height: 14,
+                            decoration: const BoxDecoration(color: Color(0xFF4F46E5), shape: BoxShape.circle),
+                            child: Center(
+                              child: Text('$activeCount',
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
