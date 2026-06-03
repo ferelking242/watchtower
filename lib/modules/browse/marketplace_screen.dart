@@ -2531,9 +2531,9 @@ class _StatsBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _Pill('$wt', 'Watchtower', const Color(0xFF7C3AED)),
-            _vdivider(cs),
+            Container(width: 1, height: 32, color: cs.outline.withValues(alpha: 0.25)),
             _Pill('$ln', 'Light Novel', const Color(0xFF009688)),
-            _vdivider(cs),
+            Container(width: 1, height: 32, color: cs.outline.withValues(alpha: 0.25)),
             _Pill('$installed', 'Installées', const Color(0xFF43A047)),
           ],
         ),
