@@ -457,39 +457,30 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   List<_ExtEntry> _forTab(int tab) {
       List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
-      // 1. Search query
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         list = list.where((e) =>
             e.name.toLowerCase().contains(q) ||
             e.lang.toLowerCase().contains(q)).toList();
       }
-      // 2. NSFW
       if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
-      // 3. Compat chips
       final cf = _compatF[tab] ?? _CompatF.all;
       if (cf != _CompatF.all) {
         list = list.where((e) =>
             e.compat == SourceCodeLanguage.javascript ||
             e.compat == SourceCodeLanguage.dart).toList();
       }
-      // 4. Repo filter
       final repo = _repoFilter[tab];
       if (repo != null) list = list.where((e) => e.repoUrl.contains(repo)).toList();
-      // 5. Global language filter (dropdown)
       if (_globalLangFilter != null) {
         list = list.where((e) => e.lang == _globalLangFilter).toList();
       }
-      // 6. Per-tab language filter (legacy)
       final lang = _langFilter[tab];
       if (lang != null) list = list.where((e) => e.lang == lang).toList();
-      // 7. Prog-lang filter
       final prog = _progLangFilter[tab];
       if (prog != null) list = list.where((e) => e.compat == prog).toList();
-      // 8. Advanced toggles
       if (_installedOnly) list = list.where((e) => _installed.contains(e.id)).toList();
       if (_withUpdatesOnly) list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
-      // 9. Sort
       if (_sortBy == 'alpha') {
         list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       } else if (_sortBy == 'installed') {
@@ -603,8 +594,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               Positioned(
                 top: 0, left: 0, right: 0,
                 child: LinearProgressIndicator(
-                  minHeight: 2,
-                  color: cs.primary,
+                  minHeight: 2, color: cs.primary,
                   backgroundColor: Colors.transparent,
                 ),
               ),
@@ -664,8 +654,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
                       'assets/icons/playstore_icon.png',
-                      width: 42, height: 42,
-                      fit: BoxFit.cover,
+                      width: 42, height: 42, fit: BoxFit.cover,
                     ),
                   ),
                 ),
@@ -675,17 +664,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Watchtower',
-                        style: TextStyle(
-                          fontSize: 19, fontWeight: FontWeight.w800,
-                          color: cs.onSurface, letterSpacing: -0.3,
-                        ),
-                      ),
-                      Text(
-                        'Extension Marketplace',
-                        style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
-                      ),
+                      Text('Watchtower',
+                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800,
+                          color: cs.onSurface, letterSpacing: -0.3)),
+                      Text('Extension Marketplace',
+                        style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -761,7 +744,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         _all.where((e) => e.contentType == ItemType.game).length,
         _all.where((e) => e.contentType == ItemType.music).length,
       ];
-      const labels = ['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music'];
+      final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music'];
 
       return Container(
         color: theme.scaffoldBackgroundColor,
@@ -792,13 +775,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                labels[i],
-                                style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600,
-                                  color: selected ? cs.onPrimary : cs.onSurfaceVariant,
-                                ),
-                              ),
+                              Text(labels[i],
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                                  color: selected ? cs.onPrimary : cs.onSurfaceVariant)),
                               const SizedBox(width: 4),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -808,13 +787,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                                       : cs.surfaceContainerHigh,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Text(
-                                  '${counts[i]}',
-                                  style: TextStyle(
-                                    fontSize: 10, fontWeight: FontWeight.w700,
-                                    color: selected ? cs.onPrimary : cs.onSurfaceVariant,
-                                  ),
-                                ),
+                                child: Text('${counts[i]}',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                                    color: selected ? cs.onPrimary : cs.onSurfaceVariant)),
                               ),
                             ],
                           ),
@@ -855,7 +830,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     style: TextStyle(fontSize: 14, color: cs.onSurface),
                     decoration: InputDecoration(
                       hintText: 'Rechercher une extension…',
-                      hintStyle: TextStyle(fontSize: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                      hintStyle: TextStyle(fontSize: 14,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
@@ -899,7 +875,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     value: _globalLangFilter,
                     isExpanded: true,
                     icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant, size: 20),
-                    hint: Text('Toutes les langues', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5)),
+                    hint: Text('Toutes les langues',
+                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5)),
                     style: TextStyle(color: cs.onSurface, fontSize: 13.5),
                     dropdownColor: cs.surfaceContainerHighest,
                     items: [
@@ -916,8 +893,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         ),
       );
     }
+  
+  // ── Loading / Error ────────────────────────────────────────────────────────────
 
-    // ── Loading / Error ────────────────────────────────────────────────────────────────────────────
+  Widget _buildLoading(ColorScheme cs) => Center(
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       CircularProgressIndicator(color: cs.primary),
       const SizedBox(height: 14),
