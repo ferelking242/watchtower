@@ -61,6 +61,11 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               .where((e) => e.itemType == widget.itemType)
               .where((e) => showNSFW || !(e.isNsfw ?? false))
               .toList();
+          // Deduplicate by name: show each extension only once, even if it has multiple lang entries
+          {
+            final seen = <String>{};
+            sources = sources.where((s) => seen.add(s.name ?? s.id.toString())).toList();
+          }
           if (sources.isEmpty) {
             return Center(
               child: Column(
