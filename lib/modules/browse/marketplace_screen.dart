@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
@@ -845,7 +846,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Widget buildHorizontal(List<_ExtEntry> entries, ColorScheme cs) {
     final show = entries.take(20).toList();
     return SizedBox(
-      height: 140,
+      height: 192,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
@@ -2304,72 +2305,174 @@ class _MiniCard extends StatelessWidget {
     this.onSettings,
   });
 
+  String get _codeUrl {
+    final url = entry.repoUrl;
+    if (url.contains('ferelking242') || url.contains('watchtower-extensions')) {
+      return 'https://github.com/ferelking242/watchtower-extensions';
+    }
+    if (url.contains('keiyoushi')) return 'https://github.com/keiyoushi/extensions';
+    if (url.contains('aniyomi')) return 'https://github.com/aniyomiorg/aniyomi-extensions';
+    return url;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
     return Container(
-      width: 100,
-      height: 128,
+      width: 138,
       margin: const EdgeInsets.only(right: 10, bottom: 2),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: installed ? cs.primary.withValues(alpha: 0.4) : cs.outline.withValues(alpha: 0.12)),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: installed
+              ? cs.primary.withValues(alpha: 0.35)
+              : cs.outline.withValues(alpha: 0.18),
+        ),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 40),
-          const SizedBox(height: 5),
-          Text(entry.name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-          const SizedBox(height: 3),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(
-              color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: _MarketplaceScreenState._langColor(entry.lang).withValues(alpha: 0.25)),
-            ),
-            child: Text(_MarketplaceScreenState._langCode(entry.lang), style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: _MarketplaceScreenState._langColor(entry.lang))),
+          _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 54),
+          const SizedBox(height: 8),
+          Text(
+            entry.name,
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurface),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 5),
-          SizedBox(
-            width: double.infinity,
-            height: 26,
-            child: installed
-                ? hasUpdate
-                    ? FilledButton(
-                        onPressed: busy ? null : onInstall,
-                        style: FilledButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          backgroundColor: Colors.orange.shade700,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                        ),
-                        child: busy
-                            ? const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
-                            : const Text('Màj', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
-                      )
-                    : OutlinedButton(
-                        onPressed: onSettings,
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          side: BorderSide(color: cs.primary.withValues(alpha: 0.4)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                        ),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(Icons.settings_outlined, size: 11, color: cs.primary),
-                          const SizedBox(width: 2),
-                          Icon(Icons.check_rounded, size: 11, color: cs.primary),
-                        ]),
-                      )
-                : FilledButton(
-                    onPressed: busy ? null : onInstall,
-                    style: FilledButton.styleFrom(padding: EdgeInsets.zero, backgroundColor: cs.primaryContainer, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7))),
-                    child: busy
-                        ? SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5, color: cs.onPrimaryContainer))
-                        : Icon(Icons.download_rounded, size: 14, color: cs.onPrimaryContainer),
+          const SizedBox(height: 4),
+          Text(
+            'v${entry.version}',
+            style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // <> view code button
+              GestureDetector(
+                onTap: () async {
+                  final url = Uri.parse(_codeUrl);
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                },
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Icon(Icons.code_rounded, size: 15, color: cs.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // ⋮ three-dot menu
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                tooltip: '',
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onSelected: (value) async {
+                  if (value == 'install') onInstall();
+                  else if (value == 'update') onInstall();
+                  else if (value == 'settings') onSettings?.call();
+                  else if (value == 'code') {
+                    await launchUrl(Uri.parse(_codeUrl), mode: LaunchMode.externalApplication);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  if (!installed)
+                    PopupMenuItem(
+                      value: 'install',
+                      child: Row(children: [
+                        Icon(Icons.download_rounded, size: 16, color: cs.primary),
+                        const SizedBox(width: 10),
+                        const Text('Installer'),
+                      ]),
+                    ),
+                  if (installed && hasUpdate)
+                    PopupMenuItem(
+                      value: 'update',
+                      child: Row(children: [
+                        Icon(Icons.system_update_alt_rounded, size: 16, color: Colors.orange.shade700),
+                        const SizedBox(width: 10),
+                        const Text('Mettre à jour'),
+                      ]),
+                    ),
+                  if (installed && onSettings != null)
+                    PopupMenuItem(
+                      value: 'settings',
+                      child: Row(children: [
+                        Icon(Icons.settings_outlined, size: 16, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 10),
+                        const Text('Paramètres'),
+                      ]),
+                    ),
+                  PopupMenuItem(
+                    value: 'code',
+                    child: Row(children: [
+                      Icon(Icons.code_rounded, size: 16, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 10),
+                      const Text('Voir le code'),
+                    ]),
+                  ),
+                ],
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.more_vert_rounded, size: 15, color: cs.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 5),
+              // Install / Update / Installed button
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: installed
+                      ? hasUpdate
+                          ? FilledButton(
+                              onPressed: busy ? null : onInstall,
+                              style: FilledButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                backgroundColor: Colors.orange.shade700,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                              ),
+                              child: busy
+                                  ? const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
+                                  : const Text('Màj', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
+                            )
+                          : OutlinedButton(
+                              onPressed: onSettings,
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                side: BorderSide(color: cs.primary.withValues(alpha: 0.4)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                              ),
+                              child: Icon(Icons.check_rounded, size: 14, color: cs.primary),
+                            )
+                      : FilledButton(
+                          onPressed: busy ? null : onInstall,
+                          style: FilledButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            backgroundColor: cs.primaryContainer,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                          ),
+                          child: busy
+                              ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: cs.onPrimaryContainer))
+                              : Icon(Icons.download_rounded, size: 15, color: cs.onPrimaryContainer),
+                        ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2501,17 +2604,26 @@ class _IconChip extends StatelessWidget {
 
   // ─── Repo Carousel ─────────────────────────────────────────────────────────────
 
-  class _RepoCarousel extends StatelessWidget {
+  class _RepoCarousel extends StatefulWidget {
     final _MarketplaceScreenState state;
     const _RepoCarousel({required this.state});
+
+    @override
+    State<_RepoCarousel> createState() => _RepoCarouselState();
+  }
+
+  class _RepoCarouselState extends State<_RepoCarousel> {
+    final _ctrl = PageController();
+    int _page = 0;
 
     static const _repos = [
       _RepoInfo(
         name: 'Watchtower',
-        description: 'Extensions officielles Watchtower (anime, manga, novel)',
+        description: 'Extensions officielles Watchtower — anime, manga, novels, musique et jeux',
         icon: Icons.whatshot_rounded,
         color: Color(0xFF6C63FF),
         tag: 'Officiel',
+        githubUrl: 'https://github.com/ferelking242/watchtower-extensions',
       ),
       _RepoInfo(
         name: 'Keiyoushi',
@@ -2519,6 +2631,7 @@ class _IconChip extends StatelessWidget {
         icon: Icons.auto_stories_rounded,
         color: Color(0xFFE91E63),
         tag: 'Mihon',
+        githubUrl: 'https://github.com/keiyoushi/extensions',
       ),
       _RepoInfo(
         name: 'Aniyomi',
@@ -2526,27 +2639,63 @@ class _IconChip extends StatelessWidget {
         icon: Icons.live_tv_rounded,
         color: Color(0xFF9C27B0),
         tag: 'Anime',
+        githubUrl: 'https://github.com/aniyomiorg/aniyomi-extensions',
       ),
     ];
 
     @override
+    void dispose() {
+      _ctrl.dispose();
+      super.dispose();
+    }
+
+    @override
     Widget build(BuildContext context) {
       final cs = Theme.of(context).colorScheme;
-      final allCount = state._all.length;
-      final installedCount = state._installed.length;
+      final allCount = widget.state._all.length;
+      final installedCount = widget.state._installed.length;
+      final totalPages = 1 + _repos.length;
 
-      return SizedBox(
-        height: 112,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      return Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildStatsCard(cs, allCount, installedCount),
-            const SizedBox(width: 10),
-            ..._repos.map((r) => Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: _buildRepoCard(cs, r),
-            )),
+            SizedBox(
+              height: 162,
+              child: PageView.builder(
+                controller: _ctrl,
+                itemCount: totalPages,
+                onPageChanged: (p) => setState(() => _page = p),
+                itemBuilder: (ctx, i) {
+                  if (i == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildStatsCard(cs, allCount, installedCount),
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildRepoCard(cs, _repos[i - 1]),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalPages, (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: _page == i ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _page == i ? cs.primary : cs.outline.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              )),
+            ),
+            const SizedBox(height: 4),
           ],
         ),
       );
@@ -2554,42 +2703,49 @@ class _IconChip extends StatelessWidget {
 
     Widget _buildStatsCard(ColorScheme cs, int total, int installed) {
       return Container(
-        width: 200,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))],
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 5))],
         ),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(children: [
-              const Icon(Icons.whatshot_rounded, color: Colors.white, size: 18),
-              const SizedBox(width: 6),
-              const Expanded(child: Text('Watchtower', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13))),
+              const Icon(Icons.whatshot_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Watchtower Marketplace',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+              ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(6)),
-                child: const Text('Officiel', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(8)),
+                child: const Text('Officiel', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
               ),
             ]),
-            const SizedBox(height: 4),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('$total', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
-                const Text('disponibles', style: TextStyle(color: Colors.white70, fontSize: 10)),
-              ]),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('$installed', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, height: 1)),
-                const Text('installées', style: TextStyle(color: Colors.white70, fontSize: 10)),
-              ]),
-            ]),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('$total', style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900, height: 1)),
+                  const Text('disponibles', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                ]),
+                Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text('$installed', style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900, height: 1)),
+                  const Text('installées', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                ]),
+              ],
+            ),
           ],
         ),
       );
@@ -2597,32 +2753,57 @@ class _IconChip extends StatelessWidget {
 
     Widget _buildRepoCard(ColorScheme cs, _RepoInfo r) {
       return Container(
-        width: 160,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [r.color, r.color.withValues(alpha: 0.65)],
+            colors: [r.color, r.color.withValues(alpha: 0.72)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: r.color.withValues(alpha: 0.28), blurRadius: 8, offset: const Offset(0, 3))],
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: r.color.withValues(alpha: 0.30), blurRadius: 12, offset: const Offset(0, 4))],
         ),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(children: [
-              Icon(r.icon, color: Colors.white, size: 16),
-              const SizedBox(width: 5),
-              Expanded(child: Text(r.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12), overflow: TextOverflow.ellipsis)),
+              Icon(r.icon, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  r.name,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(5)),
-                child: Text(r.tag, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(8)),
+                child: Text(r.tag, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
               ),
             ]),
-            Text(r.description, style: const TextStyle(color: Colors.white70, fontSize: 9.5), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(
+              r.description,
+              style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.4),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(
+              height: 34,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.open_in_new_rounded, size: 14, color: Colors.white),
+                label: const Text('Voir le dépôt', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  side: const BorderSide(color: Colors.white54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () async {
+                  await launchUrl(Uri.parse(r.githubUrl), mode: LaunchMode.externalApplication);
+                },
+              ),
+            ),
           ],
         ),
       );
@@ -2635,7 +2816,15 @@ class _IconChip extends StatelessWidget {
     final IconData icon;
     final Color color;
     final String tag;
-    const _RepoInfo({required this.name, required this.description, required this.icon, required this.color, required this.tag});
+    final String githubUrl;
+    const _RepoInfo({
+      required this.name,
+      required this.description,
+      required this.icon,
+      required this.color,
+      required this.tag,
+      required this.githubUrl,
+    });
   }
 
   // ─── Marketplace Settings Sheet ───────────────────────────────────────────────
