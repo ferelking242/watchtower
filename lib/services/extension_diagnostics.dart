@@ -129,6 +129,8 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
   final steps = <DiagStep, DiagStepResult>{};
 
   // ── Step 1 : Popular ──────────────────────────────────────────────────────
+  // probeUrls: up to 3 popular items used by step 3 to find a multi-episode series.
+  List<String> probeUrls = [];
   String? firstItemUrl;
   {
     final sw = Stopwatch()..start();
@@ -138,7 +140,12 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
           .timeout(const Duration(seconds: 45));
       sw.stop();
       final count = pages.list?.length ?? 0;
-      firstItemUrl = count > 0 ? pages.list!.first.link : null;
+      probeUrls = (pages.list ?? [])
+          .take(3)
+          .map((e) => e.link ?? '')
+          .where((u) => u.isNotEmpty)
+          .toList();
+      firstItemUrl = probeUrls.isNotEmpty ? probeUrls.first : null;
       steps[DiagStep.popular] = DiagStepResult(
         ok: count > 0,
         count: count,
@@ -185,17 +192,47 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
   }
 
   // ── Step 3 : Detail ───────────────────────────────────────────────────────
+  // Probe up to 3 popular items and pick the one with the most chapters/episodes.
+  // Stop early once we find a true series (> 1 episode).  This avoids the common
+  // false-negative where the very first popular entry is a movie / one-shot with
+  // a single episode, making the source look broken.
   String? firstEpisodeUrl;
-  if (firstItemUrl != null) {
+  if (probeUrls.isNotEmpty) {
     final sw = Stopwatch()..start();
-    try {
-      final detail = await getIsolateService
-          .get<MManga>(url: firstItemUrl, source: src, serviceType: 'getDetail')
-          .timeout(const Duration(seconds: 45));
-      sw.stop();
-      final chapCount = detail.chapters?.length ?? 0;
-      firstEpisodeUrl = chapCount > 0 ? detail.chapters!.first.url : null;
-      final ok = (detail.name != null && detail.name!.isNotEmpty) || chapCount > 0;
+    MManga? bestDetail;
+    String? lastError;
+    int probeIndex = 0;
+    for (final probeUrl in probeUrls) {
+      probeIndex++;
+      try {
+        onLog?.call(
+          '${_nowTime()}    [DET] Sondage $probeIndex/${probeUrls.length}…',
+        );
+        final d = await getIsolateService
+            .get<MManga>(url: probeUrl, source: src, serviceType: 'getDetail')
+            .timeout(const Duration(seconds: 45));
+        final chapCount = d.chapters?.length ?? 0;
+        if (bestDetail == null ||
+            chapCount > (bestDetail.chapters?.length ?? 0)) {
+          bestDetail = d;
+        }
+        // A series with > 1 episode is conclusive — stop probing.
+        if (chapCount > 1) break;
+      } catch (e) {
+        lastError = e.toString().split('\n').first;
+        onLog?.call(
+          '${_nowTime()}    [DET] Sondage $probeIndex échec: $lastError',
+        );
+      }
+    }
+    sw.stop();
+
+    if (bestDetail != null) {
+      final chapCount = bestDetail.chapters?.length ?? 0;
+      firstEpisodeUrl =
+          chapCount > 0 ? bestDetail.chapters!.first.url : null;
+      final ok =
+          (bestDetail.name != null && bestDetail.name!.isNotEmpty) || chapCount > 0;
       steps[DiagStep.detail] = DiagStepResult(
         ok: ok,
         count: chapCount,
@@ -203,14 +240,21 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         error: ok ? null : 'Détail vide (nom absent, 0 chapitres)',
       );
       onLog?.call(
-        '${_nowTime()}    [DET] Détail: ${ok ? "[OK] $chapCount chapitres/épisodes" : "[FAIL] Détail vide"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}    [DET] Détail (meilleur sur ${probeUrls.length}): '
+        '${ok ? "[OK] $chapCount chapitres/épisodes" : "[FAIL] Détail vide"} '
+        '(${sw.elapsedMilliseconds}ms)',
       );
-    } catch (e) {
-      sw.stop();
-      final err = e.toString().split('\n').first;
-      steps[DiagStep.detail] =
-          DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
-      onLog?.call('${_nowTime()}    [DET] Détail: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
+    } else {
+      // All probes failed
+      steps[DiagStep.detail] = DiagStepResult(
+        ok: false,
+        error: lastError ?? 'Tous les sondages ont échoué',
+        ms: sw.elapsedMilliseconds,
+      );
+      onLog?.call(
+        '${_nowTime()}    [DET] Détail: [FAIL] ${lastError ?? "Tous les sondages ont échoué"} '
+        '(${sw.elapsedMilliseconds}ms)',
+      );
     }
   } else {
     steps[DiagStep.detail] = const DiagStepResult(
