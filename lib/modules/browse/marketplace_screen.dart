@@ -1965,7 +1965,7 @@ class _TypeTab extends StatelessWidget {
                         await state._refreshInstalled();
                         final updates = state._updatableCount;
                         if (context.mounted) {
-                          state._showToast(context, updates == 0 ? 'Tout est à jour ✓' : '$updates mise${updates == 1 ? '' : 's'} à jour disponible${updates == 1 ? '' : 's'}',
+                          state._showToast(context, updates == 0 ? 'Tout est à jour ✓' : '$updates mise${updates == 1 ? "" : "s"} à jour disponible${updates == 1 ? "" : "s"}',
                             icon: updates == 0 ? Icons.check_circle_rounded : Icons.system_update_alt_rounded);
                         }
                       },
