@@ -198,6 +198,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   bool _installedOnly = false;
   bool _withUpdatesOnly = false;
   bool _showNsfw = true;
+  String? _globalLangFilter;
 
   // ── Account dropdown ─────────────────────────────────────────────────────────
   final _accountKey = GlobalKey();
@@ -591,6 +592,469 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ),
             ),
           if (_searchOpen) _buildSearchOverlay(cs, theme),
+            if (_refreshing)
+              Positioned(
+                top: 0, left: 0, right: 0,
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: cs.primary,
+                  backgroundColor: Colors.transparent,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // ── Mass install ─────────────────────────────────────────────────────────────
+
+  Future<void> _massInstall({required String lang, SourceCodeLanguage? compat}) async {
+    var toInstall = _all
+        .where((e) => e.lang == lang && !_installed.contains(e.id))
+        .toList();
+    if (compat != null) {
+      toInstall = toInstall.where((e) => e.compat == compat).toList();
+    }
+    for (final entry in toInstall) {
+      await _install(entry);
+    }
+  }
+
+  void _showMassInstallSheet() {
+    final langs = _all.map((e) => e.lang).toSet().toList()..sort();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => _MassInstallSheet(
+        state: this,
+        langs: langs,
+        installedIds: _installed,
+      ),
+    );
+  }
+
+  // ── Top bar ───────────────────────────────────────────────────────────────────
+
+  Widget _buildLogoRow(ColorScheme cs, ThemeData theme) {
+      return Container(
+        color: theme.scaffoldBackgroundColor,
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/icons/playstore_icon.png',
+                      width: 42, height: 42,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Watchtower',
+                        style: TextStyle(
+                          fontSize: 19, fontWeight: FontWeight.w800,
+                          color: cs.onSurface, letterSpacing: -0.3,
+                        ),
+                      ),
+                      Text(
+                        'Extension Marketplace',
+                        style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('18+', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                    const SizedBox(width: 2),
+                    Transform.scale(
+                      scale: 0.78,
+                      child: Switch(
+                        value: _showNsfw,
+                        onChanged: (v) => ref.read(showNSFWStateProvider.notifier).state = v,
+                        activeColor: Colors.red.shade400,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  void _toggleAccountDropdown() {
+    if (_accountOpen) {
+      _closeAccountDropdown();
+    } else {
+      _openAccountDropdown();
+    }
+  }
+
+  void _openAccountDropdown() {
+    setState(() => _accountOpen = true);
+    final renderBox = _accountKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _accountOverlay = OverlayEntry(
+      builder: (_) => _AccountDropdownOverlay(
+        position: Offset(offset.dx + size.width, offset.dy + size.height + 6),
+        onDismiss: _closeAccountDropdown,
+        onSettings: () {
+          _closeAccountDropdown();
+          _showMarketplaceSettings();
+        },
+        onRepos: () {
+          _closeAccountDropdown();
+          context.push('/browse/source-repositories');
+        },
+      ),
+    );
+    Overlay.of(context).insert(_accountOverlay!);
+  }
+
+  void _closeAccountDropdown() {
+    _accountOverlay?.remove();
+    _accountOverlay = null;
+    if (mounted) setState(() => _accountOpen = false);
+  }
+
+
+  // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
+
+  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
+      final counts = [
+        _all.length,
+        _all.where((e) => e.contentType == ItemType.anime).length,
+        _all.where((e) => e.contentType == ItemType.manga).length,
+        _all.where((e) => e.contentType == ItemType.novel).length,
+        _all.where((e) => e.contentType == ItemType.game).length,
+        _all.where((e) => e.contentType == ItemType.music).length,
+      ];
+      const labels = ['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music'];
+
+      return Container(
+        color: theme.scaffoldBackgroundColor,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              child: AnimatedBuilder(
+                animation: _tabCtrl,
+                builder: (_, __) {
+                  return Wrap(
+                    spacing: 7,
+                    runSpacing: 6,
+                    children: List.generate(6, (i) {
+                      final selected = _tabCtrl.index == i;
+                      return GestureDetector(
+                        onTap: () => _tabCtrl.animateTo(i),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: selected ? cs.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: selected ? Colors.transparent : cs.outline.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                labels[i],
+                                style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600,
+                                  color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? cs.onPrimary.withValues(alpha: 0.22)
+                                      : cs.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${counts[i]}',
+                                  style: TextStyle(
+                                    fontSize: 10, fontWeight: FontWeight.w700,
+                                    color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+            ),
+            Divider(height: 1, thickness: 1, color: cs.outline.withValues(alpha: 0.15)),
+          ],
+        ),
+      );
+    }
+
+    Widget _buildPersistentSearch(ColorScheme cs, ThemeData theme) {
+      return Container(
+        color: theme.scaffoldBackgroundColor,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 14),
+                Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    style: TextStyle(fontSize: 14, color: cs.onSurface),
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher une extension…',
+                      hintStyle: TextStyle(fontSize: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                if (_searchQuery.isNotEmpty)
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+                    onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                const SizedBox(width: 10),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget _buildLangDropdown(ColorScheme cs, ThemeData theme) {
+      final langs = (_all.map((e) => e.lang).toSet().toList()..sort());
+      return Container(
+        color: theme.scaffoldBackgroundColor,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.22)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _globalLangFilter,
+                    isExpanded: true,
+                    icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant, size: 20),
+                    hint: Text('Toutes les langues', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5)),
+                    style: TextStyle(color: cs.onSurface, fontSize: 13.5),
+                    dropdownColor: cs.surfaceContainerHighest,
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('Toutes les langues')),
+                      ...langs.map((l) => DropdownMenuItem<String?>(value: l, child: Text(l))),
+                    ],
+                    onChanged: (v) => setState(() => _globalLangFilter = v),
+                  ),
+                ),
+              ),
+            ),
+            Divider(height: 1, thickness: 1, color: cs.outline.withValues(alpha: 0.15)),
+          ],
+        ),
+      );
+    }
+
+    // ── Loading / Error ────────────────────────────────────────────────────────────
+  List<_ExtEntry> _forTab(int tab) {
+      List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
+      // 1. Search query
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        list = list.where((e) =>
+            e.name.toLowerCase().contains(q) ||
+            e.lang.toLowerCase().contains(q)).toList();
+      }
+      // 2. NSFW
+      if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
+      // 3. Compat chips (JS/Dart filter)
+      final cf = _compatF[tab] ?? _CompatF.all;
+      if (cf != _CompatF.all) {
+        list = list.where((e) =>
+            e.compat == SourceCodeLanguage.javascript ||
+            e.compat == SourceCodeLanguage.dart).toList();
+      }
+      // 4. Repo filter
+      final repo = _repoFilter[tab];
+      if (repo != null) list = list.where((e) => e.repoUrl.contains(repo)).toList();
+      // 5. Language filter (global dropdown)
+      if (_globalLangFilter != null) {
+        list = list.where((e) => e.lang == _globalLangFilter).toList();
+      }
+      // 6. Per-tab language filter (legacy)
+      final lang = _langFilter[tab];
+      if (lang != null) list = list.where((e) => e.lang == lang).toList();
+      // 7. Prog-lang filter
+      final prog = _progLangFilter[tab];
+      if (prog != null) list = list.where((e) => e.compat == prog).toList();
+      // 8. Advanced toggles
+      if (_installedOnly) list = list.where((e) => _installed.contains(e.id)).toList();
+      if (_withUpdatesOnly) list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
+      // 9. Sort
+      if (_sortBy == 'alpha') {
+        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      } else if (_sortBy == 'installed') {
+        list.sort((a, b) {
+          final ai = _installed.contains(a.id) ? 0 : 1;
+          final bi = _installed.contains(b.id) ? 0 : 1;
+          if (ai != bi) return ai.compareTo(bi);
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+      }
+      return list;
+    }
+  List<_ExtEntry> get _searchResults {
+    if (_searchQuery.isEmpty) return [];
+    final q = _searchQuery.toLowerCase();
+    return _all.where((e) =>
+        e.name.toLowerCase().contains(q) ||
+        e.lang.toLowerCase().contains(q)).take(60).toList();
+  }
+
+  List<_ExtEntry> get _featured => _all
+      .where((e) => _kFeaturedNames.contains(e.name))
+      .toList()..sort((a, b) => a.name.compareTo(b.name));
+
+  // ── Static helpers ────────────────────────────────────────────────────────────
+
+  static String _compatLabel(SourceCodeLanguage c) => switch (c) {
+    SourceCodeLanguage.mihon => 'APK',
+    SourceCodeLanguage.lnreader => 'Plugin',
+    SourceCodeLanguage.javascript => 'JS',
+    SourceCodeLanguage.dart => 'Dart',
+  };
+
+  static Color _compatColor(SourceCodeLanguage c, ColorScheme cs) => switch (c) {
+    SourceCodeLanguage.mihon => const Color(0xFF2196F3),
+    SourceCodeLanguage.lnreader => const Color(0xFF4CAF50),
+    SourceCodeLanguage.javascript => const Color(0xFFF5A623),
+    SourceCodeLanguage.dart => const Color(0xFF00B4D8),
+  };
+
+  static IconData _typeIcon(ItemType t) => switch (t) {
+    ItemType.anime => Icons.live_tv_rounded,
+    ItemType.manga => Icons.auto_stories_rounded,
+    ItemType.novel => Icons.menu_book_rounded,
+    ItemType.music => Icons.music_note_rounded,
+    _ => Icons.sports_esports_rounded,
+  };
+
+  static Color _typeColor(ItemType t) => switch (t) {
+    ItemType.anime => const Color(0xFF9C27B0),
+    ItemType.manga => const Color(0xFFE91E63),
+    ItemType.novel => const Color(0xFF009688),
+    ItemType.music => const Color(0xFF0288D1),
+    _ => const Color(0xFF607D8B),
+  };
+
+  static String _langCode(String lang) {
+    final l = lang.toLowerCase();
+    if (l == 'all' || l == 'multi') return 'MULTI';
+    if (l.contains('-')) return l.split('-').map((p) => p.toUpperCase()).join('-');
+    return l.length > 3 ? l.substring(0, 3).toUpperCase() : l.toUpperCase();
+  }
+
+  static Color _langColor(String lang) {
+    const colors = <String, Color>{
+      'en': Color(0xFF1565C0), 'fr': Color(0xFFC62828), 'ja': Color(0xFFAD1457),
+      'zh': Color(0xFFB71C1C), 'ko': Color(0xFF283593), 'es': Color(0xFFF57F17),
+      'pt': Color(0xFF2E7D32), 'de': Color(0xFF37474F), 'it': Color(0xFF558B2F),
+      'ru': Color(0xFF4527A0), 'ar': Color(0xFF00695C), 'tr': Color(0xFFBF360C),
+    };
+    return colors[lang.toLowerCase()] ?? const Color(0xFF546E7A);
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final theme = Theme.of(context);
+      _showNsfw = ref.watch(showNSFWStateProvider);
+
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            if (_error != null && _all.isEmpty)
+              _buildError(cs)
+            else
+              Column(
+                children: [
+                  _buildLogoRow(cs, theme),
+                  _buildPersistentSearch(cs, theme),
+                  _buildTabBarRow(cs, theme),
+                  _buildLangDropdown(cs, theme),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabCtrl,
+                      children: [
+                        _TypeTab(state: this, tab: _kTabHome),
+                        _TypeTab(state: this, tab: _kTabAnime),
+                        _TypeTab(state: this, tab: _kTabManga),
+                        _TypeTab(state: this, tab: _kTabNovel),
+                        _TypeTab(state: this, tab: _kTabGames),
+                        _TypeTab(state: this, tab: _kTabMusic),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             if (_refreshing)
               Positioned(
                 top: 0, left: 0, right: 0,
