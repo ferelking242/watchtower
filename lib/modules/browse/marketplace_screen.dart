@@ -190,6 +190,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     _kTabMusic: _CompatF.all,
   };
 
+  // ── Account dropdown ─────────────────────────────────────────────────────────
+  final _accountKey = GlobalKey();
+  OverlayEntry? _accountOverlay;
+  bool _accountOpen = false;
+
   // ── Banner ───────────────────────────────────────────────────────────────────
   final _bannerCtrl = PageController(viewportFraction: 0.88);
   Timer? _bannerTimer;
@@ -595,20 +600,103 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 ),
               ),
               const SizedBox(width: 4),
-              // Marketplace settings icon
+              // Account icon with dropdown
               SizedBox(
+                key: _accountKey,
                 width: 38,
                 height: 38,
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: Icon(Icons.tune_rounded, size: 22, color: cs.onSurfaceVariant),
-                  tooltip: 'Paramètres marketplace',
-                  onPressed: _showMarketplaceSettings,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _accountOpen
+                        ? const Color(0xFF7C3AED).withValues(alpha: 0.18)
+                        : Colors.transparent,
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.account_circle_rounded,
+                      size: 26,
+                      color: _accountOpen ? const Color(0xFF7C3AED) : cs.onSurfaceVariant,
+                    ),
+                    tooltip: 'Compte',
+                    onPressed: _toggleAccountDropdown,
+                  ),
                 ),
               ),
                 ],
               ),
         ),
+      ),
+    );
+  }
+
+  // ── Account dropdown ──────────────────────────────────────────────────────────
+
+  void _toggleAccountDropdown() {
+    if (_accountOpen) {
+      _closeAccountDropdown();
+    } else {
+      _openAccountDropdown();
+    }
+  }
+
+  void _openAccountDropdown() {
+    setState(() => _accountOpen = true);
+    final renderBox = _accountKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _accountOverlay = OverlayEntry(
+      builder: (_) => _AccountDropdownOverlay(
+        position: Offset(offset.dx + size.width, offset.dy + size.height + 6),
+        onDismiss: _closeAccountDropdown,
+        onSettings: () {
+          _closeAccountDropdown();
+          _showMarketplaceSettings();
+        },
+        onRepos: () {
+          _closeAccountDropdown();
+          context.push('/browse/source-repositories');
+        },
+      ),
+    );
+    Overlay.of(context).insert(_accountOverlay!);
+  }
+
+  void _closeAccountDropdown() {
+    _accountOverlay?.remove();
+    _accountOverlay = null;
+    if (mounted) setState(() => _accountOpen = false);
+  }
+
+  // ── Extension detail overlay ──────────────────────────────────────────────────
+
+  void _showExtDetail(_ExtEntry entry) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _ExtDetailSheet(
+        entry: entry,
+        installed: _installed.contains(entry.id),
+        hasUpdate: _hasUpdate(entry.id, entry.version),
+        busy: _busy[entry.id] == true,
+        onInstall: () => _install(entry),
+        onUninstall: _installed.contains(entry.id) ? () {
+          Navigator.pop(context);
+          _uninstall(entry);
+        } : null,
+        onSettings: _installed.contains(entry.id) ? () {
+          Navigator.pop(context);
+          _openSettings(entry.id);
+        } : null,
       ),
     );
   }
@@ -1269,6 +1357,7 @@ class _TypeTab extends StatelessWidget {
                   onInstall: () => state._install(entries[i]),
                   onSettings: state._installed.contains(entries[i].id) ? () => state._openSettings(entries[i].id) : null,
                   onUninstall: state._installed.contains(entries[i].id) ? () => state._uninstall(entries[i]) : null,
+                  onTap: () => state._showExtDetail(entries[i]),
                 ),
                 childCount: entries.length.clamp(0, 300),
               ),
@@ -1514,6 +1603,7 @@ class _PlayStoreCard extends StatelessWidget {
   final VoidCallback onInstall;
   final VoidCallback? onSettings;
   final VoidCallback? onUninstall;
+  final VoidCallback? onTap;
   const _PlayStoreCard({
     required this.entry,
     required this.installed,
@@ -1522,6 +1612,7 @@ class _PlayStoreCard extends StatelessWidget {
     required this.onInstall,
     this.onSettings,
     this.onUninstall,
+    this.onTap,
   });
 
   @override
@@ -1535,7 +1626,8 @@ class _PlayStoreCard extends StatelessWidget {
     return GestureDetector(
         onLongPress: (installed && onUninstall != null) ? onUninstall : null,
         child: InkWell(
-      onTap: null,
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -2336,4 +2428,468 @@ class _IconChip extends StatelessWidget {
       );
     }
   }
-  
+
+// ─── Account dropdown overlay ─────────────────────────────────────────────────
+
+class _AccountDropdownOverlay extends StatefulWidget {
+  final Offset position;
+  final VoidCallback onDismiss;
+  final VoidCallback onSettings;
+  final VoidCallback onRepos;
+  const _AccountDropdownOverlay({
+    required this.position,
+    required this.onDismiss,
+    required this.onSettings,
+    required this.onRepos,
+  });
+
+  @override
+  State<_AccountDropdownOverlay> createState() => _AccountDropdownOverlayState();
+}
+
+class _AccountDropdownOverlayState extends State<_AccountDropdownOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  static const _kMenuWidth = 210.0;
+  static const _kRadius = 16.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final left = (widget.position.dx - _kMenuWidth).clamp(8.0, screenWidth - _kMenuWidth - 8.0);
+    final top = widget.position.dy;
+
+    return Stack(
+      children: [
+        // Barrier to dismiss
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: widget.onDismiss,
+            behavior: HitTestBehavior.translucent,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        // Dropdown menu
+        Positioned(
+          left: left,
+          top: top,
+          width: _kMenuWidth,
+          child: FadeTransition(
+            opacity: _fade,
+            child: SlideTransition(
+              position: _slide,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF12163A),
+                    borderRadius: BorderRadius.circular(_kRadius),
+                    border: Border.all(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(_kRadius),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Header
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF7C3AED), Color(0xFF06B6D4)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                ),
+                                child: const Icon(Icons.person_rounded, size: 20, color: Colors.white),
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Watchtower', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                                    Text('Marketplace', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _DropItem(
+                          icon: Icons.tune_rounded,
+                          label: 'Paramètres marketplace',
+                          onTap: widget.onSettings,
+                        ),
+                        _DropDivider(),
+                        _DropItem(
+                          icon: Icons.folder_special_rounded,
+                          label: 'Gérer les dépôts',
+                          onTap: widget.onRepos,
+                        ),
+                        _DropDivider(),
+                        _DropItem(
+                          icon: Icons.info_outline_rounded,
+                          label: 'À propos',
+                          onTap: widget.onDismiss,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DropItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _DropItem({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(
+          children: [
+            Icon(icon, size: 17, color: const Color(0xFF06B6D4)),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DropDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(height: 1, color: const Color(0xFF7C3AED).withValues(alpha: 0.18));
+  }
+}
+
+// ─── Extension detail sheet ───────────────────────────────────────────────────
+
+class _ExtDetailSheet extends StatefulWidget {
+  final _ExtEntry entry;
+  final bool installed;
+  final bool hasUpdate;
+  final bool busy;
+  final VoidCallback onInstall;
+  final VoidCallback? onUninstall;
+  final VoidCallback? onSettings;
+  const _ExtDetailSheet({
+    required this.entry,
+    required this.installed,
+    this.hasUpdate = false,
+    required this.busy,
+    required this.onInstall,
+    this.onUninstall,
+    this.onSettings,
+  });
+
+  @override
+  State<_ExtDetailSheet> createState() => _ExtDetailSheetState();
+}
+
+class _ExtDetailSheetState extends State<_ExtDetailSheet> {
+  static const _kGradientStart = Color(0xFF7C3AED);
+  static const _kGradientEnd   = Color(0xFF06B6D4);
+
+  String get _compatLabel => _MarketplaceScreenState._compatLabel(widget.entry.compat);
+  Color get _compatColor   => _MarketplaceScreenState._compatColor(widget.entry.compat, Theme.of(context).colorScheme);
+  Color get _typeColor     => _MarketplaceScreenState._typeColor(widget.entry.contentType);
+  String get _langCode     => _MarketplaceScreenState._langCode(widget.entry.lang);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0E27),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: _kGradientStart.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          const SizedBox(height: 10),
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Header with gradient accent
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_kGradientStart.withValues(alpha: 0.18), _kGradientEnd.withValues(alpha: 0.10)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _kGradientStart.withValues(alpha: 0.30)),
+            ),
+            child: Row(
+              children: [
+                _ExtIcon(iconUrl: widget.entry.iconUrl, type: widget.entry.contentType, size: 64),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.entry.name,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _DetailBadge(label: _compatLabel, color: _compatColor),
+                          _DetailBadge(label: _langCode, color: _MarketplaceScreenState._langColor(widget.entry.lang)),
+                          _DetailBadge(label: 'v${widget.entry.version}', color: Colors.white54),
+                          if (widget.entry.isNsfw) _DetailBadge(label: '18+', color: Colors.redAccent),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Type info row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Icon(_MarketplaceScreenState._typeIcon(widget.entry.contentType), size: 14, color: _typeColor),
+                const SizedBox(width: 6),
+                Text(
+                  _MarketplaceScreenState._compatLabel(widget.entry.compat),
+                  style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6)),
+                ),
+                const Spacer(),
+                if (widget.installed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                    ),
+                    child: const Text('Installée', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w700)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Action buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+            child: Column(
+              children: [
+                // Primary action: install / update
+                if (!widget.installed || widget.hasUpdate)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_kGradientStart, _kGradientEnd],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        icon: widget.busy
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Icon(widget.hasUpdate ? Icons.system_update_alt_rounded : Icons.download_rounded, size: 18),
+                        label: Text(
+                          widget.busy
+                              ? 'En cours…'
+                              : widget.hasUpdate
+                                  ? 'Mettre à jour'
+                                  : 'Installer',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                        ),
+                        onPressed: widget.busy ? null : () {
+                          widget.onInstall();
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ),
+                  ),
+
+                if (widget.installed && !widget.hasUpdate)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: _kGradientStart.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.green),
+                      label: const Text('Installée', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      onPressed: null,
+                    ),
+                  ),
+
+                const SizedBox(height: 10),
+
+                // Secondary actions row
+                Row(
+                  children: [
+                    if (widget.onSettings != null)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            foregroundColor: Colors.white70,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: const Icon(Icons.settings_outlined, size: 16),
+                          label: const Text('Paramètres', style: TextStyle(fontSize: 12)),
+                          onPressed: widget.onSettings,
+                        ),
+                      ),
+                    if (widget.onSettings != null && widget.onUninstall != null)
+                      const SizedBox(width: 10),
+                    if (widget.onUninstall != null)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.red.withValues(alpha: 0.35)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            foregroundColor: Colors.redAccent,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                          label: const Text('Désinstaller', style: TextStyle(fontSize: 12)),
+                          onPressed: widget.onUninstall,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Bottom safe area
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _DetailBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color == Colors.white54 ? Colors.white54 : color),
+      ),
+    );
+  }
+}
