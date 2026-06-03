@@ -118,10 +118,18 @@ Future<dynamic> updateMangaDetail(
           }
         }
       }
+      // Sync existing chapter metadata (name/url/etc) when the extension updates
+      // them but the chapter count hasn't changed.
+      // Only run when no new chapters were just inserted — this avoids a double-save
+      // on fresh loads and prevents accidentally overwriting fresh chapters.
+      // IMPORTANT: do NOT call manga.saveSync() here on chapters loaded from Isar
+      // via loadSync() — their IsarLink is not loaded in memory, so saveSync()
+      // would clear the relationship in Isar, making the chapter invisible to
+      // link-based queries.  The mangaId denormalized field is the reliable key.
       final _oldManga = isar.mangas.getSync(mangaId)!;
       _oldManga.chapters.loadSync();
       final oldChapers = _oldManga.chapters.toList().reversed.toList();
-      if (oldChapers.length == chaps.length) {
+      if (chapters.isEmpty && oldChapers.length == chaps.length) {
         for (var i = 0; i < oldChapers.length; i++) {
           final oldChap = oldChapers[i];
           final newChap = chaps[i];
@@ -135,12 +143,17 @@ Future<dynamic> updateMangaDetail(
           oldChap.downloadSize = newChap.downloadSize;
           oldChap.duration = newChap.duration;
           isar.chapters.putSync(oldChap);
-          oldChap.manga.saveSync();
+          // Do NOT call oldChap.manga.saveSync() — the link is already stored
+          // in Isar from the original insertion.  Calling saveSync() on an
+          // unloaded IsarLink would clear the relationship and break the
+          // chapter stream filter.
         }
       }
       // Calculate fetch interval:
       // median of gaps between recent distinct chapter dates, clamped [1, 28].
-      final allChapters = isar.mangas.getSync(mangaId)!.chapters.toList();
+      final _fetchManga = isar.mangas.getSync(mangaId)!;
+      _fetchManga.chapters.loadSync();
+      final allChapters = _fetchManga.chapters.toList();
       if (allChapters.isNotEmpty) {
         final interval = FetchInterval.calculateInterval(allChapters);
         isar.mangas.putSync(
