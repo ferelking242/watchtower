@@ -732,78 +732,69 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
 
   Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
-      final counts = [
-        _all.length,
-        _all.where((e) => e.contentType == ItemType.anime).length,
-        _all.where((e) => e.contentType == ItemType.manga).length,
-        _all.where((e) => e.contentType == ItemType.novel).length,
-        _all.where((e) => e.contentType == ItemType.game).length,
-        _all.where((e) => e.contentType == ItemType.music).length,
-      ];
-      final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music'];
-
-      return Container(
-        color: theme.scaffoldBackgroundColor,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-          child: AnimatedBuilder(
-            animation: _tabCtrl,
-            builder: (_, __) {
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF18181B),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF27272A)),
-                ),
-                child: Wrap(
-                  spacing: 2,
-                  runSpacing: 2,
-                  children: List.generate(6, (i) {
-                    final sel = _tabCtrl.index == i;
-                    return GestureDetector(
-                      onTap: () => _tabCtrl.animateTo(i),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    final rawCounts = [
+      _all.length,
+      _all.where((e) => e.contentType == ItemType.anime).length,
+      _all.where((e) => e.contentType == ItemType.manga).length,
+      _all.where((e) => e.contentType == ItemType.novel).length,
+      _all.where((e) => e.contentType == ItemType.game).length,
+      _all.where((e) => e.contentType == ItemType.music).length,
+    ];
+    final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music'];
+    final icons  = <IconData>[Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
+                              Icons.menu_book_rounded, Icons.sports_esports_rounded, Icons.music_note_rounded];
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+        child: AnimatedBuilder(
+          animation: _tabCtrl,
+          builder: (_, __) => Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF18181B),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF27272A)),
+            ),
+            child: Wrap(
+              spacing: 2, runSpacing: 2,
+              children: List.generate(6, (i) {
+                final sel = _tabCtrl.index == i;
+                return GestureDetector(
+                  onTap: () { _tabCtrl.animateTo(i); setState(() { _globalLangFilter = null; _globalRepoFilter = null; _globalProgLangFilter = null; }); },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: sel ? const Color(0xFF27272A) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(icons[i], size: 12, color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF52525B)),
+                      const SizedBox(width: 4),
+                      Text(labels[i], style: TextStyle(fontSize: 12,
+                        fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                        color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF71717A))),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
-                          color: sel ? const Color(0xFF27272A) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(7),
+                          color: sel ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(labels[i],
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-                                color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF71717A),
-                              )),
-                            const SizedBox(width: 5),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: sel ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text('${counts[i]}',
-                                style: TextStyle(
-                                  fontSize: 10, fontWeight: FontWeight.w600,
-                                  color: sel ? const Color(0xFFE0E7FF) : const Color(0xFFA1A1AA),
-                                )),
-                            ),
-                          ],
-                        ),
+                        child: Text('\${rawCounts[i]}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                          color: sel ? const Color(0xFFE0E7FF) : const Color(0xFFA1A1AA))),
                       ),
-                    );
-                  }),
-                ),
-              );
-            },
+                    ]),
+                  ),
+                );
+              }),
+            ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
   
   Widget _buildPersistentSearch(ColorScheme cs, ThemeData theme) {
       return Container(
@@ -854,163 +845,176 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
   
   Widget _buildFilterRows(ColorScheme cs, ThemeData theme) {
-      // Repos from current extensions
-      final repoSet = <String>{};
-      for (final e in _all) {
-        final m = RegExp(r'github\.com/([^/]+/[^/]+)').firstMatch(e.repoUrl);
-        if (m != null) repoSet.add(m.group(1)!);
-      }
-      final repos = repoSet.toList()..sort();
-
-      // Human languages for current tab
-      final tabItems = _forTabRaw(_tabCtrl.index);
-      final langs = tabItems.map((e) => e.lang).toSet().toList()..sort();
-
-      final activeCount = (_globalRepoFilter != null ? 1 : 0)
-          + (_globalProgLangFilter != null ? 1 : 0)
-          + (_globalLangFilter != null ? 1 : 0);
-
-      BoxDecoration deco(bool active) => BoxDecoration(
-        color: const Color(0xFF18181B),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: active ? const Color(0xFF4F46E5) : const Color(0xFF27272A)),
-      );
-
-      Widget selectBox({required Widget child, bool active = false}) => Container(
-        height: 36, padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: deco(active), child: child,
-      );
-
-      return Container(
-        color: theme.scaffoldBackgroundColor,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Row 1: Dépôt + Lang (prog)
-              Row(
-                children: [
-                  Expanded(
-                    child: selectBox(
-                      active: _globalRepoFilter != null,
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          value: _globalRepoFilter,
-                          isExpanded: true,
-                          isDense: true,
-                          icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
-                          style: TextStyle(fontSize: 12,
-                              color: _globalRepoFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
-                          dropdownColor: const Color(0xFF18181B),
-                          items: [
-                            const DropdownMenuItem<String?>(value: null,
-                                child: Text('D\u00e9p\u00f4t', style: TextStyle(color: Color(0xFFA1A1AA)))),
-                            ...repos.map((r) => DropdownMenuItem<String?>(value: r,
-                                child: Text(r.split('/').lastOrNull ?? r,
-                                    style: const TextStyle(color: Color(0xFFE4E4E7))))),
-                          ],
-                          onChanged: (v) => setState(() => _globalRepoFilter = v),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  SizedBox(
-                    width: 90,
-                    child: selectBox(
-                      active: _globalProgLangFilter != null,
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<SourceCodeLanguage?>(
-                          value: _globalProgLangFilter,
-                          isExpanded: true,
-                          isDense: true,
-                          icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
-                          style: TextStyle(fontSize: 12,
-                              color: _globalProgLangFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
-                          dropdownColor: const Color(0xFF18181B),
-                          items: const [
-                            DropdownMenuItem<SourceCodeLanguage?>(value: null,
-                                child: Text('Lang', style: TextStyle(color: Color(0xFFA1A1AA)))),
-                            DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.javascript,
-                                child: Text('JS', style: TextStyle(color: Color(0xFFE4E4E7)))),
-                            DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.dart,
-                                child: Text('Dart', style: TextStyle(color: Color(0xFFE4E4E7)))),
-                          ],
-                          onChanged: (v) => setState(() => _globalProgLangFilter = v),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              // Row 2: Langue + filter icon
-              Row(
-                children: [
-                  Expanded(
-                    child: selectBox(
-                      active: _globalLangFilter != null,
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          value: _globalLangFilter,
-                          isExpanded: true,
-                          isDense: true,
-                          icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
-                          style: TextStyle(fontSize: 12,
-                              color: _globalLangFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
-                          dropdownColor: const Color(0xFF18181B),
-                          items: [
-                            const DropdownMenuItem<String?>(value: null,
-                                child: Text('Langue', style: TextStyle(color: Color(0xFFA1A1AA)))),
-                            ...langs.map((l) => DropdownMenuItem<String?>(value: l,
-                                child: Text(l, style: const TextStyle(color: Color(0xFFE4E4E7))))),
-                          ],
-                          onChanged: (v) => setState(() => _globalLangFilter = v),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      GestureDetector(
-                        onTap: _showMarketplaceSettings,
-                        child: Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF18181B),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: activeCount > 0 ? const Color(0xFF4F46E5) : const Color(0xFF27272A),
-                            ),
-                          ),
-                          child: Icon(Icons.tune_rounded, size: 16,
-                            color: activeCount > 0 ? const Color(0xFF818CF8) : const Color(0xFF71717A)),
-                        ),
-                      ),
-                      if (activeCount > 0)
-                        Positioned(
-                          top: -5, right: -5,
-                          child: Container(
-                            width: 14, height: 14,
-                            decoration: const BoxDecoration(color: Color(0xFF4F46E5), shape: BoxShape.circle),
-                            child: Center(
-                              child: Text('$activeCount',
-                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
+    final repoSet = <String>{};
+    for (final e in _all) {
+      final m = RegExp(r'github\.com/([^/]+/[^/]+)').firstMatch(e.repoUrl);
+      if (m != null) repoSet.add(m.group(1)!);
     }
+    final repos = repoSet.toList()..sort();
+    final tabItems = _forTabRaw(_tabCtrl.index);
+    final humanLangs = tabItems.map((e) => e.lang).toSet().toList()..sort();
+    final activeCount = (_globalRepoFilter != null ? 1 : 0)
+        + (_globalProgLangFilter != null ? 1 : 0)
+        + (_globalLangFilter != null ? 1 : 0);
+
+    BoxDecoration deco(bool active) => BoxDecoration(
+      color: const Color(0xFF18181B),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: active ? const Color(0xFF4F46E5) : const Color(0xFF27272A)),
+    );
+
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 4),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            Expanded(
+              child: Container(
+                height: 36, padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: deco(_globalRepoFilter != null),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _globalRepoFilter, isExpanded: true, isDense: true,
+                    icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
+                    style: TextStyle(fontSize: 12, color: _globalRepoFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                    dropdownColor: const Color(0xFF1C1C1F),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('D\u00e9p\u00f4t', style: TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)))),
+                      ...repos.map((r) {
+                        final label = r.contains('ferelking242') ? '\u2b50 Official' : r.split('/').lastOrNull ?? r;
+                        return DropdownMenuItem<String?>(value: r,
+                          child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFFE4E4E7))));
+                      }),
+                    ],
+                    onChanged: (v) => setState(() => _globalRepoFilter = v),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 92,
+              child: Container(
+                height: 36, padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: deco(_globalProgLangFilter != null),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<SourceCodeLanguage?>(
+                    value: _globalProgLangFilter, isExpanded: true, isDense: true,
+                    icon: const Icon(Icons.expand_more_rounded, size: 12, color: Color(0xFF71717A)),
+                    dropdownColor: const Color(0xFF1C1C1F),
+                    selectedItemBuilder: (_) => [
+                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.code_rounded, size: 12, color: Color(0xFFA1A1AA)), const SizedBox(width: 4), const Text('Lang', style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))])),
+                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [_ProgLangBadge(color: const Color(0xFFF7DF1E), textColor: const Color(0xFF000000), label: 'JS'), const SizedBox(width: 4), const Text('JS', style: TextStyle(fontSize: 11, color: Color(0xFFA5B4FC)))])),
+                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [_ProgLangBadge(color: const Color(0xFF0175C2), textColor: Colors.white, label: 'D'), const SizedBox(width: 4), const Text('Dart', style: TextStyle(fontSize: 11, color: Color(0xFFA5B4FC)))])),
+                    ],
+                    items: const [
+                      DropdownMenuItem<SourceCodeLanguage?>(value: null, child: Text('Tous', style: TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)))),
+                      DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.javascript,
+                        child: Row(children: [_ProgLangBadge(color: Color(0xFFF7DF1E), textColor: Color(0xFF000000), label: 'JS'), SizedBox(width: 8), Text('JavaScript', style: TextStyle(fontSize: 12, color: Color(0xFFE4E4E7)))])),
+                      DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.dart,
+                        child: Row(children: [_ProgLangBadge(color: Color(0xFF0175C2), textColor: Colors.white, label: 'D'), SizedBox(width: 8), Text('Dart', style: TextStyle(fontSize: 12, color: Color(0xFFE4E4E7)))])),
+                    ],
+                    onChanged: (v) => setState(() => _globalProgLangFilter = v),
+                  ),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Row(children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _showLangGridPicker(humanLangs),
+                child: Container(
+                  height: 36, padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: deco(_globalLangFilter != null),
+                  child: Row(children: [
+                    const Icon(Icons.language_outlined, size: 14, color: Color(0xFF71717A)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      _globalLangFilter != null ? '\${_MarketplaceScreenState._langFlag(_globalLangFilter!)} \${_MarketplaceScreenState._langDisplayName(_globalLangFilter!)}' : 'Langue',
+                      style: TextStyle(fontSize: 12, color: _globalLangFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                      overflow: TextOverflow.ellipsis,
+                    )),
+                    const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Stack(clipBehavior: Clip.none, children: [
+              GestureDetector(
+                onTap: _showMarketplaceSettings,
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF18181B), borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: activeCount > 0 ? const Color(0xFF4F46E5) : const Color(0xFF27272A)),
+                  ),
+                  child: Icon(Icons.tune_rounded, size: 16,
+                      color: activeCount > 0 ? const Color(0xFF818CF8) : const Color(0xFF71717A)),
+                ),
+              ),
+              if (activeCount > 0) Positioned(top: -5, right: -5,
+                child: Container(
+                  width: 14, height: 14,
+                  decoration: const BoxDecoration(color: Color(0xFF4F46E5), shape: BoxShape.circle),
+                  child: Center(child: Text('\$activeCount', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
+                )),
+            ]),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  static String _langFlag(String lang) {
+    const flags = <String, String>{
+      'en': '\u{1F1EC}\u{1F1E7}', 'fr': '\u{1F1EB}\u{1F1F7}',
+      'ja': '\u{1F1EF}\u{1F1F5}', 'zh': '\u{1F1E8}\u{1F1F3}',
+      'ko': '\u{1F1F0}\u{1F1F7}', 'es': '\u{1F1EA}\u{1F1F8}',
+      'pt': '\u{1F1E7}\u{1F1F7}', 'de': '\u{1F1E9}\u{1F1EA}',
+      'it': '\u{1F1EE}\u{1F1F9}', 'ru': '\u{1F1F7}\u{1F1FA}',
+      'ar': '\u{1F1F8}\u{1F1E6}', 'tr': '\u{1F1F9}\u{1F1F7}',
+      'pl': '\u{1F1F5}\u{1F1F1}', 'nl': '\u{1F1F3}\u{1F1F1}',
+      'id': '\u{1F1EE}\u{1F1E9}', 'th': '\u{1F1F9}\u{1F1ED}',
+      'vi': '\u{1F1FB}\u{1F1F3}', 'uk': '\u{1F1FA}\u{1F1E6}',
+      'cs': '\u{1F1E8}\u{1F1FF}', 'ro': '\u{1F1F7}\u{1F1F4}',
+      'sv': '\u{1F1F8}\u{1F1EA}', 'he': '\u{1F1EE}\u{1F1F1}',
+      'hi': '\u{1F1EE}\u{1F1F3}', 'hu': '\u{1F1ED}\u{1F1FA}',
+    };
+    return flags[lang.toLowerCase()] ?? '\u{1F5FA}';
+  }
+
+  static String _langDisplayName(String lang) {
+    const names = <String, String>{
+      'en': 'English', 'fr': 'Fran\u00e7ais', 'ja': '\u65e5\u672c\u8a9e',
+      'zh': '\u4e2d\u6587', 'ko': '\ud55c\uad6d\uc5b4', 'es': 'Espa\u00f1ol',
+      'pt': 'Portugu\u00eas', 'de': 'Deutsch', 'it': 'Italiano',
+      'ru': '\u0420\u0443\u0441\u0441\u043a\u0438\u0439', 'ar': '\u0639\u0631\u0628\u064a',
+      'tr': 'T\u00fcrk\u00e7e', 'pl': 'Polski', 'nl': 'Nederlands',
+      'id': 'Bahasa Indonesia', 'th': '\u0e20\u0e32\u0e29\u0e32\u0e44\u0e17\u0e22',
+      'vi': 'Ti\u1ebfng Vi\u1ec7t', 'uk': '\u0423\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u0430',
+      'cs': '\u010ce\u0161tina', 'ro': 'Rom\u00e2n\u0103',
+      'sv': 'Svenska', 'he': '\u05e2\u05d1\u05e8\u05d9\u05ea',
+      'hi': '\u0939\u093f\u0902\u0926\u0940', 'hu': 'Magyar',
+    };
+    return names[lang.toLowerCase()] ?? lang.toUpperCase();
+  }
+
+  void _showLangGridPicker(List<String> langs) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LangGridPickerSheet(
+        langs: langs,
+        selected: _globalLangFilter,
+        onPick: (v) { setState(() => _globalLangFilter = v); Navigator.pop(context); },
+      ),
+    );
+  }
   
   // ── Loading / Error ────────────────────────────────────────────────────────────
 
@@ -1899,8 +1903,6 @@ class _TypeTab extends StatelessWidget {
       onRefresh: state._loadAll,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: state.buildCompatFilter(cs, tab)),
-          SliverToBoxAdapter(child: state.buildFilterStrip(tab)),
           if (entries.isEmpty)
             SliverFillRemaining(
               child: Center(
@@ -2210,6 +2212,13 @@ class _PlayStoreCard extends StatelessWidget {
       return 'Parcourez du $typeName en $langCode${isNsfw ? " (contenu adulte)" : ""}.';
     }
 
+    String get _codeUrl {
+      final url = entry.repoUrl;
+      if (url.contains('ferelking242') || url.contains('watchtower-extensions'))
+        return 'https://github.com/ferelking242/watchtower-extensions';
+      return url;
+    }
+
     @override
     Widget build(BuildContext context) {
       final cs = Theme.of(context).colorScheme;
@@ -2274,6 +2283,10 @@ class _PlayStoreCard extends StatelessWidget {
                     busy: busy,
                     onInstall: onInstall,
                     onSettings: onSettings,
+                    onCode: () async {
+                      final url = Uri.parse(_codeUrl);
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    },
                     cs: cs,
                   ),
                 ],
@@ -2342,112 +2355,94 @@ class _PlayStoreCard extends StatelessWidget {
     }
   }
 
-  class _CardAction extends StatelessWidget {
-    final bool installed;
-    final bool hasUpdate;
-    final bool busy;
-    final VoidCallback onInstall;
-    final VoidCallback? onSettings;
-    final ColorScheme cs;
-    const _CardAction({
-      required this.installed,
-      required this.hasUpdate,
-      required this.busy,
-      required this.onInstall,
-      required this.onSettings,
-      required this.cs,
-    });
+class _CardAction extends StatelessWidget {
+      final bool installed;
+      final bool hasUpdate;
+      final bool busy;
+      final VoidCallback onInstall;
+      final VoidCallback? onSettings;
+      final VoidCallback? onCode;
+      final ColorScheme cs;
+      const _CardAction({
+        required this.installed,
+        required this.hasUpdate,
+        required this.busy,
+        required this.onInstall,
+        required this.onSettings,
+        required this.onCode,
+        required this.cs,
+      });
 
-    @override
-    Widget build(BuildContext context) {
-      // Loading spinner
-      if (busy) {
-        return Container(
-          width: 36,
-          height: 36,
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: CircularProgressIndicator(strokeWidth: 2.2, color: cs.primary),
-        );
-      }
-      // Not installed → download icon button
-      if (!installed) {
-        return GestureDetector(
-          onTap: onInstall,
+      @override
+      Widget build(BuildContext context) {
+        if (busy) {
+          return Container(
+            width: 36, height: 36, padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(10)),
+            child: CircularProgressIndicator(strokeWidth: 2.2, color: cs.primary),
+          );
+        }
+        if (!installed) {
+          return GestureDetector(
+            onTap: onInstall,
+            child: Container(
+              width: 36, height: 36, alignment: Alignment.center,
+              decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.download_rounded, size: 20, color: cs.onSurfaceVariant),
+            ),
+          );
+        }
+        if (hasUpdate) {
+          return GestureDetector(
+            onTap: onInstall,
+            child: Container(
+              width: 36, height: 36, alignment: Alignment.center,
+              decoration: BoxDecoration(color: Colors.orange.shade700.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.system_update_alt_rounded, size: 20, color: Colors.orange.shade600),
+            ),
+          );
+        }
+        // Installed, no update → vertical: ⋮ menu, <> code, settings
+        Widget iconBtn(IconData icon, VoidCallback? onTap, {Color? color}) => GestureDetector(
+          onTap: onTap,
           child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.download_rounded,
-              size: 20,
-              color: cs.onSurfaceVariant,
-            ),
+            width: 30, height: 30, alignment: Alignment.center,
+            decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, size: 15, color: color ?? cs.onSurfaceVariant),
           ),
         );
-      }
-      // Has update → update button
-      if (hasUpdate) {
-        return GestureDetector(
-          onTap: onInstall,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.orange.shade700.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.system_update_alt_rounded,
-              size: 20,
-              color: Colors.orange.shade600,
-            ),
-          ),
-        );
-      }
-      // Installed + no update
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (onSettings != null)
-            Container(
-              width: 34,
-              height: 34,
-              margin: const EdgeInsets.only(right: 4),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-                icon: Icon(Icons.settings_outlined, size: 17, color: cs.onSurfaceVariant),
-                onPressed: onSettings,
-                tooltip: 'Paramètres',
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              tooltip: '',
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onSelected: (v) async {
+                if (v == 'update') onInstall();
+                else if (v == 'uninstall') {}
+                else if (v == 'code') onCode?.call();
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'code', child: Row(children: [
+                  Icon(Icons.code_rounded, size: 16, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 10), const Text('Code source'),
+                ])),
+              ],
+              child: Container(
+                width: 30, height: 30, alignment: Alignment.center,
+                decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(8)),
+                child: Icon(Icons.more_vert_rounded, size: 15, color: cs.onSurfaceVariant),
               ),
             ),
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(Icons.check_rounded, size: 20, color: cs.primary),
-          ),
-        ],
-      );
+            const SizedBox(height: 5),
+            iconBtn(Icons.code_rounded, onCode),
+            const SizedBox(height: 5),
+            iconBtn(Icons.settings_outlined, onSettings),
+          ],
+        );
+      }
     }
-  }
 
   
 // ─── Banner card (featured) ────────────────────────────────────────────────────
@@ -2876,32 +2871,75 @@ class _Pill extends StatelessWidget {
 // ─── Extension icon ─────────────────────────────────────────────────────────────
 
 class _ExtIcon extends StatelessWidget {
-  final String? iconUrl;
-  final ItemType type;
-  final double size;
-  const _ExtIcon({this.iconUrl, required this.type, required this.size});
+    final String? iconUrl;
+    final ItemType type;
+    final double size;
+    const _ExtIcon({this.iconUrl, required this.type, required this.size});
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final color = _MarketplaceScreenState._typeColor(type);
-    return Container(
-      width: size, height: size,
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: iconUrl != null && iconUrl!.isNotEmpty
-            ? Image.network(iconUrl!, width: size, height: size, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _fallback(cs, color))
-            : _fallback(cs, color),
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final color = _MarketplaceScreenState._typeColor(type);
+      return Container(
+        width: size, height: size,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: iconUrl != null && iconUrl!.isNotEmpty
+              ? Image.network(
+                  iconUrl!, width: size, height: size, fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : _SkeletonShimmer(width: size, height: size, radius: 12),
+                  errorBuilder: (_, __, ___) => _fallback(cs, color),
+                )
+              : _fallback(cs, color),
+        ),
+      );
+    }
+
+    Widget _fallback(ColorScheme cs, Color color) =>
+        Center(child: Icon(_MarketplaceScreenState._typeIcon(type), size: size * 0.48, color: color));
+  }
+
+  // ─── Skeleton shimmer ────────────────────────────────────────────────────────
+
+  class _SkeletonShimmer extends StatefulWidget {
+    final double width, height, radius;
+    const _SkeletonShimmer({required this.width, required this.height, this.radius = 8});
+    @override
+    State<_SkeletonShimmer> createState() => _SkeletonShimmerState();
+  }
+
+  class _SkeletonShimmerState extends State<_SkeletonShimmer> with SingleTickerProviderStateMixin {
+    late final AnimationController _ctrl;
+    late final Animation<double> _anim;
+    @override
+    void initState() {
+      super.initState();
+      _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))
+          ..repeat(reverse: true);
+      _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    }
+    @override
+    void dispose() { _ctrl.dispose(); super.dispose(); }
+    @override
+    Widget build(BuildContext context) => AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        width: widget.width, height: widget.height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.radius),
+          gradient: LinearGradient(
+            begin: Alignment(-1 + 2 * _anim.value, 0),
+            end: Alignment(1 + 2 * _anim.value, 0),
+            colors: const [Color(0xFF2A2A2E), Color(0xFF3F3F46), Color(0xFF2A2A2E)],
+            stops: const [0.0, 0.5, 1.0],
+          ),
+        ),
       ),
     );
   }
-
-  Widget _fallback(ColorScheme cs, Color color) => Center(
-    child: Icon(_MarketplaceScreenState._typeIcon(type), size: size * 0.48, color: color),
-  );
-}
 
 // ─── Icon chip ─────────────────────────────────────────────────────────────────
 
@@ -3700,9 +3738,143 @@ class _PickerTile extends StatelessWidget {
     );
   }
 }
+// ─── Language grid picker sheet ────────────────────────────────────────────────
 
-// ─── Advanced filter bottom sheet ──────────────────────────────────────────────
+  class _LangGridPickerSheet extends StatefulWidget {
+    final List<String> langs;
+    final String? selected;
+    final ValueChanged<String?> onPick;
+    const _LangGridPickerSheet({required this.langs, this.selected, required this.onPick});
+    @override
+    State<_LangGridPickerSheet> createState() => _LangGridPickerSheetState();
+  }
 
+  class _LangGridPickerSheetState extends State<_LangGridPickerSheet> {
+    final _search = TextEditingController();
+    String _query = '';
+
+    @override
+    void dispose() { _search.dispose(); super.dispose(); }
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final all = ['all', ...widget.langs];
+      final filtered = all.where((l) {
+        if (_query.isEmpty) return true;
+        final q = _query.toLowerCase();
+        return l.toLowerCase().contains(q) ||
+            _MarketplaceScreenState._langDisplayName(l).toLowerCase().contains(q);
+      }).toList();
+
+      return Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF18181B),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.78),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 8),
+          Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: const Color(0xFF3F3F46), borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(children: [
+              const Icon(Icons.language_rounded, size: 18, color: Color(0xFF818CF8)),
+              const SizedBox(width: 8),
+              Text('Langue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
+              const Spacer(),
+              if (widget.selected != null)
+                TextButton(
+                  onPressed: () => widget.onPick(null),
+                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFF87171), padding: EdgeInsets.zero),
+                  child: const Text('Effacer', style: TextStyle(fontSize: 13)),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFF27272A),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(children: [
+                const SizedBox(width: 10),
+                const Icon(Icons.search_rounded, size: 16, color: Color(0xFF71717A)),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(
+                  controller: _search,
+                  onChanged: (v) => setState(() => _query = v),
+                  style: const TextStyle(fontSize: 13, color: Color(0xFFE4E4E7)),
+                  decoration: const InputDecoration(
+                    hintText: 'Rechercher une langue...',
+                    hintStyle: TextStyle(fontSize: 13, color: Color(0xFF52525B)),
+                    border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero,
+                  ),
+                )),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.4,
+              ),
+              itemCount: filtered.length,
+              itemBuilder: (_, i) {
+                final l = filtered[i];
+                final isAll = l == 'all';
+                final sel = isAll ? widget.selected == null : widget.selected == l;
+                return GestureDetector(
+                  onTap: () => widget.onPick(isAll ? null : l),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    decoration: BoxDecoration(
+                      color: sel ? const Color(0xFF4F46E5).withOpacity(0.2) : const Color(0xFF27272A),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: sel ? const Color(0xFF4F46E5) : Colors.transparent),
+                    ),
+                    child: Center(child: isAll
+                      ? Text('Toutes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                          color: sel ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)))
+                      : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text(_MarketplaceScreenState._langFlag(l), style: const TextStyle(fontSize: 18)),
+                          const SizedBox(height: 1),
+                          Text(_MarketplaceScreenState._langDisplayName(l),
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                                color: sel ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                            overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                        ]),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ]),
+      );
+    }
+  }
+
+  // ─── Prog lang badge ─────────────────────────────────────────────────────────
+
+  class _ProgLangBadge extends StatelessWidget {
+    final Color color, textColor;
+    final String label;
+    const _ProgLangBadge({required this.color, required this.textColor, required this.label});
+    @override
+    Widget build(BuildContext context) => Container(
+      width: 18, height: 18,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+      child: Center(child: Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: textColor))),
+    );
+  }
 class _AdvancedFilterSheet extends StatefulWidget {
   final _MarketplaceScreenState state;
   final int tab;
@@ -3714,203 +3886,250 @@ class _AdvancedFilterSheet extends StatefulWidget {
 }
 
 class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
-  late String _sortBy;
-  late bool _installedOnly;
-  late bool _withUpdatesOnly;
+    late String _sortBy;
+    late bool _installedOnly;
+    late bool _withUpdatesOnly;
 
-  @override
-  void initState() {
-    super.initState();
-    _sortBy = widget.state._sortBy;
-    _installedOnly = widget.state._installedOnly;
-    _withUpdatesOnly = widget.state._withUpdatesOnly;
-  }
+    @override
+    void initState() {
+      super.initState();
+      _sortBy = widget.state._sortBy;
+      _installedOnly = widget.state._installedOnly;
+      _withUpdatesOnly = widget.state._withUpdatesOnly;
+    }
 
-  void _apply() {
-    widget.state._sortBy = _sortBy;
-    widget.state._installedOnly = _installedOnly;
-    widget.state._withUpdatesOnly = _withUpdatesOnly;
-    widget.onChanged();
-  }
+    void _apply() {
+      widget.state._sortBy = _sortBy;
+      widget.state._installedOnly = _installedOnly;
+      widget.state._withUpdatesOnly = _withUpdatesOnly;
+      widget.onChanged();
+    }
 
-  void _resetAll() {
-    setState(() {
-      _sortBy = 'alpha';
-      _installedOnly = false;
-      _withUpdatesOnly = false;
-    });
-    widget.state._clearFilters(widget.tab);
-    Navigator.pop(context);
-  }
+    void _resetAll() {
+      setState(() { _sortBy = 'alpha'; _installedOnly = false; _withUpdatesOnly = false; });
+      widget.state._clearFilters(widget.tab);
+      Navigator.pop(context);
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tab = widget.tab;
-    final state = widget.state;
-    final nActive = state._activeFilterCount(tab);
+    Widget _section(String title, Widget child) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+            color: Color(0xFF71717A), letterSpacing: 0.8)),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.65,
-      minChildSize: 0.4,
-      maxChildSize: 0.92,
-      expand: false,
-      builder: (_, ctrl) => Column(
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 36, height: 4,
-            decoration: BoxDecoration(color: cs.outline.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(4)),
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final nActive = widget.state._activeFilterCount(widget.tab);
+
+      return DraggableScrollableSheet(
+        initialChildSize: 0.68,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (_, ctrl) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF18181B),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(children: [
-              Icon(Icons.tune_rounded, size: 20, color: cs.primary),
-              const SizedBox(width: 8),
-              Text('Filtres avancés', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
-              const Spacer(),
-              if (nActive > 0)
-                TextButton(
-                  onPressed: _resetAll,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    foregroundColor: cs.error,
+          child: Column(children: [
+            const SizedBox(height: 8),
+            Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: const Color(0xFF3F3F46), borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(children: [
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8)),
+                ),
+                const SizedBox(width: 10),
+                const Text('Filtres avancés', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFFE4E4E7))),
+                const Spacer(),
+                if (nActive > 0)
+                  TextButton(
+                    onPressed: _resetAll,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      backgroundColor: const Color(0xFFF87171).withOpacity(0.1),
+                      foregroundColor: const Color(0xFFF87171),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Effacer tout', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   ),
-                  child: const Text('Tout effacer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                ),
-            ]),
-          ),
-          Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
-          Expanded(
-            child: ListView(
-              controller: ctrl,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              children: [
-                // ── Sort ──────────────────────────────────────────────────────
-                Text('Trier par', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
-                const SizedBox(height: 10),
-                _SortSection(
-                  sortBy: _sortBy,
-                  onChanged: (v) { setState(() => _sortBy = v); _apply(); },
-                  cs: cs,
-                ),
-                const SizedBox(height: 20),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            Divider(height: 1, color: const Color(0xFF27272A)),
+            Expanded(
+              child: ListView(
+                controller: ctrl,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                children: [
+                  // Sort section
+                  _section('TRIER PAR', Wrap(spacing: 8, runSpacing: 8, children: [
+                    _SortChip(label: 'A → Z', icon: Icons.sort_by_alpha_rounded,
+                      active: _sortBy == 'alpha',
+                      onTap: () { setState(() => _sortBy = 'alpha'); _apply(); }),
+                    _SortChip(label: 'Installées', icon: Icons.download_done_rounded,
+                      active: _sortBy == 'installed',
+                      onTap: () { setState(() => _sortBy = 'installed'); _apply(); }),
+                  ])),
+                  const SizedBox(height: 20),
 
-                // ── Show ──────────────────────────────────────────────────────
-                Text('Afficher', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
-                const SizedBox(height: 6),
-                _ToggleTile(
-                  icon: Icons.download_done_rounded,
-                  label: 'Installées uniquement',
-                  value: _installedOnly,
-                  onChanged: (v) { setState(() { _installedOnly = v; if (v) _withUpdatesOnly = false; }); _apply(); },
-                  cs: cs,
-                ),
-                const SizedBox(height: 4),
-                _ToggleTile(
-                  icon: Icons.system_update_alt_rounded,
-                  label: 'Avec mises à jour',
-                  value: _withUpdatesOnly,
-                  onChanged: (v) { setState(() { _withUpdatesOnly = v; if (v) _installedOnly = false; }); _apply(); },
-                  cs: cs,
-                ),
-                const SizedBox(height: 24),
+                  // Show section
+                  _section('AFFICHER', Column(children: [
+                    _FilterToggleTile(
+                      icon: Icons.download_done_rounded,
+                      label: 'Installées uniquement',
+                      sub: 'Masquer les extensions non installées',
+                      value: _installedOnly,
+                      onChanged: (v) { setState(() { _installedOnly = v; if (v) _withUpdatesOnly = false; }); _apply(); },
+                      cs: cs,
+                    ),
+                    const SizedBox(height: 6),
+                    _FilterToggleTile(
+                      icon: Icons.system_update_alt_rounded,
+                      label: 'Mises à jour disponibles',
+                      sub: 'Extensions avec une nouvelle version',
+                      value: _withUpdatesOnly,
+                      onChanged: (v) { setState(() { _withUpdatesOnly = v; if (v) _installedOnly = false; }); _apply(); },
+                      cs: cs,
+                    ),
+                  ])),
+                  const SizedBox(height: 20),
 
-                // ── Active filters summary ────────────────────────────────────
-                if (nActive > 0) ...[
-                  Text('Filtres actifs', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
-                  const SizedBox(height: 8),
-                  _ActiveFiltersSummary(state: state, tab: tab, cs: cs, onClear: () {
-                    setState(() {});
-                    widget.onChanged();
-                  }),
-                  const SizedBox(height: 16),
-                ],
+                  // Active filters
+                  if (nActive > 0) ...[
+                    _section('FILTRES ACTIFS', _ActiveFiltersSummary(
+                      state: widget.state, tab: widget.tab, cs: cs,
+                      onClear: () { setState(() {}); widget.onChanged(); },
+                    )),
+                    const SizedBox(height: 20),
+                  ],
 
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.check_rounded, size: 18),
-                    label: const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.w700)),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  // Apply button
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: const Color(0xFF4F46E5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Appliquer', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ]),
+        ),
+      );
+    }
+  }
+
+  // ─── Sort chip ────────────────────────────────────────────────────────────────
+
+  class _SortChip extends StatelessWidget {
+    final String label;
+    final IconData icon;
+    final bool active;
+    final VoidCallback onTap;
+    const _SortChip({required this.label, required this.icon, required this.active, required this.onTap});
+    @override
+    Widget build(BuildContext context) => GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFF4F46E5).withOpacity(0.15) : const Color(0xFF27272A),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: active ? const Color(0xFF4F46E5) : Colors.transparent),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: active ? const Color(0xFFA5B4FC) : const Color(0xFF71717A)),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+            color: active ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA))),
+        ]),
       ),
     );
   }
-}
 
-class _SortSection extends StatelessWidget {
-  final String sortBy;
-  final ValueChanged<String> onChanged;
-  final ColorScheme cs;
-  const _SortSection({required this.sortBy, required this.onChanged, required this.cs});
+  // ─── Filter toggle tile ───────────────────────────────────────────────────────
 
-  static const _options = [
-    ('alpha', Icons.sort_by_alpha_rounded, 'Alphabétique'),
-    ('installed', Icons.download_done_rounded, 'Installées d\'abord'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _options.map((opt) {
-        final (val, icon, label) = opt;
-        final sel = sortBy == val;
-        return GestureDetector(
-          onTap: () => onChanged(val),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  class _FilterToggleTile extends StatelessWidget {
+    final IconData icon;
+    final String label, sub;
+    final bool value;
+    final ValueChanged<bool> onChanged;
+    final ColorScheme cs;
+    const _FilterToggleTile({required this.icon, required this.label, required this.sub,
+      required this.value, required this.onChanged, required this.cs});
+    @override
+    Widget build(BuildContext context) => GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: value ? const Color(0xFF4F46E5).withOpacity(0.08) : const Color(0xFF27272A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: value ? const Color(0xFF4F46E5).withOpacity(0.4) : Colors.transparent),
+        ),
+        child: Row(children: [
+          Container(
+            width: 30, height: 30,
             decoration: BoxDecoration(
-              color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: sel ? cs.primary : cs.outline.withValues(alpha: 0.25), width: sel ? 1.5 : 1),
+              color: value ? const Color(0xFF4F46E5).withOpacity(0.2) : cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(icon, size: 14, color: sel ? cs.primary : cs.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: sel ? cs.primary : cs.onSurface)),
-            ]),
+            child: Icon(icon, size: 16, color: value ? const Color(0xFF818CF8) : cs.onSurfaceVariant),
           ),
-        );
-      }).toList(),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+              color: value ? const Color(0xFFE4E4E7) : cs.onSurface)),
+            const SizedBox(height: 2),
+            Text(sub, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+          ])),
+          _FToggle(value: value),
+        ]),
+      ),
     );
   }
-}
 
-class _ToggleTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final ColorScheme cs;
-  const _ToggleTile({required this.icon, required this.label, required this.value, required this.onChanged, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    return SwitchListTile.adaptive(
-      secondary: Icon(icon, size: 20, color: cs.primary),
-      title: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      value: value,
-      onChanged: onChanged,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-      dense: true,
+  class _FToggle extends StatelessWidget {
+    final bool value;
+    const _FToggle({required this.value});
+    @override
+    Widget build(BuildContext context) => AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 38, height: 22,
+      decoration: BoxDecoration(
+        color: value ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: AnimatedAlign(
+        duration: const Duration(milliseconds: 200),
+        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: 16, height: 16, margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)]),
+        ),
+      ),
     );
   }
-}
 
 class _ActiveFiltersSummary extends StatelessWidget {
   final _MarketplaceScreenState state;
