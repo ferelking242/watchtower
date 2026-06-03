@@ -1,8 +1,8 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
@@ -12,9 +12,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
-import 'package:watchtower/modules/browse/extension/extension_screen.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
-import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -195,42 +193,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     );
   }
 
-  void _activateAllSources(BuildContext context, ItemType type) {
-    isar.writeTxnSync(() {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final sources = isar.sources
-          .filter()
-          .itemTypeEqualTo(type)
-          .findAllSync();
-      for (final s in sources) {
-        isar.sources.putSync(s..isActive = true..updatedAt = now);
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      behavior: SnackBarBehavior.floating,
-      content: Text('Toutes les sources activées.'),
-      duration: Duration(seconds: 2),
-    ));
-  }
-
-  void _deactivateAllSources(BuildContext context, ItemType type) {
-    isar.writeTxnSync(() {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final sources = isar.sources
-          .filter()
-          .itemTypeEqualTo(type)
-          .findAllSync();
-      for (final s in sources) {
-        isar.sources.putSync(s..isActive = false..updatedAt = now);
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      behavior: SnackBarBehavior.floating,
-      content: Text('Toutes les sources désactivées.'),
-      duration: Duration(seconds: 2),
-    ));
-  }
-
   Future<void> _updateAllExtensions(BuildContext context, ItemType type) async {
     if (_bulkWorking) return;
     setState(() => _bulkWorking = true);
@@ -276,6 +238,41 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
   }
 
+  // ── Random source opener ────────────────────────────────────────────────────
+
+  void _openRandomSource(BuildContext context, ItemType type) {
+    final sources = isar.sources
+        .filter()
+        .itemTypeEqualTo(type)
+        .isAddedEqualTo(true)
+        .isActiveEqualTo(true)
+        .findAllSync()
+        .where((s) => !(s.name == 'local' && (s.lang?.isEmpty ?? true)))
+        .where((s) => s.sourceCode != null && s.sourceCode!.isNotEmpty)
+        .toList();
+    if (sources.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Aucune source active installée.'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    final src = sources[math.Random().nextInt(sources.length)];
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      content: Text('Ouverture de "${src.name}"…'),
+      duration: const Duration(seconds: 2),
+    ));
+    context.push('/mangaHome', extra: (src, false));
+  }
+
+  // ── Browse settings ────────────────────────────────────────────────────────
+
+  void _openBrowseSettings(BuildContext context, ItemType type) {
+    context.push('/sourceFilter', extra: type);
+  }
+
   // ── AppBar actions ─────────────────────────────────────────────────────────
 
   List<Widget> _appBarActions(BuildContext context) {
@@ -304,17 +301,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         onSelected: (action) => _handleSrcMenuAction(context, type, action),
         itemBuilder: (ctx) => [
           PopupMenuItem(
-            value: _SrcMenuAction.activateAll,
+            value: _SrcMenuAction.openRandomSource,
             child: _MenuRow(
-              icon: Icons.toggle_on_rounded,
-              label: 'Activer toutes les sources',
-            ),
-          ),
-          PopupMenuItem(
-            value: _SrcMenuAction.deactivateAll,
-            child: _MenuRow(
-              icon: Icons.toggle_off_rounded,
-              label: 'Désactiver toutes les sources',
+              icon: Icons.shuffle_rounded,
+              label: 'Source aléatoire',
             ),
           ),
           const PopupMenuDivider(),
@@ -323,6 +313,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             child: _MenuRow(
               icon: Icons.bug_report_rounded,
               label: 'Diagnostic',
+            ),
+          ),
+          PopupMenuItem(
+            value: _SrcMenuAction.browseSettings,
+            child: _MenuRow(
+              icon: Icons.tune_rounded,
+              label: 'Paramètres Browse',
             ),
           ),
         ],
@@ -334,12 +331,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   void _handleSrcMenuAction(
       BuildContext context, ItemType type, _SrcMenuAction action) {
     switch (action) {
-      case _SrcMenuAction.activateAll:
-        _activateAllSources(context, type);
-      case _SrcMenuAction.deactivateAll:
-        _deactivateAllSources(context, type);
+      case _SrcMenuAction.openRandomSource:
+        _openRandomSource(context, type);
       case _SrcMenuAction.diagnostic:
         _runDiagnostics(context, type);
+      case _SrcMenuAction.browseSettings:
+        _openBrowseSettings(context, type);
     }
   }
 
@@ -443,9 +440,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _SrcMenuAction {
-  activateAll,
-  deactivateAll,
+  openRandomSource,
   diagnostic,
+  browseSettings,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
