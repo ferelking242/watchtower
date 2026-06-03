@@ -180,7 +180,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
 
-  // ── Per-tab compat filter ─────────────────────────────────────────────────────
+  // ── Per-tab compat filter (legacy chips) ─────────────────────────────────────
   final Map<int, _CompatF> _compatF = {
     _kTabHome: _CompatF.all,
     _kTabManga: _CompatF.all,
@@ -189,6 +189,15 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     _kTabGames: _CompatF.all,
     _kTabMusic: _CompatF.all,
   };
+
+  // ── Play Store enhanced filter state ─────────────────────────────────────────
+  final Map<int, String?> _repoFilter = {};
+  final Map<int, String?> _langFilter = {};
+  final Map<int, SourceCodeLanguage?> _progLangFilter = {};
+  String _sortBy = 'alpha';
+  bool _installedOnly = false;
+  bool _withUpdatesOnly = false;
+  bool _showNsfw = true;
 
   // ── Account dropdown ─────────────────────────────────────────────────────────
   final _accountKey = GlobalKey();
@@ -258,14 +267,17 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   Future<List<_ExtEntry>> _fetch(String url) async {
-    final bust = '?t=${DateTime.now().millisecondsSinceEpoch}';
+    final bust = '?_=${DateTime.now().millisecondsSinceEpoch}';
     final bustUrl = url.contains('?') ? url : url + bust;
     final r = await http
-        .get(Uri.parse(bustUrl), headers: {
-          'Cache-Control': 'no-cache, no-store',
-          'Pragma': 'no-cache',
-        })
-        .timeout(const Duration(seconds: 25));
+        .get(Uri.parse(bustUrl))
+        .timeout(const Duration(seconds: 35));
+    if (r.statusCode != 200) {
+      throw Exception('HTTP ${r.statusCode} pour $url');
+    }
+    if (r.body.isEmpty) {
+      throw Exception('Réponse vide pour $url');
+    }
     final maps = r.bodyBytes.length > 80000
         ? await compute(_parseIndexIsolate, {'body': r.body, 'url': url})
         : _parseIndexIsolate({'body': r.body, 'url': url});
@@ -405,16 +417,23 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
   // ── Filter helpers ────────────────────────────────────────────────────────────
 
-  List<_ExtEntry> _forTab(int tab) {
-    List<_ExtEntry> list;
+  // ── Raw tab entries (no enhanced filters) ────────────────────────────────────
+  List<_ExtEntry> _forTabRaw(int tab) {
     switch (tab) {
-      case _kTabManga: list = _all.where((e) => e.contentType == ItemType.manga).toList(); break;
-      case _kTabAnime: list = _all.where((e) => e.contentType == ItemType.anime).toList(); break;
-      case _kTabNovel: list = _all.where((e) => e.contentType == ItemType.novel).toList(); break;
-      case _kTabGames: list = _all.where((e) => e.contentType == ItemType.game).toList(); break;
-      case _kTabMusic: list = _all.where((e) => e.contentType == ItemType.music).toList(); break;
+      case _kTabManga: return _all.where((e) => e.contentType == ItemType.manga).toList();
+      case _kTabAnime: return _all.where((e) => e.contentType == ItemType.anime).toList();
+      case _kTabNovel: return _all.where((e) => e.contentType == ItemType.novel).toList();
+      case _kTabGames: return _all.where((e) => e.contentType == ItemType.game).toList();
+      case _kTabMusic: return _all.where((e) => e.contentType == ItemType.music).toList();
       default: return _all;
     }
+  }
+
+  List<_ExtEntry> _forTab(int tab) {
+    List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
+    // 1. NSFW
+    if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
+    // 2. Legacy compat chips
     final cf = _compatF[tab] ?? _CompatF.all;
     if (cf != _CompatF.all) {
       final c = cf == _CompatF.mihon
@@ -423,6 +442,29 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ? SourceCodeLanguage.lnreader
               : SourceCodeLanguage.javascript;
       list = list.where((e) => e.compat == c).toList();
+    }
+    // 3. Repo filter
+    final repo = _repoFilter[tab];
+    if (repo != null) list = list.where((e) => e.repoUrl.contains(repo)).toList();
+    // 4. Language filter
+    final lang = _langFilter[tab];
+    if (lang != null) list = list.where((e) => e.lang == lang).toList();
+    // 5. Prog-lang filter
+    final prog = _progLangFilter[tab];
+    if (prog != null) list = list.where((e) => e.compat == prog).toList();
+    // 6. Advanced toggles
+    if (_installedOnly) list = list.where((e) => _installed.contains(e.id)).toList();
+    if (_withUpdatesOnly) list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
+    // 7. Sort
+    if (_sortBy == 'alpha') {
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } else if (_sortBy == 'installed') {
+      list.sort((a, b) {
+        final ai = _installed.contains(a.id) ? 0 : 1;
+        final bi = _installed.contains(b.id) ? 0 : 1;
+        if (ai != bi) return ai.compareTo(bi);
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
     }
     return list;
   }
@@ -494,6 +536,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    _showNsfw = ref.watch(showNSFWStateProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1074,6 +1117,225 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       ),
     );
   }
+
+  // ── Play Store filter strip (3 dropdowns + funnel) ───────────────────────────
+
+  static String _repoLabel(String url) {
+    if (url.contains('keiyoushi')) return 'Keiyoushi (Mihon)';
+    if (url.contains('aniyomi')) return 'Aniyomi';
+    if (url.contains('ferelking') || url.contains('watchtower-extensions')) {
+      if (url.contains('/manga/')) return 'Watchtower Manga';
+      if (url.contains('/watch/')) return 'Watchtower Watch';
+      if (url.contains('/novel/')) return 'Watchtower Novel';
+      if (url.contains('/music/')) return 'Watchtower Music';
+      if (url.contains('/game/')) return 'Watchtower Jeux';
+      return 'Watchtower';
+    }
+    final parts = url.split('/');
+    return parts.length >= 5 ? parts[4] : url;
+  }
+
+  static String _repoShortLabel(String url) {
+    if (url.contains('keiyoushi')) return 'Mihon';
+    if (url.contains('aniyomi')) return 'Aniyomi';
+    if (url.contains('ferelking') || url.contains('watchtower-extensions')) {
+      if (url.contains('/manga/')) return 'WT Manga';
+      if (url.contains('/watch/')) return 'WT Watch';
+      if (url.contains('/novel/')) return 'WT Novel';
+      if (url.contains('/music/')) return 'WT Music';
+      if (url.contains('/game/')) return 'WT Jeux';
+      return 'Watchtower';
+    }
+    final parts = url.split('/');
+    return parts.length >= 5 ? parts[4] : 'Repo';
+  }
+
+  int _activeFilterCount(int tab) {
+    int n = 0;
+    if (_repoFilter[tab] != null) n++;
+    if (_langFilter[tab] != null) n++;
+    if (_progLangFilter[tab] != null) n++;
+    if (_installedOnly) n++;
+    if (_withUpdatesOnly) n++;
+    if (_sortBy != 'alpha') n++;
+    return n;
+  }
+
+  Widget buildFilterStrip(int tab) {
+    final cs = Theme.of(context).colorScheme;
+    final raw = _forTabRaw(tab);
+    final repos = raw.map((e) => e.repoUrl).toSet().toList()..sort();
+    final langs = raw.map((e) => e.lang).toSet().toList()..sort();
+    final progLangs = raw.map((e) => e.compat).toSet().toList();
+
+    final nActive = _activeFilterCount(tab);
+
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  // Dépôt
+                  _FilterChipButton(
+                    label: _repoFilter[tab] != null
+                        ? _repoShortLabel(_repoFilter[tab]!)
+                        : 'Dépôt',
+                    active: _repoFilter[tab] != null,
+                    icon: Icons.folder_outlined,
+                    onTap: () => _showRepoMenu(tab, repos),
+                  ),
+                  const SizedBox(width: 7),
+                  // Langue
+                  _FilterChipButton(
+                    label: _langFilter[tab] != null
+                        ? _langCode(_langFilter[tab]!)
+                        : 'Langue',
+                    active: _langFilter[tab] != null,
+                    icon: Icons.language_outlined,
+                    onTap: () => _showLangMenu(tab, langs),
+                  ),
+                  const SizedBox(width: 7),
+                  // Langage de prog
+                  _FilterChipButton(
+                    label: _progLangFilter[tab] != null
+                        ? _compatLabel(_progLangFilter[tab]!)
+                        : 'Langage',
+                    active: _progLangFilter[tab] != null,
+                    icon: Icons.code_outlined,
+                    onTap: () => _showProgLangMenu(tab, progLangs),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Funnel icon — advanced
+          GestureDetector(
+            onTap: () => _showAdvancedFilterSheet(tab),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 38,
+              height: 34,
+              decoration: BoxDecoration(
+                color: nActive > 0 ? cs.primary : cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 18,
+                    color: nActive > 0 ? cs.onPrimary : cs.onSurfaceVariant,
+                  ),
+                  if (nActive > 0)
+                    Positioned(
+                      top: 3,
+                      right: 3,
+                      child: Container(
+                        width: 13,
+                        height: 13,
+                        decoration: BoxDecoration(
+                          color: cs.error,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$nActive',
+                            style: TextStyle(fontSize: 7.5, color: cs.onError, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRepoMenu(int tab, List<String> repos) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _SimplePickerSheet(
+        title: 'Dépôt',
+        allLabel: 'Tous les dépôts',
+        items: repos.map((r) => (r, _repoLabel(r))).toList(),
+        selected: _repoFilter[tab],
+        onPick: (v) { setState(() => _repoFilter[tab] = v); Navigator.pop(context); },
+      ),
+    );
+  }
+
+  void _showLangMenu(int tab, List<String> langs) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _SimplePickerSheet(
+        title: 'Langue',
+        allLabel: 'Toutes les langues',
+        items: langs.map((l) => (l, '${_langCode(l)} — $l')).toList(),
+        selected: _langFilter[tab],
+        onPick: (v) { setState(() => _langFilter[tab] = v); Navigator.pop(context); },
+      ),
+    );
+  }
+
+  void _showProgLangMenu(int tab, List<SourceCodeLanguage> progLangs) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _SimplePickerSheet(
+        title: 'Langage de programmation',
+        allLabel: 'Tous les langages',
+        items: progLangs.map((p) => (p.index.toString(), _compatLabel(p))).toList(),
+        selected: _progLangFilter[tab]?.index.toString(),
+        onPick: (v) {
+          setState(() => _progLangFilter[tab] = v == null ? null : SourceCodeLanguage.values[int.parse(v)]);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _showAdvancedFilterSheet(int tab) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _AdvancedFilterSheet(
+        state: this,
+        tab: tab,
+        onChanged: () => setState(() {}),
+      ),
+    );
+  }
+
+  void _clearFilters(int tab) {
+    setState(() {
+      _repoFilter.remove(tab);
+      _langFilter.remove(tab);
+      _progLangFilter.remove(tab);
+      _compatF[tab] = _CompatF.all;
+      _installedOnly = false;
+      _withUpdatesOnly = false;
+      _sortBy = 'alpha';
+    });
+  }
+
+  void markDirty() => setState(() {});
 }
 
 // ─── Home tab ──────────────────────────────────────────────────────────────────
@@ -1394,6 +1656,7 @@ class _TypeTab extends StatelessWidget {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: state.buildCompatFilter(cs, tab)),
+          SliverToBoxAdapter(child: state.buildFilterStrip(tab)),
           if (entries.isEmpty)
             SliverFillRemaining(
               child: Center(
@@ -1404,11 +1667,19 @@ class _TypeTab extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text('Réessayez plus tard ou vérifiez la connexion', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
                   const SizedBox(height: 20),
-                  TextButton.icon(
-                    onPressed: state._loadAll,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Actualiser'),
-                  ),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    TextButton.icon(
+                      onPressed: state._loadAll,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Actualiser'),
+                    ),
+                    const SizedBox(width: 10),
+                    TextButton.icon(
+                      onPressed: () => state._clearFilters(tab),
+                      icon: const Icon(Icons.filter_alt_off_rounded),
+                      label: const Text('Effacer filtres'),
+                    ),
+                  ]),
                 ]),
               ),
             )
@@ -1424,7 +1695,7 @@ class _TypeTab extends StatelessWidget {
                   onSettings: state._installed.contains(entries[i].id) ? () => state._openSettings(entries[i].id) : null,
                   onUninstall: state._installed.contains(entries[i].id) ? () => state._uninstall(entries[i]) : null,
                 ),
-                childCount: entries.length.clamp(0, 300),
+                childCount: entries.length.clamp(0, 500),
               ),
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -2740,6 +3011,435 @@ class _SearchCategoryTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Filter chip button (Play Store style) ─────────────────────────────────────
+
+class _FilterChipButton extends StatelessWidget {
+  final String label;
+  final bool active;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _FilterChipButton({
+    required this.label,
+    required this.active,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+        decoration: BoxDecoration(
+          color: active ? cs.primaryContainer : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: active ? cs.primary : cs.outline.withValues(alpha: 0.25),
+            width: active ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: active ? cs.primary : cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? cs.primary : cs.onSurface,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 16,
+              color: active ? cs.primary : cs.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Simple picker bottom sheet ────────────────────────────────────────────────
+
+class _SimplePickerSheet extends StatelessWidget {
+  final String title;
+  final String allLabel;
+  final List<(String, String)> items;  // (value, display)
+  final String? selected;
+  final void Function(String? value) onPick;
+  const _SimplePickerSheet({
+    required this.title,
+    required this.allLabel,
+    required this.items,
+    required this.selected,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, ctrl) => Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 36, height: 4,
+            decoration: BoxDecoration(color: cs.outline.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(4)),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(children: [
+              Icon(Icons.filter_list_rounded, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
+          Expanded(
+            child: ListView(
+              controller: ctrl,
+              children: [
+                // "All" option
+                _PickerTile(
+                  label: allLabel,
+                  selected: selected == null,
+                  onTap: () => onPick(null),
+                  cs: cs,
+                ),
+                ...items.map((item) => _PickerTile(
+                  label: item.$2,
+                  selected: selected == item.$1,
+                  onTap: () => onPick(item.$1),
+                  cs: cs,
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PickerTile extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  const _PickerTile({required this.label, required this.selected, required this.onTap, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          color: selected ? cs.primary : cs.onSurface,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: selected
+          ? Icon(Icons.check_rounded, size: 18, color: cs.primary)
+          : null,
+      tileColor: selected ? cs.primaryContainer.withValues(alpha: 0.3) : null,
+    );
+  }
+}
+
+// ─── Advanced filter bottom sheet ──────────────────────────────────────────────
+
+class _AdvancedFilterSheet extends StatefulWidget {
+  final _MarketplaceScreenState state;
+  final int tab;
+  final VoidCallback onChanged;
+  const _AdvancedFilterSheet({required this.state, required this.tab, required this.onChanged});
+
+  @override
+  State<_AdvancedFilterSheet> createState() => _AdvancedFilterSheetState();
+}
+
+class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
+  late String _sortBy;
+  late bool _installedOnly;
+  late bool _withUpdatesOnly;
+
+  @override
+  void initState() {
+    super.initState();
+    _sortBy = widget.state._sortBy;
+    _installedOnly = widget.state._installedOnly;
+    _withUpdatesOnly = widget.state._withUpdatesOnly;
+  }
+
+  void _apply() {
+    widget.state._sortBy = _sortBy;
+    widget.state._installedOnly = _installedOnly;
+    widget.state._withUpdatesOnly = _withUpdatesOnly;
+    widget.onChanged();
+  }
+
+  void _resetAll() {
+    setState(() {
+      _sortBy = 'alpha';
+      _installedOnly = false;
+      _withUpdatesOnly = false;
+    });
+    widget.state._clearFilters(widget.tab);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tab = widget.tab;
+    final state = widget.state;
+    final nActive = state._activeFilterCount(tab);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (_, ctrl) => Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 36, height: 4,
+            decoration: BoxDecoration(color: cs.outline.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(4)),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(children: [
+              Icon(Icons.tune_rounded, size: 20, color: cs.primary),
+              const SizedBox(width: 8),
+              Text('Filtres avancés', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
+              const Spacer(),
+              if (nActive > 0)
+                TextButton(
+                  onPressed: _resetAll,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    foregroundColor: cs.error,
+                  ),
+                  child: const Text('Tout effacer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+            ]),
+          ),
+          Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
+          Expanded(
+            child: ListView(
+              controller: ctrl,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              children: [
+                // ── Sort ──────────────────────────────────────────────────────
+                Text('Trier par', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                const SizedBox(height: 10),
+                _SortSection(
+                  sortBy: _sortBy,
+                  onChanged: (v) { setState(() => _sortBy = v); _apply(); },
+                  cs: cs,
+                ),
+                const SizedBox(height: 20),
+
+                // ── Show ──────────────────────────────────────────────────────
+                Text('Afficher', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                const SizedBox(height: 6),
+                _ToggleTile(
+                  icon: Icons.download_done_rounded,
+                  label: 'Installées uniquement',
+                  value: _installedOnly,
+                  onChanged: (v) { setState(() { _installedOnly = v; if (v) _withUpdatesOnly = false; }); _apply(); },
+                  cs: cs,
+                ),
+                const SizedBox(height: 4),
+                _ToggleTile(
+                  icon: Icons.system_update_alt_rounded,
+                  label: 'Avec mises à jour',
+                  value: _withUpdatesOnly,
+                  onChanged: (v) { setState(() { _withUpdatesOnly = v; if (v) _installedOnly = false; }); _apply(); },
+                  cs: cs,
+                ),
+                const SizedBox(height: 24),
+
+                // ── Active filters summary ────────────────────────────────────
+                if (nActive > 0) ...[
+                  Text('Filtres actifs', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                  const SizedBox(height: 8),
+                  _ActiveFiltersSummary(state: state, tab: tab, cs: cs, onClear: () {
+                    setState(() {});
+                    widget.onChanged();
+                  }),
+                  const SizedBox(height: 16),
+                ],
+
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.w700)),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SortSection extends StatelessWidget {
+  final String sortBy;
+  final ValueChanged<String> onChanged;
+  final ColorScheme cs;
+  const _SortSection({required this.sortBy, required this.onChanged, required this.cs});
+
+  static const _options = [
+    ('alpha', Icons.sort_by_alpha_rounded, 'Alphabétique'),
+    ('installed', Icons.download_done_rounded, 'Installées d\'abord'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _options.map((opt) {
+        final (val, icon, label) = opt;
+        final sel = sortBy == val;
+        return GestureDetector(
+          onTap: () => onChanged(val),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: sel ? cs.primary : cs.outline.withValues(alpha: 0.25), width: sel ? 1.5 : 1),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 14, color: sel ? cs.primary : cs.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: sel ? cs.primary : cs.onSurface)),
+            ]),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _ToggleTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final ColorScheme cs;
+  const _ToggleTile({required this.icon, required this.label, required this.value, required this.onChanged, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile.adaptive(
+      secondary: Icon(icon, size: 20, color: cs.primary),
+      title: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      value: value,
+      onChanged: onChanged,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      dense: true,
+    );
+  }
+}
+
+class _ActiveFiltersSummary extends StatelessWidget {
+  final _MarketplaceScreenState state;
+  final int tab;
+  final ColorScheme cs;
+  final VoidCallback onClear;
+  const _ActiveFiltersSummary({required this.state, required this.tab, required this.cs, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <(String, VoidCallback)>[];
+    final repo = state._repoFilter[tab];
+    if (repo != null) chips.add((_MarketplaceScreenState._repoShortLabel(repo), () {
+      state._repoFilter.remove(tab);
+      onClear();
+    }));
+    final lang = state._langFilter[tab];
+    if (lang != null) chips.add((_MarketplaceScreenState._langCode(lang), () {
+      state._langFilter.remove(tab);
+      onClear();
+    }));
+    final prog = state._progLangFilter[tab];
+    if (prog != null) chips.add((_MarketplaceScreenState._compatLabel(prog), () {
+      state._progLangFilter.remove(tab);
+      onClear();
+    }));
+    if (state._installedOnly) chips.add(('Installées', () {
+      state._installedOnly = false;
+      onClear();
+    }));
+    if (state._withUpdatesOnly) chips.add(('Avec Màj', () {
+      state._withUpdatesOnly = false;
+      onClear();
+    }));
+    if (state._sortBy != 'alpha') chips.add(('Tri: ${state._sortBy}', () {
+      state._sortBy = 'alpha';
+      onClear();
+    }));
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: chips.map((c) => GestureDetector(
+        onTap: c.$2,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: cs.errorContainer.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(c.$1, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: cs.onErrorContainer)),
+            const SizedBox(width: 4),
+            Icon(Icons.close_rounded, size: 13, color: cs.onErrorContainer),
+          ]),
+        ),
+      )).toList(),
     );
   }
 }
