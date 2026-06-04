@@ -59,33 +59,59 @@ jobs:
           echo "full=${VNAME}+${VCODE}" >> "$GITHUB_OUTPUT"
           echo "Bumped to ${VNAME}+${VCODE} (tag: ${TAG})"
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREV_TAG=$(git tag --sort=-creatordate 2>/dev/null | head -1)
-          if [ -z "$PREV_TAG" ]; then
-            COMMITS=$(git log --oneline -20 --no-merges 2>/dev/null || echo "Initial release")
-          else
-            COMMITS=$(git log --oneline "${PREV_TAG}..HEAD" --no-merges 2>/dev/null || git log --oneline -20 --no-merges)
-          fi
-          cat > /tmp/changelog.md << 'CHANGELOG_EOF'
-          ## 🚀 Watchtower ${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})
-
-          ### 📝 Changements récents
-          CHANGELOG_EOF
-          echo '```' >> /tmp/changelog.md
-          echo "$COMMITS" >> /tmp/changelog.md
-          echo '```' >> /tmp/changelog.md
-          cat >> /tmp/changelog.md << 'FOOTER_EOF'
-
-          ### 📱 Installation Android
-          1. Téléchargez le fichier APK ci-dessous
-          2. Ouvrez-le sur votre appareil Android
-          3. Activez **"Sources inconnues"** si demandé
-
-          > ⚠️ Cette build est en mode **Profile** (optimisée, avec outils de debug légers).
-          FOOTER_EOF
-          echo "file=/tmp/changelog.md" >> "$GITHUB_OUTPUT"
+      - name: Generate Mihon-style changelog
+          id: changelog
+          run: |
+            python3 - << 'PYEOF'
+            import subprocess, re, os
+            prev_tag = subprocess.getoutput("git tag --sort=-creatordate 2>/dev/null | head -1").strip()
+            if prev_tag:
+                raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" "' + prev_tag + '..HEAD" 2>/dev/null')
+            else:
+                raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" -40 2>/dev/null')
+            messages = [l.strip() for l in raw.strip().splitlines() if l.strip()]
+            feat, changes, improvements, fixes, removals = [], [], [], [], []
+            for msg in messages:
+                m = re.match(r'^(feat|fix|chore|refactor|perf|i18n|docs|style|test|build|ci|revert)(\([^)]+\))?!?:\s*(.*)', msg, re.IGNORECASE)
+                if m:
+                    typ = m.group(1).lower()
+                    desc = m.group(4).strip() if m.group(4) else msg
+                    label = '- ' + desc
+                    if typ == 'feat': feat.append(label)
+                    elif typ == 'fix': fixes.append(label)
+                    elif typ in ('chore','build','ci','style','test'): removals.append(label)
+                    elif typ in ('refactor','perf'): improvements.append(label)
+                    elif typ in ('i18n','docs'): changes.append(label)
+                    elif typ == 'revert': removals.append(label)
+                else:
+                    lo = msg.lower()
+                    if any(w in lo for w in ['feat','add ','new ','impl','redesign']): feat.append('- ' + msg)
+                    elif any(w in lo for w in ['fix','bug','patch','repair','resolve']): fixes.append('- ' + msg)
+                    elif any(w in lo for w in ['remove','delete','deprecat','drop']): removals.append('- ' + msg)
+                    elif any(w in lo for w in ['improve','optim','perf','refactor']): improvements.append('- ' + msg)
+                    else: changes.append('- ' + msg)
+            def dedup(lst):
+                seen = set()
+                return [x for x in lst if not (x in seen or seen.add(x))]
+            sections = []
+            feat = dedup(feat)[:20]
+            changes = dedup(changes)[:15]
+            improvements = dedup(improvements)[:15]
+            fixes = dedup(fixes)[:20]
+            removals = dedup(removals)[:10]
+            if feat: sections.append('## \u2728 Nouvelles fonctionnalités\n' + '\n'.join(feat))
+            if changes: sections.append('## \u2699\ufe0f Changements\n' + '\n'.join(changes))
+            if improvements: sections.append('## \U0001f680 Améliorations\n' + '\n'.join(improvements))
+            if fixes: sections.append('## \U0001f9e9 Corrections\n' + '\n'.join(fixes))
+            if removals: sections.append('## \U0001f9f9 Suppressions\n' + '\n'.join(removals))
+            if not sections: sections = ['## \u2699\ufe0f Changements\n- Maintenance et corrections internes']
+            footer = '\n\n---\n### \U0001f4f1 Installation Android\n1. Téléchargez le fichier APK ci-dessous\n2. Ouvrez-le sur votre appareil Android\n3. Activez \"Sources inconnues\" si demandé'
+            body = '\n\n'.join(sections) + footer
+            with open('/tmp/changelog.md', 'w') as f:
+                f.write(body)
+            print('Changelog OK')
+            PYEOF
+            echo "file=/tmp/changelog.md" >> "$GITHUB_OUTPUT"
 
       - name: Decode keystore from secret
         run: |

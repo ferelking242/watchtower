@@ -57,6 +57,7 @@ import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/utils/dev_seed.dart'
     if (dart.library.js_interop) 'package:watchtower/utils/dev_seed_stub.dart';
@@ -228,6 +229,9 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
       // immediately without user interaction.
       if (!needsOnboarding) {
         unawaited(BypassNotificationService.instance.init());
+        unawaited(WatchtowerNotificationService.instance.init());
+        unawaited(WatchtowerNotificationService.instance.scheduleWeeklyReminder());
+        unawaited(WatchtowerNotificationService.instance.checkForUpdateAndNotify());
       }
   }
 }
@@ -281,6 +285,11 @@ class _MyAppState extends ConsumerState<MyApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      if (!kIsWeb) {
+        unawaited(WatchtowerNotificationService.instance.checkForUpdateAndNotify());
+      }
+    }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       if (!kIsWeb && Platform.isLinux) {
