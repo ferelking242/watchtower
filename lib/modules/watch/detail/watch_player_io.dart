@@ -140,7 +140,10 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
   @override
   void dispose() {
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     super.dispose();
   }
 
@@ -264,12 +267,23 @@ class _InlineControls extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.picture_in_picture_alt_outlined,
                 color: Colors.white, size: 19),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => _FullscreenPlayerPage(controller: controller),
-              ),
-            ),
+            onPressed: () async {
+              const pipChannel = MethodChannel('com.watchtower.app.pip');
+              try {
+                await pipChannel.invokeMethod('enterPiP');
+              } catch (_) {
+                // Fallback: open fullscreen landscape
+                if (context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          _FullscreenPlayerPage(controller: controller),
+                    ),
+                  );
+                }
+              }
+            },
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
           ),
