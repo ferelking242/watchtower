@@ -384,7 +384,48 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
 
-  // ── Uninstall ─────────────────────────────────────────────────────────────────
+
+    // ── Silent core: no toasts, no setState ─────────────────────────────────
+    Future<void> _installOneCore(_ExtEntry entry) async {
+      final proxyServer = ref.read(androidProxyServerStateProvider);
+      final repo = Repo(
+        jsonUrl: entry.repoUrl,
+        name: _compatLabel(entry.compat),
+        website: '',
+      );
+      await fetchSourcesList(
+        id: entry.id,
+        repo: repo,
+        refresh: true,
+        androidProxyServer: proxyServer,
+        autoUpdateExtensions: true,
+        itemType: entry.contentType,
+      );
+    }
+
+    // ── Bulk install: parallel batches of 4, no toasts, single refresh ──────
+    Future<void> _installBulk({
+      required List<_ExtEntry> entries,
+      required void Function(int done, int total) onProgress,
+    }) async {
+      if (entries.isEmpty) return;
+      var done = 0;
+      const batchSize = 4;
+      for (int i = 0; i < entries.length; i += batchSize) {
+        if (!mounted) break;
+        final batch = entries.skip(i).take(batchSize).toList();
+        await Future.wait(batch.map((entry) async {
+          try {
+            await _installOneCore(entry);
+          } catch (_) {}
+          done++;
+          onProgress(done, entries.length);
+        }));
+      }
+      await _refreshInstalled();
+    }
+
+    // ── Uninstall ─────────────────────────────────────────────────────────────────
 
   Future<void> _uninstall(_ExtEntry entry) async {
     final source = _installedSources[entry.id];
@@ -3648,19 +3689,20 @@ class _IconChip extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          final toInstall = state._all.where((e) => !state._installed.contains(e.id)).toList();
-                          if (toInstall.isEmpty) {
-                            if (context.mounted) state._showToast(context, 'Tout est déjà installé ✓', icon: Icons.check_circle_rounded);
-                            return;
-                          }
-                          if (context.mounted) state._showToast(context, 'Installation de ${toInstall.length} extensions…', icon: Icons.download_rounded);
-                          for (final e in toInstall) {
-                            await state._install(e).catchError((_) {});
-                          }
-                          if (context.mounted) state._showToast(context, 'Toutes les extensions installées ✓', icon: Icons.check_circle_rounded);
-                        },
+                        onPressed: () {
+                            Navigator.pop(context);
+                            if (context.mounted) {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Theme.of(context).colorScheme.surface,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                ),
+                                builder: (_) => _BulkInstallSheet(state: state),
+                              );
+                            }
+                          },
                       ),
                     ),
                   ),
@@ -4830,7 +4872,259 @@ class _ActiveFiltersSummary extends StatelessWidget {
 
 // ─── Glass toast notification ─────────────────────────────────────────────────
 
-class _WTToast extends StatefulWidget {
+// ─── Bulk Install Sheet ──────────────────────────────────────────────────────
+
+  class _BulkInstallSheet extends StatefulWidget {
+    final _MarketplaceScreenState state;
+    const _BulkInstallSheet({required this.state});
+
+    @override
+    State<_BulkInstallSheet> createState() => _BulkInstallSheetState();
+  }
+
+  class _BulkInstallSheetState extends State<_BulkInstallSheet> {
+    final Set<String> _selLangs = {};
+    final Set<ItemType> _selTypes = {};
+    bool _running = false;
+    int _done = 0;
+    int _total = 0;
+
+    static const _typeItems = [
+      (ItemType.anime, Icons.live_tv_rounded, 'Watch'),
+      (ItemType.manga, Icons.auto_stories_rounded, 'Manga'),
+      (ItemType.novel, Icons.menu_book_rounded, 'Novel'),
+      (ItemType.music, Icons.music_note_rounded, 'Music'),
+      (ItemType.game, Icons.sports_esports_rounded, 'Games'),
+    ];
+
+    List<(String, int)> get _availLangs {
+      final counts = <String, int>{};
+      for (final e in widget.state._all) {
+        if (!widget.state._installed.contains(e.id)) {
+          counts[e.lang] = (counts[e.lang] ?? 0) + 1;
+        }
+      }
+      final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+      return sorted.map((e) => (e.key, e.value)).toList();
+    }
+
+    List<_ExtEntry> get _toInstall {
+      var list = widget.state._all
+          .where((e) => !widget.state._installed.contains(e.id))
+          .toList();
+      if (_selLangs.isNotEmpty) list = list.where((e) => _selLangs.contains(e.lang)).toList();
+      if (_selTypes.isNotEmpty) list = list.where((e) => _selTypes.contains(e.contentType)).toList();
+      return list;
+    }
+
+    Future<void> _start() async {
+      final entries = List<_ExtEntry>.from(_toInstall);
+      if (entries.isEmpty) return;
+      setState(() { _running = true; _done = 0; _total = entries.length; });
+      await widget.state._installBulk(
+        entries: entries,
+        onProgress: (done, total) {
+          if (mounted) setState(() { _done = done; _total = total; });
+        },
+      );
+      if (mounted) setState(() => _running = false);
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final toInstall = _toInstall;
+      final langs = _availLangs;
+
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        maxChildSize: 0.92,
+        builder: (_, ctrl) => Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 4),
+                decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.download_for_offline_rounded, size: 20, color: cs.primary),
+                    const SizedBox(width: 10),
+                    Text('Installer en masse', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
+                    const Spacer(),
+                    if (!_running)
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: cs.onSurfaceVariant, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                  ],
+                ),
+              ),
+              Divider(height: 16, color: cs.outline.withValues(alpha: 0.15)),
+              Expanded(
+                child: ListView(
+                  controller: ctrl,
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+                  children: [
+                    Text('Catégories', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _typeItems.map<Widget>(((ItemType, IconData, String) item) {
+                        final (type, icon, label) = item;
+                        final sel = _selTypes.contains(type);
+                        return GestureDetector(
+                          onTap: _running ? null : () => setState(() {
+                            sel ? _selTypes.remove(type) : _selTypes.add(type);
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 140),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: sel ? cs.primary : cs.outlineVariant, width: sel ? 1.5 : 1),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(icon, size: 13, color: sel ? cs.primary : cs.onSurfaceVariant),
+                              const SizedBox(width: 5),
+                              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: sel ? cs.primary : cs.onSurface)),
+                            ]),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Text('Langue', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                        const SizedBox(width: 8),
+                        Text(
+                          _selLangs.isEmpty ? '(toutes)' : '(${_selLangs.length} sélectionnées)',
+                          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: langs.take(40).map<Widget>(((String, int) item) {
+                        final (lang, count) = item;
+                        final sel = _selLangs.contains(lang);
+                        final code = _MarketplaceScreenState._langCode(lang);
+                        return GestureDetector(
+                          onTap: _running ? null : () => setState(() {
+                            sel ? _selLangs.remove(lang) : _selLangs.add(lang);
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 140),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: sel ? cs.primary : cs.outlineVariant, width: sel ? 1.5 : 1),
+                            ),
+                            child: Text(
+                              '${code} (${count})',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: sel ? cs.primary : cs.onSurface),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer.withValues(alpha: 0.30),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, size: 16, color: cs.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${toInstall.length} extension${toInstall.length > 1 ? "s" : ""} à installer',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_running) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _total > 0 ? _done / _total : null,
+                          minHeight: 6,
+                          backgroundColor: cs.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          '$_done / $_total installées',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: _running
+                          ? OutlinedButton.icon(
+                              icon: const SizedBox(
+                                width: 14, height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              label: Text('Installation… $_done/$_total'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: null,
+                            )
+                          : FilledButton.icon(
+                              icon: const Icon(Icons.download_for_offline_rounded, size: 18),
+                              label: Text(
+                                toInstall.isEmpty
+                                    ? 'Rien à installer'
+                                    : 'Installer ${toInstall.length} extension${toInstall.length > 1 ? "s" : ""}',
+                              ),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: toInstall.isEmpty ? null : _start,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  class _WTToast extends StatefulWidget {
   final String message;
   final bool isError;
   final IconData? icon;
