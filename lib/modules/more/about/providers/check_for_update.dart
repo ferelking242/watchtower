@@ -46,6 +46,10 @@ Future<void> checkForUpdate(
   }
 
   if (compareVersions(info.version, updateAvailable.$1) < 0) {
+    // If user skipped this version and this is an automatic (non-manual) check, skip.
+    if (!manualUpdate && _skippedVersion != null && _skippedVersion == updateAvailable.$1) {
+      return;
+    }
     if (manualUpdate) {
       botToast(l10n.new_update_available);
       await Future.delayed(const Duration(seconds: 1));
@@ -68,6 +72,18 @@ Future<void> checkForUpdate(
 @riverpod
 bool checkForAppUpdates(Ref ref) {
   return isar.settings.getSync(227)?.checkForAppUpdates ?? true;
+}
+
+// ── Skipped version ──────────────────────────────────────────────────────────
+//
+// When the user taps "Ignorer cette version" in the update dialog the version
+// string is stored here. Automatic background checks will skip that version.
+// Manual checks (from About page) always show the dialog regardless.
+String? _skippedVersion;
+
+/// Called by the update dialog when the user taps "Ignorer cette version".
+void skipAppUpdate(String version) {
+  _skippedVersion = version;
 }
 
 // ── Caching ──────────────────────────────────────────────────────────────────

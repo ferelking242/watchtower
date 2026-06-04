@@ -14,6 +14,8 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
+    show skipAppUpdate;
 
 class DownloadFileScreen extends ConsumerStatefulWidget {
   final (String, String, String, List<dynamic>) updateAvailable;
@@ -374,118 +376,139 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     bool isDark,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextButton(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(
-                    color: colorScheme.outline.withOpacity(0.3),
-                  ),
-                ),
-              ),
-              onPressed: () async {
-                try {
-                  await _subscription?.cancel();
-                } catch (_) {}
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-              },
-              child: Text(
-                l10n.cancel,
-                style: TextStyle(
-                  color: colorScheme.onSurface.withOpacity(0.7),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: AnimatedBuilder(
-              animation: _glowAnim,
-              builder: (context, child) {
-                return Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: _total == 0
-                        ? [
-                            BoxShadow(
-                              color: colorScheme.primary
-                                  .withOpacity(0.35 * _glowAnim.value),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : [],
-                    gradient: _total == 0
-                        ? LinearGradient(
-                            colors: [
-                              colorScheme.primary,
-                              colorScheme.tertiary,
-                            ],
-                          )
-                        : null,
-                    color: _total == 0 ? null : colorScheme.surfaceVariant,
-                  ),
-                  child: child,
-                );
-              },
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: _total == 0
-                    ? () async {
-                        if (!kIsWeb && Platform.isAndroid) {
-                          final deviceInfo = DeviceInfoPlugin();
-                          final androidInfo = await deviceInfo.androidInfo;
-                          String apkUrl = "";
-                          for (String abi in androidInfo.supportedAbis) {
-                            final url = updateAvailable.$4.firstWhereOrNull(
-                              (apk) => (apk as String).contains(abi),
-                            );
-                            if (url != null) {
-                              apkUrl = url;
-                              break;
-                            }
-                          }
-                          await _downloadApk(apkUrl);
-                        } else {
-                          _launchInBrowser(Uri.parse(updateAvailable.$3));
-                        }
-                      }
-                    : null,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.download_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.download,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(
+                        color: colorScheme.outline.withOpacity(0.3),
                       ),
                     ),
-                  ],
+                  ),
+                  onPressed: () async {
+                    try {
+                      await _subscription?.cancel();
+                    } catch (_) {}
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: Text(
+                    l10n.cancel,
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: AnimatedBuilder(
+                  animation: _glowAnim,
+                  builder: (context, child) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: _total == 0
+                            ? [
+                                BoxShadow(
+                                  color: colorScheme.primary
+                                      .withOpacity(0.35 * _glowAnim.value),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : [],
+                        gradient: _total == 0
+                            ? LinearGradient(
+                                colors: [
+                                  colorScheme.primary,
+                                  colorScheme.tertiary,
+                                ],
+                              )
+                            : null,
+                        color: _total == 0 ? null : colorScheme.surfaceVariant,
+                      ),
+                      child: child,
+                    );
+                  },
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: _total == 0
+                        ? () async {
+                            if (!kIsWeb && Platform.isAndroid) {
+                              final deviceInfo = DeviceInfoPlugin();
+                              final androidInfo = await deviceInfo.androidInfo;
+                              String apkUrl = "";
+                              for (String abi in androidInfo.supportedAbis) {
+                                final url = updateAvailable.$4.firstWhereOrNull(
+                                  (apk) => (apk as String).contains(abi),
+                                );
+                                if (url != null) {
+                                  apkUrl = url;
+                                  break;
+                                }
+                              }
+                              await _downloadApk(apkUrl);
+                            } else {
+                              _launchInBrowser(Uri.parse(updateAvailable.$3));
+                            }
+                          }
+                        : null,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.download_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          l10n.download,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () {
+              skipAppUpdate(updateAvailable.$1);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: Text(
+              'Ignorer cette version',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurface.withOpacity(0.35),
+                decoration: TextDecoration.underline,
+                decorationColor: colorScheme.onSurface.withOpacity(0.20),
               ),
             ),
           ),

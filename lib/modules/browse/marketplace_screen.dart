@@ -801,7 +801,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           color: sel ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text('\${rawCounts[i]}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                        child: Text('${rawCounts[i]}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
                           color: sel ? const Color(0xFFE0E7FF) : const Color(0xFFA1A1AA))),
                       ),
                     ]),
@@ -952,7 +952,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     const Icon(Icons.language_outlined, size: 14, color: Color(0xFF71717A)),
                     const SizedBox(width: 8),
                     Expanded(child: Text(
-                      _globalLangFilter != null ? '\${_MarketplaceScreenState._langFlag(_globalLangFilter!)} \${_MarketplaceScreenState._langDisplayName(_globalLangFilter!)}' : 'Langue',
+                      _globalLangFilter != null ? '${_MarketplaceScreenState._langFlag(_globalLangFilter!)} ${_MarketplaceScreenState._langDisplayName(_globalLangFilter!)}' : 'Langue',
                       style: TextStyle(fontSize: 12, color: _globalLangFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
                       overflow: TextOverflow.ellipsis,
                     )),
@@ -979,7 +979,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 child: Container(
                   width: 14, height: 14,
                   decoration: const BoxDecoration(color: Color(0xFF4F46E5), shape: BoxShape.circle),
-                  child: Center(child: Text('\$activeCount', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
+                  child: Center(child: Text('$activeCount', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
                 )),
             ]),
           ]),
@@ -1908,16 +1908,34 @@ class _MassInstallCardState extends State<_MassInstallCard> {
 
 // ─── Type tab (Manga / Anime / Novel / Jeux) ───────────────────────────────────
 
-class _TypeTab extends StatelessWidget {
+class _TypeTab extends StatefulWidget {
   final _MarketplaceScreenState state;
   final int tab;
   const _TypeTab({required this.state, required this.tab});
 
   @override
+  State<_TypeTab> createState() => _TypeTabState();
+}
+
+class _TypeTabState extends State<_TypeTab> {
+  bool _updatesExpanded = true;
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final state = widget.state;
+    final tab = widget.tab;
     if (state._loading) return _MarketplaceSkeleton(cs: cs);
     final entries = state._forTab(tab);
+
+    final updatableEntries = tab != _kTabPlugin
+        ? entries
+            .where((e) =>
+                state._installed.contains(e.id) &&
+                state._hasUpdate(e.id, e.version))
+            .toList()
+        : <_ExtEntry>[];
+
     return RefreshIndicator(
       onRefresh: state._loadAll,
       child: CustomScrollView(
@@ -1979,6 +1997,19 @@ class _TypeTab extends StatelessWidget {
                 ]),
               ),
             ),
+
+            // ── Updates-first collapsible banner ──────────────────────────────
+            if (updatableEntries.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _UpdatesSection(
+                  entries: updatableEntries,
+                  state: state,
+                  expanded: _updatesExpanded,
+                  onToggle: () => setState(() => _updatesExpanded = !_updatesExpanded),
+                  cs: cs,
+                ),
+              ),
+
             if (tab == _kTabPlugin)
               SliverFillRemaining(
                 child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -2008,6 +2039,235 @@ class _TypeTab extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
+    );
+  }
+}
+
+// ─── Collapsible updates section ───────────────────────────────────────────────
+
+class _UpdatesSection extends StatelessWidget {
+  final List<_ExtEntry> entries;
+  final _MarketplaceScreenState state;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final ColorScheme cs;
+
+  const _UpdatesSection({
+    required this.entries,
+    required this.state,
+    required this.expanded,
+    required this.onToggle,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final anyBusy = entries.any((e) => state._busy[e.id] == true);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF7C3AED).withValues(alpha: 0.14),
+            const Color(0xFF4F46E5).withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.30)),
+      ),
+      child: Column(
+        children: [
+          // ── Header row ────────────────────────────────────────────────────
+          InkWell(
+            onTap: onToggle,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
+                  ),
+                  child: const Icon(Icons.system_update_alt_rounded,
+                      color: Color(0xFFA78BFA), size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Text('Mises à jour',
+                          style: TextStyle(fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFE4E4E7))),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7C3AED),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text('${entries.length}',
+                            style: const TextStyle(fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
+                      ),
+                    ]),
+                    Text(
+                      '${entries.length} extension${entries.length == 1 ? "" : "s"} à mettre à jour',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                    ),
+                  ]),
+                ),
+                if (!anyBusy)
+                  GestureDetector(
+                    onTap: () async {
+                      for (final e in entries) {
+                        await state._install(e);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('Tout màj',
+                          style: TextStyle(fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Color(0xFFA78BFA))),
+                const SizedBox(width: 8),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: Color(0xFF71717A), size: 20),
+                ),
+              ]),
+            ),
+          ),
+          // ── Expanded list ─────────────────────────────────────────────────
+          AnimatedCrossFade(
+            firstChild: const SizedBox(height: 0, width: double.infinity),
+            secondChild: Column(
+              children: [
+                Divider(height: 1,
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.20)),
+                ...entries.map((e) =>
+                    _UpdateRow(entry: e, state: state, cs: cs)),
+                const SizedBox(height: 4),
+              ],
+            ),
+            crossFadeState:
+                expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 220),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Single update row inside the banner ───────────────────────────────────────
+
+class _UpdateRow extends StatelessWidget {
+  final _ExtEntry entry;
+  final _MarketplaceScreenState state;
+  final ColorScheme cs;
+  const _UpdateRow({required this.entry, required this.state, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = state._busy[entry.id] == true;
+    final installedV = state._installedVersions[entry.id] ?? '?';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      child: Row(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: entry.iconUrl != null
+              ? Image.network(
+                  entry.iconUrl!,
+                  width: 38, height: 38, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(
+                      color: _MarketplaceScreenState._typeColor(entry.contentType)
+                          .withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      _MarketplaceScreenState._typeIcon(entry.contentType),
+                      color: _MarketplaceScreenState._typeColor(entry.contentType),
+                      size: 18,
+                    ),
+                  ),
+                )
+              : Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: _MarketplaceScreenState._typeColor(entry.contentType)
+                        .withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    _MarketplaceScreenState._typeIcon(entry.contentType),
+                    color: _MarketplaceScreenState._typeColor(entry.contentType),
+                    size: 18,
+                  ),
+                ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(entry.name,
+                style: const TextStyle(fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFE4E4E7))),
+            Row(children: [
+              Text(installedV,
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF71717A))),
+              const Text(' → ',
+                  style: TextStyle(fontSize: 10, color: Color(0xFF71717A))),
+              Text(entry.version,
+                  style: const TextStyle(fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFA78BFA))),
+            ]),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        busy
+            ? const SizedBox(
+                width: 24, height: 24,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Color(0xFFA78BFA)))
+            : GestureDetector(
+                onTap: () => state._install(entry),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.40)),
+                  ),
+                  child: const Text('Màj',
+                      style: TextStyle(fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFA78BFA))),
+                ),
+              ),
+      ]),
     );
   }
 }

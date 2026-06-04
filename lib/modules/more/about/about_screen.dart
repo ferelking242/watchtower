@@ -222,6 +222,43 @@ class AboutScreen extends ConsumerWidget {
                                   ref.invalidate(checkForAppUpdatesProvider);
                                 },
                               ),
+                              const Divider(height: 1, indent: 14),
+                              ListTile(
+                                contentPadding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+                                dense: true,
+                                leading: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.system_update_alt_rounded,
+                                      color: cs.primary, size: 16),
+                                ),
+                                title: Text(
+                                  'Vérifier maintenant',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Rechercher la dernière version disponible',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: cs.onSurface.withOpacity(0.5),
+                                  ),
+                                ),
+                                trailing: Icon(Icons.chevron_right_rounded,
+                                    size: 16, color: cs.onSurface.withOpacity(0.3)),
+                                onTap: () => ref.read(
+                                  checkForUpdateProvider(
+                                    context: context,
+                                    manualUpdate: true,
+                                  ).future,
+                                ),
+                              ),
                             ],
                           ),
                         ),
