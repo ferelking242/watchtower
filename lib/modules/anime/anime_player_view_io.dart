@@ -2012,7 +2012,10 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                 _setLandscapeMode(false);
                 ref.read(fullscreenProvider.notifier).state = false;
                 widget.desktopFullScreenPlayer.call(false);
-                if (mounted) Navigator.of(context).pop();
+                SystemChrome.setEnabledSystemUIMode(
+                  SystemUiMode.manual,
+                  overlays: SystemUiOverlay.values,
+                );
               } else {
                 _setLandscapeMode(true);
                 ref.read(fullscreenProvider.notifier).state = true;
