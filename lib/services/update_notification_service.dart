@@ -7,10 +7,12 @@ import 'dart:async';
   import 'package:http/http.dart' as http;
   import 'package:package_info_plus/package_info_plus.dart';
   import 'package:url_launcher/url_launcher.dart';
+  import 'package:watchtower/services/silent_installer_service.dart';
   import 'package:watchtower/utils/log/logger.dart';
 
   const int _kUpdateNotifId = 9910;
   const int _kReminderNotifId = 9911;
+  const int _kProgressNotifId = 9912;
 
   const String _kUpdateChannelId = 'watchtower_updates';
   const String _kUpdateChannelName = 'Mises à jour';
@@ -100,19 +102,76 @@ import 'dart:async';
     }
 
     void _handleAction(NotificationResponse response) {
-      final actionId = response.actionId;
-      if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
-        launchUrl(
-          Uri.parse(_pendingDownloadUrl!),
-          mode: LaunchMode.externalApplication,
+        final actionId = response.actionId;
+        if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
+          _downloadOrOpen(_pendingDownloadUrl!);
+        } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
+          launchUrl(
+            Uri.parse(_pendingReleaseUrl!),
+            mode: LaunchMode.externalApplication,
+          );
+        }
+      }
+
+      Future<void> _downloadOrOpen(String url) async {
+        if (!_supported) return;
+        try {
+          final status = await SilentInstallerService.instance.checkStatus();
+          if (status == SilentInstallStatus.active) {
+            await _showProgressNotif();
+            await SilentInstallerService.instance.downloadAndInstall(
+              url,
+              onProgress: _updateProgressNotif,
+            );
+            await _plugin.cancel(_kProgressNotifId);
+          } else {
+            await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+          }
+        } catch (_) {
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        }
+      }
+
+      Future<void> _showProgressNotif() async {
+        if (!_initialized) await init();
+        const details = AndroidNotificationDetails(
+          _kUpdateChannelId,
+          _kUpdateChannelName,
+          channelDescription: 'Notifications de mise à jour de Watchtower',
+          importance: Importance.low,
+          priority: Priority.low,
+          showProgress: true,
+          maxProgress: 100,
+          progress: 0,
+          onlyAlertOnce: true,
         );
-      } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
-        launchUrl(
-          Uri.parse(_pendingReleaseUrl!),
-          mode: LaunchMode.externalApplication,
+        await _plugin.show(
+          _kProgressNotifId,
+          'Téléchargement de la mise à jour…',
+          '0 %',
+          const NotificationDetails(android: details),
         );
       }
-    }
+
+      Future<void> _updateProgressNotif(double progress) async {
+        final pct = (progress * 100).round();
+        final details = AndroidNotificationDetails(
+          _kUpdateChannelId,
+          _kUpdateChannelName,
+          importance: Importance.low,
+          priority: Priority.low,
+          showProgress: true,
+          maxProgress: 100,
+          progress: pct,
+          onlyAlertOnce: true,
+        );
+        await _plugin.show(
+          _kProgressNotifId,
+          'Téléchargement de la mise à jour…',
+          '$pct %',
+          NotificationDetails(android: details),
+        );
+      }
 
     /// Notification "Mise à jour disponible !" style Mihon.
     /// Affiche les boutons [Télécharger] et [Quoi de neuf].

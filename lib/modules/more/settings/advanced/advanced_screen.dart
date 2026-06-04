@@ -20,6 +20,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/services/silent_installer_service.dart';
 
 // ─── Hive-backed Advanced Settings helpers ────────────────────────────────────
 
@@ -96,6 +97,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   bool _logTagMaint = true;
 
   bool _loading = true;
+  SilentInstallStatus _silentStatus = SilentInstallStatus.unknown;
 
   @override
   void initState() {
@@ -103,10 +105,16 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     _loadPrefs();
     _loadRemoteBypass();
     _loadCacheSizes();
+    _loadSilentInstallStatus();
   }
 
-  @override
-  void dispose() {
+  Future<void> _loadSilentInstallStatus() async {
+      final s = await SilentInstallerService.instance.checkStatus();
+      if (mounted) setState(() => _silentStatus = s);
+    }
+
+    @override
+    void dispose() {
     _rbUrlCtrl.dispose();
     _rbKeyCtrl.dispose();
     _rbTimeoutCtrl.dispose();
@@ -630,7 +638,14 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       appBar: AppBar(title: const Text("Avancé")),
       body: ListView(
         children: [
-          // ── Section : Avancé ────────────────────────────────────────────
+          // ── Section : Installation automatique ─────────────────────────
+            if (!kIsWeb && Platform.isAndroid) ...[
+              _sectionHeader("Installation automatique"),
+              _SilentInstallTile(status: _silentStatus, onChanged: () {
+                _loadSilentInstallStatus();
+              }),
+            ],
+            // ── Section : Avancé ────────────────────────────────────────────
           _sectionHeader("Avancé"),
           _toggle(
             title: "Partager les rapports de plantage",
@@ -1395,3 +1410,68 @@ class _LogAdvancedSection extends ConsumerWidget {
     );
   }
 }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Silent-install setup tile (shown in Advanced settings)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class _SilentInstallTile extends StatefulWidget {
+    const _SilentInstallTile({required this.status, required this.onChanged});
+    final SilentInstallStatus status;
+    final VoidCallback onChanged;
+
+    @override
+    State<_SilentInstallTile> createState() => _SilentInstallTileState();
+  }
+
+  class _SilentInstallTileState extends State<_SilentInstallTile> {
+    bool _busy = false;
+
+    String get _subtitle {
+      switch (widget.status) {
+        case SilentInstallStatus.active:
+          return "Actif — les mises à jour s'installent automatiquement sans confirmation.";
+        case SilentInstallStatus.shizukuRequired:
+          return "Shizuku est nécessaire pour une configuration initiale unique. Appuyez pour configurer.";
+        case SilentInstallStatus.shizukuNotRunning:
+          return "Shizuku n'est pas démarré. Ouvrez Shizuku puis revenez ici.";
+        case SilentInstallStatus.unknown:
+        default:
+          return "Vérification…";
+      }
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return ListTile(
+        leading: Icon(
+          widget.status == SilentInstallStatus.active
+              ? Icons.check_circle_rounded
+              : Icons.system_update_alt_rounded,
+          color: widget.status == SilentInstallStatus.active
+              ? Colors.green
+              : Theme.of(context).colorScheme.secondary,
+        ),
+        title: const Text("Mises à jour silencieuses"),
+        subtitle: Text(_subtitle),
+        trailing: _busy
+            ? const SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : (widget.status == SilentInstallStatus.active
+                ? null
+                : const Icon(Icons.chevron_right)),
+        onTap: widget.status == SilentInstallStatus.active || _busy
+            ? null
+            : () async {
+                setState(() => _busy = true);
+                try {
+                  await SilentInstallerService.instance.setupWithShizuku(context);
+                } finally {
+                  if (mounted) setState(() => _busy = false);
+                  widget.onChanged();
+                }
+              },
+      );
+    }
+  }
+  

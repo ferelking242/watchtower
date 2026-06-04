@@ -5,6 +5,7 @@ allprojects {
         // (only proxies Maven Central artifacts, Flutter artifacts still come from google())
         maven { url "https://cache-redirector.jetbrains.com/maven-central" }
         mavenCentral()
+        maven { url "https://jitpack.io" }
     }
 }
 
