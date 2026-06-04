@@ -26,8 +26,7 @@ Future<dynamic> updateMangaDetail(
     // loadSync() so .isNotEmpty is reliable (IsarLinks are lazy by default).
     manga.chapters.loadSync();
 
-    if ((manga.isLocalArchive ?? false) ||
-        (manga.chapters.isNotEmpty && isInit)) {
+    if (manga.isLocalArchive ?? false) {
       return;
     }
     final source = getSource(
