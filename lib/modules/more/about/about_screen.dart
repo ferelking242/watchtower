@@ -12,8 +12,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
 import 'package:watchtower/modules/more/about/providers/check_zeus_update.dart';
+import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
+import 'package:watchtower/services/fetch_sources_list.dart' show compareVersions;
 import 'package:watchtower/modules/more/about/providers/get_package_info.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
@@ -33,11 +36,18 @@ const String _zeusReleasesUrl =
 String? _zeusInstalledVersion;
 bool _zeusInstalledIsNightly = false;
 
-class AboutScreen extends ConsumerWidget {
+class AboutScreen extends ConsumerStatefulWidget {
   const AboutScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends ConsumerState<AboutScreen> {
+  bool _isCheckingUpdate = false;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     final checkForUpdates = ref.watch(checkForAppUpdatesProvider);
     final enableLogs = ref.watch(logsStateProvider);
@@ -250,14 +260,45 @@ class AboutScreen extends ConsumerWidget {
                                     color: cs.onSurface.withOpacity(0.5),
                                   ),
                                 ),
-                                trailing: Icon(Icons.chevron_right_rounded,
-                                    size: 16, color: cs.onSurface.withOpacity(0.3)),
-                                onTap: () => ref.read(
-                                  checkForUpdateProvider(
-                                    context: context,
-                                    manualUpdate: true,
-                                  ).future,
-                                ),
+                                trailing: _isCheckingUpdate
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: cs.primary,
+                                        ),
+                                      )
+                                    : Icon(Icons.chevron_right_rounded,
+                                        size: 16, color: cs.onSurface.withOpacity(0.3)),
+                                onTap: _isCheckingUpdate
+                                    ? null
+                                    : () async {
+                                        setState(() => _isCheckingUpdate = true);
+                                        botToast(l10n.searching_for_updates);
+                                        try {
+                                          final info = await PackageInfo.fromPlatform();
+                                          final result = await checkLatestRelease(forceRefresh: true);
+                                          if (result.$1 == '0.0.0' || result.$1.isEmpty) {
+                                            if (mounted) botToast(l10n.no_new_updates_available);
+                                          } else if (compareVersions(info.version, result.$1) < 0) {
+                                            if (mounted) botToast(l10n.new_update_available);
+                                            await Future.delayed(const Duration(seconds: 1));
+                                            if (mounted) {
+                                              showDialog(
+                                                context: context,
+                                                builder: (_) => DownloadFileScreen(updateAvailable: result),
+                                              );
+                                            }
+                                          } else {
+                                            if (mounted) botToast(l10n.no_new_updates_available);
+                                          }
+                                        } catch (_) {
+                                          if (mounted) botToast(l10n.no_new_updates_available);
+                                        } finally {
+                                          if (mounted) setState(() => _isCheckingUpdate = false);
+                                        }
+                                      },
                               ),
                             ],
                           ),

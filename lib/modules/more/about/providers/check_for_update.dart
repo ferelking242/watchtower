@@ -35,7 +35,7 @@ Future<void> checkForUpdate(
   }
   // Manual update bypasses the cache so the user always gets the freshest
   // answer; automatic background checks honour the cache to avoid spam.
-  final updateAvailable = await _checkUpdate(forceRefresh: manualUpdate);
+  final updateAvailable = await checkLatestRelease(forceRefresh: manualUpdate);
 
   // Sentinel '0.0.0' = no releases found or error → treat as up to date
   if (updateAvailable.$1 == '0.0.0' || updateAvailable.$1.isEmpty) {
@@ -97,7 +97,7 @@ const Duration _appUpdateCacheTtl = Duration(minutes: 5);
 DateTime? _appUpdateCachedAt;
 Future<(String, String, String, List<dynamic>)>? _appUpdateInflight;
 
-Future<(String, String, String, List<dynamic>)> _checkUpdate({
+Future<(String, String, String, List<dynamic>)> checkLatestRelease({
   bool forceRefresh = false,
 }) async {
   final now = DateTime.now();
