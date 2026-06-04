@@ -294,10 +294,21 @@ package com.watchtower.app
 
       private fun grantViaShizuku(result: MethodChannel.Result) {
           if (!shizukuHasPerm()) { result.error("NO_SHIZUKU", "Shizuku not authorized", null); return }
-          try {
-              val proc = Shizuku.newProcess(
+              // newProcess() is public in Shizuku source but Kotlin sees it as
+              // restricted in the v13 AAR; call via reflection to bypass visibility.
+              val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
+              val newProcessMethod = shizukuClass.getMethod(
+                  "newProcess",
+                  Array<String>::class.java,
+                  Array<String>::class.java,
+                  String::class.java
+              )
+              val proc = newProcessMethod.invoke(
+                  null,
                   arrayOf("pm", "grant", packageName, "android.permission.INSTALL_PACKAGES"),
-                  null, null
+                  null as Array<String>?,
+                  null as String?
+              ) as Process
               )
               val exit = proc.waitFor()
               if (exit == 0) result.success(true)
