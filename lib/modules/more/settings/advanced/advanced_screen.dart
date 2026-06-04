@@ -641,8 +641,12 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           // ── Section : Installation automatique ─────────────────────────
             if (!kIsWeb && Platform.isAndroid) ...[
               _sectionHeader("Installation automatique"),
-              _SilentInstallTile(status: _silentStatus, onChanged: () {
-                _loadSilentInstallStatus();
+              _SilentInstallTile(status: _silentStatus, onChanged: (success) {
+                if (success) {
+                  setState(() => _silentStatus = SilentInstallStatus.active);
+                } else {
+                  _loadSilentInstallStatus();
+                }
               }),
             ],
             // ── Section : Avancé ────────────────────────────────────────────
@@ -1418,7 +1422,7 @@ class _LogAdvancedSection extends ConsumerWidget {
   class _SilentInstallTile extends StatefulWidget {
     const _SilentInstallTile({required this.status, required this.onChanged});
     final SilentInstallStatus status;
-    final VoidCallback onChanged;
+    final ValueChanged<bool> onChanged;
 
     @override
     State<_SilentInstallTile> createState() => _SilentInstallTileState();
@@ -1464,11 +1468,12 @@ class _LogAdvancedSection extends ConsumerWidget {
             ? null
             : () async {
                 setState(() => _busy = true);
+                bool success = false;
                 try {
-                  await SilentInstallerService.instance.setupWithShizuku(context);
+                  success = await SilentInstallerService.instance.setupWithShizuku(context);
                 } finally {
                   if (mounted) setState(() => _busy = false);
-                  widget.onChanged();
+                  widget.onChanged(success);
                 }
               },
       );

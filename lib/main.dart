@@ -229,9 +229,10 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
       // immediately without user interaction.
       if (!needsOnboarding) {
         unawaited(BypassNotificationService.instance.init());
-        unawaited(WatchtowerNotificationService.instance.init());
-        unawaited(WatchtowerNotificationService.instance.scheduleWeeklyReminder());
-        unawaited(WatchtowerNotificationService.instance.checkForUpdateAndNotify());
+        unawaited(WatchtowerNotificationService.instance.init().then((_) {
+          unawaited(WatchtowerNotificationService.instance.scheduleWeeklyReminder());
+          unawaited(WatchtowerNotificationService.instance.checkForUpdateAndNotify());
+        }));
       }
   }
 }

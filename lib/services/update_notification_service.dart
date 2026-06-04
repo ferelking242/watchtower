@@ -31,6 +31,7 @@ import 'dart:async';
         FlutterLocalNotificationsPlugin();
 
     bool _initialized = false;
+    Completer<void>? _initCompleter;
     String? _pendingDownloadUrl;
     String? _pendingReleaseUrl;
 
@@ -39,6 +40,8 @@ import 'dart:async';
 
     Future<void> init() async {
       if (_initialized || !_supported) return;
+      if (_initCompleter != null) return _initCompleter!.future;
+      _initCompleter = Completer<void>();
       try {
         const androidInit =
             AndroidInitializationSettings('@mipmap/launcher_icon');
@@ -92,12 +95,15 @@ import 'dart:async';
         }
 
         _initialized = true;
+        _initCompleter!.complete();
       } catch (e) {
         AppLogger.log(
-          'WatchtowerNotificationService init failed: \$e',
+          'WatchtowerNotificationService init failed: $e',
           logLevel: LogLevel.warning,
           tag: LogTag.network,
         );
+        _initCompleter!.completeError(e);
+        _initCompleter = null;
       }
     }
 
@@ -194,7 +200,7 @@ import 'dart:async';
           priority: Priority.high,
           ticker: 'Mise à jour disponible',
           styleInformation: BigTextStyleInformation(
-            'Watchtower \$version est disponible.',
+            'Watchtower $version est disponible.',
             contentTitle: 'Mise à jour disponible !',
             summaryText: version,
           ),
@@ -228,7 +234,7 @@ import 'dart:async';
         );
       } catch (e) {
         AppLogger.log(
-          'showUpdateAvailable failed: \$e',
+          'showUpdateAvailable failed: $e',
           logLevel: LogLevel.warning,
           tag: LogTag.network,
         );
@@ -271,7 +277,7 @@ import 'dart:async';
         );
       } catch (e) {
         AppLogger.log(
-          'scheduleWeeklyReminder failed: \$e',
+          'scheduleWeeklyReminder failed: $e',
           logLevel: LogLevel.warning,
           tag: LogTag.network,
         );
@@ -319,7 +325,7 @@ import 'dart:async';
         }
       } catch (e) {
         AppLogger.log(
-          'checkForUpdateAndNotify failed: \$e',
+          'checkForUpdateAndNotify failed: $e',
           logLevel: LogLevel.warning,
           tag: LogTag.network,
         );
