@@ -64,6 +64,11 @@ class SettingsScreen extends StatelessWidget {
                 onTap: () => context.push('/security'),
               ),
             ListTileWidget(
+              title: "Sources Locales",
+              icon: Icons.folder_open_rounded,
+              onTap: () => context.push('/localSources'),
+            ),
+            ListTileWidget(
               title: "Avancé",
               icon: Icons.tune_rounded,
               onTap: () => context.push('/advanced'),
