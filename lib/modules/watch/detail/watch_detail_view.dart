@@ -27,6 +27,7 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
+import 'package:watchtower/modules/home/widgets/episode_card.dart';
 
 // SVG icon provided for the movie meta row
 const _kFilmSvg = '''
@@ -1070,51 +1071,49 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return m != null ? (int.tryParse(m.group(0)!) ?? fallback) : fallback;
   }
 
-  // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
+  // ─── EPISODE STRIP (EpisodeCard style, same as home) ─────────────────────────
 
-  static const double _kEpCardW = 64.0;
-  static const double _kEpCardH = 54.0;
-  static const double _kEpRadius = 12.0;
-  static const double _kStripH   = 92.0;
+  static const double _kStripH = 130.0;
 
   Widget _buildEpisodeStrip(List<Chapter> chapters, List<Chapter> allChapters) {
+    final coverUrl = toImgUrl(
+        widget.manga.customCoverFromTracker ?? widget.manga.imageUrl ?? '');
     return SizedBox(
       height: _kStripH,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.zero,
         itemCount: chapters.length + 1,
         itemBuilder: (context, index) {
-          // ── "Tous" card ──────────────────────────────────────────────────────
+          // ── "Tous" button ────────────────────────────────────────────────────
           if (index == 0) {
             return Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 10),
               child: GestureDetector(
                 onTap: () => _showAllEpisodesSheet(context, allChapters),
                 child: Container(
-                  width: _kEpCardW,
-                  height: _kEpCardH,
+                  width: 56,
+                  height: double.infinity,
                   decoration: BoxDecoration(
                     color: _accent.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(_kEpRadius),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: _accent.withValues(alpha: 0.70), width: 1.2),
+                        color: _accent.withValues(alpha: 0.65), width: 1.2),
                   ),
                   alignment: Alignment.center,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.grid_view_rounded,
-                          size: 16, color: _accent.withValues(alpha: 0.85)),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Tous',
-                        style: TextStyle(
-                          color: _accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                          size: 15, color: _accent),
+                      const SizedBox(height: 4),
+                      Text('Tous',
+                          style: TextStyle(
+                            color: _accent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          )),
                     ],
                   ),
                 ),
@@ -1122,45 +1121,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             );
           }
 
-          // ── Episode card ─────────────────────────────────────────────────────
+          // ── EpisodeCard ──────────────────────────────────────────────────────
           final chapter = chapters[index - 1];
-          final watched = chapter.isRead ?? false;
-          final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
-          final epNum = numMatch != null
-              ? (int.tryParse(numMatch.group(0)!) ?? index)
-              : index;
-          final label = epNum.toString().padLeft(2, '0');
-
+          final epNum = _epNum(chapter.name, index);
           return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
+            padding: const EdgeInsets.only(right: 10),
+            child: EpisodeCard(
+              width: 148,
+              data: EpisodeCardData(
+                animeCoverUrl: coverUrl,
+                animeTitle: widget.manga.name ?? '',
+                episodeNumber: epNum,
+                episodeTitle: chapter.name?.isNotEmpty == true
+                    ? chapter.name
+                    : null,
+                progress: (chapter.isRead ?? false)
+                    ? const EpisodeProgress(value: 1.0)
+                    : null,
+              ),
               onTap: () =>
                   chapter.pushToReaderView(context, ignoreIsRead: true),
-              child: Container(
-                width: _kEpCardW,
-                height: _kEpCardH,
-                decoration: BoxDecoration(
-                  color: watched
-                      ? _accent.withValues(alpha: 0.85)
-                      : _card,
-                  borderRadius: BorderRadius.circular(_kEpRadius),
-                  border: Border.all(
-                    color: watched ? _accent : _faint,
-                    width: watched ? 0 : 0.8,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: watched
-                        ? Colors.white
-                        : _textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
             ),
           );
         },
@@ -1310,51 +1290,63 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           ],
                         ),
                       ),
-                      // Episode grid
+                      // Episode grid — EpisodeCard style
                       Expanded(
-                        child: GridView.builder(
-                          controller: scrollCtrl,
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 6,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1.1,
-                          ),
-                          itemCount: display.length,
-                          itemBuilder: (_, i) {
-                            final ch = display[i];
-                            final epNum = _epNum(ch.name, i + 1);
-                            final label =
-                                epNum.toString().padLeft(2, '0');
-                            final isWatched = ch.isRead ?? false;
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.pop(sheetCtx);
-                                ch.pushToReaderView(ctx,
-                                    ignoreIsRead: true);
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isWatched
-                                      ? accent.withValues(alpha: 0.85)
-                                      : card,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    color: isWatched
-                                        ? Colors.white
-                                        : onSurface,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                        child: LayoutBuilder(
+                          builder: (lbCtx, constraints) {
+                            const cols = 3;
+                            const hPad = 16.0;
+                            const gap = 10.0;
+                            final cardW = (constraints.maxWidth -
+                                    hPad * 2 -
+                                    gap * (cols - 1)) /
+                                cols;
+                            final thumbH = cardW * 9 / 16;
+                            final cardH = thumbH + 36;
+                            final ratio = cardW / cardH;
+                            final coverUrl = toImgUrl(
+                              widget.manga.customCoverFromTracker ??
+                                  widget.manga.imageUrl ??
+                                  '',
+                            );
+                            return GridView.builder(
+                              controller: scrollCtrl,
+                              padding: const EdgeInsets.fromLTRB(
+                                  16, 0, 16, 32),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: cols,
+                                mainAxisSpacing: gap,
+                                crossAxisSpacing: gap,
+                                childAspectRatio: ratio,
                               ),
+                              itemCount: display.length,
+                              itemBuilder: (_, i) {
+                                final ch = display[i];
+                                final epNum = _epNum(ch.name, i + 1);
+                                return EpisodeCard(
+                                  width: cardW,
+                                  data: EpisodeCardData(
+                                    animeCoverUrl: coverUrl,
+                                    animeTitle:
+                                        widget.manga.name ?? '',
+                                    episodeNumber: epNum,
+                                    episodeTitle:
+                                        ch.name?.isNotEmpty == true
+                                            ? ch.name
+                                            : null,
+                                    progress: (ch.isRead ?? false)
+                                        ? const EpisodeProgress(
+                                            value: 1.0)
+                                        : null,
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(sheetCtx);
+                                    ch.pushToReaderView(ctx,
+                                        ignoreIsRead: true);
+                                  },
+                                );
+                              },
                             );
                           },
                         ),

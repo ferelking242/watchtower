@@ -868,7 +868,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                         Container(
                             width: 0.8,
                             height: 20,
-                            color: Colors.white24),
+                            color: Colors.white38),
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -960,7 +960,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                         ),
                         Container(
                             width: 0.8,
-                            color: Colors.white12),
+                            color: Colors.white38),
 
                         // Subtitle column
                         Expanded(
