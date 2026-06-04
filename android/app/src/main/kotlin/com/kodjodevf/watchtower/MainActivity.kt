@@ -1,5 +1,6 @@
 package com.watchtower.app
 
+import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -198,7 +199,30 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
-        // ── 4. Extension watcher (EventChannel) ───────────────────────────
+        // ── 4. PiP (Picture-in-Picture) ───────────────────────────────────
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.watchtower.app.pip"
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "enterPiP" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            val params = PictureInPictureParams.Builder().build()
+                            enterPictureInPictureMode(params)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("PIP_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error("PIP_UNSUPPORTED", "PiP requires Android 8.0+", null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // ── 5. Extension watcher (EventChannel) ───────────────────────────
         // Clones Mihon's ExtensionInstallReceiver.kt:
         // fires {event, pkg, sourceDir?} for every extension install/update/remove
         // on the device — regardless of which app performed it.
