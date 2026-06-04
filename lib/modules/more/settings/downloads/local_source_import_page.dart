@@ -1,4 +1,5 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+  import 'dart:developer' show log;
 
   import 'package:flutter/material.dart';
   import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:watchtower/models/manga.dart';
   import 'package:watchtower/main.dart';
   import 'package:watchtower/services/local/dex_movie_scanner.dart';
-  import 'package:watchtower/utils/log.dart';
 
   // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -34,19 +34,26 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
       List<DexMovieEntry>? entries,
       int? importedCount,
       String? error,
-    }) => _ImportState(
-      status: status ?? this.status,
-      scannedFolder: scannedFolder ?? this.scannedFolder,
-      entries: entries ?? this.entries,
-      importedCount: importedCount ?? this.importedCount,
-      error: error,
-    );
+    }) =>
+        _ImportState(
+          status: status ?? this.status,
+          scannedFolder: scannedFolder ?? this.scannedFolder,
+          entries: entries ?? this.entries,
+          importedCount: importedCount ?? this.importedCount,
+          error: error,
+        );
   }
 
   // ─── Provider ────────────────────────────────────────────────────────────────
 
+  class _ImportNotifier extends Notifier<_ImportState> {
+    @override
+    _ImportState build() => const _ImportState();
+    void setState(_ImportState s) => state = s;
+  }
+
   final _importStateProvider =
-      StateProvider<_ImportState>((ref) => const _ImportState());
+      NotifierProvider<_ImportNotifier, _ImportState>(_ImportNotifier.new);
 
   // ─── Main Page ───────────────────────────────────────────────────────────────
 
@@ -70,8 +77,9 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     // ── Scan ────────────────────────────────────────────────────────────────────
 
     Future<void> _scan({String? customPath}) async {
-      ref.read(_importStateProvider.notifier).state =
-          const _ImportState(status: _ImportStatus.scanning);
+      ref
+          .read(_importStateProvider.notifier)
+          .setState(const _ImportState(status: _ImportStatus.scanning));
 
       try {
         String? folderPath = customPath;
@@ -80,44 +88,44 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
         }
 
         if (folderPath == null) {
-          ref.read(_importStateProvider.notifier).state = const _ImportState(
+          ref.read(_importStateProvider.notifier).setState(const _ImportState(
             status: _ImportStatus.idle,
             error: 'Aucun dossier DexMovie/Movie trouvé.\n'
                 'Chemins vérifiés :\n'
                 '• /storage/emulated/0/DexMovie/Movie\n'
                 '• /sdcard/DexMovie/Movie',
-          );
+          ));
           return;
         }
 
         final entries = await DexMovieScanner.scanFolder(folderPath);
 
-        ref.read(_importStateProvider.notifier).state = _ImportState(
+        ref.read(_importStateProvider.notifier).setState(_ImportState(
           status: _ImportStatus.idle,
           scannedFolder: folderPath,
           entries: entries,
           error: entries.isEmpty
-              ? 'Aucun fichier reconnu dans $folderPath.\n'
+              ? 'Aucun fichier reconnu dans ${folderPath}.\n'
                   'Format attendu : Titre_[Langue]_QualitéP_SXX_EXX.mp4'
               : null,
-        );
+        ));
       } catch (e) {
-        ref.read(_importStateProvider.notifier).state = _ImportState(
+        ref.read(_importStateProvider.notifier).setState(_ImportState(
           status: _ImportStatus.idle,
-          error: 'Erreur de scan : $e',
-        );
+          error: 'Erreur de scan : ${e}',
+        ));
       }
     }
 
     // ── Import ───────────────────────────────────────────────────────────────────
 
     Future<void> _import(List<DexMovieEntry> entries) async {
-      ref.read(_importStateProvider.notifier).state = ref
-          .read(_importStateProvider)
-          .copyWith(status: _ImportStatus.importing);
+      final current = ref.read(_importStateProvider);
+      ref
+          .read(_importStateProvider.notifier)
+          .setState(current.copyWith(status: _ImportStatus.importing));
 
       try {
-        // isar is a global late variable declared in main.dart
         final groups = DexMovieScanner.groupByTitle(entries);
         int count = 0;
 
@@ -126,7 +134,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
             final groupEntries = groups[title]!;
             final first = groupEntries.first;
 
-            // Create or update Manga
             final existing = await isar.mangas
                 .where()
                 .filter()
@@ -145,13 +152,13 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   genre: [],
                   imageUrl: '',
                   lang: first.language ?? 'fr',
-                  link: 'local://${title.replaceAll(' ', '_')}',
+                  link: 'local://${title.replaceAll(" ", "_")}',
                   name: title,
                   status: Status.unknown,
                   description: '',
                   sourceId: 0,
                   isLocalArchive: true,
-                  itemType: first.isMovie ? ItemType.anime : ItemType.anime,
+                  itemType: ItemType.anime,
                   isManga: false,
                   favorite: true,
                   dateAdded: DateTime.now().millisecondsSinceEpoch,
@@ -159,14 +166,13 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
             final mangaId = await isar.mangas.put(manga);
 
-            // Create chapters (one per file)
             for (final e in groupEntries) {
               final chapterName = e.isMovie
-                  ? '${e.quality} — ${e.language ?? ''}'
-                  : 'S${(e.season ?? 1).toString().padLeft(2, '0')}'
-                      'E${(e.episode ?? 1).toString().padLeft(2, '0')}'
-                      '${e.part != null ? '.${e.part}' : ''}'
-                      ' — ${e.quality}${e.language != null ? ' [${e.language}]' : ''}';
+                  ? '${e.quality} — ${e.language ?? ""}'
+                  : 'S${(e.season ?? 1).toString().padLeft(2, "0")}'
+                      'E${(e.episode ?? 1).toString().padLeft(2, "0")}'
+                      '${e.part != null ? ".${e.part}" : ""}'
+                      ' — ${e.quality}${e.language != null ? " [${e.language}]" : ""}';
 
               final existingCh = await isar.chapters
                   .where()
@@ -192,20 +198,20 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
           }
         });
 
-        ref.read(_importStateProvider.notifier).state = ref
-            .read(_importStateProvider)
-            .copyWith(
-              status: _ImportStatus.done,
-              importedCount: count,
-            );
+        final updated = ref.read(_importStateProvider);
+        ref.read(_importStateProvider.notifier).setState(
+              updated.copyWith(
+                status: _ImportStatus.done,
+                importedCount: count,
+              ));
       } catch (e, st) {
-        log('[DexMovieImport] error: $e\n$st');
-        ref.read(_importStateProvider.notifier).state = ref
-            .read(_importStateProvider)
-            .copyWith(
-              status: _ImportStatus.idle,
-              error: 'Erreur d\'import : $e',
-            );
+        log('[DexMovieImport] error: ${e}\n${st}');
+        final updated = ref.read(_importStateProvider);
+        ref.read(_importStateProvider.notifier).setState(
+              updated.copyWith(
+                status: _ImportStatus.idle,
+                error: "Erreur d'import : ${e}",
+              ));
       }
     }
 
@@ -225,7 +231,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Info card ────────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -272,18 +277,16 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
               const SizedBox(height: 16),
 
-              // ── Custom path ──────────────────────────────────────────────────
-              Text('Dossier personnalisé (optionnel)',
-                  style: textTheme.labelLarge),
+              Text('Dossier personnalisé (optionnel)', style: textTheme.labelLarge),
               const SizedBox(height: 6),
               TextField(
                 controller: _customPathController,
                 decoration: InputDecoration(
                   hintText: '/storage/emulated/0/MonDossier/Film',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  border:
+                      OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () => _customPathController.clear(),
@@ -293,7 +296,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
               const SizedBox(height: 16),
 
-              // ── Action buttons ────────────────────────────────────────────────
               Row(
                 children: [
                   Expanded(
@@ -325,7 +327,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                 ],
               ),
 
-              // ── Status ────────────────────────────────────────────────────────
               if (state.status == _ImportStatus.scanning ||
                   state.status == _ImportStatus.importing) ...[
                 const SizedBox(height: 16),
@@ -346,12 +347,12 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   decoration: BoxDecoration(
                     color: Colors.green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: Colors.green.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded,
-                          color: Colors.green),
+                      const Icon(Icons.check_circle_rounded, color: Colors.green),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -371,8 +372,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   decoration: BoxDecoration(
                     color: cs.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: cs.error.withValues(alpha: 0.3)),
+                    border: Border.all(color: cs.error.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,38 +388,33 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                 ),
               ],
 
-              // ── Entry list preview ────────────────────────────────────────────
-              if (state.entries.isNotEmpty && state.status != _ImportStatus.importing) ...[
+              if (state.entries.isNotEmpty &&
+                  state.status != _ImportStatus.importing) ...[
                 const SizedBox(height: 20),
                 Text(
                   '${state.entries.length} fichier(s) reconnu(s) dans ${state.scannedFolder}',
                   style: textTheme.labelLarge?.copyWith(color: accent),
                 ),
                 const SizedBox(height: 8),
-                ...DexMovieScanner.groupByTitle(state.entries)
-                    .entries
-                    .map((group) {
+                ...DexMovieScanner.groupByTitle(state.entries).entries.map((group) {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                     child: ExpansionTile(
                       leading: const Icon(Icons.movie_filter_rounded),
-                      title: Text(group.key,
-                          style: textTheme.titleSmall),
+                      title: Text(group.key, style: textTheme.titleSmall),
                       subtitle: Text(
-                        '${group.value.length} fichier(s) — ${group.value.first.isMovie ? 'Film' : 'Série'}',
+                        '${group.value.length} fichier(s) — ${group.value.first.isMovie ? "Film" : "Série"}',
                         style: textTheme.bodySmall,
                       ),
                       children: group.value.map((e) {
                         return ListTile(
                           dense: true,
-                          leading: const Icon(Icons.play_circle_outline,
-                              size: 18),
-                          title: Text(e.episodeKey,
-                              style: textTheme.bodySmall),
+                          leading: const Icon(Icons.play_circle_outline, size: 18),
+                          title: Text(e.episodeKey, style: textTheme.bodySmall),
                           subtitle: Text(
-                            '${e.quality}${e.language != null ? ' [${e.language}]' : ''}',
+                            '${e.quality}${e.language != null ? " [${e.language}]" : ""}',
                             style: textTheme.bodySmall?.copyWith(
                                 color: cs.onSurface.withValues(alpha: 0.5)),
                           ),
