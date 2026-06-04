@@ -90,6 +90,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   void _maybeStartVideo(List<Chapter> chapters) {
     if (chapters.isEmpty) return;
+    _player.title = widget.manga.name ?? '';
     final chapterId = chapters.first.id;
     if (_player.loadedChapterId == chapterId) return;
     _player.loadedChapterId = chapterId;
@@ -249,12 +250,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── LANDSCAPE — fullscreen player ──────────────────────────────────────────
 
   Widget _buildLandscape(List<Chapter> chapters) {
+    if (_player.hasVideoUrl) {
+      return SizedBox.expand(child: _player.buildFullscreenPlayer());
+    }
     return Stack(
       children: [
-        if (_player.hasVideoUrl)
-          SizedBox.expand(child: _player.buildFullscreenPlayer())
-        else
-          SizedBox.expand(child: _buildBannerImageOnly()),
+        SizedBox.expand(child: _buildBannerImageOnly()),
         SafeArea(
           child: Row(
             children: [

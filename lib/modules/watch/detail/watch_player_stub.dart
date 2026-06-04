@@ -11,6 +11,7 @@ import 'package:watchtower/models/chapter.dart';
 class WatchInlinePlayer {
   bool hasVideoUrl = false;
   int? loadedChapterId;
+  String title = '';
 
   String? _videoUrl;
   String? _viewType;
