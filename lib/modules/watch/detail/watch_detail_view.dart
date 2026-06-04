@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -457,6 +456,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     showModalBottomSheet(
       context: ctx,
       isScrollControlled: true,
+      barrierColor: Colors.transparent,
       backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (sheetCtx) {
@@ -675,7 +675,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         children: [
           _chip(
             icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
-            label: isFav ? 'Dans ma liste' : 'Ajouter à la liste',
+            label: isFav ? 'Dans la library' : 'Ajouter à la library',
             onTap: _toggleFavorite,
             active: isFav,
           ),
@@ -692,8 +692,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           const SizedBox(width: 8),
           _chip(
               icon: Icons.download_for_offline_outlined,
-              label: 'Voir téléchargements',
+              label: 'Téléchargements',
               onTap: () => Navigator.of(context).pushNamed('/downloadQueue')),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.language_outlined,
+              label: 'WebView',
+              onTap: _openInBrowser),
         ],
       ),
     );
@@ -1085,8 +1090,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               padding: const EdgeInsets.only(right: 8),
               child: GestureDetector(
                 onTap: () => _showAllEpisodesSheet(context, allChapters),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                child: Container(
                   width: _kEpCardW,
                   height: _kEpCardH,
                   decoration: BoxDecoration(
@@ -1131,8 +1135,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             child: GestureDetector(
               onTap: () =>
                   chapter.pushToReaderView(context, ignoreIsRead: true),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
+              child: Container(
                 width: _kEpCardW,
                 height: _kEpCardH,
                 decoration: BoxDecoration(
@@ -2163,7 +2166,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             if (langs.length > 1)
               _buildFilterRow(
                 icon: Icons.language_rounded,
-                label: 'Langue',
+                label: 'Lang',
                 items: langs,
                 selected: _selectedLang,
                 onSelect: (l) => setState(() {
@@ -2194,11 +2197,17 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
           // ── Select all header ─────────────────────────────────────────────────
           _buildSelectAllHeader(displayed),
 
-          // ── Episode list ──────────────────────────────────────────────────────
+          // ── Episode grid ──────────────────────────────────────────────────────
           Flexible(
-            child: ListView.builder(
+            child: GridView.builder(
               shrinkWrap: true,
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.4,
+              ),
               itemCount: displayed.length,
               itemBuilder: (_, i) => _buildEpisodeCard(displayed[i], i),
             ),
@@ -2213,97 +2222,74 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
 
   // ── Header ────────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
-    final manga  = widget.manga;
-    final imgUrl = toImgUrl(manga.customCoverFromTracker ?? manga.imageUrl ?? '');
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: SizedBox(
-        height: 108,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Blurred background
-            if (imgUrl.isNotEmpty)
-              cachedNetworkImage(
-                imageUrl: imgUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: 108,
-              ),
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(color: Colors.black.withValues(alpha: 0.62)),
-            ),
-            // Content row
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Row(
-                children: [
-                  // Poster thumbnail
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: cachedNetworkImage(
-                      imageUrl: imgUrl,
-                      width: 54,
-                      height: 76,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  // Title block
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Télécharger',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.58),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          manga.name ?? '',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Close button
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.25),
-                            width: 0.8),
-                      ),
-                      child: const Icon(Icons.close,
-                          color: Colors.white, size: 17),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 36,
+          height: 4,
+          margin: const EdgeInsets.only(top: 10, bottom: 6),
+          decoration: BoxDecoration(
+            color: _faint,
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 12, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.download_rounded, color: _accent, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Télécharger',
+                      style: TextStyle(
+                        color: _grey,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      widget.manga.name ?? '',
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: _faint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close, color: _grey, size: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, thickness: 0.8, color: _faint),
+      ],
     );
   }
 
@@ -2705,59 +2691,61 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
-  // ── Episode card ──────────────────────────────────────────────────────────────
+  // ── Episode card (grid) ───────────────────────────────────────────────────────
   Widget _buildEpisodeCard(Chapter chapter, int index) {
     final sel = _selected.contains(chapter);
     final epLabel = _epLabel(chapter, index);
     final rawSize = chapter.downloadSize?.trim();
-    final sizeLabel = (rawSize != null && rawSize.isNotEmpty) ? rawSize : '—';
+    final sizeLabel = (rawSize != null && rawSize.isNotEmpty) ? rawSize : null;
 
-    return InkWell(
+    return GestureDetector(
       onTap: () => setState(() {
         sel ? _selected.remove(chapter) : _selected.add(chapter);
         _selectAll = _selected.length == _displayChapters.length;
       }),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 3, 12, 3),
         decoration: BoxDecoration(
-          color: sel ? _accent.withValues(alpha: 0.06) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: sel ? _accent.withValues(alpha: 0.10) : _card,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: sel ? _accent.withValues(alpha: 0.35) : Colors.transparent,
-            width: 0.8,
+            color: sel ? _accent.withValues(alpha: 0.55) : Colors.transparent,
+            width: 0.9,
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
-          child: Row(
-            children: [
-              _ModernCheckbox(checked: sel, accent: _accent, faint: _faint),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      epLabel,
-                      style: TextStyle(
-                        color: _text,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    epLabel,
+                    style: TextStyle(
+                      color: sel ? _accent : _text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  if (sizeLabel != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       sizeLabel,
-                      style: TextStyle(
-                        color: _grey,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: _grey, fontSize: 9),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+            if (sel)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(Icons.check_circle_rounded,
+                    color: _accent, size: 13),
+              ),
+          ],
         ),
       ),
     );
@@ -2900,6 +2888,7 @@ class _AnimatedTabIndicatorPainter extends BoxPainter {
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration cfg) {
+    if (cfg.size == null) return;
     final rect = offset & cfg.size!;
     final paint = Paint()
       ..color = color
