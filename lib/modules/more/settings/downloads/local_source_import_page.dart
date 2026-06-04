@@ -5,7 +5,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:isar_community/isar.dart';
   import 'package:watchtower/models/chapter.dart';
   import 'package:watchtower/models/manga.dart';
-  import 'package:watchtower/providers/isar_providers.dart';
+  import 'package:watchtower/main.dart';
   import 'package:watchtower/services/local/dex_movie_scanner.dart';
   import 'package:watchtower/utils/log.dart';
 
@@ -117,7 +117,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
           .copyWith(status: _ImportStatus.importing);
 
       try {
-        final isar = await ref.read(isarProvider.future);
+        // isar is a global late variable declared in main.dart
         final groups = DexMovieScanner.groupByTitle(entries);
         int count = 0;
 
