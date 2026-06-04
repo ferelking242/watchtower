@@ -211,7 +211,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 delegate: _TabBarDelegate(
                   TabBar(
                     controller: _tabController,
-                    isScrollable: false,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
                     indicatorColor: _accent,
                     indicatorWeight: 2.5,
                     indicatorSize: TabBarIndicatorSize.tab,
@@ -935,7 +936,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: _card,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: _faint, width: 0.8),
         ),
@@ -1072,10 +1073,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
 
-  static const double _kEpCardW = 64.0;
-  static const double _kEpCardH = 54.0;
-  static const double _kEpRadius = 12.0;
-  static const double _kStripH   = 92.0;
+  static const double _kEpCardW = 50.0;
+  static const double _kEpCardH = 40.0;
+  static const double _kEpRadius = 8.0;
+  static const double _kStripH   = 64.0;
 
   Widget _buildEpisodeStrip(List<Chapter> chapters, List<Chapter> allChapters) {
     return SizedBox(
@@ -1144,10 +1145,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       ? _accent.withValues(alpha: 0.85)
                       : _card,
                   borderRadius: BorderRadius.circular(_kEpRadius),
-                  border: Border.all(
-                    color: watched ? _accent : _faint,
-                    width: watched ? 0 : 0.8,
-                  ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
