@@ -966,6 +966,12 @@ Future<void> downloadChapter(
           );
         }
       });
+      // CRITICAL: release processDownloads slot so the next queued
+      // download can start — without this, one extension failure blocks
+      // the entire download queue forever ("en attente" bug).
+      watchdogRef?.stop();
+      callback?.call();
+      keepAlive.close();
       return;
     }
 
