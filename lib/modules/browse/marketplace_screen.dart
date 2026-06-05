@@ -243,7 +243,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     super.initState();
     _tabCtrl = TabController(length: 7, vsync: this);
     if (_cachedAll != null && _cacheTime != null &&
-        DateTime.now().difference(_cacheTime!) < const Duration(minutes: 5)) {
+        DateTime.now().difference(_cacheTime!) < const Duration(seconds: 30)) {
       _all = _cachedAll!;
       _loading = false;
     } else {
