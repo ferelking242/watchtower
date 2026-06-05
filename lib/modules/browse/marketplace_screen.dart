@@ -3571,147 +3571,129 @@ class _IconChip extends StatelessWidget {
         minChildSize: 0.35,
         maxChildSize: 0.85,
         expand: false,
-        builder: (_, sc) => Column(
-          children: [
-            const SizedBox(height: 8),
-            Container(width: 36, height: 4, decoration: BoxDecoration(color: cs.outline.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(4))),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(children: [
-                Icon(Icons.tune_rounded, size: 20, color: cs.primary),
-                const SizedBox(width: 10),
-                Text('Paramètres marketplace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
-              ]),
-            ),
-            const SizedBox(height: 8),
-            Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
-            Expanded(
-              child: ListView(
-                controller: sc,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                children: [
-                  _SettingsTile(
-                    icon: Icons.update_rounded,
-                    title: 'Vérifier les mises à jour',
-                    subtitle: 'Vérifie les nouvelles versions au démarrage',
-                    value: checkUpdates,
-                    onChanged: (v) => ref.read(checkForExtensionsUpdateStateProvider.notifier).set(v),
-                    cs: cs,
-                  ),
-                  _SettingsTile(
-                    icon: Icons.system_update_alt_rounded,
-                    title: 'Mise à jour automatique',
-                    subtitle: 'Met à jour les extensions automatiquement',
-                    value: autoUpdate,
-                    onChanged: (v) => ref.read(autoUpdateExtensionsStateProvider.notifier).set(v),
-                    cs: cs,
-                  ),
-                  _SettingsTile(
-                    icon: Icons.explicit,
-                    title: 'Contenu adulte (18+)',
-                    subtitle: 'Afficher les extensions NSFW dans le marketplace',
-                    value: showNsfw,
-                    onChanged: (v) => ref.read(showNSFWStateProvider.notifier).set(v),
-                    cs: cs,
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Dépôts d\'extensions', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-                  ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.folder_special_rounded, size: 18),
-                        label: const Text('Gérer les dépôts'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+        builder: (_, sc) => Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  margin: const EdgeInsets.only(top: 10, bottom: 14),
+                  decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Text('Paramètres', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: cs.onSurface)),
+              ),
+              Divider(height: 1, indent: 20, endIndent: 20, color: cs.outlineVariant.withValues(alpha: 0.5)),
+              Expanded(
+                child: ListView(
+                  controller: sc,
+                  padding: const EdgeInsets.only(top: 8, bottom: 32),
+                  children: [
+                    // ── Section : Comportement ─────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+                      child: Text('Comportement',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                              color: cs.primary, letterSpacing: 0.6)),
+                    ),
+                    _LightSettingsTile(
+                      icon: Icons.update_rounded,
+                      title: 'Vérifier les mises à jour',
+                      subtitle: 'Au démarrage de l\'app',
+                      value: checkUpdates,
+                      onChanged: (v) => ref.read(checkForExtensionsUpdateStateProvider.notifier).set(v),
+                    ),
+                    _LightSettingsTile(
+                      icon: Icons.system_update_alt_rounded,
+                      title: 'Mise à jour automatique',
+                      subtitle: 'Sans confirmation',
+                      value: autoUpdate,
+                      onChanged: (v) => ref.read(autoUpdateExtensionsStateProvider.notifier).set(v),
+                    ),
+                    _LightSettingsTile(
+                      icon: Icons.explicit_rounded,
+                      title: 'Contenu 18+',
+                      subtitle: 'Afficher les extensions NSFW',
+                      value: showNsfw,
+                      onChanged: (v) => ref.read(showNSFWStateProvider.notifier).set(v),
+                    ),
+                    Divider(height: 1, indent: 20, endIndent: 20, color: cs.outlineVariant.withValues(alpha: 0.4)),
+                    // ── Section : Dépôts ───────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+                      child: Text('Dépôts',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                              color: cs.primary, letterSpacing: 0.6)),
+                    ),
+                    _LightActionTile(
+                      icon: Icons.folder_special_rounded,
+                      title: 'Gérer les dépôts',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/browse/source-repositories');
+                      },
+                    ),
+                    Divider(height: 1, indent: 20, endIndent: 20, color: cs.outlineVariant.withValues(alpha: 0.4)),
+                    // ── Section : Cache ────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+                      child: Text('Cache',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                              color: cs.primary, letterSpacing: 0.6)),
+                    ),
+                    _LightActionTile(
+                      icon: Icons.refresh_rounded,
+                      title: 'Recharger le catalogue',
+                      onTap: () { Navigator.pop(context); state._loadAll(); },
+                    ),
+                    _LightActionTile(
+                      icon: Icons.cloud_sync_rounded,
+                      title: 'Forcer rechargement (bypass cache)',
+                      onTap: () { Navigator.pop(context); state._loadAll(bypassCache: true); },
+                    ),
+                    Divider(height: 1, indent: 20, endIndent: 20, color: cs.outlineVariant.withValues(alpha: 0.4)),
+                    // ── Section : Actions ──────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+                      child: Text('Actions',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                              color: cs.primary, letterSpacing: 0.6)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.download_for_offline_rounded, size: 18),
+                        label: const Text('Installer en masse…'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          context.push('/browse/source-repositories');
+                          if (context.mounted) {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => _BulkInstallSheet(state: state),
+                            );
+                          }
                         },
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: const Text('Recharger le marketplace'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () {
-                            Navigator.pop(context);
-                            state._loadAll();
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.cloud_sync_rounded, size: 18),
-                          label: const Text('Forcer rechargement (bypass cache)'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            state._loadAll(bypassCache: true);
-                          },
-                         ),
-                       ),
-                     ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.download_for_offline_rounded, size: 18),
-                        label: const Text('Installer tout'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () {
-                            Navigator.pop(context);
-                            if (context.mounted) {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Theme.of(context).colorScheme.surface,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                                ),
-                                builder: (_) => _BulkInstallSheet(state: state),
-                              );
-                            }
-                          },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   ],
                 ),
               ),
             ],
-  
+          ),
         ),
       );
     }
@@ -3738,6 +3720,66 @@ class _IconChip extends StatelessWidget {
       );
     }
   }
+
+// ─── Light tiles for redesigned settings sheet ────────────────────────────────
+
+class _LightSettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _LightSettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SwitchListTile.adaptive(
+      secondary: Icon(icon, size: 20, color: cs.onSurfaceVariant),
+      title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle,
+          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.7))),
+      value: value,
+      onChanged: onChanged,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+      dense: true,
+    );
+  }
+}
+
+class _LightActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  const _LightActionTile({required this.icon, required this.title, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: cs.onSurfaceVariant),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: cs.outlineVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // ─── Account dropdown overlay ─────────────────────────────────────────────────
 
@@ -5024,6 +5066,7 @@ class _ActiveFiltersSummary extends StatelessWidget {
                         final (lang, count) = item;
                         final sel = _selLangs.contains(lang);
                         final code = _MarketplaceScreenState._langCode(lang);
+                        final flag = _MarketplaceScreenState._langFlag(lang);
                         return GestureDetector(
                           onTap: _running ? null : () => setState(() {
                             sel ? _selLangs.remove(lang) : _selLangs.add(lang);
@@ -5036,9 +5079,16 @@ class _ActiveFiltersSummary extends StatelessWidget {
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: sel ? cs.primary : cs.outlineVariant, width: sel ? 1.5 : 1),
                             ),
-                            child: Text(
-                              '${code} (${count})',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: sel ? cs.primary : cs.onSurface),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(flag, style: const TextStyle(fontSize: 14)),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '$code ($count)',
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: sel ? cs.primary : cs.onSurface),
+                                ),
+                              ],
                             ),
                           ),
                         );

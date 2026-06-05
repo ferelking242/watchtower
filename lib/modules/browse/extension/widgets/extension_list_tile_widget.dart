@@ -159,41 +159,59 @@ class _ExtensionListTileWidgetState
     final isUpdate = label == context.l10n.update;
     if (_isLoading) {
       return const SizedBox(
-        height: 20,
-        width: 20,
-        child: CircularProgressIndicator(strokeWidth: 2.0),
+        height: 40,
+        width: 36,
+        child: Center(
+          child: SizedBox(
+            height: 20,
+            width: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.0),
+          ),
+        ),
       );
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Gear icon — always visible for installed extensions
-        if (_sourceNotEmpty)
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            splashRadius: 20,
-            tooltip: context.l10n.settings,
-            onPressed: () => context.push('/extension_detail', extra: widget.source),
-            icon: const Icon(Icons.settings_outlined, size: 22),
-          ),
-        // Install / Update button (hidden once installed with no update)
-        if (isInstall || isUpdate)
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            splashRadius: 20,
-            onPressed: _isLoading ? null : _handleSourceFetch,
-            icon: Icon(
-              isInstall
-                  ? Icons.download_outlined
-                  : Icons.system_update_alt_outlined,
-              size: 22,
-            ),
-          ),
-      ],
+    return SizedBox(
+      width: 36,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Row 1: Settings gear (installed) or Install button (not installed)
+          if (_sourceNotEmpty)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              splashRadius: 20,
+              tooltip: context.l10n.settings,
+              onPressed: () => context.push('/extension_detail', extra: widget.source),
+              icon: const Icon(Icons.settings_outlined, size: 20),
+            )
+          else if (isInstall)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              splashRadius: 20,
+              onPressed: _isLoading ? null : _handleSourceFetch,
+              icon: const Icon(Icons.download_outlined, size: 20),
+            )
+          else
+            const SizedBox(height: 36),
+          // Row 2: Update button (only when update available)
+          if (isUpdate)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              splashRadius: 20,
+              onPressed: _isLoading ? null : _handleSourceFetch,
+              icon: const Icon(Icons.system_update_alt_outlined, size: 20),
+            )
+          else
+            const SizedBox(height: 36),
+        ],
+      ),
     );
   }
 
