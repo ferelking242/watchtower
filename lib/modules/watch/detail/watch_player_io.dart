@@ -257,7 +257,7 @@ class _FullscreenControlsOverlayState
       _brightness = await ScreenBrightness().current;
     } catch (_) {}
     try {
-      _volume = await VolumeController().getVolume();
+      _volume = await VolumeController.instance.getVolume();
     } catch (_) {}
   }
 
@@ -526,7 +526,7 @@ class _FullscreenControlsOverlayState
       // ── Volume ───────────────────────────────────────────────────────────
       final next = (_volume - dy / size.height * 2.5).clamp(0.0, 1.0);
       _volume = next;
-      try { VolumeController().setVolume(next); } catch (_) {}
+      try { VolumeController.instance.setVolume(next); } catch (_) {}
       widget.player.setVolume(next * 100);
       _hudTimer?.cancel();
       setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
