@@ -16,8 +16,10 @@ import 'package:go_router/go_router.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
+// jsDelivr CDN — can be instantly purged via https://purge.jsdelivr.net/gh/ferelking242/watchtower-extensions@main/<path>
+// Unlike raw.githubusercontent.com (5–10 min CDN delay), jsDelivr purge is instant.
 const _kWtBase =
-    'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
+    'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
 
 const _kFeaturedNames = {
   'MangaDex', 'Webtoons', 'Comick', 'MangaPlus', 'NovelUpdates',
