@@ -683,6 +683,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
           const SizedBox(width: 8),
           _chip(
+              icon: Icons.drive_file_move_outlined,
+              label: 'Migrer',
+              onTap: () => context.pushNamed('migrate', extra: widget.manga)),
+          const SizedBox(width: 8),
+          _chip(
               icon: Icons.share_outlined,
               label: 'Partager',
               onTap: () => _share(context)),
@@ -691,11 +696,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               icon: Icons.download_outlined,
               label: 'Télécharger',
               onTap: () => _showDownloadSheet(context, chapters)),
-          const SizedBox(width: 8),
-          _chip(
-              icon: Icons.download_for_offline_outlined,
-              label: 'Téléchargements',
-              onTap: () => Navigator.of(context).pushNamed('/downloadQueue')),
           const SizedBox(width: 8),
           _chip(
               icon: Icons.language_outlined,
@@ -1782,17 +1782,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── OPTIONS SHEET ──────────────────────────────────────────────────────────
 
-  Future<void> _openInBrowser() async {
+  void _openInBrowser() {
     final source = getSource(
         widget.manga.lang ?? '',
         widget.manga.source ?? '',
         widget.manga.sourceId);
     if (source == null || (widget.manga.link ?? '').isEmpty) return;
     final raw = '${source.baseUrl}${widget.manga.link!.getUrlWithoutDomain}';
-    final uri = Uri.tryParse(raw);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    context.push("/mangawebview",
+        extra: {'url': raw, 'title': widget.manga.name ?? ''});
   }
 
   void _showOptionsSheet(BuildContext ctx, List<Chapter> chapters) {

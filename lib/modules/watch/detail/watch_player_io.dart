@@ -11,6 +11,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:volume_controller/volume_controller.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
@@ -231,15 +233,38 @@ class _FullscreenControlsOverlayState
   BoxFit _fit = BoxFit.contain;
   Timer? _hideTimer;
 
+  // ── Speed / Quality inline pickers ────────────────────────────────────────
+  bool _showSpeedPicker   = false;
+  bool _showQualityPicker = false;
+
+  // ── Brightness / Volume swipe ─────────────────────────────────────────────
+  double _brightness       = 0.5;
+  double _volume           = 0.5;
+  bool _showBrightnessHUD  = false;
+  bool _showVolumeHUD      = false;
+  Offset? _dragStartPos;
+  Timer? _hudTimer;
+
   @override
   void initState() {
     super.initState();
     _resetHideTimer();
+    _initMedia();
+  }
+
+  Future<void> _initMedia() async {
+    try {
+      _brightness = await ScreenBrightness().current;
+    } catch (_) {}
+    try {
+      _volume = await VolumeController().getVolume();
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _hudTimer?.cancel();
     super.dispose();
   }
 
@@ -385,12 +410,22 @@ class _FullscreenControlsOverlayState
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: _locked ? _onTap : _onTap,
+      onTap: _onTap,
+      onVerticalDragStart: (d) {
+        _dragStartPos = d.globalPosition;
+        _hideTimer?.cancel();
+      },
+      onVerticalDragUpdate: (d) => _handleSwipeDrag(d, size),
+      onVerticalDragEnd: (_) {
+        _dragStartPos = null;
+        if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
+      },
       child: Stack(
         children: [
-          // Buffering indicator (always visible regardless of controls)
+          // Buffering indicator
           IgnorePointer(
             child: Center(
               child: StreamBuilder<bool>(
@@ -412,12 +447,10 @@ class _FullscreenControlsOverlayState
           if (_showControls && !_locked)
             _buildControlsOverlay(),
 
-          // Lock icon — visible when locked (with controls briefly)
+          // Lock icon
           if (_locked)
             Positioned(
-              left: 20,
-              top: 0,
-              bottom: 0,
+              left: 20, top: 0, bottom: 0,
               child: AnimatedOpacity(
                 opacity: _showControls ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 250),
@@ -425,16 +458,13 @@ class _FullscreenControlsOverlayState
               ),
             ),
 
-          // Lock button when controls visible and unlocked (still show it)
           if (_showControls && !_locked)
             Positioned(
-              left: 20,
-              top: 0,
-              bottom: 0,
+              left: 20, top: 0, bottom: 0,
               child: Center(child: _buildLockButton()),
             ),
 
-          // Settings panel — slides from right
+          // Settings panel — rounded, animated from corner
           if (_showSettings)
             Positioned.fill(
               child: _SettingsPanel(
@@ -446,6 +476,95 @@ class _FullscreenControlsOverlayState
                 },
               ),
             ),
+
+          // Brightness HUD
+          if (_showBrightnessHUD)
+            IgnorePointer(
+              child: Center(
+                child: _buildGestureHUD(
+                  icon: Icons.brightness_6_rounded,
+                  value: _brightness,
+                ),
+              ),
+            ),
+
+          // Volume HUD
+          if (_showVolumeHUD)
+            IgnorePointer(
+              child: Center(
+                child: _buildGestureHUD(
+                  icon: _volume <= 0
+                      ? Icons.volume_off_rounded
+                      : _volume < 0.5
+                          ? Icons.volume_down_rounded
+                          : Icons.volume_up_rounded,
+                  value: _volume,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _handleSwipeDrag(DragUpdateDetails d, Size size) {
+    final startX = _dragStartPos?.dx ?? d.globalPosition.dx;
+    final dy     = d.delta.dy;
+    final isLeft = startX < size.width / 2;
+
+    if (isLeft) {
+      // ── Brightness ──────────────────────────────────────────────────────
+      final next = (_brightness - dy / size.height * 2.5).clamp(0.0, 1.0);
+      _brightness = next;
+      try { ScreenBrightness().setScreenBrightness(next); } catch (_) {}
+      _hudTimer?.cancel();
+      setState(() { _showBrightnessHUD = true; _showVolumeHUD = false; });
+      _hudTimer = Timer(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _showBrightnessHUD = false);
+      });
+    } else {
+      // ── Volume ───────────────────────────────────────────────────────────
+      final next = (_volume - dy / size.height * 2.5).clamp(0.0, 1.0);
+      _volume = next;
+      try { VolumeController().setVolume(next); } catch (_) {}
+      widget.player.setVolume(next * 100);
+      _hudTimer?.cancel();
+      setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
+      _hudTimer = Timer(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _showVolumeHUD = false);
+      });
+    }
+  }
+
+  Widget _buildGestureHUD({required IconData icon, required double value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 28),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: 100,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: value,
+                backgroundColor: Colors.white24,
+                valueColor: const AlwaysStoppedAnimation(Colors.white),
+                minHeight: 4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${(value * 100).round()}%',
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
         ],
       ),
     );
@@ -453,21 +572,39 @@ class _FullscreenControlsOverlayState
 
   Widget _buildControlsOverlay() {
     final safeArea = MediaQuery.of(context).padding;
-    return Container(
-      color: const Color(0x55000000),
-      padding: EdgeInsets.only(
-        left: safeArea.left,
-        right: safeArea.right,
-        top: safeArea.top,
-        bottom: safeArea.bottom,
-      ),
-      child: Column(
-        children: [
-          _buildTopBar(),
-          Expanded(child: _buildCenterRow()),
-          _buildBottomSection(),
-        ],
-      ),
+    return Stack(
+      children: [
+        Container(
+          color: const Color(0x55000000),
+          padding: EdgeInsets.only(
+            left: safeArea.left,
+            right: safeArea.right,
+            top: safeArea.top,
+            bottom: safeArea.bottom,
+          ),
+          child: Column(
+            children: [
+              _buildTopBar(),
+              Expanded(child: _buildCenterRow()),
+              _buildBottomSection(),
+            ],
+          ),
+        ),
+        // Speed picker — expands upward from bottom-right
+        if (_showSpeedPicker)
+          Positioned(
+            bottom: safeArea.bottom + 52,
+            right: safeArea.right + 50,
+            child: _buildSpeedPickerOverlay(),
+          ),
+        // Quality picker — expands upward from bottom-right
+        if (_showQualityPicker)
+          Positioned(
+            bottom: safeArea.bottom + 52,
+            right: safeArea.right + 130,
+            child: _buildQualityPickerOverlay(),
+          ),
+      ],
     );
   }
 
@@ -727,14 +864,39 @@ class _FullscreenControlsOverlayState
             label: 'Langue',
             onTap: () {
               _hideTimer?.cancel();
-              setState(() => _showSettings = true);
+              setState(() {
+                _showSettings    = true;
+                _showSpeedPicker   = false;
+                _showQualityPicker = false;
+              });
             },
           ),
           const SizedBox(width: 8),
-          // Speed
+          // Quality picker chip
+          _ToolbarChip(
+            icon: Icons.hd_outlined,
+            label: 'Qualité',
+            active: _showQualityPicker,
+            onTap: () {
+              _hideTimer?.cancel();
+              setState(() {
+                _showQualityPicker = !_showQualityPicker;
+                _showSpeedPicker   = false;
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+          // Speed chip — vertical picker
           _ToolbarChip(
             label: speedLabel,
-            onTap: _showSpeedSheet,
+            active: _showSpeedPicker,
+            onTap: () {
+              _hideTimer?.cancel();
+              setState(() {
+                _showSpeedPicker   = !_showSpeedPicker;
+                _showQualityPicker = false;
+              });
+            },
           ),
           const SizedBox(width: 8),
           // Fullscreen exit
@@ -751,6 +913,215 @@ class _FullscreenControlsOverlayState
       ),
     );
   }
+
+  // ─── Speed picker — vertical list expanding upward ─────────────────────────
+  Widget _buildSpeedPickerOverlay() {
+    const speeds = [2.0, 1.75, 1.5, 1.25, 1.0, 0.75, 0.5, 0.25];
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - t)),
+          child: child,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white12, width: 0.7),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+              child: Text(
+                'Vitesse',
+                style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+            const Divider(height: 1, color: Colors.white12),
+            ...speeds.map((s) {
+              final sel = s == _speed;
+              final label = s == s.roundToDouble()
+                  ? '${s.toInt()}x'
+                  : '${s}x';
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _speed           = s;
+                    _showSpeedPicker = false;
+                  });
+                  widget.player.setRate(s);
+                  _resetHideTimer();
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 11),
+                  color: sel
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : Colors.transparent,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                sel ? Colors.white : Colors.white70,
+                            fontSize: 14,
+                            fontWeight: sel
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      if (sel) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.check_rounded,
+                            color: Theme.of(context).primaryColor,
+                            size: 14),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Quality picker — vertical list expanding upward ───────────────────────
+  Widget _buildQualityPickerOverlay() {
+    // Standard quality tiers ordered top→bottom (highest at top)
+    const allQualities = ['4K', '1440p', '1080p', '720p', '480p', '360p'];
+    // Detect available qualities from video tracks
+    final videoTracks = widget.player.state.tracks.video;
+    final Set<String> available = {};
+    for (final t in videoTracks) {
+      final h = t.h ?? 0;
+      if (h >= 2160)      available.add('4K');
+      else if (h >= 1440) available.add('1440p');
+      else if (h >= 1080) available.add('1080p');
+      else if (h >= 720)  available.add('720p');
+      else if (h >= 480)  available.add('480p');
+      else if (h > 0)     available.add('360p');
+    }
+    // If no track info, treat all as available
+    final effectiveAvail =
+        available.isEmpty ? allQualities.toSet() : available;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - t)),
+          child: child,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white12, width: 0.7),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+              child: Text(
+                'Qualité',
+                style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+            const Divider(height: 1, color: Colors.white12),
+            ...allQualities.map((q) {
+              final isAvail = effectiveAvail.contains(q);
+              return GestureDetector(
+                onTap: isAvail
+                    ? () {
+                        // Select matching video track
+                        if (videoTracks.isNotEmpty) {
+                          final target = videoTracks.cast<VideoTrack?>().firstWhere(
+                            (t) {
+                              final h = t?.h ?? 0;
+                              if (q == '4K')    return h >= 2160;
+                              if (q == '1440p') return h >= 1440;
+                              if (q == '1080p') return h >= 1080;
+                              if (q == '720p')  return h >= 720;
+                              if (q == '480p')  return h >= 480;
+                              return h > 0;
+                            },
+                            orElse: () => null,
+                          );
+                          if (target != null) {
+                            widget.player.setVideoTrack(target);
+                          }
+                        }
+                        setState(() => _showQualityPicker = false);
+                        _resetHideTimer();
+                      }
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 11),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 56,
+                        child: Text(
+                          q,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isAvail
+                                ? Colors.white
+                                : Colors.white30,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (!isAvail) ...[
+                        const SizedBox(width: 8),
+                        const Text(
+                          'N/D',
+                          style: TextStyle(
+                              color: Colors.white24, fontSize: 10),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Toolbar chip button ───────────────────────────────────────────────────────
@@ -759,36 +1130,45 @@ class _ToolbarChip extends StatelessWidget {
   final String label;
   final IconData? icon;
   final VoidCallback onTap;
+  final bool active;
 
   const _ToolbarChip({
     required this.label,
     this.icon,
     required this.onTap,
+    this.active = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).primaryColor;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.black38,
+          color: active
+              ? accent.withValues(alpha: 0.22)
+              : Colors.black38,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white24, width: 0.6),
+          border: Border.all(
+            color: active ? accent.withValues(alpha: 0.70) : Colors.white24,
+            width: 0.8,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, color: Colors.white70, size: 13),
+              Icon(icon,
+                  color: active ? accent : Colors.white70, size: 13),
               const SizedBox(width: 4),
             ],
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: active ? accent : Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -827,19 +1207,47 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     final curAudio = widget.player.state.track.audio;
     final curSub = widget.player.state.track.subtitle;
 
+    final screenH = MediaQuery.of(context).size.height;
+    final safeArea = MediaQuery.of(context).padding;
+    final panelW   = MediaQuery.of(context).size.width * 0.52;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onClose,
       child: Container(
-        color: Colors.black54,
-        alignment: Alignment.centerRight,
+        color: Colors.transparent,
+        alignment: Alignment.topRight,
+        padding: EdgeInsets.only(
+          top: safeArea.top + 48,
+          right: safeArea.right + 8,
+          bottom: safeArea.bottom + 56,
+        ),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () {}, // absorb — don't close when tapping panel
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.48,
-            height: double.infinity,
-            color: const Color(0xD01a1a1a),
+          onTap: () {},
+          child: TweenAnimationBuilder<Offset>(
+            tween: Tween(
+              begin: const Offset(1.0, 0.0),
+              end: Offset.zero,
+            ),
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            builder: (_, offset, child) => Transform.translate(
+              offset: Offset(offset.dx * panelW, offset.dy * screenH),
+              child: child,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: panelW,
+                constraints: BoxConstraints(
+                  maxHeight: screenH * 0.70,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.white12, width: 0.7),
+                ),
             child: SafeArea(
               child: Column(
                 children: [
@@ -1078,7 +1486,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
