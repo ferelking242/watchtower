@@ -1146,15 +1146,15 @@ class _ToolbarChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
         decoration: BoxDecoration(
           color: active
-              ? accent.withValues(alpha: 0.22)
-              : Colors.black38,
-          borderRadius: BorderRadius.circular(6),
+              ? accent.withValues(alpha: 0.20)
+              : const Color(0xFF1a1a1a),
+          borderRadius: BorderRadius.circular(5),
           border: Border.all(
-            color: active ? accent.withValues(alpha: 0.70) : Colors.white24,
-            width: 0.8,
+            color: active ? accent.withValues(alpha: 0.65) : Colors.white12,
+            width: 0.7,
           ),
         ),
         child: Row(
@@ -1162,14 +1162,14 @@ class _ToolbarChip extends StatelessWidget {
           children: [
             if (icon != null) ...[
               Icon(icon,
-                  color: active ? accent : Colors.white70, size: 13),
-              const SizedBox(width: 4),
+                  color: active ? accent : Colors.white60, size: 12),
+              const SizedBox(width: 3),
             ],
             Text(
               label,
               style: TextStyle(
                 color: active ? accent : Colors.white,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),

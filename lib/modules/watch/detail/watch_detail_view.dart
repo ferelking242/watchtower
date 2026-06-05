@@ -2911,14 +2911,23 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   const _TabBarDelegate(this.tabBar, {this.color = Colors.black});
 
   @override
-  double get minExtent => tabBar.preferredSize.height;
+  double get minExtent => tabBar.preferredSize.height + 1;
   @override
-  double get maxExtent => tabBar.preferredSize.height;
+  double get maxExtent => tabBar.preferredSize.height + 1;
 
   @override
   Widget build(
-          BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      ColoredBox(color: color, child: tabBar);
+      BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      ColoredBox(
+        color: color,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            tabBar,
+            Container(height: 1, color: const Color(0xFF2a2a2a)),
+          ],
+        ),
+      );
 
   @override
   bool shouldRebuild(_TabBarDelegate old) =>
