@@ -321,12 +321,17 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       // First entry: skeleton loading. Refresh: keep UI alive, show progress bar.
       if (_all.isEmpty) {
         setState(() { _loading = true; _error = null; });
-          _cachedAll = _all;
-          _cacheTime = DateTime.now();
       } else {
         setState(() { _refreshing = true; });
       }
+      // Always invalidate the static cache on an explicit reload so that
+      // re-opening the marketplace sees fresh data rather than the 5-min snapshot.
+      if (bypassCache) {
+        _cachedAll = null;
+        _cacheTime = null;
+      }
       try {
+        // bypassCache always adds a timestamp query param to bust GitHub CDN cache.
         final suffix = bypassCache ? '?_=${DateTime.now().millisecondsSinceEpoch}' : '';
         final results = await Future.wait([
           _fetch('$_kWtBase/manga/index.json$suffix').catchError((_) => <_ExtEntry>[]),
@@ -1092,7 +1097,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       const SizedBox(height: 12),
       Text('Erreur de chargement', style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface)),
       const SizedBox(height: 6),
-      FilledButton.tonal(onPressed: _loadAll, child: const Text('Réessayer')),
+      FilledButton.tonal(onPressed: () => _loadAll(bypassCache: true), child: const Text('Réessayer')),
     ]),
   );
 
@@ -1667,7 +1672,7 @@ class _HomeTab extends StatelessWidget {
     final gameExt  = all.where((e) => e.contentType == ItemType.game).toList();
 
     return RefreshIndicator(
-      onRefresh: state._loadAll,
+      onRefresh: () => state._loadAll(bypassCache: true),
       child: CustomScrollView(
         slivers: [
           // ── Dépôts ───────────────────────────────────────────────────────
@@ -1978,7 +1983,7 @@ class _TypeTabState extends State<_TypeTab> {
         : <_ExtEntry>[];
 
     return RefreshIndicator(
-      onRefresh: state._loadAll,
+      onRefresh: () => state._loadAll(bypassCache: true),
       child: CustomScrollView(
         slivers: [
           if (entries.isEmpty)
@@ -1993,7 +1998,7 @@ class _TypeTabState extends State<_TypeTab> {
                   const SizedBox(height: 20),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     TextButton.icon(
-                      onPressed: state._loadAll,
+                      onPressed: () => state._loadAll(bypassCache: true),
                       icon: const Icon(Icons.refresh_rounded),
                       label: const Text('Actualiser'),
                     ),
@@ -3652,7 +3657,7 @@ class _IconChip extends StatelessWidget {
                     _LightActionTile(
                       icon: Icons.refresh_rounded,
                       title: 'Recharger le catalogue',
-                      onTap: () { Navigator.pop(context); state._loadAll(); },
+                      onTap: () { Navigator.pop(context); state._loadAll(bypassCache: true); },
                     ),
                     _LightActionTile(
                       icon: Icons.cloud_sync_rounded,
