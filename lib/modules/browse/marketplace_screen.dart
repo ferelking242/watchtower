@@ -331,16 +331,17 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (bypassCache) {
         _cachedAll = null;
         _cacheTime = null;
+        // Silently purge jsDelivr CDN before fetching so we always get the
+        // latest index — users never see stale versions after an extension push.
+        await _purgeJsDelivr();
       }
       try {
-        // bypassCache always adds a timestamp query param to bust GitHub CDN cache.
-        final suffix = bypassCache ? '?_=${DateTime.now().millisecondsSinceEpoch}' : '';
         final results = await Future.wait([
-          _fetch('$_kWtBase/manga/index.json$suffix').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/watch/index.json$suffix').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/novel/index.json$suffix').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/music/index.json$suffix').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/game/index.json$suffix').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/manga/index.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/watch/index.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/novel/index.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/music/index.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/game/index.json').catchError((_) => <_ExtEntry>[]),
         ]);
         if (mounted) setState(() {
           _all = results.expand((l) => l).toList();
@@ -356,6 +357,26 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         });
       }
     }
+
+  // ── jsDelivr purge — appelé automatiquement à chaque refresh forcé ──────────
+
+  Future<void> _purgeJsDelivr() async {
+    const purgeBase =
+        'https://purge.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
+    const indexes = [
+      'manga/index.json',
+      'watch/index.json',
+      'novel/index.json',
+      'music/index.json',
+      'game/index.json',
+    ];
+    await Future.wait(
+      indexes.map((p) => http
+          .get(Uri.parse('$purgeBase/$p'))
+          .timeout(const Duration(seconds: 8))
+          .catchError((_) => http.Response('', 200))),
+    );
+  }
 
   // ── Install ───────────────────────────────────────────────────────────────────
 
