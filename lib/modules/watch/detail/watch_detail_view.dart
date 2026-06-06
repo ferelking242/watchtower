@@ -1744,6 +1744,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                             imageUrl: imgUrl,
                             fit: BoxFit.cover,
                             width: double.infinity,
+                            height: double.infinity,
                           )
                         : Container(
                             color: _card,
