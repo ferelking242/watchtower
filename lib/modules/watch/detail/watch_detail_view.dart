@@ -2007,9 +2007,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       context: ctx,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      elevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => _DownloadSheet(
         manga: widget.manga,
         chapters: chapters,
@@ -2262,6 +2261,15 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   bool _selectAll = false;
   bool _downloaderExpanded = false;
 
+  bool get _isFilm {
+    if (widget.chapters.length != 1) return false;
+    final name = widget.chapters.first.name ?? '';
+    return !RegExp(
+            r'(?:Saison|Season|Ep\.?\s*\d|S\d+\s*E\d+|\bE\d+)',
+            caseSensitive: false)
+        .hasMatch(name);
+  }
+
   static final _langRe =
       RegExp(r'\b(VF|VO|VOSTFR|VOSTA|MULTI|EN|FR|JAP?|ENG?)\b',
           caseSensitive: false);
@@ -2381,6 +2389,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   }
 
   String _epLabel(Chapter ch, int fallback) {
+    if (_isFilm) return 'Film';
     final m = RegExp(r'\d+').firstMatch(ch.name ?? '');
     return m != null
         ? 'E${m.group(0)!.padLeft(2, '0')}'
@@ -2461,11 +2470,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     final totalSz    = _totalSizeLabel();
 
     return Container(
-      constraints: BoxConstraints(maxHeight: maxH),
-      decoration: BoxDecoration(
-        color: _bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      height: maxH,
+      decoration: BoxDecoration(color: _bg),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2549,15 +2555,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 36,
-          height: 4,
-          margin: const EdgeInsets.only(top: 10, bottom: 6),
-          decoration: BoxDecoration(
-            color: _faint,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 12, 10),
           child: Row(
@@ -3007,7 +3004,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
           ),
           const Spacer(),
           Text(
-            '${displayed.length} épisode${displayed.length > 1 ? 's' : ''}',
+            _isFilm
+                ? 'Film'
+                : '${displayed.length} épisode${displayed.length > 1 ? 's' : ''}',
             style: TextStyle(color: _grey, fontSize: 12),
           ),
         ],
@@ -3084,7 +3083,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     } else if (totalSz.isNotEmpty) {
       label = 'Télécharger  •  $totalSz';
     } else {
-      label = 'Télécharger  •  ${_selected.length} ep.';
+      label = _isFilm
+          ? 'Télécharger  •  Film'
+          : 'Télécharger  •  ${_selected.length} ep.';
     }
 
     return Container(
