@@ -416,7 +416,7 @@ import 'package:flutter_svg/flutter_svg.dart';
   'zergnet.com',
   };
 
-  static const _kJsBlockPatterns = [
+  const _kJsBlockPatterns = [
     'doubleclick', 'googlesyndication', 'googleadservices', 'googletagservices',
     'adservice.google', 'pagead', 'adnxs', 'appnexus', 'taboola', 'outbrain',
     'popads', 'adsterra', 'propellerads', 'media.net', 'smartadserver',
