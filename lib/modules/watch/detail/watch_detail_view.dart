@@ -159,19 +159,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── PORTRAIT ───────────────────────────────────────────────────────────────
 
   Widget _buildPortrait(List<Chapter> chapters) {
-    return SafeArea(
-      bottom: false,
-      child: Column(
+    final topPad = MediaQuery.of(context).padding.top;
+    return Column(
       children: [
         // ── Player — toujours fixé, ne scrolle jamais ─────────────────────────
         SizedBox(
-          height: 230,
+          height: 230 + topPad,
           child: Stack(
             fit: StackFit.expand,
             children: [
               _buildBanner(chapters),
               Positioned(
-                top: 0,
+                top: topPad,
                 left: 0,
                 right: 0,
                 child: Row(
@@ -181,12 +180,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     const Spacer(),
-                    if (widget.isLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 14),
-                        child: _ThreeDotsAnimation(),
-                      ),
                     _AideButton(
                         onTap: () =>
                             _showOptionsSheet(context, chapters)),
@@ -241,8 +234,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
         ),
       ],
-    ),
-  );
+    );
   }
 
   // ─── LANDSCAPE — fullscreen player ──────────────────────────────────────────
@@ -817,6 +809,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   Widget _buildRessourcesSection(List<Chapter> chapters) {
     final isMovie  = _isMovie(chapters);
     final seasons  = isMovie ? <String>[] : _detectSeasons(chapters);
+    // Auto-select first season when user hasn't picked one yet
+    if (!isMovie && seasons.isNotEmpty && _selectedSeason == null) {
+      _selectedSeason = seasons.first;
+    }
     final languages = _detectLanguages(chapters);
     final filtered  = _filterChapters(chapters);
 
@@ -873,7 +869,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         const SizedBox(height: 12),
 
         // ── Dropdown pills row (MovieBox style) ──────────────────────────────
-        if (languages.isNotEmpty || seasons.length > 1) ...[
+        if (languages.isNotEmpty || seasons.isNotEmpty) ...[
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
