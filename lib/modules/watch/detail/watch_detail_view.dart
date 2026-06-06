@@ -25,6 +25,8 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
+import 'package:watchtower/models/settings.dart';
+import 'package:watchtower/services/recommendation.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
@@ -59,6 +61,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   String? _selectedSeason;
   String? _selectedLanguage;
+  String? _selectedServer;
   bool _isDescriptionExpanded = false;
 
   // ── Theme helpers ────────────────────────────────────────────────────────────
@@ -869,38 +872,89 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         const SizedBox(height: 12),
 
         // ── 3 boxes : Saison (série) · Langue · Serveur ─────────────────────
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              if (!isMovie) ...[
+        // Serveur : noms extraits depuis getVideoListProvider (premier épisode)
+        Builder(builder: (context) {
+          final firstEp = filtered.isNotEmpty
+              ? filtered.first
+              : chapters.isNotEmpty
+                  ? chapters.first
+                  : null;
+
+          // Extraire les serveurs depuis la liste vidéo du 1er épisode.
+          // Le label qualité a la forme "Vidzy VF", "Netu VOSTFR", etc.
+          // → le premier mot = nom du serveur hébergeur.
+          final servers = firstEp != null
+              ? ref
+                  .watch(getVideoListProvider(episode: firstEp))
+                  .maybeWhen(
+                    data: (result) => result.$1
+                        .map((v) {
+                          final parts =
+                              (v.quality ?? '').trim().split(RegExp(r'\s+'));
+                          return parts.isNotEmpty ? parts.first : '';
+                        })
+                        .where((s) => s.isNotEmpty)
+                        .toSet()
+                        .toList(),
+                    orElse: () => <String>[],
+                  )
+              : <String>[];
+
+          // Réinitialiser le serveur sélectionné si la liste change
+          if (servers.isNotEmpty &&
+              _selectedServer != null &&
+              !servers.contains(_selectedServer)) {
+            WidgetsBinding.instance.addPostFrameCallback(
+                (_) => setState(() => _selectedServer = null));
+          }
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Box Saison — séries seulement
+                if (!isMovie) ...[
+                  _buildDropdownPill(
+                    label: seasons.isNotEmpty
+                        ? (_selectedSeason ?? seasons.first)
+                        : 'Saison 1',
+                    items: seasons.isNotEmpty ? seasons : ['Saison 1'],
+                    onSelect: (v) => setState(() {
+                      _selectedSeason = v;
+                      _selectedServer = null; // reset serveur au changement saison
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                // Box Langue — VF, VOSTFR, etc. détectés dans les chapitres
                 _buildDropdownPill(
-                  label: seasons.isNotEmpty
-                      ? (_selectedSeason ?? seasons.first)
-                      : 'Saison 1',
-                  items: seasons.isNotEmpty ? seasons : ['Saison 1'],
-                  onSelect: (v) => setState(() => _selectedSeason = v),
+                  label: languages.isNotEmpty
+                      ? (_selectedLanguage ?? languages.first)
+                      : (widget.manga.lang?.toUpperCase() ?? 'FR'),
+                  items: languages.isNotEmpty
+                      ? languages
+                      : [widget.manga.lang?.toUpperCase() ?? 'FR'],
+                  onSelect: (v) => setState(() {
+                    _selectedLanguage = v;
+                    _selectedServer = null; // reset serveur au changement langue
+                  }),
                 ),
                 const SizedBox(width: 8),
+                // Box Serveur — hébergeur vidéo (Vidzy, Uqload, Voe, Netu…)
+                // Affiché "Auto" tant que la liste vidéo n'est pas chargée.
+                _buildDropdownPill(
+                  label: servers.isNotEmpty
+                      ? (_selectedServer ?? servers.first)
+                      : (source?.name ?? widget.manga.source ?? 'Auto'),
+                  items: servers.isNotEmpty
+                      ? servers
+                      : [source?.name ?? widget.manga.source ?? 'Auto'],
+                  onSelect: (v) => setState(() => _selectedServer = v),
+                ),
               ],
-              _buildDropdownPill(
-                label: languages.isNotEmpty
-                    ? (_selectedLanguage ?? languages.first)
-                    : (widget.manga.lang?.toUpperCase() ?? 'FR'),
-                items: languages.isNotEmpty
-                    ? languages
-                    : [widget.manga.lang?.toUpperCase() ?? 'FR'],
-                onSelect: (v) => setState(() => _selectedLanguage = v),
-              ),
-              const SizedBox(width: 8),
-              _buildDropdownPill(
-                label: source?.name ?? widget.manga.source ?? 'Serveur',
-                items: [source?.name ?? widget.manga.source ?? 'Serveur'],
-                onSelect: (_) {},
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        }),
         const SizedBox(height: 14),
 
         // ── Content ───────────────────────────────────────────────────────────
@@ -1605,72 +1659,189 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       );
 
   Widget _buildRecommendationsTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-            child: Column(
+    // Pour vous : utilise le service anibrain.ai pour les recommandations
+    // basées sur le titre courant. L'extension peut aussi fournir getForYou().
+    return FutureBuilder<List<RecommendationResult>?>(
+      future: getRecommendations(
+        widget.manga.name ?? '',
+        widget.manga.itemType,
+        // Poids par défaut : genres 30%, synopsis 40%, setting 15%, thème 20%
+        AlgorithmWeights(),
+      ),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+        final recs = snap.data;
+        if (recs == null || recs.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: _card,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: _faint, width: 1.5),
+                    ),
+                    child: Icon(Icons.movie_filter_outlined,
+                        color: _grey, size: 26),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Aucune recommandation trouvée',
+                    style: TextStyle(
+                        color: _onSurface.withValues(alpha: 0.7),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Ajoute ce titre à ta bibliothèque\npour de meilleures suggestions.',
+                    style: TextStyle(color: _grey, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        // Grille de recommandations : poster + titre
+        return GridView.builder(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.62,
+          ),
+          itemCount: recs.length,
+          itemBuilder: (_, i) {
+            final rec = recs[i];
+            final imgUrl =
+                rec.imgURLs.isNotEmpty ? rec.imgURLs.first : null;
+            final title = rec.titleRomaji ??
+                rec.titleEnglish ??
+                rec.titleNative ??
+                '';
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: _card,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _faint, width: 1.5),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: imgUrl != null
+                        ? cachedNetworkImage(
+                            imageUrl: imgUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          )
+                        : Container(
+                            color: _card,
+                            child: Icon(Icons.movie_outlined,
+                                color: _grey, size: 28),
+                          ),
                   ),
-                  child: Icon(Icons.movie_filter_outlined, color: _grey, size: 26),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 5),
                 Text(
-                  'Les recommandations arrivent bientôt',
+                  title,
                   style: TextStyle(
-                      color: _onSurface.withValues(alpha: 0.7),
-                      fontSize: 14,
+                      color: _textPrimary,
+                      fontSize: 11,
                       fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Découvrez du contenu similaire dans la bibliothèque.',
-                  style: TextStyle(color: _grey, fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
-          ),
-        ),
-      ],
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _buildCommentsTab() {
+    // Commentaires : l'extension doit exposer getComments(url, page).
+    // Vérification via le champ supportsComments dans les métadonnées source.
+    final source = getSource(
+      widget.manga.lang ?? '',
+      widget.manga.source ?? '',
+      widget.manga.sourceId,
+    );
+    final supportsComments =
+        (source?.additionalParams?.contains('"supportsComments":true') ??
+            false) ||
+        (source?.notes?.contains('supportsComments') ?? false);
+
+    if (!supportsComments) {
+      // Source ne fournit pas de commentaires → placeholder informatif
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: _card,
+                shape: BoxShape.circle,
+                border: Border.all(color: _faint, width: 1.5),
+              ),
+              child:
+                  Icon(Icons.chat_bubble_outline, color: _grey, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Commentaires non disponibles',
+              style: TextStyle(
+                  color: _onSurface.withValues(alpha: 0.7),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Cette extension ne fournit pas\nde commentaires (supportsComments: false).',
+              style: TextStyle(color: _grey, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            if ((source?.name ?? '').isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Source : ${source!.name}',
+                  style: TextStyle(color: _grey, fontSize: 11),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Source supporte les commentaires — à implémenter avec getCommentsProvider
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(
-              color: _card,
-              shape: BoxShape.circle,
-              border: Border.all(color: _faint, width: 1.5),
-            ),
-            child: Icon(Icons.chat_bubble_outline, color: _grey, size: 32),
-          ),
-          const SizedBox(height: 16),
-          Text('Aucun commentaire',
-              style: TextStyle(
-                  color: _onSurface.withValues(alpha: 0.7),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(height: 6),
-          Text(
-            'Les commentaires apparaissent ici\nsi l\'extension les fournit.',
-            style: TextStyle(color: _grey, fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
+          Icon(Icons.chat_bubble_outline, color: _accent, size: 32),
+          const SizedBox(height: 12),
+          Text('Chargement des commentaires…',
+              style: TextStyle(color: _grey, fontSize: 13)),
         ],
       ),
     );
