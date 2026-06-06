@@ -2,6 +2,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:watchtower/router/router.dart' show navigatorKey;
+import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 class BypassNotificationService {
@@ -36,7 +38,16 @@ class BypassNotificationService {
         android: androidInit,
         iOS: iosInit,
       );
-      await _plugin.initialize(initSettings);
+
+      await _plugin.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          final url = response.payload;
+          if (url != null && url.isNotEmpty) {
+            _openSheet(url);
+          }
+        },
+      );
 
       if (!kIsWeb && Platform.isAndroid) {
         await _plugin
@@ -76,6 +87,26 @@ class BypassNotificationService {
     }
   }
 
+  void _openSheet(String url) {
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => Container(
+        height: MediaQuery.of(context).size.height * 0.90,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: BypassWebViewSheet(url: url),
+      ),
+    );
+  }
+
   Future<void> notifyChallengeDetected({
     required String url,
     int id = 9900,
@@ -107,8 +138,9 @@ class BypassNotificationService {
       await _plugin.show(
         id,
         '🛡 Source bloquée — $host',
-        'Tap pour résoudre le challenge anti-bot',
+        'Touche pour résoudre le challenge Cloudflare',
         details,
+        payload: url,
       );
     } catch (e) {
       AppLogger.log(
