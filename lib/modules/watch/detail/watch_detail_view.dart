@@ -868,31 +868,40 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
         const SizedBox(height: 12),
 
-        // ── Dropdown pills row (MovieBox style) ──────────────────────────────
-        if (languages.isNotEmpty || seasons.isNotEmpty) ...[
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                if (languages.isNotEmpty)
-                  _buildDropdownPill(
-                    label: _selectedLanguage ?? languages.first,
-                    items: languages,
-                    onSelect: (v) => setState(() => _selectedLanguage = v),
-                  ),
-                if (languages.isNotEmpty && !isMovie && seasons.length > 1)
-                  const SizedBox(width: 8),
-                if (!isMovie && seasons.length > 1)
-                  _buildDropdownPill(
-                    label: _selectedSeason ?? seasons.first,
-                    items: seasons,
-                    onSelect: (v) => setState(() => _selectedSeason = v),
-                  ),
+        // ── 3 boxes : Saison (série) · Langue · Serveur ─────────────────────
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              if (!isMovie) ...[
+                _buildDropdownPill(
+                  label: seasons.isNotEmpty
+                      ? (_selectedSeason ?? seasons.first)
+                      : 'Saison 1',
+                  items: seasons.isNotEmpty ? seasons : ['Saison 1'],
+                  onSelect: (v) => setState(() => _selectedSeason = v),
+                ),
+                const SizedBox(width: 8),
               ],
-            ),
+              _buildDropdownPill(
+                label: languages.isNotEmpty
+                    ? (_selectedLanguage ?? languages.first)
+                    : (widget.manga.lang?.toUpperCase() ?? 'FR'),
+                items: languages.isNotEmpty
+                    ? languages
+                    : [widget.manga.lang?.toUpperCase() ?? 'FR'],
+                onSelect: (v) => setState(() => _selectedLanguage = v),
+              ),
+              const SizedBox(width: 8),
+              _buildDropdownPill(
+                label: source?.name ?? widget.manga.source ?? 'Serveur',
+                items: [source?.name ?? widget.manga.source ?? 'Serveur'],
+                onSelect: (_) {},
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-        ],
+        ),
+        const SizedBox(height: 14),
 
         // ── Content ───────────────────────────────────────────────────────────
         if (chapters.isEmpty)
