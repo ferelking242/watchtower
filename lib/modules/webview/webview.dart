@@ -416,6 +416,21 @@ import 'package:flutter_svg/flutter_svg.dart';
   'zergnet.com',
   };
 
+  static const _kJsBlockPatterns = [
+    'doubleclick', 'googlesyndication', 'googleadservices', 'googletagservices',
+    'adservice.google', 'pagead', 'adnxs', 'appnexus', 'taboola', 'outbrain',
+    'popads', 'adsterra', 'propellerads', 'media.net', 'smartadserver',
+    'rubiconproject', 'openx', 'criteo', 'pubmatic', 'adroll',
+    'trafficjunky', 'exoclick', 'juicyads', 'ero-advertising', 'plugrush',
+    'clickadu', 'trafficholder', 'hilltopads', 'adnium', 'getads.online',
+    'track.getads', 'popunder', 'popcash', 'adcash', 'admanager',
+    'googletagmanager', 'coinzilla', 'cointraffic', 'popadscdn',
+    'servedbyadbutler', 'revcontent', 'mgid', 'zergnet', 'sharethrough',
+    'moatads', 'adsafeprotected', 'quantserve', 'scorecardresearch',
+    'amplitude.com', 'mixpanel.com', 'hotjar.com', 'fullstory.com',
+    'onetrust', 'cookielaw', 'didomi', 'sourcepoint',
+  ];
+
   bool _isAdDomain(String url) {
     try {
       final uri = Uri.tryParse(url);
@@ -427,10 +442,32 @@ import 'package:flutter_svg/flutter_svg.dart';
       for (int i = 1; i < parts.length - 1; i++) {
         if (_kBlockedDomains.contains(parts.sublist(i).join('.'))) return true;
       }
+      final lc = url.toLowerCase();
+      for (final p in _kJsBlockPatterns) {
+        if (lc.contains(p)) return true;
+      }
       return false;
     } catch (_) {
       return false;
     }
+  }
+
+  bool _isAdUrl(String url) {
+    if (_isAdDomain(url)) return true;
+    try {
+      final uri = Uri.tryParse(url);
+      if (uri == null) return false;
+      final host = uri.host.toLowerCase();
+      // Block tracking/redirect domains by host prefix
+      if (RegExp(r'^(track|click|redirect|redir|go|link|out|aff|ref|promo)\.')
+          .hasMatch(host)) return true;
+      // Block URLs that look like tracker redirects (z=, cs=, refid= together)
+      final p = uri.queryParameters;
+      if (p.containsKey('z') && (p.containsKey('cs') || p.containsKey('pu') || p.containsKey('refid'))) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   const _kAdBlockJs = r"""
@@ -506,6 +543,68 @@ import 'package:flutter_svg/flutter_svg.dart';
   try { window.alert = function() {}; } catch(e) {}
   try { window.confirm = function() { return true; }; } catch(e) {}
   try { window.prompt = function() { return ''; }; } catch(e) {}
+
+  // ── Block history/location changes to ad domains ─────────────────────────────
+  try {
+    var _origPush = history.pushState.bind(history);
+    var _origReplace = history.replaceState.bind(history);
+    history.pushState = function(s, t, url) {
+      if (_isBlocked(String(url||''))) return;
+      return _origPush(s, t, url);
+    };
+    history.replaceState = function(s, t, url) {
+      if (_isBlocked(String(url||''))) return;
+      return _origReplace(s, t, url);
+    };
+  } catch(e) {}
+
+  // ── Block all clicks on links going to ad/tracker domains ────────────────────
+  document.addEventListener('click', function(e) {
+    var el = e.target;
+    for (var i = 0; i < 6 && el && el !== document; i++) {
+      if (el.tagName === 'A') {
+        var href = el.href || el.getAttribute('href') || '';
+        if (href && _isBlocked(href)) {
+          e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+          return false;
+        }
+        // Block tracker-style redirect URLs (z=, cs=, refid=, pu= parameters)
+        if (href) {
+          try {
+            var u = new URL(href, window.location.href);
+            var sp = u.searchParams;
+            var isExternal = u.hostname !== window.location.hostname;
+            var hasTrackerParams = (sp.has('z') && (sp.has('cs') || sp.has('pu') || sp.has('refid')));
+            var hasTrackerHost = /^(track|click|redirect|redir|go|link|out|aff)\./i.test(u.hostname);
+            if (isExternal && (hasTrackerParams || hasTrackerHost)) {
+              e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+              return false;
+            }
+          } catch(ex) {}
+        }
+        break;
+      }
+      el = el.parentElement;
+    }
+  }, true);
+
+  // ── Block touchend on "whole-page clickjack" elements ────────────────────────
+  // Some sites attach onclick to document/body to redirect on any tap
+  document.addEventListener('touchend', function(e) {
+    // If picker is active, don't interfere
+    if (window.__wtSmartPicker && window.__wtPickerActive) return;
+    var el = e.target;
+    if (!el) return;
+    // If the element itself (or a parent) has an onclick/href going to an ad
+    for (var i = 0; i < 4 && el && el !== document; i++) {
+      var onclick = el.getAttribute && el.getAttribute('onclick');
+      if (onclick && _isBlocked(onclick)) {
+        e.preventDefault(); e.stopPropagation();
+        return;
+      }
+      el = el.parentElement;
+    }
+  }, {capture: true, passive: false});
 
   // ── CSS rules ───────────────────────────────────────────────────────────────
   var style = document.createElement('style');
@@ -786,6 +885,15 @@ import 'package:flutter_svg/flutter_svg.dart';
       return found;
     }
 
+    // ── Full-screen transparent overlay (captures all touches in picker mode) ───
+    var overlay = document.createElement('div');
+    overlay.id = '__wt_overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;'
+      +'z-index:2147483642;display:none;cursor:crosshair;'
+      +'-webkit-tap-highlight-color:transparent;touch-action:none;';
+    (document.body || document.documentElement).appendChild(overlay);
+    window.__wtPickerActive = false;
+
     // ── Picker mode touch/mouse handlers ────────────────────────────────────────
     function getXY(e) {
       if (e.touches && e.touches.length) return [e.touches[0].clientX, e.touches[0].clientY];
@@ -795,12 +903,15 @@ import 'package:flutter_svg/flutter_svg.dart';
 
     function onMove(e) {
       if (!pickerOn) return;
+      e.preventDefault(); e.stopPropagation();
       var xy = getXY(e);
+      overlay.style.pointerEvents = 'none';
       bar.style.pointerEvents = 'none';
       hl.style.display = 'none';
       var el = document.elementFromPoint(xy[0], xy[1]);
+      overlay.style.pointerEvents = 'auto';
       bar.style.pointerEvents = 'auto';
-      if (!el || el === bar || el === hl || el === hlLabel || (el.id && el.id.startsWith('__wt'))) {
+      if (!el || el === bar || el === hl || el === hlLabel || el === overlay || (el.id && el.id.startsWith('__wt'))) {
         hl.style.display = 'none'; hlLabel.style.display = 'none'; return;
       }
       lastEl = el;
@@ -819,19 +930,25 @@ import 'package:flutter_svg/flutter_svg.dart';
 
     function onTap(e) {
       if (!pickerOn) return;
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
       var xy = getXY(e);
+      overlay.style.pointerEvents = 'none';
       bar.style.pointerEvents = 'none';
       hl.style.display = 'none';
       var el = document.elementFromPoint(xy[0], xy[1]);
+      overlay.style.pointerEvents = 'auto';
       bar.style.pointerEvents = 'auto';
-      if (!el || el === bar || el === hl || el === hlLabel || (el.id && el.id.startsWith('__wt'))) return;
+      if (!el || el === bar || el === hl || el === hlLabel || el === overlay || (el.id && el.id.startsWith('__wt'))) return;
       blockEl(el);
       hl.style.display = 'none'; hlLabel.style.display = 'none';
     }
 
+    overlay.addEventListener('mousemove', onMove, {capture:true, passive:false});
+    overlay.addEventListener('touchmove', onMove, {capture:true, passive:false});
+    overlay.addEventListener('click', onTap, {capture:true});
+    overlay.addEventListener('touchend', onTap, {capture:true});
     document.addEventListener('mousemove', onMove, true);
-    document.addEventListener('touchmove', onMove, {passive:true, capture:true});
+    document.addEventListener('touchmove', onMove, {passive:false, capture:true});
     document.addEventListener('click', onTap, true);
     document.addEventListener('touchend', onTap, {capture:true});
 
@@ -850,16 +967,19 @@ import 'package:flutter_svg/flutter_svg.dart';
     pickBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       pickerOn = !pickerOn;
+      window.__wtPickerActive = pickerOn;
       if (pickerOn) {
         pickBtn.style.background = 'rgba(220,50,50,0.7)';
         pickBtn.style.borderColor = 'rgba(255,80,80,0.6)';
         pickBtn.textContent = '🎯 Actif';
         document.documentElement.style.cursor = 'crosshair';
+        overlay.style.display = 'block';
       } else {
         pickBtn.style.background = 'rgba(255,255,255,0.12)';
         pickBtn.style.borderColor = 'rgba(255,255,255,0.2)';
         pickBtn.textContent = '🎯 Picker';
         document.documentElement.style.cursor = '';
+        overlay.style.display = 'none';
         hl.style.display = 'none'; hlLabel.style.display = 'none';
       }
     });
@@ -867,9 +987,12 @@ import 'package:flutter_svg/flutter_svg.dart';
     closeBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       document.documentElement.style.cursor = '';
-      [bar, hl, hlLabel].forEach(function(el) { try { el.remove(); } catch(e2) {} });
+      window.__wtPickerActive = false;
+      [bar, hl, hlLabel, overlay].forEach(function(el) { try { el.remove(); } catch(e2) {} });
       document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('touchmove', onMove, true);
       document.removeEventListener('click', onTap, true);
+      document.removeEventListener('touchend', onTap, true);
       window.__wtSmartPicker = false;
       try { window.flutter_inappwebview.callHandler('pickerClosed', '{}'); } catch(e2) {}
     });
@@ -951,6 +1074,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   int _blockedCount = 0;
   bool _pickerMode = false;
   List<String> _blockedElements = [];
+  // Undo history: each entry is {selector, displayName}
+  final List<Map<String, String>> _hiddenHistory = [];
 
   // Footer visibility (toggled by ghost icon)
   bool _showFooter = true;
@@ -1299,18 +1424,149 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     Navigator.of(context).pop();
   }
 
-  Future<void> _injectHideRule(String css) async {
+  Future<void> _injectHideRule(String css, {String? displayName}) async {
     final js = '''
 (function(){
   var s=document.getElementById('__wt_custom_hide')||document.createElement('style');
   s.id='__wt_custom_hide';
   s.textContent+='$css{display:none!important;}';
   (document.head||document.documentElement).appendChild(s);
+  // Store rule in window for undo support
+  if(!window.__wtHiddenRules) window.__wtHiddenRules=[];
+  window.__wtHiddenRules.push('$css');
 })();
 ''';
     try {
       await _webViewController?.evaluateJavascript(source: js);
+      if (mounted) {
+        setState(() {
+          _hiddenHistory.add({'selector': css, 'name': displayName ?? css});
+        });
+      }
     } catch (_) {}
+  }
+
+  Future<void> _injectRestoreRule(String css) async {
+    // Re-show elements matching css selector
+    final safeJs = '''
+(function(){
+  // Remove from custom hide style
+  var s = document.getElementById('__wt_custom_hide');
+  if (s) {
+    s.textContent = s.textContent.replace('$css{display:none!important;}','');
+  }
+  // Force show matching elements
+  try {
+    document.querySelectorAll('$css').forEach(function(el) {
+      el.style.removeProperty('display');
+    });
+  } catch(e) {}
+  // Remove from stored rules
+  if(window.__wtHiddenRules) {
+    window.__wtHiddenRules = window.__wtHiddenRules.filter(function(r){return r!=='$css';});
+  }
+})();
+''';
+    try {
+      await _webViewController?.evaluateJavascript(source: safeJs);
+    } catch (_) {}
+  }
+
+  void _showRestoreDialog() {
+    if (_hiddenHistory.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun élément masqué à restaurer'), duration: Duration(seconds: 2)),
+      );
+      return;
+    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Container(
+            margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36, height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 14, 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.history_rounded, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+                        const SizedBox(width: 10),
+                        Text('Éléments masqués',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87)),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            for (final rule in List<Map<String, String>>.from(_hiddenHistory)) {
+                              await _injectRestoreRule(rule['selector']!);
+                            }
+                            if (mounted) setState(() => _hiddenHistory.clear());
+                          },
+                          child: const Text('Tout restaurer', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 300),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _hiddenHistory.length,
+                      itemBuilder: (_, i) {
+                        final rule = _hiddenHistory[i];
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(Icons.visibility_off_outlined, size: 16, color: Colors.red.shade400),
+                          title: Text(
+                            rule['name'] ?? rule['selector'] ?? '',
+                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white : Colors.black87,
+                                fontFamily: 'monospace'),
+                          ),
+                          trailing: TextButton(
+                            onPressed: () async {
+                              final sel = rule['selector']!;
+                              await _injectRestoreRule(sel);
+                              if (mounted) {
+                                setState(() => _hiddenHistory.removeWhere((r) => r['selector'] == sel));
+                                setModalState(() {});
+                              }
+                            },
+                            child: const Text('Restaurer', style: TextStyle(color: Colors.green, fontSize: 11)),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showPickedElementDialog(String info) {
@@ -1342,7 +1598,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                _injectHideRule('#$cssId');
+                _injectHideRule('#$cssId', displayName: '#$cssId');
                 setState(() => _blockedElements.add('#$cssId'));
               },
               child: Text('Masquer #$cssId', style: const TextStyle(color: Colors.orange)),
@@ -1351,7 +1607,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                _injectHideRule('.$cssClass');
+                _injectHideRule('.$cssClass', displayName: '.$cssClass');
                 setState(() => _blockedElements.add('.$cssClass'));
               },
               child: Text('Masquer .$cssClass', style: const TextStyle(color: Colors.orange)),
@@ -1385,6 +1641,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         blockedCount: _blockedCount,
         blockedElements: _blockedElements,
         currentUrl: _url,
+        hiddenCount: _hiddenHistory.length,
         onToggle: (v) {
           if (mounted) setState(() => _adBlockEnabled = v);
           if (v) _injectJs();
@@ -1396,6 +1653,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         },
         onActivatePicker: _activatePicker,
         onOpenFullPage: _showAdFullPage,
+        onRestore: _showRestoreDialog,
       ),
     );
   }
@@ -1609,8 +1867,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenH = MediaQuery.of(context).size.height;
 
-    return PopScope(
+    // Wrap in panel-resize container for Telegram-style minimize
+    Widget panelContent = PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
@@ -1637,8 +1897,16 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               blockedCount: _blockedCount,
               showFooter: _showFooter,
               incognito: _incognitoMode,
+              snap: _snap,
               onToggleFooter: () => setState(() => _showFooter = !_showFooter),
               onRefresh: () => _webViewController?.reload(),
+              onMinimize: () {
+                setState(() => _snap = _PanelSnap.mini);
+                _animateTo(_snapFraction(_PanelSnap.mini));
+              },
+              onDragStart: _onDragStart,
+              onDragUpdate: _onDragUpdate,
+              onDragEnd: _onDragEnd,
             ),
           ),
         ),
@@ -1709,9 +1977,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               }
                             },
                             shouldOverrideUrlLoading: (c, action) async {
-                              final policy = _checkAd(action);
-                              if (policy == NavigationActionPolicy.CANCEL) {
-                                return policy;
+                              if (_adBlockEnabled) {
+                                final url = action.request.url?.toString() ?? '';
+                                if (_isAdUrl(url)) {
+                                  if (mounted) setState(() => _blockedCount++);
+                                  return NavigationActionPolicy.CANCEL;
+                                }
                               }
                               final uri = action.request.url!;
                               if (![
@@ -1733,7 +2004,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                             shouldInterceptRequest: (!kIsWeb && Platform.isAndroid)
                                 ? (c, request) async {
                                     final url = request.url.toString();
-                                    if (_adBlockEnabled && _isAdDomain(url)) {
+                                    if (_adBlockEnabled && _isAdUrl(url)) {
                                       if (mounted) {
                                         setState(() => _blockedCount++);
                                       }
@@ -1741,6 +2012,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                         contentType: 'text/plain',
                                         statusCode: 200,
                                         reasonPhrase: 'OK',
+                                        data: Uint8List(0),
                                       );
                                     }
                                     return null;
@@ -1768,6 +2040,33 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               )
             : null,
       ),
+    );
+
+    // ── Telegram-style minimize panel ─────────────────────────────────────────
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Semi-transparent backdrop when minimized — tap to expand
+        if (_currentFraction < 0.99)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() => _snap = _PanelSnap.full);
+              _animateTo(1.0);
+            },
+            child: Container(
+              color: Colors.black.withValues(alpha: (1.0 - _currentFraction).clamp(0, 0.65)),
+            ),
+          ),
+        // Panel anchored at bottom, sized by _currentFraction
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            height: (screenH * _currentFraction).clamp(56.0, screenH),
+            child: panelContent,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1846,8 +2145,13 @@ class _BrowserHeader extends StatelessWidget {
   final int blockedCount;
   final bool showFooter;
   final bool incognito;
+  final _PanelSnap snap;
   final VoidCallback onToggleFooter;
   final VoidCallback onRefresh;
+  final VoidCallback onMinimize;
+  final GestureDragStartCallback onDragStart;
+  final GestureDragUpdateCallback onDragUpdate;
+  final GestureDragEndCallback onDragEnd;
 
   const _BrowserHeader({
     required this.url,
@@ -1859,8 +2163,13 @@ class _BrowserHeader extends StatelessWidget {
     required this.blockedCount,
     required this.showFooter,
     required this.incognito,
+    required this.snap,
     required this.onToggleFooter,
     required this.onRefresh,
+    required this.onMinimize,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
   });
 
   @override
@@ -1869,6 +2178,7 @@ class _BrowserHeader extends StatelessWidget {
     final displayTitle = title.isNotEmpty ? title : _displayHost(url);
     final textColor = isDark ? Colors.white : Colors.black87;
     final subColor = isDark ? Colors.grey.shade500 : Colors.grey.shade500;
+    final isMini = snap == _PanelSnap.mini;
 
     // Left icon colour: incognito=purple, HTTPS=green, HTTP=grey
     final Color shieldColor = incognito
@@ -1877,108 +2187,138 @@ class _BrowserHeader extends StatelessWidget {
             ? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
             : subColor;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Address bar row — completely flat, no container/pill/box
-        SizedBox(
-          height: 46,
-          child: Row(
-            children: [
-              // Left: shield (secure) or ghost (incognito) — tap = toggle footer
-              GestureDetector(
-                onTap: onToggleFooter,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                  child: SvgPicture.asset(
-                    incognito ? 'assets/icons/ghost.svg' : 'assets/icons/block-ads.svg',
-                    width: 22,
-                    height: 22,
-                    colorFilter: ColorFilter.mode(shieldColor, BlendMode.srcIn),
-                  ),
-                ),
+    return GestureDetector(
+      onVerticalDragStart: onDragStart,
+      onVerticalDragUpdate: onDragUpdate,
+      onVerticalDragEnd: onDragEnd,
+      behavior: HitTestBehavior.translucent,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Drag handle pill ──────────────────────────────────────────
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(2),
               ),
-
-              // Title — centered, plain text, no box
-              Expanded(
-                child: GestureDetector(
-                  onLongPress: () {
-                    Clipboard.setData(ClipboardData(text: url));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Lien copié'), duration: Duration(seconds: 2)),
-                    );
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          displayTitle,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: textColor,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          maxLines: 1,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      if (adEnabled && blockedCount > 0) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          blockedCount > 99 ? '99+' : '$blockedCount',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              // Right: ONLY refresh icon
-              GestureDetector(
-                onTap: onRefresh,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                  child: Icon(
-                    Icons.refresh_rounded,
-                    size: 22,
-                    color: textColor,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
 
-        // Progress bar
-        SizedBox(
-          height: 2,
-          child: progress < 1.0
-              ? LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
-                )
-              : const SizedBox.shrink(),
-        ),
+          // Address bar row — completely flat, no container/pill/box
+          SizedBox(
+            height: 40,
+            child: Row(
+              children: [
+                // Left: shield (secure) or ghost (incognito) — tap = toggle footer
+                GestureDetector(
+                  onTap: onToggleFooter,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    child: SvgPicture.asset(
+                      incognito ? 'assets/icons/ghost.svg' : 'assets/icons/block-ads.svg',
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(shieldColor, BlendMode.srcIn),
+                    ),
+                  ),
+                ),
 
-        // Subtle divider
-        Divider(
-          height: 1,
-          thickness: 0.5,
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.08),
-        ),
-      ],
+                // Title — centered, plain text, no box
+                Expanded(
+                  child: GestureDetector(
+                    onLongPress: () {
+                      Clipboard.setData(ClipboardData(text: url));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Lien copié'), duration: Duration(seconds: 2)),
+                      );
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayTitle,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: textColor,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            maxLines: 1,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        if (adEnabled && blockedCount > 0) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            blockedCount > 99 ? '99+' : '$blockedCount',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Right: minimize button + refresh
+                GestureDetector(
+                  onTap: onMinimize,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    child: Icon(
+                      isMini ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                      size: 22,
+                      color: subColor,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onRefresh,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    child: Icon(
+                      Icons.refresh_rounded,
+                      size: 20,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Progress bar
+          SizedBox(
+            height: 2,
+            child: progress < 1.0
+                ? LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          // Subtle divider
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.08),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2461,6 +2801,8 @@ class _AdBlockSheet extends StatelessWidget {
   final VoidCallback onReset;
   final VoidCallback? onActivatePicker;
   final VoidCallback? onOpenFullPage;
+  final VoidCallback? onRestore;
+  final int hiddenCount;
 
   const _AdBlockSheet({
     required this.enabled,
@@ -2471,6 +2813,8 @@ class _AdBlockSheet extends StatelessWidget {
     required this.onReset,
     this.onActivatePicker,
     this.onOpenFullPage,
+    this.onRestore,
+    this.hiddenCount = 0,
   });
 
   @override
@@ -2665,6 +3009,20 @@ class _AdBlockSheet extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       onActivatePicker?.call();
+                    },
+                  ),
+                ),
+                VerticalDivider(width: 1, thickness: 0.5, color: divColor),
+                Expanded(
+                  child: _AdBlockQuickBtn(
+                    icon: Icons.history_rounded,
+                    label: 'Restaurer\n${hiddenCount > 0 ? "($hiddenCount)" : "élém."}',
+                    isDark: isDark,
+                    textColor: textColor,
+                    accent: hiddenCount > 0 ? Colors.green.shade400 : null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      onRestore?.call();
                     },
                   ),
                 ),
