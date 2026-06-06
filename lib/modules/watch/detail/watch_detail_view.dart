@@ -1026,18 +1026,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             border: Border.all(
                 color: _accent.withValues(alpha: 0.28), width: 0.8),
           ),
-          child: Text(
-            chapter.name?.isNotEmpty == true
-                ? chapter.name!
-                : widget.manga.name ?? 'Regarder',
-            style: TextStyle(
-              color: _accent,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.play_arrow_rounded, color: _accent, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                'Regarder',
+                style: TextStyle(
+                  color: _accent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
