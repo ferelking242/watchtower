@@ -2343,14 +2343,16 @@ class _MoreSheetState extends State<_MoreSheet> {
     ]);
 
     return Container(
+      margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        // 4 coins arrondis — style Via browser
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
-            blurRadius: 24,
-            offset: const Offset(0, -4),
+            color: Colors.black.withValues(alpha: isDark ? 0.48 : 0.14),
+            blurRadius: 32,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -2359,74 +2361,82 @@ class _MoreSheetState extends State<_MoreSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
 
             // PageView — 3 pages
             SizedBox(
-              height: 162,
+              height: 168,
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
                 child: PageView(
                   controller: _pageCtrl,
                   onPageChanged: (i) => setState(() => _page = i),
                   children: [
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page1),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page2),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: page3),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: page1),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: page2),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: page3),
                   ],
                 ),
               ),
             ),
 
-            // Dots
+            const SizedBox(height: 4),
+
+            // Dots — cercles uniformes, minimalistes (style Via)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(3, (i) {
+                final active = _page == i;
                 return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
-                  width: _page == i ? 16 : 6,
+                  duration: const Duration(milliseconds: 180),
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: _page == i
-                        ? (isDark ? Colors.white : Colors.black87)
-                        : (isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.2)),
-                    borderRadius: BorderRadius.circular(3),
+                    shape: BoxShape.circle,
+                    color: active
+                        ? (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.75))
+                        : (isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.18)),
                   ),
                 );
               }),
             ),
 
-            // Bottom row: fold + power both on the right
+            const SizedBox(height: 2),
+
+            // Boutons Power + Collapse — centrés, espacés, style Via
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Power = close WebView entirely
+                  // Power = fermer le WebView
                   GestureDetector(
                     onTap: () {
                       Navigator.pop(context);
                       widget.onCloseWebView();
                     },
+                    behavior: HitTestBehavior.opaque,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.all(14),
                       child: Icon(
                         Icons.power_settings_new_rounded,
-                        size: 26,
-                        color: isDark ? Colors.white70 : Colors.black54,
+                        size: 24,
+                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
-                  // Down = dismiss sheet
+                  const SizedBox(width: 72),
+                  // Chevron bas = fermer le sheet
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
+                    behavior: HitTestBehavior.opaque,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.all(14),
                       child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        size: 30,
-                        color: isDark ? Colors.white70 : Colors.black54,
+                        size: 28,
+                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
