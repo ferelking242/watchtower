@@ -159,18 +159,19 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── PORTRAIT ───────────────────────────────────────────────────────────────
 
   Widget _buildPortrait(List<Chapter> chapters) {
-    final topPad = MediaQuery.of(context).padding.top;
-    return Column(
+    return SafeArea(
+      bottom: false,
+      child: Column(
       children: [
         // ── Player — toujours fixé, ne scrolle jamais ─────────────────────────
         SizedBox(
-          height: 230 + topPad,
+          height: 230,
           child: Stack(
             fit: StackFit.expand,
             children: [
               _buildBanner(chapters),
               Positioned(
-                top: topPad,
+                top: 0,
                 left: 0,
                 right: 0,
                 child: Row(
@@ -184,12 +185,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       const Padding(
                         padding: EdgeInsets.symmetric(
                             horizontal: 4, vertical: 14),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        ),
+                        child: _ThreeDotsAnimation(),
                       ),
                     _AideButton(
                         onTap: () =>
@@ -245,7 +241,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
         ),
       ],
-    );
+    ),
+  );
   }
 
   // ─── LANDSCAPE — fullscreen player ──────────────────────────────────────────
@@ -876,7 +873,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         const SizedBox(height: 12),
 
         // ── Dropdown pills row (MovieBox style) ──────────────────────────────
-        if (languages.isNotEmpty || (!isMovie && seasons.length > 1)) ...[
+        if (languages.isNotEmpty || seasons.length > 1) ...[
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -1067,16 +1064,22 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   int _epNum(String? name, int fallback) {
     if (name == null || name.isEmpty) return fallback;
-    final m = RegExp(r'\d+').firstMatch(name);
-    return m != null ? (int.tryParse(m.group(0)!) ?? fallback) : fallback;
+    // Try "Ep. N" / "Ep N" / "Episode N" pattern first
+    final epMatch = RegExp(r'(?:Ep\.?|Episode)\s*(\d+)', caseSensitive: false)
+        .firstMatch(name);
+    if (epMatch != null) return int.tryParse(epMatch.group(1)!) ?? fallback;
+    // Fall back to the LAST number in the name (avoids matching season number first)
+    final all = RegExp(r'\d+').allMatches(name);
+    if (all.isEmpty) return fallback;
+    return int.tryParse(all.last.group(0)!) ?? fallback;
   }
 
   // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
 
   static const double _kEpCardW = 50.0;
-  static const double _kEpCardH = 40.0;
+  static const double _kEpCardH = 32.0;
   static const double _kEpRadius = 8.0;
-  static const double _kStripH   = 64.0;
+  static const double _kStripH   = 52.0;
 
   Widget _buildEpisodeStrip(List<Chapter> chapters, List<Chapter> allChapters) {
     return SizedBox(
@@ -1126,10 +1129,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           // ── Episode card ─────────────────────────────────────────────────────
           final chapter = chapters[index - 1];
           final watched = chapter.isRead ?? false;
-          final numMatch = RegExp(r'\d+').firstMatch(chapter.name ?? '');
-          final epNum = numMatch != null
-              ? (int.tryParse(numMatch.group(0)!) ?? index)
-              : index;
+          final epNum = _epNum(chapter.name, index);
           final label = epNum.toString().padLeft(2, '0');
 
           return Padding(
@@ -1536,8 +1536,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             _detailRow(Icons.groups_2_outlined, manga.artist!),
             const SizedBox(height: 16),
           ],
-          const SizedBox(height: 4),
-          Divider(color: _faint, thickness: 0.8),
         ],
       ),
     );
@@ -1603,7 +1601,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Divider(color: _faint, thickness: 0.8, height: 1),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
@@ -2972,31 +2969,73 @@ class _LoadingBannerPulseState extends State<_LoadingBannerPulse>
       animation: _anim,
       builder: (_, __) => Container(
         color: Colors.black.withValues(alpha: _anim.value),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Chargement…',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.70),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+        child: const Center(
+          child: _ThreeDotsAnimation(),
         ),
       ),
+    );
+  }
+}
+
+// ─── 3 jumping dots animation ─────────────────────────────────────────────────
+
+class _ThreeDotsAnimation extends StatefulWidget {
+  const _ThreeDotsAnimation();
+
+  @override
+  State<_ThreeDotsAnimation> createState() => _ThreeDotsAnimationState();
+}
+
+class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
+    with TickerProviderStateMixin {
+  final List<AnimationController> _ctrls = [];
+  final List<Animation<double>> _anims = [];
+
+  @override
+  void initState() {
+    super.initState();
+    for (int i = 0; i < 3; i++) {
+      final c = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 500),
+      );
+      _ctrls.add(c);
+      _anims.add(Tween<double>(begin: 0, end: -9).animate(
+        CurvedAnimation(parent: c, curve: Curves.easeInOut),
+      ));
+      Future.delayed(Duration(milliseconds: i * 140), () {
+        if (mounted) c.repeat(reverse: true);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _ctrls) c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        return AnimatedBuilder(
+          animation: _anims[i],
+          builder: (_, __) => Transform.translate(
+            offset: Offset(0, _anims[i].value),
+            child: Container(
+              width: 7,
+              height: 7,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.85),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
