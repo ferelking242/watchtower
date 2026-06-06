@@ -3,6 +3,75 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
+// ─── 3 jumping dots (reusable loading indicator) ─────────────────────────────
+
+class JumpingDotsLoader extends StatefulWidget {
+  final Color color;
+  final double size;
+  const JumpingDotsLoader({
+    super.key,
+    this.color = Colors.white,
+    this.size = 7.0,
+  });
+
+  @override
+  State<JumpingDotsLoader> createState() => _JumpingDotsLoaderState();
+}
+
+class _JumpingDotsLoaderState extends State<JumpingDotsLoader>
+    with TickerProviderStateMixin {
+  final List<AnimationController> _ctrls = [];
+  final List<Animation<double>> _anims = [];
+
+  @override
+  void initState() {
+    super.initState();
+    for (int i = 0; i < 3; i++) {
+      final c = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 500),
+      );
+      _ctrls.add(c);
+      _anims.add(Tween<double>(begin: 0, end: -9).animate(
+        CurvedAnimation(parent: c, curve: Curves.easeInOut),
+      ));
+      Future.delayed(Duration(milliseconds: i * 140), () {
+        if (mounted) c.repeat(reverse: true);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _ctrls) c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        return AnimatedBuilder(
+          animation: _anims[i],
+          builder: (_, __) => Transform.translate(
+            offset: Offset(0, _anims[i].value),
+            child: Container(
+              width: widget.size,
+              height: widget.size,
+              margin: const EdgeInsets.symmetric(horizontal: 3.5),
+              decoration: BoxDecoration(
+                color: widget.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
 /// Overlay d'état du player : loading, buffering, seeking, success, error.
 ///
 /// Utilisation :
