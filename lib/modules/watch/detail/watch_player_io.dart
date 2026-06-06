@@ -434,10 +434,7 @@ class _FullscreenControlsOverlayState
                 builder: (_, snap) => AnimatedOpacity(
                   opacity: snap.data == true ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
-                  child: const CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.5,
-                  ),
+                  child: const JumpingDotsLoader(),
                 ),
               ),
             ),
