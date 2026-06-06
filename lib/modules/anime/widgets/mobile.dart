@@ -9,6 +9,7 @@ import 'package:watchtower/modules/anime/anime_player_view.dart';
 import 'package:watchtower/modules/anime/providers/anime_player_controller_provider.dart';
 import 'package:watchtower/modules/anime/widgets/custom_seekbar.dart';
 import 'package:watchtower/modules/anime/widgets/indicator_builder.dart';
+import 'package:watchtower/widgets/watchtower_loader.dart';
 import 'package:watchtower/modules/anime/widgets/subtitle_view.dart';
 import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_state_provider.dart';
@@ -267,6 +268,7 @@ class _MobileControllerWidgetState
 
   Future<void> setVolume(double value) async {
     try {
+      _volumeController.showSystemUI = false;
       _volumeController.setVolume(value);
     } catch (_) {}
     _volumeValue.value = value;
@@ -539,9 +541,7 @@ class _MobileControllerWidgetState
                               }
                               return const SizedBox.shrink();
                             },
-                            child: const CircularProgressIndicator(
-                              color: Color(0xFFFFFFFF),
-                            ),
+                            child: const JumpingDotsLoader(),
                           ),
                         ),
                       ),
@@ -553,7 +553,7 @@ class _MobileControllerWidgetState
                   ),
                 ),
               ),
-              // // Volume Indicator.
+              // // Volume Indicator — right edge.
               IgnorePointer(
                 child: ValueListenableBuilder(
                   valueListenable: _volumeIndicator,
@@ -561,14 +561,20 @@ class _MobileControllerWidgetState
                     curve: Curves.easeInOut,
                     opacity: value ? 1.0 : 0.0,
                     duration: controlsTransitionDuration,
-                    child: MediaIndicatorBuilder(
-                      value: _volumeValue,
-                      isVolumeIndicator: true,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 20),
+                        child: MediaIndicatorBuilder(
+                          value: _volumeValue,
+                          isVolumeIndicator: true,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-              // // Brightness Indicator.
+              // // Brightness Indicator — left edge.
               IgnorePointer(
                 child: ValueListenableBuilder(
                   valueListenable: _brightnessIndicator,
@@ -576,9 +582,15 @@ class _MobileControllerWidgetState
                     curve: Curves.easeInOut,
                     opacity: value ? 1.0 : 0.0,
                     duration: controlsTransitionDuration,
-                    child: MediaIndicatorBuilder(
-                      value: _brightnessValue,
-                      isVolumeIndicator: false,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 20),
+                        child: MediaIndicatorBuilder(
+                          value: _brightnessValue,
+                          isVolumeIndicator: false,
+                        ),
+                      ),
                     ),
                   ),
                 ),
