@@ -27,8 +27,7 @@ class MediaIndicatorBuilder extends StatelessWidget {
                 _ => Icons.brightness_high_rounded,
               };
         final pct = (val * 100).round();
-        return Center(
-          child: ClipRRect(
+        return ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
@@ -74,7 +73,6 @@ class MediaIndicatorBuilder extends StatelessWidget {
                 ),
               ),
             ),
-          ),
         );
       },
     );
