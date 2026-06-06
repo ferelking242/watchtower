@@ -27,6 +27,7 @@ class WatchInlinePlayer {
 
   String title = '';
   bool hasVideoUrl = false;
+  bool loadFailed = false;
   int? loadedChapterId;
 
   WatchInlinePlayer() {
@@ -39,10 +40,16 @@ class WatchInlinePlayer {
     _seekingNotifier.dispose();
   }
 
+  void reset() {
+    hasVideoUrl = false;
+    loadFailed = false;
+  }
+
   Future<void> load({
     required WidgetRef ref,
     required Chapter chapter,
   }) async {
+    loadFailed = false;
     try {
       final data =
           await ref.read(getVideoListProvider(episode: chapter).future);
@@ -54,8 +61,12 @@ class WatchInlinePlayer {
           play: true,
         );
         hasVideoUrl = true;
+      } else {
+        loadFailed = true;
       }
-    } catch (_) {}
+    } catch (_) {
+      loadFailed = true;
+    }
   }
 
   // Banner overlay for portrait inline view

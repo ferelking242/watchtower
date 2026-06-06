@@ -10,6 +10,7 @@ import 'package:watchtower/models/chapter.dart';
 
 class WatchInlinePlayer {
   bool hasVideoUrl = false;
+  bool loadFailed = false;
   int? loadedChapterId;
   String title = '';
 
@@ -20,6 +21,11 @@ class WatchInlinePlayer {
   void dispose() {
     _videoUrl = null;
     _viewType = null;
+  }
+
+  void reset() {
+    hasVideoUrl = false;
+    loadFailed = false;
   }
 
   Future<void> load({
