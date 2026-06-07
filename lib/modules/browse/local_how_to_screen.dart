@@ -1,52 +1,14 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-class LocalHowToScreen extends StatefulWidget {
+class LocalHowToScreen extends StatelessWidget {
   final ItemType itemType;
   const LocalHowToScreen({required this.itemType, super.key});
 
-  @override
-  State<LocalHowToScreen> createState() => _LocalHowToScreenState();
-}
-
-class _LocalHowToScreenState extends State<LocalHowToScreen> {
-  String? _customFolder;
-
-  Future<void> _pickFolder() async {
-    try {
-      final result = await FilePicker.platform.getDirectoryPath();
-      if (result != null && mounted) {
-        setState(() => _customFolder = result);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('Dossier sélectionné : $result'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('Erreur sélection dossier : $e'),
-          ),
-        );
-      }
-    }
-  }
-
-  void _clearFolder() => setState(() => _customFolder = null);
-
-  String get _typeName => switch (widget.itemType) {
+  String get _typeName => switch (itemType) {
         ItemType.manga => 'Manga',
         ItemType.anime => 'Watch',
         ItemType.novel => 'Novel',
@@ -56,7 +18,7 @@ class _LocalHowToScreenState extends State<LocalHowToScreen> {
 
   String get _defaultPath => 'Watchtower/Local/$_typeName';
 
-  List<String> get _supportedFormats => switch (widget.itemType) {
+  List<String> get _supportedFormats => switch (itemType) {
         ItemType.manga => ['CBZ', 'ZIP'],
         ItemType.anime => ['MP4', 'MKV', 'AVI', 'MOV', 'FLV', 'MPEG', 'WMV'],
         ItemType.novel => ['EPUB'],
@@ -64,7 +26,7 @@ class _LocalHowToScreenState extends State<LocalHowToScreen> {
         ItemType.game => ['APK', 'ZIP', 'RAR', '7Z'],
       };
 
-  String get _folderStructureExample => switch (widget.itemType) {
+  String get _folderStructureExample => switch (itemType) {
         ItemType.manga =>
           'Manga/\n'
           '  ├── My Manga Title/\n'
@@ -103,7 +65,7 @@ class _LocalHowToScreenState extends State<LocalHowToScreen> {
           '  └── Another Game.apk',
       };
 
-  IconData get _typeIcon => switch (widget.itemType) {
+  IconData get _typeIcon => switch (itemType) {
         ItemType.manga => Icons.auto_stories_outlined,
         ItemType.anime => Icons.live_tv_outlined,
         ItemType.novel => Icons.menu_book_outlined,
@@ -135,16 +97,6 @@ class _LocalHowToScreenState extends State<LocalHowToScreen> {
 
           // ── Dossier ───────────────────────────────────────────────────────
           _SectionTitle('📁 Dossier local'),
-          const SizedBox(height: 10),
-          _FolderCard(
-            defaultPath: _defaultPath,
-            customFolder: _customFolder,
-            cs: cs,
-          ),
-          const SizedBox(height: 24),
-
-          // ── Où placer les fichiers ─────────────────────────────────────────
-          _SectionTitle('📂 Où placer les fichiers'),
           const SizedBox(height: 10),
           _InfoCard(
             cs: cs,
@@ -213,44 +165,6 @@ class _LocalHowToScreenState extends State<LocalHowToScreen> {
           ),
           const SizedBox(height: 24),
 
-          // ── Actions ───────────────────────────────────────────────────────
-          _SectionTitle('🔧 Sélectionner un dossier'),
-          const SizedBox(height: 10),
-          if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isLinux || Platform.isWindows || Platform.isMacOS))
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.folder_open_rounded, size: 18),
-                    label: const Text('Choisir un dossier'),
-                    onPressed: _pickFolder,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                if (_customFolder != null) ...[
-                  const SizedBox(width: 10),
-                  OutlinedButton.icon(
-                    icon: Icon(Icons.clear_rounded, size: 18, color: cs.error),
-                    label: Text('Effacer', style: TextStyle(color: cs.error)),
-                    onPressed: _clearFolder,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: cs.error),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          const SizedBox(height: 24),
-
           // ── Tips ──────────────────────────────────────────────────────────
           _InfoCard(
             cs: cs,
@@ -282,11 +196,11 @@ class _LocalHowToScreenState extends State<LocalHowToScreen> {
                 ),
                 const SizedBox(height: 4),
                 _BulletPoint(
-                  'Un fichier cover.jpg ou cover.png dans le dossier du titre sera utilisé comme couverture.',
+                  'Un fichier cover.jpg dans le dossier du titre sera utilisé comme couverture.',
                 ),
                 const SizedBox(height: 4),
                 _BulletPoint(
-                  'Tire vers le bas sur la bibliothèque pour rescanner manuellement.',
+                  'Tire vers le bas sur la bibliothèque locale pour rescanner les fichiers.',
                 ),
               ],
             ),
@@ -357,61 +271,6 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _FolderCard extends StatelessWidget {
-  final String defaultPath;
-  final String? customFolder;
-  final ColorScheme cs;
-  const _FolderCard({required this.defaultPath, required this.customFolder, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: customFolder != null ? cs.primary : cs.outlineVariant,
-          width: customFolder != null ? 1.5 : 1,
-        ),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                customFolder != null ? Icons.folder_rounded : Icons.folder_outlined,
-                color: customFolder != null ? cs.primary : cs.onSurfaceVariant,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                customFolder != null ? 'Dossier sélectionné' : 'Dossier par défaut',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: customFolder != null ? cs.primary : cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            customFolder ?? defaultPath,
-            style: TextStyle(
-              fontSize: 13,
-              fontFamily: 'monospace',
-              color: cs.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   final String text;
   const _SectionTitle(this.text);
@@ -461,7 +320,11 @@ class _PathRow extends StatelessWidget {
           width: 80,
           child: Text(
             label,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ),
         Expanded(
@@ -471,7 +334,10 @@ class _PathRow extends StatelessWidget {
               color: cs.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(path, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+            child: Text(
+              path,
+              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            ),
           ),
         ),
       ],
@@ -515,9 +381,15 @@ class _BulletPoint extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('• ', style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold)),
+        Text(
+          '• ',
+          style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold),
+        ),
         Expanded(
-          child: Text(text, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+          ),
         ),
       ],
     );
