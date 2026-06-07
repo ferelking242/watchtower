@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
@@ -52,8 +53,6 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             return const SizedBox.shrink();
           }
           final showNSFW = ref.watch(showNSFWStateProvider);
-          // On Flutter web the Isar filter chain is a no-op, so we mirror
-          // ALL conditions from the query in Dart as a safety-net.
           List<Source> sources = snapshot.data!
               .where((e) => e.id != null)
               .where((e) => e.isAdded == true)
@@ -61,17 +60,13 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               .where((e) => e.itemType == widget.itemType)
               .where((e) => showNSFW || !(e.isNsfw ?? false))
               .toList();
-          // Deduplicate by name: show each extension only once, even if it has multiple lang entries
           {
             final seen = <String>{};
             sources = sources.where((s) => seen.add(s.name ?? s.id.toString())).toList();
           }
           if (sources.isEmpty) {
-            // Split into two zones so the emoji/text is truly centered
-            // (ignoring the local source row at the bottom).
             return Column(
               children: [
-                // ── Centered empty-state ──────────────────────────────────
                 Expanded(
                   child: Center(
                     child: Padding(
@@ -119,12 +114,20 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                                 const Icon(Icons.storefront_rounded, size: 18),
                             label: const Text('Go to Market'),
                           ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: () => context.push(
+                              '/localHowTo',
+                              extra: widget.itemType,
+                            ),
+                            icon: const Icon(Icons.help_outline_rounded, size: 18),
+                            label: const Text('How To — Source Locale'),
+                          ),
                         ],
                       ),
                     ),
                   ),
                 ),
-                // ── Local source pinned at bottom ─────────────────────────
                 Divider(
                   indent: 40,
                   endIndent: 40,
@@ -167,13 +170,11 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               .where((element) => !element.isPinned!)
               .toList();
 
-          // Group by language for collapsible sections
           final Map<String, List<Source>> grouped = {};
           for (final src in allEntriesWithoutPinned) {
             final lang = completeLanguageName(src.lang!.toLowerCase());
             grouped.putIfAbsent(lang, () => []).add(src);
           }
-          // Pre-sort each language group
           for (final list in grouped.values) {
             list.sort((a, b) => a.name!.compareTo(b.name!));
           }
@@ -249,7 +250,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   ),
                 ],
 
-                // Language sections (collapsible)
+                // Language sections (collapsible, with flags)
                 for (final lang in sortedLangs) ...[
                   _CollapsibleLanguageHeader(
                     lang: lang,
@@ -260,6 +261,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                         _collapsed[lang] = !(_collapsed[lang] ?? false);
                       });
                     },
+                    // Pass the first source's lang code for the flag
+                    langCode: grouped[lang]!.first.lang?.toLowerCase() ?? '',
                   ),
                   if (!(_collapsed[lang] ?? false))
                     SliverList(
@@ -278,7 +281,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(left: 12),
+                        padding: const EdgeInsets.only(left: 12, top: 8),
                         child: Row(
                           children: [
                             Text(
@@ -313,12 +316,14 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
 class _CollapsibleLanguageHeader extends StatelessWidget {
   final String lang;
+  final String langCode;
   final int count;
   final bool isCollapsed;
   final VoidCallback onToggle;
 
   const _CollapsibleLanguageHeader({
     required this.lang,
+    required this.langCode,
     required this.count,
     required this.isCollapsed,
     required this.onToggle,
@@ -326,6 +331,7 @@ class _CollapsibleLanguageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final flag = langFlagEmoji(langCode);
     return SliverToBoxAdapter(
       child: InkWell(
         onTap: onToggle,
@@ -333,6 +339,9 @@ class _CollapsibleLanguageHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
+              // Flag emoji
+              Text(flag, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   lang,

@@ -31,7 +31,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       with TickerProviderStateMixin {
     late TabController _tabBarController;
 
-    /// Outer tab order — computed dynamically from current navigation settings.
     List<ItemType> _types = [];
 
     ItemType get _activeType => _types[_tabBarController.index];
@@ -81,7 +80,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       super.initState();
       _types = _computeTypes(ref.read(hideItemsStateProvider));
       _initTabController(_types);
-
     }
 
   Future<void> _checkPermission() async {
@@ -238,7 +236,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
   }
 
-  // ── Random source opener ────────────────────────────────────────────────────
+  // ── Random source opener ───────────────────────────────────────────────────
 
   void _openRandomSource(BuildContext context, ItemType type) {
     final sources = isar.sources
@@ -273,6 +271,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     context.push('/sourceFilter', extra: type);
   }
 
+  // ── How To ─────────────────────────────────────────────────────────────────
+
+  void _openHowTo(BuildContext context, ItemType type) {
+    context.push('/localHowTo', extra: type);
+  }
+
   // ── AppBar actions ─────────────────────────────────────────────────────────
 
   List<Widget> _appBarActions(BuildContext context) {
@@ -300,6 +304,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         icon: Icon(Icons.more_vert, color: theme.hintColor),
         onSelected: (action) => _handleSrcMenuAction(context, type, action),
         itemBuilder: (ctx) => [
+          PopupMenuItem(
+            value: _SrcMenuAction.howTo,
+            child: _MenuRow(
+              icon: Icons.help_outline_rounded,
+              label: 'How To — Source Locale',
+            ),
+          ),
           PopupMenuItem(
             value: _SrcMenuAction.openRandomSource,
             child: _MenuRow(
@@ -331,6 +342,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   void _handleSrcMenuAction(
       BuildContext context, ItemType type, _SrcMenuAction action) {
     switch (action) {
+      case _SrcMenuAction.howTo:
+        _openHowTo(context, type);
       case _SrcMenuAction.openRandomSource:
         _openRandomSource(context, type);
       case _SrcMenuAction.diagnostic:
@@ -440,6 +453,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _SrcMenuAction {
+  howTo,
   openRandomSource,
   diagnostic,
   browseSettings,

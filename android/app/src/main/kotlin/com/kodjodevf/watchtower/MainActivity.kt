@@ -10,6 +10,7 @@ package com.watchtower.app
   import android.content.pm.PackageManager
   import android.net.Uri
   import android.os.Build
+  import android.util.Log
   import androidx.annotation.NonNull
   import androidx.core.content.ContextCompat
   import androidx.core.content.FileProvider
@@ -24,20 +25,32 @@ package com.watchtower.app
 
   class MainActivity : FlutterFragmentActivity() {
 
-      // ── Mihon constants (mirrors ExtensionLoader.kt) ──────────────────────
+      // ── Mihon / Aniyomi extension feature flags ───────────────────────────
       companion object {
-          private const val EXT_FEATURE     = "tachiyomi.extension"
+          // Tachiyomi / Mihon extensions
+          private const val EXT_FEATURE_TACHI   = "tachiyomi.extension"
+          // Aniyomi extensions
+          private const val EXT_FEATURE_ANIYOMI = "aniyomi.extension"
+
           private const val PRIVATE_EXT_DIR = "exts"
           private const val PRIVATE_EXT_EXT = ".ext"
           private const val SHIZUKU_CODE    = 1042
+
+          private const val TAG = "WatchtowerExt"
 
           @Suppress("DEPRECATION")
           private val PKG_FLAGS =
               android.content.pm.PackageManager.GET_CONFIGURATIONS or
               android.content.pm.PackageManager.GET_META_DATA
+
+          /** Returns true if the PackageInfo has any known extension feature */
+          private fun android.content.pm.PackageInfo.isExtension(): Boolean =
+              reqFeatures?.any { f ->
+                  f.name == EXT_FEATURE_TACHI || f.name == EXT_FEATURE_ANIYOMI
+              } == true
       }
 
-      // ── Extension watcher ────────────────────────────────────────────────
+      // ── Extension watcher ─────────────────────────────────────────────────
       private var extEventSink: EventChannel.EventSink? = null
 
       private val extReceiver = object : BroadcastReceiver() {
@@ -49,6 +62,8 @@ package com.watchtower.app
                   Intent.ACTION_PACKAGE_REMOVED  -> "removed"
                   else -> return
               }
+              Log.d(TAG, "[PackageChanged] event=$event pkg=$pkg")
+
               if (event == "removed") {
                   extEventSink?.success(mapOf("event" to event, "pkg" to pkg))
                   return
@@ -62,17 +77,23 @@ package com.watchtower.app
                       @Suppress("DEPRECATION")
                       pm.getPackageInfo(pkg, PKG_FLAGS)
                   }
-                  val isExt = info.reqFeatures?.any { it.name == EXT_FEATURE } == true
-                  if (isExt) extEventSink?.success(mapOf(
-                      "event"     to event,
-                      "pkg"       to pkg,
-                      "sourceDir" to (info.applicationInfo?.sourceDir ?: "")
-                  ))
-              } catch (_: Exception) {}
+                  if (info.isExtension()) {
+                      Log.d(TAG, "[PackageChanged] Forwarding ext event=$event pkg=$pkg")
+                      extEventSink?.success(mapOf(
+                          "event"     to event,
+                          "pkg"       to pkg,
+                          "sourceDir" to (info.applicationInfo?.sourceDir ?: "")
+                      ))
+                  } else {
+                      Log.d(TAG, "[PackageChanged] Ignored (not extension) pkg=$pkg")
+                  }
+              } catch (ex: Exception) {
+                  Log.w(TAG, "[PackageChanged] Error processing $pkg: ${ex.message}")
+              }
           }
       }
 
-      // ── Shizuku permission callback ───────────────────────────────────────
+      // ── Shizuku permission callback ────────────────────────────────────────
       private var pendingShizukuResult: MethodChannel.Result? = null
       private val shizukuPermListener =
           Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
@@ -88,7 +109,7 @@ package com.watchtower.app
           super.configureFlutterEngine(flutterEngine)
           Shizuku.addRequestPermissionResultListener(shizukuPermListener)
 
-          // ── 1. Torrent server ─────────────────────────────────────────────
+          // ── 1. Torrent server ──────────────────────────────────────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.libmtorrentserver",
@@ -105,7 +126,7 @@ package com.watchtower.app
               }
           }
 
-          // ── 2. APK installer (legacy — opens install dialog) ──────────────
+          // ── 2. APK installer (legacy — opens install dialog) ───────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.apk_install",
@@ -118,7 +139,7 @@ package com.watchtower.app
               }
           }
 
-          // ── 3. Extension loader ───────────────────────────────────────────
+          // ── 3. Extension loader ────────────────────────────────────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.ext_loader",
@@ -126,6 +147,8 @@ package com.watchtower.app
               flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
           ).setMethodCallHandler { call, result ->
               when (call.method) {
+
+                  // Scan ALL installed extension packages (Mihon + Aniyomi)
                   "getInstalledExtensions" -> try {
                       val pm = packageManager
                       val allPkgs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -135,30 +158,40 @@ package com.watchtower.app
                           pm.getInstalledPackages(PKG_FLAGS)
                       }
                       val exts = allPkgs
-                          .filter { it.reqFeatures?.any { f -> f.name == EXT_FEATURE } == true }
+                          .filter { it.isExtension() }
                           .mapNotNull { info ->
-                              try { mapOf(
-                                  "pkg"         to info.packageName,
-                                  "versionName" to (info.versionName ?: ""),
-                                  "sourceDir"   to (info.applicationInfo?.sourceDir ?: "")
-                              )} catch (_: Exception) { null }
+                              try {
+                                  val map = mapOf(
+                                      "pkg"         to info.packageName,
+                                      "versionName" to (info.versionName ?: ""),
+                                      "sourceDir"   to (info.applicationInfo?.sourceDir ?: "")
+                                  )
+                                  Log.d(TAG, "[ExtensionScan] Found package ${info.packageName}")
+                                  map
+                              } catch (_: Exception) { null }
                           }
+                      Log.d(TAG, "[ExtensionScan] Total packages found: ${exts.size}")
                       result.success(exts)
                   } catch (e: Exception) {
+                      Log.e(TAG, "[ExtensionScan] Scan error: ${e.message}")
                       result.error("SCAN_ERROR", e.message, null)
                   }
+
                   "getPrivateExtensionsDir" -> {
                       val dir = File(filesDir, PRIVATE_EXT_DIR).also { it.mkdirs() }
                       result.success(dir.absolutePath)
                   }
+
                   "listPrivateExtensions" -> {
                       val files = File(filesDir, PRIVATE_EXT_DIR)
                           .listFiles()
                           ?.filter { it.isFile && it.name.endsWith(PRIVATE_EXT_EXT) }
                           ?.map { mapOf("path" to it.absolutePath, "filename" to it.name) }
                           ?: emptyList<Map<String, String>>()
+                      Log.d(TAG, "[ExtensionScan] Private extensions: ${files.size}")
                       result.success(files)
                   }
+
                   "installPrivateExtension" -> {
                       val srcPath = call.argument<String>("path") ?: run {
                           result.error("NO_PATH", "path required", null)
@@ -167,8 +200,8 @@ package com.watchtower.app
                       try {
                           val pm = packageManager
                           val info = pm.getPackageArchiveInfo(srcPath, PKG_FLAGS)
-                          if (info == null || info.reqFeatures?.any { it.name == EXT_FEATURE } != true) {
-                              result.error("NOT_EXT", "Not a Tachiyomi extension", null)
+                          if (info == null || !info.isExtension()) {
+                              result.error("NOT_EXT", "Not a Tachiyomi/Aniyomi extension", null)
                               return@setMethodCallHandler
                           }
                           val dest = File(
@@ -176,27 +209,32 @@ package com.watchtower.app
                               "${info.packageName}$PRIVATE_EXT_EXT"
                           )
                           File(srcPath).copyTo(dest, overwrite = true)
+                          Log.d(TAG, "[ExtensionAdded] Private ext installed: ${info.packageName}")
                           result.success(mapOf(
                               "pkg"       to info.packageName,
                               "sourceDir" to dest.absolutePath
                           ))
                       } catch (e: Exception) {
+                          Log.e(TAG, "[ExtensionValidation] installPrivateExtension error: ${e.message}")
                           result.error("INSTALL_ERROR", e.message, null)
                       }
                   }
+
                   "removePrivateExtension" -> {
                       val pkg = call.argument<String>("pkg") ?: run {
                           result.error("NO_PKG", "pkg required", null)
                           return@setMethodCallHandler
                       }
                       File(File(filesDir, PRIVATE_EXT_DIR), "$pkg$PRIVATE_EXT_EXT").delete()
+                      Log.d(TAG, "[ExtensionRemoved] Private ext removed: $pkg")
                       result.success(null)
                   }
+
                   else -> result.notImplemented()
               }
           }
 
-          // ── 4. PiP ────────────────────────────────────────────────────────
+          // ── 4. PiP ─────────────────────────────────────────────────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.pip"
@@ -219,7 +257,7 @@ package com.watchtower.app
               }
           }
 
-          // ── 5. Extension watcher ──────────────────────────────────────────
+          // ── 5. Extension watcher ───────────────────────────────────────────
           EventChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.ext_watcher"
@@ -236,14 +274,16 @@ package com.watchtower.app
                       applicationContext, extReceiver, filter,
                       ContextCompat.RECEIVER_NOT_EXPORTED
                   )
+                  Log.d(TAG, "[PackageChanged] Watcher registered")
               }
               override fun onCancel(arguments: Any?) {
                   try { applicationContext.unregisterReceiver(extReceiver) } catch (_: Exception) {}
                   extEventSink = null
+                  Log.d(TAG, "[PackageChanged] Watcher cancelled")
               }
           })
 
-          // ── 6. Silent installer (Shizuku + INSTALL_PACKAGES) ─────────────
+          // ── 6. Silent installer (Shizuku + INSTALL_PACKAGES) ──────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.silent_installer",
@@ -295,8 +335,6 @@ package com.watchtower.app
       private fun grantViaShizuku(result: MethodChannel.Result) {
           if (!shizukuHasPerm()) { result.error("NO_SHIZUKU", "Shizuku not authorized", null); return }
           try {
-              // newProcess() is public in Shizuku source but Kotlin sees it as
-              // restricted in the v13 AAR; calling via reflection to bypass visibility.
               val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
               val newProcessMethod = shizukuClass.getMethod(
                   "newProcess",
@@ -351,7 +389,7 @@ package com.watchtower.app
           return true
       }
 
-      // ── Legacy APK install (opens dialog) ────────────────────────────────
+      // ── Legacy APK install (opens dialog) ─────────────────────────────────
       private fun installApkIntent(filePath: String?) {
           if (filePath == null) return
           val file   = File(filePath)
@@ -371,4 +409,3 @@ package com.watchtower.app
           super.onDestroy()
       }
   }
-  

@@ -83,6 +83,7 @@ import 'package:watchtower/modules/more/settings/advanced/advanced_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/modules/transfer/transfer_screen.dart';
+import 'package:watchtower/modules/browse/local_how_to_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/cupertino.dart';
 part 'router.g.dart';
@@ -340,6 +341,10 @@ class RouterNotifier extends ChangeNotifier {
       _genericRoute(name: "localSources", child: const LocalSourceImportPage()),
     _genericRoute(name: "watchtowerSearch", child: const WatchtowerSearchScreen()),
     _genericRoute(name: "transfer", child: const TransferScreen()),
+    _genericRoute<ItemType>(
+      name: "localHowTo",
+      builder: (itemType) => LocalHowToScreen(itemType: itemType),
+    ),
   ];
 
   GoRoute _genericRoute<T>({
