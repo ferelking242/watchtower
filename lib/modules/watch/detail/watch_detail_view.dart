@@ -94,9 +94,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   void _maybeStartVideo(List<Chapter> chapters) {
     if (chapters.isEmpty) return;
     _player.title = widget.manga.name ?? '';
-    final chapterId = chapters.first.id;
-    if (_player.loadedChapterId == chapterId) return;
-    _player.loadedChapterId = chapterId;
+    // Only auto-load E01 the very first time (loadedChapterId == null).
+    // Never override a chapter the user has explicitly chosen.
+    if (_player.loadedChapterId != null) return;
+    _player.loadedChapterId = chapters.first.id;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await _player.load(ref: ref, chapter: chapters.first);
@@ -1207,7 +1208,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
           // ── Episode card ─────────────────────────────────────────────────────
           final chapter = chapters[index - 1];
-          final watched = chapter.isRead ?? false;
+          final isPlaying = _player.loadedChapterId == chapter.id;
+          final watched   = (chapter.isRead ?? false) && !isPlaying;
           final epNum = _epNum(chapter.name, index);
           final label = epNum.toString().padLeft(2, '0');
 
@@ -1219,20 +1221,27 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 width: _kEpCardW,
                 height: _kEpCardH,
                 decoration: BoxDecoration(
-                  color: watched
-                      ? _accent.withValues(alpha: 0.85)
-                      : _card,
+                  color: isPlaying
+                      ? _accent.withValues(alpha: 0.18)
+                      : watched
+                          ? _accent.withValues(alpha: 0.50)
+                          : _card,
                   borderRadius: BorderRadius.circular(_kEpRadius),
+                  border: isPlaying
+                      ? Border.all(color: _accent, width: 1.6)
+                      : null,
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   label,
                   style: TextStyle(
-                    color: watched
-                        ? Colors.white
-                        : _textPrimary,
+                    color: isPlaying
+                        ? _accent
+                        : watched
+                            ? Colors.white
+                            : _textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: isPlaying ? FontWeight.w800 : FontWeight.w700,
                   ),
                 ),
               ),
