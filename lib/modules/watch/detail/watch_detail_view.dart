@@ -890,90 +890,32 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
         const SizedBox(height: 12),
 
-        // ── 3 boxes : Saison (série) · Langue · Serveur ─────────────────────
-        // Serveur : noms extraits depuis getVideoListProvider (premier épisode)
-        Builder(builder: (context) {
-          final firstEp = filtered.isNotEmpty
-              ? filtered.first
-              : chapters.isNotEmpty
-                  ? chapters.first
-                  : null;
-
-          // Extraire les serveurs depuis la liste vidéo du 1er épisode.
-          // Le label qualité a la forme "Vidzy VF", "Netu VOSTFR", etc.
-          // → le premier mot = nom du serveur hébergeur.
-          final servers = firstEp != null
-              ? ref
-                  .watch(getVideoListProvider(episode: firstEp))
-                  .maybeWhen(
-                    data: (result) => result.$1
-                        .map((v) {
-                          final parts =
-                              (v.quality ?? '').trim().split(RegExp(r'\s+'));
-                          return parts.isNotEmpty ? parts.first : '';
-                        })
-                        .where((s) => s.isNotEmpty)
-                        .toSet()
-                        .toList(),
-                    orElse: () => <String>[],
-                  )
-              : <String>[];
-
-          // Réinitialiser le serveur sélectionné si la liste change
-          if (servers.isNotEmpty &&
-              _selectedServer != null &&
-              !servers.contains(_selectedServer)) {
-            WidgetsBinding.instance.addPostFrameCallback(
-                (_) => setState(() => _selectedServer = null));
-          }
-
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                // Box Saison — séries seulement
-                if (!isMovie) ...[
-                  _buildDropdownPill(
-                    label: seasons.isNotEmpty
-                        ? (_selectedSeason ?? seasons.first)
-                        : 'Saison 1',
-                    items: seasons.isNotEmpty ? seasons : ['Saison 1'],
-                    onSelect: (v) => setState(() {
-                      _selectedSeason = v;
-                      _selectedServer = null; // reset serveur au changement saison
-                    }),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                // Box Langue — VF, VOSTFR, etc. détectés dans les chapitres
+        // ── 2 boxes : Saison (série) · Langue ────────────────────────────
+        // Note: no background video-list fetch here — avoids Cloudflare triggers
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              if (!isMovie) ...[
                 _buildDropdownPill(
-                  label: languages.isNotEmpty
-                      ? (_selectedLanguage ?? languages.first)
-                      : 'Langue',
-                  items: languages.isNotEmpty
-                      ? languages
-                      : ['Langue'],
-                  onSelect: (v) => setState(() {
-                    _selectedLanguage = v;
-                    _selectedServer = null; // reset serveur au changement langue
-                  }),
+                  label: seasons.isNotEmpty
+                      ? (_selectedSeason ?? seasons.first)
+                      : 'Saison 1',
+                  items: seasons.isNotEmpty ? seasons : ['Saison 1'],
+                  onSelect: (v) => setState(() => _selectedSeason = v),
                 ),
                 const SizedBox(width: 8),
-                // Box Serveur — hébergeur vidéo (Vidzy, Uqload, Voe, Netu…)
-                // Affiché "Serveur" tant que la liste vidéo n'est pas chargée.
-                _buildDropdownPill(
-                  label: servers.isNotEmpty
-                      ? (_selectedServer ?? servers.first)
-                      : 'Serveur',
-                  items: servers.isNotEmpty
-                      ? servers
-                      : ['Serveur'],
-                  onSelect: (v) => setState(() => _selectedServer = v),
-                ),
               ],
-            ),
-          );
-        }),
+              _buildDropdownPill(
+                label: languages.isNotEmpty
+                    ? (_selectedLanguage ?? languages.first)
+                    : 'Langue',
+                items: languages.isNotEmpty ? languages : ['Langue'],
+                onSelect: (v) => setState(() => _selectedLanguage = v),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 14),
 
         // ── Content ───────────────────────────────────────────────────────────
