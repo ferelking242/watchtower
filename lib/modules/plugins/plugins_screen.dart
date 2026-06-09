@@ -193,7 +193,7 @@ class InstalledPluginsNotifier extends AsyncNotifier<List<InstalledPlugin>> {
     await _save(updated);
   }
 
-  Future<void> update(String id, String newVersion) async {
+  Future<void> updateVersion(String id, String newVersion) async {
     final current = state.value ?? [];
     final updated = current.map((p) => p.id == id ? p.copyWith(version: newVersion) : p).toList();
     state = AsyncData(updated);
@@ -1092,7 +1092,7 @@ class _UpdateAllBanner extends ConsumerWidget {
               publishedAt: '', requirements: {}, commandScopes: [], networkAccess: [], schemaVersion: '2',
             ));
             if (_PluginCard._newerVersion(remote.version, i.version)) {
-              await ref.read(installedPluginsProvider.notifier).update(i.id, remote.version);
+              await ref.read(installedPluginsProvider.notifier).updateVersion(i.id, remote.version);
             }
           }
         },
