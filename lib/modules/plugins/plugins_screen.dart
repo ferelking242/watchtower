@@ -89,9 +89,17 @@ class PluginEntry {
     rating:          ((j['rating'] as num?) ?? 0.0).toDouble(),
     featured:        j['featured'] as bool? ?? false,
     publishedAt:     j['publishedAt'] as String? ?? '',
-    requirements:    (j['requirements'] as Map?)?.cast<String, dynamic>() ?? {},
-    commandScopes:   (j['commandScopes'] as List?)?.cast<String>() ?? [],
-    networkAccess:   (j['networkAccess'] as List?)?.cast<String>() ?? [],
+    requirements:    (j['requirements'] is Map)
+        ? (j['requirements'] as Map).cast<String, dynamic>()
+        : {},
+    commandScopes:   (j['commandScopes'] as List?)
+        ?.map((e) => e is Map ? (e['command'] as String? ?? e.toString()) : e.toString())
+        .toList() ?? [],
+    networkAccess:   (j['networkAccess'] is List)
+        ? (j['networkAccess'] as List).cast<String>()
+        : (j['networkAccess'] is Map)
+            ? ((j['networkAccess'] as Map)['allowedDomains'] as List?)?.cast<String>() ?? []
+            : [],
     userConfig:      (j['userConfig'] as Map?)?.cast<String, dynamic>(),
     schemaVersion:   j['schemaVersion'] as String? ?? '1',
   );
@@ -248,7 +256,6 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen>
           onChanged: (v) => setState(() => _query = v.toLowerCase()),
           onClose: () => setState(() { _searchOpen = false; _query = ''; _searchCtrl.clear(); }),
         ),
-        const _BinaryEnginesSection(),
         _TabStrip(controller: _tabs),
         const SizedBox(height: 1),
         Expanded(
