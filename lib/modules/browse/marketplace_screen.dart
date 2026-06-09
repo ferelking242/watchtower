@@ -644,6 +644,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       final cs = Theme.of(context).colorScheme;
       final theme = Theme.of(context);
       _showNsfw = ref.watch(showNSFWStateProvider);
+      final _pluginCount = ref.watch(pluginsListProvider).value?.length ?? 0;
 
       return Scaffold(
         backgroundColor: Colors.transparent,
@@ -656,7 +657,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 children: [
                   _buildLogoRow(cs, theme),
                   _buildPersistentSearch(cs, theme),
-                  _buildTabBarRow(cs, theme),
+                  _buildTabBarRow(cs, theme, pluginCount: _pluginCount),
                   _buildFilterRows(cs, theme),
                   Expanded(
                     child: TabBarView(
@@ -819,7 +820,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
 
-  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
+  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme, {int pluginCount = 0}) {
     final rawCounts = [
       _all.length,
       _all.where((e) => e.contentType == ItemType.anime).length,
@@ -827,7 +828,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _all.where((e) => e.contentType == ItemType.novel).length,
       _all.where((e) => e.contentType == ItemType.game).length,
       _all.where((e) => e.contentType == ItemType.music).length,
-      0,
+      pluginCount,
     ];
     final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music', 'Plugin'];
     final icons  = <IconData>[Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
@@ -5272,7 +5273,88 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
   // ─── Plugin tab sliver ─────────────────────────────────────────────────────────
   // Shows plugins from the Watchtower extensions registry in the Marketplace Plugin tab.
 
-  class _PluginCard extends StatelessWidget {
+
+  // ─── Engine card (binary engines: ZeusDL, Aria2) ──────────────────────────────
+  // Shown at the top of the Plugin tab in the marketplace.
+
+  class _EngineCard extends ConsumerWidget {
+    final String id;
+    final String name;
+    final String desc;
+    final String version;
+    final IconData icon;
+    final Color clr;
+    final ColorScheme cs;
+    const _EngineCard({required this.id, required this.name, required this.desc, required this.version, required this.icon, required this.clr, required this.cs});
+
+    @override
+    Widget build(BuildContext context, WidgetRef ref) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+        child: Material(
+          color: const Color(0xFF1A1A1E),
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () => context.push('/about'),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: clr.withValues(alpha: 0.25)),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: clr.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: clr.withValues(alpha: 0.3)),
+                  ),
+                  child: Icon(icon, color: clr, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFE4E4E7))),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(color: clr.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                      child: Text('v$version', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: clr)),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(color: const Color(0xFF27272A), borderRadius: BorderRadius.circular(4)),
+                      child: const Text('Moteur', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF71717A))),
+                    ),
+                  ]),
+                  const SizedBox(height: 3),
+                  Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ])),
+                const SizedBox(width: 10),
+                OutlinedButton(
+                  onPressed: () => context.push('/about'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: clr,
+                    side: BorderSide(color: clr.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: const Size(0, 32),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Installer'),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+    class _PluginCard extends StatelessWidget {
     final PluginEntry plugin;
     const _PluginCard({required this.plugin});
 
@@ -5376,24 +5458,52 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
           ),
         ),
         data: (plugins) {
-          if (plugins.isEmpty) {
-            return SliverFillRemaining(
-              child: Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.extension_off_rounded, size: 56,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
-                  const SizedBox(height: 14),
-                  Text('Aucun plugin disponible',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
-                ]),
-              ),
-            );
-          }
+          const _kEngines = [
+            (id: 'zeusdl', name: 'ZeusDL', desc: 'Moteur intégré — anti-bot, sessions, extraction HD.', version: '1.0.0', icon: Icons.bolt_rounded, clr: Color(0xFF4F46E5)),
+            (id: 'aria2', name: 'Aria2', desc: 'Multi-protocole HTTP/FTP/BitTorrent — téléchargements parallèles.', version: '1.36.0', icon: Icons.download_for_offline_rounded, clr: Color(0xFF0288D1)),
+          ];
+          final _totalItems = 1 + _kEngines.length + 1 + plugins.length;
           return SliverList(
             delegate: SliverChildBuilderDelegate(
-              (ctx, i) => _PluginCard(plugin: plugins[i]),
-              childCount: plugins.length,
+              (ctx, idx) {
+                if (idx == 0) return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(children: [
+                    Icon(Icons.memory_rounded, size: 13, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Text('Moteurs binaires', style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w700, color: cs.primary, letterSpacing: 0.5)),
+                  ]),
+                );
+                if (idx <= _kEngines.length) {
+                  final e = _kEngines[idx - 1];
+                  return _EngineCard(id: e.id, name: e.name, desc: e.desc, version: e.version, icon: e.icon, clr: e.clr, cs: cs);
+                }
+                final pluginsHeaderIdx = 1 + _kEngines.length;
+                if (idx == pluginsHeaderIdx) {
+                  if (plugins.isEmpty) return Center(child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.extension_off_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
+                      const SizedBox(height: 10),
+                      Text('Aucun plugin disponible', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
+                    ]),
+                  ));
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                    child: Row(children: [
+                      Icon(Icons.extension_rounded, size: 13, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text('Plugins (${plugins.length})', style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700, color: cs.primary, letterSpacing: 0.5)),
+                    ]),
+                  );
+                }
+                final pluginIdx = idx - pluginsHeaderIdx - 1;
+                if (pluginIdx >= 0 && pluginIdx < plugins.length) return _PluginCard(plugin: plugins[pluginIdx]);
+                return null;
+              },
+              childCount: _totalItems,
             ),
           );
         },
