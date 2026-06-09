@@ -121,7 +121,7 @@ Future<String> _fetchIndexBody({
     } else {
       req = await http.get(Uri.parse(url));
     }
-    final body = req.body as String;
+    final body = utf8.decode(req.bodyBytes);
     _indexCache[url] = _IndexCacheEntry(body, DateTime.now());
     return body;
   }();

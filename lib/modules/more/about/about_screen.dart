@@ -162,42 +162,6 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Binary engines ────────────────────────────────
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(Icons.memory_rounded, size: 15, color: cs.primary),
-                            const SizedBox(width: 6),
-                            Expanded(child: _SectionLabel(label: 'Moteurs binaires', cs: cs)),
-                            TextButton.icon(
-                              onPressed: () => _showBinaryStoreSheet(context),
-                              icon: const Icon(Icons.storefront_outlined, size: 14),
-                              label: const Text('Store', style: TextStyle(fontSize: 12)),
-                              style: TextButton.styleFrom(
-                                foregroundColor: cs.primary,
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        _ZeusDLCard(
-                          zeusAsync: zeusAsync,
-                          colorScheme: cs,
-                          isDark: isDark,
-                          onCheckTap: () {
-                            invalidateZeusReleaseCache();
-                            ref.invalidate(zeusLatestReleaseProvider);
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        _Aria2Card(
-                          colorScheme: cs,
-                          isDark: isDark,
-                        ),
-
-                        const SizedBox(height: 20),
 
                         // ── App updates ────────────────────────────────────
                         _SectionLabel(label: 'Updates', cs: cs),

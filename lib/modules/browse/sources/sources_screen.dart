@@ -65,101 +65,83 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             sources = sources.where((s) => seen.add(s.name ?? s.id.toString())).toList();
           }
           if (sources.isEmpty) {
-            return Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 36),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'ヽ(°〇°)ﾉ',
-                            style: TextStyle(
-                              fontSize: 52,
-                              color: Theme.of(context)
-                                  .hintColor
-                                  .withValues(alpha: 0.55),
+              return Column(
+                children: [
+                  // ── Local source always at top ───────────────────────────
+                  SourceListTile(
+                    source: Source(
+                      name: "local",
+                      lang: "",
+                      itemType: widget.itemType,
+                    ),
+                    itemType: widget.itemType,
+                  ),
+                  const Divider(height: 1),
+                  // ── Centered "Nothing here" fills remaining space ────────
+                  Expanded(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 36),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'ヽ(°〇°)ﾉ',
+                              style: TextStyle(
+                                fontSize: 52,
+                                color: Theme.of(context)
+                                    .hintColor
+                                    .withValues(alpha: 0.55),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            "Nothing here",
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).hintColor,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            context.l10n.no_sources_installed,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .hintColor
-                                      .withValues(alpha: 0.7),
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 28),
-                          FilledButton.icon(
-                            onPressed: widget.onShowExtensions,
-                            icon:
-                                const Icon(Icons.storefront_rounded, size: 18),
-                            label: const Text('Go to Market'),
-                          ),
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            onPressed: () => context.push(
-                              '/localHowTo',
-                              extra: widget.itemType,
+                            const SizedBox(height: 16),
+                            Text(
+                              "Nothing here",
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).hintColor,
+                                  ),
                             ),
-                            icon: const Icon(Icons.help_outline_rounded, size: 18),
-                            label: const Text('How To — Source Locale'),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Text(
+                              context.l10n.no_sources_installed,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .hintColor
+                                        .withValues(alpha: 0.7),
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 28),
+                            FilledButton.icon(
+                              onPressed: widget.onShowExtensions,
+                              icon:
+                                  const Icon(Icons.storefront_rounded, size: 18),
+                              label: const Text('Go to Market'),
+                            ),
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: () => context.push(
+                                '/localHowTo',
+                                extra: widget.itemType,
+                              ),
+                              icon: const Icon(Icons.help_outline_rounded, size: 18),
+                              label: const Text('How To — Source Locale'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Divider(
-                  indent: 40,
-                  endIndent: 40,
-                  color:
-                      Theme.of(context).hintColor.withValues(alpha: 0.15),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(
-                      left: 14, top: 4, bottom: 4, right: 14),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      l10n.other,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).hintColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ),
-                ),
-                SourceListTile(
-                  source: Source(
-                    name: "local",
-                    lang: "",
-                    itemType: widget.itemType,
-                  ),
-                  itemType: widget.itemType,
-                ),
-                const SizedBox(height: 12),
-              ],
-            );
-          }
+                ],
+              );
+            }
           final lastUsedEntries = sources
               .where((element) => element.lastUsed!)
               .toList();
@@ -188,7 +170,24 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             child: CustomScrollView(
               controller: controller,
               slivers: [
-                // Last Used section
+                  // ── Local source always at top ───────────────────────────────
+                  SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        SourceListTile(
+                          source: Source(
+                            name: "local",
+                            lang: "",
+                            itemType: widget.itemType,
+                          ),
+                          itemType: widget.itemType,
+                        ),
+                        const Divider(height: 1),
+                      ],
+                    ),
+                  ),
+
+                  // Last Used section
                 if (lastUsedEntries.isNotEmpty) ...[
                   SliverToBoxAdapter(
                     child: Padding(

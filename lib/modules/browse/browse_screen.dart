@@ -429,8 +429,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                       const SizedBox(width: 6),
                       Text(_typeLabel(t, l10n)),
                       if (t.isExtensionUpdateRelevant) ...[
-                        const SizedBox(width: 6),
-                        _extensionUpdateBadge(ref, t),
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          width: 24,
+                          height: 18,
+                          child: _extensionUpdateBadge(ref, t),
+                        ),
                       ],
                     ],
                   ),
@@ -441,7 +445,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
       body: TabBarView(
         controller: _tabBarController,
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         children: _types.map((t) => _BrowseTypeView(itemType: t)).toList(),
       ),
     );

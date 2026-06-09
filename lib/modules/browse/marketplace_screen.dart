@@ -13,6 +13,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
+  import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, PluginEntry;
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -2081,15 +2082,7 @@ class _TypeTabState extends State<_TypeTab> {
               ),
 
             if (tab == _kTabPlugin)
-              SliverFillRemaining(
-                child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.extension_rounded, size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
-                  const SizedBox(height: 14),
-                  Text('Ya rien ici', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
-                  const SizedBox(height: 6),
-                  Text('Les plugins arrivent bientôt 👀', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.4))),
-                ])),
-              )
+              _PluginsTabSliver(cs: cs)
             else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -5275,3 +5268,136 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
     );
   }
 }
+
+  // ─── Plugin tab sliver ─────────────────────────────────────────────────────────
+  // Shows plugins from the Watchtower extensions registry in the Marketplace Plugin tab.
+
+  class _PluginCard extends StatelessWidget {
+    final PluginEntry plugin;
+    const _PluginCard({required this.plugin});
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: plugin.icon.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(plugin.icon, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              Icon(Icons.extension_rounded, size: 26, color: cs.primary)),
+                    )
+                  : Icon(Icons.extension_rounded, size: 26, color: cs.primary),
+            ),
+            const SizedBox(width: 14),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(plugin.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(plugin.description,
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('v${plugin.version}',
+                            style: TextStyle(fontSize: 10, color: cs.onPrimaryContainer,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(plugin.author,
+                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withValues(alpha: 0.7))),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  class _PluginsTabSliver extends ConsumerWidget {
+    final ColorScheme cs;
+    const _PluginsTabSliver({required this.cs});
+
+    @override
+    Widget build(BuildContext context, WidgetRef ref) {
+      final asyncPlugins = ref.watch(pluginsListProvider);
+      return asyncPlugins.when(
+        loading: () => const SliverFillRemaining(
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.error_outline_rounded, size: 48,
+                    color: cs.error.withValues(alpha: 0.6)),
+                const SizedBox(height: 12),
+                Text('Erreur de chargement',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: cs.error)),
+                const SizedBox(height: 6),
+                Text('$e',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                    textAlign: TextAlign.center),
+              ]),
+            ),
+          ),
+        ),
+        data: (plugins) {
+          if (plugins.isEmpty) {
+            return SliverFillRemaining(
+              child: Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.extension_off_rounded, size: 56,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
+                  const SizedBox(height: 14),
+                  Text('Aucun plugin disponible',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
+                ]),
+              ),
+            );
+          }
+          return SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (ctx, i) => _PluginCard(plugin: plugins[i]),
+              childCount: plugins.length,
+            ),
+          );
+        },
+      );
+    }
+  }
+  

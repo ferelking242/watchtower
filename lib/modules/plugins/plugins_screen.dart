@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -136,7 +137,8 @@ final pluginsListProvider = FutureProvider.autoDispose<List<PluginEntry>>((ref) 
   final bust = Uri.parse('$_kPluginsJsonUrl?_=${DateTime.now().millisecondsSinceEpoch}');
   final r = await http.get(bust, headers: {'Cache-Control': 'no-cache'});
   if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
-  final list = jsonDecode(utf8.decode(r.bodyBytes)) as List;
+  final _decoded = jsonDecode(utf8.decode(r.bodyBytes));
+  final list = _decoded is List ? _decoded as List : (_decoded as Map<String, dynamic>)['plugins'] as List? ?? [];
   return list.map((e) => PluginEntry.fromJson(e as Map<String, dynamic>)).toList();
 });
 
@@ -246,6 +248,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen>
           onChanged: (v) => setState(() => _query = v.toLowerCase()),
           onClose: () => setState(() { _searchOpen = false; _query = ''; _searchCtrl.clear(); }),
         ),
+        const _BinaryEnginesSection(),
         _TabStrip(controller: _tabs),
         const SizedBox(height: 1),
         Expanded(
@@ -1349,3 +1352,127 @@ class _PluginsSkeletonState extends State<_PluginsSkeleton>
     ),
   );
 }
+
+  // ─── Binary engines section ─────────────────────────────────────────────────────
+  // ZeusDL and Aria2 status, moved from About screen.
+
+  class _BinaryEnginesSection extends ConsumerWidget {
+    const _BinaryEnginesSection();
+
+    @override
+    Widget build(BuildContext context, WidgetRef ref) {
+      final cs = Theme.of(context).colorScheme;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.memory_rounded, size: 15, color: cs.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Moteurs binaires',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: cs.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => context.push('/about'),
+                  icon: const Icon(Icons.tune_rounded, size: 14),
+                  label: const Text('Gérer', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: cs.primary,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _EngineChip(
+                    label: 'ZeusDL',
+                    icon: Icons.bolt_rounded,
+                    cs: cs,
+                    onTap: () => context.push('/about'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _EngineChip(
+                    label: 'Aria2',
+                    icon: Icons.download_for_offline_rounded,
+                    cs: cs,
+                    onTap: () => context.push('/about'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+        ],
+      );
+    }
+  }
+
+  class _EngineChip extends StatelessWidget {
+    final String label;
+    final IconData icon;
+    final ColorScheme cs;
+    final VoidCallback onTap;
+    const _EngineChip({
+      required this.label,
+      required this.icon,
+      required this.cs,
+      required this.onTap,
+    });
+
+    @override
+    Widget build(BuildContext context) {
+      return Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: cs.primary),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward_ios_rounded, size: 11, color: cs.onSurfaceVariant),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+  
