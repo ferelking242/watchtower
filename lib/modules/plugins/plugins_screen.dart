@@ -79,7 +79,7 @@ class PluginEntry {
     longDescription: j['longDescription'] as String? ?? '',
     version:         j['version'] as String? ?? '0.0.0',
     author:          j['author'] as String? ?? '',
-    iconUrl:         j['iconUrl'] as String? ?? '',
+    iconUrl:         (j['icon'] ?? j['iconUrl']) as String? ?? '',
     banner:          j['banner'] as String? ?? '',
     category:        j['category'] as String? ?? 'utility',
     runtimeTypes:    (j['runtimeTypes'] as List?)?.cast<String>() ?? [],

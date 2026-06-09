@@ -5297,10 +5297,10 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
                 color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: plugin.icon.isNotEmpty
+              child: plugin.iconUrl.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(plugin.icon, fit: BoxFit.cover,
+                      child: Image.network(plugin.iconUrl, fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) =>
                               Icon(Icons.extension_rounded, size: 26, color: cs.primary)),
                     )
