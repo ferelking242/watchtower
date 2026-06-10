@@ -46,11 +46,11 @@ class _LocalHistoryItem {
 final localRecentHistoryProvider =
     FutureProvider.autoDispose<List<_LocalHistoryItem>>((ref) async {
   try {
-    final histories = await isar.historys
+    final allHistories = await isar.historys
         .where()
         .sortByUpdatedAtDesc()
-        .limit(12)
         .findAll();
+    final histories = allHistories.take(12).toList();
 
     final result = <_LocalHistoryItem>[];
     final seen = <int>{};
