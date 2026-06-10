@@ -653,28 +653,28 @@ class _LaneState extends State<_Lane> {
     final totalH = (widget.cardHeight + widget.gap) * widget.items.length;
     return SizedBox(
       width: widget.width,
-      child: AnimatedBuilder(
-        animation: widget.animation,
-        builder: (_, __) {
-          final progress = (widget.animation.value * totalH) % totalH;
-          final double top1, top2;
-          if (widget.goUp) {
-            top1 = -progress;
-            top2 = -progress + totalH;
-          } else {
-            top1 = progress;
-            top2 = progress - totalH;
-          }
-          return ClipRect(
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
+      child: ClipRect(
+        child: AnimatedBuilder(
+          animation: widget.animation,
+          builder: (_, __) {
+            final progress = (widget.animation.value * totalH) % totalH;
+            final double off1, off2;
+            if (widget.goUp) {
+              off1 = -progress;
+              off2 = -progress + totalH;
+            } else {
+              off1 = progress;
+              off2 = progress - totalH;
+            }
+            return Stack(
+              clipBehavior: Clip.none,
               children: [
-                Positioned(top: top1, left: 0, right: 0, child: _col1),
-                Positioned(top: top2, left: 0, right: 0, child: _col2),
+                Transform.translate(offset: Offset(0, off1), child: _col1),
+                Transform.translate(offset: Offset(0, off2), child: _col2),
               ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
