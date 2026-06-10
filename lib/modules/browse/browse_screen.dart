@@ -13,6 +13,7 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
+import 'package:watchtower/modules/plugins/plugins_screen.dart' show PluginsScreen;
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -33,7 +34,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     List<ItemType> _types = [];
 
-    ItemType get _activeType => _types[_tabBarController.index];
+    bool get _isPluginsTab => _tabBarController.index == _types.length;
+
+  ItemType get _activeType => _isPluginsTab ? _types.first : _types[_tabBarController.index];
 
     bool _diagnosing = false;
     bool _bulkWorking = false;
@@ -56,8 +59,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     void _initTabController(List<ItemType> types, {int initialIndex = 0}) {
       _tabBarController = TabController(
-        length: types.length,
-        initialIndex: initialIndex.clamp(0, (types.length - 1).clamp(0, 9999)),
+        length: types.length + 1,
+        initialIndex: initialIndex.clamp(0, types.length.clamp(0, 9999)),
         vsync: this,
       );
       _tabBarController.addListener(() {
@@ -68,7 +71,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     void _applyNewTypes(List<ItemType> newTypes) {
       final prevIndex = _tabBarController.index;
-      final newIndex = prevIndex.clamp(0, (newTypes.length - 1).clamp(0, 9999));
+      final newIndex = prevIndex.clamp(0, newTypes.length.clamp(0, 9999));
   
       _types = newTypes;
       _tabBarController.dispose();
@@ -353,6 +356,51 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
   }
 
+  PreferredSizeWidget _buildTabBar(BuildContext context, ThemeData theme, AppLocalizations l10n) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final tabW = screenWidth / 3;
+
+    Widget makeTab(IconData icon, String label, {Widget? badge}) => SizedBox(
+      width: tabW,
+      child: Tab(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 6),
+            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+            if (badge != null) ...[const SizedBox(width: 4), badge],
+          ],
+        ),
+      ),
+    );
+
+    return TabBar(
+      controller: _tabBarController,
+      indicatorSize: TabBarIndicatorSize.tab,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      padding: EdgeInsets.zero,
+      labelPadding: EdgeInsets.zero,
+      dividerColor: theme.dividerColor.withValues(alpha: 0.35),
+      labelColor: theme.colorScheme.primary,
+      unselectedLabelColor: theme.hintColor,
+      labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+      tabs: [
+        ..._types.map((t) => makeTab(
+          _typeIcon(t),
+          _typeLabel(t, l10n),
+          badge: t.isExtensionUpdateRelevant
+              ? SizedBox(width: 24, height: 18, child: _extensionUpdateBadge(ref, t))
+              : null,
+        )),
+        makeTab(Icons.extension_rounded, 'Plugins'),
+      ],
+    );
+  }
+
   String _typeLabel(ItemType t, AppLocalizations l10n) {
     switch (t) {
       case ItemType.anime:
@@ -403,50 +451,15 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         backgroundColor: Colors.transparent,
         title: Text(l10n.browse, style: TextStyle(color: theme.hintColor)),
         actions: _appBarActions(context),
-        bottom: TabBar(
-          controller: _tabBarController,
-          indicatorSize: TabBarIndicatorSize.tab,
-          tabAlignment: TabAlignment.fill,
-          dividerColor: Theme.of(context).dividerColor.withValues(alpha: 0.35),
-          labelColor: theme.colorScheme.primary,
-          unselectedLabelColor: theme.hintColor,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 13,
-          ),
-          tabs: _types
-              .map(
-                (t) => Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_typeIcon(t), size: 16),
-                      const SizedBox(width: 6),
-                      Text(_typeLabel(t, l10n)),
-                      if (t.isExtensionUpdateRelevant) ...[
-                        const SizedBox(width: 4),
-                        SizedBox(
-                          width: 24,
-                          height: 18,
-                          child: _extensionUpdateBadge(ref, t),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
-        ),
+        bottom: _buildTabBar(context, theme, l10n),
       ),
       body: TabBarView(
         controller: _tabBarController,
         physics: const ClampingScrollPhysics(),
-        children: _types.map((t) => _BrowseTypeView(itemType: t)).toList(),
+        children: [
+          ..._types.map((t) => _BrowseTypeView(itemType: t)),
+          const PluginsScreen(),
+        ],
       ),
     );
   }

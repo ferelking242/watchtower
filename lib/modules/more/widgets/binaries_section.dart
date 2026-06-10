@@ -92,33 +92,49 @@ class _BinariesSectionState extends State<BinariesSection> {
       final supportDir = await getApplicationSupportDirectory();
       final binDir = Directory('${supportDir.path}/binaries');
       if (!await binDir.exists()) await binDir.create(recursive: true);
-      final dst = File('${binDir.path}/${tool.name}');
+
+      final isZip = tool.url.endsWith('.zip');
+      final tmpPath = isZip
+          ? '${binDir.path}/${tool.name}_dl.zip'
+          : '${binDir.path}/${tool.name}_dl';
+      final tmpFile = File(tmpPath);
+      final dstFile = File('${binDir.path}/${tool.name}');
 
       final req = http.Request('GET', Uri.parse(tool.url));
-      final res = await req.send().timeout(const Duration(seconds: 30));
-      if (res.statusCode != 200) {
-        throw 'HTTP ${res.statusCode}';
-      }
+      req.headers['Accept'] = '*/*';
+      final res = await req.send().timeout(const Duration(seconds: 60));
+      if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
+
       final total = res.contentLength ?? 0;
-      final sink = dst.openWrite();
+      final sink = tmpFile.openWrite();
       int downloaded = 0;
-      await res.stream.listen((chunk) {
+      await for (final chunk in res.stream) {
         downloaded += chunk.length;
         sink.add(chunk);
         if (total > 0 && mounted) {
           setState(() => _progress[tool.name] = downloaded / total);
         }
-      }).asFuture();
+      }
       await sink.flush();
       await sink.close();
 
-      try {
-        await Process.run('chmod', ['+x', dst.path]);
-      } catch (_) {}
+      if (isZip) {
+        if (mounted) setState(() => _status[tool.name] = 'Extraction…');
+        final result = await Process.run(
+          'sh', ['-c', 'unzip -o -j "${tmpFile.path}" -d "${binDir.path}" 2>&1'],
+        );
+        await tmpFile.delete().catchError((_) {});
+        if (!await dstFile.exists()) {
+          throw 'Extraction ZIP échouée (code ${result.exitCode}): ${result.stdout}'.trim();
+        }
+      } else {
+        if (await dstFile.exists()) await dstFile.delete();
+        await tmpFile.rename(dstFile.path);
+      }
 
-      AppLogger.log(
-        'tool downloaded: ${tool.name} (${await dst.length()} bytes)',
-      );
+      try { await Process.run('chmod', ['+x', dstFile.path]); } catch (_) {}
+
+      AppLogger.log('tool downloaded: ${tool.name} (${await dstFile.length()} bytes)');
       await ZeusDlBinaryManager.instance.clearCache();
       await Aria2BinaryManager.instance.clearCache();
       if (!mounted) return;
@@ -128,10 +144,7 @@ class _BinariesSectionState extends State<BinariesSection> {
       });
       await _refresh();
     } catch (e) {
-      AppLogger.log(
-        'tool download failed: ${tool.name}: $e',
-        logLevel: LogLevel.error,
-      );
+      AppLogger.log('tool download failed: ${tool.name}: $e', logLevel: LogLevel.error);
       if (!mounted) return;
       setState(() {
         _progress.remove(tool.name);

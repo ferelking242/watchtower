@@ -13,7 +13,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, installedPluginsProvider, PluginEntry;
+import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, installedPluginsProvider, PluginEntry, PluginDetailSheet;
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -5425,12 +5425,23 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
     final PluginEntry plugin;
     const _PluginCard({required this.plugin});
 
+    void _openDetail(BuildContext context) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => PluginDetailSheet(plugin: plugin),
+      );
+    }
+
     @override
     Widget build(BuildContext context, WidgetRef ref) {
       final cs = Theme.of(context).colorScheme;
       final installedList = ref.watch(installedPluginsProvider).value ?? [];
       final isInstalled = installedList.any((p) => p.id == plugin.id);
-      return Container(
+      return GestureDetector(
+        onTap: () => _openDetail(context),
+        child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -5517,11 +5528,12 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
   }
+}
 
-  class _PluginsTabSliver extends ConsumerWidget {
+class _PluginsTabSliver extends ConsumerWidget {
     final ColorScheme cs;
     const _PluginsTabSliver({required this.cs});
 
@@ -5597,33 +5609,11 @@ class _BinaryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return CustomScrollView(
+    return const CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Icon(Icons.memory_rounded, size: 14, color: cs.primary),
-                  const SizedBox(width: 6),
-                  Text('Moteurs binaires',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
-                      color: cs.primary, letterSpacing: 0.5)),
-                ]),
-                const SizedBox(height: 4),
-                Text(
-                  'Binaires natifs arm64 utilisés par les téléchargeurs. Téléchargez-les ici pour activer les fonctions avancées.',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SliverToBoxAdapter(child: BinariesSection()),
-        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        SliverToBoxAdapter(child: SizedBox(height: 12)),
+        SliverToBoxAdapter(child: BinariesSection()),
+        SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
   }

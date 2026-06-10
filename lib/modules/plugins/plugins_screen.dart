@@ -536,7 +536,7 @@ class _PluginCard extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PluginDetailSheet(plugin: plugin),
+      builder: (_) => PluginDetailSheet(plugin: plugin),
     );
   }
 }
@@ -644,6 +644,61 @@ class _InstallButton extends ConsumerWidget {
     return GestureDetector(
       onTap: () async {
         if (isInstalled) return;
+        // Check required binaries before installing
+        if (plugin.requirements.isNotEmpty) {
+          final supportDir = await getApplicationSupportDirectory();
+          final binPath = '${supportDir.path}/binaries';
+          final missing = <String>[];
+          for (final req in plugin.requirements.keys) {
+            final binName = req == 'aria2' ? 'aria2c' : req;
+            if (!File('$binPath/$binName').existsSync()) {
+              missing.add(req);
+            }
+          }
+          if (missing.isNotEmpty && context.mounted) {
+            final proceed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: _card,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                title: const Text('Dépendances manquantes',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${plugin.name} nécessite ces binaires :',
+                        style: const TextStyle(color: _grey, fontSize: 13)),
+                    const SizedBox(height: 10),
+                    ...missing.map((r) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(children: [
+                        const Icon(Icons.memory_rounded, size: 14, color: _teal),
+                        const SizedBox(width: 6),
+                        Text(r, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                      ]),
+                    )),
+                    const SizedBox(height: 10),
+                    const Text('Installez-les depuis Marketplace → Binaires.',
+                        style: TextStyle(color: _grey, fontSize: 12)),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Annuler', style: TextStyle(color: _grey)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Installer quand même', style: TextStyle(color: _teal)),
+                  ),
+                ],
+              ),
+            );
+            if (proceed != true) return;
+          }
+        }
+        if (!context.mounted) return;
         await ref.read(installedPluginsProvider.notifier).install(plugin);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -682,15 +737,15 @@ class _InstallButton extends ConsumerWidget {
 
 // ─── Plugin detail bottom sheet ───────────────────────────────────────────────
 
-class _PluginDetailSheet extends ConsumerStatefulWidget {
+class PluginDetailSheet extends ConsumerStatefulWidget {
   final PluginEntry plugin;
-  const _PluginDetailSheet({required this.plugin});
+  const PluginDetailSheet({required this.plugin, super.key});
 
   @override
-  ConsumerState<_PluginDetailSheet> createState() => _PluginDetailSheetState();
+  ConsumerState<PluginDetailSheet> createState() => _PluginDetailSheetState();
 }
 
-class _PluginDetailSheetState extends ConsumerState<_PluginDetailSheet> {
+class _PluginDetailSheetState extends ConsumerState<PluginDetailSheet> {
   bool _installing = false;
 
   @override
@@ -1134,7 +1189,7 @@ class _InstalledPluginRow extends ConsumerWidget {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => _PluginDetailSheet(plugin: meta),
+        builder: (_) => PluginDetailSheet(plugin: meta),
       ),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
@@ -1178,6 +1233,29 @@ class _InstalledPluginRow extends ConsumerWidget {
             ]),
           ),
           const SizedBox(width: 8),
+          // Launch button
+          GestureDetector(
+            onTap: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => _LaunchPluginSheet(installed: installed, meta: meta),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: _teal.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: _teal.withOpacity(0.35)),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.play_arrow_rounded, size: 14, color: _teal),
+                SizedBox(width: 4),
+                Text('Lancer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _teal)),
+              ]),
+            ),
+          ),
+          const SizedBox(width: 6),
           // Enable/disable toggle
           _EnableToggle(id: installed.id, enabled: installed.enabled),
         ]),
@@ -1359,6 +1437,181 @@ class _PluginsSkeletonState extends State<_PluginsSkeleton>
       ]),
     ),
   );
+}
+
+// ─── Launch plugin sheet ──────────────────────────────────────────────────────
+
+class _LaunchPluginSheet extends StatefulWidget {
+  final InstalledPlugin installed;
+  final PluginEntry meta;
+  const _LaunchPluginSheet({required this.installed, required this.meta});
+
+  @override
+  State<_LaunchPluginSheet> createState() => _LaunchPluginSheetState();
+}
+
+class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
+  final _urlController = TextEditingController();
+  bool _running = false;
+  String? _result;
+
+  bool get _isDownloader =>
+      widget.meta.category == 'downloader' ||
+      widget.meta.runtimeTypes.contains('downloader') ||
+      widget.meta.commandScopes.contains('download');
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _run() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) return;
+    setState(() { _running = true; _result = null; });
+    try {
+      final supportDir = await getApplicationSupportDirectory();
+      final zeusBin = File('${supportDir.path}/binaries/zeusdl');
+      if (!await zeusBin.exists()) {
+        setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
+        return;
+      }
+      final proc = await Process.start(zeusBin.path, [url]);
+      final exitCode = await proc.exitCode;
+      if (!mounted) return;
+      setState(() {
+        _running = false;
+        _result = exitCode == 0 ? 'Téléchargement lancé ✓' : 'Terminé avec code $exitCode';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _running = false; _result = 'Erreur : $e'; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDownloader = _isDownloader;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, sc) => Container(
+        decoration: const BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(children: [
+          const SizedBox(height: 10),
+          Container(width: 36, height: 4, decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
+          Expanded(
+            child: ListView(controller: sc, padding: const EdgeInsets.fromLTRB(20, 18, 20, 32), children: [
+              // Header
+              Row(children: [
+                _PluginIcon(url: widget.meta.iconUrl, size: 46),
+                const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(widget.meta.name.isNotEmpty ? widget.meta.name : widget.installed.id,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+                  Text(widget.meta.category.isNotEmpty ? widget.meta.category : 'Plugin',
+                      style: const TextStyle(fontSize: 12, color: _teal)),
+                ])),
+              ]),
+              const SizedBox(height: 20),
+              if (isDownloader) ...[
+                const Text('URL à télécharger',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _grey)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _urlController,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'https://…',
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                    filled: true,
+                    fillColor: _card2,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: _teal),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: _running ? null : _run,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: _running ? _card2 : _teal,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: _running
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _teal))
+                        : const Text('Démarrer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: _card2, borderRadius: BorderRadius.circular(14)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Fonctionnalités', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                    const SizedBox(height: 10),
+                    if (widget.meta.runtimeTypes.isNotEmpty)
+                      ...widget.meta.runtimeTypes.map((r) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(children: [
+                          const Icon(Icons.check_circle_outline_rounded, size: 14, color: _teal),
+                          const SizedBox(width: 8),
+                          Text(r, style: const TextStyle(color: _grey, fontSize: 13)),
+                        ]),
+                      ))
+                    else
+                      const Text('Ce plugin est actif et fonctionne en arrière-plan.',
+                          style: TextStyle(color: _grey, fontSize: 13)),
+                  ]),
+                ),
+              ],
+              if (_result != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _result!.startsWith('Erreur')
+                        ? Colors.red.withOpacity(0.12)
+                        : _teal.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _result!.startsWith('Erreur')
+                          ? Colors.red.withOpacity(0.35)
+                          : _teal.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Text(_result!, style: TextStyle(
+                    color: _result!.startsWith('Erreur') ? Colors.red.shade300 : _teal,
+                    fontSize: 13,
+                  )),
+                ),
+              ],
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
   
