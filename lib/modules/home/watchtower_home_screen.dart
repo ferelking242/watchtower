@@ -47,9 +47,11 @@ final localRecentHistoryProvider =
     FutureProvider.autoDispose<List<_LocalHistoryItem>>((ref) async {
   try {
     final allHistories = await isar.historys
-        .where()
-        .sortByUpdatedAtDesc()
+        .filter()
+        .idIsNotNull()
         .findAll();
+    allHistories.sort(
+        (a, b) => (b.updatedAt ?? 0).compareTo(a.updatedAt ?? 0));
     final histories = allHistories.take(12).toList();
 
     final result = <_LocalHistoryItem>[];
