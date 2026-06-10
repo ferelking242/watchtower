@@ -1,6 +1,14 @@
+import 'dart:convert';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:watchtower/main.dart' show isar;
+import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/history.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
     show AniListErrorView;
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
@@ -12,6 +20,109 @@ import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
+import 'package:watchtower/modules/plugins/plugins_screen.dart'
+    show installedPluginsProvider, pluginsListProvider, InstalledPlugin, PluginEntry;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Local history item — recent library entry shown in Continue Watching
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LocalHistoryItem {
+  final Manga manga;
+  final double progress;
+  final int lastReadChapter;
+
+  const _LocalHistoryItem({
+    required this.manga,
+    required this.progress,
+    required this.lastReadChapter,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider — recent local library history (Continue Watching / Reading)
+// ─────────────────────────────────────────────────────────────────────────────
+
+final localRecentHistoryProvider =
+    FutureProvider.autoDispose<List<_LocalHistoryItem>>((ref) async {
+  try {
+    final histories = await isar.historys
+        .where()
+        .sortByUpdatedAtDesc()
+        .limit(12)
+        .findAll();
+
+    final result = <_LocalHistoryItem>[];
+    final seen = <int>{};
+    for (final h in histories) {
+      final mid = h.mangaId;
+      if (mid == null || seen.contains(mid)) continue;
+      seen.add(mid);
+      final manga = await isar.mangas.get(mid);
+      if (manga == null || manga.imageUrl == null) continue;
+      await h.chapter.load();
+      final chap = h.chapter.value;
+      final chapNum = chap != null
+          ? int.tryParse(chap.number ?? '0') ?? 0
+          : 0;
+      result.add(_LocalHistoryItem(
+        manga: manga,
+        progress: (chapNum / ((manga.chapters.length) + 1))
+            .clamp(0.05, 0.98),
+        lastReadChapter: chapNum,
+      ));
+    }
+    return result;
+  } catch (_) {
+    return [];
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider — pinned plugin IDs (persisted to disk)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PinnedPluginsNotifier extends AsyncNotifier<List<String>> {
+  static Future<File> _file() async {
+    final dir = await getApplicationSupportDirectory();
+    return File('${dir.path}/pinned_plugins.json');
+  }
+
+  @override
+  Future<List<String>> build() async {
+    try {
+      final f = await _file();
+      if (!await f.exists()) return [];
+      final raw = jsonDecode(await f.readAsString()) as List;
+      return raw.cast<String>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> pin(String id) async {
+    final current = state.value ?? [];
+    if (current.contains(id)) return;
+    final updated = [...current, id];
+    state = AsyncData(updated);
+    final f = await _file();
+    await f.writeAsString(jsonEncode(updated));
+  }
+
+  Future<void> unpin(String id) async {
+    final current = state.value ?? [];
+    final updated = current.where((e) => e != id).toList();
+    state = AsyncData(updated);
+    final f = await _file();
+    await f.writeAsString(jsonEncode(updated));
+  }
+
+  bool isPinned(List<String> pinned, String id) => pinned.contains(id);
+}
+
+final pinnedPluginsProvider =
+    AsyncNotifierProvider<_PinnedPluginsNotifier, List<String>>(
+        _PinnedPluginsNotifier.new);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
@@ -171,14 +282,17 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
-          // ── Continue Watching ──────────────────────────────────────────
-          if (_tab == 0)
+          // ── Continue Watching (AniList-based, hidden when empty) ──────
+          if (_tab == 0 && _continueItems(home).isNotEmpty)
             SliverToBoxAdapter(
               child: _ContinueWatchingSection(
                 items: _continueItems(home),
                 onTap: (m) => _openDetail(context, m),
               ),
             ),
+
+          // ── Reprendre (bibliothèque locale — Isar history) ────────────
+          if (_tab == 0) const _LocalContinueSection(),
 
           // ── Tab content ────────────────────────────────────────────────
           ..._sections(context, home, tab),
@@ -190,12 +304,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     );
   }
 
-  // ── Continue-watching items — hidden until real Isar history is plugged in ──
+  // ── Continue-watching items — kept for AniList fallback ────────────────────
 
-  List<AnilistMedia> _continueItems(AnilistHome home) {
-    // Returning empty hides the section; real history requires Isar integration
-    return [];
-  }
+  List<AnilistMedia> _continueItems(AnilistHome home) => [];
 
   // ── Hero items ─────────────────────────────────────────────────────────────
 
@@ -219,10 +330,29 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           ...home.trendingManhwa.where(ok).take(5),
           ...home.trendingManhua.where(ok).take(5),
         ]..shuffle();
-      case _HomeTab.football:
-      case _HomeTab.musique:
-      case _HomeTab.jeux:
-        return home.trendingAnimes.where(ok).take(6).toList();
+      case _HomeTab.football: {
+        final sports = home.trendingAnimes.where((m) => ok(m) &&
+            (m.genres.any((g) => g.toLowerCase() == 'sports'))).toList();
+        return sports.isNotEmpty
+            ? sports
+            : home.trendingAnimes.where(ok).take(6).toList();
+      }
+      case _HomeTab.musique: {
+        final music = home.trendingAnimes.where((m) => ok(m) &&
+            (m.genres.any((g) => g.toLowerCase() == 'music'))).toList();
+        return music.isNotEmpty
+            ? music
+            : home.trendingAnimes.where(ok).take(6).toList();
+      }
+      case _HomeTab.jeux: {
+        final games = home.trendingAnimes.where((m) => ok(m) &&
+            (m.genres.any((g) =>
+                g.toLowerCase() == 'action' ||
+                g.toLowerCase() == 'sci-fi'))).toList();
+        return games.isNotEmpty
+            ? games
+            : home.trendingAnimes.where(ok).take(6).toList();
+      }
     }
   }
 
@@ -230,22 +360,13 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   List<Widget> _sections(BuildContext ctx, AnilistHome home, _HomeTab tab) {
     switch (tab) {
-      case _HomeTab.tout:    return _toutTab(ctx, home);
-      case _HomeTab.film:    return _filmTab(ctx, home);
-      case _HomeTab.serie:   return _serieTab(ctx, home);
-      case _HomeTab.asia:    return _asiaTab(ctx, home);
-      case _HomeTab.football:
-        return _promoTab(ctx, icon: Icons.sports_soccer_rounded,
-            title: 'Football', subtitle: 'Matchs & résumés',
-            color: const Color(0xFF2ECC71), route: '/globalSearch');
-      case _HomeTab.musique:
-        return _promoTab(ctx, icon: Icons.queue_music_rounded,
-            title: 'Musique', subtitle: 'Stream & télécharge',
-            color: const Color(0xFF9B59B6), route: '/MusicLibrary');
-      case _HomeTab.jeux:
-        return _promoTab(ctx, icon: Icons.sports_esports_rounded,
-            title: 'Jeux', subtitle: 'Bibliothèque ROM',
-            color: const Color(0xFF3498DB), route: '/GameLibrary');
+      case _HomeTab.tout:     return _toutTab(ctx, home);
+      case _HomeTab.film:     return _filmTab(ctx, home);
+      case _HomeTab.serie:    return _serieTab(ctx, home);
+      case _HomeTab.asia:     return _asiaTab(ctx, home);
+      case _HomeTab.football: return _footballTab(ctx, home);
+      case _HomeTab.musique:  return _musiqueTab(ctx, home);
+      case _HomeTab.jeux:     return _jeuxTab(ctx, home);
     }
   }
 
@@ -271,13 +392,15 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   List<Widget> _toutTab(BuildContext ctx, AnilistHome home) {
     final sagas = _sagaItems(home);
-    // Editorial spotlight — top trending pick with a banner image
     final spotlightItems = [
       ...home.trendingAnimes,
       ...home.popularAnimes,
     ].where((m) => m.bannerImage != null).toList();
 
     return [
+      // ── Plugin shortcuts (raccourcis sources installées) ─────────────────
+      const SliverToBoxAdapter(child: _PluginShortcutsSection()),
+
       // ── Spotlight (editorial pick) ──────────────────────────────────────
       if (spotlightItems.isNotEmpty)
         _SpotlightSection(
@@ -319,6 +442,34 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           color: const Color(0xFFE84393),
           items: home.popularAnimes.take(10).toList(),
           onTap: (m) => _openDetail(ctx, m)),
+
+      // ── Manga tendance ───────────────────────────────────────────────────
+      if (home.trendingMangas.isNotEmpty)
+        _Row(
+            title: 'Manga en tendance',
+            icon: Icons.menu_book_rounded,
+            color: const Color(0xFFFF7675),
+            items: home.trendingMangas,
+            onTap: (m) => _openDetail(ctx, m),
+            trailing: _SeeAllBtn(() => _browseTo(ctx, 'MANGA'))),
+
+      // ── Manga populaires ─────────────────────────────────────────────────
+      if (home.popularMangas.isNotEmpty)
+        _MixedRow(
+            title: 'Manga populaires',
+            icon: Icons.auto_stories_rounded,
+            color: const Color(0xFFA29BFE),
+            items: home.popularMangas,
+            onTap: (m) => _openDetail(ctx, m)),
+
+      // ── Manhwa / Webtoon ─────────────────────────────────────────────────
+      if (home.trendingManhwa.isNotEmpty)
+        _Row(
+            title: 'Webtoon & Manhwa',
+            icon: Icons.newspaper_rounded,
+            color: const Color(0xFF00CEC9),
+            items: home.trendingManhwa,
+            onTap: (m) => _openDetail(ctx, m)),
 
       // ── Prochainement ───────────────────────────────────────────────────
       _Row(
@@ -415,7 +566,141 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
             onTap: (m) => _openDetail(ctx, m)),
       ];
 
-  // ── Promo tab (Football / Musique / Jeux) ──────────────────────────────────
+  // ── Football ───────────────────────────────────────────────────────────────
+
+  List<Widget> _footballTab(BuildContext ctx, AnilistHome home) {
+    final sportsAnimes = [
+      ...home.trendingAnimes,
+      ...home.popularAnimes,
+      ...home.recentlyUpdatedAnimes,
+    ].where((m) => m.genres.any((g) => g.toLowerCase() == 'sports'))
+     .toSet().toList();
+
+    if (sportsAnimes.isEmpty) {
+      return _promoTab(
+        ctx,
+        icon: Icons.sports_soccer_rounded,
+        title: 'Football',
+        subtitle: 'Installe une source Sports pour du contenu ici',
+        color: const Color(0xFF2ECC71),
+        route: '/plugins',
+      );
+    }
+
+    sportsAnimes.sort((a, b) =>
+        (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+
+    return [
+      _MixedRow(
+        title: 'Anime Sports',
+        icon: Icons.sports_soccer_rounded,
+        color: const Color(0xFF2ECC71),
+        items: sportsAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
+      _RankedRow(
+        title: 'Top Sports',
+        icon: Icons.emoji_events_rounded,
+        color: const Color(0xFFF39C12),
+        items: sportsAnimes.take(10).toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
+    ];
+  }
+
+  // ── Musique ─────────────────────────────────────────────────────────────────
+
+  List<Widget> _musiqueTab(BuildContext ctx, AnilistHome home) {
+    final musicAnimes = [
+      ...home.trendingAnimes,
+      ...home.popularAnimes,
+      ...home.recentlyUpdatedAnimes,
+    ].where((m) => m.genres.any((g) => g.toLowerCase() == 'music'))
+     .toSet().toList();
+
+    if (musicAnimes.isEmpty) {
+      return _promoTab(
+        ctx,
+        icon: Icons.queue_music_rounded,
+        title: 'Musique',
+        subtitle: 'Installe une source Musique pour du contenu ici',
+        color: const Color(0xFF9B59B6),
+        route: '/plugins',
+      );
+    }
+
+    musicAnimes.sort((a, b) =>
+        (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+
+    return [
+      _MixedRow(
+        title: 'Anime Musique',
+        icon: Icons.queue_music_rounded,
+        color: const Color(0xFF9B59B6),
+        items: musicAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
+      _RankedRow(
+        title: 'Top Musique',
+        icon: Icons.star_rounded,
+        color: const Color(0xFFE84393),
+        items: musicAnimes.take(10).toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
+    ];
+  }
+
+  // ── Jeux ────────────────────────────────────────────────────────────────────
+
+  List<Widget> _jeuxTab(BuildContext ctx, AnilistHome home) {
+    final gameAnimes = [
+      ...home.trendingAnimes,
+      ...home.popularAnimes,
+      ...home.recentlyUpdatedAnimes,
+    ].where((m) =>
+        m.genres.any((g) =>
+            g.toLowerCase() == 'action' ||
+            g.toLowerCase() == 'sci-fi' ||
+            g.toLowerCase() == 'mecha') &&
+        m.format == 'TV')
+     .toSet().toList();
+
+    if (gameAnimes.isEmpty) {
+      return _promoTab(
+        ctx,
+        icon: Icons.sports_esports_rounded,
+        title: 'Jeux',
+        subtitle: 'Installe une source Jeux pour du contenu ici',
+        color: const Color(0xFF3498DB),
+        route: '/plugins',
+      );
+    }
+
+    gameAnimes.sort((a, b) =>
+        (b.averageScore ?? 0).compareTo(a.averageScore ?? 0));
+
+    return [
+      _MixedRow(
+        title: 'Action & Mecha',
+        icon: Icons.sports_esports_rounded,
+        color: const Color(0xFF3498DB),
+        items: gameAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
+      if (home.trendingAnimes.any((m) => m.format == 'TV'))
+        _LandscapeRow(
+          title: 'Séries Action',
+          icon: Icons.flash_on_rounded,
+          color: const Color(0xFFE67E22),
+          items: home.trendingAnimes.where((m) =>
+              m.genres.any((g) => g.toLowerCase() == 'action') &&
+              m.format == 'TV').take(10).toList(),
+          onTap: (m) => _openDetail(ctx, m),
+        ),
+    ];
+  }
+
+  // ── Promo tab (Football / Musique / Jeux — fallback si aucun contenu) ───────
 
   List<Widget> _promoTab(BuildContext ctx,
       {required IconData icon,
@@ -1415,6 +1700,305 @@ class _EmptySliver extends StatelessWidget {
                       .colorScheme
                       .onSurface
                       .withValues(alpha: 0.50))),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Local Continue Section — reads Isar history and shows local library items
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LocalContinueSection extends ConsumerWidget {
+  const _LocalContinueSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncItems = ref.watch(localRecentHistoryProvider);
+
+    return asyncItems.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (items) {
+        if (items.isEmpty) return const SizedBox.shrink();
+        final cs = Theme.of(context).colorScheme;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Section header ─────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 3,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6C5CE7),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Reprendre',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  GlassButton(
+                    label: 'Tout voir',
+                    intent: GlassButtonIntent.gray,
+                    height: 28,
+                    fontSize: 12,
+                    onPressed: () => context.go('/library'),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Horizontal scroll ──────────────────────────────────────────
+            SizedBox(
+              height: 172,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return EpisodeCard(
+                    data: EpisodeCardData(
+                      thumbnailUrl: item.manga.imageUrl,
+                      animeCoverUrl: item.manga.imageUrl,
+                      animeTitle: item.manga.name ?? 'Inconnu',
+                      episodeNumber: item.lastReadChapter,
+                      progress: EpisodeProgress(
+                        value: item.progress,
+                      ),
+                    ),
+                    width: 200,
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Divider(
+                height: 1,
+                thickness: 0.5,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.07),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plugin Shortcuts Section — quick-access tiles for installed sources
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PluginShortcutsSection extends ConsumerWidget {
+  const _PluginShortcutsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncInstalled = ref.watch(installedPluginsProvider);
+    final asyncPlugins   = ref.watch(pluginsListProvider);
+
+    final installedIds = (asyncInstalled.value ?? const [])
+        .map((p) => p.id).toSet();
+    final allPlugins   = asyncPlugins.value ?? const [];
+    final asyncPinned  = ref.watch(pinnedPluginsProvider);
+    final pinnedIds    = asyncPinned.value ?? const [];
+
+    // Show pinned plugins first; fall back to first 8 installed plugins
+    final installedPlugins = allPlugins
+        .where((p) => installedIds.contains(p.id))
+        .toList();
+
+    if (installedPlugins.isEmpty) return const SizedBox.shrink();
+
+    // Order: pinned first, then rest
+    final pinned = installedPlugins
+        .where((p) => pinnedIds.contains(p.id))
+        .toList();
+    final others = installedPlugins
+        .where((p) => !pinnedIds.contains(p.id))
+        .take(8 - pinned.length.clamp(0, 8))
+        .toList();
+    final shown = [...pinned, ...others].take(8).toList();
+
+    final cs    = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Sources installées',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const Spacer(),
+                GlassButton(
+                  label: 'Gérer',
+                  intent: GlassButtonIntent.gray,
+                  height: 26,
+                  fontSize: 11,
+                  onPressed: () => context.go('/plugins'),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 72,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: shown.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, i) {
+                final plugin = shown[i];
+                final isPinned = pinnedIds.contains(plugin.id);
+                return GestureDetector(
+                  onTap: () => context.go('/plugins'),
+                  onLongPress: () {
+                    final notifier = ref.read(pinnedPluginsProvider.notifier);
+                    if (isPinned) {
+                      notifier.unpin(plugin.id);
+                    } else {
+                      notifier.pin(plugin.id);
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isPinned
+                            ? '${plugin.name} retiré des favoris'
+                            : '${plugin.name} épinglé en haut'),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 72,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.black.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(16),
+                      border: isPinned
+                          ? Border.all(color: cs.primary.withValues(alpha: 0.5), width: 1.5)
+                          : null,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Plugin icon or initials
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: cs.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: plugin.iconUrl.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    plugin.iconUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        _pluginInitials(context, plugin.name),
+                                  ),
+                                )
+                              : _pluginInitials(context, plugin.name),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          plugin.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface.withValues(alpha: 0.80),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Divider(
+              height: 1,
+              thickness: 0.5,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.06),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pluginInitials(BuildContext context, String name) {
+    final cs = Theme.of(context).colorScheme;
+    final initials = name.isNotEmpty
+        ? name.trim().split(RegExp(r'\s+')).take(2)
+              .map((w) => w[0].toUpperCase()).join()
+        : '?';
+    return Center(
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: cs.onPrimaryContainer,
         ),
       ),
     );
