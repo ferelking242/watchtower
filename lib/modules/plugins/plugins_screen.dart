@@ -91,7 +91,9 @@ class PluginEntry {
     publishedAt:     j['publishedAt'] as String? ?? '',
     requirements:    (j['requirements'] is Map)
         ? (j['requirements'] as Map).cast<String, dynamic>()
-        : {},
+        : (j['requirements'] is List)
+            ? { for (final e in (j['requirements'] as List)) if (e is Map && e['id'] != null) (e['id'] as String): e }
+            : {},
     commandScopes:   (j['commandScopes'] as List?)
         ?.map((e) => e is Map ? (e['command'] as String? ?? e.toString()) : e.toString())
         .toList() ?? [],
@@ -460,7 +462,7 @@ class _PluginCard extends ConsumerWidget {
     final hasUpdate = installedEntry != null && _newerVersion(plugin.version, installedEntry.version);
 
     return GestureDetector(
-      onTap: () => _showDetail(context, ref),
+      onTap: () => _showDetail(context),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         padding: const EdgeInsets.all(14),
@@ -529,12 +531,12 @@ class _PluginCard extends ConsumerWidget {
     return r.length > l.length;
   }
 
-  void _showDetail(BuildContext context, WidgetRef ref) {
+  void _showDetail(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PluginDetailSheet(plugin: plugin, ref: ref),
+      builder: (_) => _PluginDetailSheet(plugin: plugin),
     );
   }
 }
@@ -682,8 +684,7 @@ class _InstallButton extends ConsumerWidget {
 
 class _PluginDetailSheet extends ConsumerStatefulWidget {
   final PluginEntry plugin;
-  final WidgetRef ref;
-  const _PluginDetailSheet({required this.plugin, required this.ref});
+  const _PluginDetailSheet({required this.plugin});
 
   @override
   ConsumerState<_PluginDetailSheet> createState() => _PluginDetailSheetState();
@@ -1133,7 +1134,7 @@ class _InstalledPluginRow extends ConsumerWidget {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => _PluginDetailSheet(plugin: meta, ref: ref),
+        builder: (_) => _PluginDetailSheet(plugin: meta),
       ),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
@@ -1360,126 +1361,4 @@ class _PluginsSkeletonState extends State<_PluginsSkeleton>
   );
 }
 
-  // ─── Binary engines section ─────────────────────────────────────────────────────
-  // ZeusDL and Aria2 status, moved from About screen.
-
-  class _BinaryEnginesSection extends ConsumerWidget {
-    const _BinaryEnginesSection();
-
-    @override
-    Widget build(BuildContext context, WidgetRef ref) {
-      final cs = Theme.of(context).colorScheme;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Row(
-              children: [
-                Icon(Icons.memory_rounded, size: 15, color: cs.primary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Moteurs binaires',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: cs.primary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () => context.push('/about'),
-                  icon: const Icon(Icons.tune_rounded, size: 14),
-                  label: const Text('Gérer', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: cs.primary,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _EngineChip(
-                    label: 'ZeusDL',
-                    icon: Icons.bolt_rounded,
-                    cs: cs,
-                    onTap: () => context.push('/about'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _EngineChip(
-                    label: 'Aria2',
-                    icon: Icons.download_for_offline_rounded,
-                    cs: cs,
-                    onTap: () => context.push('/about'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-        ],
-      );
-    }
-  }
-
-  class _EngineChip extends StatelessWidget {
-    final String label;
-    final IconData icon;
-    final ColorScheme cs;
-    final VoidCallback onTap;
-    const _EngineChip({
-      required this.label,
-      required this.icon,
-      required this.cs,
-      required this.onTap,
-    });
-
-    @override
-    Widget build(BuildContext context) {
-      return Material(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 16, color: cs.primary),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.arrow_forward_ios_rounded, size: 11, color: cs.onSurfaceVariant),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-  }
   

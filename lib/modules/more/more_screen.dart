@@ -356,7 +356,7 @@ class _HeroHeader extends ConsumerWidget {
                     spacing: 6,
                     runSpacing: 4,
                     children: [
-                      _HeaderChip(label: 'Streaming'),
+                      _HeaderChip(label: 'Watch'),
                       _HeaderChip(label: 'Manga'),
                       _HeaderChip(label: 'Novels'),
                     ],

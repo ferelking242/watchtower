@@ -13,7 +13,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, PluginEntry;
+import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, installedPluginsProvider, PluginEntry;
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -836,7 +836,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       pluginCount,
       2,
     ];
-    final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music', 'Plugin', 'Binary'];
+    final labels = <String>['Tout', 'Watch', 'Manga', 'Novel', 'Game', 'Music', 'Plugin', 'Binary'];
     final icons  = <IconData>[Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
                               Icons.menu_book_rounded, Icons.sports_esports_rounded, Icons.music_note_rounded,
                               Icons.extension_rounded, Icons.memory_rounded];
@@ -854,38 +854,45 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFF27272A)),
             ),
-            child: Wrap(
-              spacing: 2, runSpacing: 2,
-              children: List.generate(8, (i) {
-                final sel = _tabCtrl.index == i;
-                return GestureDetector(
-                  onTap: () { _tabCtrl.animateTo(i); setState(() { _globalLangFilter = null; _globalRepoFilter = null; _globalProgLangFilter = null; }); },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: sel ? const Color(0xFF27272A) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(icons[i], size: 12, color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF52525B)),
-                      const SizedBox(width: 4),
-                      Text(labels[i], style: TextStyle(fontSize: 12,
-                        fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-                        color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF71717A))),
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: sel ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text('${rawCounts[i]}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
-                          color: sel ? const Color(0xFFE0E7FF) : const Color(0xFFA1A1AA))),
+            child: Column(
+              children: () {
+                Widget chip(int i) {
+                  final sel = _tabCtrl.index == i;
+                  return Expanded(child: GestureDetector(
+                    onTap: () { _tabCtrl.animateTo(i); setState(() { _globalLangFilter = null; _globalRepoFilter = null; _globalProgLangFilter = null; }); },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: sel ? const Color(0xFF27272A) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(7),
                       ),
-                    ]),
-                  ),
-                );
-              }),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(icons[i], size: 11, color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF52525B)),
+                        const SizedBox(width: 3),
+                        Flexible(child: Text(labels[i], style: TextStyle(fontSize: 11,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                          color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF71717A)),
+                          overflow: TextOverflow.ellipsis, maxLines: 1)),
+                        const SizedBox(width: 3),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: sel ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text('${rawCounts[i]}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                            color: sel ? const Color(0xFFE0E7FF) : const Color(0xFFA1A1AA))),
+                        ),
+                      ]),
+                    ),
+                  ));
+                }
+                return <Widget>[
+                  Row(children: [chip(0), chip(1), chip(2), chip(3)]),
+                  const SizedBox(height: 2),
+                  Row(children: [chip(4), chip(5), chip(6), chip(7)]),
+                ];
+              }(),
             ),
           ),
         ),
@@ -5414,13 +5421,15 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
     }
   }
 
-    class _PluginCard extends StatelessWidget {
+    class _PluginCard extends ConsumerWidget {
     final PluginEntry plugin;
     const _PluginCard({required this.plugin});
 
     @override
-    Widget build(BuildContext context) {
+    Widget build(BuildContext context, WidgetRef ref) {
       final cs = Theme.of(context).colorScheme;
+      final installedList = ref.watch(installedPluginsProvider).value ?? [];
+      final isInstalled = installedList.any((p) => p.id == plugin.id);
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         padding: const EdgeInsets.all(14),
@@ -5475,11 +5484,35 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
                                 fontWeight: FontWeight.w600)),
                       ),
                       const SizedBox(width: 6),
-                      Text(plugin.author,
-                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withValues(alpha: 0.7))),
+                      Flexible(child: Text(plugin.author,
+                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+                          maxLines: 1, overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Install button
+            GestureDetector(
+              onTap: isInstalled ? null : () async {
+                await ref.read(installedPluginsProvider.notifier).install(plugin);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isInstalled ? cs.surfaceContainerHigh : cs.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  isInstalled ? 'Installé' : 'Installer',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isInstalled ? cs.onSurfaceVariant : cs.onPrimary,
+                  ),
+                ),
               ),
             ),
           ],
@@ -5518,48 +5551,32 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
           ),
         ),
         data: (plugins) {
-          const _kEngines = [
-            (id: 'zeusdl', name: 'ZeusDL', desc: 'Moteur intégré — anti-bot, sessions, extraction HD.', version: '1.0.0', icon: Icons.bolt_rounded, clr: Color(0xFF4F46E5)),
-            (id: 'aria2', name: 'Aria2', desc: 'Multi-protocole HTTP/FTP/BitTorrent — téléchargements parallèles.', version: '1.36.0', icon: Icons.download_for_offline_rounded, clr: Color(0xFF0288D1)),
-          ];
-          final _totalItems = 1 + _kEngines.length + 1 + plugins.length;
+          if (plugins.isEmpty) {
+            return SliverFillRemaining(
+              child: Center(child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.extension_off_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
+                  const SizedBox(height: 10),
+                  Text('Aucun plugin disponible', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
+                ]),
+              )),
+            );
+          }
+          final _totalItems = 1 + plugins.length;
           return SliverList(
             delegate: SliverChildBuilderDelegate(
               (ctx, idx) {
                 if (idx == 0) return Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                   child: Row(children: [
-                    Icon(Icons.memory_rounded, size: 13, color: cs.primary),
+                    Icon(Icons.extension_rounded, size: 13, color: cs.primary),
                     const SizedBox(width: 6),
-                    Text('Moteurs binaires', style: TextStyle(
+                    Text('Plugins (${plugins.length})', style: TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w700, color: cs.primary, letterSpacing: 0.5)),
                   ]),
                 );
-                if (idx <= _kEngines.length) {
-                  final e = _kEngines[idx - 1];
-                  return _EngineCard(id: e.id, name: e.name, desc: e.desc, version: e.version, icon: e.icon, clr: e.clr, cs: cs);
-                }
-                final pluginsHeaderIdx = 1 + _kEngines.length;
-                if (idx == pluginsHeaderIdx) {
-                  if (plugins.isEmpty) return Center(child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.extension_off_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
-                      const SizedBox(height: 10),
-                      Text('Aucun plugin disponible', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
-                    ]),
-                  ));
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-                    child: Row(children: [
-                      Icon(Icons.extension_rounded, size: 13, color: cs.primary),
-                      const SizedBox(width: 6),
-                      Text('Plugins (${plugins.length})', style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700, color: cs.primary, letterSpacing: 0.5)),
-                    ]),
-                  );
-                }
-                final pluginIdx = idx - pluginsHeaderIdx - 1;
+                final pluginIdx = idx - 1;
                 if (pluginIdx >= 0 && pluginIdx < plugins.length) return _PluginCard(plugin: plugins[pluginIdx]);
                 return null;
               },
