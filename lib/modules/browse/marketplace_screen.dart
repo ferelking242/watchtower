@@ -13,7 +13,8 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
-  import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, PluginEntry;
+import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, PluginEntry;
+import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -159,13 +160,14 @@ class MarketplaceScreen extends ConsumerStatefulWidget {
 }
 
 // Tab indices
-const _kTabHome  = 0;
-const _kTabManga = 1;
-const _kTabAnime = 2;
-const _kTabNovel = 3;
-const _kTabGames = 4;
-const _kTabMusic = 5;
+const _kTabHome   = 0;
+const _kTabManga  = 1;
+const _kTabAnime  = 2;
+const _kTabNovel  = 3;
+const _kTabGames  = 4;
+const _kTabMusic  = 5;
 const _kTabPlugin = 6;
+const _kTabBinary = 7;
 
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     with TickerProviderStateMixin {
@@ -198,6 +200,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     _kTabGames: _CompatF.all,
     _kTabMusic: _CompatF.all,
     _kTabPlugin: _CompatF.all,
+    _kTabBinary: _CompatF.all,
   };
 
   // ── Play Store enhanced filter state ─────────────────────────────────────────
@@ -245,7 +248,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 7, vsync: this);
+    _tabCtrl = TabController(length: 8, vsync: this);
     if (_cachedAll != null && _cacheTime != null &&
         DateTime.now().difference(_cacheTime!) < const Duration(seconds: 30)) {
       _all = _cachedAll!;
@@ -312,12 +315,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (r.statusCode != 200) {
       throw Exception('HTTP ${r.statusCode} pour $url');
     }
-    if (r.body.isEmpty) {
+    if (r.bodyBytes.isEmpty) {
       throw Exception('Réponse vide pour $url');
     }
+    final decodedBody = utf8.decode(r.bodyBytes, allowMalformed: true);
     final maps = r.bodyBytes.length > 80000
-        ? await compute(_parseIndexIsolate, {'body': r.body, 'url': url})
-        : _parseIndexIsolate({'body': r.body, 'url': url});
+        ? await compute(_parseIndexIsolate, {'body': decodedBody, 'url': url})
+        : _parseIndexIsolate({'body': decodedBody, 'url': url});
     return _mapsToEntries(maps);
   }
 
@@ -670,6 +674,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         _TypeTab(state: this, tab: _kTabGames),
                         _TypeTab(state: this, tab: _kTabMusic),
                         _TypeTab(state: this, tab: _kTabPlugin),
+                        const _BinaryTab(),
                       ],
                     ),
                   ),
@@ -829,11 +834,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _all.where((e) => e.contentType == ItemType.game).length,
       _all.where((e) => e.contentType == ItemType.music).length,
       pluginCount,
+      2,
     ];
-    final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music', 'Plugin'];
+    final labels = <String>['Tout', 'Streaming', 'Manga', 'Novel', 'Game', 'Music', 'Plugin', 'Binary'];
     final icons  = <IconData>[Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
                               Icons.menu_book_rounded, Icons.sports_esports_rounded, Icons.music_note_rounded,
-                              Icons.extension_rounded];
+                              Icons.extension_rounded, Icons.memory_rounded];
     return Container(
       color: theme.scaffoldBackgroundColor,
       child: Padding(
@@ -850,7 +856,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             ),
             child: Wrap(
               spacing: 2, runSpacing: 2,
-              children: List.generate(7, (i) {
+              children: List.generate(8, (i) {
                 final sel = _tabCtrl.index == i;
                 return GestureDetector(
                   onTap: () { _tabCtrl.animateTo(i); setState(() { _globalLangFilter = null; _globalRepoFilter = null; _globalProgLangFilter = null; }); },
@@ -1998,6 +2004,17 @@ class _TypeTabState extends State<_TypeTab> {
     final state = widget.state;
     final tab = widget.tab;
     if (state._loading) return _MarketplaceSkeleton(cs: cs);
+    // Plugin tab has its own sliver fed by pluginsListProvider — bypass the
+    // normal _forTab() path which returns [] for _kTabPlugin.
+    if (tab == _kTabPlugin) {
+      return RefreshIndicator(
+        onRefresh: () => state._loadAll(bypassCache: true),
+        child: CustomScrollView(slivers: [
+          _PluginsTabSliver(cs: cs),
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ]),
+      );
+    }
     final entries = state._forTab(tab);
 
     final updatableEntries = tab != _kTabPlugin
@@ -5287,6 +5304,49 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
     final ColorScheme cs;
     const _EngineCard({required this.id, required this.name, required this.desc, required this.version, required this.icon, required this.clr, required this.cs});
 
+    void _showBinarySheet(BuildContext context) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (ctx, sc) => Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              border: Border.all(color: const Color(0xFF2A2A2E)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(width: 36, height: 4,
+                  decoration: BoxDecoration(color: const Color(0xFF3A3A3E), borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(children: [
+                    Icon(Icons.memory_rounded, size: 16, color: clr),
+                    const SizedBox(width: 8),
+                    Text('Moteurs binaires', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: clr)),
+                  ]),
+                ),
+                const SizedBox(height: 4),
+                Expanded(child: SingleChildScrollView(
+                  controller: sc,
+                  padding: const EdgeInsets.only(top: 12, bottom: 24),
+                  child: const BinariesSection(),
+                )),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     @override
     Widget build(BuildContext context, WidgetRef ref) {
       return Padding(
@@ -5295,7 +5355,7 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
           color: const Color(0xFF1A1A1E),
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            onTap: () => context.push('/about'),
+            onTap: () => _showBinarySheet(context),
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.all(14),
@@ -5335,7 +5395,7 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
                 ])),
                 const SizedBox(width: 10),
                 OutlinedButton(
-                  onPressed: () => context.push('/about'),
+                  onPressed: () => _showBinarySheet(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: clr,
                     side: BorderSide(color: clr.withValues(alpha: 0.5)),
@@ -5510,4 +5570,45 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
       );
     }
   }
+
+// ─── Binary tab ────────────────────────────────────────────────────────────────
+// Shown as the 8th tab in the marketplace — displays downloadable binary engines
+// (ZeusDL, aria2c) using the same BinariesSection used in Settings.
+
+class _BinaryTab extends StatelessWidget {
+  const _BinaryTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.memory_rounded, size: 14, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Text('Moteurs binaires',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
+                      color: cs.primary, letterSpacing: 0.5)),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  'Binaires natifs arm64 utilisés par les téléchargeurs. Téléchargez-les ici pour activer les fonctions avancées.',
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: BinariesSection()),
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
+    );
+  }
+}
   
