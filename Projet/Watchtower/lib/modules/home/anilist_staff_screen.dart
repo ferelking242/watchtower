@@ -359,7 +359,7 @@ class _CharactersList extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       itemCount: edges.length,
       itemBuilder: (_, i) {
-        final e = edges[i] as _StaffCharEdge;
+        final e = edges[i] as AnilistStaffCharEdge;
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(10),
@@ -459,7 +459,7 @@ class _MediaGrid extends StatelessWidget {
       ),
       itemCount: edges.length,
       itemBuilder: (_, i) {
-        final e = edges[i] as _StaffMediaEdge;
+        final e = edges[i] as AnilistStaffMediaEdge;
         return GestureDetector(
           onTap: () => onTap(e.media),
           child: Column(
