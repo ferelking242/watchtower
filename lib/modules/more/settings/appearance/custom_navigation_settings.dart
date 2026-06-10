@@ -107,7 +107,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             const Divider(height: 16),
 
-            // ââ Reorderable navigation items âââââââââââââââââââââââââââââââ
+            // ── Éléments du dock — grille 3 par ligne ────────────────────
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Text(
@@ -116,74 +116,105 @@ class CustomNavigationSettings extends ConsumerWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: ReorderableListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                  buildDefaultDragHandles: false,
-                  itemCount: navigationOrder.length,
-                  itemBuilder: (context, index) {
-                    final navigation = navigationOrder[index];
-                    return Row(
-                      key: Key('navigation_$navigation'),
-                      children: [
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: const Icon(Icons.drag_handle),
-                        ),
-                        Expanded(
-                          child: Tooltip(
-                            message: 'Long-press to reorder. Toggle to show/hide this item.',
-                            child: SwitchListTile(
-                              key: Key(navigation),
-                              dense: true,
-                              value: !hideItems.contains(navigation),
-                              onChanged: [
-                                "/more",
-                                "/browse",
-                              ].any((element) => element == navigation)
-                                  ? null
-                                  : (value) {
-                                      final temp = hideItems.toList();
-                                      if (!value &&
-                                          !hideItems.contains(navigation)) {
-                                        temp.add(navigation);
-                                      } else if (value) {
-                                        temp.remove(navigation);
-                                      }
-                                      ref
-                                          .read(hideItemsStateProvider.notifier)
-                                          .set(temp);
-                                      final label =
-                                          navigationItems[navigation] ??
-                                              navigation;
-                                      botToast(
-                                        value
-                                            ? '$label is now visible on the dock'
-                                            : '$label is now hidden from the dock',
-                                      );
-                                    },
-                              title: Text(navigationItems[navigation]!),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                  onReorder: (oldIndex, newIndex) {
-                    final order = navigationOrder.toList();
-                    if (oldIndex < newIndex) {
-                      final item = order.removeAt(oldIndex);
-                      order.insert(newIndex - 1, item);
-                    } else {
-                      final item = order.removeAt(oldIndex);
-                      order.insert(newIndex, item);
-                    }
-                    ref
-                        .read(navigationOrderStateProvider.notifier)
-                        .set(order);
-                  },
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 2.6,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
                 ),
+                itemCount: navigationOrder.length,
+                itemBuilder: (context, index) {
+                  final navigation = navigationOrder[index];
+                  final label = navigationItems[navigation] ?? navigation;
+                  final isVisible = !hideItems.contains(navigation);
+                  final isFixed =
+                      navigation == '/more' || navigation == '/browse';
+                  return GestureDetector(
+                    onTap: isFixed
+                        ? null
+                        : () {
+                            final temp = hideItems.toList();
+                            if (isVisible) {
+                              temp.add(navigation);
+                            } else {
+                              temp.remove(navigation);
+                            }
+                            ref
+                                .read(hideItemsStateProvider.notifier)
+                                .set(temp);
+                            botToast(
+                              isVisible
+                                  ? '$label masqué du dock'
+                                  : '$label visible sur le dock',
+                            );
+                          },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      decoration: BoxDecoration(
+                        color: isFixed
+                            ? colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.4)
+                            : isVisible
+                                ? colorScheme.primaryContainer
+                                    .withValues(alpha: 0.75)
+                                : colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isFixed
+                              ? colorScheme.outline.withValues(alpha: 0.2)
+                              : isVisible
+                                  ? colorScheme.primary
+                                  : colorScheme.outline.withValues(alpha: 0.3),
+                          width: isVisible && !isFixed ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isFixed
+                                ? Icons.lock_rounded
+                                : isVisible
+                                    ? Icons.visibility_rounded
+                                    : Icons.visibility_off_rounded,
+                            size: 13,
+                            color: isFixed
+                                ? colorScheme.onSurface.withValues(alpha: 0.35)
+                                : isVisible
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurface
+                                        .withValues(alpha: 0.4),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: isVisible
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: isFixed
+                                  ? colorScheme.onSurface.withValues(alpha: 0.45)
+                                  : isVisible
+                                      ? colorScheme.primary
+                                      : colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
 
             const Divider(height: 24),
@@ -210,6 +241,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
+                  // ── Row 1: Floating / Classic / Minimal ──────────────
                   Row(
                     children: [
                       _DockPreviewCard(
@@ -218,11 +250,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                         isSelected: dockStyle == 'floating',
                         child: _FloatingDockPreview(cs: colorScheme),
                         onTap: () {
-                          ref
-                              .read(navDockStyleProvider.notifier)
-                              .set('floating');
-                          botToast(
-                              'Dock style: Floating pill → the dock hovers above the screen edge');
+                          ref.read(navDockStyleProvider.notifier).set('floating');
+                          botToast('Dock style: Floating pill');
                         },
                       ),
                       const SizedBox(width: 10),
@@ -232,11 +261,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                         isSelected: dockStyle == 'classic',
                         child: _ClassicDockPreview(cs: colorScheme),
                         onTap: () {
-                          ref
-                              .read(navDockStyleProvider.notifier)
-                              .set('classic');
-                          botToast(
-                              'Dock style: Classic → standard full-width bottom navigation bar');
+                          ref.read(navDockStyleProvider.notifier).set('classic');
+                          botToast('Dock style: Classic full-width bar');
                         },
                       ),
                       const SizedBox(width: 10),
@@ -246,45 +272,52 @@ class CustomNavigationSettings extends ConsumerWidget {
                         isSelected: dockStyle == 'minimal',
                         child: _MinimalDockPreview(cs: colorScheme),
                         onTap: () {
-                          ref
-                              .read(navDockStyleProvider.notifier)
-                              .set('minimal');
-                          botToast(
-                              'Dock style: Minimal → icon-only with subtle dot indicator, no labels');
+                          ref.read(navDockStyleProvider.notifier).set('minimal');
+                          botToast('Dock style: Minimal icon-only');
                         },
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          _DockPreviewCard(
-                            label: 'Rounded',
-                            description: 'Wide pill bar',
-                            isSelected: dockStyle == 'rounded_full',
-                            child: _RoundedFullDockPreview(cs: colorScheme),
-                            onTap: () { ref.read(navDockStyleProvider.notifier).set('rounded_full'); botToast('Dock style: Rounded — full-width pill with rounded caps'); },
-                          ),
-                          const SizedBox(width: 10),
-                          _DockPreviewCard(
-                            label: 'Compact',
-                            description: 'Icons only, slim',
-                            isSelected: dockStyle == 'compact',
-                            child: _CompactDockPreview(cs: colorScheme),
-                            onTap: () { ref.read(navDockStyleProvider.notifier).set('compact'); botToast('Dock style: Compact — slim icon-only bar'); },
-                          ),
-                          const SizedBox(width: 10),
-                          _DockPreviewCard(
-                            label: 'Immersive',
-                            description: 'Glass overlay',
-                            isSelected: dockStyle == 'immersive',
-                            child: _ImmersiveDockPreview(cs: colorScheme),
-                            onTap: () { ref.read(navDockStyleProvider.notifier).set('immersive'); botToast('Dock style: Immersive — translucent glass dock'); },
-                          ),
-                        ],
-                      )
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // ── PC / Bureau ──────────────────────────────────────────
+                  // ── Row 2: Rounded / Compact / Immersive ─────────────────
+                  Row(
+                    children: [
+                      _DockPreviewCard(
+                        label: 'Rounded',
+                        description: 'Wide pill bar',
+                        isSelected: dockStyle == 'rounded_full',
+                        child: _RoundedFullDockPreview(cs: colorScheme),
+                        onTap: () {
+                          ref.read(navDockStyleProvider.notifier).set('rounded_full');
+                          botToast('Dock style: Rounded full-width pill');
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      _DockPreviewCard(
+                        label: 'Compact',
+                        description: 'Icons only, slim',
+                        isSelected: dockStyle == 'compact',
+                        child: _CompactDockPreview(cs: colorScheme),
+                        onTap: () {
+                          ref.read(navDockStyleProvider.notifier).set('compact');
+                          botToast('Dock style: Compact slim bar');
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      _DockPreviewCard(
+                        label: 'Immersive',
+                        description: 'Glass overlay',
+                        isSelected: dockStyle == 'immersive',
+                        child: _ImmersiveDockPreview(cs: colorScheme),
+                        onTap: () {
+                          ref.read(navDockStyleProvider.notifier).set('immersive');
+                          botToast('Dock style: Immersive glass dock');
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // ── Row 3: PC Sidebar ─────────────────────────────────────
                   Row(
                     children: [
                       _DockPreviewCard(
@@ -293,11 +326,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                         isSelected: dockStyle == 'pc_sidebar',
                         child: _PcSidebarPreview(cs: colorScheme),
                         onTap: () {
-                          ref
-                              .read(navDockStyleProvider.notifier)
-                              .set('pc_sidebar');
-                          botToast(
-                              'PC Sidebar — navigation en barre latérale sur grand écran (≥ 700 px)');
+                          ref.read(navDockStyleProvider.notifier).set('pc_sidebar');
+                          botToast('PC Sidebar — navigation en barre latérale');
                         },
                       ),
                       const SizedBox(width: 10),

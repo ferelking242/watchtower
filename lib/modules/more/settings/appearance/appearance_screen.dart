@@ -83,8 +83,7 @@ class AppearanceScreen extends ConsumerWidget {
             SettingsSection(
               title: l10n.theme,
               children: [
-                const FollowSystemThemeButton(),
-                if (!followSystemTheme) const DarkModeButton(),
+                const _ThemeModeBar(),
                 const ThemeSelector(),
                 if (isDarkTheme)
                   SwitchListTile(
@@ -217,54 +216,13 @@ class AppearanceScreen extends ConsumerWidget {
       onTap: () {
         showDialog(
           context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(l10n.app_language),
-              content: SizedBox(
-                width: context.width(0.8),
-                child: RadioGroup(
-                  groupValue: l10nLocale,
-                  onChanged: (value) {
-                    ref
-                        .read(l10nLocaleStateProvider.notifier)
-                        .setLocale(value!);
-                    Navigator.pop(context);
-                  },
-                  child: SuperListView.builder(
-                    shrinkWrap: true,
-                    itemCount: AppLocalizations.supportedLocales.length,
-                    itemBuilder: (context, index) {
-                      final locale = AppLocalizations.supportedLocales[index];
-                      return RadioListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.all(0),
-                        value: locale,
-                        title: Text(
-                          completeLanguageName(locale.toLanguageTag()),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              actions: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        l10n.cancel,
-                        style: TextStyle(color: context.primaryColor),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
+          builder: (_) => _LanguagePickerDialog(
+            currentLocale: l10nLocale,
+            onSelected: (locale) {
+              ref.read(l10nLocaleStateProvider.notifier).setLocale(locale);
+            },
+            cancelLabel: l10n.cancel,
+          ),
         );
       },
     );
@@ -291,125 +249,16 @@ class AppearanceScreen extends ConsumerWidget {
         style: TextStyle(fontSize: 11, color: context.secondaryColor),
       ),
       onTap: () {
-        String textValue = "";
-        final controller = ScrollController();
         showDialog(
           context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(context.l10n.font),
-              content: StatefulBuilder(
-                builder: (context, setState) {
-                  return SizedBox(
-                    width: context.width(0.8),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 8,
-                          ),
-                          child: TextField(
-                            onChanged: (v) {
-                              setState(() {
-                                textValue = v;
-                              });
-                            },
-                            decoration: InputDecoration(
-                              isDense: true,
-                              filled: false,
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: context.secondaryColor,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: context.primaryColor,
-                                ),
-                              ),
-                              border: const OutlineInputBorder(
-                                borderSide: BorderSide(),
-                              ),
-                              hintText: l10n.search,
-                            ),
-                          ),
-                        ),
-                        Builder(
-                          builder: (context) {
-                            List values = GoogleFonts.asMap().entries.toList();
-                            values = values
-                                .where(
-                                  (values) => values.key.toLowerCase().contains(
-                                    textValue.toLowerCase(),
-                                  ),
-                                )
-                                .toList();
-                            return Expanded(
-                              child: Scrollbar(
-                                interactive: true,
-                                thickness: 12,
-                                radius: const Radius.circular(10),
-                                controller: controller,
-                                child: RadioGroup<String?>(
-                                  groupValue: appFontFamily,
-                                  onChanged: (value) {
-                                    ref
-                                        .read(appFontFamilyProvider.notifier)
-                                        .set(value);
-                                    Navigator.pop(context);
-                                  },
-                                  child: SuperListView.builder(
-                                    controller: controller,
-                                    itemCount: values.length,
-                                    itemBuilder: (context, index) {
-                                      final value = values[index];
-                                      return RadioListTile<String?>(
-                                        dense: true,
-                                        contentPadding: const EdgeInsets.all(0),
-                                        value: value.value().fontFamily,
-                                        title: Text(value.key),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              actions: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () async {
-                        ref.read(appFontFamilyProvider.notifier).set(null);
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        l10n.default0,
-                        style: TextStyle(color: context.primaryColor),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        l10n.cancel,
-                        style: TextStyle(color: context.primaryColor),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
+          builder: (_) => _FontPickerDialog(
+            currentFont: appFontFamily,
+            defaultLabel: l10n.default0,
+            cancelLabel: l10n.cancel,
+            onSelected: (value) {
+              ref.read(appFontFamilyProvider.notifier).set(value);
+            },
+          ),
         );
       },
     );
@@ -550,6 +399,361 @@ class AppearanceScreen extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Theme mode segmented bar — Light | System | Dark (Mihon style)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ThemeModeBar extends ConsumerWidget {
+  const _ThemeModeBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final followSystem = ref.watch(followSystemThemeStateProvider);
+    final isDark = ref.watch(themeModeStateProvider);
+    final int mode = followSystem ? 1 : (isDark ? 2 : 0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: SegmentedButton<int>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          selectedBackgroundColor:
+              Theme.of(context).colorScheme.primaryContainer,
+          selectedForegroundColor: Theme.of(context).colorScheme.primary,
+        ),
+        segments: const [
+          ButtonSegment(
+            value: 0,
+            icon: Icon(Icons.light_mode_rounded, size: 18),
+            label: Text('Clair'),
+          ),
+          ButtonSegment(
+            value: 1,
+            icon: Icon(Icons.brightness_auto_rounded, size: 18),
+            label: Text('Système'),
+          ),
+          ButtonSegment(
+            value: 2,
+            icon: Icon(Icons.dark_mode_rounded, size: 18),
+            label: Text('Sombre'),
+          ),
+        ],
+        selected: {mode},
+        onSelectionChanged: (s) {
+          final m = s.first;
+          if (m == 1) {
+            ref.read(followSystemThemeStateProvider.notifier).set(true);
+          } else {
+            if (followSystem) {
+              ref.read(followSystemThemeStateProvider.notifier).set(false);
+            }
+            if (m == 0) {
+              ref.read(themeModeStateProvider.notifier).setLightTheme();
+            } else {
+              ref.read(themeModeStateProvider.notifier).setDarkTheme();
+            }
+          }
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Language picker dialog — 3-per-row grid with flag + search
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LanguagePickerDialog extends StatefulWidget {
+  final Locale currentLocale;
+  final void Function(Locale) onSelected;
+  final String cancelLabel;
+
+  const _LanguagePickerDialog({
+    required this.currentLocale,
+    required this.onSelected,
+    required this.cancelLabel,
+  });
+
+  @override
+  State<_LanguagePickerDialog> createState() => _LanguagePickerDialogState();
+}
+
+class _LanguagePickerDialogState extends State<_LanguagePickerDialog> {
+  String _search = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final locales = AppLocalizations.supportedLocales.where((l) {
+      final name = completeLanguageName(l.toLanguageTag()).toLowerCase();
+      return name.contains(_search.toLowerCase());
+    }).toList();
+
+    return AlertDialog(
+      title: const Text('Langue de l\'app'),
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 440,
+        child: Column(
+          children: [
+            TextField(
+              onChanged: (v) => setState(() => _search = v),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Rechercher...',
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 1.55,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
+                itemCount: locales.length,
+                itemBuilder: (ctx, i) {
+                  final locale = locales[i];
+                  final name =
+                      completeLanguageName(locale.toLanguageTag());
+                  final flag = langFlagEmoji(locale.toLanguageTag());
+                  final isSelected = locale == widget.currentLocale;
+                  return GestureDetector(
+                    onTap: () {
+                      widget.onSelected(locale);
+                      Navigator.pop(context);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? cs.primaryContainer
+                            : cs.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? cs.primary
+                              : cs.outline.withValues(alpha: 0.3),
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(flag,
+                              style: const TextStyle(fontSize: 22)),
+                          const SizedBox(height: 3),
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? cs.primary
+                                    : cs.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(widget.cancelLabel,
+              style: TextStyle(color: cs.primary)),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Font picker dialog — 3-per-row grid, each name in its own typeface
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FontPickerDialog extends StatefulWidget {
+  final String? currentFont;
+  final String defaultLabel;
+  final String cancelLabel;
+  final void Function(String?) onSelected;
+
+  const _FontPickerDialog({
+    required this.currentFont,
+    required this.defaultLabel,
+    required this.cancelLabel,
+    required this.onSelected,
+  });
+
+  @override
+  State<_FontPickerDialog> createState() => _FontPickerDialogState();
+}
+
+class _FontPickerDialogState extends State<_FontPickerDialog> {
+  String _search = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final allFonts = GoogleFonts.asMap().entries.toList();
+    final fonts = _search.isEmpty
+        ? allFonts
+        : allFonts
+            .where((e) =>
+                e.key.toLowerCase().contains(_search.toLowerCase()))
+            .toList();
+
+    return AlertDialog(
+      title: const Text('Police'),
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 440,
+        child: Column(
+          children: [
+            TextField(
+              onChanged: (v) => setState(() => _search = v),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Rechercher une police...',
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 1.5,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
+                itemCount: fonts.length + 1,
+                itemBuilder: (ctx, i) {
+                  if (i == 0) {
+                    final isSelected = widget.currentFont == null;
+                    return GestureDetector(
+                      onTap: () {
+                        widget.onSelected(null);
+                        Navigator.pop(context);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? cs.primaryContainer
+                              : cs.surfaceContainerHighest
+                                  .withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? cs.primary
+                                : cs.outline.withValues(alpha: 0.3),
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            widget.defaultLabel,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color:
+                                  isSelected ? cs.primary : cs.onSurface,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  final entry = fonts[i - 1];
+                  final fontName = entry.key;
+                  final fontStyle = entry.value();
+                  final isSelected =
+                      widget.currentFont == fontStyle.fontFamily;
+                  return GestureDetector(
+                    onTap: () {
+                      widget.onSelected(fontStyle.fontFamily);
+                      Navigator.pop(context);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? cs.primaryContainer
+                            : cs.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? cs.primary
+                              : cs.outline.withValues(alpha: 0.3),
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Text(
+                            fontName,
+                            style: fontStyle.copyWith(
+                              fontSize: 11,
+                              color:
+                                  isSelected ? cs.primary : cs.onSurface,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(widget.cancelLabel,
+              style: TextStyle(color: cs.primary)),
+        ),
+      ],
     );
   }
 }
