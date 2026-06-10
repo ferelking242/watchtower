@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:extended_image/extended_image.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 
 const String _onboardingMarkerFileName = '.onboarding_complete';
@@ -39,38 +40,39 @@ class _MediaItem {
   final String title;
   final String label;
   final Color color;
-  const _MediaItem(this.title, this.label, this.color);
+  final String imageUrl;
+  const _MediaItem(this.title, this.label, this.color, this.imageUrl);
 }
 
 const _animeItems = [
-  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00)),
-  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703)),
-  _MediaItem('Hunter x Hunter', 'Anime', Color(0xFF06D6A0)),
-  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF)),
-  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D)),
-  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC)),
-  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6)),
-  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4)),
+  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00), 'https://cdn.myanimelist.net/images/anime/1141/142503l.jpg'),
+  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703), 'https://cdn.myanimelist.net/images/anime/1277/142022l.jpg'),
+  _MediaItem('Hunter x Hunter', 'Anime', Color(0xFF06D6A0), 'https://cdn.myanimelist.net/images/anime/1305/132237l.jpg'),
+  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF), 'https://cdn.myanimelist.net/images/anime/1770/97704l.jpg'),
+  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D), 'https://cdn.myanimelist.net/images/anime/10/47347l.jpg'),
+  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC), 'https://cdn.myanimelist.net/images/anime/1286/99889l.jpg'),
+  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6), 'https://cdn.myanimelist.net/images/anime/1171/109222l.jpg'),
+  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4), 'https://cdn.myanimelist.net/images/anime/1541/147774l.jpg'),
 ];
 
 const _mangaItems = [
-  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D)),
-  _MediaItem('Vagabond', 'Manga', Color(0xFF495057)),
-  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F)),
-  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD)),
-  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828)),
-  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557)),
-  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D)),
+  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D), 'https://cdn.myanimelist.net/images/manga/1/157897l.jpg'),
+  _MediaItem('Vagabond', 'Manga', Color(0xFF495057), 'https://cdn.myanimelist.net/images/manga/1/259070l.jpg'),
+  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F), 'https://cdn.myanimelist.net/images/manga/2/188925l.jpg'),
+  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD), 'https://cdn.myanimelist.net/images/manga/3/194456l.jpg'),
+  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828), 'https://cdn.myanimelist.net/images/manga/3/216464l.jpg'),
+  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557), 'https://cdn.myanimelist.net/images/manga/2/204827l.jpg'),
+  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D), 'https://cdn.myanimelist.net/images/manga/3/266834l.jpg'),
 ];
 
 const _showItems = [
-  _MediaItem('Breaking Bad', 'Serie', Color(0xFF2DC653)),
-  _MediaItem('Arcane', 'Serie', Color(0xFF7B2FBE)),
-  _MediaItem('The Bear', 'Serie', Color(0xFFE63946)),
-  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C)),
-  _MediaItem('Dune', 'Film', Color(0xFFD4A017)),
-  _MediaItem('Shogun', 'Serie', Color(0xFFBC4749)),
-  _MediaItem('Severance', 'Serie', Color(0xFF0077B6)),
+  _MediaItem('Breaking Bad', 'Serie', Color(0xFF2DC653), 'https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg'),
+  _MediaItem('Arcane', 'Serie', Color(0xFF7B2FBE), 'https://image.tmdb.org/t/p/w500/abf8tHznhSvl9BAElD2cQeRr7do.jpg'),
+  _MediaItem('The Bear', 'Serie', Color(0xFFE63946), 'https://image.tmdb.org/t/p/w500/4fVddnbhcmzRZE14NJY03GKS6Fn.jpg'),
+  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C), 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg'),
+  _MediaItem('Dune', 'Film', Color(0xFFD4A017), 'https://image.tmdb.org/t/p/w500/gDzOcq0pfeCeqMBwKIJlSmQpjkZ.jpg'),
+  _MediaItem('Shogun', 'Serie', Color(0xFFBC4749), 'https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg'),
+  _MediaItem('Severance', 'Serie', Color(0xFF0077B6), 'https://image.tmdb.org/t/p/w500/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg'),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -708,22 +710,36 @@ class _Card extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(11),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            item.color.withOpacity(0.90),
-            item.color.withOpacity(0.52),
-            item.color.withOpacity(0.18),
-          ],
-          stops: const [0.0, 0.52, 1.0],
-        ),
+        color: item.color.withOpacity(0.25),
       ),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Diagonal sheen (purely local, no assets needed)
-          CustomPaint(painter: _SheenPainter()),
+          // Cover image with accent color fallback while loading
+          ExtendedImage.network(
+            item.imageUrl,
+            fit: BoxFit.cover,
+            cache: true,
+            loadStateChanged: (state) {
+              if (state.extendedImageLoadState != LoadState.completed) {
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        item.color.withOpacity(0.90),
+                        item.color.withOpacity(0.52),
+                        item.color.withOpacity(0.18),
+                      ],
+                      stops: const [0.0, 0.52, 1.0],
+                    ),
+                  ),
+                );
+              }
+              return null;
+            },
+          ),
 
           // Bottom gradient for text legibility
           Positioned.fill(
@@ -787,34 +803,6 @@ class _Card extends StatelessWidget {
       ),
     );
   }
-}
-
-// Subtle diagonal sheen painted on gradient cards — no assets, pure canvas.
-class _SheenPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withOpacity(0.07);
-    // Left diagonal highlight
-    final left = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width * 0.48, 0)
-      ..lineTo(size.width * 0.24, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(left, paint);
-    // Top-right accent
-    paint.color = Colors.white.withOpacity(0.04);
-    final topRight = Path()
-      ..moveTo(size.width * 0.6, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height * 0.38)
-      ..lineTo(size.width * 0.42, size.height)
-      ..close();
-    canvas.drawPath(topRight, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
