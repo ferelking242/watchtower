@@ -436,7 +436,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           title: 'Les mieux notés (court)',
           icon: Icons.workspace_premium_rounded,
           color: const Color(0xFFFD79A8),
-          items: (List.from(shorts)
+          items: (List<AnilistMedia>.from(shorts)
                 ..sort((a, b) => (b.averageScore ?? 0).compareTo(a.averageScore ?? 0)))
               .take(10)
               .toList(),
