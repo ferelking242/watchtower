@@ -170,7 +170,7 @@ class AnilistCharacterDetail {
   final String? age;
   final String? bloodType;
   final int? favourites;
-  final List<_CharMediaEdge> mediaRoles;
+  final List<AnilistCharMediaEdge> mediaRoles;
 
   const AnilistCharacterDetail({
     required this.id,
@@ -186,11 +186,11 @@ class AnilistCharacterDetail {
   });
 }
 
-class _CharMediaEdge {
+class AnilistCharMediaEdge {
   final AnilistMedia media;
   final String? role;
   final List<AnilistVoiceActor> voiceActors;
-  const _CharMediaEdge({required this.media, this.role, this.voiceActors = const []});
+  const AnilistCharMediaEdge({required this.media, this.role, this.voiceActors = const []});
 }
 
 // Staff detail (for the dedicated staff/voice-actor page)
@@ -205,8 +205,8 @@ class AnilistStaffDetail {
   final String? language;
   final List<String> occupations;
   final int? favourites;
-  final List<_StaffCharEdge> characterRoles;
-  final List<_StaffMediaEdge> mediaRoles;
+  final List<AnilistStaffCharEdge> characterRoles;
+  final List<AnilistStaffMediaEdge> mediaRoles;
 
   const AnilistStaffDetail({
     required this.id,
@@ -224,16 +224,16 @@ class AnilistStaffDetail {
   });
 }
 
-class _StaffCharEdge {
+class AnilistStaffCharEdge {
   final AnilistCharacter character;
   final AnilistMedia? media;
-  const _StaffCharEdge({required this.character, this.media});
+  const AnilistStaffCharEdge({required this.character, this.media});
 }
 
-class _StaffMediaEdge {
+class AnilistStaffMediaEdge {
   final AnilistMedia media;
   final String? role;
-  const _StaffMediaEdge({required this.media, this.role});
+  const AnilistStaffMediaEdge({required this.media, this.role});
 }
 
 class AnilistRelation {
@@ -908,7 +908,7 @@ Future<AnilistCharacterDetail> _fetchCharacterDetail(int id) async {
         .whereType<Map>()
         .map((va) => AnilistVoiceActor.fromJson(va.cast<String, dynamic>()))
         .toList(growable: false);
-    mediaRoles.add(_CharMediaEdge(
+    mediaRoles.add(AnilistCharMediaEdge(
       media: AnilistMedia.fromJson(node),
       role: role,
       voiceActors: voiceActors,
@@ -995,7 +995,7 @@ Future<AnilistStaffDetail> _fetchStaffDetail(int id) async {
     if (mediaRaw != null) {
       media = AnilistMedia.fromJson(mediaRaw.cast<String, dynamic>());
     }
-    characterRoles.add(_StaffCharEdge(
+    characterRoles.add(AnilistStaffCharEdge(
       character: AnilistCharacter.fromJson(node, role),
       media: media,
     ));
@@ -1009,7 +1009,7 @@ Future<AnilistStaffDetail> _fetchStaffDetail(int id) async {
     if (edge == null) continue;
     final node = (edge['node'] as Map?)?.cast<String, dynamic>();
     if (node == null) continue;
-    mediaRoles.add(_StaffMediaEdge(
+    mediaRoles.add(AnilistStaffMediaEdge(
       media: AnilistMedia.fromJson(node),
       role: edge['staffRole'] as String?,
     ));
