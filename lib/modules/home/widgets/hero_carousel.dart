@@ -101,8 +101,8 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     // so we use a higher fraction to maintain visual impact.
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final cardH = isLandscape
-        ? screenH * 0.80
-        : (widget.forceFullWidth ? screenH * 0.54 : screenH * 0.46);
+        ? screenH * 0.70
+        : (widget.forceFullWidth ? screenH * 0.36 : screenH * 0.34);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -134,7 +134,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                             ExtendedImage.network(
                               image,
                               fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
+                              alignment: Alignment.center,
                               cache: true,
                             )
                           else
@@ -167,11 +167,19 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                             ),
                           ),
 
+                          // ── Score badge — top right ──────────────────────
+                          if (m.averageScore != null)
+                            Positioned(
+                              top: 12,
+                              right: 12,
+                              child: _ScoreBadge(m.averageScore!),
+                            ),
+
                           // ── Info overlay ────────────────────────────────
                           Positioned(
                             left: 16,
                             right: 16,
-                            bottom: 24,
+                            bottom: 18,
                             child: _CardInfo(
                               media: m,
                               page: _page,
@@ -232,27 +240,23 @@ class _CardInfo extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Badge row
+        // Type badge (small, no score — score is top-right)
         Row(
           children: [
             _Badge(
               label: _typeLabel(media.type, media.format, media.countryOfOrigin),
               bg: Colors.white.withValues(alpha: 0.18),
             ),
-            if (media.averageScore != null) ...[
-              const SizedBox(width: 6),
-              _ScoreBadge(media.averageScore!),
-            ],
             if (media.episodes != null) ...[
               const SizedBox(width: 6),
               _Badge(
-                label: '${media.episodes} ep.',
-                bg: Colors.black.withValues(alpha: 0.40),
+                label: '${media.episodes} ép.',
+                bg: Colors.black.withValues(alpha: 0.38),
               ),
             ],
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // Title
         Text(
@@ -261,7 +265,7 @@ class _CardInfo extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: FontWeight.w800,
             height: 1.15,
             letterSpacing: -0.3,
@@ -269,47 +273,28 @@ class _CardInfo extends StatelessWidget {
           ),
         ),
 
-        // Description
-        if (media.description != null &&
-            media.description!.trim().isNotEmpty) ...[
-          const SizedBox(height: 5),
-          Text(
-            media.description!.trim(),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontSize: 12,
-              height: 1.45,
-              shadows: const [
-                Shadow(color: Colors.black87, blurRadius: 8)
-              ],
-            ),
-          ),
-        ],
-
-        // Genre pills
+        // Genre pills (2 max for compact layout)
         if (media.genres.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 6,
             children: media.genres
-                .take(3)
+                .take(2)
                 .map((g) => _GenrePill(g))
                 .toList(),
           ),
         ],
 
         // Page indicator dots
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         Row(
           children: List.generate(totalPages, (di) {
             final isActive = page == di;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut,
-              width: isActive ? 22 : 5,
-              height: 4,
+              width: isActive ? 20 : 5,
+              height: 3,
               margin: const EdgeInsets.only(right: 4),
               decoration: BoxDecoration(
                 color: isActive

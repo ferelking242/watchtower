@@ -746,7 +746,10 @@ class SpotlightDiscoveryCard extends StatelessWidget {
               // Background image
               if (image != null)
                 ExtendedImage.network(
-                  image, fit: BoxFit.cover, cache: true,
+                  image,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  cache: true,
                   loadStateChanged: (s) {
                     if (s.extendedImageLoadState == LoadState.completed) return null;
                     return Container(color: cs.surfaceContainerHighest);

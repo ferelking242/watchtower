@@ -10,20 +10,31 @@ const kHomeTabs = [
   'Tout',
   'Film',
   'Série',
+  'Anime',
   'Asia',
+  'Enfant',
+  'Occidental',
+  'Africa',
+  'TV Court',
   'Football',
   'Musique',
   'Jeux',
 ];
 
+// Icons kept for potential future use but not shown in tab bar (Seanime style — text only)
 const kHomeTabIcons = <int, IconData>{
-  0: Icons.all_inclusive_rounded,      // Tout — everything
-  1: Icons.movie_creation_rounded,     // Film — cinema
-  2: Icons.live_tv_rounded,            // Série — live TV
-  3: Icons.language_rounded,           // Asia — globe
-  4: Icons.sports_soccer_rounded,      // Football — ball
-  5: Icons.headphones_rounded,         // Musique — headphones
-  6: Icons.videogame_asset_rounded,    // Jeux — controller
+  0: Icons.all_inclusive_rounded,
+  1: Icons.movie_creation_rounded,
+  2: Icons.live_tv_rounded,
+  3: Icons.animation_rounded,
+  4: Icons.language_rounded,
+  5: Icons.child_care_rounded,
+  6: Icons.public_rounded,
+  7: Icons.flag_rounded,
+  8: Icons.timer_rounded,
+  9: Icons.sports_soccer_rounded,
+  10: Icons.headphones_rounded,
+  11: Icons.videogame_asset_rounded,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
