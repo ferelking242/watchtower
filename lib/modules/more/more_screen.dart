@@ -447,6 +447,12 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
           route: '/plugins',
         ),
         _NavItem(
+          icon: Icons.language_rounded,
+          label: (_) => 'Web View',
+          route: '/mangawebview',
+          routeExtra: {'url': 'https://github.com/ferelking242/watchtower-extensions', 'title': 'Web View'},
+        ),
+        _NavItem(
           icon: Icons.settings_outlined,
           label: (_) => l10n.settings,
           route: '/settings',
