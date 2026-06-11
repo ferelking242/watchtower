@@ -303,9 +303,9 @@ import 'dart:async';
         if (releases.isEmpty) return;
 
         final latest = releases.first as Map<String, dynamic>;
-        final rawName = (latest['name'] as String? ?? '').trim();
-        final latestVersion = rawName
-            .replaceFirst(RegExp(r'^[^0-9]*'), '')
+        final tagName = (latest['tag_name'] as String? ?? '').trim();
+        final latestVersion = tagName
+            .replaceFirst(RegExp(r'^v'), '')
             .split('-')
             .first;
 
