@@ -283,7 +283,58 @@ package com.watchtower.app
               }
           })
 
-          // ── 6. Silent installer (Shizuku + INSTALL_PACKAGES) ──────────────
+          // ── 6. Home screen shortcuts ────────────────────────────────────────
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.shortcuts"
+          ).setMethodCallHandler { call, result ->
+              when (call.method) {
+                  "isSupported" -> {
+                      val supported = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          getSystemService(android.content.pm.ShortcutManager::class.java)
+                              ?.isRequestPinShortcutSupported == true
+                      } else false
+                      result.success(supported)
+                  }
+                  "pinShortcut" -> {
+                      val id    = call.argument<String>("id")    ?: "plugin"
+                      val label = call.argument<String>("label") ?: "Plugin"
+                      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                          result.error("NOT_SUPPORTED", "Android 8.0+ requis", null)
+                          return@setMethodCallHandler
+                      }
+                      val sm = getSystemService(android.content.pm.ShortcutManager::class.java)
+                      if (sm?.isRequestPinShortcutSupported != true) {
+                          result.error("NOT_SUPPORTED", "Launcher incompatible", null)
+                          return@setMethodCallHandler
+                      }
+                      try {
+                          val intent = packageManager.getLaunchIntentForPackage(packageName)!!.apply {
+                              action = Intent.ACTION_MAIN
+                              addCategory(Intent.CATEGORY_LAUNCHER)
+                              putExtra("shortcut_plugin", id)
+                              flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                          }
+                          val shortcutInfo = android.content.pm.ShortcutInfo.Builder(
+                              applicationContext, "plugin_$id"
+                          )
+                              .setShortLabel(label.take(25))
+                              .setLongLabel(label)
+                              .setIcon(android.graphics.drawable.Icon.createWithResource(
+                                  applicationContext, R.mipmap.ic_launcher))
+                              .setIntent(intent)
+                              .build()
+                          sm.requestPinShortcut(shortcutInfo, null)
+                          result.success(true)
+                      } catch (e: Exception) {
+                          result.error("PIN_ERROR", e.message, null)
+                      }
+                  }
+                  else -> result.notImplemented()
+              }
+          }
+
+          // ── 7. Silent installer (Shizuku + INSTALL_PACKAGES) ──────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.silent_installer",
