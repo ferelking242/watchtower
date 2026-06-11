@@ -3,7 +3,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
 
 import 'plugins_screen.dart' show InstalledPlugin, PluginEntry;
 
@@ -55,15 +55,14 @@ class _PluginLauncherScreenState extends State<PluginLauncherScreen> {
     });
 
     try {
-      final supportDir = await getApplicationSupportDirectory();
-      final zeusBin = File('${supportDir.path}/binaries/zeusdl');
-      if (!await zeusBin.exists()) {
+      final zeusBinPath = await ZeusDlBinaryManager.instance.resolveExecutable();
+      if (zeusBinPath == null) {
         _finish(item, 'ZeusDL non installé — Marketplace → Binaires', error: true);
         return;
       }
       setState(() => item.status = 'Démarrage…');
 
-      final proc = await Process.start(zeusBin.path, [url]);
+      final proc = await Process.start(zeusBinPath, [url]);
       proc.stdout.listen((bytes) {
         final line = String.fromCharCodes(bytes).trim();
         if (line.isNotEmpty && mounted) setState(() => item.status = line);
