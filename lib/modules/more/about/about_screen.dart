@@ -244,7 +244,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                           final info = await PackageInfo.fromPlatform();
                                           final result = await checkLatestRelease(forceRefresh: true);
                                           if (result.$1 == '0.0.0' || result.$1.isEmpty) {
-                                            if (mounted) botToast(l10n.no_new_updates_available);
+                                            if (mounted) botToast('Vous avez la dernière version : ${info.version}');
                                           } else if (compareVersions(info.version, result.$1) < 0) {
                                             if (mounted) botToast(l10n.new_update_available);
                                             await Future.delayed(const Duration(seconds: 1));
@@ -255,10 +255,10 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                               );
                                             }
                                           } else {
-                                            if (mounted) botToast(l10n.no_new_updates_available);
+                                            if (mounted) botToast('Vous avez la dernière version : ${info.version}');
                                           }
                                         } catch (_) {
-                                          if (mounted) botToast(l10n.no_new_updates_available);
+                                          if (mounted) botToast('Vous avez la dernière version : ${info.version}');
                                         } finally {
                                           if (mounted) setState(() => _isCheckingUpdate = false);
                                         }
