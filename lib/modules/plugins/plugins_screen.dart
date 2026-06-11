@@ -216,6 +216,37 @@ final installedPluginsProvider =
     AsyncNotifierProvider<InstalledPluginsNotifier, List<InstalledPlugin>>(
         InstalledPluginsNotifier.new);
 
+// ─── Android home-screen shortcut helper ─────────────────────────────────────
+
+const _shortcutChannel = MethodChannel('com.watchtower.app.shortcuts');
+
+Future<void> _pinToHomeScreen(BuildContext ctx, String id, String label) async {
+  try {
+    final supported =
+        await _shortcutChannel.invokeMethod<bool>('isSupported') ?? false;
+    if (!supported) {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(content: Text('Raccourcis non supportés par ce launcher')),
+        );
+      }
+      return;
+    }
+    await _shortcutChannel.invokeMethod<void>('pinShortcut', {'id': id, 'label': label});
+    if (ctx.mounted) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text('Raccourci "$label" ajouté à l\'écran d\'accueil')),
+      );
+    }
+  } catch (e) {
+    if (ctx.mounted) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
+  }
+}
+
 // ─── Markdown stripper ────────────────────────────────────────────────────────
 
 String _stripMd(String s) => s
@@ -1368,6 +1399,30 @@ class _InstalledPluginRow extends ConsumerWidget {
               const SizedBox(width: 6),
               _TagChip(label: meta.category),
               const Spacer(),
+              // Home-screen shortcut button (Android only)
+              if (Platform.isAndroid) ...[
+                GestureDetector(
+                  onTap: () => _pinToHomeScreen(
+                    context,
+                    installed.id,
+                    meta.name.isNotEmpty ? meta.name : installed.id,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.withOpacity(0.13),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.deepPurple.withOpacity(0.30)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.add_to_home_screen_rounded, size: 14, color: Colors.deepPurple.shade300),
+                      const SizedBox(width: 4),
+                      Text('Accueil', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.deepPurple.shade300)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               // Launch button
               GestureDetector(
                 onTap: () => showModalBottomSheet(
