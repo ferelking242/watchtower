@@ -13,7 +13,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, installedPluginsProvider, PluginEntry, PluginDetailSheet;
+import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, installedPluginsProvider, PluginEntry, PluginDetailPage, PluginDetailSheet;
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -5426,12 +5426,9 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
     const _PluginCard({required this.plugin});
 
     void _openDetail(BuildContext context) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => PluginDetailSheet(plugin: plugin),
-      );
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PluginDetailPage(plugin: plugin),
+      ));
     }
 
     @override
@@ -5439,98 +5436,97 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
       final cs = Theme.of(context).colorScheme;
       final installedList = ref.watch(installedPluginsProvider).value ?? [];
       final isInstalled = installedList.any((p) => p.id == plugin.id);
+
       return GestureDetector(
         onTap: () => _openDetail(context),
         child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
-        ),
-        child: Row(
-          children: [
-            // Icon
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: plugin.iconUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(plugin.iconUrl, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              Icon(Icons.extension_rounded, size: 26, color: cs.primary)),
-                    )
-                  : Icon(Icons.extension_rounded, size: 26, color: cs.primary),
-            ),
-            const SizedBox(width: 14),
-            // Info
-            Expanded(
-              child: Column(
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(plugin.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(plugin.description,
-                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: cs.primaryContainer,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text('v${plugin.version}',
-                            style: TextStyle(fontSize: 10, color: cs.onPrimaryContainer,
-                                fontWeight: FontWeight.w600)),
+                  // Icon
+                  Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: plugin.iconUrl.isNotEmpty
+                        ? Image.network(plugin.iconUrl, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                Icon(Icons.extension_rounded, size: 26, color: cs.primary))
+                        : Icon(Icons.extension_rounded, size: 26, color: cs.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title + author
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(plugin.name,
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: cs.onSurface),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(plugin.author.isNotEmpty ? plugin.author : plugin.category,
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.65)),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Action button
+                  GestureDetector(
+                    onTap: isInstalled ? null : () async {
+                      await ref.read(installedPluginsProvider.notifier).install(plugin);
+                    },
+                    child: Container(
+                      width: 36, height: 36, alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isInstalled
+                            ? cs.primaryContainer.withValues(alpha: 0.5)
+                            : cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(child: Text(plugin.author,
-                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
-                          maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    ],
+                      child: Icon(
+                        isInstalled ? Icons.check_rounded : Icons.download_rounded,
+                        size: 20,
+                        color: isInstalled ? cs.primary : cs.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            // Install button
-            GestureDetector(
-              onTap: isInstalled ? null : () async {
-                await ref.read(installedPluginsProvider.notifier).install(plugin);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isInstalled ? cs.surfaceContainerHigh : cs.primary,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  isInstalled ? 'Installé' : 'Installer',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: isInstalled ? cs.onSurfaceVariant : cs.onPrimary,
-                  ),
-                ),
+              const SizedBox(height: 10),
+              Text(
+                plugin.description,
+                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.45),
+                maxLines: 2, overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6, runSpacing: 4,
+                children: [
+                  _TagChip(label: 'v${plugin.version}', cs: cs),
+                  _TagChip(label: plugin.category, cs: cs),
+                  if (plugin.requirements.isNotEmpty)
+                    _TagChip(label: plugin.requirements.keys.first, cs: cs),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
 }
 
 class _PluginsTabSliver extends ConsumerWidget {
