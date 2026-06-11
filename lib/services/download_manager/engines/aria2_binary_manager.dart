@@ -198,4 +198,9 @@ class Aria2BinaryManager {
     final f = File(p);
     if (await f.exists()) await f.delete();
   }
+
+  /// Reset only the in-memory cache — does NOT delete the binary on disk.
+  void resetCachedPath() {
+    _cachedPath = null;
+  }
 }
