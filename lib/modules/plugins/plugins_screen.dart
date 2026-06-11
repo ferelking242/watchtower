@@ -217,6 +217,13 @@ final installedPluginsProvider =
     AsyncNotifierProvider<InstalledPluginsNotifier, List<InstalledPlugin>>(
         InstalledPluginsNotifier.new);
 
+// ─── Markdown stripper ────────────────────────────────────────────────────────
+
+String _stripMd(String s) => s
+  .replaceAllMapped(RegExp(r'\*\*(.*?)\*\*', dotAll: true), (m) => m.group(1)!)
+  .replaceAllMapped(RegExp(r'\*(.*?)\*', dotAll: true), (m) => m.group(1)!)
+  .replaceAllMapped(RegExp(r'`(.*?)`'), (m) => m.group(1)!);
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 class PluginsScreen extends ConsumerStatefulWidget {
@@ -447,79 +454,12 @@ class _SectionHeader extends StatelessWidget {
   );
 }
 
-// ─── Plugin card ──────────────────────────────────────────────────────────────
+// ─── Plugin card (Play Store style) ──────────────────────────────────────────
 
 class _PluginCard extends ConsumerWidget {
   final PluginEntry plugin;
   final bool featured;
   const _PluginCard({required this.plugin, this.featured = false});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final installed = ref.watch(installedPluginsProvider).value ?? [];
-    final isInstalled = installed.any((p) => p.id == plugin.id);
-    final installedEntry = isInstalled ? installed.firstWhere((p) => p.id == plugin.id) : null;
-    final hasUpdate = installedEntry != null && _newerVersion(plugin.version, installedEntry.version);
-
-    return GestureDetector(
-      onTap: () => _showDetail(context),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: featured ? _teal.withOpacity(0.25) : _border,
-            width: featured ? 1.5 : 1,
-          ),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          _PluginIcon(url: plugin.iconUrl, size: 52),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(
-                  child: Text(plugin.name,
-                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: Colors.white),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-                if (hasUpdate)
-                  Container(
-                    margin: const EdgeInsets.only(left: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade700.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.orange.shade700.withOpacity(0.5)),
-                    ),
-                    child: Text('MAJ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.orange.shade400)),
-                  ),
-              ]),
-              const SizedBox(height: 3),
-              Text(plugin.description,
-                style: const TextStyle(fontSize: 12, color: _grey, height: 1.3),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 8),
-              Row(children: [
-                _CategoryPill(category: plugin.category),
-                const SizedBox(width: 6),
-                if (plugin.requirements.containsKey('zeusdl') || plugin.commandScopes.isNotEmpty)
-                  _ReqPill(label: plugin.requirements.isNotEmpty
-                    ? (plugin.requirements.keys.first) : plugin.commandScopes.first),
-                const Spacer(),
-                Text('v${plugin.version}',
-                  style: const TextStyle(fontSize: 10.5, color: _grey, fontWeight: FontWeight.w600)),
-              ]),
-            ]),
-          ),
-          const SizedBox(width: 10),
-          _InstallButton(plugin: plugin, isInstalled: isInstalled),
-        ]),
-      ),
-    );
-  }
 
   static bool _newerVersion(String remote, String local) {
     final parse = (String v) => v.replaceAll(RegExp(r'[^0-9.]'), '').split('.').map((e) => int.tryParse(e) ?? 0).toList();
@@ -531,12 +471,257 @@ class _PluginCard extends ConsumerWidget {
     return r.length > l.length;
   }
 
-  void _showDetail(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => PluginDetailSheet(plugin: plugin),
+  void _openDetail(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PluginDetailPage(plugin: plugin),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final installed = ref.watch(installedPluginsProvider).value ?? [];
+    final isInstalled = installed.any((p) => p.id == plugin.id);
+    final installedEntry = isInstalled ? installed.firstWhere((p) => p.id == plugin.id) : null;
+    final hasUpdate = installedEntry != null && _newerVersion(plugin.version, installedEntry.version);
+
+    return GestureDetector(
+      onTap: () => _openDetail(context),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: featured ? _teal.withOpacity(0.35) : _border,
+            width: featured ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PluginIcon(url: plugin.iconUrl, size: 48),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        plugin.name,
+                        style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white,
+                        ),
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        plugin.author.isNotEmpty ? plugin.author : plugin.category,
+                        style: TextStyle(
+                          fontSize: 12, color: _grey.withOpacity(0.75),
+                        ),
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _PluginActionButton(
+                  isInstalled: isInstalled,
+                  hasUpdate: hasUpdate,
+                  plugin: plugin,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _stripMd(plugin.description),
+              style: const TextStyle(fontSize: 13, color: _grey, height: 1.45),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                _TagChip(label: 'v${plugin.version}'),
+                _TagChip(label: plugin.category),
+                if (hasUpdate) _TagChip(label: '↑ màj', color: Colors.orange.shade400),
+                if (plugin.requirements.isNotEmpty)
+                  _TagChip(label: plugin.requirements.keys.first, color: _teal),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  final String label;
+  final Color? color;
+  const _TagChip({required this.label, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = color ?? _grey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: fg.withOpacity(0.45)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: fg),
+      ),
+    );
+  }
+}
+
+// Action button (download / update / installed indicator)
+class _PluginActionButton extends ConsumerStatefulWidget {
+  final bool isInstalled;
+  final bool hasUpdate;
+  final PluginEntry plugin;
+  const _PluginActionButton({
+    required this.isInstalled,
+    required this.hasUpdate,
+    required this.plugin,
+  });
+
+  @override
+  ConsumerState<_PluginActionButton> createState() => _PluginActionButtonState();
+}
+
+class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
+  bool _busy = false;
+
+  Future<void> _install() async {
+    if (_busy || widget.isInstalled) return;
+    setState(() => _busy = true);
+
+    try {
+      if (widget.plugin.requirements.isNotEmpty) {
+        final supportDir = await getApplicationSupportDirectory();
+        final binPath = '${supportDir.path}/binaries';
+        final missing = <String>[];
+        for (final entry in widget.plugin.requirements.entries) {
+          final reqMap = entry.value as Map?;
+          final isOptional = reqMap?['optional'] == true;
+          if (isOptional) continue;
+          final binName = entry.key == 'aria2' ? 'aria2c' : entry.key;
+          final f = File('$binPath/$binName');
+          if (!f.existsSync() || f.lengthSync() == 0) {
+            missing.add(entry.key);
+          }
+        }
+        if (missing.isNotEmpty && mounted) {
+          setState(() => _busy = false);
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: _card,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              title: const Text('Dépendances manquantes',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${widget.plugin.name} nécessite :',
+                      style: const TextStyle(color: _grey, fontSize: 13)),
+                  const SizedBox(height: 10),
+                  ...missing.map((r) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(children: [
+                      const Icon(Icons.memory_rounded, size: 14, color: _teal),
+                      const SizedBox(width: 6),
+                      Text(r, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                    ]),
+                  )),
+                  const SizedBox(height: 10),
+                  const Text('Installez-les depuis Marketplace → Binaires.',
+                      style: TextStyle(color: _grey, fontSize: 12)),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Annuler', style: TextStyle(color: _grey)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Installer quand même', style: TextStyle(color: _teal)),
+                ),
+              ],
+            ),
+          );
+          if (proceed != true) return;
+          setState(() => _busy = true);
+        }
+      }
+
+      if (!mounted) return;
+      await ref.read(installedPluginsProvider.notifier).install(widget.plugin);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: _card,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Row(children: [
+            const Icon(Icons.check_circle_rounded, color: _teal, size: 16),
+            const SizedBox(width: 8),
+            Text('${widget.plugin.name} installé', style: const TextStyle(color: Colors.white, fontSize: 13)),
+          ]),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_busy) {
+      return Container(
+        width: 36, height: 36, padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(color: _card2, borderRadius: BorderRadius.circular(10)),
+        child: const CircularProgressIndicator(strokeWidth: 2.2, color: _teal),
+      );
+    }
+    if (widget.isInstalled && !widget.hasUpdate) {
+      return Container(
+        width: 36, height: 36, alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _teal.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _teal.withOpacity(0.35)),
+        ),
+        child: const Icon(Icons.check_rounded, size: 18, color: _teal),
+      );
+    }
+    return GestureDetector(
+      onTap: _install,
+      child: Container(
+        width: 36, height: 36, alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: widget.hasUpdate
+              ? Colors.orange.shade700.withOpacity(0.15)
+              : _card2,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          widget.hasUpdate ? Icons.system_update_alt_rounded : Icons.download_rounded,
+          size: 20,
+          color: widget.hasUpdate ? Colors.orange.shade400 : _grey,
+        ),
+      ),
     );
   }
 }
@@ -615,309 +800,296 @@ class _CategoryPill extends StatelessWidget {
   }
 }
 
-class _ReqPill extends StatelessWidget {
-  final String label;
-  const _ReqPill({required this.label});
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1DB954).withOpacity(0.10),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: const Color(0xFF1DB954).withOpacity(0.30)),
-    ),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.terminal_rounded, size: 9, color: _teal),
-      const SizedBox(width: 3),
-      Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _teal)),
-    ]),
-  );
-}
+// ─── Plugin detail – full screen page ────────────────────────────────────────
 
-class _InstallButton extends ConsumerWidget {
+class PluginDetailPage extends ConsumerStatefulWidget {
   final PluginEntry plugin;
-  final bool isInstalled;
-  const _InstallButton({required this.plugin, required this.isInstalled});
+  const PluginDetailPage({required this.plugin, super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () async {
-        if (isInstalled) return;
-        // Check required binaries before installing
-        if (plugin.requirements.isNotEmpty) {
-          final supportDir = await getApplicationSupportDirectory();
-          final binPath = '${supportDir.path}/binaries';
-          final missing = <String>[];
-          for (final req in plugin.requirements.keys) {
-            final binName = req == 'aria2' ? 'aria2c' : req;
-            if (!File('$binPath/$binName').existsSync()) {
-              missing.add(req);
-            }
-          }
-          if (missing.isNotEmpty && context.mounted) {
-            final proceed = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                backgroundColor: _card,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                title: const Text('Dépendances manquantes',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${plugin.name} nécessite ces binaires :',
-                        style: const TextStyle(color: _grey, fontSize: 13)),
-                    const SizedBox(height: 10),
-                    ...missing.map((r) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(children: [
-                        const Icon(Icons.memory_rounded, size: 14, color: _teal),
-                        const SizedBox(width: 6),
-                        Text(r, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                      ]),
-                    )),
-                    const SizedBox(height: 10),
-                    const Text('Installez-les depuis Marketplace → Binaires.',
-                        style: TextStyle(color: _grey, fontSize: 12)),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Annuler', style: TextStyle(color: _grey)),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Installer quand même', style: TextStyle(color: _teal)),
-                  ),
-                ],
-              ),
-            );
-            if (proceed != true) return;
-          }
-        }
-        if (!context.mounted) return;
-        await ref.read(installedPluginsProvider.notifier).install(plugin);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            backgroundColor: _card,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            content: Row(children: [
-              const Icon(Icons.check_circle_rounded, color: _teal, size: 16),
-              const SizedBox(width: 8),
-              Text('${plugin.name} installé', style: const TextStyle(color: Colors.white, fontSize: 13)),
-            ]),
-            duration: const Duration(seconds: 2),
-          ));
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isInstalled ? _card2 : _teal,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isInstalled ? _border : Colors.transparent),
-        ),
-        child: Text(
-          isInstalled ? 'Installé' : 'Installer',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: isInstalled ? _grey : Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
+  ConsumerState<PluginDetailPage> createState() => _PluginDetailPageState();
 }
 
-// ─── Plugin detail bottom sheet ───────────────────────────────────────────────
-
-class PluginDetailSheet extends ConsumerStatefulWidget {
-  final PluginEntry plugin;
-  const PluginDetailSheet({required this.plugin, super.key});
-
-  @override
-  ConsumerState<PluginDetailSheet> createState() => _PluginDetailSheetState();
-}
-
-class _PluginDetailSheetState extends ConsumerState<PluginDetailSheet> {
+class _PluginDetailPageState extends ConsumerState<PluginDetailPage> {
   bool _installing = false;
+  bool _descExpanded = false;
 
-  @override
-  Widget build(BuildContext context) {
-    final installed = ref.watch(installedPluginsProvider).value ?? [];
-    final isInstalled = installed.any((p) => p.id == widget.plugin.id);
-    final p = widget.plugin;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.88,
-      minChildSize: 0.5,
-      maxChildSize: 0.97,
-      expand: false,
-      builder: (_, ctrl) => Container(
-        decoration: const BoxDecoration(
-          color: _sheetBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        child: Column(children: [
-          const SizedBox(height: 8),
-          Container(width: 36, height: 4,
-            decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView(
-              controller: ctrl,
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-              children: [
-                // Header
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _PluginIcon(url: p.iconUrl, size: 72),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(p.name,
-                        style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
-                      const SizedBox(height: 3),
-                      Text(p.author,
-                        style: const TextStyle(fontSize: 13, color: _grey)),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        _CategoryPill(category: p.category),
-                        const SizedBox(width: 6),
-                        Text('v${p.version}',
-                          style: const TextStyle(fontSize: 11, color: _grey, fontWeight: FontWeight.w600)),
-                      ]),
-                    ]),
-                  ),
-                ]),
-
-                const SizedBox(height: 16),
-
-                // Stats row
-                Row(children: [
-                  _StatItem(value: _fmtDownloads(p.downloadCount), label: 'Téléchargements', icon: Icons.download_rounded),
-                  const SizedBox(width: 12),
-                  _StatItem(value: p.rating > 0 ? p.rating.toStringAsFixed(1) : '—', label: 'Note', icon: Icons.star_rounded, iconColor: const Color(0xFFFFD700)),
-                  const SizedBox(width: 12),
-                  _StatItem(value: p.publishedAt.isNotEmpty ? p.publishedAt.substring(0, 10) : '—', label: 'Publié', icon: Icons.calendar_today_rounded),
-                ]),
-
-                const SizedBox(height: 16),
-                const Divider(color: _border, height: 1),
-                const SizedBox(height: 16),
-
-                // Description
-                Text(
-                  p.longDescription.isNotEmpty ? p.longDescription : p.description,
-                  style: const TextStyle(fontSize: 13.5, color: Color(0xFFCCCCCC), height: 1.6),
-                ),
-
-                // Tags
-                if (p.tags.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Wrap(spacing: 6, runSpacing: 6,
-                    children: p.tags.map((t) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _card2,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _border),
-                      ),
-                      child: Text(t, style: const TextStyle(fontSize: 11, color: _grey, fontWeight: FontWeight.w600)),
-                    )).toList(),
-                  ),
-                ],
-
-                // Requirements
-                if (p.requirements.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  _DetailSection(
-                    icon: Icons.terminal_rounded,
-                    label: 'Dépendances',
-                    child: Column(
-                      children: p.requirements.entries.map((e) {
-                        final meta = e.value as Map? ?? {};
-                        final required = meta['required'] != false;
-                        return _DepRow(
-                          name: e.key,
-                          version: meta['version'] as String? ?? '*',
-                          required: required,
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-
-                // Permissions / scopes
-                if (p.commandScopes.isNotEmpty || p.networkAccess.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _DetailSection(
-                    icon: Icons.shield_rounded,
-                    label: 'Permissions',
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      if (p.commandScopes.isNotEmpty)
-                        _PermRow(icon: Icons.terminal_rounded, label: 'Commandes système', values: p.commandScopes),
-                      if (p.networkAccess.isNotEmpty)
-                        _PermRow(icon: Icons.wifi_rounded, label: 'Accès réseau', values: p.networkAccess),
-                    ]),
-                  ),
-                ],
-
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-
-          // Bottom action bar
-          _SheetActionBar(
-            plugin: p,
-            isInstalled: isInstalled,
-            installing: _installing,
-            onInstall: () async {
-              setState(() => _installing = true);
-              await ref.read(installedPluginsProvider.notifier).install(p);
-              if (mounted) setState(() => _installing = false);
-            },
-            onUninstall: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  backgroundColor: _card,
-                  title: const Text('Désinstaller', style: TextStyle(color: Colors.white)),
-                  content: Text('Supprimer "${p.name}" ?',
-                    style: const TextStyle(color: _grey)),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-                    FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Désinstaller'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirm == true) {
-                await ref.read(installedPluginsProvider.notifier).uninstall(p.id);
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
-          ),
-        ]),
-      ),
-    );
-  }
+  PluginEntry get p => widget.plugin;
 
   static String _fmtDownloads(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
     if (n >= 1000)    return '${(n / 1000).toStringAsFixed(0)}K';
     return n.toString();
   }
+
+  Future<void> _install() async {
+    if (_installing) return;
+    setState(() => _installing = true);
+    try {
+      await ref.read(installedPluginsProvider.notifier).install(p);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: _card,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Row(children: [
+            const Icon(Icons.check_circle_rounded, color: _teal, size: 16),
+            const SizedBox(width: 8),
+            Text('${p.name} installé', style: const TextStyle(color: Colors.white, fontSize: 13)),
+          ]),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _installing = false);
+    }
+  }
+
+  Future<void> _uninstall() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _card,
+        title: const Text('Désinstaller', style: TextStyle(color: Colors.white)),
+        content: Text('Supprimer "${p.name}" ?', style: const TextStyle(color: _grey)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Désinstaller'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await ref.read(installedPluginsProvider.notifier).uninstall(p.id);
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final installed = ref.watch(installedPluginsProvider).value ?? [];
+    final isInstalled = installed.any((ip) => ip.id == p.id);
+    final desc = _stripMd(p.longDescription.isNotEmpty ? p.longDescription : p.description);
+
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _bg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(p.name,
+          style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
+          maxLines: 1, overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          if (isInstalled)
+            IconButton(
+              icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade400),
+              onPressed: _uninstall,
+              tooltip: 'Désinstaller',
+            ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        children: [
+          // ── Header ─────────────────────────────────────────────────────
+          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            _PluginIcon(url: p.iconUrl, size: 80),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.name,
+                  style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                if (p.author.isNotEmpty)
+                  Text(p.author, style: const TextStyle(fontSize: 13, color: _grey)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  _CategoryPill(category: p.category),
+                  const SizedBox(width: 6),
+                  Text('v${p.version}', style: const TextStyle(fontSize: 11, color: _grey, fontWeight: FontWeight.w600)),
+                ]),
+              ]),
+            ),
+          ]),
+
+          const SizedBox(height: 20),
+
+          // ── Install button ─────────────────────────────────────────────
+          isInstalled
+              ? OutlinedButton.icon(
+                  onPressed: _uninstall,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                  label: const Text('Désinstaller'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade400,
+                    side: BorderSide(color: Colors.red.shade900),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                )
+              : FilledButton.icon(
+                  onPressed: _installing ? null : _install,
+                  icon: _installing
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.download_rounded, size: 16),
+                  label: Text(_installing ? 'Installation…' : 'Installer ${p.name}'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _teal,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+
+          const SizedBox(height: 20),
+          const Divider(color: _border, height: 1),
+          const SizedBox(height: 20),
+
+          // ── Stats ──────────────────────────────────────────────────────
+          Row(children: [
+            _StatItem(value: _fmtDownloads(p.downloadCount), label: 'Téléch.', icon: Icons.download_rounded),
+            const SizedBox(width: 10),
+            _StatItem(value: p.rating > 0 ? p.rating.toStringAsFixed(1) : '—', label: 'Note', icon: Icons.star_rounded, iconColor: const Color(0xFFFFD700)),
+            const SizedBox(width: 10),
+            _StatItem(value: p.publishedAt.isNotEmpty ? p.publishedAt.substring(0, 10) : '—', label: 'Publié', icon: Icons.calendar_today_rounded),
+          ]),
+
+          const SizedBox(height: 20),
+
+          // ── Description ────────────────────────────────────────────────
+          if (desc.isNotEmpty) ...[
+            _SectionLabel(label: 'Description', icon: Icons.info_outline_rounded),
+            const SizedBox(height: 10),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 200),
+              crossFadeState: _descExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+              firstChild: Text(desc,
+                style: const TextStyle(fontSize: 13.5, color: Color(0xFFCCCCCC), height: 1.6),
+                maxLines: 5, overflow: TextOverflow.ellipsis),
+              secondChild: Text(desc,
+                style: const TextStyle(fontSize: 13.5, color: Color(0xFFCCCCCC), height: 1.6)),
+            ),
+            if (desc.length > 200) ...[
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () => setState(() => _descExpanded = !_descExpanded),
+                child: Text(
+                  _descExpanded ? 'Voir moins' : 'Voir plus',
+                  style: const TextStyle(fontSize: 12, color: _teal, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+          ],
+
+          // ── Tags ───────────────────────────────────────────────────────
+          if (p.tags.isNotEmpty) ...[
+            Wrap(spacing: 6, runSpacing: 6,
+              children: p.tags.map((t) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _card2,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _border),
+                ),
+                child: Text(t, style: const TextStyle(fontSize: 11, color: _grey, fontWeight: FontWeight.w600)),
+              )).toList(),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Screenshots ────────────────────────────────────────────────
+          if (p.screenshots.isNotEmpty) ...[
+            _SectionLabel(label: 'Captures d\'écran', icon: Icons.photo_library_outlined),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 160,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: p.screenshots.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(p.screenshots[i],
+                    height: 160, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 100, height: 160,
+                      color: _card2,
+                      child: const Icon(Icons.broken_image_rounded, color: _grey),
+                    )),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Requirements ───────────────────────────────────────────────
+          if (p.requirements.isNotEmpty) ...[
+            _DetailSection(
+              icon: Icons.terminal_rounded,
+              label: 'Dépendances',
+              child: Column(
+                children: p.requirements.entries.map((e) {
+                  final meta = e.value as Map? ?? {};
+                  final isOptional = meta['optional'] == true;
+                  return _DepRow(
+                    name: e.key,
+                    version: meta['version'] as String? ?? '*',
+                    required: !isOptional,
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Permissions ─────────────────────────────────────────────────
+          if (p.commandScopes.isNotEmpty || p.networkAccess.isNotEmpty) ...[
+            _DetailSection(
+              icon: Icons.shield_rounded,
+              label: 'Permissions',
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (p.commandScopes.isNotEmpty)
+                  _PermRow(icon: Icons.terminal_rounded, label: 'Commandes système', values: p.commandScopes),
+                if (p.networkAccess.isNotEmpty)
+                  _PermRow(icon: Icons.wifi_rounded, label: 'Accès réseau', values: p.networkAccess),
+              ]),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ],
+      ),
+    );
+  }
 }
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _SectionLabel({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Icon(icon, size: 14, color: _teal),
+    const SizedBox(width: 6),
+    Text(label.toUpperCase(),
+      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: _grey, letterSpacing: 0.8)),
+  ]);
+}
+
+// Keep PluginDetailSheet as alias for backward compatibility
+typedef PluginDetailSheet = PluginDetailPage;
 
 class _StatItem extends StatelessWidget {
   final String value, label;
@@ -1021,56 +1193,6 @@ class _PermRow extends StatelessWidget {
   );
 }
 
-class _SheetActionBar extends StatelessWidget {
-  final PluginEntry plugin;
-  final bool isInstalled, installing;
-  final VoidCallback onInstall, onUninstall;
-  const _SheetActionBar({
-    required this.plugin, required this.isInstalled, required this.installing,
-    required this.onInstall, required this.onUninstall,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 16),
-    decoration: BoxDecoration(
-      color: _sheetBg,
-      border: const Border(top: BorderSide(color: _border)),
-    ),
-    child: Row(children: [
-      if (isInstalled)
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onUninstall,
-            icon: const Icon(Icons.delete_outline_rounded, size: 16),
-            label: const Text('Désinstaller'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red.shade400,
-              side: BorderSide(color: Colors.red.shade900),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        )
-      else
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: installing ? null : onInstall,
-            icon: installing
-              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Icon(Icons.download_rounded, size: 16),
-            label: Text(installing ? 'Installation…' : 'Installer ${plugin.name}'),
-            style: FilledButton.styleFrom(
-              backgroundColor: _teal,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ),
-    ]),
-  );
-}
-
 // ─── Installed tab ────────────────────────────────────────────────────────────
 
 class _InstalledTab extends ConsumerWidget {
@@ -1164,16 +1286,15 @@ class _UpdateAllBanner extends ConsumerWidget {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: Colors.orange.shade700,
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: BoxDecoration(color: Colors.orange.shade700, borderRadius: BorderRadius.circular(8)),
           child: const Text('Tout màj', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
         ),
       ),
     ]),
   );
 }
+
+// ─── Installed row (Play Store style) ────────────────────────────────────────
 
 class _InstalledPluginRow extends ConsumerWidget {
   final InstalledPlugin installed;
@@ -1185,12 +1306,9 @@ class _InstalledPluginRow extends ConsumerWidget {
     final hasUpdate = _PluginCard._newerVersion(meta.version, installed.version);
 
     return GestureDetector(
-      onTap: () => showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => PluginDetailSheet(plugin: meta),
-      ),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PluginDetailPage(plugin: meta),
+      )),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         padding: const EdgeInsets.all(14),
@@ -1199,66 +1317,83 @@ class _InstalledPluginRow extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _border),
         ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          _PluginIcon(url: meta.iconUrl, size: 46),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PluginIcon(url: meta.iconUrl, size: 48),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(meta.name.isNotEmpty ? meta.name : installed.id,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-                if (hasUpdate)
-                  Container(
-                    margin: const EdgeInsets.only(left: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade700.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(meta.name.isNotEmpty ? meta.name : installed.id,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                      if (hasUpdate)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade700.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text('MAJ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.orange.shade400)),
+                        ),
+                    ]),
+                    const SizedBox(height: 2),
+                    Text(
+                      meta.author.isNotEmpty ? meta.author : meta.category,
+                      style: TextStyle(fontSize: 12, color: _grey.withOpacity(0.75)),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
                     ),
-                    child: Text('MAJ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.orange.shade400)),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                // Enable/disable toggle
+                _EnableToggle(id: installed.id, enabled: installed.enabled),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _stripMd(meta.description),
+              style: const TextStyle(fontSize: 13, color: _grey, height: 1.4),
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              _TagChip(label: 'v${installed.version}'),
+              const SizedBox(width: 6),
+              _TagChip(label: meta.category),
+              const Spacer(),
+              // Launch button
+              GestureDetector(
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => _LaunchPluginSheet(installed: installed, meta: meta),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _teal.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _teal.withOpacity(0.35)),
                   ),
-              ]),
-              const SizedBox(height: 3),
-              Row(children: [
-                Text('v${installed.version}', style: const TextStyle(fontSize: 11, color: _grey)),
-                if (meta.author.isNotEmpty) ...[
-                  const Text(' · ', style: TextStyle(color: _grey)),
-                  Text(meta.author, style: const TextStyle(fontSize: 11, color: _grey),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ]),
-            ]),
-          ),
-          const SizedBox(width: 8),
-          // Launch button
-          GestureDetector(
-            onTap: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => _LaunchPluginSheet(installed: installed, meta: meta),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: _teal.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: _teal.withOpacity(0.35)),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.play_arrow_rounded, size: 14, color: _teal),
+                    SizedBox(width: 4),
+                    Text('Lancer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _teal)),
+                  ]),
+                ),
               ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.play_arrow_rounded, size: 14, color: _teal),
-                SizedBox(width: 4),
-                Text('Lancer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _teal)),
-              ]),
-            ),
-          ),
-          const SizedBox(width: 6),
-          // Enable/disable toggle
-          _EnableToggle(id: installed.id, enabled: installed.enabled),
-        ]),
+            ]),
+          ],
+        ),
       ),
     );
   }
@@ -1310,11 +1445,7 @@ class _EmptyInstalled extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
           width: 80, height: 80,
-          decoration: BoxDecoration(
-            color: _card,
-            shape: BoxShape.circle,
-            border: Border.all(color: _border),
-          ),
+          decoration: BoxDecoration(color: _card, shape: BoxShape.circle, border: Border.all(color: _border)),
           child: const Icon(Icons.extension_off_rounded, size: 36, color: _grey),
         ),
         const SizedBox(height: 20),
@@ -1422,18 +1553,24 @@ class _PluginsSkeletonState extends State<_PluginsSkeleton>
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(16), border: Border.all(color: _border)),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        _bone(width: 52, height: 52, radius: 12),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _bone(height: 14, radius: 7),
-          const SizedBox(height: 7),
-          _bone(width: 160, height: 11, radius: 6),
-          const SizedBox(height: 9),
-          Row(children: [_bone(width: 58, height: 20, radius: 6), const SizedBox(width: 8), _bone(width: 48, height: 20, radius: 6)]),
-        ])),
-        const SizedBox(width: 10),
-        _bone(width: 72, height: 34, radius: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _bone(width: 48, height: 48, radius: 12),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _bone(height: 14, radius: 7),
+            const SizedBox(height: 6),
+            _bone(width: 120, height: 11, radius: 6),
+          ])),
+          const SizedBox(width: 8),
+          _bone(width: 36, height: 36, radius: 10),
+        ]),
+        const SizedBox(height: 10),
+        _bone(height: 11, radius: 6),
+        const SizedBox(height: 5),
+        _bone(width: 200, height: 11, radius: 6),
+        const SizedBox(height: 8),
+        Row(children: [_bone(width: 60, height: 22, radius: 6), const SizedBox(width: 6), _bone(width: 60, height: 22, radius: 6)]),
       ]),
     ),
   );
@@ -1473,7 +1610,7 @@ class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
     try {
       final supportDir = await getApplicationSupportDirectory();
       final zeusBin = File('${supportDir.path}/binaries/zeusdl');
-      if (!await zeusBin.exists()) {
+      if (!await zeusBin.exists() || await zeusBin.length() == 0) {
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
       }
@@ -1508,7 +1645,6 @@ class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
           Container(width: 36, height: 4, decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
           Expanded(
             child: ListView(controller: sc, padding: const EdgeInsets.fromLTRB(20, 18, 20, 32), children: [
-              // Header
               Row(children: [
                 _PluginIcon(url: widget.meta.iconUrl, size: 46),
                 const SizedBox(width: 14),
@@ -1541,9 +1677,9 @@ class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: _border),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: _teal),
+                    focusedBorder: const OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(color: _teal),
                     ),
                   ),
                 ),
@@ -1613,5 +1749,3 @@ class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
     );
   }
 }
-
-  
