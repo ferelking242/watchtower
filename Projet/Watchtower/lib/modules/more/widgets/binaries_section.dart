@@ -206,8 +206,6 @@ class _BinariesSectionState extends State<BinariesSection> {
       try { await Process.run('chmod', ['+x', dstFile.path]); } catch (_) {}
 
       AppLogger.log('tool downloaded: ${tool.name} (${await dstFile.length()} bytes)');
-      await ZeusDlBinaryManager.instance.clearCache();
-      await Aria2BinaryManager.instance.clearCache();
       if (!mounted) return;
       setState(() {
         _progress.remove(tool.name);
@@ -227,28 +225,29 @@ class _BinariesSectionState extends State<BinariesSection> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final tool in _remoteTools) ...[
-            _ToolCard(
-              tool: tool,
-              cs: cs,
-              installedSize: tool.name == 'zeusdl'
-                  ? _zeusInternal
-                  : tool.name == 'aria2c'
-                      ? _aria2Internal
-                      : null,
-              progress: _progress[tool.name],
-              status: _status[tool.name],
-              onDownload: () => _downloadTool(tool),
-            ),
-            const SizedBox(height: 8),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final tool in _remoteTools) ...[
+          _ToolCard(
+            tool: tool,
+            cs: cs,
+            installedSize: tool.name == 'zeusdl'
+                ? _zeusInternal
+                : tool.name == 'aria2c'
+                    ? _aria2Internal
+                    : null,
+            progress: _progress[tool.name],
+            status: _status[tool.name],
+            onDownload: () => _downloadTool(tool),
+          ),
+          Divider(
+            indent: 70,
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -272,130 +271,90 @@ class _ToolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final installed = installedSize != null;
     final downloading = progress != null;
-    return Card(
-      elevation: 0,
-      color: cs.surfaceContainerHigh.withOpacity(0.6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(tool.icon, color: cs.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            tool.label,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: cs.onSurface,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          if (installed)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                'installé',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.green.shade700,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      Text(
-                        tool.description,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cs.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                      if (installedSize != null)
-                        Text(
-                          'Taille: $installedSize',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: cs.onSurface.withOpacity(0.5),
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: downloading ? null : onDownload,
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                  ),
-                  icon: Icon(
-                    installed
-                        ? Icons.refresh_rounded
-                        : Icons.download_rounded,
-                    size: 16,
-                  ),
-                  label: Text(
-                    downloading
-                        ? '${((progress ?? 0) * 100).toStringAsFixed(0)}%'
-                        : installed
-                            ? 'Mettre à jour'
-                            : 'Télécharger',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
+    return ListTile(
+      onTap: downloading ? null : onDownload,
+      leading: Container(
+        height: 37,
+        width: 37,
+        decoration: BoxDecoration(
+          color: theme.secondaryHeaderColor.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Icon(tool.icon, size: 20, color: cs.primary),
+      ),
+      title: Row(children: [
+        Text(tool.label),
+        if (installed) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
             ),
-            if (downloading) ...[
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: (progress ?? 0).clamp(0.0, 1.0),
-                  minHeight: 6,
-                ),
+            child: Text(
+              'installé',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: Colors.green.shade700,
               ),
-            ],
-            if (status != null && !downloading) ...[
-              const SizedBox(height: 6),
-              Text(
-                status!,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: status!.startsWith('Erreur')
-                      ? cs.error
-                      : cs.primary,
-                  fontStyle: FontStyle.italic,
-                ),
+            ),
+          ),
+        ],
+      ]),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            tool.description,
+            style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 12),
+          ),
+          if (installedSize != null)
+            Text(
+              'Taille : $installedSize',
+              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+            ),
+          if (downloading) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: (progress ?? 0).clamp(0.0, 1.0),
+                minHeight: 4,
               ),
-            ],
+            ),
           ],
+          if (status != null && !downloading) ...[
+            const SizedBox(height: 2),
+            Text(
+              status!,
+              style: TextStyle(
+                fontSize: 10,
+                color: status!.startsWith('Erreur') ? cs.error : cs.primary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ],
+      ),
+      trailing: FilledButton.tonal(
+        onPressed: downloading ? null : onDownload,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          minimumSize: const Size(0, 32),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        child: Text(
+          downloading
+              ? '${((progress ?? 0) * 100).toStringAsFixed(0)}%'
+              : installed
+                  ? 'Mettre à jour'
+                  : 'Télécharger',
         ),
       ),
     );
