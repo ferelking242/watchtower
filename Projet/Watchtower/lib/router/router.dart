@@ -22,6 +22,7 @@ import 'package:watchtower/modules/mass_migration/mass_migration_source_selectio
 import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
 import 'package:watchtower/modules/plugins/plugins_screen.dart';
+import 'package:watchtower/modules/plugins/plugin_launcher_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
@@ -55,9 +56,7 @@ import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/main_library_screen.dart';
 import 'package:watchtower/modules/home/anilist_browse_screen.dart';
-import 'package:watchtower/modules/home/anilist_character_screen.dart';
 import 'package:watchtower/modules/home/anilist_detail_screen.dart';
-import 'package:watchtower/modules/home/anilist_staff_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
@@ -240,28 +239,28 @@ class RouterNotifier extends ChangeNotifier {
       name: "anilistDetail",
       builder: (media) => AnilistDetailScreen(media: media),
     ),
-    _genericRoute<(int, String, String?)>(
-      name: "anilistCharacter",
-      builder: (data) => AnilistCharacterScreen(
-        characterId: data.$1,
-        characterName: data.$2,
-        characterImage: data.$3,
-      ),
-    ),
-    _genericRoute<(int, String, String?)>(
-      name: "anilistStaff",
-      builder: (data) => AnilistStaffScreen(
-        staffId: data.$1,
-        staffName: data.$2,
-        staffImage: data.$3,
-      ),
-    ),
     _genericRoute<(AnilistBrowseFilter, String)>(
       name: "anilistBrowse",
       builder: (data) =>
           AnilistBrowseScreen(filter: data.$1, title: data.$2),
     ),
     _genericRoute(name: "plugins", child: const PluginsScreen()),
+    GoRoute(
+      path: '/pluginLauncher',
+      pageBuilder: (context, state) {
+        final data = state.extra as (InstalledPlugin, PluginEntry);
+        return CustomTransitionPage(
+          child: PluginLauncherScreen(installed: data.$1, meta: data.$2),
+          transitionsBuilder: (ctx, animation, _, child) => SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+            child: child,
+          ),
+        );
+      },
+    ),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),
     _genericRoute(name: "track", child: const TrackScreen()),
