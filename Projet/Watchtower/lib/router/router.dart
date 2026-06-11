@@ -23,6 +23,7 @@ import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.da
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
 import 'package:watchtower/modules/plugins/plugins_screen.dart';
 import 'package:watchtower/modules/plugins/plugin_launcher_screen.dart';
+import 'package:watchtower/modules/plugins/plugin_detail_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
@@ -254,6 +255,22 @@ class RouterNotifier extends ChangeNotifier {
           transitionsBuilder: (ctx, animation, _, child) => SlideTransition(
             position: Tween<Offset>(
               begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+            child: child,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/pluginDetail',
+      pageBuilder: (context, state) {
+        final plugin = state.extra as PluginEntry;
+        return CustomTransitionPage(
+          child: PluginDetailScreen(plugin: plugin),
+          transitionsBuilder: (ctx, animation, _, child) => SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
               end: Offset.zero,
             ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
             child: child,
