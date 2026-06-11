@@ -134,7 +134,7 @@ Future<(String, String, String, List<dynamic>)> _fetchAppUpdate() async {
       return ('0.0.0', '', '', []);
     }
     return (
-      resListJson.first["name"]
+      resListJson.first["tag_name"]
           .toString()
           .substringAfter('v')
           .substringBefore('-'),
