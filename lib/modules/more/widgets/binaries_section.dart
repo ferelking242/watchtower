@@ -139,7 +139,7 @@ class _BinariesSectionState extends State<BinariesSection>
           sink.add(chunk);
           if (mounted) {
             setState(() {
-              _progress[tool.name] = total > 0 ? downloaded / total : null;
+              _progress[tool.name] = total > 0 ? downloaded / total : 0.0;
               _progressLabel[tool.name] = total > 0
                   ? '${_fmtBytes(downloaded)} / ${_fmtBytes(total)}'
                   : _fmtBytes(downloaded);
