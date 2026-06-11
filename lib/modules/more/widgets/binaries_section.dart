@@ -41,16 +41,20 @@ const List<_ToolDef> _kTools = [
   ),
 ];
 
+String _fmtBytes(int bytes) {
+  if (bytes >= 1024 * 1024) return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+  if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  return '$bytes B';
+}
+
 /// Returns the installed size string for a binary name, or null if not installed.
 Future<String?> getBinaryInstalledSize(String name) async {
   try {
     final supportDir = await getApplicationSupportDirectory();
     final f = File('${supportDir.path}/binaries/$name');
-    if (f.existsSync() && f.lengthSync() > 0) {
-      final kb = f.lengthSync() / 1024;
-      return kb >= 1024
-          ? '${(kb / 1024).toStringAsFixed(1)} MB'
-          : '${kb.toStringAsFixed(0)} KB';
+    if (await f.exists()) {
+      final len = await f.length();
+      if (len > 0) return _fmtBytes(len);
     }
   } catch (_) {}
   return null;
@@ -76,6 +80,7 @@ class _BinariesSectionState extends State<BinariesSection>
   final Map<String, String?> _sizes = {};
   final Map<String, double> _progress = {};
   final Map<String, String> _statusMsg = {};
+  final Map<String, String> _progressLabel = {};
 
   @override
   void initState() {
@@ -95,89 +100,112 @@ class _BinariesSectionState extends State<BinariesSection>
     if (mounted) {
       setState(() {
         _progress[tool.name] = 0;
-        _statusMsg[tool.name] = 'Connexion…';
+        _progressLabel[tool.name] = 'Connexion…';
+        _statusMsg.remove(tool.name);
       });
     }
+    final client = http.Client();
     try {
       final supportDir = await getApplicationSupportDirectory();
       final binDir = Directory('${supportDir.path}/binaries');
       if (!await binDir.exists()) await binDir.create(recursive: true);
 
       final isZip = tool.url.endsWith('.zip');
-      final tmpPath = isZip
-          ? '${binDir.path}/${tool.name}_dl.zip'
-          : '${binDir.path}/${tool.name}_dl';
-      final tmpFile = File(tmpPath);
+      final tmpFile = File('${binDir.path}/${tool.name}_dl${isZip ? '.zip' : ''}');
       final dstFile = File('${binDir.path}/${tool.name}');
 
-      if (mounted) setState(() => _statusMsg[tool.name] = 'Téléchargement…');
-
-      final req = http.Request('GET', Uri.parse(tool.url));
-      req.headers['Accept'] = '*/*';
-      final res = await req.send().timeout(const Duration(seconds: 90));
-      if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
-
-      final total = res.contentLength ?? 0;
-      final sink = tmpFile.openWrite();
-      int downloaded = 0;
-      await for (final chunk in res.stream) {
-        downloaded += chunk.length;
-        sink.add(chunk);
-        if (total > 0 && mounted) {
-          setState(() {
-            _progress[tool.name] = downloaded / total;
-            _statusMsg[tool.name] = 'Téléchargement ${((downloaded / total) * 100).toStringAsFixed(0)}%';
-          });
+      // Follow redirects manually so we can stream with progress
+      Uri uri = Uri.parse(tool.url);
+      http.StreamedResponse res;
+      for (int redirect = 0; redirect < 8; redirect++) {
+        final req = http.Request('GET', uri);
+        req.headers['Accept'] = '*/*';
+        req.followRedirects = false;
+        res = await client.send(req).timeout(const Duration(seconds: 30));
+        if (res.statusCode >= 300 && res.statusCode < 400) {
+          final loc = res.headers['location'];
+          if (loc == null) throw 'Redirection sans Location header';
+          await res.stream.drain<void>();
+          uri = uri.resolve(loc);
+          continue;
         }
+        if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
+
+        final total = res.contentLength ?? 0;
+        final sink = tmpFile.openWrite();
+        int downloaded = 0;
+        await for (final chunk in res.stream) {
+          downloaded += chunk.length;
+          sink.add(chunk);
+          if (mounted) {
+            setState(() {
+              _progress[tool.name] = total > 0 ? downloaded / total : null;
+              _progressLabel[tool.name] = total > 0
+                  ? '${_fmtBytes(downloaded)} / ${_fmtBytes(total)}'
+                  : _fmtBytes(downloaded);
+            });
+          }
+        }
+        await sink.flush();
+        await sink.close();
+        break;
       }
-      await sink.flush();
-      await sink.close();
+
+      if (!await tmpFile.exists() || await tmpFile.length() == 0) {
+        throw 'Fichier téléchargé vide';
+      }
 
       if (isZip) {
-        if (mounted) setState(() => _statusMsg[tool.name] = 'Extraction…');
+        if (mounted) setState(() => _progressLabel[tool.name] = 'Extraction…');
         try {
           final bytes = await tmpFile.readAsBytes();
           final archive = ZipDecoder().decodeBytes(bytes);
-          // Find the largest file (the binary)
           ArchiveFile? best;
           for (final f in archive) {
             if (f.isFile && (best == null || f.size > best.size)) best = f;
           }
           if (best == null) throw 'Archive ZIP vide';
-          final outSink = dstFile.openWrite();
-          outSink.add(best.content as List<int>);
-          await outSink.flush();
-          await outSink.close();
+          await dstFile.writeAsBytes(best.content as List<int>, flush: true);
         } finally {
           await tmpFile.delete().catchError((_) {});
         }
-        if (!await dstFile.exists() || await dstFile.length() == 0) {
-          throw 'Extraction ZIP échouée';
-        }
       } else {
-        if (await dstFile.exists()) await dstFile.delete();
-        await tmpFile.rename(dstFile.path);
+        // Write bytes directly to avoid cross-device rename issues on Android
+        final bytes = await tmpFile.readAsBytes();
+        await dstFile.writeAsBytes(bytes, flush: true);
+        await tmpFile.delete().catchError((_) {});
       }
 
+      if (!await dstFile.exists() || await dstFile.length() == 0) {
+        throw 'Fichier installé invalide';
+      }
+
+      // Make executable
       try { await Process.run('chmod', ['+x', dstFile.path]); } catch (_) {}
 
-      await ZeusDlBinaryManager.instance.clearCache();
-      await Aria2BinaryManager.instance.clearCache();
+      // Only reset the cached path — do NOT delete the file
+      ZeusDlBinaryManager.instance.resetCachedPath();
+      Aria2BinaryManager.instance.resetCachedPath();
 
-      AppLogger.log('Binary downloaded: ${tool.name} (${await dstFile.length()} bytes)');
+      final installedSize = _fmtBytes(await dstFile.length());
+      AppLogger.log('Binary installed: ${tool.name} ($installedSize)');
       if (!mounted) return;
       setState(() {
         _progress.remove(tool.name);
-        _statusMsg[tool.name] = 'Installé ✓';
+        _progressLabel.remove(tool.name);
+        _statusMsg[tool.name] = 'Installé ✓  ($installedSize)';
+        _sizes[tool.name] = installedSize;
       });
-      await _refresh();
     } catch (e) {
-      AppLogger.log('Binary download failed: ${tool.name}: $e', logLevel: LogLevel.error);
+      AppLogger.log('Binary install failed: ${tool.name}: $e', logLevel: LogLevel.error);
       if (!mounted) return;
       setState(() {
         _progress.remove(tool.name);
+        _progressLabel.remove(tool.name);
         _statusMsg[tool.name] = 'Erreur : $e';
       });
+    } finally {
+      client.close();
     }
   }
 
@@ -194,6 +222,7 @@ class _BinariesSectionState extends State<BinariesSection>
             cs: cs,
             installedSize: _sizes[tool.name],
             progress: _progress[tool.name],
+            progressLabel: _progressLabel[tool.name],
             statusMsg: _statusMsg[tool.name],
             onDownload: () => _downloadTool(tool),
             onReinstall: () => _downloadTool(tool),
@@ -210,6 +239,7 @@ class _BinaryCard extends StatelessWidget {
   final ColorScheme cs;
   final String? installedSize;
   final double? progress;
+  final String? progressLabel;
   final String? statusMsg;
   final VoidCallback onDownload;
   final VoidCallback onReinstall;
@@ -219,6 +249,7 @@ class _BinaryCard extends StatelessWidget {
     required this.cs,
     required this.installedSize,
     required this.progress,
+    required this.progressLabel,
     required this.statusMsg,
     required this.onDownload,
     required this.onReinstall,
@@ -380,12 +411,34 @@ class _BinaryCard extends StatelessWidget {
             ]),
           ],
           if (isDownloading) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  progressLabel ?? 'Téléchargement…',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (progress != null)
+                  Text(
+                    '${(progress! * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 value: progress,
-                minHeight: 4,
+                minHeight: 5,
                 color: cs.primary,
                 backgroundColor: cs.primaryContainer,
               ),
