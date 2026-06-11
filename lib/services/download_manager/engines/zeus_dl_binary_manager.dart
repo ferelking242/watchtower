@@ -231,6 +231,11 @@ class ZeusDlBinaryManager {
     }
   }
 
+  /// Reset only the in-memory cache — does NOT delete the binary on disk.
+  void resetCachedPath() {
+    _cachedPath = null;
+  }
+
   /// Check if the bundled asset is non-empty (build included the binary).
   Future<bool> isAssetBundled() async {
     try {
