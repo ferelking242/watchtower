@@ -1,4 +1,5 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:archive/archive_io.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -134,12 +135,24 @@ class _BinariesSectionState extends State<BinariesSection>
 
       if (isZip) {
         if (mounted) setState(() => _statusMsg[tool.name] = 'Extraction…');
-        final result = await Process.run(
-          'sh', ['-c', 'unzip -o -j "${tmpFile.path}" -d "${binDir.path}" 2>&1'],
-        );
-        await tmpFile.delete().catchError((_) {});
+        try {
+          final bytes = await tmpFile.readAsBytes();
+          final archive = ZipDecoder().decodeBytes(bytes);
+          // Find the largest file (the binary)
+          ArchiveFile? best;
+          for (final f in archive) {
+            if (f.isFile && (best == null || f.size > best.size)) best = f;
+          }
+          if (best == null) throw 'Archive ZIP vide';
+          final outSink = dstFile.openWrite();
+          outSink.add(best.content as List<int>);
+          await outSink.flush();
+          await outSink.close();
+        } finally {
+          await tmpFile.delete().catchError((_) {});
+        }
         if (!await dstFile.exists() || await dstFile.length() == 0) {
-          throw 'Extraction ZIP échouée (code ${result.exitCode}): ${result.stdout}'.trim();
+          throw 'Extraction ZIP échouée';
         }
       } else {
         if (await dstFile.exists()) await dstFile.delete();
