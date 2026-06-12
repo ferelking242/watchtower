@@ -1737,9 +1737,12 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
 
       if (Platform.isAndroid) {
         const ch = MethodChannel('com.watchtower.app.binary_utils');
-        // 1. Ensure execute bit via Java File.setExecutable (reliable).
+        // Ensure execute bit (filesystem permissions, always needed).
         try { await ch.invokeMethod('setExecutable', {'path': zeusPath}); } catch (_) {}
-        // 2. Run via Java ProcessBuilder.
+        // Run via channel: tries Shizuku first (shell SELinux domain, can exec
+        // app_data_file), falls back to ProcessBuilder (permissive / pre-10 devices).
+        // Throws PlatformException with code EXEC_ERROR on strict Android 10+
+        // without Shizuku → caught below and shown as actionable message.
         final res = await ch.invokeMethod<Map<Object?, Object?>>(
           'runProcess', {'path': zeusPath, 'args': [url]},
         );
@@ -1786,6 +1789,22 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
             ? 'Téléchargement lancé ✓${output.isNotEmpty ? '\n$output' : ''}'
             : 'Erreur (code $exitCode)${output.isNotEmpty ? ' : $output' : ''}';
       });
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      // EXEC_ERROR = both Shizuku and ProcessBuilder failed to exec the binary.
+      // Root cause: Android 10+ strict SELinux (Samsung Knox, MIUI, etc.) blocks
+      // untrusted_app from exec'ing app_data_file binaries (neverallow rule in AOSP).
+      // Shizuku (shell domain) bypasses this — install & start Shizuku to fix it.
+      final msg = e.code == 'EXEC_ERROR'
+          ? 'Exécution bloquée par SELinux (Android 10+).\n\n'
+            'Votre appareil bloque l\'exécution de binaires téléchargés.\n\n'
+            'Solutions :\n'
+            '• Installez Shizuku (Play Store / shizuku.dev) et activez-le — '
+            'ZeusDL s\'exécutera via le domaine shell qui a les droits nécessaires.\n'
+            '• Alternativement : appareil rooté.\n\n'
+            'Détail technique : ${e.message ?? e.code}'
+          : 'Erreur plateforme : ${e.message ?? e.code}';
+      setState(() { _running = false; _result = msg; });
     } catch (e) {
       if (!mounted) return;
       setState(() { _running = false; _result = 'Erreur : $e'; });

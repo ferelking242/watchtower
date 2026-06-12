@@ -335,12 +335,22 @@ package com.watchtower.app
           }
 
           // ── 7. Binary utils ────────────────────────────────────────────────
-          // setExecutable: uses Java's File.setExecutable() — more reliable than
-          //   calling chmod via a child process (avoids PATH issues and SELinux
-          //   restrictions on the chmod binary itself).
-          // runProcess: uses Java's ProcessBuilder — on devices where Dart's
-          //   posix_spawn() is blocked for app-data-file binaries, ProcessBuilder
-          //   goes through a different JNI/libc fork+exec path that is allowed.
+          // All compiled ELF binaries (aria2c, ffmpeg, python) in production apps
+          // (youtubedl-android, Seal, ytdlnis) live in jniLibs/ → nativeLibraryDir.
+          // Files written to app data dir (app_data_file SELinux context) cannot be
+          // exec'd by untrusted_app on Android 10+ per AOSP neverallow rule in
+          // private/app_neverallows.te. ProcessBuilder.start() has the SAME
+          // restriction — it calls fork()+execve() in the same untrusted_app domain.
+          //
+          // runProcess strategy:
+          //   1. Shizuku (if available & granted): Shizuku.newProcess() runs in the
+          //      SELinux `shell` domain which has explicit allow shell app_data_file
+          //      execute_no_trans in AOSP — this is why `adb shell ./binary` works.
+          //   2. ProcessBuilder fallback: works on permissive devices / pre-Android-10.
+          //
+          // getNativeLibraryDir: returns applicationInfo.nativeLibraryDir so Dart
+          //   can find binaries packaged as libXXX.so in jniLibs/ (the canonical
+          //   approach for downloaded binary updates delivered via APK releases).
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.binary_utils",
@@ -356,21 +366,44 @@ package com.watchtower.app
                       val ok = java.io.File(path).setExecutable(true, false)
                       result.success(ok)
                   }
+                  "getNativeLibraryDir" -> {
+                      result.success(applicationInfo.nativeLibraryDir)
+                  }
                   "runProcess" -> {
                       val path = call.argument<String>("path") ?: run {
                           result.error("NO_PATH", "path required", null)
                           return@setMethodCallHandler
                       }
                       val args = call.argument<List<String>>("args") ?: emptyList()
+                      val cmd = (listOf(path) + args).toTypedArray()
+
+                      // ── Strategy 1: Shizuku (shell domain, can exec app_data_file) ──
+                      if (shizukuHasPerm()) {
+                          try {
+                              val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
+                              val newProc = shizukuClass.getMethod(
+                                  "newProcess",
+                                  Array<String>::class.java,
+                                  Array<String>::class.java,
+                                  String::class.java
+                              )
+                              val proc = newProc.invoke(null, cmd, null, null) as Process
+                              val output   = proc.inputStream.bufferedReader().readText()
+                              val exitCode = proc.waitFor()
+                              result.success(mapOf("exitCode" to exitCode, "output" to output, "via" to "shizuku"))
+                              return@setMethodCallHandler
+                          } catch (_: Exception) { /* fall through */ }
+                      }
+
+                      // ── Strategy 2: ProcessBuilder (works on permissive / pre-10 devices) ──
                       try {
-                          val cmd = mutableListOf(path).also { it.addAll(args) }
-                          val pb = ProcessBuilder(cmd).redirectErrorStream(true)
+                          val pb = ProcessBuilder(*cmd).redirectErrorStream(true)
                           val proc = pb.start()
-                          val output = proc.inputStream.bufferedReader().readText()
+                          val output   = proc.inputStream.bufferedReader().readText()
                           val exitCode = proc.waitFor()
-                          result.success(mapOf("exitCode" to exitCode, "output" to output))
+                          result.success(mapOf("exitCode" to exitCode, "output" to output, "via" to "processbuilder"))
                       } catch (e: Exception) {
-                          result.error("EXEC_ERROR", e.message ?: "unknown error", null)
+                          result.error("EXEC_ERROR", e.message ?: "unknown", null)
                       }
                   }
                   else -> result.notImplemented()

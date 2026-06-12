@@ -30,11 +30,41 @@ class ZeusDlBinaryManager {
   static const String _binaryName = 'zeusdl';
 
   /// Returns the path to the executable binary, or null if unavailable.
-  /// Always returns an internal-storage path (exec-capable on Android).
+  ///
+  /// Priority order:
+  ///   1. nativeLibraryDir/libzeusdl.so — installed by PackageManager, always
+  ///      exec-capable on all Android versions (no SELinux restriction).
+  ///      Will exist once ZeusDL is packaged in jniLibs/ of the APK.
+  ///   2. Cached path from this session (already resolved + chmod'd).
+  ///   3. Internal support dir binary (downloaded via marketplace / user copy).
+  ///      NOTE: on Android 10+ with strict SELinux (Samsung, MIUI, etc.) this
+  ///      path may fail with EACCES on exec. Use Shizuku to work around it.
+  ///   4. Extract from bundled assets (first run / reinstall, same caveat).
   Future<String?> resolveExecutable() async {
+    // 1. nativeLibraryDir — canonical location used by youtubedl-android,
+    //    Seal, ytdlnis for all compiled ELF binaries (libaria2c.so, libffmpeg.so…)
+    if (Platform.isAndroid) {
+      try {
+        final nativeDir = await _binaryUtilsChannel
+            .invokeMethod<String>('getNativeLibraryDir');
+        if (nativeDir != null && nativeDir.isNotEmpty) {
+          final nativeFile = File('$nativeDir/libzeusdl.so');
+          if (await nativeFile.exists() && await nativeFile.length() > 0) {
+            _cachedPath = nativeFile.path;
+            AppLogger.log(
+              'ZeusDL: using nativeLibraryDir binary at ${nativeFile.path}',
+              logLevel: LogLevel.debug,
+              tag: LogTag.zeus,
+            );
+            return nativeFile.path;
+          }
+        }
+      } catch (_) {}
+    }
+
     final internalPath = await _internalBinaryPath();
 
-    // 1. Use cached path from this session.
+    // 2. Use cached path from this session.
     if (_cachedPath != null) {
       final cached = File(_cachedPath!);
       if (await cached.exists() && await cached.length() > 0) {
@@ -43,7 +73,7 @@ class ZeusDlBinaryManager {
       _cachedPath = null;
     }
 
-    // 2. Check internal binary (installed by the Binaries UI or a previous run).
+    // 3. Check internal binary (downloaded via marketplace or user copy).
     final internalFile = File(internalPath);
     if (await internalFile.exists() && await internalFile.length() > 0) {
       await _ensureExecutable(internalFile);
@@ -56,7 +86,7 @@ class ZeusDlBinaryManager {
       return internalPath;
     }
 
-    // 3. Extract from bundled assets (first run / reinstall).
+    // 4. Extract from bundled assets (first run / reinstall).
     return await _extractFromAssets(internalPath);
   }
 
