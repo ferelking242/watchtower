@@ -1108,6 +1108,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     _animation.addListener(() {
       if (mounted) setState(() => _currentFraction = _animation.value);
     });
+    // Enter fullscreen (hide status bar) when WebView opens
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
@@ -1124,6 +1126,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   @override
   void dispose() {
+    // Restore system UI (status bar) when WebView closes
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _animCtrl.dispose();
     if (!kIsWeb && Platform.isLinux) {
       _desktopWebview?.close();
@@ -1232,6 +1236,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     }
 
     _snap = target;
+    // Toggle system UI based on panel state
+    if (target == _PanelSnap.full) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     _animateTo(_snapFraction(target));
   }
 
@@ -1902,6 +1912,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               onRefresh: () => _webViewController?.reload(),
               onMinimize: () {
                 setState(() => _snap = _PanelSnap.mini);
+                SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
                 _animateTo(_snapFraction(_PanelSnap.mini));
               },
               onDragStart: _onDragStart,
@@ -2198,17 +2209,20 @@ class _BrowserHeader extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Drag handle pill ──────────────────────────────────────────
-          Center(
-            child: Container(
-              width: 36, height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(2),
+          // ── Drag handle pill (hidden in fullscreen mode) ───────────
+          if (snap != _PanelSnap.full)
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            const SizedBox(height: 6),
 
           // Address bar row — completely flat, no container/pill/box
           SizedBox(

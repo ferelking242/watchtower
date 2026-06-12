@@ -3,8 +3,10 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 /// Skeleton loading screen that mirrors the WatchtowerHomeScreen layout.
 ///
-/// Section titles and static chrome are NOT shimmered (Skeleton.ignore).
-/// Only data-driven content (hero banner, cards) gets the shimmer effect.
+/// Real layout order:
+///   1. Hero carousel (full-width, 36% screen height) — top, scrolls away
+///   2. Tab pills (pinned sticky below carousel)
+///   3. Section rows (cards)
 class SkeletonHomeScreen extends StatelessWidget {
   const SkeletonHomeScreen({super.key});
 
@@ -22,47 +24,42 @@ class SkeletonHomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── "Pour vous" static header (never shimmered) ─────────────
-            _StaticTitleBar(),
-
-            // ── Tab pills (static, never shimmered) ──────────────────────
-            _StaticTabPills(),
-
-            const SizedBox(height: 16),
-
-            // ── Hero carousel bone (shimmered) ───────────────────────────
+            // ── Hero carousel bone (shimmered) — at the very top ─────────────
             Skeletonizer(
               enabled: true,
               enableSwitchAnimation: true,
               ignorePointers: false,
-              child: _FakeHeroBanner(height: screenH * 0.52),
+              child: _FakeHeroBanner(height: screenH * 0.36),
             ),
 
-            const SizedBox(height: 8),
+            // ── Tab pills (static, never shimmered) — pinned below carousel ──
+            _StaticTabPills(),
 
-            // ── Section rows (only cards shimmered, titles static) ───────
+            const SizedBox(height: 10),
+
+            // ── Section rows (only cards shimmered, titles static) ───────────
             _FakeCardRow(
-              rowLabel: 'En cours de diffusion',
-              cardHeight: 198,
+              rowLabel: 'Sorties récentes',
+              cardHeight: 196,
               cardWidth: 120,
               count: 6,
             ),
             _FakeCardRow(
-              rowLabel: "Tendance aujourd'hui",
-              cardHeight: 220,
+              rowLabel: 'En ce moment',
+              cardHeight: 218,
               cardWidth: 140,
               count: 6,
               firstWide: true,
             ),
             _FakeCardRow(
-              rowLabel: 'Top populaires',
+              rowLabel: 'Top du moment',
               cardHeight: 170,
               cardWidth: 110,
               count: 8,
               ranked: true,
             ),
 
-            const SizedBox(height: 100),
+            const SizedBox(height: 110),
           ],
         ),
       ),
@@ -71,63 +68,11 @@ class SkeletonHomeScreen extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Static "Pour vous" header — never shimmered
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _StaticTitleBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                'Pour vous',
-                style: TextStyle(
-                  color: cs.onSurface,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                  height: 1.1,
-                ),
-              ),
-            ),
-            // Avatar placeholder (static, not shimmered)
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: cs.surfaceContainerHighest,
-                border: Border.all(
-                  color: cs.outline.withValues(alpha: 0.15),
-                  width: 1.5,
-                ),
-              ),
-              child: Icon(
-                Icons.person_rounded,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                size: 18,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Static tab pills — never shimmered
+// Static tab pills — never shimmered (below hero, like the real layout)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StaticTabPills extends StatelessWidget {
-  static const _tabs = ['Tout', 'Film', 'Série', 'Asia', 'Football', 'Musique', 'Jeux'];
+  static const _tabs = ['Tout', 'Film', 'Série', 'Anime', 'Asia', 'TV Court', 'Musique'];
 
   @override
   Widget build(BuildContext context) {
@@ -137,40 +82,41 @@ class _StaticTabPills extends StatelessWidget {
       height: 52,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _tabs.length,
         itemBuilder: (_, i) {
           final active = i == 0;
-          final activeBg = isDark ? Colors.white : cs.onSurface;
-          final activeText = isDark ? const Color(0xFF0A0A0F) : cs.surface;
-          final inactiveBg = isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : cs.onSurface.withValues(alpha: 0.07);
-          final inactiveBorder = isDark
-              ? Colors.white.withValues(alpha: 0.14)
-              : cs.onSurface.withValues(alpha: 0.12);
-          final inactiveText = isDark
-              ? Colors.white.withValues(alpha: 0.68)
-              : cs.onSurface.withValues(alpha: 0.62);
+          final activeColor = isDark ? Colors.white : cs.onSurface;
+          final inactiveColor = isDark
+              ? Colors.white.withValues(alpha: 0.38)
+              : cs.onSurface.withValues(alpha: 0.35);
 
-          return Container(
-            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: active ? activeBg : inactiveBg,
-              borderRadius: BorderRadius.circular(999),
-              border: active
-                  ? null
-                  : Border.all(color: inactiveBorder, width: 1),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              _tabs[i],
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: active ? activeText : inactiveText,
-              ),
+          return Padding(
+            padding: const EdgeInsets.only(right: 20, top: 4, bottom: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _tabs[i],
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                    color: active ? activeColor : inactiveColor,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  height: 3,
+                  width: active ? 20.0 : 0.0,
+                  decoration: BoxDecoration(
+                    color: active ? activeColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -190,12 +136,32 @@ class _FakeHeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return Stack(
       children: [
         Container(
           width: double.infinity,
           height: height,
           color: cs.surfaceContainerHighest,
+        ),
+        // Gradient scrim like real carousel
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.38, 0.58, 0.76, 1.0],
+                colors: [
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.20),
+                  Colors.black.withValues(alpha: 0.50),
+                  scaffoldBg,
+                ],
+              ),
+            ),
+          ),
         ),
         Positioned(
           left: 16,
@@ -207,7 +173,7 @@ class _FakeHeroBanner extends StatelessWidget {
             children: [
               Container(
                 width: 58,
-                height: 22,
+                height: 20,
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(999),
@@ -246,8 +212,6 @@ class _FakeHeroBanner extends StatelessWidget {
                   _FakePill(width: 60),
                   const SizedBox(width: 6),
                   _FakePill(width: 72),
-                  const SizedBox(width: 6),
-                  _FakePill(width: 54),
                 ],
               ),
             ],
@@ -262,8 +226,8 @@ class _FakeHeroBanner extends StatelessWidget {
             children: List.generate(
               5,
               (i) => Container(
-                width: i == 0 ? 18 : 6,
-                height: 6,
+                width: i == 0 ? 20 : 5,
+                height: 3,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest,
@@ -308,34 +272,34 @@ class _FakeCardRow extends StatelessWidget {
       children: [
         // Section header — static, never shimmered
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
+          padding: const EdgeInsets.fromLTRB(20, 18, 16, 10),
           child: Row(
             children: [
               Container(
-                width: 4,
-                height: 16,
+                width: 3,
+                height: 22,
                 decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.7),
+                  color: cs.primary.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(width: 10),
               Text(
                 rowLabel,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
-                ),
-              ),
-              const Spacer(),
-              // "Voir tout" static muted button
-              Text(
-                'Voir tout',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: cs.primary.withValues(alpha: 0.5),
-                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.4,
                 ),
               ),
             ],
@@ -352,12 +316,12 @@ class _FakeCardRow extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: count,
               separatorBuilder: (_, __) =>
                   SizedBox(width: ranked ? 6 : 10),
               itemBuilder: (context, i) {
-                final w = firstWide && i == 0 ? cardWidth * 1.6 : cardWidth;
+                final w = firstWide && i == 0 ? cardWidth * 1.5 : cardWidth;
                 if (ranked) {
                   return _FakeRankedCard(
                       width: w, height: cardHeight, rank: i + 1);
@@ -384,37 +348,15 @@ class _FakeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: width,
-            height: height - 36,
-            color: cs.surfaceContainerHighest,
-          ),
+    return SizedBox(
+      width: width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: AspectRatio(
+          aspectRatio: 2 / 3,
+          child: Container(color: cs.surfaceContainerHighest),
         ),
-        const SizedBox(height: 6),
-        Container(
-          width: width * 0.75,
-          height: 11,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(5),
-          ),
-        ),
-        const SizedBox(height: 3),
-        Container(
-          width: width * 0.50,
-          height: 9,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -429,31 +371,39 @@ class _FakeRankedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Container(
-          width: 24,
-          height: height * 0.55,
-          alignment: Alignment.bottomLeft,
-          child: Text(
-            '$rank',
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.w900,
+    return SizedBox(
+      width: width + 36,
+      height: height,
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          Positioned(
+            left: 0,
+            bottom: 8,
+            child: Text(
+              '$rank',
+              style: TextStyle(
+                fontSize: 64,
+                fontWeight: FontWeight.w900,
+                height: 1.0,
+                color: cs.onSurface.withValues(alpha: 0.12),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 2),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: width - 28,
-            height: height * 0.90,
-            color: cs.surfaceContainerHighest,
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: width,
+                color: cs.surfaceContainerHighest,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

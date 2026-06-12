@@ -134,7 +134,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                             ExtendedImage.network(
                               image,
                               fit: BoxFit.cover,
-                              alignment: Alignment.center,
+                              alignment: Alignment.topCenter,
                               cache: true,
                             )
                           else

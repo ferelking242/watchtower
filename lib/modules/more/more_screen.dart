@@ -9,33 +9,6 @@ import 'package:watchtower/modules/more/widgets/incognito_mode_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
-// ── Small helpers ──────────────────────────────────────────────────────────
-
-class _HeaderChip extends StatelessWidget {
-  final String label;
-  const _HeaderChip({required this.label});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.9),
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.4,
-        ),
-      ),
-    );
-  }
-}
-
 // ── Nav item data ──────────────────────────────────────────────────────────
 
 class _NavItem {
@@ -51,44 +24,21 @@ class _NavItem {
   });
 }
 
-// ── Gradient palette per nav item index ───────────────────────────────────
+// ── Simple nav list tile ─────────────────────────────────────────────────
 
-const _kCardGradients = [
-  [Color(0xFF6C63FF), Color(0xFF9C5BFF)],
-  [Color(0xFF00BFA5), Color(0xFF00897B)],
-  [Color(0xFFFF6584), Color(0xFFE91E63)],
-  [Color(0xFF2196F3), Color(0xFF0D47A1)],
-  [Color(0xFFFF9800), Color(0xFFE65100)],
-  [Color(0xFF43A047), Color(0xFF1B5E20)],
-  [Color(0xFF9C27B0), Color(0xFF4A148C)],
-  [Color(0xFF00ACC1), Color(0xFF006064)],
-  [Color(0xFFF44336), Color(0xFFB71C1C)],
-];
-
-// ── Big gradient tile ──────────────────────────────────────────────────────
-
-class _NavCard extends StatelessWidget {
+class _NavTile extends StatelessWidget {
   final _NavItem item;
   final dynamic l10n;
-  final bool compact;
-  final int index;
-  const _NavCard({
-    super.key,
-    required this.item,
-    required this.l10n,
-    required this.index,
-    this.compact = false,
-  });
+  const _NavTile({super.key, required this.item, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
-    final colors = _kCardGradients[index % _kCardGradients.length];
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
         onTap: () {
           if (item.routeExtra != null) {
             context.push(item.route, extra: item.routeExtra);
@@ -96,282 +46,46 @@ class _NavCard extends StatelessWidget {
             context.push(item.route);
           }
         },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: colors,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.14),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colors[0].withValues(alpha: 0.45),
-                blurRadius: 18,
-                spreadRadius: -2,
-                offset: const Offset(0, 8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? cs.surfaceContainerHighest
+                      : cs.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(item.icon, size: 19, color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  item.label(l10n),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
               ),
             ],
           ),
-          child: compact
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.20),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(item.icon,
-                            color: Colors.white, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          item.label(l10n),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 14,
-                        color: Colors.white.withValues(alpha: 0.70),
-                      ),
-                    ],
-                  ),
-                )
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Stack(
-                    children: [
-                      // Decorative oversized watermark icon
-                      Positioned(
-                        right: -18,
-                        bottom: -22,
-                        child: Icon(
-                          item.icon,
-                          size: 116,
-                          color: Colors.white.withValues(alpha: 0.10),
-                        ),
-                      ),
-                      // Soft diagonal sheen
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withValues(alpha: 0.16),
-                                Colors.white.withValues(alpha: 0.0),
-                                Colors.black.withValues(alpha: 0.12),
-                              ],
-                              stops: const [0.0, 0.45, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(11),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.24),
-                                    borderRadius:
-                                        BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.30),
-                                    ),
-                                  ),
-                                  child: Icon(item.icon,
-                                      color: Colors.white, size: 26),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.16),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.arrow_outward_rounded,
-                                    size: 16,
-                                    color: Colors.white
-                                        .withValues(alpha: 0.95),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Spacer(),
-                            Text(
-                              item.label(l10n),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.1,
-                                height: 1.15,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              height: 3,
-                              width: 28,
-                              decoration: BoxDecoration(
-                                color:
-                                    Colors.white.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
         ),
       ),
     );
   }
 }
 
-// ── Hero header (shared) ───────────────────────────────────────────────────
-
-class _HeroHeader extends ConsumerWidget {
-  final bool compact;
-  const _HeroHeader({this.compact = false});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final pkgInfoAsync = ref.watch(getPackageInfoProvider);
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.primary,
-            cs.tertiary.withValues(alpha: 0.9),
-            cs.secondary.withValues(alpha: 0.75),
-          ],
-        ),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        0,
-        compact ? 0 : MediaQuery.of(context).padding.top,
-        0,
-        0,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Logo
-            Container(
-              width: compact ? 64 : 80,
-              height: compact ? 64 : 80,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.35),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Image.asset(
-                  'assets/app_icons/icon.png',
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'WATCHTOWER',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: compact ? 22 : 26,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  pkgInfoAsync.when(
-                    data: (data) => Text(
-                      'v${data.version}  ·  Beta',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    loading: () => const SizedBox(height: 16),
-                    error: (_, __) => const SizedBox(height: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      _HeaderChip(label: 'Watch'),
-                      _HeaderChip(label: 'Manga'),
-                      _HeaderChip(label: 'Novels'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Toggle section (shared) ────────────────────────────────────────────────
+// ── Toggle section ─────────────────────────────────────────────────────────
 
 class _TogglesSection extends StatelessWidget {
   const _TogglesSection();
@@ -389,7 +103,110 @@ class _TogglesSection extends StatelessWidget {
   }
 }
 
-// ── Main screen ────────────────────────────────────────────────────────────
+// ── Hero header ────────────────────────────────────────────────────────────
+
+class _HeroHeader extends ConsumerWidget {
+  final bool compact;
+  const _HeroHeader({this.compact = false});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pkgInfoAsync = ref.watch(getPackageInfoProvider);
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        20,
+        compact ? 24 : (MediaQuery.of(context).padding.top + 24),
+        20,
+        24,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHigh
+            : cs.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.asset(
+              'assets/app_icons/icon.png',
+              width: compact ? 54 : 66,
+              height: compact ? 54 : 66,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Watchtower',
+                  style: GoogleFonts.inter(
+                    color: cs.onSurface,
+                    fontSize: compact ? 20 : 23,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                pkgInfoAsync.when(
+                  data: (data) => Text(
+                    'v${data.version} · Beta',
+                    style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  loading: () => const SizedBox(height: 16),
+                  error: (_, __) => const SizedBox(height: 16),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Section label ──────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Main screen ─────────────────────────────────────────────────────────────
 
 class MoreScreen extends ConsumerStatefulWidget {
   const MoreScreen({super.key});
@@ -450,7 +267,10 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
           icon: Icons.language_rounded,
           label: (_) => 'Web View',
           route: '/mangawebview',
-          routeExtra: {'url': 'https://github.com/ferelking242/watchtower-extensions', 'title': 'Web View'},
+          routeExtra: {
+            'url': 'https://github.com/ferelking242/watchtower-extensions',
+            'title': 'Web View',
+          },
         ),
         _NavItem(
           icon: Icons.settings_outlined,
@@ -464,43 +284,51 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
         ),
       ];
 
-  // ── Android layout ────────────────────────────────────────────────────
+  // ── Android layout ─────────────────────────────────────────────────────
 
   Widget _buildAndroid(BuildContext context, dynamic l10n) {
     final navItems = _buildNavItems(l10n);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _HeroHeader(),
-            const Divider(height: 1),
+
+            // Toggles
             const _TogglesSection(),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 1.05,
-                ),
-                itemCount: navItems.length,
-                itemBuilder: (ctx, i) => _NavCard(
-                  item: navItems[i],
-                  l10n: l10n,
-                  index: i,
-                  compact: false,
-                ),
-              ),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.07),
             ),
+
+            // Nav list
+            const _SectionLabel('Navigation'),
+            ...List.generate(navItems.length, (i) {
+              final isLast = i == navItems.length - 1;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _NavTile(item: navItems[i], l10n: l10n),
+                  if (!isLast)
+                    Divider(
+                      height: 0.5,
+                      thickness: 0.5,
+                      indent: 70,
+                      endIndent: 0,
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                ],
+              );
+            }),
+
             SizedBox(height: bottomPad + 96),
           ],
         ),
@@ -508,19 +336,20 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
     );
   }
 
-  // ── Desktop / Tablet layout ───────────────────────────────────────────
+  // ── Desktop / Tablet layout ────────────────────────────────────────────
 
   Widget _buildDesktop(BuildContext context, dynamic l10n) {
     final navItems = _buildNavItems(l10n);
     final cs = Theme.of(context).colorScheme;
     final screenW = MediaQuery.of(context).size.width;
     final leftW = (screenW * 0.32).clamp(260.0, 360.0);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Left panel ──────────────────────────────────────────────
+          // ── Left panel ───────────────────────────────────────────────
           SizedBox(
             width: leftW,
             child: Container(
@@ -535,7 +364,6 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                 child: Column(
                   children: [
                     const _HeroHeader(compact: true),
-                    const Divider(height: 1),
                     const _TogglesSection(),
                     const SizedBox(height: 24),
                   ],
@@ -543,46 +371,30 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
               ),
             ),
           ),
-          // ── Right panel ─────────────────────────────────────────────
+          // ── Right panel ──────────────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Navigation',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurfaceVariant,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  LayoutBuilder(
-                    builder: (ctx, constraints) {
-                      final cols = constraints.maxWidth > 500 ? 3 : 2;
-                      return GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: cols,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 2.2,
-                        ),
-                        itemCount: navItems.length,
-                        itemBuilder: (ctx, i) => _NavCard(
-                          item: navItems[i],
-                          l10n: l10n,
-                          index: i,
-                          compact: true,
-                        ),
-                      );
-                    },
-                  ),
+                  const _SectionLabel('Navigation'),
+                  ...List.generate(navItems.length, (i) {
+                    final isLast = i == navItems.length - 1;
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _NavTile(item: navItems[i], l10n: l10n),
+                        if (!isLast)
+                          Divider(
+                            height: 0.5,
+                            thickness: 0.5,
+                            indent: 70,
+                            color: cs.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                      ],
+                    );
+                  }),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -592,7 +404,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {

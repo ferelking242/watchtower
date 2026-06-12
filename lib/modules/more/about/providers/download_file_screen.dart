@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'dart:math' as math;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -26,97 +25,67 @@ class DownloadFileScreen extends ConsumerStatefulWidget {
 }
 
 class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   int _total = 0;
   int _received = 0;
   http.StreamedResponse? _response;
   final List<int> _bytes = [];
   StreamSubscription<List<int>>? _subscription;
 
+  // Simple entry animation — fade + slide up only, no glow/float/elastic
   late AnimationController _entryController;
-  late AnimationController _glowController;
-  late AnimationController _floatController;
-  late Animation<double> _scaleAnim;
   late Animation<double> _fadeAnim;
   late Animation<double> _slideAnim;
-  late Animation<double> _glowAnim;
-  late Animation<double> _floatAnim;
 
   @override
   void initState() {
     super.initState();
-
     _entryController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat(reverse: true);
-
-    _scaleAnim = CurvedAnimation(
-      parent: _entryController,
-      curve: Curves.elasticOut,
+      duration: const Duration(milliseconds: 320),
     );
     _fadeAnim = CurvedAnimation(
       parent: _entryController,
-      curve: Curves.easeIn,
+      curve: Curves.easeOut,
     );
-    _slideAnim = Tween<double>(begin: 60, end: 0).animate(
+    _slideAnim = Tween<double>(begin: 24, end: 0).animate(
       CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
     );
-    _glowAnim = Tween<double>(begin: 0.3, end: 1.0).animate(_glowController);
-    _floatAnim = Tween<double>(begin: -4, end: 4).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
-    );
-
     _entryController.forward();
   }
 
   @override
   void dispose() {
     _entryController.dispose();
-    _glowController.dispose();
-    _floatController.dispose();
     _subscription?.cancel();
     super.dispose();
+  }
+
+  /// Close dialog but keep download running in background.
+  void _sendToBackground() {
+    if (context.mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     final updateAvailable = widget.updateAvailable;
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: AnimatedBuilder(
-        animation:
-            Listenable.merge([_entryController, _floatController, _glowController]),
-        builder: (context, child) {
-          return Opacity(
-            opacity: _fadeAnim.value.clamp(0.0, 1.0),
-            child: Transform.translate(
-              offset: Offset(0, _slideAnim.value + _floatAnim.value),
-              child: Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..rotateX(0.04 * math.sin(_floatAnim.value * 0.1))
-                  ..scale(_scaleAnim.value.clamp(0.0, 1.0)),
-                child: child,
-              ),
-            ),
-          );
-        },
-        child: _buildCard(context, l10n, updateAvailable, colorScheme, isDark),
+        animation: _entryController,
+        builder: (context, child) => Opacity(
+          opacity: _fadeAnim.value.clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, _slideAnim.value),
+            child: child,
+          ),
+        ),
+        child: _buildCard(context, l10n, updateAvailable, cs, isDark),
       ),
     );
   }
@@ -124,125 +93,73 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
   Widget _buildCard(
     BuildContext context,
     dynamic l10n,
-    (String, String, String, List<dynamic>) updateAvailable,
-    ColorScheme colorScheme,
+    (String, String, String, List<dynamic>) upd,
+    ColorScheme cs,
     bool isDark,
   ) {
-    final accentColor = colorScheme.primary;
+    final surface = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
-    return AnimatedBuilder(
-      animation: _glowAnim,
-      builder: (context, child) {
-        return Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [
-                      const Color(0xFF1E1E2E),
-                      const Color(0xFF16213E),
-                      const Color(0xFF0F3460),
-                    ]
-                  : [
-                      const Color(0xFFFFFFFF),
-                      const Color(0xFFF0F4FF),
-                      const Color(0xFFE8EEFF),
-                    ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: accentColor.withOpacity(0.15 * _glowAnim.value),
-                blurRadius: 40,
-                spreadRadius: 5,
-                offset: const Offset(0, 10),
-              ),
-              BoxShadow(
-                color: accentColor.withOpacity(0.08 * _glowAnim.value),
-                blurRadius: 80,
-                spreadRadius: 10,
-                offset: const Offset(0, 20),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 15),
-              ),
-            ],
-            border: Border.all(
-              color: accentColor.withOpacity(0.2 * _glowAnim.value + 0.1),
-              width: 1.5,
-            ),
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 460),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.20 : 0.14),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
           ),
-          child: child,
-        );
-      },
+        ],
+      ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(updateAvailable, colorScheme),
-            _buildBody(updateAvailable, colorScheme, isDark),
-            _buildActions(l10n, updateAvailable, colorScheme, isDark),
+            _buildHeader(upd, cs),
+            _buildBody(upd, cs, isDark),
+            _buildActions(l10n, upd, cs, isDark),
           ],
         ),
       ),
     );
   }
 
+  // ── Header ───────────────────────────────────────────────────────────────
+
   Widget _buildHeader(
-    (String, String, String, List<dynamic>) updateAvailable,
-    ColorScheme colorScheme,
+    (String, String, String, List<dynamic>) upd,
+    ColorScheme cs,
   ) {
-    return AnimatedBuilder(
-      animation: _glowAnim,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colorScheme.primary.withOpacity(0.85),
-                colorScheme.tertiary.withOpacity(0.85),
-              ],
-            ),
-          ),
-          child: child,
-        );
-      },
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [cs.primary, cs.tertiary],
+        ),
+      ),
       child: Row(
         children: [
-          AnimatedBuilder(
-            animation: _glowAnim,
-            builder: (context, _) {
-              return Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.3 * _glowAnim.value),
-                      blurRadius: 16,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.rocket_launch_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              );
-            },
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.rocket_launch_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +168,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
                   'Mise à jour disponible',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
@@ -259,16 +176,16 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
                 const SizedBox(height: 4),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
-                    'v${updateAvailable.$1}',
+                    'v${upd.$1}',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -281,70 +198,73 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     );
   }
 
+  // ── Body (changelog + progress) ──────────────────────────────────────────
+
   Widget _buildBody(
-    (String, String, String, List<dynamic>) updateAvailable,
-    ColorScheme colorScheme,
+    (String, String, String, List<dynamic>) upd,
+    ColorScheme cs,
     bool isDark,
   ) {
-    final notes = updateAvailable.$2.trim();
+    final notes = upd.$2.trim();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Changelog
           if (notes.isNotEmpty) ...[
             Row(
               children: [
-                Icon(
-                  Icons.notes_rounded,
-                  size: 16,
-                  color: colorScheme.primary.withOpacity(0.8),
-                ),
+                Icon(Icons.notes_rounded,
+                    size: 14,
+                    color: cs.primary.withValues(alpha: 0.75)),
                 const SizedBox(width: 6),
                 Text(
                   'Notes de version',
                   style: TextStyle(
-                    color: colorScheme.onSurface.withOpacity(0.6),
-                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 140),
+              constraints: const BoxConstraints(maxHeight: 150),
               child: SingleChildScrollView(
                 child: Text(
                   notes,
                   style: TextStyle(
                     color: isDark ? Colors.white70 : Colors.black87,
                     fontSize: 13.5,
-                    height: 1.5,
+                    height: 1.55,
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 16),
           ],
+
+          // Download progress
           if (_total > 0) ...[
-            const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Téléchargement...',
+                  'Téléchargement…',
                   style: TextStyle(
-                    color: colorScheme.primary,
+                    color: cs.primary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  '${(_received / 1048576.0).toStringAsFixed(1)} / ${(_total / 1048576.0).toStringAsFixed(1)} MB',
+                  '${(_received / 1048576.0).toStringAsFixed(1)} / '
+                  '${(_total / 1048576.0).toStringAsFixed(1)} MB',
                   style: TextStyle(
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                    color: cs.onSurfaceVariant,
                     fontSize: 12,
                   ),
                 ),
@@ -355,160 +275,123 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
                 value: _total > 0 ? (_received * 1.0) / _total : 0.0,
-                minHeight: 8,
-                backgroundColor:
-                    colorScheme.primary.withOpacity(0.15),
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                minHeight: 7,
+                backgroundColor: cs.primary.withValues(alpha: 0.12),
+                valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
           ],
         ],
       ),
     );
   }
 
+  // ── Actions ──────────────────────────────────────────────────────────────
+
   Widget _buildActions(
     dynamic l10n,
-    (String, String, String, List<dynamic>) updateAvailable,
-    ColorScheme colorScheme,
+    (String, String, String, List<dynamic>) upd,
+    ColorScheme cs,
     bool isDark,
   ) {
+    final isDownloading = _total > 0;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
+      padding: const EdgeInsets.fromLTRB(22, 2, 22, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // ── Main action row ───────────────────────────────────────────
           Row(
             children: [
+              // Cancel / Background
               Expanded(
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    side: BorderSide(
+                      color: cs.outline.withValues(alpha: 0.35),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(
-                        color: colorScheme.outline.withOpacity(0.3),
-                      ),
                     ),
                   ),
                   onPressed: () async {
-                    try {
-                      await _subscription?.cancel();
-                    } catch (_) {}
-                    if (context.mounted) {
-                      Navigator.pop(context);
+                    if (isDownloading) {
+                      _sendToBackground();
+                    } else {
+                      try {
+                        await _subscription?.cancel();
+                      } catch (_) {}
+                      if (context.mounted) Navigator.pop(context);
                     }
                   },
                   child: Text(
-                    l10n.cancel,
+                    isDownloading ? 'Arrière-plan' : l10n.cancel,
                     style: TextStyle(
-                      color: colorScheme.onSurface.withOpacity(0.7),
+                      color: cs.onSurface.withValues(alpha: 0.70),
                       fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
+
+              // Download / Downloading
               Expanded(
                 flex: 2,
-                child: AnimatedBuilder(
-                  animation: _glowAnim,
-                  builder: (context, child) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: _total == 0
-                            ? [
-                                BoxShadow(
-                                  color: colorScheme.primary
-                                      .withOpacity(0.35 * _glowAnim.value),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : [],
-                        gradient: _total == 0
-                            ? LinearGradient(
-                                colors: [
-                                  colorScheme.primary,
-                                  colorScheme.tertiary,
-                                ],
-                              )
-                            : null,
-                        color: _total == 0 ? null : colorScheme.surfaceVariant,
-                      ),
-                      child: child,
-                    );
-                  },
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: _total == 0
-                        ? () async {
-                            if (!kIsWeb && Platform.isAndroid) {
-                              final deviceInfo = DeviceInfoPlugin();
-                              final androidInfo = await deviceInfo.androidInfo;
-                              String apkUrl = "";
-                              for (String abi in androidInfo.supportedAbis) {
-                                final url = updateAvailable.$4.firstWhereOrNull(
-                                  (apk) => (apk as String).contains(abi),
-                                );
-                                if (url != null) {
-                                  apkUrl = url;
-                                  break;
-                                }
+                child: _DownloadButton(
+                  isDownloading: isDownloading,
+                  cs: cs,
+                  onPressed: isDownloading
+                      ? null
+                      : () async {
+                          if (!kIsWeb && Platform.isAndroid) {
+                            final deviceInfo = DeviceInfoPlugin();
+                            final androidInfo =
+                                await deviceInfo.androidInfo;
+                            String apkUrl = '';
+                            for (final abi
+                                in androidInfo.supportedAbis) {
+                              final url = upd.$4.firstWhereOrNull(
+                                (apk) => (apk as String).contains(abi),
+                              );
+                              if (url != null) {
+                                apkUrl = url;
+                                break;
                               }
-                              await _downloadApk(apkUrl);
-                            } else {
-                              _launchInBrowser(Uri.parse(updateAvailable.$3));
                             }
+                            await _downloadApk(apkUrl);
+                          } else {
+                            _launchInBrowser(Uri.parse(upd.$3));
                           }
-                        : null,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.download_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          l10n.download,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        },
+                  label: l10n.download,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () {
-              skipAppUpdate(updateAvailable.$1);
+
+          // ── Skip version ──────────────────────────────────────────────
+          const SizedBox(height: 14),
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () {
+              skipAppUpdate(upd.$1);
               if (context.mounted) Navigator.pop(context);
             },
             child: Text(
               'Ignorer cette version',
               style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.onSurface.withOpacity(0.35),
-                decoration: TextDecoration.underline,
-                decorationColor: colorScheme.onSurface.withOpacity(0.20),
+                fontSize: 12.5,
+                color: cs.onSurface.withValues(alpha: 0.38),
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -517,25 +400,29 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     );
   }
 
+  // ── Download logic ────────────────────────────────────────────────────────
+
   Future<void> _downloadApk(String url) async {
     var status = await Permission.storage.status;
-    if (!status.isGranted) {
-      await Permission.storage.request();
-    }
+    if (!status.isGranted) await Permission.storage.request();
+
     Directory? dir = Directory('/storage/emulated/0/Download');
     if (!await dir.exists()) dir = await getExternalStorageDirectory();
+
     final file = File(
       '${dir!.path}/${url.split("/").lastOrNull ?? "Watchtower.apk"}',
     );
+
     if (await file.exists()) {
       await _installApk(file);
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (mounted) Navigator.pop(context);
       return;
     }
-    _response = await http.Client().send(http.Request('GET', Uri.parse(url)));
+
+    _response =
+        await http.Client().send(http.Request('GET', Uri.parse(url)));
     _total = _response?.contentLength ?? 0;
+
     _subscription = _response?.stream.listen((value) {
       setState(() {
         _bytes.addAll(value);
@@ -545,9 +432,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     _subscription?.onDone(() async {
       await file.writeAsBytes(_bytes);
       await _installApk(file);
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (mounted) Navigator.pop(context);
     });
   }
 
@@ -566,8 +451,88 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
   }
 }
 
+// ── Stateless download button ─────────────────────────────────────────────
+
+class _DownloadButton extends StatelessWidget {
+  final bool isDownloading;
+  final ColorScheme cs;
+  final VoidCallback? onPressed;
+  final String label;
+
+  const _DownloadButton({
+    required this.isDownloading,
+    required this.cs,
+    required this.onPressed,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: isDownloading
+            ? null
+            : LinearGradient(colors: [cs.primary, cs.tertiary]),
+        color: isDownloading ? cs.surfaceContainerHighest : null,
+      ),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: isDownloading
+              ? [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(cs.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'En cours…',
+                    style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ]
+              : [
+                  const Icon(Icons.download_rounded,
+                      color: Colors.white, size: 19),
+                  const SizedBox(width: 7),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── APK installer ─────────────────────────────────────────────────────────
+
 class ApkInstaller {
   static const _platform = MethodChannel('com.watchtower.app.apk_install');
+
   static Future<void> installApk(String filePath) async {
     try {
       await _platform.invokeMethod('installApk', {'filePath': filePath});

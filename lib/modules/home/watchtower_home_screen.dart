@@ -769,57 +769,73 @@ class _TabsDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext ctx, double shrinkOffset, bool overlaps) {
     final scaffoldBg = Theme.of(ctx).scaffoldBackgroundColor;
-    final cs = Theme.of(ctx).colorScheme;
-    final isDark = Theme.of(ctx).brightness == Brightness.dark;
-
     return Container(
       height: _h,
       color: overlaps ? scaffoldBg.withValues(alpha: 0.95) : Colors.transparent,
-      padding: const EdgeInsets.only(top: 8, bottom: 6),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: kHomeTabs.length,
-        itemBuilder: (_, i) {
-          final active = tab == i;
-          final activeColor = isDark ? Colors.white : cs.onSurface;
-          final inactiveColor = isDark
-              ? Colors.white.withValues(alpha: 0.38)
-              : cs.onSurface.withValues(alpha: 0.35);
+      child: _SlidingTabRow(tab: tab, onChanged: onChanged),
+    );
+  }
+}
 
-          return GestureDetector(
-            onTap: () => onChanged(i),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              margin: const EdgeInsets.only(right: 18),
-              padding: active
-                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
-                  : const EdgeInsets.symmetric(vertical: 3),
-              decoration: active
-                  ? BoxDecoration(
-                      border: Border.all(
-                        color: activeColor.withValues(alpha: 0.65),
-                        width: 1.2,
-                      ),
-                      borderRadius: BorderRadius.circular(5),
-                    )
-                  : null,
-              child: Text(
-                kHomeTabs[i],
-                style: TextStyle(
-                  color: active ? activeColor : inactiveColor,
-                  fontSize: 14,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-                  letterSpacing: active ? -0.1 : 0,
-                  decoration: TextDecoration.none,
+/// Animated tab row with a sliding underline indicator (Seanime-style).
+/// Each tab shows a short bottom line that smoothly grows in / out.
+class _SlidingTabRow extends StatelessWidget {
+  final int tab;
+  final ValueChanged<int> onChanged;
+  const _SlidingTabRow({required this.tab, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeColor = isDark ? Colors.white : cs.onSurface;
+    final inactiveColor = isDark
+        ? Colors.white.withValues(alpha: 0.38)
+        : cs.onSurface.withValues(alpha: 0.35);
+
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      itemCount: kHomeTabs.length,
+      itemBuilder: (_, i) {
+        final active = tab == i;
+        return GestureDetector(
+          onTap: () => onChanged(i),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 22),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  style: TextStyle(
+                    color: active ? activeColor : inactiveColor,
+                    fontSize: 14,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                    letterSpacing: active ? -0.1 : 0,
+                    decoration: TextDecoration.none,
+                  ),
+                  child: Text(kHomeTabs[i]),
                 ),
-              ),
+                const SizedBox(height: 6),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  height: 3,
+                  width: active ? 22.0 : 0.0,
+                  decoration: BoxDecoration(
+                    color: active ? activeColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -844,7 +860,7 @@ class _SectionHeader extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 16, 10),
+      padding: const EdgeInsets.fromLTRB(20, 16, 16, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -1308,53 +1324,69 @@ class _AsiaChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // flag · label · type · genre
     const chips = [
-      ('K-Drama',  Color(0xFF3498DB), 'MANGA', 'Romance'),
-      ('C-Drama',  Color(0xFFE74C3C), 'MANGA', null),
-      ('J-Drama',  Color(0xFFE91E8C), 'MANGA', 'Slice of Life'),
-      ('Manhwa',   Color(0xFF3F51B5), 'MANGA', null),
-      ('Manhua',   Color(0xFFFF9800), 'MANGA', null),
-      ('Webtoon',  Color(0xFF009688), 'MANGA', null),
+      ('🇰🇷', 'K-Drama',  'MANGA', 'Romance'),
+      ('🇨🇳', 'C-Drama',  'MANGA', null),
+      ('🇯🇵', 'J-Drama',  'MANGA', 'Slice of Life'),
+      ('🇰🇷', 'Manhwa',   'MANGA', null),
+      ('🇨🇳', 'Manhua',   'MANGA', null),
+      ('🇰🇷', 'Webtoon',  'MANGA', null),
     ];
+
+    final bg = isDark
+        ? cs.surfaceContainerHighest
+        : cs.surfaceContainerLow;
+    final fg = cs.onSurface.withValues(alpha: 0.80);
+    final border = cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.45);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
           child: Text(
             'Origine',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700, fontSize: 16),
+                fontWeight: FontWeight.w700, fontSize: 15),
           ),
         ),
         SizedBox(
-          height: 40,
+          height: 38,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: chips.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
-              final (label, color, type, genre) = chips[i];
+              final (flag, label, type, genre) = chips[i];
               return GestureDetector(
                 onTap: () => onBrowse(type, genre),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                      horizontal: 13, vertical: 0),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                    border:
-                        Border.all(color: color.withValues(alpha: 0.28)),
+                    color: bg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: border, width: 0.8),
                   ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(flag, style: const TextStyle(fontSize: 15)),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: fg,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
