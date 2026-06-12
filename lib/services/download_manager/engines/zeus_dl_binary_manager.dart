@@ -6,14 +6,14 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
-/// Manages the ZeusDL binary lifecycle:
-///   1. Check user-replaceable binary (external storage — accessible via file manager)
-///   2. Check already-extracted internal binary (skip re-extraction)
-///   3. Extract from Flutter assets if needed and mark as executable
+/// Manages the ZeusDL binary lifecycle.
 ///
-/// On Android, the user can place their own binary at:
-///   Android/data/com.Watchtower.app/files/zeusdl
-/// (visible with any file manager that shows app-specific folders)
+/// Binary storage: internal app support directory ONLY.
+/// External storage paths (Android/data/... and /storage/emulated/0/...) are
+/// mounted noexec on Android 10+ — exec() returns EPERM (exit 126) even after
+/// chmod +x. We never return an external path as an executable.
+///
+/// Execution: direct Process.start(binaryPath, args) — no sh wrapper.
 class ZeusDlBinaryManager {
   static ZeusDlBinaryManager? _instance;
   static ZeusDlBinaryManager get instance =>
@@ -25,69 +25,41 @@ class ZeusDlBinaryManager {
   static const String _assetPath = 'assets/binaries/zeusdl';
   static const String _binaryName = 'zeusdl';
 
-  /// Returns the resolved executable path, or null if unavailable.
-  /// Checks in order:
-  ///   1. User override in external files dir (file manager accessible)
-  ///   2. Previously extracted internal binary
-  ///   3. Extract from assets (first run)
+  /// Returns the path to the executable binary, or null if unavailable.
+  /// Always returns an internal-storage path (exec-capable on Android).
   Future<String?> resolveExecutable() async {
-    // 0. Public folder /storage/emulated/0/watchtower/bin/zeusdl
-    if (Platform.isAndroid) {
-      final publicFile = File('/storage/emulated/0/watchtower/bin/$_binaryName');
-      if (await publicFile.exists() && await publicFile.length() > 0) {
-        await _ensureExecutable(publicFile);
-        AppLogger.log(
-          'Using public-folder ZeusDL binary: ${publicFile.path}',
-          tag: LogTag.zeus,
-        );
-        _cachedPath = publicFile.path;
-        return publicFile.path;
-      }
-    }
-    // 1. Check user override (external files dir — accessible via file manager)
-    final userOverride = await _userOverridePath();
-    if (userOverride != null) {
-      final file = File(userOverride);
-      if (await file.exists() && await file.length() > 0) {
-        await _ensureExecutable(file);
-        AppLogger.log(
-          'Using user-provided ZeusDL binary: $userOverride',
-          tag: LogTag.zeus,
-        );
-        return userOverride;
-      }
-    }
+    final internalPath = await _internalBinaryPath();
 
-    // 2. Use cached path (already extracted this session)
+    // 1. Use cached path from this session.
     if (_cachedPath != null) {
       final cached = File(_cachedPath!);
       if (await cached.exists() && await cached.length() > 0) {
         return _cachedPath;
       }
+      _cachedPath = null;
     }
 
-    // 3. Check internal binary (extracted in a previous app launch)
-    final internalPath = await _internalBinaryPath();
+    // 2. Check internal binary (installed by the Binaries UI or a previous run).
     final internalFile = File(internalPath);
     if (await internalFile.exists() && await internalFile.length() > 0) {
       await _ensureExecutable(internalFile);
       _cachedPath = internalPath;
       AppLogger.log(
-        'Using previously extracted ZeusDL binary: $internalPath',
+        'ZeusDL: using installed binary at $internalPath',
         logLevel: LogLevel.debug,
         tag: LogTag.zeus,
       );
       return internalPath;
     }
 
-    // 4. Extract from bundled assets
+    // 3. Extract from bundled assets (first run / reinstall).
     return await _extractFromAssets(internalPath);
   }
 
   Future<String?> _extractFromAssets(String targetPath) async {
     try {
       AppLogger.log(
-        'Extracting ZeusDL binary from assets → $targetPath',
+        'ZeusDL: extracting from assets → $targetPath',
         tag: LogTag.zeus,
       );
 
@@ -110,13 +82,13 @@ class ZeusDlBinaryManager {
 
       _cachedPath = targetPath;
       AppLogger.log(
-        'ZeusDL extracted successfully (${bytes.length} bytes)',
+        'ZeusDL extracted successfully (${bytes.length} bytes) → $targetPath',
         tag: LogTag.zeus,
       );
       return targetPath;
     } catch (e, st) {
       AppLogger.log(
-        'Failed to extract ZeusDL from assets',
+        'ZeusDL: failed to extract from assets',
         logLevel: LogLevel.error,
         tag: LogTag.zeus,
         error: e,
@@ -129,47 +101,35 @@ class ZeusDlBinaryManager {
   Future<void> _ensureExecutable(File file) async {
     if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS) {
       try {
-        await Process.run('chmod', ['+x', file.path]);
-      } catch (_) {}
+        final result = await Process.run('chmod', ['+x', file.path]);
+        if (result.exitCode != 0) {
+          AppLogger.log(
+            'ZeusDL: chmod +x failed (${result.exitCode}): ${result.stderr}',
+            logLevel: LogLevel.warning,
+            tag: LogTag.zeus,
+          );
+        }
+      } catch (e) {
+        AppLogger.log(
+          'ZeusDL: chmod exception: $e',
+          logLevel: LogLevel.warning,
+          tag: LogTag.zeus,
+        );
+      }
     }
   }
 
-  /// Always use internal app support dir — exec-capable on Android 10+.
-  /// External storage (/storage/emulated/0/Android/data/…) is mounted noexec;
-  /// exec() is blocked by the kernel even after chmod +x (exit code 126).
+  /// Internal app support dir — exec-capable on Android (not mounted noexec).
   Future<String> _internalBinaryPath() async {
     final dir = await getApplicationSupportDirectory();
     return '${dir.path}/binaries/$_binaryName';
   }
 
-  /// External path: accessible via file manager under
-  /// Android/data/com.Watchtower.app/files/zeusdl
-  Future<String?> _userOverridePath() async {
-    if (!Platform.isAndroid) return null;
-    try {
-      final dir = await getExternalStorageDirectory();
-      if (dir == null) return null;
-      return '${dir.path}/$_binaryName';
-    } catch (_) {
-      return null;
-    }
-  }
+  /// Returns the internal install path shown in the settings UI.
+  Future<String> installedBinaryPath() => _internalBinaryPath();
 
-  /// Returns the user-facing path where they can drop a custom binary.
-  /// Shown in the settings UI.
-  Future<String> userOverrideDisplayPath() async {
-    if (!Platform.isAndroid) return 'N/A (Android only)';
-    try {
-      final dir = await getExternalStorageDirectory();
-      return '${dir?.path ?? 'Android/data/com.Watchtower.app/files'}/$_binaryName';
-    } catch (_) {
-      return 'Android/data/com.Watchtower.app/files/$_binaryName';
-    }
-  }
-
-  /// Download a binary from a remote URL and install it as the active
-  /// internal binary (replacing any cached/extracted copy). [onProgress]
-  /// receives (received, total) pairs while bytes stream in.
+  /// Download a binary from [url] and install it as the active binary.
+  /// [onProgress] receives (received, total) pairs while bytes stream in.
   Future<bool> downloadFromUrl(
     String url, {
     void Function(int received, int total)? onProgress,
@@ -204,7 +164,7 @@ class ZeusDlBinaryManager {
       final finalFile = File(internalPath);
       if (await finalFile.exists()) await finalFile.delete();
       await tmpFile.rename(internalPath);
-      await _ensureExecutable(finalFile);
+      await _ensureExecutable(File(internalPath));
       _cachedPath = internalPath;
       AppLogger.log(
         'ZeusDL downloaded ($received bytes) → $internalPath',
@@ -228,9 +188,7 @@ class ZeusDlBinaryManager {
     _cachedPath = null;
     final internalPath = await _internalBinaryPath();
     final file = File(internalPath);
-    if (await file.exists()) {
-      await file.delete();
-    }
+    if (await file.exists()) await file.delete();
   }
 
   /// Reset only the in-memory cache — does NOT delete the binary on disk.
@@ -248,10 +206,6 @@ class ZeusDlBinaryManager {
     }
   }
 
-  /// Whether a user override binary exists.
-  Future<bool> hasUserOverride() async {
-    final path = await _userOverridePath();
-    if (path == null) return false;
-    return File(path).existsSync();
-  }
+  /// Whether a user override binary exists (kept for backward compat).
+  Future<bool> hasUserOverride() async => false;
 }

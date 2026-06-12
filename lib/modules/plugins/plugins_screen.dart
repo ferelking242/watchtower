@@ -1718,34 +1718,42 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
       }
-      // Detect the PRIMARY (kernel/exec) ABI — first entry of ro.product.cpu.abilist.
-        // NDK-translated emulators (Appetize, AVD x86_64) list x86_64 first even when
-        // arm64-v8a is also present for JNI. Process.start() spawns via the x86_64 kernel
-        // so we MUST pick the first ABI entry to choose the right binary for exec().
-        String cpuArch = 'arm64-v8a';
-        try {
-          final propR = await Process.run('getprop', ['ro.product.cpu.abilist']);
-          final abiList = propR.stdout.toString().trim().toLowerCase();
-          final primaryAbi = abiList.split(',').first.trim();
-          if (primaryAbi.contains('x86_64')) cpuArch = 'x86_64';
-        } catch (_) {}
+      // Ensure the binary is executable before spawning.
+      await Process.run('chmod', ['+x', zeusPath]);
 
-      // chmod + exec via sh (direct Process.start on /data/... fails on Android)
-      final proc = await Process.start(
-        'sh', ['-c', 'chmod +x "\$1" && exec "\$@"', '_', zeusPath, url],
-      );
+      // Run the binary directly — no sh wrapper.
+      // The binary lives in internal app storage (getApplicationSupportDirectory),
+      // which is NOT noexec on Android. A sh -c wrapper was previously used but
+      // caused spurious exit-126 because toybox sh's exec builtin behaves
+      // differently from a direct execve call.
+      final proc = await Process.start(zeusPath, [url]);
       final outBuf = StringBuffer();
       proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
       proc.stderr.transform(const SystemEncoding().decoder).listen(outBuf.write);
       final exitCode = await proc.exitCode;
       if (!mounted) return;
       final output = outBuf.toString().trim();
+
+      // Detect CPU arch only if we need it for the error message.
+      String cpuArch = 'arm64-v8a';
       if (exitCode == 126) {
-        // Exit 126 = binary found but cannot execute → almost always architecture mismatch
+        try {
+          final propR = await Process.run('getprop', ['ro.product.cpu.abilist']);
+          final abiList = propR.stdout.toString().trim().toLowerCase();
+          final primaryAbi = abiList.split(',').first.trim();
+          if (primaryAbi.contains('x86_64')) cpuArch = 'x86_64';
+        } catch (_) {}
+        // Exit 126 = kernel refused to exec the binary.
+        // Remaining causes (external-storage noexec is now excluded by the binary manager):
+        //   A. Architecture mismatch — wrong ABI binary installed.
+        //   B. SELinux denial (rare on debug builds).
+        //   C. Corrupted ELF header.
+        final detail = output.isNotEmpty ? '\nDétail : $output' : '';
         setState(() {
           _running = false;
-          _result = 'ZeusDL ne s\'exécute pas sur ce CPU ($cpuArch).\n'
-              'Dans Binaires, la puce doit afficher "$cpuArch" → désinstallez et réinstallez.';
+          _result = 'ZeusDL refusé par le kernel (code 126).\n'
+              'CPU : $cpuArch — binaire : $zeusPath\n'
+              'Désinstallez et réinstallez le bon binaire ($cpuArch).$detail';
         });
         return;
       }
