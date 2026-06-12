@@ -1425,11 +1425,12 @@ class _InstalledPluginRow extends ConsumerWidget {
               ],
               // Launch button
               GestureDetector(
-                onTap: () => showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => _LaunchPluginSheet(installed: installed, meta: meta),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) => _LaunchPluginScreen(installed: installed, meta: meta),
+                  ),
                 ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1630,18 +1631,23 @@ class _PluginsSkeletonState extends State<_PluginsSkeleton>
   );
 }
 
-// ─── Launch plugin sheet ──────────────────────────────────────────────────────
+// ─── Launch plugin full-screen (Seal-style) ───────────────────────────────────
 
-class _LaunchPluginSheet extends StatefulWidget {
+const _sealBg      = Color(0xFF0B0B0B);
+const _fabPaste    = Color(0xFF3D5C2E);
+const _fabDown     = Color(0xFF2A4820);
+const _fabIcon     = Color(0xFF9EC88C);
+
+class _LaunchPluginScreen extends StatefulWidget {
   final InstalledPlugin installed;
   final PluginEntry meta;
-  const _LaunchPluginSheet({required this.installed, required this.meta});
+  const _LaunchPluginScreen({required this.installed, required this.meta});
 
   @override
-  State<_LaunchPluginSheet> createState() => _LaunchPluginSheetState();
+  State<_LaunchPluginScreen> createState() => _LaunchPluginScreenState();
 }
 
-class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
+class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
   final _urlController = TextEditingController();
   bool _running = false;
   String? _result;
@@ -1657,6 +1663,13 @@ class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
     super.dispose();
   }
 
+  Future<void> _paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null && mounted) {
+      setState(() => _urlController.text = data!.text!);
+    }
+  }
+
   Future<void> _run() async {
     final url = _urlController.text.trim();
     if (url.isEmpty) return;
@@ -1665,15 +1678,24 @@ class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
       final supportDir = await getApplicationSupportDirectory();
       final zeusBin = File('${supportDir.path}/binaries/zeusdl');
       if (!await zeusBin.exists() || await zeusBin.length() == 0) {
+        if (!mounted) return;
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
       }
+      // Always ensure execute permission before running
+      await Process.run('chmod', ['+x', zeusBin.path]);
       final proc = await Process.start(zeusBin.path, [url]);
+      final outBuf = StringBuffer();
+      proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
+      proc.stderr.transform(const SystemEncoding().decoder).listen(outBuf.write);
       final exitCode = await proc.exitCode;
       if (!mounted) return;
+      final output = outBuf.toString().trim();
       setState(() {
         _running = false;
-        _result = exitCode == 0 ? 'Téléchargement lancé ✓' : 'Terminé avec code $exitCode';
+        _result = exitCode == 0
+            ? 'Téléchargement lancé ✓${output.isNotEmpty ? '\n$output' : ''}'
+            : 'Erreur (code $exitCode)${output.isNotEmpty ? ' : $output' : ''}';
       });
     } catch (e) {
       if (!mounted) return;
@@ -1683,122 +1705,170 @@ class _LaunchPluginSheetState extends State<_LaunchPluginSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isDownloader = _isDownloader;
-    return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (_, sc) => Container(
-        decoration: const BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    final name = widget.meta.name.isNotEmpty ? widget.meta.name : widget.installed.id;
+    return Scaffold(
+      backgroundColor: _sealBg,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // ── Main content ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  // Top bar
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70, size: 22),
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                  const SizedBox(height: 52),
+                  // Plugin title — large à gauche comme "Seal"
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -1,
+                      height: 1.05,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+                  // URL input field
+                  if (_isDownloader) ...[
+                    TextField(
+                      controller: _urlController,
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        hintText: 'Lien vidéo',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 15),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: Colors.white.withOpacity(0.22), width: 1.5),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white54, width: 1.5),
+                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    // Result card
+                    if (_result != null) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _result!.startsWith('Erreur')
+                              ? Colors.red.withOpacity(0.12)
+                              : _fabPaste.withOpacity(0.22),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _result!.startsWith('Erreur')
+                                ? Colors.red.withOpacity(0.35)
+                                : _fabIcon.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Text(
+                          _result!,
+                          style: TextStyle(
+                            color: _result!.startsWith('Erreur') ? Colors.red.shade300 : _fabIcon,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    // Non-downloader plugin: show feature list
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF161616),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Fonctionnalités actives',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70)),
+                          const SizedBox(height: 12),
+                          if (widget.meta.runtimeTypes.isNotEmpty)
+                            ...widget.meta.runtimeTypes.map((r) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(children: [
+                                const Icon(Icons.check_circle_outline_rounded, size: 14, color: _fabIcon),
+                                const SizedBox(width: 10),
+                                Text(r, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                              ]),
+                            ))
+                          else
+                            const Text('Ce plugin est actif et fonctionne en arrière-plan.',
+                              style: TextStyle(color: Colors.white38, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // ── FABs bottom-right (Seal style) ────────────────────────────────
+            if (_isDownloader)
+              Positioned(
+                right: 20,
+                bottom: 28,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Paste
+                    GestureDetector(
+                      onTap: _paste,
+                      child: Container(
+                        width: 62, height: 62,
+                        decoration: BoxDecoration(
+                          color: _fabPaste,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Icon(Icons.content_paste_rounded, color: _fabIcon, size: 26),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // Download / run
+                    GestureDetector(
+                      onTap: _running ? null : _run,
+                      child: Container(
+                        width: 62, height: 62,
+                        decoration: BoxDecoration(
+                          color: _running ? const Color(0xFF1A3012) : _fabDown,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: _running
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 24, height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: _fabIcon),
+                                ),
+                              )
+                            : const Icon(Icons.file_download_rounded, color: _fabIcon, size: 30),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
-        child: Column(children: [
-          const SizedBox(height: 10),
-          Container(width: 36, height: 4, decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
-          Expanded(
-            child: ListView(controller: sc, padding: const EdgeInsets.fromLTRB(20, 18, 20, 32), children: [
-              Row(children: [
-                _PluginIcon(url: widget.meta.iconUrl, size: 46),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(widget.meta.name.isNotEmpty ? widget.meta.name : widget.installed.id,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-                  Text(widget.meta.category.isNotEmpty ? widget.meta.category : 'Plugin',
-                      style: const TextStyle(fontSize: 12, color: _teal)),
-                ])),
-              ]),
-              const SizedBox(height: 20),
-              if (isDownloader) ...[
-                const Text('URL à télécharger',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _grey)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _urlController,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: 'https://…',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                    filled: true,
-                    fillColor: _card2,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: _teal),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: _running ? null : _run,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: _running ? _card2 : _teal,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: _running
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _teal))
-                        : const Text('Démarrer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
-                  ),
-                ),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: _card2, borderRadius: BorderRadius.circular(14)),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Fonctionnalités', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-                    const SizedBox(height: 10),
-                    if (widget.meta.runtimeTypes.isNotEmpty)
-                      ...widget.meta.runtimeTypes.map((r) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(children: [
-                          const Icon(Icons.check_circle_outline_rounded, size: 14, color: _teal),
-                          const SizedBox(width: 8),
-                          Text(r, style: const TextStyle(color: _grey, fontSize: 13)),
-                        ]),
-                      ))
-                    else
-                      const Text('Ce plugin est actif et fonctionne en arrière-plan.',
-                          style: TextStyle(color: _grey, fontSize: 13)),
-                  ]),
-                ),
-              ],
-              if (_result != null) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _result!.startsWith('Erreur')
-                        ? Colors.red.withOpacity(0.12)
-                        : _teal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _result!.startsWith('Erreur')
-                          ? Colors.red.withOpacity(0.35)
-                          : _teal.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Text(_result!, style: TextStyle(
-                    color: _result!.startsWith('Erreur') ? Colors.red.shade300 : _teal,
-                    fontSize: 13,
-                  )),
-                ),
-              ],
-            ]),
-          ),
-        ]),
       ),
     );
   }
