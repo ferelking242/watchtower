@@ -90,13 +90,10 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     return '$bytes B';
   }
 
+  /// Always use internal app support dir — exec-capable on Android 10+.
+  /// External storage (/storage/emulated/0/Android/data/…) is mounted noexec;
+  /// exec() is blocked even after chmod +x (exit code 126 on Android 10+).
   Future<Directory> _binariesDir() async {
-    if (Platform.isAndroid) {
-      try {
-        final ext = await getExternalStorageDirectory();
-        if (ext != null) return Directory('${ext.path}/binaries');
-      } catch (_) {}
-    }
     final sup = await getApplicationSupportDirectory();
     return Directory('${sup.path}/binaries');
   }
