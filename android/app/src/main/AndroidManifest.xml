@@ -21,7 +21,8 @@
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:hasFragileUserData="true"
-        android:fullBackupOnly="true">
+        android:fullBackupOnly="true"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
