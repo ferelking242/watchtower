@@ -334,7 +334,50 @@ package com.watchtower.app
               }
           }
 
-          // ── 7. Silent installer (Shizuku + INSTALL_PACKAGES) ──────────────
+          // ── 7. Binary utils ────────────────────────────────────────────────
+          // setExecutable: uses Java's File.setExecutable() — more reliable than
+          //   calling chmod via a child process (avoids PATH issues and SELinux
+          //   restrictions on the chmod binary itself).
+          // runProcess: uses Java's ProcessBuilder — on devices where Dart's
+          //   posix_spawn() is blocked for app-data-file binaries, ProcessBuilder
+          //   goes through a different JNI/libc fork+exec path that is allowed.
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.binary_utils",
+              StandardMethodCodec.INSTANCE,
+              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+          ).setMethodCallHandler { call, result ->
+              when (call.method) {
+                  "setExecutable" -> {
+                      val path = call.argument<String>("path") ?: run {
+                          result.error("NO_PATH", "path required", null)
+                          return@setMethodCallHandler
+                      }
+                      val ok = java.io.File(path).setExecutable(true, false)
+                      result.success(ok)
+                  }
+                  "runProcess" -> {
+                      val path = call.argument<String>("path") ?: run {
+                          result.error("NO_PATH", "path required", null)
+                          return@setMethodCallHandler
+                      }
+                      val args = call.argument<List<String>>("args") ?: emptyList()
+                      try {
+                          val cmd = mutableListOf(path).also { it.addAll(args) }
+                          val pb = ProcessBuilder(cmd).redirectErrorStream(true)
+                          val proc = pb.start()
+                          val output = proc.inputStream.bufferedReader().readText()
+                          val exitCode = proc.waitFor()
+                          result.success(mapOf("exitCode" to exitCode, "output" to output))
+                      } catch (e: Exception) {
+                          result.error("EXEC_ERROR", e.message ?: "unknown error", null)
+                      }
+                  }
+                  else -> result.notImplemented()
+              }
+          }
+
+          // ── 8. Silent installer (Shizuku + INSTALL_PACKAGES) ──────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.silent_installer",

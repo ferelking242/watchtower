@@ -6,6 +6,10 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
+// Method channel provided by MainActivity — used for reliable setExecutable()
+// on Android (Java's File.setExecutable bypasses PATH/SELinux issues with chmod).
+const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
+
 /// Manages the ZeusDL binary lifecycle.
 ///
 /// Binary storage: internal app support directory ONLY.
@@ -99,23 +103,43 @@ class ZeusDlBinaryManager {
   }
 
   Future<void> _ensureExecutable(File file) async {
-    if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS) {
+    if (Platform.isAndroid) {
+      // Prefer Java's File.setExecutable() via method channel — avoids PATH
+      // lookup for chmod and is not blocked by SELinux on any device.
       try {
-        final result = await Process.run('chmod', ['+x', file.path]);
-        if (result.exitCode != 0) {
+        final ok = await _binaryUtilsChannel.invokeMethod<bool>(
+          'setExecutable', {'path': file.path},
+        );
+        AppLogger.log(
+          'ZeusDL: setExecutable=${ok ?? false} for ${file.path}',
+          logLevel: ok == true ? LogLevel.debug : LogLevel.warning,
+          tag: LogTag.zeus,
+        );
+        return;
+      } catch (e) {
+        AppLogger.log(
+          'ZeusDL: setExecutable channel failed ($e), falling back to chmod',
+          logLevel: LogLevel.warning,
+          tag: LogTag.zeus,
+        );
+      }
+      // Fallback: call chmod with full path to avoid PATH issues.
+      try {
+        final r = await Process.run('/system/bin/chmod', ['+x', file.path]);
+        if (r.exitCode != 0) {
           AppLogger.log(
-            'ZeusDL: chmod +x failed (${result.exitCode}): ${result.stderr}',
+            'ZeusDL: chmod failed (${r.exitCode}): ${r.stderr}',
             logLevel: LogLevel.warning,
             tag: LogTag.zeus,
           );
         }
       } catch (e) {
-        AppLogger.log(
-          'ZeusDL: chmod exception: $e',
-          logLevel: LogLevel.warning,
-          tag: LogTag.zeus,
-        );
+        AppLogger.log('ZeusDL: chmod exception: $e', logLevel: LogLevel.warning, tag: LogTag.zeus);
       }
+    } else if (Platform.isLinux || Platform.isMacOS) {
+      try {
+        await Process.run('chmod', ['+x', file.path]);
+      } catch (_) {}
     }
   }
 

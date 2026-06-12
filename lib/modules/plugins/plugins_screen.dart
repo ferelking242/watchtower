@@ -909,9 +909,18 @@ class _PluginDetailPageState extends ConsumerState<PluginDetailPage> {
         ],
       ),
     );
-    if (confirm == true) {
+    if (confirm != true) return;
+    // Pop BEFORE updating state. Riverpod updates state synchronously on
+    // uninstall(), which immediately rebuilds this widget. If the rebuild
+    // happens while the page is still on the navigator stack, Flutter can
+    // call dispose() mid-rebuild and crash. Navigating first ensures the
+    // widget is removed from the tree before the state change propagates.
+    if (mounted) Navigator.of(context).pop();
+    try {
       await ref.read(installedPluginsProvider.notifier).uninstall(p.id);
-      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      // State was already updated synchronously — the plugin is gone from the
+      // UI. A save failure is non-critical and will be retried on next launch.
     }
   }
 
@@ -1718,21 +1727,36 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
       }
-      // Ensure the binary is executable before spawning.
-      await Process.run('chmod', ['+x', zeusPath]);
+      // On Android: use the binary_utils method channel (Java ProcessBuilder +
+      // File.setExecutable). This bypasses Dart posix_spawn() which is blocked
+      // by SELinux on some devices (Samsung Knox, MIUI, etc.) when exec'ing
+      // files from app data directory even after chmod +x.
+      // On other platforms: use standard Dart Process.start.
+      int exitCode;
+      String output;
 
-      // Run the binary directly — no sh wrapper.
-      // The binary lives in internal app storage (getApplicationSupportDirectory),
-      // which is NOT noexec on Android. A sh -c wrapper was previously used but
-      // caused spurious exit-126 because toybox sh's exec builtin behaves
-      // differently from a direct execve call.
-      final proc = await Process.start(zeusPath, [url]);
-      final outBuf = StringBuffer();
-      proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
-      proc.stderr.transform(const SystemEncoding().decoder).listen(outBuf.write);
-      final exitCode = await proc.exitCode;
+      if (Platform.isAndroid) {
+        const ch = MethodChannel('com.watchtower.app.binary_utils');
+        // 1. Ensure execute bit via Java File.setExecutable (reliable).
+        try { await ch.invokeMethod('setExecutable', {'path': zeusPath}); } catch (_) {}
+        // 2. Run via Java ProcessBuilder.
+        final res = await ch.invokeMethod<Map<Object?, Object?>>(
+          'runProcess', {'path': zeusPath, 'args': [url]},
+        );
+        exitCode = (res?['exitCode'] as int?) ?? -1;
+        output   = (res?['output']   as String?) ?? '';
+      } else {
+        await Process.run('chmod', ['+x', zeusPath]);
+        final proc = await Process.start(zeusPath, [url]);
+        final outBuf = StringBuffer();
+        proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
+        proc.stderr.transform(const SystemEncoding().decoder).listen(outBuf.write);
+        exitCode = await proc.exitCode;
+        output   = outBuf.toString();
+      }
+
       if (!mounted) return;
-      final output = outBuf.toString().trim();
+      output = output.trim();
 
       // Detect CPU arch only if we need it for the error message.
       String cpuArch = 'arm64-v8a';
@@ -1743,11 +1767,10 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
           final primaryAbi = abiList.split(',').first.trim();
           if (primaryAbi.contains('x86_64')) cpuArch = 'x86_64';
         } catch (_) {}
-        // Exit 126 = kernel refused to exec the binary.
-        // Remaining causes (external-storage noexec is now excluded by the binary manager):
-        //   A. Architecture mismatch — wrong ABI binary installed.
-        //   B. SELinux denial (rare on debug builds).
-        //   C. Corrupted ELF header.
+        // Exit 126 = kernel refused exec. Causes:
+        //   A. Architecture mismatch.
+        //   B. SELinux denial.
+        //   C. Corrupted ELF.
         final detail = output.isNotEmpty ? '\nDétail : $output' : '';
         setState(() {
           _running = false;
