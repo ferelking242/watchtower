@@ -5,13 +5,20 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
+// Method channel provided by MainActivity — same as ZeusDlBinaryManager.
+const _binaryUtilsChannelAria2 = MethodChannel('com.watchtower.app.binary_utils');
+
 /// Manages the aria2c binary lifecycle.
 ///
-/// Resolution order (mirrors [ZeusDlBinaryManager]):
-///   1. User override at `Android/data/com.watchtower.app/files/aria2c`
-///   2. Cached path from this session
-///   3. Previously extracted binary in app support
-///   4. Extract bundled asset `assets/binaries/aria2c` (if present)
+/// Resolution order:
+///   1. nativeLibraryDir/libaria2c.so — installed by PackageManager, always
+///      exec-capable on all Android versions (no SELinux restriction).
+///      Will exist once aria2c is packaged in jniLibs/ of the APK.
+///   2. Public folder /storage/emulated/0/watchtower/bin/aria2c (user override)
+///   3. User override at `Android/data/com.watchtower.app/files/aria2c`
+///   4. Cached path from this session
+///   5. Previously extracted binary in app support
+///   6. Extract bundled asset `assets/binaries/aria2c` (if present)
 class Aria2BinaryManager {
   static Aria2BinaryManager? _instance;
   static Aria2BinaryManager get instance =>
@@ -24,7 +31,28 @@ class Aria2BinaryManager {
   static const String _binaryName = 'aria2c';
 
   Future<String?> resolveExecutable() async {
-    // 0. Public folder /storage/emulated/0/watchtower/bin/aria2c
+    // 1. nativeLibraryDir — canonical exec-capable location used by
+    //    youtubedl-android, Seal, ytdlnis for all compiled ELF binaries.
+    if (Platform.isAndroid) {
+      try {
+        final nativeDir = await _binaryUtilsChannelAria2
+            .invokeMethod<String>('getNativeLibraryDir');
+        if (nativeDir != null && nativeDir.isNotEmpty) {
+          final nativeFile = File('$nativeDir/libaria2c.so');
+          if (await nativeFile.exists() && await nativeFile.length() > 0) {
+            _cachedPath = nativeFile.path;
+            AppLogger.log(
+              'aria2c: using nativeLibraryDir binary at ${nativeFile.path}',
+              logLevel: LogLevel.debug,
+              tag: LogTag.download,
+            );
+            return nativeFile.path;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Public folder /storage/emulated/0/watchtower/bin/aria2c
     if (Platform.isAndroid) {
       final publicFile = File('/storage/emulated/0/watchtower/bin/$_binaryName');
       if (await publicFile.exists() && await publicFile.length() > 0) {
