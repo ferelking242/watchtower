@@ -134,16 +134,10 @@ class ZeusDlBinaryManager {
     }
   }
 
-  /// Binary storage path.
-  /// Uses external files dir on Android (NOT marked noexec unlike internal filesDir).
-  /// Falls back to internal storage on non-Android or if external is unavailable.
+  /// Always use internal app support dir — exec-capable on Android 10+.
+  /// External storage (/storage/emulated/0/Android/data/…) is mounted noexec;
+  /// exec() is blocked by the kernel even after chmod +x (exit code 126).
   Future<String> _internalBinaryPath() async {
-    if (Platform.isAndroid) {
-      try {
-        final extDir = await getExternalStorageDirectory();
-        if (extDir != null) return '${extDir.path}/binaries/$_binaryName';
-      } catch (_) {}
-    }
     final dir = await getApplicationSupportDirectory();
     return '${dir.path}/binaries/$_binaryName';
   }
