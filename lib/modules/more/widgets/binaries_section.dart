@@ -29,6 +29,7 @@ const List<_ToolDef> _kTools = [
     name: 'zeusdl',
     label: 'ZeusDL',
     description: 'Moteur de téléchargement universel — TikTok, YouTube, etc.',
+    // URL resolved at runtime based on CPU architecture (see _resolvedUrl)
     url: 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl-android-arm64',
     icon: Icons.bolt_rounded,
   ),
@@ -40,6 +41,30 @@ const List<_ToolDef> _kTools = [
     icon: Icons.downloading_rounded,
   ),
 ];
+
+/// Returns the CPU architecture string from `uname -m` (e.g. "aarch64" or "x86_64").
+/// Defaults to "aarch64" on error.
+Future<String> _cpuArch() async {
+  try {
+    final r = await Process.run('uname', ['-m']);
+    return r.stdout.toString().trim();
+  } catch (_) {
+    return 'aarch64';
+  }
+}
+
+/// Returns the architecture-correct download URL for a tool.
+Future<String> _resolvedUrl(_ToolDef tool) async {
+  final arch = await _cpuArch();
+  final isX64 = arch == 'x86_64';
+  if (tool.name == 'zeusdl') {
+    return 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl-android-${isX64 ? 'x86_64' : 'arm64'}';
+  }
+  if (tool.name == 'aria2c') {
+    return 'https://github.com/abcfy2/aria2-static-build/releases/latest/download/aria2-${isX64 ? 'x86_64' : 'aarch64'}-linux-musl_static.zip';
+  }
+  return tool.url;
+}
 
 String _fmtBytes(int bytes) {
   if (bytes >= 1024 * 1024) return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
@@ -110,12 +135,14 @@ class _BinariesSectionState extends State<BinariesSection>
       final binDir = Directory('${supportDir.path}/binaries');
       if (!await binDir.exists()) await binDir.create(recursive: true);
 
-      final isZip = tool.url.endsWith('.zip');
+      // Resolve architecture-correct URL at download time
+      final effectiveUrl = await _resolvedUrl(tool);
+      final isZip = effectiveUrl.endsWith('.zip');
       final tmpFile = File('${binDir.path}/${tool.name}_dl${isZip ? '.zip' : ''}');
       final dstFile = File('${binDir.path}/${tool.name}');
 
       // Follow redirects manually so we can stream with progress
-      Uri uri = Uri.parse(tool.url);
+      Uri uri = Uri.parse(effectiveUrl);
       http.StreamedResponse res;
       for (int redirect = 0; redirect < 8; redirect++) {
         final req = http.Request('GET', uri);
