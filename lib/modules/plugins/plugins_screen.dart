@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
+import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -638,16 +640,21 @@ class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
 
     try {
       if (widget.plugin.requirements.isNotEmpty) {
-        final supportDir = await getApplicationSupportDirectory();
-        final binPath = '${supportDir.path}/binaries';
         final missing = <String>[];
         for (final entry in widget.plugin.requirements.entries) {
           final reqMap = entry.value as Map?;
           final isOptional = reqMap?['optional'] == true;
           if (isOptional) continue;
-          final binName = entry.key == 'aria2' ? 'aria2c' : entry.key;
-          final f = File('$binPath/$binName');
-          if (!f.existsSync() || f.lengthSync() == 0) {
+          // Use binary managers to find the actual installed path
+          final String? binPath;
+          if (entry.key == 'aria2') {
+            binPath = await Aria2BinaryManager.instance.resolveExecutable();
+          } else if (entry.key == 'zeusdl') {
+            binPath = await ZeusDlBinaryManager.instance.resolveExecutable();
+          } else {
+            binPath = null;
+          }
+          if (binPath == null || !await File(binPath).exists() || await File(binPath).length() == 0) {
             missing.add(entry.key);
           }
         }
