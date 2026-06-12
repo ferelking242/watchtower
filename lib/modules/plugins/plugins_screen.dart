@@ -1657,6 +1657,24 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       widget.meta.runtimeTypes.contains('downloader') ||
       widget.meta.commandScopes.contains('download');
 
+  // Example/test URLs shown as tappable chips below the text field
+  List<String> get _exampleUrls {
+    final id = widget.installed.id;
+    if (id.contains('tiktok')) {
+      return [
+        'https://vt.tiktok.com/ZSQ5BWgYL/',
+        'https://vm.tiktok.com/ZSQ5BWgYL/',
+      ];
+    }
+    if (id.contains('facebook')) {
+      return [
+        'https://www.facebook.com/reel/1513782869267473',
+        'https://fb.watch/example123/',
+      ];
+    }
+    return [];
+  }
+
   @override
   void dispose() {
     _urlController.dispose();
@@ -1682,9 +1700,11 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
       }
-      // Always ensure execute permission before running
-      await Process.run('chmod', ['+x', zeusBin.path]);
-      final proc = await Process.start(zeusBin.path, [url]);
+      // chmod + exec via sh so the permission bit is set in the same context
+      // (direct Process.start on /data/... fails with Permission denied on Android)
+      final proc = await Process.start(
+        'sh', ['-c', 'chmod +x "\$1" && exec "\$@"', '_', zeusBin.path, url],
+      );
       final outBuf = StringBuffer();
       proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
       proc.stderr.transform(const SystemEncoding().decoder).listen(outBuf.write);
@@ -1764,6 +1784,29 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                     ),
+                    // Example URL chips
+                    if (_exampleUrls.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: _exampleUrls.map((exUrl) => GestureDetector(
+                          onTap: () => setState(() => _urlController.text = exUrl),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.14)),
+                            ),
+                            child: Text(
+                              exUrl.length > 32 ? '${exUrl.substring(0, 30)}…' : exUrl,
+                              style: const TextStyle(color: Colors.white54, fontSize: 11),
+                            ),
+                          ),
+                        )).toList(),
+                      ),
+                    ],
                     // Result card
                     if (_result != null) ...[
                       const SizedBox(height: 20),
