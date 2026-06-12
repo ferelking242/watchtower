@@ -128,6 +128,11 @@ class ZeusDlBinaryManager {
   /// Returns the internal install path shown in the settings UI.
   Future<String> installedBinaryPath() => _internalBinaryPath();
 
+  /// Destination path used when the user manually copies a binary via the
+  /// file picker (about_screen). Always points to internal storage — external
+  /// storage is noexec on Android 10+ and cannot be used to run binaries.
+  Future<String> userOverrideDisplayPath() => _internalBinaryPath();
+
   /// Download a binary from [url] and install it as the active binary.
   /// [onProgress] receives (received, total) pairs while bytes stream in.
   Future<bool> downloadFromUrl(
