@@ -72,11 +72,23 @@ String _fmtBytes(int bytes) {
   return '$bytes B';
 }
 
+/// Returns the binaries directory (external on Android to avoid noexec restriction).
+Future<Directory> _binariesDir() async {
+  if (Platform.isAndroid) {
+    try {
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) return Directory('${extDir.path}/binaries');
+    } catch (_) {}
+  }
+  final sup = await getApplicationSupportDirectory();
+  return Directory('${sup.path}/binaries');
+}
+
 /// Returns the installed size string for a binary name, or null if not installed.
 Future<String?> getBinaryInstalledSize(String name) async {
   try {
-    final supportDir = await getApplicationSupportDirectory();
-    final f = File('${supportDir.path}/binaries/$name');
+    final binDir = await _binariesDir();
+    final f = File('${binDir.path}/$name');
     if (await f.exists()) {
       final len = await f.length();
       if (len > 0) return _fmtBytes(len);
@@ -131,8 +143,7 @@ class _BinariesSectionState extends State<BinariesSection>
     }
     final client = http.Client();
     try {
-      final supportDir = await getApplicationSupportDirectory();
-      final binDir = Directory('${supportDir.path}/binaries');
+      final binDir = await _binariesDir();
       if (!await binDir.exists()) await binDir.create(recursive: true);
 
       // Resolve architecture-correct URL at download time
