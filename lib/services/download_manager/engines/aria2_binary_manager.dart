@@ -111,7 +111,14 @@ class Aria2BinaryManager {
     }
   }
 
+  /// Uses external files dir on Android (NOT marked noexec unlike internal filesDir).
   Future<String> _internalBinaryPath() async {
+    if (Platform.isAndroid) {
+      try {
+        final extDir = await getExternalStorageDirectory();
+        if (extDir != null) return '${extDir.path}/binaries/$_binaryName';
+      } catch (_) {}
+    }
     final dir = await getApplicationSupportDirectory();
     return '${dir.path}/binaries/$_binaryName';
   }
