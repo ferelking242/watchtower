@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -763,6 +764,8 @@ class _PluginIcon extends StatelessWidget {
   final double size;
   const _PluginIcon({required this.url, required this.size});
 
+  bool get _isSvg => url.toLowerCase().endsWith('.svg');
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -774,8 +777,15 @@ class _PluginIcon extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: url.isNotEmpty
-          ? Image.network(url, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _FallbackIcon(size: size))
+          ? (_isSvg
+              ? SvgPicture.network(
+                  url,
+                  width: size, height: size,
+                  fit: BoxFit.cover,
+                  placeholderBuilder: (_) => _FallbackIcon(size: size),
+                )
+              : Image.network(url, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _FallbackIcon(size: size)))
           : _FallbackIcon(size: size),
     );
   }
@@ -1700,8 +1710,15 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
       }
-      // chmod + exec via sh so the permission bit is set in the same context
-      // (direct Process.start on /data/... fails with Permission denied on Android)
+      // Detect CPU arch to give a helpful message if the installed binary
+      // was built for a different architecture (e.g. ARM64 binary on x86_64 emulator)
+      String cpuArch = 'aarch64';
+      try {
+        final unameR = await Process.run('uname', ['-m']);
+        cpuArch = unameR.stdout.toString().trim();
+      } catch (_) {}
+
+      // chmod + exec via sh (direct Process.start on /data/... fails on Android)
       final proc = await Process.start(
         'sh', ['-c', 'chmod +x "\$1" && exec "\$@"', '_', zeusBin.path, url],
       );
@@ -1711,6 +1728,15 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       final exitCode = await proc.exitCode;
       if (!mounted) return;
       final output = outBuf.toString().trim();
+      if (exitCode == 126) {
+        // Exit 126 = binary found but cannot execute → almost always architecture mismatch
+        setState(() {
+          _running = false;
+          _result = 'Binaire incompatible avec ce CPU ($cpuArch).\n'
+              'Désinstallez puis réinstallez ZeusDL depuis Marketplace → Binaires pour télécharger la bonne version.';
+        });
+        return;
+      }
       setState(() {
         _running = false;
         _result = exitCode == 0
