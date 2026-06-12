@@ -1703,9 +1703,10 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
     if (url.isEmpty) return;
     setState(() { _running = true; _result = null; });
     try {
-      final supportDir = await getApplicationSupportDirectory();
-      final zeusBin = File('${supportDir.path}/binaries/zeusdl');
-      if (!await zeusBin.exists() || await zeusBin.length() == 0) {
+      // Use the binary manager — finds ZeusDL wherever it was installed
+      // (external storage on Android, internal fallback on other platforms)
+      final zeusPath = await ZeusDlBinaryManager.instance.resolveExecutable();
+      if (zeusPath == null || !await File(zeusPath).exists() || await File(zeusPath).length() == 0) {
         if (!mounted) return;
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
@@ -1720,7 +1721,7 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
 
       // chmod + exec via sh (direct Process.start on /data/... fails on Android)
       final proc = await Process.start(
-        'sh', ['-c', 'chmod +x "\$1" && exec "\$@"', '_', zeusBin.path, url],
+        'sh', ['-c', 'chmod +x "\$1" && exec "\$@"', '_', zeusPath, url],
       );
       final outBuf = StringBuffer();
       proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
