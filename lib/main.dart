@@ -289,6 +289,10 @@ class _MyAppState extends ConsumerState<MyApp>
     if (state == AppLifecycleState.resumed) {
       if (!kIsWeb) {
         unawaited(WatchtowerNotificationService.instance.checkForUpdateAndNotify());
+        // Re-run mpv setup in case the user just granted storage permission
+        // from the onboarding screen or the system Settings app.
+        // The function checks permission internally and is idempotent.
+        _setupMpvConfig().catchError((_) {});
       }
     }
     if (state == AppLifecycleState.paused ||
@@ -534,14 +538,31 @@ class _MyAppState extends ConsumerState<MyApp>
 
   Future<void> _setupMpvConfig() async {
     if (kIsWeb) return;
+    // Wait for storage permission before touching external storage.
+    // On first launch (onboarding not yet complete) the permission is not
+    // granted yet — creating directories would throw Permission denied.
+    if (!kIsWeb && Platform.isAndroid) {
+      final hasPermission = await StorageProvider()
+          .requestPermission(requestIfNeeded: false);
+      if (!hasPermission) {
+        debugPrint('_setupMpvConfig: skipped — storage permission not granted yet');
+        return;
+      }
+    }
     final provider = StorageProvider();
     final dir = await provider.getMpvDirectory();
-    final mpvFile = File('${dir!.path}/mpv.conf');
+    if (dir == null) return;
+    final mpvFile = File('${dir.path}/mpv.conf');
     final inputFile = File('${dir.path}/input.conf');
     String shadersDir = p.join(dir.path, 'shaders');
     String scriptsDir = p.join(dir.path, 'scripts');
-    await Directory(shadersDir).create(recursive: true);
-    await Directory(scriptsDir).create(recursive: true);
+    try {
+      await Directory(shadersDir).create(recursive: true);
+      await Directory(scriptsDir).create(recursive: true);
+    } catch (e) {
+      debugPrint('_setupMpvConfig: failed to create subdirectories: $e');
+      return;
+    }
     final filesMissing =
         !(await mpvFile.exists()) && !(await inputFile.exists());
     if (filesMissing) {
