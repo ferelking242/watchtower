@@ -494,7 +494,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   builder: (_) => AlertDialog(
                     backgroundColor: const Color(0xFF1C1C1C),
                     title: const Text('Désinstaller ?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-                    content: Text('Supprimer ${tool.label} de l'appareil ?', style: const TextStyle(color: Color(0xFF9E9E9E))),
+                    content: Text("Supprimer ${tool.label} de l'appareil ?", style: const TextStyle(color: Color(0xFF9E9E9E))),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
                       TextButton(
