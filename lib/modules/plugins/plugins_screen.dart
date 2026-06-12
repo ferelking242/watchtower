@@ -1727,7 +1727,6 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
           final propR = await Process.run('getprop', ['ro.product.cpu.abilist']);
           final abiList = propR.stdout.toString().trim().toLowerCase();
           final primaryAbi = abiList.split(',').first.trim();
-          AppLogger.log('Primary ABI: $primaryAbi (full: $abiList)', tag: LogTag.download);
           if (primaryAbi.contains('x86_64')) cpuArch = 'x86_64';
         } catch (_) {}
 
