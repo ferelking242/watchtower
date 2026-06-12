@@ -52,29 +52,19 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     String get shortLabel => this == _Arch.arm64 ? 'ARM64' : 'x86_64';
   }
 
-  /// Detects device architecture via Android ABI list (reliable even with NDK
-  /// translation — unlike uname -m which returns the kernel architecture).
+  /// Detects the PRIMARY (kernel/exec) ABI of the device.
+  /// Uses the FIRST entry of ro.product.cpu.abilist.
+  /// NDK-translated emulators (Appetize x86_64, AVD x86_64) list x86_64 first even
+  /// when arm64-v8a is present — Process.start() uses the kernel (x86_64) ABI for exec.
   Future<_Arch> _detectArch() async {
     if (Platform.isAndroid) {
       try {
         final r = await Process.run('getprop', ['ro.product.cpu.abilist']);
         final abiList = r.stdout.toString().trim().toLowerCase();
-        AppLogger.log('ABI list: $abiList', tag: LogTag.download);
-        if (abiList.contains('arm64-v8a')) return _Arch.arm64;
-        if (abiList.contains('x86_64')) {
-          try {
-            final b = await Process.run('getprop', ['ro.dalvik.vm.native.bridge']);
-            final bridge = b.stdout.toString().trim();
-            if (bridge.isNotEmpty && bridge != '0') return _Arch.arm64;
-          } catch (_) {}
-          return _Arch.x86_64;
-        }
-      } catch (_) {
-        try {
-          final r = await Process.run('uname', ['-m']);
-          return r.stdout.toString().trim() == 'x86_64' ? _Arch.x86_64 : _Arch.arm64;
-        } catch (_) {}
-      }
+        final primaryAbi = abiList.split(',').first.trim();
+        AppLogger.log('Primary ABI: $primaryAbi (full: $abiList)', tag: LogTag.download);
+        return primaryAbi.contains('x86_64') ? _Arch.x86_64 : _Arch.arm64;
+      } catch (_) {}
     }
     return _Arch.arm64;
   }
