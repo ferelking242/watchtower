@@ -1718,8 +1718,18 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
         return;
       }
-      // Detect CPU arch via Android ABI list (reliable even with NDK translation).
-        // uname -m returns x86_64 even on devices running ARM64 via NDK translation.
+      // Detect the PRIMARY (kernel/exec) ABI — first entry of ro.product.cpu.abilist.
+        // NDK-translated emulators (Appetize, AVD x86_64) list x86_64 first even when
+        // arm64-v8a is also present for JNI. Process.start() spawns via the x86_64 kernel
+        // so we MUST pick the first ABI entry to choose the right binary for exec().
+        String cpuArch = 'arm64-v8a';
+        try {
+          final propR = await Process.run('getprop', ['ro.product.cpu.abilist']);
+          final abiList = propR.stdout.toString().trim().toLowerCase();
+          final primaryAbi = abiList.split(',').first.trim();
+          AppLogger.log('Primary ABI: $primaryAbi (full: $abiList)', tag: LogTag.download);
+          if (primaryAbi.contains('x86_64')) cpuArch = 'x86_64';
+        } catch (_) {}
         String cpuArch = 'aarch64';
         try {
           final propR = await Process.run('getprop', ['ro.product.cpu.abilist']);
@@ -1754,8 +1764,8 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         // Exit 126 = binary found but cannot execute → almost always architecture mismatch
         setState(() {
           _running = false;
-          _result = 'Binaire incompatible avec ce CPU ($cpuArch).\n'
-              'Désinstallez puis réinstallez ZeusDL depuis Marketplace → Binaires pour télécharger la bonne version.';
+          _result = 'ZeusDL ne s\'exécute pas sur ce CPU ($cpuArch).\n'
+              'Dans Binaires, la puce doit afficher "$cpuArch" → désinstallez et réinstallez.';
         });
         return;
       }
