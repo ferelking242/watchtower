@@ -9,17 +9,19 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
   const String kPublicBinariesDir = '/storage/emulated/0/watchtower/bin';
 
+  // ---------------------------------------------------------------------------
+  // Tool definitions
+  // ---------------------------------------------------------------------------
+
   class _ToolDef {
     final String name;
     final String label;
     final String description;
-    final String url;
     final IconData icon;
     const _ToolDef({
       required this.name,
       required this.label,
       required this.description,
-      required this.url,
       required this.icon,
     });
   }
@@ -28,69 +30,55 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     _ToolDef(
       name: 'zeusdl',
       label: 'ZeusDL',
-      description: 'Moteur de téléchargement universel — TikTok, YouTube, etc.',
-      url: 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl-android-arm64',
+      description: 'Moteur de téléchargement universel — TikTok, YouTube, Instagram, etc.',
       icon: Icons.bolt_rounded,
     ),
     _ToolDef(
       name: 'aria2c',
       label: 'aria2c',
-      description: 'Téléchargement HTTP/FTP/Magnet multi-segment',
-      url: 'https://github.com/abcfy2/aria2-static-build/releases/latest/download/aria2-aarch64-linux-musl_static.zip',
+      description: 'Téléchargement HTTP/FTP/Magnet multi-segment haute performance.',
       icon: Icons.downloading_rounded,
     ),
   ];
 
-  /// Architecture preference for binary downloads.
+  // ---------------------------------------------------------------------------
+  // Architecture
+  // ---------------------------------------------------------------------------
+
   enum _Arch { arm64, x86_64 }
 
-  /// Detects the preferred architecture for binary downloads on Android.
-  ///
-  /// Uses [getprop ro.product.cpu.abilist] — the real ABI list of the device.
-  /// This is more reliable than [uname -m] which returns the kernel architecture
-  /// (e.g. x86_64 even on emulators running ARM binaries via NDK translation).
-  ///
-  /// Logic: prefer arm64-v8a if available, only use x86_64 if arm64 is absent.
+  extension _ArchLabel on _Arch {
+    String get abiName => this == _Arch.arm64 ? 'arm64-v8a' : 'x86_64';
+    String get shortLabel => this == _Arch.arm64 ? 'ARM64' : 'x86_64';
+  }
+
+  /// Detects device architecture via Android ABI list (reliable even with NDK
+  /// translation — unlike uname -m which returns the kernel architecture).
   Future<_Arch> _detectArch() async {
     if (Platform.isAndroid) {
       try {
         final r = await Process.run('getprop', ['ro.product.cpu.abilist']);
         final abiList = r.stdout.toString().trim().toLowerCase();
-        AppLogger.log('Android ABI list: $abiList', tag: LogTag.download);
+        AppLogger.log('ABI list: $abiList', tag: LogTag.download);
         if (abiList.contains('arm64-v8a')) return _Arch.arm64;
-        if (abiList.contains('x86_64')) return _Arch.x86_64;
-      } catch (e) {
-        AppLogger.log(
-          'getprop failed, falling back to uname: $e',
-          tag: LogTag.download,
-        );
-      }
-      // Secondary fallback: uname -m
-      try {
-        final r = await Process.run('uname', ['-m']);
-        final arch = r.stdout.toString().trim();
-        AppLogger.log('uname -m: $arch', tag: LogTag.download);
-        if (arch == 'x86_64') {
-          // Check if NDK translation is running — if so, arm64 binaries work fine
+        if (abiList.contains('x86_64')) {
           try {
-            final ndk = await Process.run('getprop', ['ro.dalvik.vm.native.bridge']);
-            final bridge = ndk.stdout.toString().trim();
-            if (bridge.isNotEmpty && bridge != '0') {
-              AppLogger.log(
-                'NDK translation active ($bridge) — preferring arm64',
-                tag: LogTag.download,
-              );
-              return _Arch.arm64;
-            }
+            final b = await Process.run('getprop', ['ro.dalvik.vm.native.bridge']);
+            final bridge = b.stdout.toString().trim();
+            if (bridge.isNotEmpty && bridge != '0') return _Arch.arm64;
           } catch (_) {}
           return _Arch.x86_64;
         }
-      } catch (_) {}
+      } catch (_) {
+        try {
+          final r = await Process.run('uname', ['-m']);
+          return r.stdout.toString().trim() == 'x86_64' ? _Arch.x86_64 : _Arch.arm64;
+        } catch (_) {}
+      }
     }
     return _Arch.arm64;
   }
 
-  /// Returns the architecture-correct download URL for a tool.
   String _urlForArch(_ToolDef tool, _Arch arch) {
     final isX64 = arch == _Arch.x86_64;
     if (tool.name == 'zeusdl') {
@@ -99,34 +87,34 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     if (tool.name == 'aria2c') {
       return 'https://github.com/abcfy2/aria2-static-build/releases/latest/download/aria2-${isX64 ? 'x86_64' : 'aarch64'}-linux-musl_static.zip';
     }
-    return tool.url;
+    return '';
   }
 
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
   String _fmtBytes(int bytes) {
-    if (bytes >= 1024 * 1024) {
-      return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
-    }
+    if (bytes >= 1024 * 1024) return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
     if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
     return '$bytes B';
   }
 
-  /// Binaries directory (external on Android to avoid noexec restriction).
   Future<Directory> _binariesDir() async {
     if (Platform.isAndroid) {
       try {
-        final extDir = await getExternalStorageDirectory();
-        if (extDir != null) return Directory('${extDir.path}/binaries');
+        final ext = await getExternalStorageDirectory();
+        if (ext != null) return Directory('${ext.path}/binaries');
       } catch (_) {}
     }
     final sup = await getApplicationSupportDirectory();
     return Directory('${sup.path}/binaries');
   }
 
-  /// Returns the installed size string for a binary name, or null if not installed.
   Future<String?> getBinaryInstalledSize(String name) async {
     try {
-      final binDir = await _binariesDir();
-      final f = File('${binDir.path}/$name');
+      final dir = await _binariesDir();
+      final f = File('${dir.path}/$name');
       if (await f.exists()) {
         final len = await f.length();
         if (len > 0) return _fmtBytes(len);
@@ -135,11 +123,11 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     return null;
   }
 
-  /// Returns true if a binary is installed and non-empty.
-  Future<bool> isBinaryInstalled(String name) async {
-    return (await getBinaryInstalledSize(name)) != null;
-  }
+  Future<bool> isBinaryInstalled(String name) async =>
+      (await getBinaryInstalledSize(name)) != null;
 
+  // ---------------------------------------------------------------------------
+  // BinariesSection widget
   // ---------------------------------------------------------------------------
 
   class BinariesSection extends StatefulWidget {
@@ -159,13 +147,11 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     final Map<String, String> _statusMsg = {};
     final Map<String, String> _progressLabel = {};
 
-    /// Auto-detected architecture (null = detection pending).
     _Arch? _detectedArch;
+    final Map<String, _Arch?> _archOverrides = {};
 
-    /// Manual architecture override set by user (null = use auto-detected).
-    _Arch? _archOverride;
-
-    _Arch get _effectiveArch => _archOverride ?? _detectedArch ?? _Arch.arm64;
+    _Arch _archFor(String name) =>
+        _archOverrides[name] ?? _detectedArch ?? _Arch.arm64;
 
     @override
     void initState() {
@@ -180,50 +166,40 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     }
 
     Future<void> _refresh() async {
-      for (final tool in _kTools) {
-        final size = await getBinaryInstalledSize(tool.name);
-        if (mounted) setState(() => _sizes[tool.name] = size);
+      for (final t in _kTools) {
+        final sz = await getBinaryInstalledSize(t.name);
+        if (mounted) setState(() => _sizes[t.name] = sz);
       }
     }
 
     Future<void> _downloadTool(_ToolDef tool) async {
       if (_progress.containsKey(tool.name)) return;
-      if (mounted) {
-        setState(() {
-          _progress[tool.name] = 0;
-          _progressLabel[tool.name] = 'Connexion…';
-          _statusMsg.remove(tool.name);
-        });
-      }
+      setState(() {
+        _progress[tool.name] = 0;
+        _progressLabel[tool.name] = 'Connexion…';
+        _statusMsg.remove(tool.name);
+      });
       final client = http.Client();
       try {
         final binDir = await _binariesDir();
         if (!await binDir.exists()) await binDir.create(recursive: true);
 
-        final arch = _effectiveArch;
-        final effectiveUrl = _urlForArch(tool, arch);
-        AppLogger.log(
-          'Downloading ${tool.name} for ${arch.name}: $effectiveUrl',
-          tag: LogTag.download,
-        );
+        final arch = _archFor(tool.name);
+        final url = _urlForArch(tool, arch);
+        AppLogger.log('Download ${tool.name} [${arch.abiName}]: $url', tag: LogTag.download);
 
-        final isZip = effectiveUrl.endsWith('.zip');
-        final tmpFile = File(
-          '${binDir.path}/${tool.name}_dl${isZip ? '.zip' : ''}',
-        );
+        final isZip = url.endsWith('.zip');
+        final tmpFile = File('${binDir.path}/${tool.name}_dl${isZip ? '.zip' : ''}');
         final dstFile = File('${binDir.path}/${tool.name}');
 
-        // Follow redirects manually to stream with accurate progress
-        Uri uri = Uri.parse(effectiveUrl);
-        http.StreamedResponse res;
-        for (int redirect = 0; redirect < 8; redirect++) {
-          final req = http.Request('GET', uri);
-          req.headers['Accept'] = '*/*';
+        Uri uri = Uri.parse(url);
+        for (int redir = 0; redir < 8; redir++) {
+          final req = http.Request('GET', uri)..headers['Accept'] = '*/*';
           req.followRedirects = false;
-          res = await client.send(req).timeout(const Duration(seconds: 30));
+          final res = await client.send(req).timeout(const Duration(seconds: 30));
           if (res.statusCode >= 300 && res.statusCode < 400) {
             final loc = res.headers['location'];
-            if (loc == null) throw 'Redirection sans Location header';
+            if (loc == null) throw 'Redirection sans Location';
             await res.stream.drain<void>();
             uri = uri.resolve(loc);
             continue;
@@ -232,19 +208,16 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
           final total = res.contentLength ?? 0;
           final sink = tmpFile.openWrite();
-          int downloaded = 0;
+          int recv = 0;
           await for (final chunk in res.stream) {
-            downloaded += chunk.length;
+            recv += chunk.length;
             sink.add(chunk);
-            if (mounted) {
-              setState(() {
-                _progress[tool.name] =
-                    total > 0 ? downloaded / total : 0.0;
-                _progressLabel[tool.name] = total > 0
-                    ? '${_fmtBytes(downloaded)} / ${_fmtBytes(total)}'
-                    : _fmtBytes(downloaded);
-              });
-            }
+            if (mounted) setState(() {
+              _progress[tool.name] = total > 0 ? recv / total : 0.0;
+              _progressLabel[tool.name] = total > 0
+                  ? '${_fmtBytes(recv)} / ${_fmtBytes(total)}'
+                  : _fmtBytes(recv);
+            });
           }
           await sink.flush();
           await sink.close();
@@ -256,54 +229,41 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
         }
 
         if (isZip) {
-          if (mounted) {
-            setState(() => _progressLabel[tool.name] = 'Extraction…');
-          }
+          if (mounted) setState(() => _progressLabel[tool.name] = 'Extraction…');
           try {
-            final bytes = await tmpFile.readAsBytes();
-            final archive = ZipDecoder().decodeBytes(bytes);
+            final archive = ZipDecoder().decodeBytes(await tmpFile.readAsBytes());
             ArchiveFile? best;
             for (final f in archive) {
               if (f.isFile && (best == null || f.size > best.size)) best = f;
             }
-            if (best == null) throw 'Archive ZIP vide';
+            if (best == null) throw 'ZIP vide';
             await dstFile.writeAsBytes(best.content as List<int>, flush: true);
           } finally {
             await tmpFile.delete().catchError((_) {});
           }
         } else {
-          final bytes = await tmpFile.readAsBytes();
-          await dstFile.writeAsBytes(bytes, flush: true);
+          await dstFile.writeAsBytes(await tmpFile.readAsBytes(), flush: true);
           await tmpFile.delete().catchError((_) {});
         }
 
         if (!await dstFile.exists() || await dstFile.length() == 0) {
-          throw 'Fichier installé invalide';
+          throw 'Installation invalide';
         }
-
-        try {
-          await Process.run('chmod', ['+x', dstFile.path]);
-        } catch (_) {}
+        try { await Process.run('chmod', ['+x', dstFile.path]); } catch (_) {}
 
         ZeusDlBinaryManager.instance.resetCachedPath();
         Aria2BinaryManager.instance.resetCachedPath();
 
-        final installedSize = _fmtBytes(await dstFile.length());
-        AppLogger.log(
-          'Binary installed: ${tool.name} ($installedSize) arch=${arch.name}',
-        );
+        final sz = _fmtBytes(await dstFile.length());
         if (!mounted) return;
         setState(() {
           _progress.remove(tool.name);
           _progressLabel.remove(tool.name);
-          _statusMsg[tool.name] = 'Installé ✓  ($installedSize)';
-          _sizes[tool.name] = installedSize;
+          _statusMsg[tool.name] = 'Installé ✓  ($sz)';
+          _sizes[tool.name] = sz;
         });
       } catch (e) {
-        AppLogger.log(
-          'Binary install failed: ${tool.name}: $e',
-          logLevel: LogLevel.error,
-        );
+        AppLogger.log('Install failed: ${tool.name}: $e', logLevel: LogLevel.error);
         if (!mounted) return;
         setState(() {
           _progress.remove(tool.name);
@@ -315,6 +275,199 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
       }
     }
 
+    Future<void> _uninstallTool(_ToolDef tool) async {
+      try {
+        final dir = await _binariesDir();
+        final f = File('${dir.path}/${tool.name}');
+        if (await f.exists()) await f.delete();
+        ZeusDlBinaryManager.instance.resetCachedPath();
+        Aria2BinaryManager.instance.resetCachedPath();
+      } catch (e) {
+        AppLogger.log('Uninstall error: ${tool.name}: $e', logLevel: LogLevel.error);
+      }
+      if (mounted) setState(() {
+        _sizes.remove(tool.name);
+        _statusMsg[tool.name] = 'Désinstallé';
+      });
+    }
+
+    void _showArchPicker(BuildContext ctx, _ToolDef tool) {
+      final detected = _detectedArch;
+      showModalBottomSheet<void>(
+        context: ctx,
+        backgroundColor: const Color(0xFF1C1C1C),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => StatefulBuilder(
+          builder: (ctx2, setS) {
+            final current = _archOverrides[tool.name] ?? detected ?? _Arch.arm64;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Architecture CPU',
+                    style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    detected != null
+                      ? 'Détecté : ${detected.abiName}'
+                      : 'Détection en cours…',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                  ),
+                  const SizedBox(height: 16),
+                  for (final arch in _Arch.values) ...[
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _archOverrides[tool.name] =
+                              (detected == arch && _archOverrides[tool.name] == null) ? null : arch;
+                        });
+                        Navigator.pop(ctx2);
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: current == arch
+                              ? const Color(0xFF1DB954).withOpacity(0.12)
+                              : const Color(0xFF242424),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: current == arch
+                                ? const Color(0xFF1DB954).withOpacity(0.4)
+                                : const Color(0xFF2A2A2A),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(
+                                  arch.abiName,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: current == arch
+                                        ? const Color(0xFF1DB954)
+                                        : Colors.white,
+                                  ),
+                                ),
+                                if (detected == arch) ...[
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Recommandé pour cet appareil',
+                                    style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
+                                  ),
+                                ],
+                              ]),
+                            ),
+                            if (current == arch)
+                              const Icon(Icons.check_rounded, size: 18, color: Color(0xFF1DB954)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_archOverrides[tool.name] != null) ...[
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _archOverrides.remove(tool.name));
+                        Navigator.pop(ctx2);
+                      },
+                      child: const Center(
+                        child: Text(
+                          'Réinitialiser (auto)',
+                          style: TextStyle(
+                            fontSize: 12, color: Color(0xFF9E9E9E),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    void _showSettings(BuildContext ctx, _ToolDef tool) async {
+      final dir = await _binariesDir();
+      final path = '${dir.path}/${tool.name}';
+      final publicPath = '$kPublicBinariesDir/${tool.name}';
+      if (!ctx.mounted) return;
+      showModalBottomSheet<void>(
+        context: ctx,
+        backgroundColor: const Color(0xFF1C1C1C),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '${tool.label} — Paramètres',
+                style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SettingsRow(
+                icon: Icons.folder_open_rounded,
+                label: 'Chemin installé',
+                value: path,
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                icon: Icons.swap_horiz_rounded,
+                label: 'Remplacement manuel',
+                value: publicPath,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Placez votre propre binaire à "Remplacement manuel" — il sera utilisé en priorité.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E), height: 1.5),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     @override
     Widget build(BuildContext context) {
       super.build(context);
@@ -322,13 +475,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ArchSelector(
-            detected: _detectedArch,
-            archOverride: _archOverride,
-            onArchChanged: (arch) => setState(() => _archOverride = arch),
-            cs: cs,
-          ),
-          const SizedBox(height: 8),
           for (final tool in _kTools) ...[
             _BinaryCard(
               tool: tool,
@@ -337,8 +483,31 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
               progress: _progress[tool.name],
               progressLabel: _progressLabel[tool.name],
               statusMsg: _statusMsg[tool.name],
+              arch: _archFor(tool.name),
+              isArchAuto: _archOverrides[tool.name] == null,
+              archDetected: _detectedArch,
               onDownload: () => _downloadTool(tool),
               onReinstall: () => _downloadTool(tool),
+              onUninstall: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    backgroundColor: const Color(0xFF1C1C1C),
+                    title: const Text('Désinstaller ?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                    content: Text('Supprimer ${tool.label} de l'appareil ?', style: const TextStyle(color: Color(0xFF9E9E9E))),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Désinstaller', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok == true) _uninstallTool(tool);
+              },
+              onArchTap: () => _showArchPicker(context, tool),
+              onSettings: () => _showSettings(context, tool),
             ),
             const SizedBox(height: 8),
           ],
@@ -348,200 +517,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   }
 
   // ---------------------------------------------------------------------------
-
-  /// Banner showing the detected CPU architecture with a manual override option.
-  class _ArchSelector extends StatelessWidget {
-    final _Arch? detected;
-    final _Arch? archOverride;
-    final ValueChanged<_Arch?> onArchChanged;
-    final ColorScheme cs;
-
-    // NOT const — ValueChanged is a function type; const constructors with
-    // function-typed fields work only when the field holds a compile-time const,
-    // which is impossible here. Using non-const avoids the compiler error.
-    _ArchSelector({
-      super.key,
-      required this.detected,
-      required this.archOverride,
-      required this.onArchChanged,
-      required this.cs,
-    });
-
-    @override
-    Widget build(BuildContext context) {
-      final effective = archOverride ?? detected;
-      final isAuto = archOverride == null;
-      final autoLabel = detected == null
-          ? 'Détection…'
-          : detected == _Arch.arm64
-              ? 'ARM64 détecté'
-              : 'x86_64 détecté';
-
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.35),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.memory_rounded, size: 16, color: cs.primary),
-                const SizedBox(width: 6),
-                Text(
-                  'Architecture CPU',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const Spacer(),
-                if (detected == null)
-                  SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: cs.primary,
-                    ),
-                  )
-                else
-                  _StatusBadge(
-                    label: isAuto ? 'auto' : 'manuel',
-                    color: isAuto ? Colors.green : Colors.orange,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _ArchChip(
-                  label: 'ARM64',
-                  selected: effective == _Arch.arm64,
-                  cs: cs,
-                  onTap: () => onArchChanged(
-                    detected == _Arch.arm64 && archOverride == null
-                        ? null
-                        : _Arch.arm64,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _ArchChip(
-                  label: 'x86_64',
-                  selected: effective == _Arch.x86_64,
-                  cs: cs,
-                  onTap: () => onArchChanged(
-                    detected == _Arch.x86_64 && archOverride == null
-                        ? null
-                        : _Arch.x86_64,
-                  ),
-                ),
-                if (archOverride != null) ...[
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => onArchChanged(null),
-                    child: Text(
-                      'Auto',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.primary,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              archOverride != null
-                  ? '$autoLabel — remplacé manuellement'
-                  : autoLabel,
-              style: TextStyle(
-                fontSize: 11,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  class _StatusBadge extends StatelessWidget {
-    final String label;
-    final Color color;
-    const _StatusBadge({required this.label, required this.color});
-
-    @override
-    Widget build(BuildContext context) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: color.withValues(alpha: 0.85),
-          ),
-        ),
-      );
-    }
-  }
-
-  class _ArchChip extends StatelessWidget {
-    final String label;
-    final bool selected;
-    final ColorScheme cs;
-    final VoidCallback onTap;
-    const _ArchChip({
-      required this.label,
-      required this.selected,
-      required this.cs,
-      required this.onTap,
-    });
-
-    @override
-    Widget build(BuildContext context) {
-      return GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? cs.primaryContainer : cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected
-                  ? cs.primary.withValues(alpha: 0.5)
-                  : cs.outlineVariant.withValues(alpha: 0.35),
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? cs.primary : cs.onSurfaceVariant,
-            ),
-          ),
-        ),
-      );
-    }
-  }
-
+  // _BinaryCard
   // ---------------------------------------------------------------------------
 
   class _BinaryCard extends StatelessWidget {
@@ -551,8 +527,14 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     final double? progress;
     final String? progressLabel;
     final String? statusMsg;
+    final _Arch arch;
+    final bool isArchAuto;
+    final _Arch? archDetected;
     final VoidCallback onDownload;
     final VoidCallback onReinstall;
+    final VoidCallback onUninstall;
+    final VoidCallback onArchTap;
+    final VoidCallback onSettings;
 
     const _BinaryCard({
       required this.tool,
@@ -561,8 +543,14 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
       required this.progress,
       required this.progressLabel,
       required this.statusMsg,
+      required this.arch,
+      required this.isArchAuto,
+      required this.archDetected,
       required this.onDownload,
       required this.onReinstall,
+      required this.onUninstall,
+      required this.onArchTap,
+      required this.onSettings,
     });
 
     @override
@@ -574,21 +562,20 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
+          color: const Color(0xFF1A1A1A),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.35),
-          ),
+          border: Border.all(color: const Color(0xFF2A2A2A)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Header row ────────────────────────────────────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Icon
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 48, height: 48,
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
@@ -596,127 +583,166 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   child: Icon(tool.icon, color: cs.primary, size: 26),
                 ),
                 const SizedBox(width: 12),
+                // Name + status
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            tool.label,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
-                            ),
+                      Row(children: [
+                        Text(
+                          tool.label,
+                          style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white,
                           ),
-                          if (isInstalled) ...[
-                            const SizedBox(width: 8),
-                            _StatusBadge(
-                              label: 'installé',
-                              color: Colors.green,
-                            ),
-                          ],
+                        ),
+                        if (isInstalled) ...[
+                          const SizedBox(width: 8),
+                          _SmallBadge(label: 'installé', color: Colors.green),
                         ],
-                      ),
+                      ]),
                       const SizedBox(height: 2),
                       Text(
                         isInstalled ? installedSize! : 'Non installé',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                        ),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: isDownloading
-                      ? null
-                      : (isInstalled ? onReinstall : onDownload),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isDownloading
-                          ? cs.surfaceContainerHigh
-                          : isInstalled
-                              ? cs.primaryContainer
-                              : cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: isDownloading
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              value: progress,
-                              color: cs.primary,
-                            ),
-                          )
-                        : Icon(
-                            isInstalled
-                                ? Icons.refresh_rounded
-                                : Icons.download_rounded,
-                            size: 20,
-                            color: isInstalled
-                                ? cs.primary
-                                : cs.onSurfaceVariant,
-                          ),
+                // Action buttons
+                if (isInstalled) ...[
+                  // Settings gear
+                  _IconBtn(
+                    icon: Icons.settings_rounded,
+                    onTap: onSettings,
+                    color: cs.onSurfaceVariant,
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  // 3-dot menu
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
+                    color: const Color(0xFF242424),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onSelected: (v) {
+                      if (v == 'reinstall') onReinstall();
+                      if (v == 'uninstall') onUninstall();
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'reinstall',
+                        child: Row(children: [
+                          Icon(Icons.refresh_rounded, size: 16, color: Colors.white70),
+                          SizedBox(width: 10),
+                          Text('Réinstaller', style: TextStyle(color: Colors.white, fontSize: 13)),
+                        ]),
+                      ),
+                      const PopupMenuItem(
+                        value: 'uninstall',
+                        child: Row(children: [
+                          Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
+                          SizedBox(width: 10),
+                          Text('Désinstaller', style: TextStyle(color: Colors.red, fontSize: 13)),
+                        ]),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // Download button
+                  _IconBtn(
+                    icon: isDownloading ? null : Icons.download_rounded,
+                    progress: isDownloading ? progress : null,
+                    onTap: isDownloading ? null : onDownload,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 10),
+            // ── Description ───────────────────────────────────────────────────
             Text(
               tool.description,
-              style: TextStyle(
-                fontSize: 13,
-                color: cs.onSurfaceVariant,
-                height: 1.45,
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF9E9E9E), height: 1.45),
             ),
-            if (isDownloading) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 5,
-                        backgroundColor: cs.surfaceContainerHigh,
-                        valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+            const SizedBox(height: 8),
+            // ── Tags row + arch chip ──────────────────────────────────────────
+            Row(
+              children: [
+                // Arch chip (tappable)
+                GestureDetector(
+                  onTap: onArchTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isArchAuto
+                          ? cs.primaryContainer.withOpacity(0.6)
+                          : Colors.orange.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isArchAuto
+                            ? cs.primary.withOpacity(0.4)
+                            : Colors.orange.withOpacity(0.5),
                       ),
                     ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(
+                        Icons.memory_rounded,
+                        size: 11,
+                        color: isArchAuto ? cs.primary : Colors.orange.shade400,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        arch.abiName,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isArchAuto ? cs.primary : Colors.orange.shade400,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.arrow_drop_down_rounded,
+                        size: 14,
+                        color: isArchAuto ? cs.primary : Colors.orange.shade400,
+                      ),
+                    ]),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    progress != null && progress! > 0
-                        ? '${(progress! * 100).toStringAsFixed(0)}%'
-                        : '…',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                _TagChip(label: tool.name == 'aria2c' ? 'HTTP/FTP' : 'Universal'),
+              ],
+            ),
+            // ── Download progress ─────────────────────────────────────────────
+            if (isDownloading) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 5,
+                      backgroundColor: cs.surfaceContainerHigh,
+                      valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  progress != null && progress! > 0
+                      ? '${(progress! * 100).toStringAsFixed(0)}%'
+                      : '…',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
+                ),
+              ]),
               if (progressLabel != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   progressLabel!,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                  ),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
                 ),
               ],
             ],
+            // ── Status message ────────────────────────────────────────────────
             if (statusMsg != null && !isDownloading) ...[
               const SizedBox(height: 8),
               Text(
@@ -725,7 +751,9 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   fontSize: 12,
                   color: statusMsg!.contains('Erreur')
                       ? cs.error
-                      : Colors.green.shade600,
+                      : statusMsg!.contains('Désinstallé')
+                          ? const Color(0xFF9E9E9E)
+                          : Colors.green.shade600,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -734,5 +762,116 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
         ),
       );
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Small reusable widgets
+  // ---------------------------------------------------------------------------
+
+  class _SmallBadge extends StatelessWidget {
+    final String label;
+    final Color color;
+    const _SmallBadge({required this.label, required this.color});
+
+    @override
+    Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10, fontWeight: FontWeight.w700,
+          color: color.withOpacity(0.9),
+        ),
+      ),
+    );
+  }
+
+  class _IconBtn extends StatelessWidget {
+    final IconData? icon;
+    final double? progress;
+    final VoidCallback? onTap;
+    final Color color;
+    const _IconBtn({this.icon, this.progress, this.onTap, required this.color});
+
+    @override
+    Widget build(BuildContext context) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36, height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFF242424),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: progress != null
+              ? SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    value: progress,
+                    color: color,
+                  ),
+                )
+              : Icon(icon, size: 20, color: color),
+        ),
+      );
+    }
+  }
+
+  class _TagChip extends StatelessWidget {
+    final String label;
+    const _TagChip({required this.label});
+
+    @override
+    Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E), fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+  class _SettingsRow extends StatelessWidget {
+    final IconData icon;
+    final String label;
+    final String value;
+    const _SettingsRow({required this.icon, required this.label, required this.value});
+
+    @override
+    Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF242424),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF9E9E9E)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E))),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 12, color: Colors.white70, fontFamily: 'monospace'),
+              ),
+            ]),
+          ),
+        ],
+      ),
+    );
   }
   
