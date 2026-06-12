@@ -1730,25 +1730,6 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
           AppLogger.log('Primary ABI: $primaryAbi (full: $abiList)', tag: LogTag.download);
           if (primaryAbi.contains('x86_64')) cpuArch = 'x86_64';
         } catch (_) {}
-        String cpuArch = 'aarch64';
-        try {
-          final propR = await Process.run('getprop', ['ro.product.cpu.abilist']);
-          final abiList = propR.stdout.toString().trim().toLowerCase();
-          if (abiList.contains('arm64-v8a')) {
-            cpuArch = 'arm64-v8a';
-          } else if (abiList.contains('x86_64')) {
-            try {
-              final bridgeR = await Process.run('getprop', ['ro.dalvik.vm.native.bridge']);
-              final bridge = bridgeR.stdout.toString().trim();
-              cpuArch = (bridge.isNotEmpty && bridge != '0') ? 'arm64-v8a' : 'x86_64';
-            } catch (_) { cpuArch = 'x86_64'; }
-          }
-        } catch (_) {
-          try {
-            final unameR = await Process.run('uname', ['-m']);
-            cpuArch = unameR.stdout.toString().trim();
-          } catch (_) {}
-        }
 
       // chmod + exec via sh (direct Process.start on /data/... fails on Android)
       final proc = await Process.start(
