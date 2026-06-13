@@ -49,6 +49,7 @@ class UiSettingsScreen extends ConsumerWidget {
     final showSynopsis = ref.watch(carouselSynopsisProvider);
     final glowEffects = ref.watch(glowEffectsProvider);
     final kenBurns = ref.watch(kenBurnsProvider);
+    final pageTransStyle = ref.watch(pageTransitionStyleProvider);
     final headerBlur = ref.watch(headerBlurProvider);
     final bottomSheetBlur = ref.watch(bottomSheetBlurProvider);
     final blurIntensity = ref.watch(blurIntensityProvider);
@@ -179,9 +180,62 @@ class UiSettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const Divider(height: 24),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(
+                'TRANSITIONS & ANIMATIONS',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+              ),
+            ),
+            ListTile(
+              leading: iconBox(Icons.flip_rounded),
+              title: const Text('Style de transition'),
+              subtitle: Text(
+                pageTransitionStyleLabels[pageTransStyle],
+                style: TextStyle(fontSize: 11, color: context.secondaryColor),
+              ),
+              onTap: () => _showPageTransitionDialog(context, ref),
+            ),
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPageTransitionDialog(BuildContext context, WidgetRef ref) {
+    final current = ref.read(pageTransitionStyleProvider);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Style de transition'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(
+              pageTransitionStyleLabels.length,
+              (i) => RadioListTile<int>(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: i,
+                groupValue: current,
+                title: Text(pageTransitionStyleLabels[i]),
+                onChanged: (v) {
+                  if (v != null) ref.read(pageTransitionStyleProvider.notifier).set(v);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler', style: TextStyle(color: context.primaryColor)),
+          ),
+        ],
       ),
     );
   }
