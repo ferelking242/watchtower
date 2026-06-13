@@ -982,3 +982,190 @@ final anilistBrowseProvider =
     FutureProvider.autoDispose.family<AnilistBrowsePage, AnilistBrowseFilter>(
   (ref, filter) => _fetchBrowsePage(filter),
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Thread model + provider
+// ─────────────────────────────────────────────────────────────────────────────
+
+class AnilistThread {
+  final int id;
+  final String title;
+  final int viewCount;
+  final int replyCount;
+  final int likeCount;
+  final int? repliedAt;
+  final String userName;
+  final String? userAvatar;
+  final List<String> categories;
+
+  const AnilistThread({
+    required this.id,
+    required this.title,
+    required this.viewCount,
+    required this.replyCount,
+    required this.likeCount,
+    this.repliedAt,
+    required this.userName,
+    this.userAvatar,
+    this.categories = const [],
+  });
+
+  factory AnilistThread.fromJson(Map<String, dynamic> json) {
+    final user = (json['user'] as Map?)?.cast<String, dynamic>() ?? {};
+    final cats = (json['categories'] as List?) ?? [];
+    return AnilistThread(
+      id: (json['id'] as num).toInt(),
+      title: json['title'] as String? ?? '',
+      viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
+      replyCount: (json['replyCount'] as num?)?.toInt() ?? 0,
+      likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+      repliedAt: (json['repliedAt'] as num?)?.toInt(),
+      userName: user['name'] as String? ?? 'Anonymous',
+      userAvatar: (user['avatar'] as Map?)?['medium'] as String?,
+      categories: cats
+          .whereType<Map>()
+          .map((c) => c['name'] as String? ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList(),
+    );
+  }
+
+  String timeAgo() {
+    if (repliedAt == null) return '';
+    final diff = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(repliedAt! * 1000));
+    if (diff.inDays > 365) return '${(diff.inDays / 365).floor()} years ago';
+    if (diff.inDays > 30) return '${(diff.inDays / 30).floor()} months ago';
+    if (diff.inDays > 0) return '${diff.inDays} days ago';
+    if (diff.inHours > 0) return '${diff.inHours} hours ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes} minutes ago';
+    return 'just now';
+  }
+}
+
+Future<List<AnilistThread>> _fetchThreads(int mediaId) async {
+  const query = r'''
+query ($mediaId: Int, $page: Int) {
+  Page(page: $page, perPage: 20) {
+    threads(mediaCategoryId: $mediaId, sort: [REPLIED_AT_DESC]) {
+      id title viewCount replyCount likeCount repliedAt
+      user { name avatar { medium } }
+      categories { name }
+    }
+  }
+}
+''';
+  final response = await http.post(
+    Uri.parse('https://graphql.anilist.co'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'query': query, 'variables': {'mediaId': mediaId, 'page': 1}}),
+  ).timeout(const Duration(seconds: 20));
+  if (response.statusCode != 200) throw Exception('Threads HTTP ${response.statusCode}');
+  final data = jsonDecode(response.body) as Map<String, dynamic>;
+  final list = (data['data']?['Page']?['threads'] as List?) ?? [];
+  return list
+      .whereType<Map>()
+      .map((t) => AnilistThread.fromJson(t.cast<String, dynamic>()))
+      .toList();
+}
+
+final threadsProvider = FutureProvider.autoDispose.family<List<AnilistThread>, int>(
+  (ref, mediaId) => _fetchThreads(mediaId),
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Activity model + provider
+// ─────────────────────────────────────────────────────────────────────────────
+
+class AnilistActivity {
+  final int id;
+  final String? status;
+  final String? progress;
+  final int createdAt;
+  final String userName;
+  final String? userAvatar;
+  final String? mediaTitle;
+  final String? mediaCover;
+  final String? mediaType;
+
+  const AnilistActivity({
+    required this.id,
+    this.status,
+    this.progress,
+    required this.createdAt,
+    required this.userName,
+    this.userAvatar,
+    this.mediaTitle,
+    this.mediaCover,
+    this.mediaType,
+  });
+
+  factory AnilistActivity.fromJson(Map<String, dynamic> json) {
+    final user = (json['user'] as Map?)?.cast<String, dynamic>() ?? {};
+    final media = (json['media'] as Map?)?.cast<String, dynamic>() ?? {};
+    final title = (media['title'] as Map?)?.cast<String, dynamic>() ?? {};
+    final cover = (media['coverImage'] as Map?)?.cast<String, dynamic>() ?? {};
+    return AnilistActivity(
+      id: (json['id'] as num).toInt(),
+      status: json['status'] as String?,
+      progress: json['progress'] as String?,
+      createdAt: (json['createdAt'] as num?)?.toInt() ?? 0,
+      userName: user['name'] as String? ?? 'Anonymous',
+      userAvatar: (user['avatar'] as Map?)?['medium'] as String?,
+      mediaTitle: (title['english'] as String?) ?? (title['romaji'] as String?),
+      mediaCover: cover['medium'] as String?,
+      mediaType: media['type'] as String?,
+    );
+  }
+
+  String get actionText {
+    final s = status ?? '';
+    final p = progress ?? '';
+    if (p.isNotEmpty) return '$s $p';
+    return s;
+  }
+
+  String timeAgo() {
+    final diff = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(createdAt * 1000));
+    if (diff.inDays > 365) return '${(diff.inDays / 365).floor()} years ago';
+    if (diff.inDays > 30) return '${(diff.inDays / 30).floor()} months ago';
+    if (diff.inDays > 0) return '${diff.inDays} days ago';
+    if (diff.inHours > 0) return '${diff.inHours} hours ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes} minutes ago';
+    return 'just now';
+  }
+}
+
+Future<List<AnilistActivity>> _fetchActivities(int mediaId) async {
+  const query = r'''
+query ($mediaId: Int, $page: Int) {
+  Page(page: $page, perPage: 25) {
+    activities(mediaId: $mediaId, sort: [ID_DESC]) {
+      ... on ListActivity {
+        id status progress createdAt
+        user { name avatar { medium } }
+        media { type title { romaji english } coverImage { medium } }
+      }
+    }
+  }
+}
+''';
+  final response = await http.post(
+    Uri.parse('https://graphql.anilist.co'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'query': query, 'variables': {'mediaId': mediaId, 'page': 1}}),
+  ).timeout(const Duration(seconds: 20));
+  if (response.statusCode != 200) throw Exception('Activities HTTP ${response.statusCode}');
+  final data = jsonDecode(response.body) as Map<String, dynamic>;
+  final list = (data['data']?['Page']?['activities'] as List?) ?? [];
+  return list
+      .whereType<Map>()
+      .where((a) => (a as Map).containsKey('id') && a['id'] != null)
+      .map((a) => AnilistActivity.fromJson((a as Map).cast<String, dynamic>()))
+      .toList();
+}
+
+final activitiesProvider = FutureProvider.autoDispose.family<List<AnilistActivity>, int>(
+  (ref, mediaId) => _fetchActivities(mediaId),
+);
