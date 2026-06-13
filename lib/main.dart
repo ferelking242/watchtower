@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
@@ -317,10 +318,15 @@ class _MyAppState extends ConsumerState<MyApp>
         : (forcedDark ? ThemeMode.dark : ThemeMode.light);
     final locale = ref.watch(l10nLocaleStateProvider);
     final router = ref.watch(routerProvider);
+    final pageTransStyle = ref.watch(pageTransitionStyleProvider);
 
     return MaterialApp.router(
-      theme: ref.watch(lightThemeProvider),
-      darkTheme: ref.watch(darkThemeProvider),
+      theme: ref.watch(lightThemeProvider).copyWith(
+        pageTransitionsTheme: _buildPageTransitionsTheme(pageTransStyle),
+      ),
+      darkTheme: ref.watch(darkThemeProvider).copyWith(
+        pageTransitionsTheme: _buildPageTransitionsTheme(pageTransStyle),
+      ),
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       locale: locale,
@@ -656,4 +662,37 @@ class AllowScrollBehavior extends MaterialScrollBehavior {
     PointerDeviceKind.trackpad,
     PointerDeviceKind.unknown,
   };
+}
+
+// ── Page transition theme helper ─────────────────────────────────────────────
+
+PageTransitionsTheme _buildPageTransitionsTheme(int style) {
+  PageTransitionsBuilder builder;
+  switch (style) {
+    case 1:
+      builder = const CupertinoPageTransitionsBuilder();
+    case 2:
+      builder = const ZoomPageTransitionsBuilder();
+    case 3:
+      builder = const _NoTransitionBuilder();
+    default:
+      builder = const FadeUpwardsPageTransitionsBuilder();
+  }
+  return PageTransitionsTheme(builders: {
+    for (final p in TargetPlatform.values) p: builder,
+  });
+}
+
+class _NoTransitionBuilder extends PageTransitionsBuilder {
+  const _NoTransitionBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) =>
+      child;
 }
