@@ -54,13 +54,13 @@ class ZeusDlBinaryManager {
 
   /// Resolves the full execution context needed to launch ZeusDL.
   ///
-  /// On Android, libzeusdl.so is the full staticx binary (PIE/ET_DYN).
+  /// On Android, libzeusdl.so is the Nuitka PIE binary (ET_DYN).
   /// It lives in nativeLibraryDir which is always exec-capable, even on
   /// Samsung Knox (apk_data_file SELinux context allows execution).
   ///
-  /// staticx extracts its payload to $STATICX_TMPDIR. We set it to
-  /// /data/local/tmp which is world-writable and exec-capable (shell_data_file)
-  /// on all Android variants including Knox.
+  /// Nuitka onefile extracts its Python payload to TMPDIR via dlopen().
+  /// We use cacheDir (app_data_file) — dlopen is SELinux-allowed there on
+  /// all Android versions (unlike execve which is blocked on Android 10+).
   Future<ZeusDlExecutionContext?> resolveExecutionContext() async {
     if (Platform.isAndroid) {
       try {
