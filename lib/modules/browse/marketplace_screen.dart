@@ -15,6 +15,7 @@ import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, installedPluginsProvider, PluginEntry, PluginDetailPage, PluginDetailSheet;
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
+import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -160,20 +161,34 @@ class MarketplaceScreen extends ConsumerStatefulWidget {
 }
 
 // Tab indices
-const _kTabHome   = 0;
-const _kTabManga  = 1;
-const _kTabAnime  = 2;
-const _kTabNovel  = 3;
-const _kTabGames  = 4;
-const _kTabMusic  = 5;
-const _kTabPlugin = 6;
-const _kTabBinary = 7;
+const _kTabHome    = 0;
+const _kTabManga   = 1;
+const _kTabAnime   = 2;
+const _kTabNovel   = 3;
+const _kTabGames   = 4;
+const _kTabMusic   = 5;
+const _kTabPlugin  = 6;
+const _kTabBinary  = 7;
+const _kTabMihon   = 8;
+const _kTabAniyomi = 9;
+
+// Mihon / Aniyomi community APK repo index URLs
+const _kMihonMangaRepos = [
+  'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
+  'https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.min.json',
+  'https://raw.githubusercontent.com/Kareadita/tach-extension/repo/index.min.json',
+];
+const _kAniyomiAnimeRepos = [
+  'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo/index.min.json',
+];
 
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     with TickerProviderStateMixin {
 
   // ── Data ─────────────────────────────────────────────────────────────────────
   List<_ExtEntry> _all = [];
+  List<_ExtEntry> _mihonEntries = [];
+  List<_ExtEntry> _aniyomiEntries = [];
   Set<int> _installed = {};
   final Map<int, bool> _busy = {};
   Map<int, String> _installedVersions = {};
@@ -201,6 +216,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     _kTabMusic: _CompatF.all,
     _kTabPlugin: _CompatF.all,
     _kTabBinary: _CompatF.all,
+    _kTabMihon: _CompatF.all,
+    _kTabAniyomi: _CompatF.all,
   };
 
   // ── Play Store enhanced filter state ─────────────────────────────────────────
@@ -214,6 +231,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Cache (survives navigation) ──────────────────────────────────────────
   static List<_ExtEntry>? _cachedAll;
+  static List<_ExtEntry>? _cachedMihon;
+  static List<_ExtEntry>? _cachedAniyomi;
   static DateTime? _cacheTime;
   String? _globalLangFilter;
   String? _globalRepoFilter;
@@ -248,10 +267,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 8, vsync: this);
+    _tabCtrl = TabController(length: 10, vsync: this);
     if (_cachedAll != null && _cacheTime != null &&
         DateTime.now().difference(_cacheTime!) < const Duration(seconds: 30)) {
       _all = _cachedAll!;
+      _mihonEntries = _cachedMihon ?? [];
+      _aniyomiEntries = _cachedAniyomi ?? [];
       _loading = false;
     } else {
       _loadAll();
@@ -326,19 +347,16 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   Future<void> _loadAll({bool bypassCache = false}) async {
-      // First entry: skeleton loading. Refresh: keep UI alive, show progress bar.
-      if (_all.isEmpty) {
+      if (_all.isEmpty && _mihonEntries.isEmpty) {
         setState(() { _loading = true; _error = null; });
       } else {
         setState(() { _refreshing = true; });
       }
-      // Always invalidate the static cache on an explicit reload so that
-      // re-opening the marketplace sees fresh data rather than the 5-min snapshot.
       if (bypassCache) {
         _cachedAll = null;
+        _cachedMihon = null;
+        _cachedAniyomi = null;
         _cacheTime = null;
-        // Silently purge jsDelivr CDN before fetching so we always get the
-        // latest index — users never see stale versions after an extension push.
         await _purgeJsDelivr();
       }
       try {
@@ -348,9 +366,17 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _fetch('$_kWtBase/novel/index.json').catchError((_) => <_ExtEntry>[]),
           _fetch('$_kWtBase/music/index.json').catchError((_) => <_ExtEntry>[]),
           _fetch('$_kWtBase/game/index.json').catchError((_) => <_ExtEntry>[]),
+          _fetchMihonMerged(_kMihonMangaRepos).catchError((_) => <_ExtEntry>[]),
+          _fetchMihonMerged(_kAniyomiAnimeRepos).catchError((_) => <_ExtEntry>[]),
         ]);
         if (mounted) setState(() {
-          _all = results.expand((l) => l).toList();
+          _all = results.take(5).expand((l) => l).toList();
+          _mihonEntries = results[5];
+          _aniyomiEntries = results[6];
+          _cachedAll = _all;
+          _cachedMihon = _mihonEntries;
+          _cachedAniyomi = _aniyomiEntries;
+          _cacheTime = DateTime.now();
           _loading = false;
           _refreshing = false;
           _error = null;
@@ -538,14 +564,78 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Raw tab entries (no enhanced filters) ────────────────────────────────────
   List<_ExtEntry> _forTabRaw(int tab) {
     switch (tab) {
-      case _kTabManga: return _all.where((e) => e.contentType == ItemType.manga).toList();
-      case _kTabAnime: return _all.where((e) => e.contentType == ItemType.anime).toList();
-      case _kTabNovel: return _all.where((e) => e.contentType == ItemType.novel).toList();
-      case _kTabGames: return _all.where((e) => e.contentType == ItemType.game).toList();
-      case _kTabMusic: return _all.where((e) => e.contentType == ItemType.music).toList();
-      case _kTabPlugin: return [];
-      default: return _all;
+      case _kTabManga:   return _all.where((e) => e.contentType == ItemType.manga).toList();
+      case _kTabAnime:   return _all.where((e) => e.contentType == ItemType.anime).toList();
+      case _kTabNovel:   return _all.where((e) => e.contentType == ItemType.novel).toList();
+      case _kTabGames:   return _all.where((e) => e.contentType == ItemType.game).toList();
+      case _kTabMusic:   return _all.where((e) => e.contentType == ItemType.music).toList();
+      case _kTabPlugin:  return [];
+      case _kTabBinary:  return [];
+      case _kTabMihon:   return _mihonEntries;
+      case _kTabAniyomi: return _aniyomiEntries;
+      default:           return [..._all, ..._mihonEntries, ..._aniyomiEntries];
     }
+  }
+
+  // Maps visual tab-controller index → logical tab constant
+  int _visualToTabConst(int visual) {
+    const m = [
+      _kTabHome,    // 0
+      _kTabAnime,   // 1 Watch
+      _kTabManga,   // 2 Manga
+      _kTabMihon,   // 3 Mihon
+      _kTabAniyomi, // 4 Aniyomi
+      _kTabNovel,   // 5 Novel
+      _kTabGames,   // 6 Game
+      _kTabMusic,   // 7 Music
+      _kTabPlugin,  // 8 Plugin
+      _kTabBinary,  // 9 Binary
+    ];
+    return visual < m.length ? m[visual] : _kTabHome;
+  }
+
+  // Maps logical tab constant → visual tab-controller index
+  int _tabConstToVisual(int tabConst) {
+    const m = {
+      _kTabHome: 0,    _kTabAnime: 1,   _kTabManga: 2,
+      _kTabMihon: 3,   _kTabAniyomi: 4, _kTabNovel: 5,
+      _kTabGames: 6,   _kTabMusic: 7,   _kTabPlugin: 8,
+      _kTabBinary: 9,
+    };
+    return m[tabConst] ?? 0;
+  }
+
+  // Compare version strings (e.g. "14.12.3" vs "14.13.0")
+  int _compareVersions(String a, String b) {
+    final pa = a.split('.').map((v) => int.tryParse(v) ?? 0).toList();
+    final pb = b.split('.').map((v) => int.tryParse(v) ?? 0).toList();
+    for (int i = 0; i < pa.length || i < pb.length; i++) {
+      final va = i < pa.length ? pa[i] : 0;
+      final vb = i < pb.length ? pb[i] : 0;
+      if (va != vb) return va.compareTo(vb);
+    }
+    return 0;
+  }
+
+  // Fetch from multiple repos and deduplicate by name|contentType keeping
+  // the highest version (same dedup strategy as Mihon itself)
+  Future<List<_ExtEntry>> _fetchMihonMerged(List<String> repoUrls) async {
+    final all = <_ExtEntry>[];
+    for (final url in repoUrls) {
+      try {
+        all.addAll(await _fetch(url));
+      } catch (_) {}
+    }
+    final best = <String, _ExtEntry>{};
+    for (final e in all) {
+      final key = '${e.name.toLowerCase()}|${e.contentType.index}';
+      final ex = best[key];
+      if (ex == null || _compareVersions(e.version, ex.version) > 0) {
+        best[key] = e;
+      }
+    }
+    return best.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
   List<_ExtEntry> _forTab(int tab) {
@@ -583,9 +673,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   List<_ExtEntry> get _searchResults {
     if (_searchQuery.isEmpty) return [];
     final q = _searchQuery.toLowerCase();
-    return _all.where((e) =>
-        e.name.toLowerCase().contains(q) ||
-        e.lang.toLowerCase().contains(q)).take(60).toList();
+    return [..._all, ..._mihonEntries, ..._aniyomiEntries]
+        .where((e) => e.name.toLowerCase().contains(q) || e.lang.toLowerCase().contains(q))
+        .take(80)
+        .toList();
   }
 
   List<_ExtEntry> get _featured => _all
@@ -667,14 +758,16 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     child: TabBarView(
                       controller: _tabCtrl,
                       children: [
-                        _TypeTab(state: this, tab: _kTabHome),
-                        _TypeTab(state: this, tab: _kTabAnime),
-                        _TypeTab(state: this, tab: _kTabManga),
-                        _TypeTab(state: this, tab: _kTabNovel),
-                        _TypeTab(state: this, tab: _kTabGames),
-                        _TypeTab(state: this, tab: _kTabMusic),
-                        _TypeTab(state: this, tab: _kTabPlugin),
-                        const _BinaryTab(),
+                        _TypeTab(state: this, tab: _kTabHome),    // 0 Tout
+                        _TypeTab(state: this, tab: _kTabAnime),   // 1 Watch
+                        _TypeTab(state: this, tab: _kTabManga),   // 2 Manga
+                        _TypeTab(state: this, tab: _kTabMihon),   // 3 Mihon
+                        _TypeTab(state: this, tab: _kTabAniyomi), // 4 Aniyomi
+                        _TypeTab(state: this, tab: _kTabNovel),   // 5 Novel
+                        _TypeTab(state: this, tab: _kTabGames),   // 6 Game
+                        _TypeTab(state: this, tab: _kTabMusic),   // 7 Music
+                        _TypeTab(state: this, tab: _kTabPlugin),  // 8 Plugin
+                        const _BinaryTab(),                       // 9 Binary
                       ],
                     ),
                   ),
@@ -809,7 +902,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         },
         onRepos: () {
           _closeAccountDropdown();
-          context.push('/browse/source-repositories');
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const ExtensionRepositoriesScreen(),
+          ));
         },
       ),
     );
@@ -826,20 +921,18 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
 
   Widget _buildTabBarRow(ColorScheme cs, ThemeData theme, {int pluginCount = 0}) {
-    final rawCounts = [
-      _all.length,
-      _all.where((e) => e.contentType == ItemType.anime).length,
-      _all.where((e) => e.contentType == ItemType.manga).length,
-      _all.where((e) => e.contentType == ItemType.novel).length,
-      _all.where((e) => e.contentType == ItemType.game).length,
-      _all.where((e) => e.contentType == ItemType.music).length,
-      pluginCount,
-      2,
+    // Row 1: Tout | Watch | Manga | Mihon | Aniyomi
+    // Row 2: Novel | Game | Music | Plugin | Binary
+    const labels = [
+      'Tout', 'Watch', 'Manga', 'Mihon', 'Aniyomi',
+      'Novel', 'Game', 'Music', 'Plugin', 'Binary',
     ];
-    final labels = <String>['Tout', 'Watch', 'Manga', 'Novel', 'Game', 'Music', 'Plugin', 'Binary'];
-    final icons  = <IconData>[Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
-                              Icons.menu_book_rounded, Icons.sports_esports_rounded, Icons.music_note_rounded,
-                              Icons.extension_rounded, Icons.memory_rounded];
+    const icons = <IconData>[
+      Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
+      Icons.android_rounded, Icons.smart_display_rounded,
+      Icons.menu_book_rounded, Icons.sports_esports_rounded,
+      Icons.music_note_rounded, Icons.extension_rounded, Icons.memory_rounded,
+    ];
     return Container(
       color: theme.scaffoldBackgroundColor,
       child: Padding(
@@ -873,24 +966,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
                           color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF71717A)),
                           overflow: TextOverflow.ellipsis, maxLines: 1)),
-                        const SizedBox(width: 3),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: sel ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text('${rawCounts[i]}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
-                            color: sel ? const Color(0xFFE0E7FF) : const Color(0xFFA1A1AA))),
-                        ),
                       ]),
                     ),
                   ));
                 }
                 return <Widget>[
-                  Row(children: [chip(0), chip(1), chip(2), chip(3)]),
+                  Row(children: [chip(0), chip(1), chip(2), chip(3), chip(4)]),
                   const SizedBox(height: 2),
-                  Row(children: [chip(4), chip(5), chip(6), chip(7)]),
+                  Row(children: [chip(5), chip(6), chip(7), chip(8), chip(9)]),
                 ];
               }(),
             ),
@@ -955,7 +1038,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (m != null) repoSet.add(m.group(1)!);
     }
     final repos = repoSet.toList()..sort();
-    final tabItems = _forTabRaw(_tabCtrl.index);
+    final tabItems = _forTabRaw(_visualToTabConst(_tabCtrl.index));
     final humanLangs = tabItems.map((e) => e.lang).toSet().toList()..sort();
     final activeCount = (_globalRepoFilter != null ? 1 : 0)
         + (_globalProgLangFilter != null ? 1 : 0)
@@ -1328,11 +1411,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Widget _buildSearchBrowse(ColorScheme cs) {
     // Content type categories grid (Play Store style)
     final categories = [
-      (_kTabAnime, Icons.live_tv_rounded, 'Anime', const Color(0xFF9C27B0)),
-      (_kTabManga, Icons.auto_stories_rounded, 'Manga', const Color(0xFFE91E63)),
-      (_kTabNovel, Icons.menu_book_rounded, 'Novel', const Color(0xFF009688)),
-      (_kTabMusic, Icons.music_note_rounded, 'Music', const Color(0xFF0288D1)),
-      (_kTabGames, Icons.sports_esports_rounded, 'Jeux', const Color(0xFF607D8B)),
+      (_kTabAnime,   Icons.live_tv_rounded,       'Anime',   const Color(0xFF9C27B0)),
+      (_kTabManga,   Icons.auto_stories_rounded,  'Manga',   const Color(0xFFE91E63)),
+      (_kTabMihon,   Icons.android_rounded,       'Mihon',   const Color(0xFF2196F3)),
+      (_kTabAniyomi, Icons.smart_display_rounded, 'Aniyomi', const Color(0xFF00BCD4)),
+      (_kTabNovel,   Icons.menu_book_rounded,     'Novel',   const Color(0xFF009688)),
+      (_kTabMusic,   Icons.music_note_rounded,    'Music',   const Color(0xFF0288D1)),
+      (_kTabGames,   Icons.sports_esports_rounded,'Jeux',    const Color(0xFF607D8B)),
     ];
 
     return SingleChildScrollView(
@@ -1363,7 +1448,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           color: categories[i].$4,
                           onTap: () {
                             _closeSearch();
-                            _tabCtrl.animateTo(categories[i].$1);
+                            _tabCtrl.animateTo(_tabConstToVisual(categories[i].$1));
                           },
                         )),
                         const SizedBox(width: 8),
@@ -1374,7 +1459,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                             color: categories[i + 1].$4,
                             onTap: () {
                               _closeSearch();
-                              _tabCtrl.animateTo(categories[i + 1].$1);
+                              _tabCtrl.animateTo(_tabConstToVisual(categories[i + 1].$1));
                             },
                           ))
                         else
@@ -3685,7 +3770,9 @@ class _IconChip extends StatelessWidget {
                       title: 'Gérer les dépôts',
                       onTap: () {
                         Navigator.pop(context);
-                        context.push('/browse/source-repositories');
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => const ExtensionRepositoriesScreen(),
+                        ));
                       },
                     ),
                     Divider(height: 1, indent: 20, endIndent: 20, color: cs.outlineVariant.withValues(alpha: 0.4)),
