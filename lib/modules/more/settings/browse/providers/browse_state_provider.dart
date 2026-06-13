@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
@@ -276,3 +277,9 @@ bool _checkValidUrl(Response res) {
   }
   return true;
 }
+
+/// True while the extension-index scanner is running.
+/// Set to true before starting a scan, false when done.
+/// Consumed by [_ScanStatusBar] in sources_screen.dart.
+final extensionScanningProvider = StateProvider<bool>((ref) => false);
+
