@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   # ────────────────────────────────────────────────────────────
-  # Android — split APKs per ABI
+  # Android — split APKs per ABI (release, ultra-compressed artifact)
   # ────────────────────────────────────────────────────────────
   build-android:
     name: Android (${{ matrix.label }})
@@ -44,7 +44,6 @@ jobs:
 
       - name: Flutter pub get
         run: flutter pub get
-        working-directory: .
 
       - name: Decode keystore
         if: ${{ env.KEYSTORE_BASE64 != '' }}
@@ -56,7 +55,7 @@ jobs:
       - name: Build APK — ${{ matrix.label }}
         run: |
           flutter build apk \
-            --profile \
+            --release \
             --target-platform ${{ matrix.target }} \
             --split-per-abi
         env:
@@ -64,15 +63,27 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload APK
+      - name: Repack APK with maximum compression (7z LZMA2)
+        run: |
+          sudo apt-get install -y p7zip-full --quiet
+          mkdir -p artifacts
+          for apk in build/app/outputs/flutter-apk/*.apk; do
+            base=$(basename "$apk" .apk)
+            7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
+              "artifacts/${base}-${{ matrix.label }}.7z" "$apk"
+          done
+          ls -lh artifacts/
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-${{ matrix.label }}
-          path: build/app/outputs/flutter-apk/*.apk
+          path: artifacts/*.7z
+          compression-level: 0
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
-  # Android Universal (all ABIs in one APK)
+  # Android Universal (all ABIs — ultra-compressed)
   # ────────────────────────────────────────────────────────────
   build-android-universal:
     name: Android (Universal)
@@ -103,17 +114,26 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
 
       - name: Build Universal APK
-        run: flutter build apk --profile
+        run: flutter build apk --release
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload Universal APK
+      - name: Repack APK with maximum compression (7z LZMA2)
+        run: |
+          sudo apt-get install -y p7zip-full --quiet
+          7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
+            watchtower-android-universal.7z \
+            build/app/outputs/flutter-apk/app-release.apk
+          ls -lh watchtower-android-universal.7z
+
+      - name: Upload Universal APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-universal
-          path: build/app/outputs/flutter-apk/app-profile.apk
+          path: watchtower-android-universal.7z
+          compression-level: 0
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
@@ -136,21 +156,22 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (no codesign)
-        run: |
-          flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign
 
-      - name: Package IPA
+      - name: Package IPA (max compressed)
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r Watchtower-iOS.ipa Payload/
+          zip -r9 Watchtower-iOS.ipa Payload/
           rm -rf Payload
+          ls -lh Watchtower-iOS.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
           path: Watchtower-iOS.ipa
+          compression-level: 9
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
@@ -174,7 +195,8 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y \
             clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            p7zip-full
 
       - name: Flutter pub get
         run: flutter pub get
@@ -182,20 +204,24 @@ jobs:
       - name: Build Linux
         run: flutter build linux --release
 
-      - name: Package archive
+      - name: Package archive (7z LZMA2 max)
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../../watchtower-linux-x64.tar.gz .
+          7z a -t7z -mx=9 -mmt=2 \
+            ../../../../../watchtower-linux-x64.7z .
+          cd -
+          ls -lh watchtower-linux-x64.7z
 
       - name: Upload Linux bundle
         uses: actions/upload-artifact@v4
         with:
           name: linux-x64
-          path: watchtower-linux-x64.tar.gz
+          path: watchtower-linux-x64.7z
+          compression-level: 0
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
-  # macOS arm64 + x64
+  # macOS
   # ────────────────────────────────────────────────────────────
   build-macos:
     name: macOS
@@ -216,16 +242,19 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
-      - name: Package DMG
+      - name: Package archive (zip -9)
         run: |
           cd build/macos/Build/Products/Release
-          zip -r ../../../../../watchtower-macos.zip Watchtower.app
+          zip -r9 ../../../../../watchtower-macos.zip Watchtower.app
+          cd -
+          ls -lh watchtower-macos.zip
 
       - name: Upload macOS bundle
         uses: actions/upload-artifact@v4
         with:
           name: macos
           path: watchtower-macos.zip
+          compression-level: 9
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
@@ -250,16 +279,18 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      - name: Package archive
+      - name: Package archive (7z max)
         shell: pwsh
         run: |
-          Compress-Archive `
-            -Path build\windows\x64\runner\Release\* `
-            -DestinationPath watchtower-windows-x64.zip
+          7z a -t7z -mx=9 -mmt=2 `
+            watchtower-windows-x64.7z `
+            build\windows\x64\runner\Release\*
+          Get-Item watchtower-windows-x64.7z | Select-Object Name, Length
 
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64
-          path: watchtower-windows-x64.zip
+          path: watchtower-windows-x64.7z
+          compression-level: 0
           retention-days: 30
