@@ -1,3 +1,6 @@
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +11,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/sources/widgets/source_list_tile.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/utils/language.dart';
 
 class SourcesScreen extends ConsumerStatefulWidget {
@@ -36,9 +40,14 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: StreamBuilder(
+    return Column(
+      children: [
+        if (!kIsWeb && Platform.isAndroid)
+          _ScanStatusBar(itemType: widget.itemType),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: StreamBuilder(
         stream: isar.sources
             .filter()
             .idIsNotNull()
@@ -309,6 +318,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           );
         },
       ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -360,6 +372,42 @@ class _CollapsibleLanguageHeader extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// Shows an indicator while the extension-index scan is running (Android only).
+// Listens to an optional scan-in-progress stream; hidden when not scanning.
+class _ScanStatusBar extends ConsumerWidget {
+  final ItemType itemType;
+  const _ScanStatusBar({required this.itemType});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Read whether the extension index is currently being scanned.
+    // If no scan is running (typical case) the provider is false and this
+    // widget collapses to nothing.
+    final isScanning = ref.watch(extensionScanningProvider);
+    if (!isScanning) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Scanning extensions…',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }
