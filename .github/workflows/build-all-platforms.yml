@@ -66,21 +66,25 @@ jobs:
             --target-platform ${{ matrix.target }} \
             --split-per-abi
 
-      - name: Repack APK with maximum compression (7z LZMA2)
+      - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
           sudo apt-get install -y p7zip-full --quiet
-          mkdir -p artifacts
-          # FIX: pick ONLY the APK for this specific ABI — not all APKs in the dir
+          mkdir -p artifacts apk_raw
           TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-profile.apk"
           if [ ! -f "$TARGET_APK" ]; then
-            echo "ERROR: $TARGET_APK not found. Available files:"
+            echo "ERROR: $TARGET_APK not found. Available:"
             ls -lh build/app/outputs/flutter-apk/ || true
             exit 1
           fi
-          echo "Packing: $(du -sh $TARGET_APK)"
-          7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
-            "artifacts/app-${{ matrix.label }}-profile.7z" "$TARGET_APK"
-          echo "=== Artifact ==="
+          echo "APK size: $(du -sh $TARGET_APK)"
+          # FITGIRL TRICK: APKs store native .so UNCOMPRESSED for mmap
+          # Extract ZIP → compress raw files → 40-60% gain on libs
+          unzip -q "$TARGET_APK" -d apk_raw/
+          echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
+          7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
+            "artifacts/app-${{ matrix.label }}-profile.7z" apk_raw/
+          rm -rf apk_raw
+          echo "=== Final artifact ==="
           ls -lh artifacts/
 
       - name: Upload APK artifact
@@ -133,13 +137,17 @@ jobs:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
         run: flutter build apk --profile
 
-      - name: Repack APK with maximum compression (7z LZMA2)
+      - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
           sudo apt-get install -y p7zip-full --quiet
+          mkdir -p apk_raw
           TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
-          echo "Packing: $(du -sh $TARGET_APK)"
-          7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
-            watchtower-android-universal.7z "$TARGET_APK"
+          echo "APK size: $(du -sh $TARGET_APK)"
+          unzip -q "$TARGET_APK" -d apk_raw/
+          echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
+          7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
+            watchtower-android-universal.7z apk_raw/
+          rm -rf apk_raw
           ls -lh watchtower-android-universal.7z
 
       - name: Upload Universal APK artifact
