@@ -236,6 +236,9 @@ jobs:
           sudo apt-get install -y libstdc++-13-dev 2>/dev/null || true
           sudo apt-get install -y libstdc++-14-dev 2>/dev/null || true
 
+      - name: Install Rust (needed for rust_lib_watchtower FFI plugin)
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Enable Linux desktop
         run: flutter config --enable-linux-desktop
 
