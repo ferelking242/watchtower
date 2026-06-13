@@ -76,16 +76,6 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           if (sources.isEmpty) {
               return Column(
                 children: [
-                  // ── Local source always at top ───────────────────────────
-                  SourceListTile(
-                    source: Source(
-                      name: "local",
-                      lang: "",
-                      itemType: widget.itemType,
-                    ),
-                    itemType: widget.itemType,
-                  ),
-                  const Divider(height: 1),
                   // ── Centered "Nothing here" fills remaining space ────────
                   Expanded(
                     child: Center(
