@@ -231,7 +231,7 @@ class ChapterPageDownload extends ConsumerWidget {
                       onPressed: () {
                         _startDownload(null, download.id, ref);
                       },
-                      icon: Icon(
+                      icon: FaIcon(
                         FontAwesomeIcons.circleDown,
                         color: Theme.of(
                           context,
