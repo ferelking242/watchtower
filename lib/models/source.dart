@@ -83,6 +83,15 @@ class Source {
 
   int? updatedAt;
 
+  // ── Extended metadata (read from index JSON, not persisted in Isar) ─────────
+  List<String>? subCategories;
+  bool? supportsComments;
+  bool? requiresAccount;
+  bool? hasDRM;
+  bool? isAggregator;
+  String? paywall;
+  String? upstream;
+
   Source({
     this.id = 0,
     this.name = '',
@@ -117,6 +126,13 @@ class Source {
     this.notes = '',
     this.repo,
     this.updatedAt = 0,
+    this.subCategories,
+    this.supportsComments,
+    this.requiresAccount,
+    this.hasDRM,
+    this.isAggregator,
+    this.paywall,
+    this.upstream,
   });
 
   FilterList? getFilterList() => filterList != null
@@ -159,6 +175,13 @@ class Source {
     notes = json['notes'] ?? "";
     repo = json['repo'] != null ? Repo.fromJson(json['repo']) : null;
     updatedAt = json['updatedAt'];
+    subCategories = (json['subCategories'] as List<dynamic>?)?.cast<String>();
+    supportsComments = json['supportsComments'] as bool?;
+    requiresAccount = json['requiresAccount'] as bool?;
+    hasDRM = json['hasDRM'] as bool?;
+    isAggregator = json['isAggregator'] as bool?;
+    paywall = json['paywall'] as String?;
+    upstream = json['upstream'] as String?;
   }
 
   Map<String, dynamic> toJson() => {
@@ -196,6 +219,13 @@ class Source {
     'notes': notes,
     'repo': repo?.toJson(),
     'updatedAt': updatedAt ?? 0,
+    'subCategories': subCategories,
+    'supportsComments': supportsComments,
+    'requiresAccount': requiresAccount,
+    'hasDRM': hasDRM,
+    'isAggregator': isAggregator,
+    'paywall': paywall,
+    'upstream': upstream,
   };
 
   bool get isTorrent => (typeSource?.toLowerCase() ?? "") == "torrent";
