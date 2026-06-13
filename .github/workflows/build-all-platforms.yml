@@ -306,10 +306,12 @@ jobs:
       - name: Package archive (zip -9)
         run: |
           RELEASE_DIR="build/macos/Build/Products/Release"
-          APP=$(ls "$RELEASE_DIR"/*.app 2>/dev/null | head -1)
+          echo "--- Contents of $RELEASE_DIR ---"
+          ls -la "$RELEASE_DIR" 2>/dev/null || echo "(dir not found)"
+          APP=$(find "$RELEASE_DIR" -name "*.app" -maxdepth 2 2>/dev/null | head -1)
           if [ -z "$APP" ]; then
-            echo "ERROR: No .app bundle found in $RELEASE_DIR"
-            ls -la "$RELEASE_DIR"
+            echo "ERROR: No .app bundle found. Scanning deeper..."
+            find build/macos -name "*.app" 2>/dev/null || true
             exit 1
           fi
           echo "Found: $APP"
