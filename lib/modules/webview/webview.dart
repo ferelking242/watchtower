@@ -2252,7 +2252,7 @@ class _BrowserHeaderState extends State<_BrowserHeader>
                 width: 36, height: 4,
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
-                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.18),
+                  color: (widget.isDark ? Colors.white : Colors.black).withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2308,11 +2308,11 @@ class _BrowserHeaderState extends State<_BrowserHeader>
                         if (widget.adEnabled && widget.blockedCount > 0) ...[
                           const SizedBox(width: 6),
                           Text(
-                            blockedCount > 99 ? '99+' : '$blockedCount',
+                            widget.blockedCount > 99 ? '99+' : '${widget.blockedCount}',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
+                              color: widget.isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
                             ),
                           ),
                         ],
@@ -2369,7 +2369,7 @@ class _BrowserHeaderState extends State<_BrowserHeader>
           Divider(
             height: 1,
             thickness: 0.5,
-            color: isDark
+            color: widget.isDark
                 ? Colors.white.withValues(alpha: 0.08)
                 : Colors.black.withValues(alpha: 0.08),
           ),

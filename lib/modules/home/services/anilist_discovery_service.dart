@@ -856,4 +856,113 @@ import 'dart:async';
       FutureProvider.autoDispose.family<AnilistMediaDetail, int>((ref, id) {
     return _fetchMediaDetail(id);
   });
-  
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Browse filter + paginated page model
+// ─────────────────────────────────────────────────────────────────────────────
+
+class AnilistBrowseFilter {
+  final String mediaType;
+  final String? genre;
+  final int page;
+
+  const AnilistBrowseFilter({
+    required this.mediaType,
+    this.genre,
+    this.page = 1,
+  });
+
+  AnilistBrowseFilter copyWith({String? mediaType, String? genre, int? page}) {
+    return AnilistBrowseFilter(
+      mediaType: mediaType ?? this.mediaType,
+      genre: genre ?? this.genre,
+      page: page ?? this.page,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is AnilistBrowseFilter &&
+      other.mediaType == mediaType &&
+      other.genre == genre &&
+      other.page == page;
+
+  @override
+  int get hashCode => Object.hash(mediaType, genre, page);
+}
+
+class AnilistBrowsePage {
+  final List<AnilistMedia> items;
+  final bool hasNextPage;
+  final int currentPage;
+
+  const AnilistBrowsePage({
+    required this.items,
+    required this.hasNextPage,
+    required this.currentPage,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Offline notifier
+// ─────────────────────────────────────────────────────────────────────────────
+
+final anilistOfflineNotifier = ValueNotifier<bool>(false);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Browse provider
+// ─────────────────────────────────────────────────────────────────────────────
+
+Future<AnilistBrowsePage> _fetchBrowsePage(AnilistBrowseFilter filter) async {
+  const String _browseQuery = r'''
+query ($type: MediaType, $genre: String, $page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo { currentPage hasNextPage }
+    media(type: $type, genre: $genre, sort: POPULARITY_DESC, isAdult: false) {
+      id type format countryOfOrigin averageScore episodes chapters
+      title { romaji english native }
+      coverImage { large extraLarge }
+      bannerImage genres
+    }
+  }
+}
+''';
+
+  final variables = <String, dynamic>{
+    'type': filter.mediaType,
+    'page': filter.page,
+    'perPage': 30,
+    if (filter.genre != null) 'genre': filter.genre,
+  };
+
+  final response = await http.post(
+    Uri.parse('https://graphql.anilist.co'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'query': _browseQuery, 'variables': variables}),
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception('AniList browse error: ${response.statusCode}');
+  }
+
+  final data = (jsonDecode(response.body) as Map<String, dynamic>);
+  final page = (data['data']?['Page'] as Map?)?.cast<String, dynamic>() ?? {};
+  final pageInfo = (page['pageInfo'] as Map?)?.cast<String, dynamic>() ?? {};
+  final mediaList = (page['media'] as List?) ?? [];
+
+  final items = mediaList
+      .whereType<Map>()
+      .map((m) => AnilistMedia.fromJson(m.cast<String, dynamic>()))
+      .toList(growable: false);
+
+  return AnilistBrowsePage(
+    items: items,
+    hasNextPage: pageInfo['hasNextPage'] as bool? ?? false,
+    currentPage: (pageInfo['currentPage'] as num?)?.toInt() ?? filter.page,
+  );
+}
+
+final anilistBrowseProvider =
+    FutureProvider.autoDispose.family<AnilistBrowsePage, AnilistBrowseFilter>(
+  (ref, filter) => _fetchBrowsePage(filter),
+);
