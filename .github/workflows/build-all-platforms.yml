@@ -11,9 +11,8 @@ concurrency:
 
 jobs:
   # ────────────────────────────────────────────────────────────
-  # Android — split APKs per ABI
-  # Uses --profile (signed with embedded debug keystore)
-  # Release signing requires KEYSTORE secrets — not always set in CI
+  # Android — split APKs per ABI (arm64-v8a and x86_64 only — no jniLib for armeabi-v7a)
+  # Signed with KEYSTORE_B64 secret → watchtower-debug.keystore → profile buildType
   # ────────────────────────────────────────────────────────────
   build-android:
     name: Android (${{ matrix.label }})
@@ -26,8 +25,6 @@ jobs:
             target: android-arm64
           - label: x86_64
             target: android-x64
-          - label: armeabi-v7a
-            target: android-arm
 
     steps:
       - uses: actions/checkout@v4
@@ -52,15 +49,23 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build APK — ${{ matrix.label }}
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
         run: |
           flutter build apk \
             --profile \
             --target-platform ${{ matrix.target }} \
-            --split-per-abi
+            --split-per-abi \
+            --no-tree-shake-icons
 
       - name: Repack APK with maximum compression (7z LZMA2)
         run: |
@@ -83,7 +88,7 @@ jobs:
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
-  # Android Universal (all ABIs in one APK)
+  # Android Universal (all supported ABIs in one APK)
   # ────────────────────────────────────────────────────────────
   build-android-universal:
     name: Android (Universal)
@@ -111,11 +116,18 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build Universal APK
-        run: flutter build apk --profile
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
+        run: flutter build apk --profile --no-tree-shake-icons
 
       - name: Repack APK with maximum compression (7z LZMA2)
         run: |
@@ -161,7 +173,7 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --no-tree-shake-icons
 
       - name: Package IPA (max compressed)
         run: |
@@ -181,6 +193,8 @@ jobs:
 
   # ────────────────────────────────────────────────────────────
   # Linux x64
+  # Needs Rust for rust_lib_watchtower FFI plugin (cargokit)
+  # Needs many GTK/GStreamer/media libs for media_kit and friends
   # ────────────────────────────────────────────────────────────
   build-linux:
     name: Linux x64
@@ -208,14 +222,22 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y \
             clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev \
-            libblkid-dev libmount-dev \
-            p7zip-full
+            libgtk-3-dev liblzma-dev libblkid-dev libmount-dev \
+            libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev libgstreamer-plugins-good0 \
+            gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+            libasound2-dev libpulse-dev libdbus-1-dev \
+            libxcb-xfixes0-dev libxcb1-dev libx11-dev \
+            libglib2.0-dev libepoxy-dev \
+            libmpv-dev mpv \
+            p7zip-full \
+            golang-go
           sudo apt-get install -y libstdc++-12-dev 2>/dev/null || true
           sudo apt-get install -y libstdc++-13-dev 2>/dev/null || true
           sudo apt-get install -y libstdc++-14-dev 2>/dev/null || true
 
-      - name: Install Rust (needed for rust_lib_watchtower FFI plugin)
+      - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
         uses: dtolnay/rust-toolchain@stable
 
       - name: Enable Linux desktop
@@ -225,7 +247,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Linux
-        run: flutter build linux --release
+        run: flutter build linux --release --no-tree-shake-icons
 
       - name: Package archive (7z LZMA2 max)
         run: |
@@ -245,6 +267,7 @@ jobs:
 
   # ────────────────────────────────────────────────────────────
   # macOS
+  # App bundle name depends on PRODUCT_NAME in Xcode project (use *.app glob)
   # ────────────────────────────────────────────────────────────
   build-macos:
     name: macOS
@@ -271,13 +294,19 @@ jobs:
         run: flutter pub get
 
       - name: Build macOS
-        run: flutter build macos --release
+        run: flutter build macos --release --no-tree-shake-icons
 
       - name: Package archive (zip -9)
         run: |
-          cd build/macos/Build/Products/Release
-          zip -r9 ../../../../../watchtower-macos.zip Watchtower.app
-          cd -
+          RELEASE_DIR="build/macos/Build/Products/Release"
+          APP=$(ls "$RELEASE_DIR"/*.app 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then
+            echo "ERROR: No .app bundle found in $RELEASE_DIR"
+            ls -la "$RELEASE_DIR"
+            exit 1
+          fi
+          echo "Found: $APP"
+          zip -r9 watchtower-macos.zip "$APP"
           ls -lh watchtower-macos.zip
 
       - name: Upload macOS bundle
@@ -321,7 +350,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --no-tree-shake-icons
 
       - name: Package archive (7z max)
         shell: pwsh
