@@ -39,8 +39,16 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
       - name: Flutter pub get
         run: flutter pub get
@@ -56,6 +64,7 @@ jobs:
         run: |
           flutter build apk \
             --release \
+            --no-tree-shake-icons \
             --target-platform ${{ matrix.target }} \
             --split-per-abi
         env:
@@ -100,8 +109,16 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
       - name: Flutter pub get
         run: flutter pub get
@@ -114,7 +131,7 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
 
       - name: Build Universal APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -149,14 +166,22 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --no-tree-shake-icons
 
       - name: Package IPA (max compressed)
         run: |
@@ -187,8 +212,16 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
       - name: Install Linux build dependencies
         run: |
@@ -198,7 +231,7 @@ jobs:
             libgtk-3-dev liblzma-dev \
             libblkid-dev libmount-dev \
             p7zip-full
-          # libstdc++ version varies by ubuntu release — install all available
+          # libstdc++ version varies — install all available
           sudo apt-get install -y libstdc++-12-dev 2>/dev/null || true
           sudo apt-get install -y libstdc++-13-dev 2>/dev/null || true
           sudo apt-get install -y libstdc++-14-dev 2>/dev/null || true
@@ -210,7 +243,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Linux
-        run: flutter build linux --release
+        run: flutter build linux --release --no-tree-shake-icons
 
       - name: Package archive (7z LZMA2 max)
         run: |
@@ -241,14 +274,22 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build macOS
-        run: flutter build macos --release
+        run: flutter build macos --release --no-tree-shake-icons
 
       - name: Package archive (zip -9)
         run: |
@@ -278,14 +319,27 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ env.LOCALAPPDATA }}\Pub\Cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
 
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --no-tree-shake-icons
 
       - name: Package archive (7z max)
         shell: pwsh
