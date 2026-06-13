@@ -234,7 +234,35 @@ package com.watchtower.app
               }
           }
 
-          // ── 4. PiP ─────────────────────────────────────────────────────────
+          // ── 4. Inline Dalvik bridge ────────────────────────────────────────
+          // Runs Mihon/Aniyomi extension APKs in-process via DexClassLoader.
+          // Eliminates the need for a separate ApkBridge app.
+          val dalvikBridgeInstance = DalvikBridge(applicationContext)
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.dalvik_bridge",
+              StandardMethodCodec.INSTANCE,
+              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+          ).setMethodCallHandler { call, result ->
+              when (call.method) {
+                  "callDalvik" -> {
+                      val json = call.argument<String>("json") ?: run {
+                          result.error("NO_JSON", "json argument required", null)
+                          return@setMethodCallHandler
+                      }
+                      try {
+                          val response = dalvikBridgeInstance.call(json)
+                          result.success(response)
+                      } catch (e: Exception) {
+                          Log.e(TAG, "[DalvikBridge] Error: ${e.message}", e)
+                          result.error("DALVIK_ERROR", e.message ?: "unknown", null)
+                      }
+                  }
+                  else -> result.notImplemented()
+              }
+          }
+
+          // ── 5. PiP ─────────────────────────────────────────────────────────
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.pip"
