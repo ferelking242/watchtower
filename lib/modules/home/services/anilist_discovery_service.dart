@@ -864,18 +864,30 @@ import 'dart:async';
 class AnilistBrowseFilter {
   final String mediaType;
   final String? genre;
+  final String? format;
+  final String? country;
   final int page;
 
   const AnilistBrowseFilter({
     required this.mediaType,
     this.genre,
+    this.format,
+    this.country,
     this.page = 1,
   });
 
-  AnilistBrowseFilter copyWith({String? mediaType, String? genre, int? page}) {
+  AnilistBrowseFilter copyWith({
+    String? mediaType,
+    String? genre,
+    String? format,
+    String? country,
+    int? page,
+  }) {
     return AnilistBrowseFilter(
       mediaType: mediaType ?? this.mediaType,
       genre: genre ?? this.genre,
+      format: format ?? this.format,
+      country: country ?? this.country,
       page: page ?? this.page,
     );
   }
@@ -885,10 +897,12 @@ class AnilistBrowseFilter {
       other is AnilistBrowseFilter &&
       other.mediaType == mediaType &&
       other.genre == genre &&
+      other.format == format &&
+      other.country == country &&
       other.page == page;
 
   @override
-  int get hashCode => Object.hash(mediaType, genre, page);
+  int get hashCode => Object.hash(mediaType, genre, format, country, page);
 }
 
 class AnilistBrowsePage {
@@ -915,10 +929,10 @@ final anilistOfflineNotifier = ValueNotifier<bool>(false);
 
 Future<AnilistBrowsePage> _fetchBrowsePage(AnilistBrowseFilter filter) async {
   const String _browseQuery = r'''
-query ($type: MediaType, $genre: String, $page: Int, $perPage: Int) {
+query ($type: MediaType, $genre: String, $format: MediaFormat, $country: CountryCode, $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
     pageInfo { currentPage hasNextPage }
-    media(type: $type, genre: $genre, sort: POPULARITY_DESC, isAdult: false) {
+    media(type: $type, genre: $genre, format: $format, countryOfOrigin: $country, sort: POPULARITY_DESC, isAdult: false) {
       id type format countryOfOrigin averageScore episodes chapters
       title { romaji english native }
       coverImage { large extraLarge }
@@ -933,6 +947,8 @@ query ($type: MediaType, $genre: String, $page: Int, $perPage: Int) {
     'page': filter.page,
     'perPage': 30,
     if (filter.genre != null) 'genre': filter.genre,
+    if (filter.format != null) 'format': filter.format,
+    if (filter.country != null) 'country': filter.country,
   };
 
   final response = await http.post(
