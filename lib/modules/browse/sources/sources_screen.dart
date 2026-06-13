@@ -257,35 +257,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                     ),
                 ],
 
-                // Other (local source)
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12, top: 8),
-                        child: Row(
-                          children: [
-                            Text(
-                              l10n.other,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SourceListTile(
-                        source: Source(
-                          name: "local",
-                          lang: "",
-                          itemType: widget.itemType,
-                        ),
-                        itemType: widget.itemType,
-                      ),
-                    ],
-                  ),
-                ),
+
               ],
             ),
           );
