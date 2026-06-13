@@ -128,7 +128,7 @@ jobs:
             docker image prune -af 2>/dev/null || true
             df -h
 
-        - name: Bundle ZeusDL as Flutter asset (NDK-free approach)
+      - name: Bundle ZeusDL as Flutter asset (NDK-free approach)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
