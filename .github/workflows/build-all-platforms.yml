@@ -195,11 +195,16 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y \
             clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libgtk-3-dev liblzma-dev \
             p7zip-full
+          # install latest libstdc++-dev regardless of gcc version
+          sudo apt-get install -y $(apt-cache search 'libstdc\+\+.*-dev' | awk '{print $1}' | sort -V | tail -1)
 
       - name: Flutter pub get
         run: flutter pub get
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
 
       - name: Build Linux
         run: flutter build linux --release
