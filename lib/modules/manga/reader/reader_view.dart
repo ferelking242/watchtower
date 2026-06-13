@@ -44,6 +44,13 @@ import 'package:window_manager/window_manager.dart';
 
 typedef DoubleClickAnimationListener = void Function();
 
+/// Helper Notifier for the per-instance reader-mode provider.
+/// Used instead of the removed StateProvider<ReaderMode?> from Riverpod 3.x.
+class _ReaderModeNotifier extends Notifier<ReaderMode?> {
+  @override
+  ReaderMode? build() => null;
+}
+
 class MangaReaderView extends ConsumerStatefulWidget {
   final int chapterId;
   const MangaReaderView({super.key, required this.chapterId});
@@ -294,7 +301,8 @@ class _MangaChapterPageGalleryState
   late bool _isBookmarked = _readerController.getChapterBookmarked();
 
   bool _isLastPageTransition = false;
-  final _currentReaderMode = StateProvider<ReaderMode?>(() => null);
+  final _currentReaderMode =
+      NotifierProvider<_ReaderModeNotifier, ReaderMode?>(_ReaderModeNotifier.new);
   PageMode? _pageMode;
   bool _isView = false;
   Alignment _scalePosition = Alignment.center;

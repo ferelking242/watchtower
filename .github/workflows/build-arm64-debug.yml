@@ -233,6 +233,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate app icons (flutter_launcher_icons)
+        run: dart run flutter_launcher_icons
+
       - name: Build APK (ARMv8 profile)
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"

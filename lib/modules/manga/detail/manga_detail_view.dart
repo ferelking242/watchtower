@@ -92,7 +92,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     super.initState();
     _scrollController = ScrollController()
       ..addListener(() {
-        ref.read(offetProvider.notifier).state = _scrollController.offset;
+        if (mounted) setState(() { _offset = _scrollController.offset; });
       });
   }
 
@@ -102,7 +102,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     super.dispose();
   }
 
-  final offetProvider = StateProvider(() => 0.0);
+  double _offset = 0.0;
   bool _expanded = false;
   late final ScrollController _scrollController;
   late final isLocalArchive = widget.manga!.isLocalArchive ?? false;
@@ -280,7 +280,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
           builder: (context, ref, child) {
             return Positioned(
               top: 0,
-              child: ref.watch(offetProvider) == 0.0
+              child: _offset == 0.0
                   ? Stack(
                       children: [
                         widget.manga!.customCoverImage != null
@@ -426,13 +426,13 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         ),
                       )
                     : AppBar(
-                        title: ref.watch(offetProvider) > 200
+                        title: _offset > 200
                             ? Text(
                                 widget.manga!.name!,
                                 style: const TextStyle(fontSize: 17),
                               )
                             : null,
-                        backgroundColor: ref.watch(offetProvider) == 0.0
+                        backgroundColor: _offset == 0.0
                             ? Colors.transparent
                             : Theme.of(context).scaffoldBackgroundColor,
                         actions: [

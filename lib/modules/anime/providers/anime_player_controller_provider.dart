@@ -14,7 +14,13 @@ import 'package:watchtower/utils/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'anime_player_controller_provider.g.dart';
 
-final fullscreenProvider = StateProvider<bool>(() => false);
+class FullscreenNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+}
+
+final fullscreenProvider =
+    NotifierProvider<FullscreenNotifier, bool>(FullscreenNotifier.new);
 
 @riverpod
 class AnimeStreamController extends _$AnimeStreamController {

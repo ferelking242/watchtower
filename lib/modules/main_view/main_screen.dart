@@ -48,7 +48,13 @@ class _DockHiddenNotifier extends Notifier<bool> {
 final dockHiddenProvider =
     NotifierProvider<_DockHiddenNotifier, bool>(_DockHiddenNotifier.new);
 
-final menuOpenProvider = StateProvider<bool>((ref) => false);
+class _MenuOpenNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+}
+
+final menuOpenProvider =
+    NotifierProvider<_MenuOpenNotifier, bool>(_MenuOpenNotifier.new);
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.child});

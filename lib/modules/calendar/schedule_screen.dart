@@ -7,6 +7,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/calendar/providers/calendar_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
+import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/fetch_interval.dart';
 import 'package:watchtower/utils/headers.dart';
@@ -47,18 +48,24 @@ class _ScheduleSettings {
   }
 }
 
+class _ScheduleSettingsNotifier extends Notifier<_ScheduleSettings> {
+  @override
+  _ScheduleSettings build() => _ScheduleSettings(
+        weekStartsMonday: true,
+        visibleStatuses: {
+          ScheduleFilterStatus.watching,
+          ScheduleFilterStatus.planning,
+          ScheduleFilterStatus.completed,
+          ScheduleFilterStatus.paused,
+        },
+        indicateWatched: true,
+        disableImageTransitions: false,
+      );
+}
+
 final _scheduleSettingsProvider =
-    StateProvider<_ScheduleSettings>((ref) => _ScheduleSettings(
-          weekStartsMonday: true,
-          visibleStatuses: {
-            ScheduleFilterStatus.watching,
-            ScheduleFilterStatus.planning,
-            ScheduleFilterStatus.completed,
-            ScheduleFilterStatus.paused,
-          },
-          indicateWatched: true,
-          disableImageTransitions: false,
-        ));
+    NotifierProvider<_ScheduleSettingsNotifier, _ScheduleSettings>(
+        _ScheduleSettingsNotifier.new);
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -492,7 +499,7 @@ class _ScheduleBody extends ConsumerWidget {
       return null;
     }
     final lastChapter =
-        manga.chapters.filter().sortByDateUploadDesc().findFirstSync();
+        manga.chapters.sortByDateUploadDesc().findFirstSync();
     final lastChapterMs = int.tryParse(lastChapter?.dateUpload ?? '');
     return FetchInterval.computeExpectedDate(
       lastChapterDateMs: lastChapterMs,
