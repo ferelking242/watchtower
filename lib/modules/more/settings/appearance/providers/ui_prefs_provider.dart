@@ -156,3 +156,23 @@ class KenBurnsNotifier extends Notifier<bool> {
 final kenBurnsProvider = NotifierProvider<KenBurnsNotifier, bool>(
   KenBurnsNotifier.new,
 );
+
+  // ── Page Transition Style ─────────────────────────────────────────────────────
+  // 0 = Fondu (FadeUpwards), 1 = Glissement (Cupertino), 2 = Échelle (Zoom), 3 = Aucun
+
+  class PageTransitionStyleNotifier extends Notifier<int> {
+    @override
+    int build() =>
+        (_box?.get('page_transition_style', defaultValue: 0) as num?)?.toInt() ?? 0;
+
+    void set(int v) {
+      _box?.put('page_transition_style', v);
+      state = v;
+    }
+  }
+
+  final pageTransitionStyleProvider =
+      NotifierProvider<PageTransitionStyleNotifier, int>(PageTransitionStyleNotifier.new);
+
+  const pageTransitionStyleLabels = ['Fondu', 'Glissement', 'Échelle', 'Aucun'];
+  
