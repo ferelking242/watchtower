@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/eval/model/filter.dart';
@@ -12,11 +15,13 @@ import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
-import 'package:watchtower/services/http/m_client.dart';
 
 import '../../models/manga.dart';
 import '../interface.dart';
 import 'models.dart';
+
+// MethodChannel for the inline Dalvik bridge (no external ApkBridge needed).
+const _kDalvikChannel = MethodChannel('com.watchtower.app.dalvik_bridge');
 
 class MihonExtensionService implements ExtensionService {
   late String androidProxyServer;
@@ -46,134 +51,91 @@ class MihonExtensionService implements ExtensionService {
     return source.baseUrl!;
   }
 
-  @override
-  Future<MPages> getPopular(int page) async {
-    final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
+  // ── Core helper: routes to MethodChannel on Android, HTTP elsewhere ─────────
+
+  Future<String> _callDalvik(Map<String, dynamic> body) async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final result = await _kDalvikChannel.invokeMethod<String>(
+          'callDalvik',
+          {'json': jsonEncode(body)},
+        );
+        return result ?? '{}';
+      } on PlatformException catch (e) {
+        // Surface the extension's own error message (e.g. "Failed to bypass
+        // Cloudflare") so the UI can display it properly.
+        throw _formatPlatformError(e);
+      }
+    }
+    // HTTP fallback for desktop / external ApkBridge
     final res = await client.post(
       Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "getPopular$name",
-        "page": page + 1,
-        "search": "",
-        "preferences": getSourcePreferences(),
-        "data": source.sourceCode,
-      }),
+      body: jsonEncode(body),
       headers: getCookie(),
     );
     hasError(res);
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return res.body;
+  }
+
+  // ── Public API ──────────────────────────────────────────────────────────────
+
+  @override
+  Future<MPages> getPopular(int page) async {
+    final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
+    final raw = await _callDalvik({
+      "method": "getPopular$name",
+      "page": page + 1,
+      "search": "",
+      "preferences": getSourcePreferences(),
+      "data": source.sourceCode,
+    });
+    final data = jsonDecode(raw) as Map<String, dynamic>;
     final pages = MangaPages.fromJson(data, source.itemType);
-    return MPages(
-      list: pages.list
-          .map(
-            (e) => MManga(
-              name: e.title,
-              link: e.url,
-              artist: e.artist,
-              author: e.author,
-              description: e.description,
-              genre: e.genre,
-              status: e.status,
-              imageUrl: e.thumbnailUrl,
-              chapters: [],
-            ),
-          )
-          .toList(),
-      hasNextPage: pages.hasNextPage,
-    );
+    return _toMPages(pages);
   }
 
   @override
   Future<MPages> getLatestUpdates(int page) async {
     final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "getLatest$name",
-        "page": page + 1,
-        "search": "",
-        "preferences": getSourcePreferences(),
-        "data": source.sourceCode,
-      }),
-      headers: getCookie(),
-    );
-    hasError(res);
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final raw = await _callDalvik({
+      "method": "getLatest$name",
+      "page": page + 1,
+      "search": "",
+      "preferences": getSourcePreferences(),
+      "data": source.sourceCode,
+    });
+    final data = jsonDecode(raw) as Map<String, dynamic>;
     final pages = MangaPages.fromJson(data, source.itemType);
-    return MPages(
-      list: pages.list
-          .map(
-            (e) => MManga(
-              name: e.title,
-              link: e.url,
-              artist: e.artist,
-              author: e.author,
-              description: e.description,
-              genre: e.genre,
-              status: e.status,
-              imageUrl: e.thumbnailUrl,
-              chapters: [],
-            ),
-          )
-          .toList(),
-      hasNextPage: pages.hasNextPage,
-    );
+    return _toMPages(pages);
   }
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
     final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "getSearch$name",
-        "page": max(1, page),
-        "search": query,
-        "filterList": _convertFilters(filters),
-        "preferences": getSourcePreferences(),
-        "data": source.sourceCode,
-      }),
-      headers: getCookie(),
-    );
-    hasError(res);
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final raw = await _callDalvik({
+      "method": "getSearch$name",
+      "page": max(1, page),
+      "search": query,
+      "filterList": _convertFilters(filters),
+      "preferences": getSourcePreferences(),
+      "data": source.sourceCode,
+    });
+    final data = jsonDecode(raw) as Map<String, dynamic>;
     final pages = MangaPages.fromJson(data, source.itemType);
-    return MPages(
-      list: pages.list
-          .map(
-            (e) => MManga(
-              name: e.title,
-              link: e.url,
-              artist: e.artist,
-              author: e.author,
-              description: e.description,
-              genre: e.genre,
-              status: e.status,
-              imageUrl: e.thumbnailUrl,
-              chapters: [],
-            ),
-          )
-          .toList(),
-      hasNextPage: pages.hasNextPage,
-    );
+    return _toMPages(pages);
   }
 
   @override
   Future<MManga> getDetail(String url) async {
     final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "getDetails$name",
-        if (source.itemType == ItemType.manga) "mangaData": {"url": url},
-        if (source.itemType == ItemType.anime) "animeData": {"url": url},
-        "preferences": getSourcePreferences(),
-        "data": source.sourceCode,
-      }),
-      headers: getCookie(),
-    );
-    hasError(res);
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final raw = await _callDalvik({
+      "method": "getDetails$name",
+      if (source.itemType == ItemType.manga) "mangaData": {"url": url},
+      if (source.itemType == ItemType.anime) "animeData": {"url": url},
+      "preferences": getSourcePreferences(),
+      "data": source.sourceCode,
+    });
+    final data = jsonDecode(raw) as Map<String, dynamic>;
     final chapters = await getChapterList(url);
     return MManga(
       name: data['title'],
@@ -196,21 +158,14 @@ class MihonExtensionService implements ExtensionService {
   }
 
   Future<List<MChapter>> getChapterList(String url) async {
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": source.itemType == ItemType.anime
-            ? "getEpisodeList"
-            : "getChapterList",
-        if (source.itemType == ItemType.manga) "mangaData": {"url": url},
-        if (source.itemType == ItemType.anime) "animeData": {"url": url},
-        "preferences": getSourcePreferences(),
-        "data": source.sourceCode,
-      }),
-      headers: getCookie(),
-    );
-    hasError(res);
-    final data = jsonDecode(res.body) as List;
+    final raw = await _callDalvik({
+      "method": source.itemType == ItemType.anime ? "getEpisodeList" : "getChapterList",
+      if (source.itemType == ItemType.manga) "mangaData": {"url": url},
+      if (source.itemType == ItemType.anime) "animeData": {"url": url},
+      "preferences": getSourcePreferences(),
+      "data": source.sourceCode,
+    });
+    final data = jsonDecode(raw) as List;
     return data
         .map(
           (e) => MChapter(
@@ -227,35 +182,25 @@ class MihonExtensionService implements ExtensionService {
 
   @override
   Future<List<PageUrl>> getPageList(String url) async {
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "getPageList",
-        "chapterData": {"url": url},
-        "preferences": getSourcePreferences(),
-        "data": source.sourceCode,
-      }),
-      headers: getCookie(),
-    );
-    hasError(res);
-    final data = jsonDecode(res.body) as List;
+    final raw = await _callDalvik({
+      "method": "getPageList",
+      "chapterData": {"url": url},
+      "preferences": getSourcePreferences(),
+      "data": source.sourceCode,
+    });
+    final data = jsonDecode(raw) as List;
     return data.map((e) => PageUrl(e['imageUrl'])).toList();
   }
 
   @override
   Future<List<Video>> getVideoList(String url) async {
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "getVideoList",
-        "episodeData": {"url": url},
-        "preferences": getSourcePreferences(),
-        "data": source.sourceCode,
-      }),
-      headers: getCookie(),
-    );
-    hasError(res);
-    final data = jsonDecode(res.body) as List;
+    final raw = await _callDalvik({
+      "method": "getVideoList",
+      "episodeData": {"url": url},
+      "preferences": getSourcePreferences(),
+      "data": source.sourceCode,
+    });
+    final data = jsonDecode(raw) as List;
     return data.map((e) {
       final tempHeaders =
           e['headers']?['namesAndValues\$okhttp'] as List<dynamic>?;
@@ -325,6 +270,27 @@ class MihonExtensionService implements ExtensionService {
   Future<MPages> getCustomList(String id, int page) =>
       throw UnimplementedError('Mihon does not support custom lists');
 
+  // ── Private helpers ─────────────────────────────────────────────────────────
+
+  MPages _toMPages(MangaPages pages) => MPages(
+        list: pages.list
+            .map(
+              (e) => MManga(
+                name: e.title,
+                link: e.url,
+                artist: e.artist,
+                author: e.author,
+                description: e.description,
+                genre: e.genre,
+                status: e.status,
+                imageUrl: e.thumbnailUrl,
+                chapters: [],
+              ),
+            )
+            .toList(),
+        hasNextPage: pages.hasNextPage,
+      );
+
   List<dynamic> _convertFilters(List<dynamic> filters) {
     return filters.expand((e) sync* {
       if (e is TextFilter) {
@@ -372,6 +338,14 @@ class MihonExtensionService implements ExtensionService {
       ...MClient.getCookiesPref(source.baseUrl!),
       'user-agent': ?userAgent,
     };
+  }
+
+  String _formatPlatformError(PlatformException e) {
+    final msg = e.message ?? 'Unknown extension error';
+    if (msg.contains('Cloudflare') || msg.toLowerCase().contains('403')) {
+      return "Failed to bypass Cloudflare.\n\nYou can try to bypass it manually in the webview\n\nstatusCode: 403";
+    }
+    return msg;
   }
 }
 
