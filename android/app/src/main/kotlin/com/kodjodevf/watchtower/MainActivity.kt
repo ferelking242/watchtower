@@ -376,26 +376,8 @@ package com.watchtower.app
                       }
                       val args = call.argument<List<String>>("args") ?: emptyList()
                       val cmd = (listOf(path) + args).toTypedArray()
-
-                      // ── Strategy 1: Shizuku (shell domain, can exec app_data_file) ──
-                      if (shizukuHasPerm()) {
-                          try {
-                              val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
-                              val newProc = shizukuClass.getMethod(
-                                  "newProcess",
-                                  Array<String>::class.java,
-                                  Array<String>::class.java,
-                                  String::class.java
-                              )
-                              val proc = newProc.invoke(null, cmd, null, null) as Process
-                              val output   = proc.inputStream.bufferedReader().readText()
-                              val exitCode = proc.waitFor()
-                              result.success(mapOf("exitCode" to exitCode, "output" to output, "via" to "shizuku"))
-                              return@setMethodCallHandler
-                          } catch (_: Exception) { /* fall through */ }
-                      }
-
-                      // ── Strategy 2: ProcessBuilder (works on permissive / pre-10 devices) ──
+                      // Binaries live in nativeLibraryDir (always exec-capable, no SELinux
+                      // restriction). Direct ProcessBuilder — no Shizuku needed.
                       try {
                           val pb = ProcessBuilder(*cmd).redirectErrorStream(true)
                           val proc = pb.start()

@@ -1791,19 +1791,27 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       });
     } on PlatformException catch (e) {
       if (!mounted) return;
-      // EXEC_ERROR = both Shizuku and ProcessBuilder failed to exec the binary.
-      // Root cause: Android 10+ strict SELinux (Samsung Knox, MIUI, etc.) blocks
-      // untrusted_app from exec'ing app_data_file binaries (neverallow rule in AOSP).
-      // Shizuku (shell domain) bypasses this — install & start Shizuku to fix it.
-      final msg = e.code == 'EXEC_ERROR'
-          ? 'Exécution bloquée par SELinux (Android 10+).\n\n'
-            'Votre appareil bloque l\'exécution de binaires téléchargés.\n\n'
-            'Solutions :\n'
-            '• Installez Shizuku (Play Store / shizuku.dev) et activez-le — '
-            'ZeusDL s\'exécutera via le domaine shell qui a les droits nécessaires.\n'
-            '• Alternativement : appareil rooté.\n\n'
-            'Détail technique : ${e.message ?? e.code}'
-          : 'Erreur plateforme : ${e.message ?? e.code}';
+      final detail = e.message ?? e.code;
+      final String msg;
+      if (e.code == 'EXEC_ERROR') {
+        // error=2 / ENOENT → either the binary isn't extracted yet (rare first-boot
+        // race) or the binary uses a dynamic linker not present on Android
+        // (e.g. musl /lib/ld-musl-aarch64.so.1). Not a SELinux issue — nativeLibraryDir
+        // is always exec-capable.
+        final isNotFound = detail.contains('error=2') || detail.contains('No such file');
+        if (isNotFound) {
+          msg = 'ZeusDL introuvable sur cet appareil.\n\n'
+              'Le binaire est intégré à l\'APK mais n\'a pas pu être lancé.\n'
+              'Cause probable : incompatibilité du binaire avec Android '
+              '(linker musl au lieu du linker Android).\n\n'
+              'Une mise à jour de l\'application corrigera ce problème.\n\n'
+              'Détail : $detail';
+        } else {
+          msg = 'ZeusDL n\'a pas pu être exécuté.\n\nDétail : $detail';
+        }
+      } else {
+        msg = 'Erreur plateforme : $detail';
+      }
       setState(() { _running = false; _result = msg; });
     } catch (e) {
       if (!mounted) return;

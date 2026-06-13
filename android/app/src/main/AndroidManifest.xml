@@ -22,7 +22,8 @@
         android:allowBackup="true"
         android:hasFragileUserData="true"
         android:fullBackupOnly="true"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:extractNativeLibs="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

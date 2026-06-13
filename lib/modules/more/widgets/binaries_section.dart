@@ -1,11 +1,14 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
   import 'package:archive/archive_io.dart';
   import 'package:flutter/material.dart';
+  import 'package:flutter/services.dart';
   import 'package:http/http.dart' as http;
   import 'package:path_provider/path_provider.dart';
   import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
   import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
   import 'package:watchtower/utils/log/logger.dart';
+
+const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
 
   const String kPublicBinariesDir = '/storage/emulated/0/watchtower/bin';
 
@@ -113,6 +116,30 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   Future<bool> isBinaryInstalled(String name) async =>
       (await getBinaryInstalledSize(name)) != null;
 
+/// Returns the native library directory path or null on non-Android.
+Future<String?> _getNativeLibDir() async {
+  if (!Platform.isAndroid) return null;
+  try {
+    return await _binaryUtilsChannel.invokeMethod<String>('getNativeLibraryDir');
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Returns the size label if the binary is bundled in jniLibs, else null.
+Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
+  if (nativeDir == null || nativeDir.isEmpty) return null;
+  try {
+    final libName = name == 'aria2c' ? 'libaria2c.so' : 'lib$name.so';
+    final f = File('$nativeDir/$libName');
+    if (await f.exists()) {
+      final len = await f.length();
+      if (len > 0) return _fmtBytes(len);
+    }
+  } catch (_) {}
+  return null;
+}
+
   // ---------------------------------------------------------------------------
   // BinariesSection widget
   // ---------------------------------------------------------------------------
@@ -133,6 +160,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     final Map<String, double> _progress = {};
     final Map<String, String> _statusMsg = {};
     final Map<String, String> _progressLabel = {};
+    final Map<String, String?> _bundledSizes = {};
+    String? _nativeDir;
 
     _Arch? _detectedArch;
     final Map<String, _Arch?> _archOverrides = {};
@@ -153,9 +182,15 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     }
 
     Future<void> _refresh() async {
+      final nativeDir = await _getNativeLibDir();
+      if (mounted) setState(() => _nativeDir = nativeDir);
       for (final t in _kTools) {
         final sz = await getBinaryInstalledSize(t.name);
-        if (mounted) setState(() => _sizes[t.name] = sz);
+        final bsz = await getBundledBinarySize(t.name, nativeDir);
+        if (mounted) setState(() {
+          _sizes[t.name] = sz;
+          _bundledSizes[t.name] = bsz;
+        });
       }
     }
 
@@ -399,10 +434,79 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
       );
     }
 
+    void _showInfoSheet(BuildContext ctx, _ToolDef tool) async {
+      final nativeDir = _nativeDir;
+      final bundledSize = _bundledSizes[tool.name];
+      final isBundled = bundledSize != null;
+      final libName = tool.name == 'aria2c' ? 'libaria2c.so' : 'lib${tool.name}.so';
+      if (!ctx.mounted) return;
+      showModalBottomSheet<void>(
+        context: ctx,
+        backgroundColor: const Color(0xFF1C1C1C),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 36, height: 4,
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 16),
+              Row(children: [
+                Icon(tool.icon, size: 20, color: Colors.tealAccent.shade200),
+                const SizedBox(width: 8),
+                Text('${tool.label} — Informations',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+              ]),
+              const SizedBox(height: 16),
+              if (isBundled) ...[
+                _SettingsRow(
+                  icon: Icons.inventory_2_rounded,
+                  label: 'Source',
+                  value: 'Embarqué (intégré à l\'APK)',
+                ),
+                const SizedBox(height: 8),
+                _SettingsRow(
+                  icon: Icons.folder_zip_rounded,
+                  label: 'Chemin natif (jniLibs)',
+                  value: nativeDir != null ? '$nativeDir/$libName' : 'non disponible',
+                ),
+                const SizedBox(height: 8),
+                _SettingsRow(icon: Icons.storage_rounded, label: 'Taille', value: bundledSize),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.teal.withOpacity(0.25)),
+                  ),
+                  child: const Text(
+                    'Ce binaire est intégré à l\'application. Aucun téléchargement requis.\n'
+                    'Il sera mis à jour avec les futures versions de l\'application.',
+                    style: TextStyle(fontSize: 11, color: Colors.teal, height: 1.5),
+                  ),
+                ),
+              ] else ...[
+                _SettingsRow(icon: Icons.cloud_download_rounded, label: 'Source', value: 'Téléchargé depuis le marketplace'),
+                const SizedBox(height: 8),
+                _SettingsRow(icon: Icons.storage_rounded, label: 'Taille', value: _sizes[tool.name] ?? 'inconnu'),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
     void _showSettings(BuildContext ctx, _ToolDef tool) async {
       final dir = await _binariesDir();
       final path = '${dir.path}/${tool.name}';
       final publicPath = '$kPublicBinariesDir/${tool.name}';
+      final nativeDir = _nativeDir;
+      final libName = tool.name == 'aria2c' ? 'libaria2c.so' : 'lib${tool.name}.so';
       if (!ctx.mounted) return;
       showModalBottomSheet<void>(
         context: ctx,
@@ -433,9 +537,17 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                 ),
               ),
               const SizedBox(height: 16),
+              if (nativeDir != null) ...[
+                _SettingsRow(
+                  icon: Icons.inventory_2_rounded,
+                  label: 'Chemin natif (embarqué)',
+                  value: '$nativeDir/$libName',
+                ),
+                const SizedBox(height: 8),
+              ],
               _SettingsRow(
                 icon: Icons.folder_open_rounded,
-                label: 'Chemin installé',
+                label: 'Remplacement (marketplace)',
                 value: path,
               ),
               const SizedBox(height: 8),
@@ -467,6 +579,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
               tool: tool,
               cs: cs,
               installedSize: _sizes[tool.name],
+              bundledSize: _bundledSizes[tool.name],
               progress: _progress[tool.name],
               progressLabel: _progressLabel[tool.name],
               statusMsg: _statusMsg[tool.name],
@@ -495,6 +608,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
               },
               onArchTap: () => _showArchPicker(context, tool),
               onSettings: () => _showSettings(context, tool),
+              onInfo: () => _showInfoSheet(context, tool),
             ),
             const SizedBox(height: 8),
           ],
@@ -511,6 +625,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     final _ToolDef tool;
     final ColorScheme cs;
     final String? installedSize;
+    final String? bundledSize;
     final double? progress;
     final String? progressLabel;
     final String? statusMsg;
@@ -522,11 +637,13 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     final VoidCallback onUninstall;
     final VoidCallback onArchTap;
     final VoidCallback onSettings;
+    final VoidCallback onInfo;
 
     const _BinaryCard({
       required this.tool,
       required this.cs,
       required this.installedSize,
+      required this.bundledSize,
       required this.progress,
       required this.progressLabel,
       required this.statusMsg,
@@ -538,11 +655,14 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
       required this.onUninstall,
       required this.onArchTap,
       required this.onSettings,
+      required this.onInfo,
     });
 
     @override
     Widget build(BuildContext context) {
+      final isBundled = bundledSize != null;
       final isInstalled = installedSize != null;
+      final isAnyInstalled = isBundled || isInstalled;
       final isDownloading = progress != null;
 
       return Container(
@@ -582,63 +702,97 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                             fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white,
                           ),
                         ),
-                        if (isInstalled) ...[
+                        if (isBundled) ...[
+                          const SizedBox(width: 8),
+                          _SmallBadge(label: 'Embarqué', color: Colors.teal),
+                        ] else if (isInstalled) ...[
                           const SizedBox(width: 8),
                           _SmallBadge(label: 'installé', color: Colors.green),
                         ],
                       ]),
                       const SizedBox(height: 2),
                       Text(
-                        isInstalled ? installedSize! : 'Non installé',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                        isBundled
+                            ? 'Intégré · $bundledSize'
+                            : isInstalled
+                                ? installedSize!
+                                : 'Non installé',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isBundled
+                              ? Colors.teal.withOpacity(0.8)
+                              : const Color(0xFF9E9E9E),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Action buttons
-                if (isInstalled) ...[
-                  // Settings gear
-                  _IconBtn(
-                    icon: Icons.settings_rounded,
-                    onTap: onSettings,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  // 3-dot menu
-                  PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
-                    color: const Color(0xFF242424),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    onSelected: (v) {
-                      if (v == 'reinstall') onReinstall();
-                      if (v == 'uninstall') onUninstall();
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: 'reinstall',
-                        child: Row(children: [
-                          Icon(Icons.refresh_rounded, size: 16, color: Colors.white70),
-                          SizedBox(width: 10),
-                          Text('Réinstaller', style: TextStyle(color: Colors.white, fontSize: 13)),
-                        ]),
+                // Action buttons — 3 aligned vertically: info / gear / menu
+                if (isAnyInstalled) ...[
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // (i) Info
+                      _IconBtn(
+                        icon: Icons.info_outline_rounded,
+                        onTap: onInfo,
+                        color: cs.onSurfaceVariant,
                       ),
-                      const PopupMenuItem(
-                        value: 'uninstall',
-                        child: Row(children: [
-                          Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
-                          SizedBox(width: 10),
-                          Text('Désinstaller', style: TextStyle(color: Colors.red, fontSize: 13)),
-                        ]),
+                      const SizedBox(height: 4),
+                      // Gear — settings / paths
+                      _IconBtn(
+                        icon: Icons.settings_rounded,
+                        onTap: onSettings,
+                        color: cs.onSurfaceVariant,
                       ),
+                      if (!isBundled) ...[
+                        const SizedBox(height: 4),
+                        // 3-dot popup (reinstall / uninstall)
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
+                          color: const Color(0xFF242424),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          onSelected: (v) {
+                            if (v == 'reinstall') onReinstall();
+                            if (v == 'uninstall') onUninstall();
+                          },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'reinstall',
+                              child: Row(children: [
+                                Icon(Icons.refresh_rounded, size: 16, color: Colors.white70),
+                                SizedBox(width: 10),
+                                Text('Réinstaller', style: TextStyle(color: Colors.white, fontSize: 13)),
+                              ]),
+                            ),
+                            const PopupMenuItem(
+                              value: 'uninstall',
+                              child: Row(children: [
+                                Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
+                                SizedBox(width: 10),
+                                Text('Désinstaller', style: TextStyle(color: Colors.red, fontSize: 13)),
+                              ]),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                ] else ...[
-                  // Download button
+                ] else if (!isDownloading) ...[
+                  // Not installed at all: show download button
                   _IconBtn(
-                    icon: isDownloading ? null : Icons.download_rounded,
-                    progress: isDownloading ? progress : null,
-                    onTap: isDownloading ? null : onDownload,
+                    icon: Icons.download_rounded,
+                    onTap: onDownload,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ] else ...[
+                  // Download in progress
+                  _IconBtn(
+                    icon: null,
+                    progress: progress,
+                    onTap: null,
                     color: cs.onSurfaceVariant,
                   ),
                 ],
