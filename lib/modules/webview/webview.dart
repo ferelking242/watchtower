@@ -1010,7 +1010,7 @@ enum _PanelSnap { mini, half, full }
 double _snapFraction(_PanelSnap s) {
   switch (s) {
     case _PanelSnap.mini:
-      return 0.35;
+      return 0.075;
     case _PanelSnap.half:
       return 0.65;
     case _PanelSnap.full:
@@ -1894,10 +1894,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         // ── Top bar: address + close ──────────────────────────────────
         appBar: PreferredSize(
-          preferredSize: Size.fromHeight(54 + MediaQuery.of(context).padding.top),
-          child: SafeArea(
-            bottom: false,
-            child: _BrowserHeader(
+          preferredSize: Size.fromHeight(54),
+          child: _BrowserHeader(
               url: _url,
               title: _title,
               progress: _progress,
@@ -1911,14 +1909,19 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               onToggleFooter: () => setState(() => _showFooter = !_showFooter),
               onRefresh: () => _webViewController?.reload(),
               onMinimize: () {
-                setState(() => _snap = _PanelSnap.mini);
-                SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                _animateTo(_snapFraction(_PanelSnap.mini));
+                if (_snap == _PanelSnap.full) {
+                  setState(() => _snap = _PanelSnap.mini);
+                  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                  _animateTo(_snapFraction(_PanelSnap.mini));
+                } else {
+                  setState(() => _snap = _PanelSnap.full);
+                  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                  _animateTo(_snapFraction(_PanelSnap.full));
+                }
               },
               onDragStart: _onDragStart,
               onDragUpdate: _onDragUpdate,
               onDragEnd: _onDragEnd,
-            ),
           ),
         ),
         // ── WebView body ──────────────────────────────────────────────
@@ -2149,7 +2152,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   
 // ─── Browser header (drag handle + address bar + progress) ───────────────────
 
-class _BrowserHeader extends StatelessWidget {
+class _BrowserHeader extends StatefulWidget {
   final String url;
   final String title;
   final double progress;
@@ -2168,6 +2171,7 @@ class _BrowserHeader extends StatelessWidget {
   final GestureDragEndCallback onDragEnd;
 
   const _BrowserHeader({
+    super.key,
     required this.url,
     required this.title,
     required this.progress,
@@ -2187,30 +2191,62 @@ class _BrowserHeader extends StatelessWidget {
   });
 
   @override
+  State<_BrowserHeader> createState() => _BrowserHeaderState();
+}
+
+class _BrowserHeaderState extends State<_BrowserHeader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _refreshCtrl;
+  late Animation<double> _refreshAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _refreshAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _refreshCtrl, curve: Curves.linear),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onRefreshTap() {
+    widget.onRefresh();
+    _refreshCtrl.forward(from: 0).then((_) => _refreshCtrl.reset());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final secure = _isSecure(url);
-    final displayTitle = title.isNotEmpty ? title : _displayHost(url);
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subColor = isDark ? Colors.grey.shade500 : Colors.grey.shade500;
-    final isMini = snap == _PanelSnap.mini;
+    final secure = _isSecure(widget.url);
+    final displayTitle = widget.title.isNotEmpty ? widget.title : _displayHost(widget.url);
+    final textColor = widget.isDark ? Colors.white : Colors.black87;
+    final subColor = widget.isDark ? Colors.grey.shade500 : Colors.grey.shade500;
+    final isMini = widget.snap == _PanelSnap.mini;
 
     // Left icon colour: incognito=purple, HTTPS=green, HTTP=grey
-    final Color shieldColor = incognito
+    final Color shieldColor = widget.incognito
         ? Colors.deepPurple.shade300
         : secure
-            ? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
+            ? (widget.isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
             : subColor;
 
     return GestureDetector(
-      onVerticalDragStart: onDragStart,
-      onVerticalDragUpdate: onDragUpdate,
-      onVerticalDragEnd: onDragEnd,
+      onVerticalDragStart: widget.onDragStart,
+      onVerticalDragUpdate: widget.onDragUpdate,
+      onVerticalDragEnd: widget.onDragEnd,
       behavior: HitTestBehavior.translucent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Drag handle pill (hidden in fullscreen mode) ───────────
-          if (snap != _PanelSnap.full)
+          if (widget.snap != _PanelSnap.full)
             Center(
               child: Container(
                 width: 36, height: 4,
@@ -2231,12 +2267,12 @@ class _BrowserHeader extends StatelessWidget {
               children: [
                 // Left: shield (secure) or ghost (incognito) — tap = toggle footer
                 GestureDetector(
-                  onTap: onToggleFooter,
+                  onTap: widget.onToggleFooter,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     child: SvgPicture.asset(
-                      incognito ? 'assets/icons/ghost.svg' : 'assets/icons/block-ads.svg',
+                      widget.incognito ? 'assets/icons/ghost.svg' : 'assets/icons/block-ads.svg',
                       width: 20,
                       height: 20,
                       colorFilter: ColorFilter.mode(shieldColor, BlendMode.srcIn),
@@ -2248,7 +2284,7 @@ class _BrowserHeader extends StatelessWidget {
                 Expanded(
                   child: GestureDetector(
                     onLongPress: () {
-                      Clipboard.setData(ClipboardData(text: url));
+                      Clipboard.setData(ClipboardData(text: widget.url));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Lien copié'), duration: Duration(seconds: 2)),
                       );
@@ -2269,7 +2305,7 @@ class _BrowserHeader extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        if (adEnabled && blockedCount > 0) ...[
+                        if (widget.adEnabled && widget.blockedCount > 0) ...[
                           const SizedBox(width: 6),
                           Text(
                             blockedCount > 99 ? '99+' : '$blockedCount',
@@ -2287,7 +2323,7 @@ class _BrowserHeader extends StatelessWidget {
 
                 // Right: minimize button + refresh
                 GestureDetector(
-                  onTap: onMinimize,
+                  onTap: widget.onMinimize,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
@@ -2299,14 +2335,17 @@ class _BrowserHeader extends StatelessWidget {
                   ),
                 ),
                 GestureDetector(
-                  onTap: onRefresh,
+                  onTap: _onRefreshTap,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                    child: Icon(
-                      Icons.refresh_rounded,
-                      size: 20,
-                      color: textColor,
+                    child: RotationTransition(
+                      turns: _refreshAnim,
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 20,
+                        color: textColor,
+                      ),
                     ),
                   ),
                 ),
@@ -2317,11 +2356,11 @@ class _BrowserHeader extends StatelessWidget {
           // Progress bar
           SizedBox(
             height: 2,
-            child: progress < 1.0
+            child: widget.progress < 1.0
                 ? LinearProgressIndicator(
-                    value: progress,
+                    value: widget.progress,
                     backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                    valueColor: AlwaysStoppedAnimation<Color>(widget.cs.primary),
                   )
                 : const SizedBox.shrink(),
           ),
