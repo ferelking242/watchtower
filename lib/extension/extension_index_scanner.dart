@@ -10,15 +10,21 @@ import 'package:watchtower/utils/log/logger.dart';
 
 /// Full extension index scanner.
 ///
-/// Replaces the legacy suffix-matching approach with a rebuild-from-scratch
-/// strategy that guarantees 100% detection and zero ghost counters.
-///
 /// Algorithm:
 ///   1. Ask Android for ALL packages with tachiyomi OR aniyomi extension features
-///   2. For every installed package, try to match it against DB sources
+///   2. For every DB source, try to match it against installed packages
+///      using CASE-INSENSITIVE URL comparison (fixes Keiyoushi CamelCase APKs)
 ///   3. Activate matching sources (mark isAdded=true, isActive=true)
-///   4. Orphan sweep: any source still isAdded=true but package not on device → deactivate
-///   5. Log every step with the canonical [ExtensionScan] / [ExtensionAdded] / etc. tags
+///   4. Orphan sweep: any Mihon source still isAdded=true but package not
+///      on device → deactivate
+///
+/// Root cause of the "only 6-17 out of 30+ show" bug:
+///   Keiyoushi names APKs like `tachiyomi-en.MangaDex-v13.4.22.apk`
+///   but Android package names are always lowercase:
+///   `eu.kanade.tachiyomi.extension.en.mangadex`
+///   The old code did case-SENSITIVE String.contains() → no match for
+///   any extension whose APK filename uses CamelCase.
+///   Fix: all URL matching is now toLowerCase() on both sides.
 
 const _kLoaderChannel = MethodChannel('com.watchtower.app.ext_loader');
 
@@ -92,20 +98,12 @@ Future<void> rebuildExtensionIndex({
     tag: LogTag.extension_,
   );
 
-  // Build suffix → sourceDir lookup (covers all prefix variants)
-  final suffixMap = <String, _InstalledPkg>{};
-  for (final p in installedPkgs) {
-    for (final prefix in _kKnownPrefixes) {
-      if (p.pkg.startsWith(prefix)) {
-        final suffix = p.pkg.substring(prefix.length);
-        if (suffix.isNotEmpty && suffix.contains('.')) {
-          suffixMap[suffix] = p;
-        }
-        break;
-      }
-    }
-    // Also store full package name for direct lookup
-    suffixMap[p.pkg] = p;
+  if (installedPkgs.isEmpty) {
+    AppLogger.log(
+      '[ExtensionScan] No extension packages on device — nothing to activate',
+      tag: LogTag.extension_,
+    );
+    return;
   }
 
   // ── 2. Load all DB sources for this type ──────────────────────────────────
@@ -120,15 +118,14 @@ Future<void> rebuildExtensionIndex({
   );
 
   // ── 3. Match: activate sources that have a device package ──────────────────
-  final toActivate = <Source>[];
+  final toActivate   = <Source>[];
   final toDeactivate = <Source>[];
-  final installedPkgNames = installedPkgs.map((p) => p.pkg).toSet();
+  final confirmedIds = <int>{};
 
   for (final source in typeSources) {
     final isMihon = source.sourceCodeLanguage == SourceCodeLanguage.mihon;
     if (!isMihon) continue;
 
-    // ── Validation ──────────────────────────────────────────────────────────
     if (source.id == null) {
       AppLogger.log(
         '[ExtensionValidation] Skipping source with null id: ${source.name}',
@@ -139,50 +136,18 @@ Future<void> rebuildExtensionIndex({
     }
 
     final url = source.sourceCodeUrl ?? '';
-    if (url.isEmpty) {
-      // No URL — cannot match to a package.
-      // If currently "installed", deactivate (orphan).
-      if (source.isAdded == true) {
-        AppLogger.log(
-          '[ExtensionValidation] Orphan (no url): ${source.name} — deactivating',
-          logLevel: LogLevel.warning,
-          tag: LogTag.extension_,
-        );
-        toDeactivate.add(source);
-      }
-      continue;
-    }
 
-    // Try to find the matching installed package
+    // Find the matching installed package using case-insensitive URL matching
     _InstalledPkg? match;
-
-    // Strategy A: suffix from URL path
-    for (final entry in suffixMap.entries) {
-      final s = entry.key;
-      if (url.contains('-$s-') ||
-          url.contains('/$s-') ||
-          url.contains('.$s-') ||
-          url.endsWith('-$s.apk') ||
-          url.contains('/$s.apk')) {
-        match = entry.value;
+    for (final p in installedPkgs) {
+      if (_pkgMatchesUrl(p.pkg, url)) {
+        match = p;
         break;
       }
     }
 
-    // Strategy B: package name embedded directly in URL
     if (match == null) {
-      for (final pkg in installedPkgNames) {
-        if (url.contains(pkg)) {
-          match = installedPkgs.firstWhere((p) => p.pkg == pkg);
-          break;
-        }
-      }
-    }
-
-    if (match == null) {
-      // Package not found on device
       if (source.isAdded == true) {
-        // Was installed but package is gone — orphan
         AppLogger.log(
           '[ExtensionRemoved] ${source.name} — package missing, deactivating',
           tag: LogTag.extension_,
@@ -191,6 +156,8 @@ Future<void> rebuildExtensionIndex({
       }
       continue;
     }
+
+    confirmedIds.add(source.id!);
 
     // Package exists — validate the APK is readable
     bool apkOk = false;
@@ -229,12 +196,16 @@ Future<void> rebuildExtensionIndex({
         '[ExtensionAdded] ${source.name} [${source.lang}]',
         tag: LogTag.extension_,
       );
+    } else {
+      // Already activated — still count as confirmed (not an orphan)
+      AppLogger.log(
+        '[ExtensionScan] Already active: ${source.name}',
+        tag: LogTag.extension_,
+      );
     }
   }
 
   // ── 4. Orphan sweep: deactivate sources whose package is NOT on device ───
-  // Any Mihon source still marked isAdded=true that we didn't confirm above
-  final confirmedIds = toActivate.map((s) => s.id).toSet();
   final deactivateIds = toDeactivate.map((s) => s.id).toSet();
 
   for (final source in typeSources) {
@@ -245,26 +216,7 @@ Future<void> rebuildExtensionIndex({
 
     // This source is marked installed but was never matched → orphan
     final url = source.sourceCodeUrl ?? '';
-    bool onDevice = false;
-    for (final entry in suffixMap.entries) {
-      final s = entry.key;
-      if (url.contains('-$s-') ||
-          url.contains('/$s-') ||
-          url.contains('.$s-') ||
-          url.endsWith('-$s.apk') ||
-          url.contains('/$s.apk')) {
-        onDevice = true;
-        break;
-      }
-    }
-    if (!onDevice) {
-      for (final pkg in installedPkgNames) {
-        if (url.contains(pkg)) {
-          onDevice = true;
-          break;
-        }
-      }
-    }
+    bool onDevice = installedPkgs.any((p) => _pkgMatchesUrl(p.pkg, url));
 
     if (!onDevice) {
       AppLogger.log(
@@ -321,16 +273,6 @@ Future<void> handlePackageInstalled({
     return;
   }
 
-  // Derive suffix
-  final suffixes = <String>[];
-  for (final prefix in _kKnownPrefixes) {
-    if (pkg.startsWith(prefix)) {
-      final s = pkg.substring(prefix.length);
-      if (s.isNotEmpty && s.contains('.')) suffixes.add(s);
-    }
-  }
-  suffixes.add(pkg); // also try full package name
-
   final allSources = await isar.sources.buildQuery<Source>().findAll();
   final candidates = allSources
       .where((s) => s.sourceCodeLanguage == SourceCodeLanguage.mihon)
@@ -340,19 +282,7 @@ Future<void> handlePackageInstalled({
   for (final s in candidates) {
     final url = s.sourceCodeUrl ?? '';
     if (url.isEmpty) continue;
-    bool hit = false;
-    for (final suffix in suffixes) {
-      if (url.contains('-$suffix-') ||
-          url.contains('/$suffix-') ||
-          url.contains('.$suffix-') ||
-          url.endsWith('-$suffix.apk') ||
-          url.contains('/$suffix.apk') ||
-          url.contains(suffix)) {
-        hit = true;
-        break;
-      }
-    }
-    if (!hit) continue;
+    if (!_pkgMatchesUrl(pkg, url)) continue;
 
     AppLogger.log(
       '[ExtensionValidation] Success: ${s.name} ← $pkg',
@@ -384,15 +314,6 @@ Future<void> handlePackageRemoved(String pkg) async {
     tag: LogTag.extension_,
   );
 
-  final suffixes = <String>[];
-  for (final prefix in _kKnownPrefixes) {
-    if (pkg.startsWith(prefix)) {
-      final s = pkg.substring(prefix.length);
-      if (s.isNotEmpty && s.contains('.')) suffixes.add(s);
-    }
-  }
-  suffixes.add(pkg);
-
   final allSources = await isar.sources.buildQuery<Source>().findAll();
   final installed = allSources
       .where((s) =>
@@ -403,19 +324,9 @@ Future<void> handlePackageRemoved(String pkg) async {
   final toUpdate = <Source>[];
   for (final s in installed) {
     final url = s.sourceCodeUrl ?? '';
-    bool hit = false;
-    for (final suffix in suffixes) {
-      if (url.contains('-$suffix-') ||
-          url.contains('/$suffix-') ||
-          url.contains('.$suffix-') ||
-          url.endsWith('-$suffix.apk') ||
-          url.contains('/$suffix.apk') ||
-          url.contains(suffix)) {
-        hit = true;
-        break;
-      }
-    }
-    if (!hit) continue;
+    if (url.isEmpty) continue;
+    if (!_pkgMatchesUrl(pkg, url)) continue;
+
     AppLogger.log(
       '[ExtensionRemoved] ${s.name} — package $pkg removed',
       tag: LogTag.extension_,
@@ -433,6 +344,47 @@ Future<void> handlePackageRemoved(String pkg) async {
       tag: LogTag.extension_,
     );
   }
+}
+
+// ─── Core matching helper ─────────────────────────────────────────────────────
+
+/// Returns true if Android package [pkg] corresponds to the extension at [url].
+///
+/// CASE-INSENSITIVE: Keiyoushi / yuzono / kareadita name APK files with
+/// CamelCase (e.g. `tachiyomi-en.MangaDex-v13.4.22.apk`) while Android
+/// package names are always lowercase (`eu.kanade.tachiyomi.extension.en.mangadex`).
+/// Using case-sensitive String.contains() caused ~80% of extensions to go
+/// undetected. This function normalises both sides to lowercase first.
+///
+/// Matching strategies (in order):
+///   1. Full package name appears literally in the URL
+///   2. Package suffix (after stripping known prefix) appears in the URL
+///      with any of the common separator/boundary patterns used by all repos
+bool _pkgMatchesUrl(String pkg, String url) {
+  if (url.isEmpty || pkg.isEmpty) return false;
+  final u = url.toLowerCase();
+
+  // Strategy 1: full package name embedded in URL (e.g. custom repos)
+  if (u.contains(pkg.toLowerCase())) return true;
+
+  // Strategy 2: strip known prefix → suffix, then look for it in the URL
+  for (final prefix in _kKnownPrefixes) {
+    if (pkg.startsWith(prefix)) {
+      final suffix = pkg.substring(prefix.length).toLowerCase();
+      // e.g. suffix = "en.mangadex"
+      if (suffix.isEmpty || !suffix.contains('.')) break;
+      if (u.contains('-$suffix-') ||     // tachiyomi-en.mangadex-v...
+          u.contains('/$suffix-') ||     // /en.mangadex-v...
+          u.contains('.$suffix-') ||     // .en.mangadex-v...
+          u.contains('-$suffix.apk') ||  // ...-en.mangadex.apk
+          u.contains('/$suffix.apk')) {  // /en.mangadex.apk
+        return true;
+      }
+      break;
+    }
+  }
+
+  return false;
 }
 
 // ─── Internals ────────────────────────────────────────────────────────────────
