@@ -1169,3 +1169,71 @@ query ($mediaId: Int, $page: Int) {
 final activitiesProvider = FutureProvider.autoDispose.family<List<AnilistActivity>, int>(
   (ref, mediaId) => _fetchActivities(mediaId),
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AniZip episode metadata (title, synopsis, thumbnail, duration)
+// API: https://api.ani.zip/mappings?anilist_id={id}
+// ─────────────────────────────────────────────────────────────────────────────
+
+class AniZipEpisode {
+  final int episodeNumber;
+  final String? titleEn;
+  final String? titleJa;
+  final String? overview;
+  final String? image;
+  final String? airDate;
+  final int? runtime; // minutes
+
+  const AniZipEpisode({
+    required this.episodeNumber,
+    this.titleEn,
+    this.titleJa,
+    this.overview,
+    this.image,
+    this.airDate,
+    this.runtime,
+  });
+
+  String get displayTitle => titleEn?.isNotEmpty == true
+      ? titleEn!
+      : 'Episode $episodeNumber';
+}
+
+Future<List<AniZipEpisode>> _fetchAniZipEpisodes(int anilistId) async {
+  final uri = Uri.parse('https://api.ani.zip/mappings?anilist_id=$anilistId');
+  try {
+    final resp = await http.get(uri, headers: {'Accept': 'application/json'})
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200) return [];
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final episodesMap = data['episodes'] as Map<String, dynamic>? ?? {};
+    final result = <AniZipEpisode>[];
+    for (final entry in episodesMap.entries) {
+      final ep = entry.value as Map<String, dynamic>? ?? {};
+      final epNum = (ep['episodeNumber'] as int?) ??
+          int.tryParse(entry.key) ??
+          0;
+      // Skip specials (episode 0 or negative unless it's the only episode)
+      if (epNum < 1 && episodesMap.length > 1) continue;
+      final titleMap = ep['title'] as Map<String, dynamic>? ?? {};
+      result.add(AniZipEpisode(
+        episodeNumber: epNum,
+        titleEn: titleMap['en'] as String?,
+        titleJa: titleMap['ja'] as String?,
+        overview: ep['overview'] as String?,
+        image: ep['image'] as String?,
+        airDate: ep['airDate'] as String?,
+        runtime: ep['runtime'] as int?,
+      ));
+    }
+    result.sort((a, b) => a.episodeNumber.compareTo(b.episodeNumber));
+    return result;
+  } catch (_) {
+    return [];
+  }
+}
+
+final aniZipEpisodesProvider =
+    FutureProvider.autoDispose.family<List<AniZipEpisode>, int>(
+  (ref, anilistId) => _fetchAniZipEpisodes(anilistId),
+);
