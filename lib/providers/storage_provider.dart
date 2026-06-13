@@ -331,17 +331,17 @@ class StorageProvider {
         'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
 
     final mangaRepo = Repo(
-      jsonUrl: '$_wtBase/manga/index.json',
+      jsonUrl: '$_wtBase/index/manga.json',
       name: 'Watchtower – Manga',
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
     final watchRepo = Repo(
-      jsonUrl: '$_wtBase/watch/index.json',
+      jsonUrl: '$_wtBase/index/watch.json',
       name: 'Watchtower – Watch',
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
     final novelRepo = Repo(
-      jsonUrl: '$_wtBase/novel/index.json',
+      jsonUrl: '$_wtBase/index/novel.json',
       name: 'Watchtower – Novels',
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
@@ -388,7 +388,20 @@ class StorageProvider {
           );
           changed = true;
         }
-        // C — LNReader: broken v2/index.json → remove (dead URL)
+        // D — Watchtower: old manga|watch|novel/index.json → index/manga|watch|novel.json
+          if (r.jsonUrl?.contains('ferelking242/watchtower-extensions') == true) {
+            if (r.jsonUrl!.contains('/manga/index.json')) {
+              r.jsonUrl = r.jsonUrl!.replaceFirst('/manga/index.json', '/index/manga.json');
+              changed = true;
+            } else if (r.jsonUrl!.contains('/watch/index.json')) {
+              r.jsonUrl = r.jsonUrl!.replaceFirst('/watch/index.json', '/index/watch.json');
+              changed = true;
+            } else if (r.jsonUrl!.contains('/novel/index.json')) {
+              r.jsonUrl = r.jsonUrl!.replaceFirst('/novel/index.json', '/index/novel.json');
+              changed = true;
+            }
+          }
+          // C — LNReader: broken v2/index.json → remove (dead URL)
         if (r.jsonUrl?.contains('LNReader/lnreader-sources') == true) {
           r.jsonUrl = null; // will be filtered below
           changed = true;
@@ -428,15 +441,15 @@ class StorageProvider {
         settings.novelExtensionsRepo = _cleanRepos(settings.novelExtensionsRepo);
 
         // 2 — Ensure Watchtower base repos are present
-        if (!_hasRepo(settings.mangaExtensionsRepo, 'manga/index.json')) {
+        if (!_hasRepo(settings.mangaExtensionsRepo, 'index/manga.json')) {
           settings.mangaExtensionsRepo = [...settings.mangaExtensionsRepo!, mangaRepo];
           needsUpdate = true;
         }
-        if (!_hasRepo(settings.animeExtensionsRepo, 'watch/index.json')) {
+        if (!_hasRepo(settings.animeExtensionsRepo, 'index/watch.json')) {
           settings.animeExtensionsRepo = [...settings.animeExtensionsRepo!, watchRepo];
           needsUpdate = true;
         }
-        if (!_hasRepo(settings.novelExtensionsRepo, 'novel/index.json')) {
+        if (!_hasRepo(settings.novelExtensionsRepo, 'index/novel.json')) {
           settings.novelExtensionsRepo = [...settings.novelExtensionsRepo!, novelRepo];
           needsUpdate = true;
         }

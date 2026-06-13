@@ -89,7 +89,7 @@ const _kWtExtBase =
 List<Repo> _defaultMangaRepos() => [
   Repo(
     name: 'Watchtower Officiel – Manga',
-    jsonUrl: '$_kWtExtBase/manga/index.json',
+    jsonUrl: '$_kWtExtBase/index/manga.json',
     website: 'https://github.com/ferelking242/watchtower-extensions',
   ),
   Repo(
@@ -115,7 +115,7 @@ List<Repo> _defaultMangaRepos() => [
 List<Repo> _defaultAnimeRepos() => [
   Repo(
     name: 'Watchtower Officiel – Watch',
-    jsonUrl: '$_kWtExtBase/watch/index.json',
+    jsonUrl: '$_kWtExtBase/index/watch.json',
     website: 'https://github.com/ferelking242/watchtower-extensions',
   ),
   Repo(
@@ -129,7 +129,7 @@ List<Repo> _defaultAnimeRepos() => [
 List<Repo> _defaultNovelRepos() => [
   Repo(
     name: 'Watchtower Officiel – Novel',
-    jsonUrl: '$_kWtExtBase/novel/index.json',
+    jsonUrl: '$_kWtExtBase/index/novel.json',
     website: 'https://github.com/ferelking242/watchtower-extensions',
   ),
 ];
