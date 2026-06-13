@@ -11,7 +11,9 @@ concurrency:
 
 jobs:
   # ────────────────────────────────────────────────────────────
-  # Android — split APKs per ABI (release, ultra-compressed artifact)
+  # Android — split APKs per ABI
+  # Uses --profile (signed with embedded debug keystore)
+  # Release signing requires KEYSTORE secrets — not always set in CI
   # ────────────────────────────────────────────────────────────
   build-android:
     name: Android (${{ matrix.label }})
@@ -53,33 +55,22 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Decode keystore
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
-
       - name: Build APK — ${{ matrix.label }}
         run: |
           flutter build apk \
-            --release \
-            --no-tree-shake-icons \
+            --profile \
             --target-platform ${{ matrix.target }} \
             --split-per-abi
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Repack APK with maximum compression (7z LZMA2)
         run: |
           sudo apt-get install -y p7zip-full --quiet
           mkdir -p artifacts
           for apk in build/app/outputs/flutter-apk/*.apk; do
+            [ -f "$apk" ] || continue
             base=$(basename "$apk" .apk)
             7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
-              "artifacts/${base}-${{ matrix.label }}.7z" "$apk"
+              "artifacts/${base}.7z" "$apk"
           done
           ls -lh artifacts/
 
@@ -92,7 +83,7 @@ jobs:
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
-  # Android Universal (all ABIs — ultra-compressed)
+  # Android Universal (all ABIs in one APK)
   # ────────────────────────────────────────────────────────────
   build-android-universal:
     name: Android (Universal)
@@ -123,26 +114,15 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Decode keystore
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
-
       - name: Build Universal APK
-        run: flutter build apk --release --no-tree-shake-icons
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: flutter build apk --profile
 
       - name: Repack APK with maximum compression (7z LZMA2)
         run: |
           sudo apt-get install -y p7zip-full --quiet
           7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
             watchtower-android-universal.7z \
-            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-profile.apk
           ls -lh watchtower-android-universal.7z
 
       - name: Upload Universal APK artifact
@@ -181,7 +161,7 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign --no-tree-shake-icons
+        run: flutter build ios --release --no-codesign
 
       - name: Package IPA (max compressed)
         run: |
@@ -231,7 +211,6 @@ jobs:
             libgtk-3-dev liblzma-dev \
             libblkid-dev libmount-dev \
             p7zip-full
-          # libstdc++ version varies — install all available
           sudo apt-get install -y libstdc++-12-dev 2>/dev/null || true
           sudo apt-get install -y libstdc++-13-dev 2>/dev/null || true
           sudo apt-get install -y libstdc++-14-dev 2>/dev/null || true
@@ -246,7 +225,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Linux
-        run: flutter build linux --release --no-tree-shake-icons
+        run: flutter build linux --release
 
       - name: Package archive (7z LZMA2 max)
         run: |
@@ -292,7 +271,7 @@ jobs:
         run: flutter pub get
 
       - name: Build macOS
-        run: flutter build macos --release --no-tree-shake-icons
+        run: flutter build macos --release
 
       - name: Package archive (zip -9)
         run: |
@@ -342,7 +321,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows
-        run: flutter build windows --release --no-tree-shake-icons
+        run: flutter build windows --release
 
       - name: Package archive (7z max)
         shell: pwsh
