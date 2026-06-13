@@ -117,7 +117,7 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Update ZeusDL jniLibs
+      - name: Bundle ZeusDL as Flutter asset (NDK-free approach)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -132,31 +132,31 @@ jobs:
           ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
           echo "ZeusDL version: $ZEUSDL_VERSION"
 
-          for ARCH in arm64 x86_64; do
-            echo "--- Processing $ARCH ---"
-            if [ "$ARCH" = "arm64" ]; then
-              JNIDIR="android/app/src/main/jniLibs/arm64-v8a"
-            else
-              JNIDIR="android/app/src/main/jniLibs/x86_64"
-            fi
-            DEST="$JNIDIR/libzeusdl.so"
-            mkdir -p "$JNIDIR"
+          # Remove ET_EXEC stubs from jniLibs — Android 10+ rejects non-PIE .so at install time.
+          # ZeusDL is now a Flutter asset: extracted to getApplicationSupportDirectory()
+          # at first launch and executed via Process.start() (always exec-capable on Android).
+          rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
+          rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
+          echo "Removed libzeusdl.so ET_EXEC stubs from jniLibs"
 
-            URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-${ARCH}"
-            echo "Downloading: $URL"
-            curl -fsSL "$URL" -o "$DEST"
-            SIZE=$(wc -c < "$DEST")
-            echo "Downloaded: $SIZE bytes"
+          # Bundle arm64 binary as Flutter asset.
+          # ZeusDlBinaryManager reads assets/binaries/zeusdl, extracts to internal
+          # storage (exec-capable) and runs via Process.start() — no dlopen needed.
+          mkdir -p assets/binaries
+          URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-arm64"
+          echo "Downloading: $URL"
+          curl -fsSL "$URL" -o assets/binaries/zeusdl
 
-            MAGIC=$(head -c 4 "$DEST" | xxd -p)
-            if [ "$MAGIC" != "7f454c46" ]; then
-              echo "ERROR: $ARCH not ELF (magic=$MAGIC)"; exit 1
-            fi
-            echo "ELF OK for $ARCH"
-            chmod 755 "$DEST"
-            echo "--- $ARCH done ---"
-          done
-          echo "=== ZeusDL jniLibs update complete ==="
+          SIZE=$(wc -c < assets/binaries/zeusdl)
+          MAGIC=$(head -c 4 assets/binaries/zeusdl | xxd -p)
+          if [ "$MAGIC" != "7f454c46" ]; then
+            echo "ERROR: not ELF (magic=$MAGIC)"; exit 1
+          fi
+          ELF_CLASS=$(dd if=assets/binaries/zeusdl bs=1 skip=4 count=1 2>/dev/null | xxd -p)
+          ELF_TYPE=$(dd if=assets/binaries/zeusdl bs=1 skip=16 count=2 2>/dev/null | xxd -p)
+          echo "ZeusDL asset: $SIZE bytes | ELF class=0x$ELF_CLASS (02=64bit) | e_type=0x$ELF_TYPE (0200=ET_EXEC, 0300=ET_DYN)"
+          echo "=== ZeusDL asset bundling complete ==="
+
 
       - name: Install dependencies
         run: flutter pub get

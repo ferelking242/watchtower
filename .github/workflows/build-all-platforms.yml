@@ -54,6 +54,41 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
+      - name: Bundle ZeusDL as Flutter asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Determine ZeusDL arch from matrix target
+          if [[ "${{ matrix.target }}" == *"arm64"* ]]; then
+            ZEUSDL_ARCH="arm64"
+          else
+            ZEUSDL_ARCH="x86_64"
+          fi
+          echo "=== Bundling ZeusDL ($ZEUSDL_ARCH) as Flutter asset ==="
+          RELEASE_JSON=$(curl -fsSL \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
+          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          echo "ZeusDL version: $ZEUSDL_VERSION"
+          # Remove ET_EXEC stubs — Android 10+ rejects non-PIE .so at install time
+          rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
+          rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
+          # Bundle binary as Flutter asset (extracted to internal storage at runtime)
+          mkdir -p assets/binaries
+          URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-${ZEUSDL_ARCH}"
+          echo "Downloading: $URL"
+          curl -fsSL "$URL" -o assets/binaries/zeusdl
+          SIZE=$(wc -c < assets/binaries/zeusdl)
+          MAGIC=$(head -c 4 assets/binaries/zeusdl | xxd -p)
+          if [ "$MAGIC" != "7f454c46" ]; then
+            echo "ERROR: not ELF (magic=$MAGIC)"; exit 1
+          fi
+          echo "ZeusDL asset ($ZEUSDL_ARCH): $SIZE bytes, ELF OK"
+          echo "=== Done ==="
+
+
       - name: Flutter pub get
         run: flutter pub get
 
@@ -128,6 +163,30 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
+      - name: Bundle ZeusDL as Flutter asset (arm64)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "=== Bundling ZeusDL (arm64) as Flutter asset for Universal APK ==="
+          RELEASE_JSON=$(curl -fsSL \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
+          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          echo "ZeusDL version: $ZEUSDL_VERSION"
+          rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
+          rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
+          mkdir -p assets/binaries
+          URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-arm64"
+          curl -fsSL "$URL" -o assets/binaries/zeusdl
+          SIZE=$(wc -c < assets/binaries/zeusdl)
+          MAGIC=$(head -c 4 assets/binaries/zeusdl | xxd -p)
+          if [ "$MAGIC" != "7f454c46" ]; then echo "ERROR: not ELF"; exit 1; fi
+          echo "ZeusDL asset: $SIZE bytes, ELF OK"
+          echo "=== Done ==="
+
 
       - name: Flutter pub get
         run: flutter pub get
