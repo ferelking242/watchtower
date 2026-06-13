@@ -498,8 +498,9 @@ class _ScheduleBody extends ConsumerWidget {
     if (manga.smartUpdateDays == null || manga.smartUpdateDays! <= 0) {
       return null;
     }
-    final lastChapter =
-        manga.chapters.sortByDateUploadDesc().findFirstSync();
+    final _chapterList = manga.chapters.toList()
+      ..sort((a, b) => (b.dateUpload ?? '0').compareTo(a.dateUpload ?? '0'));
+    final lastChapter = _chapterList.isEmpty ? null : _chapterList.first;
     final lastChapterMs = int.tryParse(lastChapter?.dateUpload ?? '');
     return FetchInterval.computeExpectedDate(
       lastChapterDateMs: lastChapterMs,

@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/misc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
