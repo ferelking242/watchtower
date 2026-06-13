@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/eval/javascript/http.dart';
+import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_chapter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
