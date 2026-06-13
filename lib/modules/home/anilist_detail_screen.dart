@@ -3,7 +3,9 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 
@@ -31,7 +33,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 11, vsync: this);
+    _tab = TabController(length: 12, vsync: this);
     _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
@@ -203,6 +205,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
                             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                             tabs: const [
                               Tab(text: 'Overview'),
+                              Tab(text: 'Episodes'),
                               Tab(text: 'Related'),
                               Tab(text: 'Characters'),
                               Tab(text: 'Staff'),
@@ -224,6 +227,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
                       controller: _tab,
                       children: [
                         _buildOverview(context, m, detail, cs, theme),
+                        _buildEpisodes(context, m, cs),
                         _buildRelated(context, detail, cs),
                         _buildCharacters(context, detail, cs, m),
                         _buildStaff(context, detail, cs),
@@ -436,7 +440,15 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // TAB 1 — Related
+  // TAB 1 — Episodes (AniZip: title, synopsis, thumbnail, duration)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildEpisodes(BuildContext context, AnilistMedia m, ColorScheme cs) {
+    return _EpisodesTab(media: m, cs: cs);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TAB 2 — Related
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildRelated(BuildContext context, AsyncValue<AnilistMediaDetail> detail, ColorScheme cs) {
@@ -2895,6 +2907,619 @@ class _ScorePill extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Episodes Tab — AniZip data
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EpisodesTab extends ConsumerStatefulWidget {
+  final AnilistMedia media;
+  final ColorScheme cs;
+  const _EpisodesTab({required this.media, required this.cs});
+
+  @override
+  ConsumerState<_EpisodesTab> createState() => _EpisodesTabState();
+}
+
+class _EpisodesTabState extends ConsumerState<_EpisodesTab> {
+  bool _showSpecials = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = widget.media;
+    final cs = widget.cs;
+
+    if (m.type != 'ANIME') {
+      return const _EmptyView(message: 'Episode data is only available for anime');
+    }
+
+    final episodesAsync = ref.watch(aniZipEpisodesProvider(m.id));
+
+    return episodesAsync.when(
+      loading: () => const _LoadingView(),
+      error: (e, _) => _ErrorView(message: 'Could not load episodes: ${e.toString()}'),
+      data: (list) {
+        if (list.isEmpty) {
+          return const _EmptyView(message: 'No episode data available yet');
+        }
+
+        final specials = list.where((e) => e.episodeNumber == 0).toList();
+        final regular = list.where((e) => e.episodeNumber > 0).toList();
+        final displayed = _showSpecials ? list : regular;
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+          itemCount: displayed.length + 1,
+          itemBuilder: (ctx, i) {
+            if (i == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Text(
+                      '${regular.length} Episodes',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (specials.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => setState(() => _showSpecials = !_showSpecials),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: cs.primary.withValues(alpha: _showSpecials ? 0.2 : 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Specials',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: cs.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }
+            final ep = displayed[i - 1];
+            return _EpisodeRow(episode: ep, media: m, cs: cs);
+          },
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single Episode Row
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EpisodeRow extends StatefulWidget {
+  final AniZipEpisode episode;
+  final AnilistMedia media;
+  final ColorScheme cs;
+  const _EpisodeRow({
+    required this.episode,
+    required this.media,
+    required this.cs,
+    super.key,
+  });
+
+  @override
+  State<_EpisodeRow> createState() => _EpisodeRowState();
+}
+
+class _EpisodeRowState extends State<_EpisodeRow> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ep = widget.episode;
+    final cs = widget.cs;
+    final title = ep.displayTitle;
+    final hasOverview = ep.overview != null && ep.overview!.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: cs.surface.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showStreamSheet(context),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.18),
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Thumbnail ─────────────────────────────────────────────
+                Stack(
+                  children: [
+                    ep.image != null
+                        ? Image.network(
+                            ep.image!,
+                            width: 128,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const _EpisodePlaceholder(),
+                          )
+                        : const _EpisodePlaceholder(),
+                    Positioned(
+                      bottom: 5,
+                      right: 5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          ep.episodeNumber == 0
+                              ? 'S'
+                              : 'EP ${ep.episodeNumber}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ── Info ───────────────────────────────────────────────────
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title + duration
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (ep.runtime != null) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '${ep.runtime}m',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cs.onSurface.withValues(alpha: 0.45),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+
+                        // Air date
+                        if (ep.airDate != null && ep.airDate!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            ep.airDate!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurface.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ],
+
+                        // Synopsis (collapsible)
+                        if (hasOverview) ...[
+                          const SizedBox(height: 5),
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _expanded = !_expanded),
+                            child: Text(
+                              ep.overview!,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: cs.onSurface.withValues(alpha: 0.62),
+                                height: 1.45,
+                              ),
+                              maxLines: _expanded ? null : 2,
+                              overflow: _expanded
+                                  ? TextOverflow.visible
+                                  : TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+
+                        // Play button row
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _SmallPlayButton(
+                              icon: Icons.play_circle_filled_rounded,
+                              label: 'Watch',
+                              cs: cs,
+                              onTap: () => _showStreamSheet(context),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStreamSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _StreamSheet(
+        episode: widget.episode,
+        media: widget.media,
+        cs: widget.cs,
+      ),
+    );
+  }
+}
+
+class _SmallPlayButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+  const _SmallPlayButton({
+    required this.icon,
+    required this.label,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: cs.primary),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EpisodePlaceholder extends StatelessWidget {
+  const _EpisodePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 128,
+      height: 80,
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.45),
+      child: const Icon(Icons.videocam_outlined,
+          color: Colors.white24, size: 28),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream Source Sheet — Local · Online (Extensions) · Manual URL
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StreamSheet extends ConsumerStatefulWidget {
+  final AniZipEpisode episode;
+  final AnilistMedia media;
+  final ColorScheme cs;
+  const _StreamSheet({
+    required this.episode,
+    required this.media,
+    required this.cs,
+  });
+
+  @override
+  ConsumerState<_StreamSheet> createState() => _StreamSheetState();
+}
+
+class _StreamSheetState extends ConsumerState<_StreamSheet> {
+  final _urlCtrl = TextEditingController();
+  bool _showUrl = false;
+
+  @override
+  void dispose() {
+    _urlCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Local: look up Isar for a matching anime Manga ──────────────────────────
+  void _playLocal(BuildContext context) {
+    Navigator.pop(context);
+    final names = <String>{
+      if (widget.media.titleRomaji != null) widget.media.titleRomaji!,
+      if (widget.media.titleEnglish != null) widget.media.titleEnglish!,
+      if (widget.media.titleNative != null) widget.media.titleNative!,
+    };
+    Manga? found;
+    for (final name in names) {
+      found = isar.mangas
+          .filter()
+          .itemTypeEqualTo(ItemType.anime)
+          .nameContains(name, caseSensitive: false)
+          .findFirstSync();
+      if (found != null) break;
+    }
+    if (found != null && context.mounted) {
+      context.push('/manga-reader/detail', extra: found.id!);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This anime is not in your library yet. '
+            'Find it via "Extensions" first.',
+          ),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  // ── Extensions: global search pre-filled with the title ────────────────────
+  void _searchExtension(BuildContext context) {
+    Navigator.pop(context);
+    final query = widget.media.titleEnglish ??
+        widget.media.titleRomaji ??
+        widget.media.displayTitle;
+    context.push('/globalSearch', extra: (query, ItemType.anime));
+  }
+
+  // ── Manual URL: open in webview ─────────────────────────────────────────────
+  void _playManualUrl(BuildContext context) {
+    final url = _urlCtrl.text.trim();
+    if (url.isEmpty) return;
+    Navigator.pop(context);
+    context.push('/mangawebview', extra: {
+      'url': url,
+      'title':
+          'EP ${widget.episode.episodeNumber} · ${widget.episode.displayTitle}',
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ep = widget.episode;
+    final cs = widget.cs;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Episode label
+          Text(
+            widget.media.displayTitle,
+            style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w500),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'EP ${ep.episodeNumber} · ${ep.displayTitle}',
+            style: const TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w700, height: 1.2),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 22),
+
+          // ── Local library ─────────────────────────────────────────────────
+          _StreamOption(
+            icon: Icons.folder_outlined,
+            label: 'Local Library',
+            subtitle: 'Play from files already in your library',
+            cs: cs,
+            onTap: () => _playLocal(context),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Extensions (online) ────────────────────────────────────────────
+          _StreamOption(
+            icon: Icons.extension_outlined,
+            label: 'Extensions — Online',
+            subtitle: 'Smart search via your installed anime sources',
+            cs: cs,
+            onTap: () => _searchExtension(context),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Manual URL ────────────────────────────────────────────────────
+          _StreamOption(
+            icon: Icons.link_rounded,
+            label: 'Manual URL',
+            subtitle: 'Paste a direct stream link to watch',
+            cs: cs,
+            onTap: () => setState(() => _showUrl = !_showUrl),
+            trailing: Icon(
+              _showUrl ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              color: cs.onSurface.withValues(alpha: 0.35),
+            ),
+          ),
+
+          if (_showUrl) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _urlCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'https://...',
+                filled: true,
+                fillColor:
+                    cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.play_circle_filled_rounded,
+                      color: cs.primary, size: 26),
+                  onPressed: () => _playManualUrl(context),
+                ),
+              ),
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.go,
+              onSubmitted: (_) => _playManualUrl(context),
+            ),
+          ],
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _StreamOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+  final Widget? trailing;
+  const _StreamOption({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.cs,
+    required this.onTap,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: cs.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    const SizedBox(height: 1),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.52),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              trailing ??
+                  Icon(Icons.chevron_right_rounded,
+                      color: cs.onSurface.withValues(alpha: 0.3)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _GenreChip extends StatelessWidget {
   final String genre;
