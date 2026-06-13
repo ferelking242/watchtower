@@ -16,11 +16,11 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
 ///   executable  prependArgs  user_args
 ///
 /// On Android:
-///   executable = nativeLibraryDir/libzeusdl.so (staticx PIE binary)
-///   extraEnv   = {STATICX_TMPDIR: /data/local/tmp, TMPDIR: /data/local/tmp}
+///   executable = nativeLibraryDir/libzeusdl.so (Nuitka PIE binary, ET_DYN)
+///   extraEnv   = {TMPDIR: getTemporaryDirectory()} — for Nuitka payload extraction
 ///
-/// The staticx binary is PIE (ET_DYN) — exec-capable from nativeLibraryDir.
-/// STATICX_TMPDIR controls where staticx extracts its payload.
+/// Nuitka onefile extracts its Python payload via dlopen() (not execve) into
+/// TMPDIR (cacheDir). dlopen(app_data_file) is SELinux-allowed on all Android.
 class ZeusDlExecutionContext {
   final String executable;
   final List<String> prependArgs;
@@ -74,14 +74,14 @@ class ZeusDlBinaryManager {
               logLevel: LogLevel.debug,
               tag: LogTag.zeus,
             );
+            final tmpDir = (await getTemporaryDirectory()).path;
             return ZeusDlExecutionContext(
               executable: zeusdlBin.path,
-              extraEnv: const {
-                // staticx reads STATICX_TMPDIR to choose where to extract.
-                // /data/local/tmp is world-writable and exec-capable
-                // (shell_data_file SELinux context) on all Android flavors.
-                'STATICX_TMPDIR': '/data/local/tmp',
-                'TMPDIR': '/data/local/tmp',
+              extraEnv: {
+                // Nuitka onefile extracts Python payload via dlopen() to TMPDIR.
+                // cacheDir (app_data_file) is dlopen()-capable on all Android —
+                // unlike execve() which SELinux blocks on app_data_file (Android 10+).
+                'TMPDIR': tmpDir,
               },
             );
           }
