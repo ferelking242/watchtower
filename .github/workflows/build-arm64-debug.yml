@@ -167,10 +167,18 @@ jobs:
           echo "=== Compressed artifact ==="
           ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.7z
 
-      - name: Upload compressed artifact
+      - name: Upload raw APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-raw
+          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload 7z compressed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-7z
           path: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.7z
           compression-level: 0
           retention-days: 30
