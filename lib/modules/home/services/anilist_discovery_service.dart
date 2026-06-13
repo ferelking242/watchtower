@@ -201,6 +201,67 @@ import 'dart:async';
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Rankings
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class AnilistRanking {
+    final int rank;
+    final String type;
+    final bool allTime;
+    final String context;
+    final int? year;
+    final String? season;
+
+    const AnilistRanking({
+      required this.rank,
+      required this.type,
+      required this.allTime,
+      required this.context,
+      this.year,
+      this.season,
+    });
+
+    factory AnilistRanking.fromJson(Map<String, dynamic> json) => AnilistRanking(
+          rank: (json['rank'] as num?)?.toInt() ?? 0,
+          type: (json['type'] as String?) ?? 'RATED',
+          allTime: (json['allTime'] as bool?) ?? false,
+          context: (json['context'] as String?) ?? '',
+          year: (json['year'] as num?)?.toInt(),
+          season: json['season'] as String?,
+        );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Score distribution
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class AnilistScoreDistribution {
+    final int score;
+    final int amount;
+    const AnilistScoreDistribution({required this.score, required this.amount});
+    factory AnilistScoreDistribution.fromJson(Map<String, dynamic> json) =>
+        AnilistScoreDistribution(
+          score: (json['score'] as num?)?.toInt() ?? 0,
+          amount: (json['amount'] as num?)?.toInt() ?? 0,
+        );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Status distribution
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class AnilistStatusDistribution {
+    final String status;
+    final int amount;
+    const AnilistStatusDistribution({required this.status, required this.amount});
+    factory AnilistStatusDistribution.fromJson(Map<String, dynamic> json) =>
+        AnilistStatusDistribution(
+          status: (json['status'] as String?) ?? '',
+          amount: (json['amount'] as num?)?.toInt() ?? 0,
+        );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Review
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -311,6 +372,9 @@ import 'dart:async';
     final List<AnilistMedia> recommendations;
     final List<AnilistReview> reviews;
     final List<Map<String, String>> externalLinks;
+    final List<AnilistRanking> rankings;
+    final List<AnilistScoreDistribution> scoreDistribution;
+    final List<AnilistStatusDistribution> statusDistribution;
 
     const AnilistMediaDetail({
       required this.base,
@@ -338,6 +402,9 @@ import 'dart:async';
       this.recommendations = const [],
       this.reviews = const [],
       this.externalLinks = const [],
+      this.rankings = const [],
+      this.scoreDistribution = const [],
+      this.statusDistribution = const [],
     });
   }
 
@@ -609,6 +676,11 @@ import 'dart:async';
       }
       externalLinks { site url type }
       trailer { id site }
+      rankings { rank type format season year allTime context }
+      stats {
+        scoreDistribution { score amount }
+        statusDistribution { status amount }
+      }
     }
   }
   ''';
@@ -728,6 +800,26 @@ import 'dart:async';
       trailerUrl = 'https://www.dailymotion.com/video/$trailerId';
     }
 
+    // rankings
+    final rankings = ((m['rankings'] as List?) ?? [])
+        .whereType<Map>()
+        .map((r) => AnilistRanking.fromJson(r.cast<String, dynamic>()))
+        .toList(growable: false);
+
+    // score distribution
+    final scoreDistribution = ((m['stats']?['scoreDistribution'] as List?) ?? [])
+        .whereType<Map>()
+        .map((s) => AnilistScoreDistribution.fromJson(s.cast<String, dynamic>()))
+        .where((s) => s.amount > 0)
+        .toList(growable: false);
+
+    // status distribution
+    final statusDistribution = ((m['stats']?['statusDistribution'] as List?) ?? [])
+        .whereType<Map>()
+        .map((s) => AnilistStatusDistribution.fromJson(s.cast<String, dynamic>()))
+        .where((s) => s.amount > 0)
+        .toList(growable: false);
+
     return AnilistMediaDetail(
       base: base,
       status: m['status'] as String?,
@@ -754,6 +846,9 @@ import 'dart:async';
       recommendations: recommendations,
       reviews: reviews,
       externalLinks: externalLinks,
+      rankings: rankings,
+      scoreDistribution: scoreDistribution,
+      statusDistribution: statusDistribution,
     );
   }
 

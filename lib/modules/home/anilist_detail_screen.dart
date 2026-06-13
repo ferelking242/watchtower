@@ -25,7 +25,7 @@ import 'dart:ui';
     @override
     void initState() {
       super.initState();
-      _tab = TabController(length: 5, vsync: this);
+      _tab = TabController(length: 10, vsync: this);
     }
 
     @override
@@ -148,6 +148,14 @@ import 'dart:ui';
                             icon: Icons.arrow_back_rounded,
                             onTap: () => Navigator.of(context).maybePop(),
                           ),
+                          const SizedBox(width: 10),
+                          _CircleBtn(
+                            icon: Icons.share_outlined,
+                            onTap: () => _openWebview(
+                              'https://anilist.co/${m.type.toLowerCase()}/${m.id}',
+                              m.displayTitle,
+                            ),
+                          ),
                           const Spacer(),
                           _CircleBtn(
                             icon: Icons.open_in_browser_rounded,
@@ -238,22 +246,12 @@ import 'dart:ui';
 
                   const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
-                  // action buttons: [Share] [Add to Library]
+                  // action buttons: [Add to Library]
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Row(
                         children: [
-                          _ActionBtn(
-                            icon: Icons.share_outlined,
-                            label: null,
-                            width: 52,
-                            onTap: () => _openWebview(
-                              'https://anilist.co/${m.type.toLowerCase()}/${m.id}',
-                              m.displayTitle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
                           Expanded(
                             child: _ActionBtn(
                               icon: Icons.collections_bookmark_outlined,
@@ -291,6 +289,11 @@ import 'dart:ui';
                         Tab(text: 'Characters'),
                         Tab(text: 'Staff'),
                         Tab(text: 'Reviews'),
+                        Tab(text: 'Threads'),
+                        Tab(text: 'Following'),
+                        Tab(text: 'Activities'),
+                        Tab(text: 'Recommendations'),
+                        Tab(text: 'Statistics'),
                       ],
                     ),
                   ),
@@ -316,6 +319,31 @@ import 'dart:ui';
                     _buildStaff(context, detail),
                     // ── Reviews ───────────────────────────────────────────
                     _buildReviews(context, detail),
+                    // ── Threads ───────────────────────────────────────────
+                    _buildWebviewTab(
+                      context, m,
+                      'https://anilist.co/${m.type.toLowerCase()}/${m.id}/social',
+                      'Threads',
+                      Icons.forum_outlined,
+                    ),
+                    // ── Following ─────────────────────────────────────────
+                    _buildWebviewTab(
+                      context, m,
+                      'https://anilist.co/${m.type.toLowerCase()}/${m.id}/social',
+                      'Following',
+                      Icons.people_outline_rounded,
+                    ),
+                    // ── Activities ────────────────────────────────────────
+                    _buildWebviewTab(
+                      context, m,
+                      'https://anilist.co/${m.type.toLowerCase()}/${m.id}/social',
+                      'Activities',
+                      Icons.local_activity_outlined,
+                    ),
+                    // ── Recommendations ───────────────────────────────────
+                    _buildRecommendations(context, detail),
+                    // ── Statistics ────────────────────────────────────────
+                    _buildStatistics(context, m, detail),
                   ],
                 ),
               ),
@@ -391,18 +419,6 @@ import 'dart:ui';
           ),
 
           const SizedBox(height: 16),
-
-          // genres
-          if (m.genres.isNotEmpty) ...[
-            _SectionLabel(label: 'Genres'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: m.genres.map((g) => _GenreChip(g)).toList(),
-            ),
-            const SizedBox(height: 16),
-          ],
 
           // tags with percentage
           detail.when(
@@ -731,6 +747,108 @@ import 'dart:ui';
       );
     }
 
+    // ── Webview tab (Threads / Following / Activities) ───────────────────────
+
+    Widget _buildWebviewTab(
+      BuildContext context,
+      AnilistMedia m,
+      String url,
+      String label,
+      IconData icon,
+    ) {
+      final cs = Theme.of(context).colorScheme;
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'View on AniList',
+              style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.55)),
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => _openWebview(url, label),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Open $label',
+                  style: TextStyle(
+                    color: cs.onPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── Recommendations tab ──────────────────────────────────────────────────
+
+    Widget _buildRecommendations(BuildContext context, AsyncValue<AnilistMediaDetail> detail) {
+      return detail.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (d) {
+          if (d.recommendations.isEmpty) {
+            return const Center(child: Text('No recommendations'));
+          }
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 0.58,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: d.recommendations.length,
+            itemBuilder: (_, i) {
+              final r = d.recommendations[i];
+              return _RelationCard(
+                relation: AnilistRelation(
+                  id: r.id,
+                  title: r.displayTitle,
+                  type: r.type,
+                  format: r.format,
+                  coverImage: r.bestCover,
+                  relationType: null,
+                ),
+                friendlyType: r.averageScore != null ? '★ ${(r.averageScore! / 10).toStringAsFixed(1)}' : '',
+                onTap: () => context.push('/anilistDetail', extra: r),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    // ── Statistics tab ───────────────────────────────────────────────────────
+
+    Widget _buildStatistics(
+      BuildContext context,
+      AnilistMedia m,
+      AsyncValue<AnilistMediaDetail> detail,
+    ) {
+      return detail.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (d) => _StatisticsContent(media: m, detail: d, openWebview: _openWebview),
+      );
+    }
+
     // ── Reviews tab ──────────────────────────────────────────────────────────
 
     Widget _buildReviews(BuildContext context, AsyncValue<AnilistMediaDetail> detail) {
@@ -756,6 +874,247 @@ import 'dart:ui';
             },
           );
         },
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Statistics content widget
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class _StatisticsContent extends StatelessWidget {
+    final AnilistMedia media;
+    final AnilistMediaDetail detail;
+    final void Function(String url, String title) openWebview;
+
+    const _StatisticsContent({
+      required this.media,
+      required this.detail,
+      required this.openWebview,
+    });
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final m = detail;
+
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        children: [
+          // Rankings
+          if (m.rankings.isNotEmpty) ...[
+            _SectionLabel(label: 'Rankings'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: m.rankings
+                  .take(6)
+                  .map((r) => _RankingBadge(ranking: r))
+                  .toList(),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Score Distribution
+          if (m.scoreDistribution.isNotEmpty) ...[
+            _SectionLabel(label: 'Score Distribution'),
+            const SizedBox(height: 12),
+            _GlassCard(
+              child: Column(
+                children: () {
+                  final maxAmount = m.scoreDistribution
+                      .map((s) => s.amount)
+                      .fold(0, (a, b) => a > b ? a : b);
+                  return m.scoreDistribution.map((s) {
+                    final pct = maxAmount > 0 ? s.amount / maxAmount : 0.0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            child: Text(
+                              '${s.score}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurface.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: pct.toDouble(),
+                                minHeight: 8,
+                                backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                                valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 40,
+                            child: Text(
+                              '${s.amount}',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurface.withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList();
+                }(),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Status Distribution
+          if (m.statusDistribution.isNotEmpty) ...[
+            _SectionLabel(label: 'Status Distribution'),
+            const SizedBox(height: 12),
+            _GlassCard(
+              child: Column(
+                children: () {
+                  final total = m.statusDistribution
+                      .map((s) => s.amount)
+                      .fold(0, (a, b) => a + b);
+                  const statusColors = {
+                    'CURRENT': Color(0xFF4CAF50),
+                    'PLANNING': Color(0xFF2196F3),
+                    'COMPLETED': Color(0xFF9C27B0),
+                    'PAUSED': Color(0xFFFF9800),
+                    'DROPPED': Color(0xFFF44336),
+                  };
+                  const statusLabels = {
+                    'CURRENT': 'Watching',
+                    'PLANNING': 'Planning',
+                    'COMPLETED': 'Completed',
+                    'PAUSED': 'Paused',
+                    'DROPPED': 'Dropped',
+                  };
+                  return m.statusDistribution.map((s) {
+                    final pct = total > 0 ? s.amount / total : 0.0;
+                    final color = statusColors[s.status] ?? const Color(0xFF9E9E9E);
+                    final label = statusLabels[s.status] ?? s.status;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurface.withValues(alpha: 0.85),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: pct.toDouble(),
+                                minHeight: 6,
+                                backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                                valueColor: AlwaysStoppedAnimation<Color>(color),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            s.amount.toString(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurface.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList();
+                }(),
+              ),
+            ),
+          ],
+
+          if (m.rankings.isEmpty && m.scoreDistribution.isEmpty && m.statusDistribution.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 60),
+                child: Column(
+                  children: [
+                    Icon(Icons.bar_chart_rounded, size: 48, color: cs.onSurface.withValues(alpha: 0.25)),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No statistics available',
+                      style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Ranking badge
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class _RankingBadge extends StatelessWidget {
+    final AnilistRanking ranking;
+    const _RankingBadge({required this.ranking});
+
+    @override
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      final isRated = ranking.type == 'RATED';
+      final color = isRated ? Colors.amber : Colors.pinkAccent;
+      final icon = isRated ? Icons.star_rounded : Icons.favorite_rounded;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              '#${ranking.rank} ${ranking.context}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
+        ),
       );
     }
   }
