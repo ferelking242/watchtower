@@ -403,11 +403,16 @@ package com.watchtower.app
                           return@setMethodCallHandler
                       }
                       val args = call.argument<List<String>>("args") ?: emptyList()
+                      @Suppress("UNCHECKED_CAST")
+                      val envOverrides = call.argument<Map<String, String>>("env")
                       val cmd = (listOf(path) + args).toTypedArray()
                       // Binaries live in nativeLibraryDir (always exec-capable, no SELinux
                       // restriction). Direct ProcessBuilder — no Shizuku needed.
                       try {
                           val pb = ProcessBuilder(*cmd).redirectErrorStream(true)
+                          // Apply caller-supplied environment overrides (e.g. TMPDIR so
+                          // staticx extracts to an exec-capable directory, not cacheDir).
+                          envOverrides?.let { pb.environment().putAll(it) }
                           val proc = pb.start()
                           val output   = proc.inputStream.bufferedReader().readText()
                           val exitCode = proc.waitFor()
