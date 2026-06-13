@@ -137,7 +137,9 @@ jobs:
             DEST="${JNIDIR}/libzeusdl.so"
             mkdir -p "$JNIDIR"
 
-            curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$URL" -o "$DEST"
+            # Download without auth — zeusdl is a public repo, assets are publicly accessible.
+            # Do NOT pass Authorization header: GitHub CDN rejects cross-repo tokens on the redirect.
+            curl -fsSL "$URL" -o "$DEST"
             SIZE=$(wc -c < "$DEST")
 
             # Verify ELF magic
