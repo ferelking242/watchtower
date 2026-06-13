@@ -32,6 +32,7 @@ import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart' show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
 
@@ -46,6 +47,8 @@ class _DockHiddenNotifier extends Notifier<bool> {
 
 final dockHiddenProvider =
     NotifierProvider<_DockHiddenNotifier, bool>(_DockHiddenNotifier.new);
+
+final menuOpenProvider = StateProvider<bool>((ref) => false);
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.child});
@@ -301,6 +304,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 }
               }
 
+              final menuOpen = ref.watch(menuOpenProvider);
               final incognitoMode = ref.watch(incognitoModeStateProvider);
               final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
               final isLongPressed = ref.watch(isLongPressedStateProvider);
@@ -362,6 +366,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                       _buildNavigationWidgetsMobile,
                                   ref: ref,
                                   onDestinationSelected: (idx) {
+                                    if (idx >= dest.length) {
+                                      ref.read(menuOpenProvider.notifier).state =
+                                          !ref.read(menuOpenProvider);
+                                      return;
+                                    }
                                     final destination = dest[idx];
                                     AppLogger.log(
                                       'Nav â $destination',
@@ -401,6 +410,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                     } else if (destination ==
                                         "_disableLibSwitch") {
                                       setState(() => isLibSwitch = false);
+                                    } else if (destination == "_watchtower_menu") {
+                                      ref.read(menuOpenProvider.notifier).state =
+                                          !ref.read(menuOpenProvider);
                                     } else {
                                       route.go(destination);
                                     }
@@ -412,6 +424,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         downloadedOnly: downloadedOnly,
                         incognitoMode: incognitoMode,
                         l10n: l10n,
+                      ),
+                    if (menuOpen && !isReadingScreen)
+                      Positioned.fill(
+                        child: WatchtowerMenuOverlay(
+                          onClose: () =>
+                              ref.read(menuOpenProvider.notifier).state = false,
+                        ),
                       ),
                   ],
                 ),
@@ -720,8 +739,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
 
-    _mobileDestinationsCache[cacheKey] = destinations;
-    return destinations;
+    final nonNullDests = destinations.nonNulls.toList();
+    _mobileDestinationsCache[cacheKey] = nonNullDests;
+    return [
+      ...nonNullDests,
+      const NavigationDestination(
+        selectedIcon: Icon(Icons.close_rounded),
+        icon: Icon(Icons.segment_rounded),
+        label: 'Menu',
+      ),
+    ];
   }
 }
 
@@ -1449,6 +1476,7 @@ class _FloatingDock extends StatefulWidget {
 
 class _FloatingDockState extends State<_FloatingDock> {
   final ScrollController _scrollController = ScrollController();
+  bool _menuOpen = false;
 
   static const double _itemWidth = 64.0;
   static const double _dockHeight = 64.0;
@@ -1470,6 +1498,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/more',
     '/trackerLibrary',
     '/marketplace',
+    '/schedule',
   };
 
   @override
@@ -1487,7 +1516,10 @@ class _FloatingDockState extends State<_FloatingDock> {
     return !hidden;
   }
 
-  bool _isActive(String route) => widget.location == route;
+  bool _isActive(String route) {
+    if (route == '_watchtower_menu') return _menuOpen;
+    return widget.location == route;
+  }
 
   List<_DockItemData> _buildItems(BuildContext context) {
     final l10n = context.l10n;
@@ -1608,6 +1640,13 @@ class _FloatingDockState extends State<_FloatingDock> {
       }
     }
 
+    items.add(const _DockItemData(
+      route: '_watchtower_menu',
+      label: 'Menu',
+      icon: Icons.segment_rounded,
+      activeIcon: Icons.close_rounded,
+    ));
+
     return items;
   }
 
@@ -1630,6 +1669,7 @@ class _FloatingDockState extends State<_FloatingDock> {
   Widget build(BuildContext context) {
     // Rebuild whenever scroll-direction-driven visibility changes.
     widget.ref.watch(dockHiddenProvider);
+    _menuOpen = widget.ref.watch(menuOpenProvider);
     // Respect the user-chosen animation speed from advanced nav settings.
     final animSpeed = widget.ref.watch(navAnimSpeedProvider);
     final dockAnimMs = animSpeed == 0 ? 0 : animSpeed == 2 ? 100 : 220;
@@ -1913,6 +1953,7 @@ class _ClassicDock extends StatelessWidget {
       '/more': 'More â settings, about & advanced options',
       '/updates': 'Updates â new chapters & episodes available',
       '/trackerLibrary': 'Tracking â sync progress with external trackers',
+      '_watchtower_menu': 'Menu — History, Updates, Schedule & more',
     };
 
     return GestureDetector(
