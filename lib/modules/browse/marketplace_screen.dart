@@ -133,7 +133,7 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
   }
   final seen = <String>{};
   return results.where((r) {
-    final k = '${r["name"]}|${r["contentType"]}';
+    final k = '${r["name"]}|${r["contentType"]}|${r["lang"]}';
     return seen.add(k);
   }).toList();
 }
@@ -628,7 +628,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
     final best = <String, _ExtEntry>{};
     for (final e in all) {
-      final key = '${e.name.toLowerCase()}|${e.contentType.index}';
+      final key = '${e.name.toLowerCase()}|${e.contentType.index}|${e.lang}';
       final ex = best[key];
       if (ex == null || _compareVersions(e.version, ex.version) > 0) {
         best[key] = e;
