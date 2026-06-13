@@ -121,8 +121,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "=== Fetching latest ZeusDL release ==="
-          RELEASE_JSON=$(curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
+          # zeusdl is a public repo — no auth needed (GITHUB_TOKEN install token is repo-scoped)
+            RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
           ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | grep '"'"'tag_name'"'"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
           echo "ZeusDL version: $ZEUSDL_VERSION"
 
