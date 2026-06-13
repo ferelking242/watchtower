@@ -10,6 +10,34 @@ import 'package:watchtower/utils/log/logger.dart';
 // on Android (Java's File.setExecutable bypasses PATH/SELinux issues with chmod).
 const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
 
+/// Execution context returned by [ZeusDlBinaryManager.resolveExecutionContext].
+///
+/// On Android the binary must be launched as:
+///   executable  prependArgs  user_args
+///
+/// When the musl-linker trick is active (arm64/x86_64):
+///   executable  = nativeLibraryDir/libmusl.so  (musl dynamic linker)
+///   prependArgs = [nativeLibraryDir/libzeusdl.so]
+///   extraEnv    = {LD_PRELOAD: nativeLibraryDir/libz_zeusdl.so}
+///
+/// This approach avoids any execv() on a noexec filesystem:
+///   • libmusl.so, libzeusdl.so and libz_zeusdl.so all live in nativeLibraryDir
+///     which is installed by PackageManager with exec-capable SELinux context.
+///   • No runtime extraction to /tmp or filesDir is needed for the outer wrapper.
+///   • The inner PyInstaller bootstrap still extracts Python .pyc to TMPDIR via
+///     dlopen() (not execv()), which is allowed on all Android versions.
+class ZeusDlExecutionContext {
+  final String executable;
+  final List<String> prependArgs;
+  final Map<String, String> extraEnv;
+
+  const ZeusDlExecutionContext({
+    required this.executable,
+    this.prependArgs = const [],
+    this.extraEnv = const {},
+  });
+}
+
 /// Manages the ZeusDL binary lifecycle.
 ///
 /// Binary storage: internal app support directory ONLY.
@@ -28,6 +56,69 @@ class ZeusDlBinaryManager {
 
   static const String _assetPath = 'assets/binaries/zeusdl';
   static const String _binaryName = 'zeusdl';
+
+  /// Resolves the full execution context needed to launch ZeusDL.
+  ///
+  /// On Android the preferred strategy is the musl-linker trick:
+  ///   Process.start(libmusl.so, [libzeusdl.so, ...args], env: {LD_PRELOAD: libz_zeusdl.so, ...})
+  ///
+  /// This keeps ALL executable code in nativeLibraryDir (always exec-capable,
+  /// even on Samsung Knox). Falls back to the classic resolveExecutable() path
+  /// if the musl libs are not present (older APK without the extracted binaries).
+  Future<ZeusDlExecutionContext?> resolveExecutionContext() async {
+    if (Platform.isAndroid) {
+      try {
+        final nativeDir = await _binaryUtilsChannel
+            .invokeMethod<String>('getNativeLibraryDir');
+        if (nativeDir != null && nativeDir.isNotEmpty) {
+          final muslLinker = File('$nativeDir/libmusl.so');
+          final zeusdlBin = File('$nativeDir/libzeusdl.so');
+          final libzSo = File('$nativeDir/libz_zeusdl.so');
+
+          if (await muslLinker.exists() &&
+              await muslLinker.length() > 0 &&
+              await zeusdlBin.exists() &&
+              await zeusdlBin.length() > 0) {
+            final extraEnv = <String, String>{};
+            if (await libzSo.exists() && await libzSo.length() > 0) {
+              // LD_PRELOAD with full path satisfies DT_NEEDED for libz.so.1
+              // even though the jniLibs filename is libz_zeusdl.so.
+              extraEnv['LD_PRELOAD'] = libzSo.path;
+            }
+            AppLogger.log(
+              'ZeusDL: musl-linker context → $muslLinker + $zeusdlBin',
+              logLevel: LogLevel.debug,
+              tag: LogTag.zeus,
+            );
+            return ZeusDlExecutionContext(
+              executable: muslLinker.path,
+              prependArgs: [zeusdlBin.path],
+              extraEnv: extraEnv,
+            );
+          }
+
+          // libmusl.so not present → fall through to classic path.
+          AppLogger.log(
+            'ZeusDL: libmusl.so not found in nativeLibraryDir, '
+            'falling back to classic resolveExecutable()',
+            logLevel: LogLevel.warning,
+            tag: LogTag.zeus,
+          );
+        }
+      } catch (e) {
+        AppLogger.log(
+          'ZeusDL: resolveExecutionContext error: $e',
+          logLevel: LogLevel.warning,
+          tag: LogTag.zeus,
+        );
+      }
+    }
+
+    // Non-Android or fallback: use the classic single-binary approach.
+    final path = await resolveExecutable();
+    if (path == null) return null;
+    return ZeusDlExecutionContext(executable: path);
+  }
 
   /// Returns the path to the executable binary, or null if unavailable.
   ///

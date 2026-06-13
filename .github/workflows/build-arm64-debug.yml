@@ -117,6 +117,119 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
+      - name: Update ZeusDL jniLibs (extract inner binary from staticx)
+        run: |
+          set -euo pipefail
+          echo "=== Fetching latest ZeusDL release ==="
+          RELEASE_JSON=$(curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
+          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+          echo "ZeusDL version: $ZEUSDL_VERSION"
+
+          # Download staticx-wrapped binaries for both ABIs
+          ARCHES=("arm64" "x86_64")
+          JNILIBS_ARM64="android/app/src/main/jniLibs/arm64-v8a"
+          JNILIBS_X86_64="android/app/src/main/jniLibs/x86_64"
+
+          for ARCH in "${ARCHES[@]}"; do
+            echo "--- Processing $ARCH ---"
+            URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-${ARCH}"
+            STATICX_BIN="/tmp/zeusdl-staticx-${ARCH}"
+            EXTRACT_DIR="/tmp/zeusdl-extracted-${ARCH}"
+
+            curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "$URL" -o "$STATICX_BIN"
+            echo "Downloaded $ARCH: $(wc -c < "$STATICX_BIN") bytes"
+
+            # Verify ELF magic
+            if [ "$(head -c 4 "$STATICX_BIN" | xxd -p)" != "7f454c46" ]; then
+              echo "ERROR: $ARCH binary is not a valid ELF — skipping"
+              continue
+            fi
+
+            # Extract .staticx.archive ELF section using Node.js (cross-arch safe)
+            ARCHIVE="/tmp/zeusdl-archive-${ARCH}"
+            node -e "
+              const fs = require('fs');
+              const data = fs.readFileSync('$STATICX_BIN');
+              if (data[0] !== 0x7f) { console.error('Not ELF'); process.exit(1); }
+              const ei_class = data[4]; // 2 = 64-bit
+              const e_shoff = Number(data.readBigUInt64LE(40));
+              const e_shentsize = data.readUInt16LE(58);
+              const e_shnum = data.readUInt16LE(60);
+              const e_shstrndx = data.readUInt16LE(62);
+              const shstr_off = e_shoff + e_shstrndx * e_shentsize;
+              const shstr_sh_offset = Number(data.readBigUInt64LE(shstr_off + 24));
+              const shstrtab = data.slice(shstr_sh_offset);
+              for (let i = 0; i < e_shnum; i++) {
+                const sh = e_shoff + i * e_shentsize;
+                const sh_name = data.readUInt32LE(sh);
+                const nullPos = shstrtab.indexOf(0, sh_name);
+                const name = shstrtab.slice(sh_name, nullPos).toString('latin1');
+                if (name === '.staticx.archive') {
+                  const sh_offset = Number(data.readBigUInt64LE(sh + 24));
+                  const sh_size = Number(data.readBigUInt64LE(sh + 32));
+                  fs.writeFileSync('$ARCHIVE', data.slice(sh_offset, sh_offset + sh_size));
+                  console.log('Extracted .staticx.archive: ' + sh_size + ' bytes');
+                  process.exit(0);
+                }
+              }
+              console.error('Section .staticx.archive not found'); process.exit(1);
+            "
+
+            mkdir -p "$EXTRACT_DIR"
+            tar -xJf "$ARCHIVE" -C "$EXTRACT_DIR"
+            echo "Extracted archive contents:"
+            ls -la "$EXTRACT_DIR/"
+
+            # Determine target jniLibs dir and expected filenames
+            if [ "$ARCH" = "arm64" ]; then
+              JNIDIR="$JNILIBS_ARM64"
+              INNER_BIN="zeusdl-android-arm64"
+              MUSL_LIB="ld-musl-aarch64.so.1"
+            else
+              JNIDIR="$JNILIBS_X86_64"
+              INNER_BIN="zeusdl-android-x86_64"
+              MUSL_LIB="ld-musl-x86_64.so.1"
+            fi
+
+            mkdir -p "$JNIDIR"
+
+            # libzeusdl.so — inner PyInstaller binary (no staticx wrapper)
+            if [ -f "$EXTRACT_DIR/$INNER_BIN" ]; then
+              cp "$EXTRACT_DIR/$INNER_BIN" "$JNIDIR/libzeusdl.so"
+              chmod 755 "$JNIDIR/libzeusdl.so"
+              echo "✓ $JNIDIR/libzeusdl.so ($(wc -c < "$JNIDIR/libzeusdl.so") bytes)"
+            else
+              echo "WARNING: $INNER_BIN not found in archive"
+            fi
+
+            # libmusl.so — musl dynamic linker/libc (runs libzeusdl.so)
+            if [ -f "$EXTRACT_DIR/$MUSL_LIB" ]; then
+              cp "$EXTRACT_DIR/$MUSL_LIB" "$JNIDIR/libmusl.so"
+              chmod 755 "$JNIDIR/libmusl.so"
+              echo "✓ $JNIDIR/libmusl.so ($(wc -c < "$JNIDIR/libmusl.so") bytes)"
+            else
+              echo "WARNING: $MUSL_LIB not found in archive"
+            fi
+
+            # libz_zeusdl.so — musl-linked libz required by zeusdl (SONAME: libz.so.1)
+            # Named libz_zeusdl to avoid collision with Android's system libz.
+            # Dart engine sets LD_PRELOAD to satisfy DT_NEEDED for libz.so.1.
+            LIBZ_FILE=$(find "$EXTRACT_DIR" -maxdepth 1 -name "libz.so*" -not -type l | head -1)
+            if [ -n "$LIBZ_FILE" ]; then
+              cp "$LIBZ_FILE" "$JNIDIR/libz_zeusdl.so"
+              chmod 755 "$JNIDIR/libz_zeusdl.so"
+              echo "✓ $JNIDIR/libz_zeusdl.so ($(wc -c < "$JNIDIR/libz_zeusdl.so") bytes)"
+            else
+              echo "WARNING: libz.so.* not found in archive"
+            fi
+
+            echo "--- $ARCH done ---"
+          done
+
+          echo "=== ZeusDL jniLibs update complete (version $ZEUSDL_VERSION) ==="
+
       - name: Install dependencies
         run: flutter pub get
 

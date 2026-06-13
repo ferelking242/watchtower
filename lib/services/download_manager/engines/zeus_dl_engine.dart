@@ -111,10 +111,17 @@ class ZeusDlEngine implements DownloadEngine {
     List<String> args,
     void Function(DownloadProgress) onProgress,
   ) async {
-    // Resolve the binary path using the binary manager
-    final executable = await ZeusDlBinaryManager.instance.resolveExecutable();
+    // Resolve the execution context (executable + prepended args + extra env).
+    // On Android this uses the musl-linker trick to avoid execv() on noexec
+    // filesystems (Samsung Knox, MIUI strict mode, etc.):
+    //   executable  = nativeLibraryDir/libmusl.so
+    //   prependArgs = [nativeLibraryDir/libzeusdl.so]
+    //   extraEnv    = {LD_PRELOAD: nativeLibraryDir/libz_zeusdl.so}
+    // All three files live in nativeLibraryDir which is installed by
+    // PackageManager with exec-capable SELinux context on ALL devices.
+    final ctx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
 
-    if (executable == null) {
+    if (ctx == null) {
       AppLogger.log(
         'ZeusDL executable not found | chapter=$chapterId',
         logLevel: LogLevel.error,
@@ -131,34 +138,59 @@ class ZeusDlEngine implements DownloadEngine {
     }
 
     AppLogger.log(
-      'Executable resolved: $executable | chapter=$chapterId',
+      'Executable resolved: ${ctx.executable} | chapter=$chapterId',
       logLevel: LogLevel.debug,
       tag: LogTag.zeus,
     );
 
     onProgress(DownloadProgress(0, 100, itemType));
 
-    // staticx bundles extract to $TMPDIR at runtime.
-      // On Android, default $TMPDIR is the cache dir (noexec on Android 10+)
-      // → execv() on the extracted binary fails with EACCES (Permission denied).
-      // Fix: override TMPDIR to internal support dir which is always exec-capable.
-      final Map<String, String> procEnv = Map<String, String>.from(Platform.environment);
-      if (Platform.isAndroid) {
-        try {
-          final supportDir = await getApplicationSupportDirectory();
-          final tmpDir = Directory('${supportDir.path}/tmp');
-          await tmpDir.create(recursive: true);
-          procEnv['TMPDIR'] = tmpDir.path;
-          AppLogger.log(
-            'ZeusDL: TMPDIR overridden to ${tmpDir.path} (avoids noexec cache)',
-            logLevel: LogLevel.debug,
-            tag: LogTag.zeus,
-          );
-        } catch (e) {
-          AppLogger.log('ZeusDL: TMPDIR override failed: $e', logLevel: LogLevel.warning, tag: LogTag.zeus);
-        }
+    // Build the process environment.
+    // TMPDIR override: PyInstaller (inside the zeusdl binary) extracts Python
+    // bytecode and native modules to $TMPDIR/_MEIxxxxxx/ at startup.
+    // We point TMPDIR at the app support dir (not cacheDir) because:
+    //   • cacheDir is noexec on Android 10+ (never use for TMPDIR).
+    //   • supportDir/tmp is writable and on the same partition as filesDir.
+    //   • PyInstaller uses dlopen() (not execv) for .so extraction, which is
+    //     not blocked by the noexec mount flag or SELinux execute neverallow.
+    // STATICX_TMPDIR is set as belt-and-suspenders for any staticx wrapper
+    // that might still be in the fallback path (old APK installs).
+    final Map<String, String> procEnv =
+        Map<String, String>.from(Platform.environment);
+
+    if (Platform.isAndroid) {
+      try {
+        final supportDir = await getApplicationSupportDirectory();
+        final tmpDir = Directory('${supportDir.path}/tmp');
+        await tmpDir.create(recursive: true);
+        procEnv['TMPDIR'] = tmpDir.path;
+        procEnv['STATICX_TMPDIR'] = tmpDir.path;
+        AppLogger.log(
+          'ZeusDL: TMPDIR/STATICX_TMPDIR set to ${tmpDir.path}',
+          logLevel: LogLevel.debug,
+          tag: LogTag.zeus,
+        );
+      } catch (e) {
+        AppLogger.log(
+          'ZeusDL: TMPDIR override failed: $e',
+          logLevel: LogLevel.warning,
+          tag: LogTag.zeus,
+        );
       }
-      _process = await Process.start(executable, args, environment: procEnv);
+    }
+
+    // Apply any extra env from the execution context (e.g. LD_PRELOAD for musl libz).
+    procEnv.addAll(ctx.extraEnv);
+
+    // Build the full arg list: prependArgs (e.g. zeusdl binary path for musl)
+    // followed by the actual download arguments.
+    final fullArgs = [...ctx.prependArgs, ...args];
+
+    if (kDebugMode) {
+      debugPrint('[ZeusDL] exec: ${ctx.executable} ${fullArgs.join(' ')}');
+    }
+
+    _process = await Process.start(ctx.executable, fullArgs, environment: procEnv);
     final completer = Completer<void>();
 
     int lastLoggedPercent = -1;
@@ -203,13 +235,32 @@ class ZeusDlEngine implements DownloadEngine {
         onProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
         completer.complete();
       } else if (!_cancelled) {
+        // Exit code 3 (EPERM/EACCES from execv): staticx or PyInstaller tried
+        // to exec a binary from a noexec filesystem (Samsung Knox).
+        // This should not happen with the musl-linker approach, but log clearly
+        // if it does so the user can report it.
+        final hint = (code == 3)
+            ? ' [HINT: execv() permission denied — device may block exec from '
+              'app data dir. Ensure APK is up to date with musl-linker fix.]'
+            : '';
         AppLogger.log(
-          'Exited with code $code | chapter=$chapterId',
+          'Exited with code $code$hint | chapter=$chapterId',
           logLevel: LogLevel.error,
           tag: LogTag.zeus,
         );
         completer.completeError(
-          DownloadEngineException('ZeusDL exited with code $code', null, true),
+          DownloadEngineException(
+            code == 3
+                ? 'Erreur (code $code) : Permission refusée lors de '
+                    "l'exécution du binaire.\n"
+                    'Cause probable : SELinux bloque exec() sur ce '
+                    'appareil (Samsung Knox / MIUI strict).\n'
+                    "Mettez à jour l'application pour utiliser la "
+                    'dernière version corrigée.'
+                : 'ZeusDL exited with code $code',
+            null,
+            true,
+          ),
         );
       } else {
         AppLogger.log(
