@@ -47,6 +47,13 @@ class _ExtEntry {
   final bool isNsfw;
   final String repoUrl;
   final List<_ExtVersionEntry> versions;
+  final List<String> subCategories;
+  final bool requiresAccount;
+  final bool hasDRM;
+  final bool isAggregator;
+  final String paywall;
+  final bool supportsComments;
+  final String upstream;
 
   const _ExtEntry({
     required this.id,
@@ -59,6 +66,13 @@ class _ExtEntry {
     this.isNsfw = false,
     required this.repoUrl,
     this.versions = const [],
+    this.subCategories = const [],
+    this.requiresAccount = false,
+    this.hasDRM = false,
+    this.isAggregator = false,
+    this.paywall = 'free',
+    this.supportsComments = false,
+    this.upstream = '',
   });
 }
 
@@ -128,6 +142,13 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'compat': compatIdx,
         'isNsfw': e['isNsfw'] as bool? ?? false,
         'repoUrl': url,
+        'subCategories': (e['subCategories'] as List<dynamic>?)?.cast<String>() ?? <String>[],
+        'requiresAccount': e['requiresAccount'] as bool? ?? false,
+        'hasDRM': e['hasDRM'] as bool? ?? false,
+        'isAggregator': e['isAggregator'] as bool? ?? false,
+        'paywall': e['paywall'] as String? ?? 'free',
+        'supportsComments': e['supportsComments'] as bool? ?? false,
+        'upstream': e['upstream'] as String? ?? '',
       });
     }
   }
@@ -149,6 +170,13 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
           compat: SourceCodeLanguage.values[m['compat'] as int],
           isNsfw: m['isNsfw'] as bool,
           repoUrl: m['repoUrl'] as String,
+          subCategories: (m['subCategories'] as List<dynamic>?)?.cast<String>() ?? [],
+          requiresAccount: m['requiresAccount'] as bool? ?? false,
+          hasDRM: m['hasDRM'] as bool? ?? false,
+          isAggregator: m['isAggregator'] as bool? ?? false,
+          paywall: m['paywall'] as String? ?? 'free',
+          supportsComments: m['supportsComments'] as bool? ?? false,
+          upstream: m['upstream'] as String? ?? '',
         ))
     .toList();
 
@@ -361,11 +389,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       }
       try {
         final results = await Future.wait([
-          _fetch('$_kWtBase/manga/index.json').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/watch/index.json').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/novel/index.json').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/music/index.json').catchError((_) => <_ExtEntry>[]),
-          _fetch('$_kWtBase/game/index.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/index/manga.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/index/watch.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/index/novel.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/index/music.json').catchError((_) => <_ExtEntry>[]),
+          _fetch('$_kWtBase/index/game.json').catchError((_) => <_ExtEntry>[]),
           _fetchMihonMerged(_kMihonMangaRepos).catchError((_) => <_ExtEntry>[]),
           _fetchMihonMerged(_kAniyomiAnimeRepos).catchError((_) => <_ExtEntry>[]),
         ]);
@@ -396,11 +424,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     const purgeBase =
         'https://purge.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
     const indexes = [
-      'manga/index.json',
-      'watch/index.json',
-      'novel/index.json',
-      'music/index.json',
-      'game/index.json',
+      'index/manga.json',
+      'index/watch.json',
+      'index/novel.json',
+      'index/music.json',
+      'index/game.json',
     ];
     await Future.wait(
       indexes.map((p) => http
@@ -2814,6 +2842,17 @@ class _PlayStoreCard extends StatelessWidget {
                       cs: cs,
                       color: Colors.orange.shade400,
                     ),
+                  ...entry.subCategories.take(2).map(
+                    (c) => _TagChip(label: c, cs: cs, color: cs.primary),
+                  ),
+                  if (entry.requiresAccount)
+                    _TagChip(label: '🔐 Compte requis', cs: cs, color: Colors.blue.shade400),
+                  if (entry.hasDRM)
+                    _TagChip(label: '🔒 DRM', cs: cs, color: Colors.orange.shade600),
+                  if (entry.paywall != 'free' && entry.paywall.isNotEmpty)
+                    _TagChip(label: entry.paywall, cs: cs, color: Colors.amber.shade600),
+                  if (entry.isAggregator)
+                    _TagChip(label: 'Agrégateur', cs: cs, color: cs.secondary),
                 ],
               ),
             ],
