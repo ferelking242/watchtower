@@ -15,17 +15,12 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
 /// On Android the binary must be launched as:
 ///   executable  prependArgs  user_args
 ///
-/// When the musl-linker trick is active (arm64/x86_64):
-///   executable  = nativeLibraryDir/libmusl.so  (musl dynamic linker)
-///   prependArgs = [nativeLibraryDir/libzeusdl.so]
-///   extraEnv    = {LD_PRELOAD: nativeLibraryDir/libz_zeusdl.so}
+/// On Android:
+///   executable = nativeLibraryDir/libzeusdl.so (staticx PIE binary)
+///   extraEnv   = {STATICX_TMPDIR: /data/local/tmp, TMPDIR: /data/local/tmp}
 ///
-/// This approach avoids any execv() on a noexec filesystem:
-///   • libmusl.so, libzeusdl.so and libz_zeusdl.so all live in nativeLibraryDir
-///     which is installed by PackageManager with exec-capable SELinux context.
-///   • No runtime extraction to /tmp or filesDir is needed for the outer wrapper.
-///   • The inner PyInstaller bootstrap still extracts Python .pyc to TMPDIR via
-///     dlopen() (not execv()), which is allowed on all Android versions.
+/// The staticx binary is PIE (ET_DYN) — exec-capable from nativeLibraryDir.
+/// STATICX_TMPDIR controls where staticx extracts its payload.
 class ZeusDlExecutionContext {
   final String executable;
   final List<String> prependArgs;
@@ -59,51 +54,37 @@ class ZeusDlBinaryManager {
 
   /// Resolves the full execution context needed to launch ZeusDL.
   ///
-  /// On Android the preferred strategy is the musl-linker trick:
-  ///   Process.start(libmusl.so, [libzeusdl.so, ...args], env: {LD_PRELOAD: libz_zeusdl.so, ...})
+  /// On Android, libzeusdl.so is the full staticx binary (PIE/ET_DYN).
+  /// It lives in nativeLibraryDir which is always exec-capable, even on
+  /// Samsung Knox (apk_data_file SELinux context allows execution).
   ///
-  /// This keeps ALL executable code in nativeLibraryDir (always exec-capable,
-  /// even on Samsung Knox). Falls back to the classic resolveExecutable() path
-  /// if the musl libs are not present (older APK without the extracted binaries).
+  /// staticx extracts its payload to $STATICX_TMPDIR. We set it to
+  /// /data/local/tmp which is world-writable and exec-capable (shell_data_file)
+  /// on all Android variants including Knox.
   Future<ZeusDlExecutionContext?> resolveExecutionContext() async {
     if (Platform.isAndroid) {
       try {
         final nativeDir = await _binaryUtilsChannel
             .invokeMethod<String>('getNativeLibraryDir');
         if (nativeDir != null && nativeDir.isNotEmpty) {
-          final muslLinker = File('$nativeDir/libmusl.so');
           final zeusdlBin = File('$nativeDir/libzeusdl.so');
-          final libzSo = File('$nativeDir/libz_zeusdl.so');
-
-          if (await muslLinker.exists() &&
-              await muslLinker.length() > 0 &&
-              await zeusdlBin.exists() &&
-              await zeusdlBin.length() > 0) {
-            final extraEnv = <String, String>{};
-            if (await libzSo.exists() && await libzSo.length() > 0) {
-              // LD_PRELOAD with full path satisfies DT_NEEDED for libz.so.1
-              // even though the jniLibs filename is libz_zeusdl.so.
-              extraEnv['LD_PRELOAD'] = libzSo.path;
-            }
+          if (await zeusdlBin.exists() && await zeusdlBin.length() > 0) {
             AppLogger.log(
-              'ZeusDL: musl-linker context → $muslLinker + $zeusdlBin',
+              'ZeusDL: nativeLibraryDir context \u2192 ${zeusdlBin.path}',
               logLevel: LogLevel.debug,
               tag: LogTag.zeus,
             );
             return ZeusDlExecutionContext(
-              executable: muslLinker.path,
-              prependArgs: [zeusdlBin.path],
-              extraEnv: extraEnv,
+              executable: zeusdlBin.path,
+              extraEnv: const {
+                // staticx reads STATICX_TMPDIR to choose where to extract.
+                // /data/local/tmp is world-writable and exec-capable
+                // (shell_data_file SELinux context) on all Android flavors.
+                'STATICX_TMPDIR': '/data/local/tmp',
+                'TMPDIR': '/data/local/tmp',
+              },
             );
           }
-
-          // libmusl.so not present → fall through to classic path.
-          AppLogger.log(
-            'ZeusDL: libmusl.so not found in nativeLibraryDir, '
-            'falling back to classic resolveExecutable()',
-            logLevel: LogLevel.warning,
-            tag: LogTag.zeus,
-          );
         }
       } catch (e) {
         AppLogger.log(
