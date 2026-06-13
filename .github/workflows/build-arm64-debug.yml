@@ -117,7 +117,18 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Bundle ZeusDL as Flutter asset (NDK-free approach)
+      - name: Free disk space
+          run: |
+            df -h
+            # Remove large pre-installed packages not needed for Flutter builds
+            sudo rm -rf /usr/local/lib/android/sdk/ndk/26* /usr/local/lib/android/sdk/ndk/29* || true
+            sudo rm -rf /usr/local/lib/android/sdk/build-tools/34* /usr/local/lib/android/sdk/build-tools/35* || true
+            sudo rm -rf /usr/local/.ghcup /usr/local/share/powershell || true
+            sudo apt-get clean -y || true
+            docker image prune -af 2>/dev/null || true
+            df -h
+
+        - name: Bundle ZeusDL as Flutter asset (NDK-free approach)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
