@@ -82,17 +82,75 @@ class ShowNSFWState extends _$ShowNSFWState {
   }
 }
 
+const _kWtExtBase =
+    'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
+
+List<Repo> _defaultMangaRepos() => [
+  Repo(
+    name: 'Watchtower Officiel – Manga',
+    jsonUrl: '$_kWtExtBase/manga/index.json',
+    website: 'https://github.com/ferelking242/watchtower-extensions',
+  ),
+  Repo(
+    name: 'Keiyoushi Extensions',
+    jsonUrl:
+        'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
+    website: 'https://github.com/keiyoushi/extensions',
+  ),
+  Repo(
+    name: 'Yuzono Manga Repo',
+    jsonUrl:
+        'https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.min.json',
+    website: 'https://github.com/yuzono/manga-repo',
+  ),
+  Repo(
+    name: 'Kareadita Tach Extension',
+    jsonUrl:
+        'https://raw.githubusercontent.com/Kareadita/tach-extension/repo/index.min.json',
+    website: 'https://github.com/Kareadita/tach-extension',
+  ),
+];
+
+List<Repo> _defaultAnimeRepos() => [
+  Repo(
+    name: 'Watchtower Officiel – Watch',
+    jsonUrl: '$_kWtExtBase/watch/index.json',
+    website: 'https://github.com/ferelking242/watchtower-extensions',
+  ),
+  Repo(
+    name: 'Aniyomi Extensions',
+    jsonUrl:
+        'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo/index.min.json',
+    website: 'https://github.com/aniyomiorg/aniyomi-extensions',
+  ),
+];
+
+List<Repo> _defaultNovelRepos() => [
+  Repo(
+    name: 'Watchtower Officiel – Novel',
+    jsonUrl: '$_kWtExtBase/novel/index.json',
+    website: 'https://github.com/ferelking242/watchtower-extensions',
+  ),
+];
+
 @riverpod
 class ExtensionsRepoState extends _$ExtensionsRepoState {
   @override
   List<Repo> build(ItemType itemType) {
     final settings = isar.settings.getSync(227)!;
-    return switch (itemType) {
-          ItemType.manga => settings.mangaExtensionsRepo,
-          ItemType.anime => settings.animeExtensionsRepo,
-          _ => settings.novelExtensionsRepo,
-        } ??
-        [];
+    final existing = switch (itemType) {
+      ItemType.manga => settings.mangaExtensionsRepo,
+      ItemType.anime => settings.animeExtensionsRepo,
+      _ => settings.novelExtensionsRepo,
+    };
+    if (existing != null) return existing;
+    final defaults = switch (itemType) {
+      ItemType.manga => _defaultMangaRepos(),
+      ItemType.anime => _defaultAnimeRepos(),
+      _ => _defaultNovelRepos(),
+    };
+    Future.microtask(() => set(defaults));
+    return defaults;
   }
 
   void setVisibility(Repo repo, bool hidden) {
