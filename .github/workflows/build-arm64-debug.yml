@@ -1,175 +1,174 @@
 name: Build Android ARMv8 Profile
 
-on:
-  push:
-    branches: [ main, master, service-dart-fix ]
-  pull_request:
-    branches: [ main, master, service-dart-fix ]
-  workflow_dispatch:
+  on:
+    push:
+      branches: [ main, master, service-dart-fix ]
+    pull_request:
+      branches: [ main, master, service-dart-fix ]
+    workflow_dispatch:
 
-permissions:
-  contents: write
+  permissions:
+    contents: write
 
-jobs:
-  build:
-    name: Build ARMv8 Profile APK
-    runs-on: ubuntu-latest
+  jobs:
+    build:
+      name: Build ARMv8 Profile APK
+      runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            token: ${{ secrets.GITHUB_TOKEN }}
+            fetch-depth: 0
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+        - name: Set up Java 17
+          uses: actions/setup-java@v4
+          with:
+            distribution: temurin
+            java-version: '17'
 
-      - name: Set up Flutter (latest stable)
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.38.x'
-          channel: stable
-          cache: true
+        - name: Set up Flutter (latest stable)
+          uses: subosito/flutter-action@v2
+          with:
+            flutter-version: '3.38.x'
+            channel: stable
+            cache: true
 
-      - name: Cache pub packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: ${{ runner.os }}-pub-
+        - name: Cache pub packages
+          uses: actions/cache@v4
+          with:
+            path: ~/.pub-cache
+            key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+            restore-keys: ${{ runner.os }}-pub-
 
-      - name: Compute and bump version
-        id: ver
-        run: |
-          MAJOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9]+)\..*/\1/')
-          MINOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*[0-9]+\.([0-9]+)\..*/\1/')
-          PATCH=${GITHUB_RUN_NUMBER}
-          VNAME="${MAJOR}.${MINOR}.${PATCH}"
-          VCODE=${GITHUB_RUN_NUMBER}
-          TAG="v${VNAME}-b${VCODE}"
-          # Bump pubspec.yaml so the built APK reports the new version
-          sed -i "s/^version:.*/version: ${VNAME}+${VCODE}/" pubspec.yaml
-          echo "name=${VNAME}"  >> "$GITHUB_OUTPUT"
-          echo "code=${VCODE}"  >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}"     >> "$GITHUB_OUTPUT"
-          echo "full=${VNAME}+${VCODE}" >> "$GITHUB_OUTPUT"
-          echo "Bumped to ${VNAME}+${VCODE} (tag: ${TAG})"
+        - name: Compute and bump version
+          id: ver
+          run: |
+            MAJOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9]+)\..*/\1/')
+            MINOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*[0-9]+\.([0-9]+)\..*/\1/')
+            PATCH=${GITHUB_RUN_NUMBER}
+            VNAME="${MAJOR}.${MINOR}.${PATCH}"
+            VCODE=${GITHUB_RUN_NUMBER}
+            TAG="v${VNAME}-b${VCODE}"
+            sed -i "s/^version:.*/version: ${VNAME}+${VCODE}/" pubspec.yaml
+            echo "name=${VNAME}"  >> "$GITHUB_OUTPUT"
+            echo "code=${VCODE}"  >> "$GITHUB_OUTPUT"
+            echo "tag=${TAG}"     >> "$GITHUB_OUTPUT"
+            echo "full=${VNAME}+${VCODE}" >> "$GITHUB_OUTPUT"
+            echo "Bumped to ${VNAME}+${VCODE} (tag: ${TAG})"
 
-      - name: Generate Mihon-style changelog
-        id: changelog
-        run: |
-          python3 - << 'PYEOF'
-          import subprocess, re, os
-          prev_tag = subprocess.getoutput("git tag --sort=-creatordate 2>/dev/null | head -1").strip()
-          if prev_tag:
-            raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" "' + prev_tag + '..HEAD" 2>/dev/null')
-          else:
-            raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" -40 2>/dev/null')
-          messages = [l.strip() for l in raw.strip().splitlines() if l.strip()]
-          feat, changes, improvements, fixes, removals = [], [], [], [], []
-          for msg in messages:
-            m = re.match(r'^(feat|fix|chore|refactor|perf|i18n|docs|style|test|build|ci|revert)(\([^)]+\))?!?:\s*(.*)', msg, re.IGNORECASE)
-            if m:
-                typ = m.group(1).lower()
-                desc = (m.group(3) or '').strip()
-                label = '- ' + desc
-                if typ == 'feat': feat.append(label)
-                elif typ == 'fix': fixes.append(label)
-                elif typ in ('chore','build','ci','style','test'): removals.append(label)
-                elif typ in ('refactor','perf'): improvements.append(label)
-                elif typ in ('i18n','docs'): changes.append(label)
-                elif typ == 'revert': removals.append(label)
+        - name: Generate Mihon-style changelog
+          id: changelog
+          run: |
+            python3 - << 'PYEOF'
+            import subprocess, re, os
+            prev_tag = subprocess.getoutput("git tag --sort=-creatordate 2>/dev/null | head -1").strip()
+            if prev_tag:
+              raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" "' + prev_tag + '..HEAD" 2>/dev/null')
             else:
-                lo = msg.lower()
-                if any(w in lo for w in ['feat','add ','new ','impl','redesign']): feat.append('- ' + msg)
-                elif any(w in lo for w in ['fix','bug','patch','repair','resolve']): fixes.append('- ' + msg)
-                elif any(w in lo for w in ['remove','delete','deprecat','drop']): removals.append('- ' + msg)
-                elif any(w in lo for w in ['improve','optim','perf','refactor']): improvements.append('- ' + msg)
-                else: changes.append('- ' + msg)
-          def dedup(lst):
-            seen = set()
-            return [x for x in lst if not (x in seen or seen.add(x))]
-          feat = dedup(feat)[:20]
-          changes = dedup(changes)[:15]
-          improvements = dedup(improvements)[:15]
-          fixes = dedup(fixes)[:20]
-          removals = dedup(removals)[:10]
-          sections = []
-          if feat: sections.append('## \u2728 Nouvelles fonctionnalit\u00e9s\n' + '\n'.join(feat))
-          if changes: sections.append('## \u2699\ufe0f Changements\n' + '\n'.join(changes))
-          if improvements: sections.append('## \U0001f680 Am\u00e9liorations\n' + '\n'.join(improvements))
-          if fixes: sections.append('## \U0001f9e9 Corrections\n' + '\n'.join(fixes))
-          if removals: sections.append('## \U0001f9f9 Suppressions\n' + '\n'.join(removals))
-          if not sections: sections = ['## \u2699\ufe0f Changements\n- Maintenance et corrections internes']
-          footer = '\n\n---\n### \U0001f4f1 Installation Android\n1. T\u00e9l\u00e9chargez le fichier APK\n2. Ouvrez-le sur Android\n3. Activez \"Sources inconnues\" si demand\u00e9'
-          body = '\n\n'.join(sections) + footer
-          with open('/tmp/changelog.md', 'w') as f:
-            f.write(body)
-          print('Changelog OK')
-          PYEOF
-          echo "file=/tmp/changelog.md" >> "$GITHUB_OUTPUT"
+              raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" -40 2>/dev/null')
+            messages = [l.strip() for l in raw.strip().splitlines() if l.strip()]
+            feat, changes, improvements, fixes, removals = [], [], [], [], []
+            for msg in messages:
+              m = re.match(r'^(feat|fix|chore|refactor|perf|i18n|docs|style|test|build|ci|revert)(\([^)]+\))?!?:\s*(.*)', msg, re.IGNORECASE)
+              if m:
+                  typ = m.group(1).lower()
+                  desc = (m.group(3) or '').strip()
+                  label = '- ' + desc
+                  if typ == 'feat': feat.append(label)
+                  elif typ == 'fix': fixes.append(label)
+                  elif typ in ('chore','build','ci','style','test'): removals.append(label)
+                  elif typ in ('refactor','perf'): improvements.append(label)
+                  elif typ in ('i18n','docs'): changes.append(label)
+                  elif typ == 'revert': removals.append(label)
+              else:
+                  lo = msg.lower()
+                  if any(w in lo for w in ['feat','add ','new ','impl','redesign']): feat.append('- ' + msg)
+                  elif any(w in lo for w in ['fix','bug','patch','repair','resolve']): fixes.append('- ' + msg)
+                  elif any(w in lo for w in ['remove','delete','deprecat','drop']): removals.append('- ' + msg)
+                  elif any(w in lo for w in ['improve','optim','perf','refactor']): improvements.append('- ' + msg)
+                  else: changes.append('- ' + msg)
+            def dedup(lst):
+              seen = set()
+              return [x for x in lst if not (x in seen or seen.add(x))]
+            feat = dedup(feat)[:20]
+            changes = dedup(changes)[:15]
+            improvements = dedup(improvements)[:15]
+            fixes = dedup(fixes)[:20]
+            removals = dedup(removals)[:10]
+            sections = []
+            if feat: sections.append('## \u2728 Nouvelles fonctionnalit\u00e9s\n' + '\n'.join(feat))
+            if changes: sections.append('## \u2699\ufe0f Changements\n' + '\n'.join(changes))
+            if improvements: sections.append('## \U0001f680 Am\u00e9liorations\n' + '\n'.join(improvements))
+            if fixes: sections.append('## \U0001f9e9 Corrections\n' + '\n'.join(fixes))
+            if removals: sections.append('## \U0001f9f9 Suppressions\n' + '\n'.join(removals))
+            if not sections: sections = ['## \u2699\ufe0f Changements\n- Maintenance et corrections internes']
+            footer = '\n\n---\n### \U0001f4f1 Installation Android\n1. T\u00e9l\u00e9chargez le fichier APK\n2. Ouvrez-le sur Android\n3. Activez \"Sources inconnues\" si demand\u00e9'
+            body = '\n\n'.join(sections) + footer
+            with open('/tmp/changelog.md', 'w') as f:
+              f.write(body)
+            print('Changelog OK')
+            PYEOF
+            echo "file=/tmp/changelog.md" >> "$GITHUB_OUTPUT"
 
-      - name: Decode keystore from secret
-        run: |
-          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
-          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+        - name: Decode keystore from secret
+          run: |
+            echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+            echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Install dependencies
-        run: flutter pub get
+        - name: Install dependencies
+          run: flutter pub get
 
-      - name: Build APK (ARMv8 profile)
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
-        run: |
-          for attempt in 1 2 3; do
-            echo "--- Build attempt $attempt/3 ---"
-            if flutter build apk \
-              --profile \
-              --target-platform android-arm64 \
-              --split-per-abi \
-              --no-tree-shake-icons \
-              --build-name=${{ steps.ver.outputs.name }} \
-              --build-number=${{ steps.ver.outputs.code }}; then
-              echo "Build succeeded on attempt $attempt"
-              break
-            fi
-            if [ $attempt -lt 3 ]; then
-              echo "Build failed, waiting 45s..."
-              sleep 45
-            else
-              echo "All 3 attempts failed."
-              exit 1
-            fi
-          done
+        - name: Build APK (ARMv8 profile)
+          env:
+            GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+          run: |
+            for attempt in 1 2 3; do
+              echo "--- Build attempt $attempt/3 ---"
+              if flutter build apk \
+                --profile \
+                --target-platform android-arm64 \
+                --split-per-abi \
+                --build-name=${{ steps.ver.outputs.name }} \
+                --build-number=${{ steps.ver.outputs.code }}; then
+                echo "Build succeeded on attempt $attempt"
+                break
+              fi
+              if [ $attempt -lt 3 ]; then
+                echo "Build failed, waiting 45s..."
+                sleep 45
+              else
+                echo "All 3 attempts failed."
+                exit 1
+              fi
+            done
 
-      - name: Rename APK
-        run: |
-          SRC=build/app/outputs/apk/profile/app-arm64-v8a-profile.apk
-          DST=build/app/outputs/apk/profile/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
-          cp "$SRC" "$DST"
-          echo "APK: $(du -sh $DST | cut -f1)"
+        - name: Rename APK
+          run: |
+            SRC=build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
+            DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+            cp "$SRC" "$DST"
+            echo "APK: $(du -sh $DST | cut -f1)"
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64
-          path: build/app/outputs/apk/profile/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
-          retention-days: 30
+        - name: Upload APK artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64
+            path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+            retention-days: 30
 
-      - name: Create GitHub Release
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.ver.outputs.tag }}
-          name: "Watchtower ${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})"
-          body_path: ${{ steps.changelog.outputs.file }}
-          draft: false
-          prerelease: false
-          files: |
-            build/app/outputs/apk/profile/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        - name: Create GitHub Release
+          if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+          uses: softprops/action-gh-release@v2
+          with:
+            tag_name: ${{ steps.ver.outputs.tag }}
+            name: "Watchtower ${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})"
+            body_path: ${{ steps.changelog.outputs.file }}
+            draft: false
+            prerelease: false
+            files: |
+              build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
