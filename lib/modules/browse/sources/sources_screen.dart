@@ -169,23 +169,6 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             child: CustomScrollView(
               controller: controller,
               slivers: [
-                  // ── Local source always at top ───────────────────────────────
-                  SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        SourceListTile(
-                          source: Source(
-                            name: "local",
-                            lang: "",
-                            itemType: widget.itemType,
-                          ),
-                          itemType: widget.itemType,
-                        ),
-                        const Divider(height: 1),
-                      ],
-                    ),
-                  ),
-
                   // Last Used section
                 if (lastUsedEntries.isNotEmpty) ...[
                   SliverToBoxAdapter(
