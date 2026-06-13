@@ -207,7 +207,7 @@ class _MangaChapterPageGalleryState
       );
     }
     disposePreloadManager();
-    _readerController.keepAliveLink?.close();
+    _readerController.close();
     WakelockPlus.disable();
     super.dispose();
   }

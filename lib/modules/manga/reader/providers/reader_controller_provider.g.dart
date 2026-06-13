@@ -102,7 +102,7 @@ abstract class _$CurrentIndex extends $Notifier<int> {
 final readerControllerProvider = ReaderControllerFamily._();
 
 final class ReaderControllerProvider
-    extends $NotifierProvider<ReaderController, KeepAliveLink> {
+    extends $NotifierProvider<ReaderController, bool> {
   ReaderControllerProvider._({
     required ReaderControllerFamily super.from,
     required Chapter super.argument,
@@ -129,10 +129,10 @@ final class ReaderControllerProvider
   ReaderController create() => ReaderController();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(KeepAliveLink value) {
+  Override overrideWithValue(bool value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<KeepAliveLink>(value),
+      providerOverride: $SyncValueProvider<bool>(value),
     );
   }
 
@@ -153,9 +153,9 @@ final class ReaderControllerFamily extends $Family
     with
         $ClassFamilyOverride<
           ReaderController,
-          KeepAliveLink,
-          KeepAliveLink,
-          KeepAliveLink,
+          bool,
+          bool,
+          bool,
           Chapter
         > {
   ReaderControllerFamily._()
@@ -174,20 +174,20 @@ final class ReaderControllerFamily extends $Family
   String toString() => r'readerControllerProvider';
 }
 
-abstract class _$ReaderController extends $Notifier<KeepAliveLink> {
+abstract class _$ReaderController extends $Notifier<bool> {
   late final _$args = ref.$arg as Chapter;
   Chapter get chapter => _$args;
 
-  KeepAliveLink build({required Chapter chapter});
+  bool build({required Chapter chapter});
   @$mustCallSuper
   @override
   void runBuild() {
-    final ref = this.ref as $Ref<KeepAliveLink, KeepAliveLink>;
+    final ref = this.ref as $Ref<bool, bool>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<KeepAliveLink, KeepAliveLink>,
-              KeepAliveLink,
+              AnyNotifier<bool, bool>,
+              bool,
               Object?,
               Object?
             >;

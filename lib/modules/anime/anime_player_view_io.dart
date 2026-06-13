@@ -1115,7 +1115,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     if (!_isDesktop) _setLandscapeMode(false);
     discordRpc?.showIdleText();
     discordRpc?.showOriginalTimestamp();
-    _streamController.keepAliveLink?.close();
+    _streamController.close();
     _player.dispose();
     super.dispose();
   }

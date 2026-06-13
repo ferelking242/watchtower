@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -49,14 +48,12 @@ BoxFit getBoxFit(ScaleType scaleType) {
 @riverpod
 class ReaderController extends _$ReaderController {
   @override
-  KeepAliveLink build({required Chapter chapter}) {
-    _keepAliveLink = ref.keepAlive();
-    return _keepAliveLink!;
+  bool build({required Chapter chapter}) {
+    ref.keepAlive();
+    return true;
   }
 
-  KeepAliveLink? _keepAliveLink;
-
-  KeepAliveLink? get keepAliveLink => _keepAliveLink;
+  void close() {}
 
   Manga getManga() {
     return chapter.manga.value!;
