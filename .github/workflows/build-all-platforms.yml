@@ -1,385 +1,384 @@
 name: Build All Platforms
 
-  on:
-    push:
-      branches: [main]
-    workflow_dispatch:
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-  concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
-    cancel-in-progress: ${{ github.event_name == 'push' }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
-  jobs:
-    # ────────────────────────────────────────────────────────────
-    # Android — split APKs per ABI (arm64-v8a and x86_64 only)
-    # Signed with KEYSTORE_B64 secret → watchtower-debug.keystore → profile buildType
-    # ────────────────────────────────────────────────────────────
-    build-android:
-      name: Android (${{ matrix.label }})
-      runs-on: ubuntu-latest
-      strategy:
-        fail-fast: false
-        matrix:
-          include:
-            - label: arm64-v8a
-              target: android-arm64
-            - label: x86_64
-              target: android-x64
+jobs:
+  # ────────────────────────────────────────────────────────────
+  # Android — split APKs per ABI (arm64-v8a and x86_64 only)
+  # Signed with KEYSTORE_B64 secret → watchtower-debug.keystore → profile buildType
+  # ────────────────────────────────────────────────────────────
+  build-android:
+    name: Android (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: arm64-v8a
+            target: android-arm64
+          - label: x86_64
+            target: android-x64
 
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            lfs: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-        - uses: actions/setup-java@v4
-          with:
-            distribution: temurin
-            java-version: 17
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-        - uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Cache pub packages
-          uses: actions/cache@v4
-          with:
-            path: ~/.pub-cache
-            key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: pub-${{ runner.os }}-
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
-        - name: Decode keystore from secret
-          run: |
-            echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
-            echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-        - name: Flutter pub get
-          run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-        - name: Build APK — ${{ matrix.label }}
-          env:
-            GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
-          run: |
-            flutter build apk \
-              --profile \
-              --target-platform ${{ matrix.target }} \
-              --split-per-abi
+      - name: Build APK — ${{ matrix.label }}
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
+        run: |
+          flutter build apk \
+            --profile \
+            --target-platform ${{ matrix.target }} \
+            --split-per-abi
 
-        - name: Repack APK with maximum compression (7z LZMA2)
-          run: |
-            sudo apt-get install -y p7zip-full --quiet
-            mkdir -p artifacts
-            # FIX: pick ONLY the APK for this specific ABI — not all APKs in the dir
-            TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-profile.apk"
-            if [ ! -f "$TARGET_APK" ]; then
-              echo "ERROR: $TARGET_APK not found. Available files:"
-              ls -lh build/app/outputs/flutter-apk/ || true
-              exit 1
-            fi
-            echo "Packing: $(du -sh $TARGET_APK)"
-            7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
-              "artifacts/app-${{ matrix.label }}-profile.7z" "$TARGET_APK"
-            echo "=== Artifact ==="
-            ls -lh artifacts/
+      - name: Repack APK with maximum compression (7z LZMA2)
+        run: |
+          sudo apt-get install -y p7zip-full --quiet
+          mkdir -p artifacts
+          # FIX: pick ONLY the APK for this specific ABI — not all APKs in the dir
+          TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-profile.apk"
+          if [ ! -f "$TARGET_APK" ]; then
+            echo "ERROR: $TARGET_APK not found. Available files:"
+            ls -lh build/app/outputs/flutter-apk/ || true
+            exit 1
+          fi
+          echo "Packing: $(du -sh $TARGET_APK)"
+          7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
+            "artifacts/app-${{ matrix.label }}-profile.7z" "$TARGET_APK"
+          echo "=== Artifact ==="
+          ls -lh artifacts/
 
-        - name: Upload APK artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: android-${{ matrix.label }}
-            path: artifacts/*.7z
-            compression-level: 0
-            retention-days: 30
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.label }}
+          path: artifacts/*.7z
+          compression-level: 0
+          retention-days: 30
 
-    # ────────────────────────────────────────────────────────────
-    # Android Universal (all supported ABIs in one APK)
-    # ────────────────────────────────────────────────────────────
-    build-android-universal:
-      name: Android (Universal)
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            lfs: true
+  # ────────────────────────────────────────────────────────────
+  # Android Universal (all supported ABIs in one APK)
+  # ────────────────────────────────────────────────────────────
+  build-android-universal:
+    name: Android (Universal)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-        - uses: actions/setup-java@v4
-          with:
-            distribution: temurin
-            java-version: 17
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-        - uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Cache pub packages
-          uses: actions/cache@v4
-          with:
-            path: ~/.pub-cache
-            key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: pub-${{ runner.os }}-
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
-        - name: Decode keystore from secret
-          run: |
-            echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
-            echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-        - name: Flutter pub get
-          run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-        - name: Build Universal APK
-          env:
-            GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
-          run: flutter build apk --profile
+      - name: Build Universal APK
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
+        run: flutter build apk --profile
 
-        - name: Repack APK with maximum compression (7z LZMA2)
-          run: |
-            sudo apt-get install -y p7zip-full --quiet
-            TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
-            echo "Packing: $(du -sh $TARGET_APK)"
-            7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
-              watchtower-android-universal.7z "$TARGET_APK"
-            ls -lh watchtower-android-universal.7z
+      - name: Repack APK with maximum compression (7z LZMA2)
+        run: |
+          sudo apt-get install -y p7zip-full --quiet
+          TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
+          echo "Packing: $(du -sh $TARGET_APK)"
+          7z a -t7z -mx=9 -mmt=2 -mfb=64 -md=32m \
+            watchtower-android-universal.7z "$TARGET_APK"
+          ls -lh watchtower-android-universal.7z
 
-        - name: Upload Universal APK artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: android-universal
-            path: watchtower-android-universal.7z
-            compression-level: 0
-            retention-days: 30
+      - name: Upload Universal APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-universal
+          path: watchtower-android-universal.7z
+          compression-level: 0
+          retention-days: 30
 
-    # ────────────────────────────────────────────────────────────
-    # iOS (no-codesign — sideload IPA)
-    # ────────────────────────────────────────────────────────────
-    build-ios:
-      name: iOS (no-codesign)
-      runs-on: macos-latest
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            lfs: true
+  # ────────────────────────────────────────────────────────────
+  # iOS (no-codesign — sideload IPA)
+  # ────────────────────────────────────────────────────────────
+  build-ios:
+    name: iOS (no-codesign)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-        - uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Cache pub packages
-          uses: actions/cache@v4
-          with:
-            path: ~/.pub-cache
-            key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: pub-${{ runner.os }}-
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
-        - name: Flutter pub get
-          run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-        - name: Build iOS (no codesign)
-          run: flutter build ios --release --no-codesign
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
 
-        - name: Package IPA (max compressed)
-          run: |
-            mkdir -p Payload
-            cp -r build/ios/iphoneos/Runner.app Payload/
-            zip -r9 Watchtower-iOS.ipa Payload/
-            rm -rf Payload
-            ls -lh Watchtower-iOS.ipa
+      - name: Package IPA (max compressed)
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r9 Watchtower-iOS.ipa Payload/
+          rm -rf Payload
+          ls -lh Watchtower-iOS.ipa
 
-        - name: Upload IPA
-          uses: actions/upload-artifact@v4
-          with:
-            name: ios-ipa
-            path: Watchtower-iOS.ipa
-            compression-level: 9
-            retention-days: 30
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: Watchtower-iOS.ipa
+          compression-level: 9
+          retention-days: 30
 
-    # ────────────────────────────────────────────────────────────
-    # Linux x64
-    # Needs Rust for rust_lib_watchtower FFI plugin (cargokit)
-    # Needs many GTK/GStreamer/media libs for media_kit and friends
-    # ────────────────────────────────────────────────────────────
-    build-linux:
-      name: Linux x64
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            lfs: true
+  # ────────────────────────────────────────────────────────────
+  # Linux x64
+  # Needs Rust for rust_lib_watchtower FFI plugin (cargokit)
+  # Needs many GTK/GStreamer/media libs for media_kit and friends
+  # ────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-        - uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Cache pub packages
-          uses: actions/cache@v4
-          with:
-            path: ~/.pub-cache
-            key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: pub-${{ runner.os }}-
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
-        - name: Install Linux build dependencies
-          run: |
-            sudo apt-get update -y
-            sudo apt-get install -y \
-              clang cmake ninja-build pkg-config \
-              libgtk-3-dev liblzma-dev libblkid-dev libmount-dev \
-              libglib2.0-dev libdbus-1-dev \
-              p7zip-full golang-go
-            sudo apt-get install -y libsecret-1-dev 2>/dev/null || true
-            sudo apt-get install -y libjsoncpp-dev 2>/dev/null || true
-            sudo apt-get install -y libgstreamer1.0-dev 2>/dev/null || true
-            sudo apt-get install -y libgstreamer-plugins-base1.0-dev 2>/dev/null || true
-            sudo apt-get install -y libgstreamer-plugins-bad1.0-dev 2>/dev/null || true
-            sudo apt-get install -y gstreamer1.0-plugins-good 2>/dev/null || true
-            sudo apt-get install -y gstreamer1.0-plugins-bad 2>/dev/null || true
-            sudo apt-get install -y libasound2-dev 2>/dev/null || true
-            sudo apt-get install -y libpulse-dev 2>/dev/null || true
-            sudo apt-get install -y libxcb-xfixes0-dev 2>/dev/null || true
-            sudo apt-get install -y libepoxy-dev 2>/dev/null || true
-            sudo apt-get install -y libmpv-dev 2>/dev/null || true
-            sudo apt-get install -y mpv 2>/dev/null || true
-            sudo apt-get install -y libstdc++-12-dev 2>/dev/null || true
-            sudo apt-get install -y libstdc++-13-dev 2>/dev/null || true
-            sudo apt-get install -y libstdc++-14-dev 2>/dev/null || true
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libblkid-dev libmount-dev \
+            libglib2.0-dev libdbus-1-dev \
+            p7zip-full golang-go
+          sudo apt-get install -y libsecret-1-dev 2>/dev/null || true
+          sudo apt-get install -y libjsoncpp-dev 2>/dev/null || true
+          sudo apt-get install -y libgstreamer1.0-dev 2>/dev/null || true
+          sudo apt-get install -y libgstreamer-plugins-base1.0-dev 2>/dev/null || true
+          sudo apt-get install -y libgstreamer-plugins-bad1.0-dev 2>/dev/null || true
+          sudo apt-get install -y gstreamer1.0-plugins-good 2>/dev/null || true
+          sudo apt-get install -y gstreamer1.0-plugins-bad 2>/dev/null || true
+          sudo apt-get install -y libasound2-dev 2>/dev/null || true
+          sudo apt-get install -y libpulse-dev 2>/dev/null || true
+          sudo apt-get install -y libxcb-xfixes0-dev 2>/dev/null || true
+          sudo apt-get install -y libepoxy-dev 2>/dev/null || true
+          sudo apt-get install -y libmpv-dev 2>/dev/null || true
+          sudo apt-get install -y mpv 2>/dev/null || true
+          sudo apt-get install -y libstdc++-12-dev 2>/dev/null || true
+          sudo apt-get install -y libstdc++-13-dev 2>/dev/null || true
+          sudo apt-get install -y libstdc++-14-dev 2>/dev/null || true
 
-        - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
-          uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
+        uses: dtolnay/rust-toolchain@stable
 
-        - name: Enable Linux desktop
-          run: flutter config --enable-linux-desktop
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
 
-        - name: Flutter pub get
-          run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-        - name: Build Linux
-          run: flutter build linux --release
+      - name: Build Linux
+        run: flutter build linux --release
 
-        - name: Package archive (7z LZMA2 max)
-          run: |
-            cd build/linux/x64/release/bundle
-            7z a -t7z -mx=9 -mmt=2 \
-              ../../../../../watchtower-linux-x64.7z .
-            cd -
-            ls -lh watchtower-linux-x64.7z
+      - name: Package archive (7z LZMA2 max)
+        run: |
+          cd build/linux/x64/release/bundle
+          7z a -t7z -mx=9 -mmt=2 \
+            ../../../../../watchtower-linux-x64.7z .
+          cd -
+          ls -lh watchtower-linux-x64.7z
 
-        - name: Upload Linux bundle
-          uses: actions/upload-artifact@v4
-          with:
-            name: linux-x64
-            path: watchtower-linux-x64.7z
-            compression-level: 0
-            retention-days: 30
+      - name: Upload Linux bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: watchtower-linux-x64.7z
+          compression-level: 0
+          retention-days: 30
 
-    # ────────────────────────────────────────────────────────────
-    # macOS
-    # ────────────────────────────────────────────────────────────
-    build-macos:
-      name: macOS
-      runs-on: macos-latest
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            lfs: true
+  # ────────────────────────────────────────────────────────────
+  # macOS
+  # ────────────────────────────────────────────────────────────
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-        - uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Cache pub packages
-          uses: actions/cache@v4
-          with:
-            path: ~/.pub-cache
-            key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: pub-${{ runner.os }}-
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
-        - name: Flutter pub get
-          run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-        - name: Build macOS
-          run: flutter build macos --release
+      - name: Build macOS
+        run: flutter build macos --release
 
-        - name: Package archive (zip -9)
-          run: |
-            RELEASE_DIR="build/macos/Build/Products/Release"
-            echo "--- Contents of $RELEASE_DIR ---"
-            ls -la "$RELEASE_DIR" 2>/dev/null || echo "(dir not found)"
-            APP=$(find "$RELEASE_DIR" -name "*.app" -maxdepth 2 2>/dev/null | head -1)
-            if [ -z "$APP" ]; then
-              echo "ERROR: No .app bundle found. Scanning deeper..."
-              find build/macos -name "*.app" 2>/dev/null || true
-              exit 1
-            fi
-            echo "Found: $APP"
-            zip -r9 watchtower-macos.zip "$APP"
-            ls -lh watchtower-macos.zip
+      - name: Package archive (zip -9)
+        run: |
+          RELEASE_DIR="build/macos/Build/Products/Release"
+          echo "--- Contents of $RELEASE_DIR ---"
+          ls -la "$RELEASE_DIR" 2>/dev/null || echo "(dir not found)"
+          APP=$(find "$RELEASE_DIR" -name "*.app" -maxdepth 2 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then
+            echo "ERROR: No .app bundle found. Scanning deeper..."
+            find build/macos -name "*.app" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Found: $APP"
+          zip -r9 watchtower-macos.zip "$APP"
+          ls -lh watchtower-macos.zip
 
-        - name: Upload macOS bundle
-          uses: actions/upload-artifact@v4
-          with:
-            name: macos
-            path: watchtower-macos.zip
-            compression-level: 9
-            retention-days: 30
+      - name: Upload macOS bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: watchtower-macos.zip
+          compression-level: 9
+          retention-days: 30
 
-    # ────────────────────────────────────────────────────────────
-    # Windows x64
-    # Needs Rust for rust_lib_watchtower FFI plugin (cargokit cmake)
-    # ────────────────────────────────────────────────────────────
-    build-windows:
-      name: Windows x64
-      runs-on: windows-2022
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            lfs: true
+  # ────────────────────────────────────────────────────────────
+  # Windows x64
+  # Needs Rust for rust_lib_watchtower FFI plugin (cargokit cmake)
+  # ────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows x64
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-        - uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
-          uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
+        uses: dtolnay/rust-toolchain@stable
 
-        - name: Cache pub packages
-          uses: actions/cache@v4
-          with:
-            path: |
-              ~/.pub-cache
-              ${{ env.LOCALAPPDATA }}\Pub\Cache
-            key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: pub-${{ runner.os }}-
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ env.LOCALAPPDATA }}\Pub\Cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
-        - name: Enable Windows desktop
-          run: flutter config --enable-windows-desktop
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
 
-        - name: Flutter pub get
-          run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-        - name: Build Windows
-          run: flutter build windows --release
+      - name: Build Windows
+        run: flutter build windows --release
 
-        - name: Package archive (7z max)
-          shell: pwsh
-          run: |
-            7z a -t7z -mx=9 -mmt=2 `
-              watchtower-windows-x64.7z `
-              build\windows\x64\runner\Release\*
-            Get-Item watchtower-windows-x64.7z | Select-Object Name, Length
+      - name: Package archive (7z max)
+        shell: pwsh
+        run: |
+          7z a -t7z -mx=9 -mmt=2 `
+            watchtower-windows-x64.7z `
+            build\windows\x64\runner\Release\*
+          Get-Item watchtower-windows-x64.7z | Select-Object Name, Length
 
-        - name: Upload Windows bundle
-          uses: actions/upload-artifact@v4
-          with:
-            name: windows-x64
-            path: watchtower-windows-x64.7z
-            compression-level: 0
-            retention-days: 30
-  
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: watchtower-windows-x64.7z
+          compression-level: 0
+          retention-days: 30
