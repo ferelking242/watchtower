@@ -119,4 +119,10 @@ dependencies {
     implementation(name: 'libmtorrentserver', ext: 'aar')
     implementation 'dev.rikka.shizuku:api:13.1.5'
     implementation 'dev.rikka.shizuku:provider:13.1.5'
+
+    // ── Inline Dalvik bridge ─────────────────────────────────────────────────
+    // Coroutines: call Kotlin suspend functions from extension APKs via reflection
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    // OkHttp: provided to extension APKs via parent ClassLoader (NetworkHelper)
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
