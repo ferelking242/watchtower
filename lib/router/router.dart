@@ -17,6 +17,7 @@ import 'package:watchtower/modules/browse/extension/extension_detail.dart';
 import 'package:watchtower/modules/browse/extension/widgets/create_extension.dart';
 import 'package:watchtower/modules/browse/sources/sources_filter_screen.dart';
 import 'package:watchtower/modules/calendar/calendar_screen.dart';
+import 'package:watchtower/modules/calendar/schedule_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/mass_migration/mass_migration_source_selection_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.dart';
@@ -312,6 +313,7 @@ class RouterNotifier extends ChangeNotifier {
       name: "calendarScreen",
       builder: (itemType) => CalendarScreen(itemType: itemType),
     ),
+    _genericRoute(name: "schedule", child: const ScheduleScreen()),
     _genericRoute<Manga>(
       name: "migrate",
       builder: (manga) => MigrationScreen(manga: manga),
