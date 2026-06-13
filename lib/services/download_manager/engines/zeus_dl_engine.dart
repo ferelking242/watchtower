@@ -6,6 +6,7 @@ import 'package:watchtower/services/download_manager/engines/download_engine.dar
 import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// ZeusDL engine — delegates downloads to the ZeusDL binary (fork of yt-dlp).
@@ -137,7 +138,27 @@ class ZeusDlEngine implements DownloadEngine {
 
     onProgress(DownloadProgress(0, 100, itemType));
 
-    _process = await Process.start(executable, args);
+    // staticx bundles extract to $TMPDIR at runtime.
+      // On Android, default $TMPDIR is the cache dir (noexec on Android 10+)
+      // → execv() on the extracted binary fails with EACCES (Permission denied).
+      // Fix: override TMPDIR to internal support dir which is always exec-capable.
+      final Map<String, String> procEnv = Map<String, String>.from(Platform.environment);
+      if (Platform.isAndroid) {
+        try {
+          final supportDir = await getApplicationSupportDirectory();
+          final tmpDir = Directory('${supportDir.path}/tmp');
+          await tmpDir.create(recursive: true);
+          procEnv['TMPDIR'] = tmpDir.path;
+          AppLogger.log(
+            'ZeusDL: TMPDIR overridden to ${tmpDir.path} (avoids noexec cache)',
+            logLevel: LogLevel.debug,
+            tag: LogTag.zeus,
+          );
+        } catch (e) {
+          AppLogger.log('ZeusDL: TMPDIR override failed: $e', logLevel: LogLevel.warning, tag: LogTag.zeus);
+        }
+      }
+      _process = await Process.start(executable, args, environment: procEnv);
     final completer = Completer<void>();
 
     int lastLoggedPercent = -1;
