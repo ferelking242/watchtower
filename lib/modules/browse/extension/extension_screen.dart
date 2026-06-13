@@ -227,7 +227,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                 return Scrollbar(
               interactive: true,
               controller: controller,
-              thickness: 12,
+              thickness: 3,
               radius: const Radius.circular(10),
               child: CustomScrollView(
                 controller: controller,
