@@ -36,7 +36,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
   // ── Lazy loading for the "Available" section ──────────────────────────────
   static const _kPageSize = 20;
-  int _visibleInstalled = _kPageSize;
+  int _visibleInstalled = 10000;
   int _visibleAvailLangs = 8; // number of language groups shown
 
   @override
