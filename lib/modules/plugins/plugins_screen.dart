@@ -1739,12 +1739,26 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         const ch = MethodChannel('com.watchtower.app.binary_utils');
         // Ensure execute bit (filesystem permissions, always needed).
         try { await ch.invokeMethod('setExecutable', {'path': zeusPath}); } catch (_) {}
+        // Override TMPDIR so staticx extracts to exec-capable directory.
+        // By default TMPDIR = cacheDir on Android, which is mounted noexec
+        // on Android 10+ → execv() of the extracted binary fails with EACCES.
+        String? _tmpdirOverride;
+        try {
+          final _supDir = await getApplicationSupportDirectory();
+          final _tmpPath = '${_supDir.path}/tmp';
+          await Directory(_tmpPath).create(recursive: true);
+          _tmpdirOverride = _tmpPath;
+        } catch (_) {}
         // Run via channel: tries Shizuku first (shell SELinux domain, can exec
         // app_data_file), falls back to ProcessBuilder (permissive / pre-10 devices).
         // Throws PlatformException with code EXEC_ERROR on strict Android 10+
         // without Shizuku → caught below and shown as actionable message.
         final res = await ch.invokeMethod<Map<Object?, Object?>>(
-          'runProcess', {'path': zeusPath, 'args': [url]},
+          'runProcess', {
+            'path': zeusPath,
+            'args': [url],
+            if (_tmpdirOverride != null) 'env': {'TMPDIR': _tmpdirOverride},
+          },
         );
         exitCode = (res?['exitCode'] as int?) ?? -1;
         output   = (res?['output']   as String?) ?? '';
