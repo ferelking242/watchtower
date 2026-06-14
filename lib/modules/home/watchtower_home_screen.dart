@@ -777,8 +777,7 @@ class _TabsDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-/// Animated tab row with a sliding underline indicator (Seanime-style).
-/// Each tab shows a short bottom line that smoothly grows in / out.
+/// Tab row where the active tab uses a fine-bordered card with bold white text.
 class _SlidingTabRow extends StatelessWidget {
   final int tab;
   final ValueChanged<int> onChanged;
@@ -795,7 +794,7 @@ class _SlidingTabRow extends StatelessWidget {
 
     return ListView.builder(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: kHomeTabs.length,
       itemBuilder: (_, i) {
         final active = tab == i;
@@ -803,35 +802,41 @@ class _SlidingTabRow extends StatelessWidget {
           onTap: () => onChanged(i),
           behavior: HitTestBehavior.opaque,
           child: Padding(
-            padding: const EdgeInsets.only(right: 22),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedDefaultTextStyle(
+            padding: EdgeInsets.only(right: i < kHomeTabs.length - 1 ? 16 : 0),
+            child: Center(
+              child: AnimatedScale(
+                scale: active ? 1.06 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  style: TextStyle(
-                    color: active ? activeColor : inactiveColor,
-                    fontSize: 14,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-                    letterSpacing: active ? -0.1 : 0,
-                    decoration: TextDecoration.none,
-                  ),
-                  child: Text(kHomeTabs[i]),
-                ),
-                const SizedBox(height: 6),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
-                  height: 3,
-                  width: active ? 22.0 : 0.0,
-                  decoration: BoxDecoration(
-                    color: active ? activeColor : Colors.transparent,
-                    borderRadius: BorderRadius.circular(2),
+                  padding: active
+                      ? const EdgeInsets.symmetric(horizontal: 11, vertical: 4)
+                      : EdgeInsets.zero,
+                  decoration: active
+                      ? BoxDecoration(
+                          border: Border.all(
+                            color: activeColor.withValues(alpha: 0.78),
+                            width: 1.2,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        )
+                      : const BoxDecoration(),
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    style: TextStyle(
+                      color: active ? activeColor : inactiveColor,
+                      fontSize: 14,
+                      fontWeight: active ? FontWeight.w800 : FontWeight.w400,
+                      letterSpacing: active ? -0.1 : 0,
+                      decoration: TextDecoration.none,
+                    ),
+                    child: Text(kHomeTabs[i]),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         );
