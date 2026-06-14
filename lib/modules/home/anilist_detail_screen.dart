@@ -57,6 +57,34 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
     context.push('/mangawebview', extra: {'url': url, 'title': title});
   }
 
+  void _showPersonSheet(
+    BuildContext ctx,
+    String name,
+    String? imageUrl,
+    String? subtitle,
+    String kind,
+    String? siteUrl,
+  ) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _PersonSheet(
+        name: name,
+        imageUrl: imageUrl,
+        subtitle: subtitle,
+        kind: kind,
+        siteUrl: siteUrl,
+        onOpenWeb: siteUrl != null
+            ? () {
+                Navigator.pop(ctx);
+                _openWebview(siteUrl, name);
+              }
+            : null,
+      ),
+    );
+  }
+
   String _formatStatus(String? s) => switch (s) {
         'FINISHED' => 'Finished',
         'RELEASING' => 'Releasing',
@@ -457,28 +485,25 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
         if (d.relations.isEmpty) return const _EmptyView(message: 'No related media');
-        return GridView.builder(
+        return ListView.builder(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 0.58,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-          ),
           itemCount: d.relations.length,
           itemBuilder: (_, i) {
             final r = d.relations[i];
-            return _RelationCard(
-              relation: r,
-              friendlyType: _friendlyRelationType(r.relationType),
-              onTap: () => context.push('/anilistDetail',
-                  extra: AnilistMedia(
-                    id: r.id,
-                    type: r.type,
-                    format: r.format,
-                    titleRomaji: r.title,
-                    coverLarge: r.coverImage,
-                  )),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _RelationListTile(
+                relation: r,
+                friendlyType: _friendlyRelationType(r.relationType),
+                onTap: () => context.push('/anilistDetail',
+                    extra: AnilistMedia(
+                      id: r.id,
+                      type: r.type,
+                      format: r.format,
+                      titleRomaji: r.title,
+                      coverLarge: r.coverImage,
+                    )),
+              ),
             );
           },
         );
@@ -504,10 +529,10 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
         return _CharactersWithFilter(
           characters: d.characters,
           onCharTap: (c) {
-            if (c.siteUrl != null) _openWebview(c.siteUrl!, c.name);
+            _showPersonSheet(context, c.name, c.imageUrl, c.role, 'Character', c.siteUrl);
           },
           onVATap: (va) {
-            if (va.siteUrl != null) _openWebview(va.siteUrl!, va.name);
+            _showPersonSheet(context, va.name, va.imageUrl, va.language, 'Voice Actor', va.siteUrl);
           },
         );
       },
@@ -536,7 +561,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
             final s = d.staff[i];
             return _StaffRow(
               staff: s,
-              onTap: s.siteUrl != null ? () => _openWebview(s.siteUrl!, s.name) : null,
+              onTap: () => _showPersonSheet(context, s.name, s.imageUrl, s.role, 'Staff', s.siteUrl),
             );
           },
         );
@@ -721,29 +746,18 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
         if (d.relations.isEmpty) return const _EmptyView(message: 'No watch order available');
-        final sorted = [...d.relations]
-          ..sort((a, b) => _watchOrderSort(a.relationType).compareTo(_watchOrderSort(b.relationType)));
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-          itemCount: sorted.length,
-          itemBuilder: (_, i) {
-            final r = sorted[i];
-            final isLast = i == sorted.length - 1;
-            return _WatchOrderItem(
-              index: i + 1,
-              relation: r,
-              friendlyType: _friendlyRelationType(r.relationType),
-              isLast: isLast,
-              onTap: () => context.push('/anilistDetail',
-                  extra: AnilistMedia(
-                    id: r.id,
-                    type: r.type,
-                    format: r.format,
-                    titleRomaji: r.title,
-                    coverLarge: r.coverImage,
-                  )),
-            );
-          },
+        return _WatchOrderTab(
+          relations: d.relations,
+          friendlyRelationType: _friendlyRelationType,
+          watchOrderSort: _watchOrderSort,
+          onRelationTap: (r) => context.push('/anilistDetail',
+              extra: AnilistMedia(
+                id: r.id,
+                type: r.type,
+                format: r.format,
+                titleRomaji: r.title,
+                coverLarge: r.coverImage,
+              )),
         );
       },
     );
@@ -881,14 +895,17 @@ class _OverviewTabState extends State<_OverviewTab> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => setState(() => _descExpanded = !_descExpanded),
-                  child: Text(
-                    _descExpanded ? 'Show less' : 'Read more',
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                Center(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _descExpanded = !_descExpanded),
+                    child: AnimatedRotation(
+                      turns: _descExpanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 280),
+                      child: Icon(
+                        Icons.expand_more_rounded,
+                        size: 28,
+                        color: cs.onSurface.withValues(alpha: 0.45),
+                      ),
                     ),
                   ),
                 ),
@@ -902,10 +919,14 @@ class _OverviewTabState extends State<_OverviewTab> {
         if (m.genres.isNotEmpty) ...[
           const _SectionLabel(label: 'Genres'),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: m.genres.map((g) => _GenreChip(g)).toList(),
+          SizedBox(
+            height: 68,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: m.genres.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => _GenreCategoryCard(genre: m.genres[i]),
+            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -1255,6 +1276,28 @@ class _StatsBox extends StatelessWidget {
     }
     if (d.source != null) {
       items.add(_StatGridItem(label: 'Source', value: formatSource(d.source)));
+    }
+    if (d.meanScore != null) {
+      items.add(_StatGridItem(
+        label: 'Mean Score',
+        value: '${(d.meanScore! / 10).toStringAsFixed(1)}/10',
+        accent: true,
+      ));
+    }
+    if (d.favourites != null) {
+      items.add(_StatGridItem(label: 'Favourites', value: '${d.favourites}'));
+    }
+    if (d.duration != null) {
+      items.add(_StatGridItem(label: 'Duration', value: '${d.duration} min'));
+    }
+    if (d.startYear != null) {
+      items.add(_StatGridItem(label: 'Start Date', value: formatDate(d.startYear, d.startMonth, d.startDay)));
+    }
+    if (d.endYear != null) {
+      items.add(_StatGridItem(label: 'End Date', value: formatDate(d.endYear, d.endMonth, d.endDay)));
+    }
+    if (d.studios.isNotEmpty) {
+      items.add(_StatGridItem(label: 'Studio', value: d.studios.first));
     }
 
     if (items.isEmpty) return const SizedBox.shrink();
@@ -2764,15 +2807,27 @@ class _GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.25), width: 0.8),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.09)
+                : Colors.white.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.28),
+              width: 0.8,
+            ),
+          ),
+          child: child,
+        ),
       ),
-      child: child,
     );
   }
 }
@@ -3520,24 +3575,469 @@ class _StreamOption extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Genre category card — gradient tile with genre name
+// ─────────────────────────────────────────────────────────────────────────────
 
-class _GenreChip extends StatelessWidget {
+class _GenreCategoryCard extends StatelessWidget {
   final String genre;
-  const _GenreChip(this.genre);
+  const _GenreCategoryCard({required this.genre});
+
+  static const _colors = <String, List<Color>>{
+    'Action':       [Color(0xFFE53935), Color(0xFFB71C1C)],
+    'Adventure':    [Color(0xFF43A047), Color(0xFF1B5E20)],
+    'Comedy':       [Color(0xFFFFB300), Color(0xFFF57F17)],
+    'Drama':        [Color(0xFF8E24AA), Color(0xFF4A148C)],
+    'Fantasy':      [Color(0xFF1E88E5), Color(0xFF0D47A1)],
+    'Horror':       [Color(0xFF616161), Color(0xFF212121)],
+    'Mecha':        [Color(0xFF546E7A), Color(0xFF263238)],
+    'Music':        [Color(0xFFD81B60), Color(0xFF880E4F)],
+    'Mystery':      [Color(0xFF5E35B1), Color(0xFF311B92)],
+    'Romance':      [Color(0xFFEC407A), Color(0xFFC2185B)],
+    'Sci-Fi':       [Color(0xFF00ACC1), Color(0xFF006064)],
+    'Slice of Life':[Color(0xFF26A69A), Color(0xFF004D40)],
+    'Sports':       [Color(0xFF7CB342), Color(0xFF33691E)],
+    'Supernatural': [Color(0xFF7E57C2), Color(0xFF4527A0)],
+    'Thriller':     [Color(0xFF6D4C41), Color(0xFF3E2723)],
+    'Ecchi':        [Color(0xFFFF7043), Color(0xFFBF360C)],
+    'Hentai':       [Color(0xFFEF5350), Color(0xFFB71C1C)],
+    'Psychological':[Color(0xFF455A64), Color(0xFF263238)],
+    'Mahou Shoujo': [Color(0xFFAD1457), Color(0xFF880E4F)],
+    'Martial Arts': [Color(0xFFE64A19), Color(0xFFBF360C)],
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _colors[genre] ?? [const Color(0xFF455A64), const Color(0xFF263238)];
+    return Container(
+      width: 120,
+      height: 68,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            genre,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              shadows: [Shadow(color: Colors.black38, blurRadius: 4)],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Relation list tile — horizontal card for the Related tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RelationListTile extends StatelessWidget {
+  final AnilistRelation relation;
+  final String friendlyType;
+  final VoidCallback onTap;
+
+  const _RelationListTile({
+    required this.relation,
+    required this.friendlyType,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: cs.secondaryContainer.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
+              child: SizedBox(
+                width: 70,
+                height: 100,
+                child: relation.coverImage != null
+                    ? ExtendedImage.network(
+                        relation.coverImage!,
+                        fit: BoxFit.cover,
+                        cache: true,
+                      )
+                    : Container(color: cs.surfaceContainerHighest),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (friendlyType.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          friendlyType,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                    ],
+                    Text(
+                      relation.title,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (relation.type.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        relation.type,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                color: cs.onSurface.withValues(alpha: 0.3),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Text(
-        genre,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSecondaryContainer),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Person bottom sheet — native profile view for character / staff / VA
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PersonSheet extends StatelessWidget {
+  final String name;
+  final String? imageUrl;
+  final String? subtitle;
+  final String kind;
+  final String? siteUrl;
+  final VoidCallback? onOpenWeb;
+
+  const _PersonSheet({
+    required this.name,
+    this.imageUrl,
+    this.subtitle,
+    required this.kind,
+    this.siteUrl,
+    this.onOpenWeb,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surface.withValues(alpha: 0.93),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border(
+              top: BorderSide(color: cs.outline.withValues(alpha: 0.10), width: 0.8),
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: cs.onSurface.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Avatar + name row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Avatar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: SizedBox(
+                          width: 90,
+                          height: 120,
+                          child: imageUrl != null
+                              ? ExtendedImage.network(
+                                  imageUrl!,
+                                  fit: BoxFit.cover,
+                                  cache: true,
+                                )
+                              : Container(
+                                  color: cs.surfaceContainerHighest,
+                                  child: const Icon(Icons.person_rounded, size: 40),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 18),
+
+                      // Info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: cs.primaryContainer.withValues(alpha: 0.75),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                kind,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                height: 1.2,
+                              ),
+                            ),
+                            if (subtitle != null && subtitle!.isNotEmpty) ...[
+                              const SizedBox(height: 5),
+                              Text(
+                                subtitle!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: cs.onSurface.withValues(alpha: 0.55),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Open AniList button
+                  if (onOpenWeb != null)
+                    SizedBox(
+                      width: double.infinity,
+                      child: GestureDetector(
+                        onTap: onOpenWeb,
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: cs.primary,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.open_in_new_rounded, size: 17, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Voir sur AniList',
+                                style: TextStyle(
+                                  color: cs.onPrimary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Watch Order tab — media type selector (Anime / Manga / Novel)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WatchOrderTab extends StatefulWidget {
+  final List<AnilistRelation> relations;
+  final String Function(String?) friendlyRelationType;
+  final int Function(String?) watchOrderSort;
+  final void Function(AnilistRelation) onRelationTap;
+
+  const _WatchOrderTab({
+    required this.relations,
+    required this.friendlyRelationType,
+    required this.watchOrderSort,
+    required this.onRelationTap,
+  });
+
+  @override
+  State<_WatchOrderTab> createState() => _WatchOrderTabState();
+}
+
+class _WatchOrderTabState extends State<_WatchOrderTab> {
+  int _typeIdx = 0; // 0=Anime, 1=Manga, 2=Novel
+
+  static const _typeLabels = ['Anime', 'Manga', 'Novel'];
+
+  List<AnilistRelation> _filtered() {
+    final all = widget.relations;
+    final List<AnilistRelation> subset;
+
+    switch (_typeIdx) {
+      case 0:
+        subset = all.where((r) => r.type == 'ANIME').toList();
+        break;
+      case 1:
+        subset = all.where((r) => r.type == 'MANGA' && r.format != 'NOVEL').toList();
+        break;
+      case 2:
+        subset = all.where((r) => r.format == 'NOVEL').toList();
+        break;
+      default:
+        subset = all;
+    }
+
+    if (subset.isEmpty) return subset;
+    return [...subset]
+      ..sort((a, b) => widget.watchOrderSort(a.relationType).compareTo(widget.watchOrderSort(b.relationType)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final displayed = _filtered();
+
+    return Column(
+      children: [
+        // Type selector pills
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          child: Row(
+            children: List.generate(_typeLabels.length, (i) {
+              final selected = i == _typeIdx;
+              return Padding(
+                padding: EdgeInsets.only(right: i < _typeLabels.length - 1 ? 8 : 0),
+                child: GestureDetector(
+                  onTap: () => setState(() => _typeIdx = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? cs.primary.withValues(alpha: 0.15)
+                          : cs.surfaceContainerHigh.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected ? cs.primary.withValues(alpha: 0.5) : Colors.transparent,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Text(
+                      _typeLabels[i],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Divider(height: 1, thickness: 0.5, color: cs.outlineVariant.withValues(alpha: 0.2)),
+
+        // List
+        Expanded(
+          child: displayed.isEmpty
+              ? Center(
+                  child: Text(
+                    'Pas de ${_typeLabels[_typeIdx].toLowerCase()} lié',
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                      fontSize: 14,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                  itemCount: displayed.length,
+                  itemBuilder: (_, i) {
+                    final r = displayed[i];
+                    final isLast = i == displayed.length - 1;
+                    return _WatchOrderItem(
+                      index: i + 1,
+                      relation: r,
+                      friendlyType: widget.friendlyRelationType(r.relationType),
+                      isLast: isLast,
+                      onTap: () => widget.onRelationTap(r),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

@@ -651,8 +651,8 @@ import 'dart:async';
         nodes { id siteUrl name { full } image { medium } }
         edges {
           role
-          voiceActors(language: JAPANESE) {
-            id siteUrl name { full } image { medium }
+          voiceActors {
+            id siteUrl language name { full } image { medium }
           }
         }
       }
@@ -731,7 +731,7 @@ import 'dart:async';
       if (vaList.isNotEmpty) {
         final vaNode = vaList.first as Map?;
         if (vaNode != null) {
-          va = AnilistVoiceActor.fromJson(vaNode.cast<String, dynamic>(), 'Japanese');
+          va = AnilistVoiceActor.fromJson(vaNode.cast<String, dynamic>(), (vaNode['language'] as String?) ?? 'Japanese');
         }
       }
       characters.add(AnilistCharacter.fromJson(node.cast<String, dynamic>(), role, va: va));
@@ -1210,7 +1210,7 @@ Future<List<AniZipEpisode>> _fetchAniZipEpisodes(int anilistId) async {
     final result = <AniZipEpisode>[];
     for (final entry in episodesMap.entries) {
       final ep = entry.value as Map<String, dynamic>? ?? {};
-      final epNum = (ep['episodeNumber'] as int?) ??
+      final epNum = (ep['episodeNumber'] as num?)?.toInt() ??
           int.tryParse(entry.key) ??
           0;
       // Skip specials (episode 0 or negative unless it's the only episode)
