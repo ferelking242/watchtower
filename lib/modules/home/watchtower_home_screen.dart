@@ -40,11 +40,13 @@ class WatchtowerHomeScreen extends ConsumerStatefulWidget {
 
 class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   final _scroll = ScrollController();
+  final _carouselColor = ValueNotifier<Color>(Colors.transparent);
   int _tab = 0;
 
   @override
   void dispose() {
     _scroll.dispose();
+    _carouselColor.dispose();
     super.dispose();
   }
 
@@ -148,6 +150,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 scrollController: _scroll,
                 onSearchTap: () => context.push('/globalSearch'),
                 onAvatarTap: () => showAccountSheet(context),
+                carouselColorNotifier: _carouselColor,
               ),
             ),
           ],
@@ -181,6 +184,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 items: heroItems.take(10).toList(),
                 onItemTap: (m) => _openDetail(context, m),
                 forceFullWidth: true,
+                onColorExtracted: (c) => _carouselColor.value = c,
               ),
             ),
 
@@ -1533,6 +1537,7 @@ class _HomeHeader extends StatefulWidget {
   final ScrollController scrollController;
   final VoidCallback onSearchTap;
   final VoidCallback onAvatarTap;
+  final ValueNotifier<Color> carouselColorNotifier;
 
   const _HomeHeader({
     required this.tab,
@@ -1540,6 +1545,7 @@ class _HomeHeader extends StatefulWidget {
     required this.scrollController,
     required this.onSearchTap,
     required this.onAvatarTap,
+    required this.carouselColorNotifier,
   });
 
   @override
@@ -1579,150 +1585,145 @@ class _HomeHeaderState extends State<_HomeHeader> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
-    final topPad = MediaQuery.paddingOf(context).top;
-    final screenH = MediaQuery.sizeOf(context).height;
+    Widget build(BuildContext context) {
+      final topPad = MediaQuery.paddingOf(context).top;
+      final screenH = MediaQuery.sizeOf(context).height;
 
-    // Carousel ≈ 38% screen height.  Header fades from scroll 25% to 80%.
-    final carouselH = screenH * 0.38;
-    final bgOpacity = ((_offset - carouselH * 0.25) / (carouselH * 0.55))
-        .clamp(0.0, 1.0);
+      final carouselH = screenH * 0.38;
+      final bgOpacity = ((_offset - carouselH * 0.25) / (carouselH * 0.55))
+          .clamp(0.0, 1.0);
+      final carouselVisible = _offset < carouselH * 0.9;
 
-    return Container(
-      color: scaffoldBg.withValues(alpha: bgOpacity * 0.96),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Safe area spacer — adds a subtle dark gradient when transparent
-          // so the status-bar icons stay readable over any carousel image.
-          Container(
-            height: topPad,
-            decoration: bgOpacity < 0.5
-                ? BoxDecoration(
+      return ValueListenableBuilder<Color>(
+        valueListenable: widget.carouselColorNotifier,
+        builder: (context, dominantColor, _) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            color: bgOpacity >= 1.0
+                ? const Color(0xFF1A1A2E)
+                : Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Safe-area top spacer with scrim for status-bar readability
+                Container(
+                  height: topPad,
+                  decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.55),
-                        Colors.transparent,
-                      ],
+                      colors: [Colors.black54, Colors.transparent],
                     ),
-                  )
-                : null,
-          ),
-
-          // ── Row 1 : Logo + Search bar ─────────────────────────────────
-          SizedBox(
-            height: 56,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  // App logo / avatar button
-                  GestureDetector(
-                    onTap: widget.onAvatarTap,
-                    child: const _HeaderLogo(),
                   ),
-                  const SizedBox(width: 10),
+                ),
 
-                  // Fake search bar (routes to search screen on tap)
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: widget.onSearchTap,
-                      child: Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: bgOpacity > 0.45
-                              ? cs.surfaceContainerHigh
-                                  .withValues(alpha: 0.78)
-                              : Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.13),
-                            width: 0.8,
+                // ── Row 1: Logo + Search bar ─────────────────────────────
+                // Dominant-colour gradient only while carousel is visible
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeInOut,
+                  height: 56,
+                  decoration: carouselVisible
+                      ? BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              dominantColor.withValues(alpha: 0.82),
+                              Colors.transparent,
+                            ],
+                          ),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        // Logo — raw asset PNG, no container/decoration
+                        GestureDetector(
+                          onTap: widget.onAvatarTap,
+                          child: Image.asset(
+                            'assets/app_icons/icon.png',
+                            width: 40,
+                            height: 40,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 12),
-                            const Icon(
-                              Icons.search_rounded,
-                              color: Colors.white70,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Rechercher...',
-                              style: TextStyle(
-                                color: Colors.white
-                                    .withValues(alpha: 0.58),
-                                fontSize: 14,
-                                shadows: const [
-                                  Shadow(
-                                    color: Colors.black45,
-                                    blurRadius: 6,
+                        const SizedBox(width: 10),
+
+                        // Fake search row (field + label) — fully tappable
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: widget.onSearchTap,
+                            behavior: HitTestBehavior.opaque,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.12),
+                                      borderRadius:
+                                          BorderRadius.circular(24),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        SizedBox(width: 14),
+                                        Icon(
+                                          Icons.search_rounded,
+                                          color: Colors.white54,
+                                          size: 18,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            'Rechercher un titre...',
+                                            style: TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 14,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'Recherche',
+                                  style: TextStyle(
+                                    color: Color(0xFF00E676),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+
+                // ── Row 2: Tab pills (unchanged) ─────────────────────────
+                SizedBox(
+                  height: 48,
+                  child: _SlidingTabRow(
+                    tab: widget.tab,
+                    onChanged: widget.onTabChanged,
+                  ),
+                ),
+              ],
             ),
-          ),
-
-          // ── Row 2 : Tab pills ─────────────────────────────────────────
-          SizedBox(
-            height: 48,
-            child: _SlidingTabRow(
-              tab: widget.tab,
-              onChanged: widget.onTabChanged,
-            ),
-          ),
-        ],
-      ),
-    );
+          );
+        },
+      );
+    }
   }
-}
-
-/// Gradient logo mark shown in the pinned header.
-class _HeaderLogo extends StatelessWidget {
-  const _HeaderLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.40),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.remove_red_eye_outlined,
-        color: Colors.white,
-        size: 22,
-      ),
-    );
-  }
-}
+  
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Empty state sliver

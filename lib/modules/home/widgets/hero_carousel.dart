@@ -18,12 +18,14 @@ class HeroCarousel extends ConsumerStatefulWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onItemTap;
   final bool forceFullWidth;
+  final void Function(Color)? onColorExtracted;
 
   const HeroCarousel({
     super.key,
     required this.items,
     required this.onItemTap,
     this.forceFullWidth = false,
+    this.onColorExtracted,
   });
 
   @override
@@ -78,7 +80,10 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
       final c = gen.darkVibrantColor?.color ??
           gen.darkMutedColor?.color ??
           gen.dominantColor?.color;
-      if (c != null && mounted) setState(() => _accentColor = c);
+      if (c != null && mounted) {
+        setState(() => _accentColor = c);
+        widget.onColorExtracted?.call(c);
+      }
     } catch (_) {}
   }
 
