@@ -72,62 +72,83 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     return Scaffold(
       body: ValueListenableBuilder<bool>(
         valueListenable: anilistOfflineNotifier,
-        builder: (context, isOffline, _) => Column(
+        builder: (context, isOffline, _) => Stack(
           children: [
-            if (isOffline)
-              Material(
-                color: Colors.orange.shade700,
-                child: SafeArea(
-                  bottom: false,
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.wifi_off,
-                              color: Colors.white, size: 16),
-                          const SizedBox(width: 8),
-                          const Flexible(
-                            child: Text(
-                              'Connexion non disponible — données mises en cache',
-                              style: TextStyle(
-                                  color: Colors.white, fontSize: 13),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () => ref.refresh(anilistHomeProvider),
-                            borderRadius: BorderRadius.circular(4),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Text(
-                                'Réessayer',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: Colors.white),
+            Column(
+              children: [
+                if (isOffline)
+                  Material(
+                    color: Colors.orange.shade700,
+                    child: SafeArea(
+                      bottom: false,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.wifi_off,
+                                  color: Colors.white, size: 16),
+                              const SizedBox(width: 8),
+                              const Flexible(
+                                child: Text(
+                                  'Connexion non disponible — données mises en cache',
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 13),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () =>
+                                    ref.refresh(anilistHomeProvider),
+                                borderRadius: BorderRadius.circular(4),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Text(
+                                    'Réessayer',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        decoration:
+                                            TextDecoration.underline,
+                                        decorationColor: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
+                Expanded(
+                  child: ref.watch(anilistHomeProvider).when(
+                        loading: () => const SkeletonHomeScreen(),
+                        error: (e, _) => AniListErrorView(
+                            error: e,
+                            onRetry: () =>
+                                ref.refresh(anilistHomeProvider)),
+                        data: (home) => _buildBody(context, home),
+                      ),
                 ),
+              ],
+            ),
+
+            // ── Persistent MovieBox-style header (always on top) ──────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _HomeHeader(
+                tab: _tab,
+                onTabChanged: _onTabChanged,
+                scrollController: _scroll,
+                onSearchTap: () => context.push('/globalSearch'),
+                onAvatarTap: () => showAccountSheet(context),
               ),
-            Expanded(
-              child: ref.watch(anilistHomeProvider).when(
-                    loading: () => const SkeletonHomeScreen(),
-                    error: (e, _) => AniListErrorView(
-                        error: e,
-                        onRetry: () => ref.refresh(anilistHomeProvider)),
-                    data: (home) => _buildBody(context, home),
-                  ),
             ),
           ],
         ),
@@ -162,12 +183,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 forceFullWidth: true,
               ),
             ),
-
-          // ── Pill tabs (pinned below carousel) ──────────────────────────
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabsDelegate(tab: _tab, onChanged: _onTabChanged),
-          ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
@@ -1503,6 +1518,208 @@ class _ContinueWatchingSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MovieBox-style persistent header: logo icon + search bar + tab row.
+// Transparent when the carousel is fully visible; fades to opaque on scroll.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HomeHeader extends StatefulWidget {
+  final int tab;
+  final ValueChanged<int> onTabChanged;
+  final ScrollController scrollController;
+  final VoidCallback onSearchTap;
+  final VoidCallback onAvatarTap;
+
+  const _HomeHeader({
+    required this.tab,
+    required this.onTabChanged,
+    required this.scrollController,
+    required this.onSearchTap,
+    required this.onAvatarTap,
+  });
+
+  @override
+  State<_HomeHeader> createState() => _HomeHeaderState();
+}
+
+class _HomeHeaderState extends State<_HomeHeader> {
+  double _offset = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didUpdateWidget(_HomeHeader old) {
+    super.didUpdateWidget(old);
+    if (old.scrollController != widget.scrollController) {
+      old.scrollController.removeListener(_onScroll);
+      widget.scrollController.addListener(_onScroll);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!mounted) return;
+    final off = widget.scrollController.hasClients
+        ? widget.scrollController.offset
+        : 0.0;
+    if ((off - _offset).abs() > 1.0) setState(() => _offset = off);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+    final topPad = MediaQuery.paddingOf(context).top;
+    final screenH = MediaQuery.sizeOf(context).height;
+
+    // Carousel ≈ 38% screen height.  Header fades from scroll 25% to 80%.
+    final carouselH = screenH * 0.38;
+    final bgOpacity = ((_offset - carouselH * 0.25) / (carouselH * 0.55))
+        .clamp(0.0, 1.0);
+
+    return Container(
+      color: scaffoldBg.withValues(alpha: bgOpacity * 0.96),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Safe area spacer — adds a subtle dark gradient when transparent
+          // so the status-bar icons stay readable over any carousel image.
+          Container(
+            height: topPad,
+            decoration: bgOpacity < 0.5
+                ? BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.transparent,
+                      ],
+                    ),
+                  )
+                : null,
+          ),
+
+          // ── Row 1 : Logo + Search bar ─────────────────────────────────
+          SizedBox(
+            height: 56,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                children: [
+                  // App logo / avatar button
+                  GestureDetector(
+                    onTap: widget.onAvatarTap,
+                    child: const _HeaderLogo(),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Fake search bar (routes to search screen on tap)
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: widget.onSearchTap,
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: bgOpacity > 0.45
+                              ? cs.surfaceContainerHigh
+                                  .withValues(alpha: 0.78)
+                              : Colors.white.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.13),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            const Icon(
+                              Icons.search_rounded,
+                              color: Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Rechercher...',
+                              style: TextStyle(
+                                color: Colors.white
+                                    .withValues(alpha: 0.58),
+                                fontSize: 14,
+                                shadows: const [
+                                  Shadow(
+                                    color: Colors.black45,
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Row 2 : Tab pills ─────────────────────────────────────────
+          SizedBox(
+            height: 48,
+            child: _SlidingTabRow(
+              tab: widget.tab,
+              onChanged: widget.onTabChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Gradient logo mark shown in the pinned header.
+class _HeaderLogo extends StatelessWidget {
+  const _HeaderLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.40),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.remove_red_eye_outlined,
+        color: Colors.white,
+        size: 22,
+      ),
     );
   }
 }

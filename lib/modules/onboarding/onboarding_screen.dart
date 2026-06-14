@@ -212,7 +212,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ── Navigation ───────────────────────────────────────────────────────────
 
   void _next() {
-    if (_currentPage < 2) {
+    if (_currentPage < 3) {
       _page.nextPage(
           duration: const Duration(milliseconds: 420),
           curve: Curves.easeInOut);
@@ -245,6 +245,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               children: [
                 _ShowcasePage(onNext: _next),
                 _SloganPage(onNext: _next),
+                _LanguagePage(onNext: _next),
                 _PermissionsPage(
                   storageGranted: _storageGranted,
                   notifGranted: _notifGranted,
@@ -272,7 +273,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(3, (i) {
+                    children: List.generate(4, (i) {
                       final active = i == _currentPage;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 280),
@@ -1033,6 +1034,283 @@ class _PermRow extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page 3 — Language & Preferences
+// Auto-detects device locale; lets the user pick audio mode and bilingual opt.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LanguagePage extends StatefulWidget {
+  final VoidCallback onNext;
+  const _LanguagePage({required this.onNext});
+
+  @override
+  State<_LanguagePage> createState() => _LanguagePageState();
+}
+
+class _LanguagePageState extends State<_LanguagePage> {
+  late List<Locale> _locales;
+  late String _primaryCode;
+  bool _bilingualDetected = false;
+  String _audioMode = 'vf';   // 'vf' | 'vo' | 'both'
+
+  @override
+  void initState() {
+    super.initState();
+    _locales = PlatformDispatcher.instance.locales.take(5).toList();
+    _primaryCode = _locales.isNotEmpty ? _locales.first.languageCode : 'fr';
+    _bilingualDetected = _locales.length > 1 &&
+        _locales[1].languageCode != _primaryCode;
+  }
+
+  String _name(String code) => switch (code) {
+    'fr' => 'Français',
+    'en' => 'English',
+    'ja' => '日本語',
+    'zh' => '中文',
+    'ko' => '한국어',
+    'es' => 'Español',
+    'pt' => 'Português',
+    'de' => 'Deutsch',
+    'it' => 'Italiano',
+    'ar' => 'العربية',
+    _ => code.toUpperCase(),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = _name(_primaryCode);
+    final isFr = _primaryCode == 'fr';
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 52, 24, 72),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Title ──────────────────────────────────────────────────
+            Text(
+              isFr ? 'Langue & Préférences' : 'Language & Preferences',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1.0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              isFr
+                  ? 'Nous avons détecté que votre appareil est en $primary. '
+                    'Vous pouvez affiner ci-dessous.'
+                  : 'We detected your device language as $primary. '
+                    'Fine-tune your preferences below.',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.58),
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── Primary language card ──────────────────────────────────
+            _LangCard(
+              icon: Icons.language_rounded,
+              label: isFr ? 'Langue principale' : 'Primary language',
+              value: primary,
+            ),
+
+            // ── Bilingual card ─────────────────────────────────────────
+            if (_bilingualDetected) ...[
+              const SizedBox(height: 12),
+              _LangCard(
+                icon: Icons.translate_rounded,
+                label: isFr
+                    ? 'Langue secondaire détectée'
+                    : 'Secondary language detected',
+                value: _name(_locales[1].languageCode),
+                subtitle: isFr
+                    ? 'Watchtower vous proposera aussi du contenu en '
+                      '${_name(_locales[1].languageCode)}.'
+                    : 'Watchtower will also suggest content in '
+                      '${_name(_locales[1].languageCode)}.',
+              ),
+            ],
+
+            const SizedBox(height: 32),
+
+            // ── Audio preference ───────────────────────────────────────
+            Text(
+              isFr ? 'Préférence audio' : 'Audio preference',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isFr
+                  ? 'Pour les anime et films avec traduction disponible.'
+                  : 'For anime and movies with available translations.',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.42),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              children: [
+                _AudioPill(
+                  label: isFr ? 'VF — Doublé' : 'Dubbed',
+                  selected: _audioMode == 'vf',
+                  onTap: () => setState(() => _audioMode = 'vf'),
+                ),
+                _AudioPill(
+                  label: isFr ? 'VO — Sous-titré' : 'Subbed',
+                  selected: _audioMode == 'vo',
+                  onTap: () => setState(() => _audioMode = 'vo'),
+                ),
+                _AudioPill(
+                  label: isFr ? 'Les deux' : 'Both',
+                  selected: _audioMode == 'both',
+                  onTap: () => setState(() => _audioMode = 'both'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 40),
+
+            _WhiteButton(
+              label: isFr ? 'Continuer' : 'Continue',
+              onTap: widget.onNext,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LangCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? subtitle;
+  const _LangCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.white70, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.45),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.42),
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AudioPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _AudioPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? Colors.white.withOpacity(0.15)
+              : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? Colors.white.withOpacity(0.55)
+                : Colors.white.withOpacity(0.10),
+            width: selected ? 1.2 : 0.8,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.white.withOpacity(0.45),
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+      ),
     );
   }
 }

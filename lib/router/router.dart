@@ -83,6 +83,7 @@ import 'package:watchtower/modules/more/settings/security/security_screen.dart';
 import 'package:watchtower/modules/more/settings/advanced/advanced_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
+import 'package:watchtower/modules/splash/splash_screen.dart';
 import 'package:watchtower/modules/transfer/transfer_screen.dart';
 import 'package:watchtower/modules/browse/local_how_to_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -98,14 +99,20 @@ GoRouter router(Ref ref) {
       .watch(navigationOrderStateProvider)
       .where((e) => !hiddenItems.contains(e))
       .first;
-  final initLocation = needsOnboarding ? '/onboarding' : mainLocation;
+  final destination = needsOnboarding ? '/onboarding' : mainLocation;
 
   return GoRouter(
     observers: [BotToastNavigatorObserver()],
-    initialLocation: initLocation,
+    initialLocation: '/splash',
     debugLogDiagnostics: kDebugMode,
     refreshListenable: router,
-    routes: router._routes,
+    routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (_, __) => WatchtowerSplashScreen(destination: destination),
+      ),
+      ...router._routes,
+    ],
     navigatorKey: navigatorKey,
     onException: (context, state, router) => router.go(mainLocation),
   );
