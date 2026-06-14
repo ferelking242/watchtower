@@ -16,11 +16,13 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
 ///   executable  prependArgs  user_args
 ///
 /// On Android:
-///   executable = nativeLibraryDir/libzeusdl.so (Nuitka PIE binary, ET_DYN)
-///   extraEnv   = {TMPDIR: getTemporaryDirectory()} — for Nuitka payload extraction
+///   executable = nativeLibraryDir/libzeusdl.so  (Nuitka standalone PIE, ET_DYN)
+///   extraEnv   = {SSL_CERT_FILE: filesDir/certifi/cacert.pem}
 ///
-/// Nuitka onefile extracts its Python payload via dlopen() (not execve) into
-/// TMPDIR (cacheDir). dlopen(app_data_file) is SELinux-allowed on all Android.
+/// Nuitka --standalone: binary runs DIRECTLY from nativeLibraryDir.
+/// No --onefile bootstrap → no execv() on app_data_file → no SIGSEGV (139).
+/// certifi.where() is patched to check SSL_CERT_FILE first; we extract the
+/// bundled cacert.pem from assets to filesDir on first launch.
 class ZeusDlExecutionContext {
   final String executable;
   final List<String> prependArgs;
@@ -54,13 +56,12 @@ class ZeusDlBinaryManager {
 
   /// Resolves the full execution context needed to launch ZeusDL.
   ///
-  /// On Android, libzeusdl.so is the Nuitka PIE binary (ET_DYN).
-  /// It lives in nativeLibraryDir which is always exec-capable, even on
-  /// Samsung Knox (apk_data_file SELinux context allows execution).
+  /// On Android, libzeusdl.so is the Nuitka standalone PIE binary (ET_DYN).
+  /// It lives in nativeLibraryDir which is always exec-capable.
   ///
-  /// Nuitka onefile extracts its Python payload to TMPDIR via dlopen().
-  /// We use cacheDir (app_data_file) — dlopen is SELinux-allowed there on
-  /// all Android versions (unlike execve which is blocked on Android 10+).
+  /// certifi.where() inside the compiled binary is patched to check SSL_CERT_FILE
+  /// before any filesystem lookup.  We extract assets/certifi/cacert.pem to
+  /// filesDir on first launch and pass the path via SSL_CERT_FILE so HTTPS works.
   Future<ZeusDlExecutionContext?> resolveExecutionContext() async {
     if (Platform.isAndroid) {
       try {
@@ -70,18 +71,15 @@ class ZeusDlBinaryManager {
           final zeusdlBin = File('$nativeDir/libzeusdl.so');
           if (await zeusdlBin.exists() && await zeusdlBin.length() > 0) {
             AppLogger.log(
-              'ZeusDL: nativeLibraryDir context \u2192 ${zeusdlBin.path}',
+              'ZeusDL: nativeLibraryDir context → ${zeusdlBin.path}',
               logLevel: LogLevel.debug,
               tag: LogTag.zeus,
             );
-            final tmpDir = (await getTemporaryDirectory()).path;
+            final certifiPath = await _ensureCertifiExtracted();
             return ZeusDlExecutionContext(
               executable: zeusdlBin.path,
               extraEnv: {
-                // Nuitka onefile extracts Python payload via dlopen() to TMPDIR.
-                // cacheDir (app_data_file) is dlopen()-capable on all Android —
-                // unlike execve() which SELinux blocks on app_data_file (Android 10+).
-                'TMPDIR': tmpDir,
+                if (certifiPath != null) 'SSL_CERT_FILE': certifiPath,
               },
             );
           }
@@ -99,6 +97,45 @@ class ZeusDlBinaryManager {
     final path = await resolveExecutable();
     if (path == null) return null;
     return ZeusDlExecutionContext(executable: path);
+  }
+
+  /// Extracts assets/certifi/cacert.pem to filesDir on first launch.
+  ///
+  /// Returns the absolute path so the caller can set SSL_CERT_FILE.
+  /// The compiled certifi.where() checks SSL_CERT_FILE first (build-time patch).
+  Future<String?> _ensureCertifiExtracted() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final certFile = File('${dir.path}/certifi/cacert.pem');
+      if (await certFile.exists() && await certFile.length() > 0) {
+        return certFile.path;
+      }
+      final data = await rootBundle.load('assets/certifi/cacert.pem');
+      final bytes = data.buffer.asUint8List();
+      if (bytes.isEmpty) {
+        AppLogger.log(
+          'ZeusDL: certifi asset empty — SSL may fail',
+          logLevel: LogLevel.warning,
+          tag: LogTag.zeus,
+        );
+        return null;
+      }
+      await certFile.parent.create(recursive: true);
+      await certFile.writeAsBytes(bytes, flush: true);
+      AppLogger.log(
+        'ZeusDL: certifi extracted (${bytes.length} bytes) → ${certFile.path}',
+        logLevel: LogLevel.debug,
+        tag: LogTag.zeus,
+      );
+      return certFile.path;
+    } catch (e) {
+      AppLogger.log(
+        'ZeusDL: certifi extraction failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.zeus,
+      );
+      return null;
+    }
   }
 
   /// Returns the path to the executable binary, or null if unavailable.
