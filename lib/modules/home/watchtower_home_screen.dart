@@ -1555,21 +1555,21 @@ class _ContinueWatchingSection extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HomeHeader extends StatefulWidget {
-    final int tab;
-    final ValueChanged<int> onTabChanged;
-    final ValueListenable<double> headerOpacity;
-    final VoidCallback onSearchTap;
-    final VoidCallback onAvatarTap;
-    final ValueNotifier<Color> carouselColorNotifier;
+  final int tab;
+  final ValueChanged<int> onTabChanged;
+  final ValueNotifier<double> headerOpacity;
+  final VoidCallback onSearchTap;
+  final VoidCallback onAvatarTap;
+  final ValueNotifier<Color> carouselColorNotifier;
 
-    const _HomeHeader({
-      required this.tab,
-      required this.onTabChanged,
-      required this.headerOpacity,
-      required this.onSearchTap,
-      required this.onAvatarTap,
-      required this.carouselColorNotifier,
-    });
+  const _HomeHeader({
+    required this.tab,
+    required this.onTabChanged,
+    required this.headerOpacity,
+    required this.onSearchTap,
+    required this.onAvatarTap,
+    required this.carouselColorNotifier,
+  });
 
   @override
   State<_HomeHeader> createState() => _HomeHeaderState();
