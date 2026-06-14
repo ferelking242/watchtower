@@ -128,9 +128,9 @@ jobs:
             docker image prune -af 2>/dev/null || true
             df -h
       - name: Update ZeusDL jniLibs (Nuitka PIE — ET_DYN for Android exec)
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          run: |
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
             set -euo pipefail
 
             echo "=== Fetching latest ZeusDL release ==="
