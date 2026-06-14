@@ -127,7 +127,7 @@ jobs:
             sudo apt-get clean -y || true
             docker image prune -af 2>/dev/null || true
             df -h
-      - name: Update ZeusDL jniLibs (Nuitka PIE — ET_DYN for Android exec)
+      - name: Update ZeusDL jniLibs (Nuitka standalone PIE — no execv crash)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -145,11 +145,9 @@ jobs:
             mkdir -p assets/binaries
             touch assets/binaries/.keep
 
-            # Download PIE (ET_DYN) binaries for jniLibs.
-            # Android PackageManager only extracts ET_DYN .so from jniLibs/ to nativeLibraryDir.
-            # nativeLibraryDir (apk_data_file SELinux context) is the ONLY exec-capable
-            # location on Android 10+. Nuitka onefile extracts Python via dlopen() not
-            # execve() — so extraction to cacheDir is SELinux-allowed on all Android.
+            # Download standalone PIE (ET_DYN) binaries for jniLibs.
+            # Nuitka --standalone: binary runs DIRECTLY from nativeLibraryDir.
+            # No --onefile bootstrap → no execv() on app_data_file → no SIGSEGV 139.
             for ARCH in arm64 x86_64; do
               echo "--- Processing $ARCH ---"
               if [ "$ARCH" = "arm64" ]; then
@@ -175,15 +173,28 @@ jobs:
               ELF_TYPE=$(dd if="$DEST" bs=1 skip=16 count=2 2>/dev/null | xxd -p)
               if [ "$ELF_TYPE" != "0300" ]; then
                 echo "ERROR: $ARCH is ET_EXEC (0x${ELF_TYPE}), need PIE/ET_DYN (0x0300)"
-                echo "Rebuild zeusdl with Nuitka PIE. staticx produces ET_EXEC which"
-                echo "Android PackageManager rejects and SELinux blocks on Android 10+."
                 exit 1
               fi
               echo "OK: $ARCH PIE/ET_DYN — will be installed to nativeLibraryDir"
               ls -lh "$DEST"
               echo "--- $ARCH done ---"
             done
-            echo "=== ZeusDL jniLibs update complete ==="
+
+            # Download certifi.pem from the ZeusDL release for SSL_CERT_FILE support.
+            # The standalone binary has certifi.where() patched to check SSL_CERT_FILE
+            # first; Watchtower extracts this PEM to filesDir at first launch and sets
+            # the env var before every ZeusDL invocation.
+            mkdir -p assets/certifi
+            CERT_URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/certifi.pem"
+            if curl -fsSL "$CERT_URL" -o assets/certifi/cacert.pem 2>/dev/null; then
+              echo "certifi.pem from ZeusDL release: $(wc -c < assets/certifi/cacert.pem) bytes"
+            else
+              echo "ZeusDL release certifi.pem not found, using system certifi"
+              python3 -c "import certifi,shutil; shutil.copy(certifi.where(),'assets/certifi/cacert.pem')"
+              echo "certifi.pem from system: $(wc -c < assets/certifi/cacert.pem) bytes"
+            fi
+
+            echo "=== ZeusDL jniLibs + certifi update complete ==="
 
   
       - name: Install dependencies
