@@ -28,11 +28,11 @@ import 'dart:async';
   }
 
   Future<void> _extractZip(_ExtractArgs args) async {
-    await extractFileToDisk(args.zipPath, args.destDir);
-  }
-
-  Future<void> _extractZipBytes(_ExtractBytesArgs args) async {
-    final archive = ZipDecoder().decodeBytes(args.bytes);
+    // extractFileToDisk() valide l'extension du fichier (.zip, .tar.gz...).
+    // libpython.zip.so est un ZIP valide mais son extension est .so -> on lit
+    // les octets bruts et on les decode directement, sans verification d'extension.
+    final bytes = File(args.zipPath).readAsBytesSync();
+    final archive = ZipDecoder().decodeBytes(bytes);
     await extractArchiveToDisk(archive, args.destDir);
   }
 
