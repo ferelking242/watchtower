@@ -171,36 +171,27 @@ jobs:
             ls -lh assets/zeusdl/
       - name: Create libandroid-support.so stub
         run: |
-          # libpython.so (de youtubedl-android) a été compilé avec un ancien NDK
-          # qui lie dynamiquement libandroid-support.so. Sur Android API 21+,
-          # toutes les fonctions de cette lib sont déjà dans libc.so / libm.so.
-          # Solution : créer un stub ELF vide qui satisfait l'entrée DT_NEEDED
-          # du linker sans fournir de symboles propres.
+          # libpython.so (youtubedl-android) a une entree DT_NEEDED pour
+          # libandroid-support.so. Sur Android API 21+, toutes les fonctions
+          # de cette lib sont dans libc.so/libm.so. Un stub ELF vide suffit.
+          # On utilise le cross-compilateur system (pas le NDK) qui est
+          # disponible immediatement sans setup Gradle.
           set -euo pipefail
+          sudo apt-get install -y gcc-aarch64-linux-gnu --quiet 2>/dev/null
 
-          # Trouver le NDK disponible (Flutter en télécharge un si absent)
-          NDK_DIR=""
-          for d in /usr/local/lib/android/sdk/ndk/*/; do
-            [ -d "$d" ] && NDK_DIR="$d"
-          done
-          if [ -z "$NDK_DIR" ]; then
-            echo "NDK introuvable — skip (Flutter le téléchargera plus tard)"
-            exit 0
-          fi
-          CLANG="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          echo "NDK clang : $CLANG"
-
-          # arm64-v8a — cible obligatoire (libpython.so arm64 en dépend)
+          # arm64-v8a (seule cible du build --target-platform android-arm64)
           printf 'void __libandroid_support_stub(void){}' \
-            | "$CLANG/aarch64-linux-android21-clang" -xc - -shared \
+            | aarch64-linux-gnu-gcc -xc - -shared \
+              -Wl,-soname,libandroid-support.so \
               -o android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so
-          echo "arm64-v8a stub : $(ls -lh android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so)"
+          echo "arm64-v8a stub OK : $(ls -lh android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so)"
 
-          # x86_64 — par cohérence (libpython.so x86_64 peut avoir la même dép)
+          # x86_64 — par coherence (meme dep possible)
           printf 'void __libandroid_support_stub(void){}' \
-            | "$CLANG/x86_64-linux-android21-clang" -xc - -shared \
+            | gcc -xc - -shared -m64 \
+              -Wl,-soname,libandroid-support.so \
               -o android/app/src/main/jniLibs/x86_64/libandroid-support.so
-          echo "x86_64  stub : $(ls -lh android/app/src/main/jniLibs/x86_64/libandroid-support.so)"
+          echo "x86_64  stub OK : $(ls -lh android/app/src/main/jniLibs/x86_64/libandroid-support.so)"
 
       - name: Install dependencies
         run: flutter pub get
