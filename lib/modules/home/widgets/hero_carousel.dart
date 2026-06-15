@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -111,17 +112,30 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
         ? screenH * 0.70
         : (widget.forceFullWidth ? screenH * 0.36 : screenH * 0.34);
 
+    final _curSlide = widget.items[_page.clamp(0, widget.items.length - 1)];
+    final _curUrl = _curSlide.bannerImage ?? _curSlide.bestCover;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── Dominant-colour zone (behind header, above carousel image) ────
+        // ── Blurred image zone (behind header) — instant, no palette lag ──
         if (widget.topPadding > 0)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
+          SizedBox(
             width: double.infinity,
             height: widget.topPadding,
-            color: _accentColor ?? Colors.transparent,
+            child: _curUrl != null
+                ? ClipRect(
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(
+                          sigmaX: 28, sigmaY: 28, tileMode: TileMode.clamp),
+                      child: Transform.scale(
+                        scale: 1.2,
+                        child: ExtendedImage.network(
+                            _curUrl, fit: BoxFit.cover, cache: true),
+                      ),
+                    ),
+                  )
+                : const ColoredBox(color: Colors.black54),
           ),
         MouseRegion(
           onEnter: (_) => setState(() => _hovering = true),
@@ -160,30 +174,29 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   .surfaceContainerHighest,
                             ),
 
-                          // ── Top colour → transparent gradient (fusion) ──
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              child: IgnorePointer(
-                                child: SizedBox(
-                                  height: 48,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          (_accentColor ?? Colors.transparent)
-                                              .withValues(alpha: 0.92),
-                                          Colors.transparent,
-                                        ],
-                                      ),
+                          // ── Top edge scrim (blur→image seamless) ─────────
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: IgnorePointer(
+                              child: SizedBox(
+                                height: 32,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.18),
+                                        Colors.transparent,
+                                      ],
                                     ),
                                   ),
                                 ),
                               ),
                             ),
+                          ),
 
                             // ── Brush gradient scrim (bottom only) ──────────
                           // Heavy bottom fade → scaffold bg so the carousel

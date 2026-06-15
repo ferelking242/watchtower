@@ -1651,8 +1651,8 @@ class _HomeHeaderState extends State<_HomeHeader> {
                               onTap: widget.onAvatarTap,
                               child: Image.asset(
                                 'assets/app_icons/icon.png',
-                                width: 40,
-                                height: 40,
+                                width: 52,
+                                height: 52,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -1707,9 +1707,9 @@ class _HomeHeaderState extends State<_HomeHeader> {
                       ),
                     ),
 
-                    // ── Row 2: Tab pills (unchanged) ──────────────────────
+                    // ── Row 2: Tab pills ──────────────────────────────────
                     SizedBox(
-                      height: 48,
+                      height: 42,
                       child: _SlidingTabRow(
                         tab: widget.tab,
                         onChanged: widget.onTabChanged,
