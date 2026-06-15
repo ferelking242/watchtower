@@ -1725,7 +1725,7 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       final zeusCtx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
       if (zeusCtx == null) {
         if (!mounted) return;
-        setState(() { _running = false; _result = "Erreur : ZeusDL non disponible. Réinstallez l'application."; });
+        setState(() { _running = false; _result = 'ZeusDL indisponible — consultez les logs Watchtower (Paramètres → Logs, tag ZeusDL) pour le détail.'; });
         return;
       }
       final _zeusExec = zeusCtx.executable;
@@ -1822,7 +1822,7 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       setState(() { _running = false; _result = msg; });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _running = false; _result = 'Erreur : $e'; });
+      setState(() { _running = false; _result = 'Erreur inattendue : ${e is Exception ? (e as Exception).toString().replaceFirst("Exception: ", "") : e}'; });
     }
   }
 
