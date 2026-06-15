@@ -101,7 +101,7 @@ class ZeusDlBinaryManager {
       if (nativeDir == null || nativeDir.isEmpty) {
         AppLogger.log('ZeusDL: nativeLibraryDir unavailable',
             logLevel: LogLevel.error, tag: LogTag.zeus);
-        return null;
+        throw Exception('DIAG-1: nativeLibraryDir vide — MethodChannel raté');
       }
 
       // Python interpreter — executed directly from nativeLibsDir (SELinux OK)
@@ -111,18 +111,18 @@ class ZeusDlBinaryManager {
             'ZeusDL: libpython.so absent de nativeLibsDir — APK sans runtime Python?',
             logLevel: LogLevel.error,
             tag: LogTag.zeus);
-        return null;
+        throw Exception('DIAG-2: libpython.so absent de $nativeDir');
       }
 
       final filesDir = (await getApplicationSupportDirectory()).path;
 
       // 1. Ensure Python stdlib extracted (libpython.zip.so → filesDir/packages/python)
       final pythonHome = await _ensurePythonExtracted(nativeDir, filesDir);
-      if (pythonHome == null) return null;
+      if (pythonHome == null) throw Exception('DIAG-3: _ensurePythonExtracted a échoué');
 
       // 2. Ensure ZeusDL scripts present (download update if available)
       final mainPy = await _ensureZeusDlReady(filesDir);
-      if (mainPy == null) return null;
+      if (mainPy == null) throw Exception('DIAG-4: _ensureZeusDlReady a échoué (__main__.py introuvable)');
 
       AppLogger.log(
         'ZeusDL: context Python → ${pythonBin.path}',
@@ -147,7 +147,7 @@ class ZeusDlBinaryManager {
           tag: LogTag.zeus,
           error: e,
           stackTrace: st);
-      return null;
+      rethrow;
     }
   }
 
@@ -158,9 +158,11 @@ class ZeusDlBinaryManager {
       String nativeDir, String filesDir) async {
     final zipSo = File('$nativeDir/libpython.zip.so');
     if (!await zipSo.exists()) {
-      AppLogger.log('ZeusDL: libpython.zip.so absent',
-          logLevel: LogLevel.error, tag: LogTag.zeus);
-      return null;
+    if (!await zipSo.exists()) {
+      final nativeDirContents = Directory(nativeDir).existsSync()
+          ? Directory(nativeDir).listSync().map((e) => e.path.split('/').last).join(', ')
+          : 'répertoire inaccessible';
+      throw Exception('DIAG-3a: libpython.zip.so absent.\nContenu nativeDir: $nativeDirContents');
     }
 
     final pythonDir = Directory('$filesDir/packages/python');
@@ -200,7 +202,7 @@ class ZeusDlBinaryManager {
           tag: LogTag.zeus,
           error: e,
           stackTrace: st);
-      return null;
+      rethrow;
     }
   }
 
