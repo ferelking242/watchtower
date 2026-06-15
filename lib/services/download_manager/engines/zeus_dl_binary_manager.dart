@@ -1,28 +1,52 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
-// Method channel provided by MainActivity — used for reliable setExecutable()
-// on Android (Java's File.setExecutable bypasses PATH/SELinux issues with chmod).
 const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
+
+const _zeusReleaseApiUrl =
+    'https://api.github.com/repos/ferelking242/zeusdl/releases/latest';
+
+// ── Isolate helpers (top-level, required by compute()) ─────────────────────
+
+class _ExtractArgs {
+  final String zipPath;
+  final String destDir;
+  const _ExtractArgs(this.zipPath, this.destDir);
+}
+
+class _ExtractBytesArgs {
+  final List<int> bytes;
+  final String destDir;
+  const _ExtractBytesArgs(this.bytes, this.destDir);
+}
+
+void _extractZip(_ExtractArgs args) {
+  extractFileToDisk(args.zipPath, args.destDir);
+}
+
+void _extractZipBytes(_ExtractBytesArgs args) {
+  final archive = ZipDecoder().decodeBytes(args.bytes);
+  extractArchiveToDisk(archive, args.destDir);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 
 /// Execution context returned by [ZeusDlBinaryManager.resolveExecutionContext].
 ///
-/// On Android the binary must be launched as:
-///   executable  prependArgs  user_args
+/// Android (Python Bionic via youtubedl-android runtime):
+///   executable  = nativeLibsDir/libpython.so     ← Python ARM64 Bionic, execv OK
+///   prependArgs = [filesDir/zeusdl/__main__.py]   ← ZeusDL Python entry point
+///   extraEnv    = {PYTHONHOME, LD_LIBRARY_PATH, SSL_CERT_FILE}
 ///
-/// On Android:
-///   executable = nativeLibraryDir/libzeusdl.so  (Nuitka standalone PIE, ET_DYN)
-///   extraEnv   = {SSL_CERT_FILE: filesDir/certifi/cacert.pem}
-///
-/// Nuitka --standalone: binary runs DIRECTLY from nativeLibraryDir.
-/// No --onefile bootstrap → no execv() on app_data_file → no SIGSEGV (139).
-/// certifi.where() is patched to check SSL_CERT_FILE first; we extract the
-/// bundled cacert.pem from assets to filesDir on first launch.
+/// Desktop / fallback:
+///   executable  = path/to/zeusdl binary
 class ZeusDlExecutionContext {
   final String executable;
   final List<String> prependArgs;
@@ -35,14 +59,17 @@ class ZeusDlExecutionContext {
   });
 }
 
-/// Manages the ZeusDL binary lifecycle.
+/// Manages the ZeusDL lifecycle.
 ///
-/// Binary storage: internal app support directory ONLY.
-/// External storage paths (Android/data/... and /storage/emulated/0/...) are
-/// mounted noexec on Android 10+ — exec() returns EPERM (exit 126) even after
-/// chmod +x. We never return an external path as an executable.
+/// Android — Python-based execution (no SIGSEGV, no SELinux block):
+///   • libpython.so     (4 KB)  lives in nativeLibsDir → execv'd directly ✓
+///   • libpython.zip.so (11 MB) lives in nativeLibsDir → unzipped to filesDir
+///   • zeusdl.zip               bundled in assets + downloadable from GitHub
 ///
-/// Execution: direct Process.start(binaryPath, args) — no sh wrapper.
+/// Update flow:
+///   On each [resolveExecutionContext] call the manager checks GitHub for a
+///   new ZeusDL release.  If one exists it downloads zeusdl.zip and re-extracts
+///   it to filesDir — no APK reinstall needed.
 class ZeusDlBinaryManager {
   static ZeusDlBinaryManager? _instance;
   static ZeusDlBinaryManager get instance =>
@@ -54,104 +81,225 @@ class ZeusDlBinaryManager {
   static const String _assetPath = 'assets/binaries/zeusdl';
   static const String _binaryName = 'zeusdl';
 
-  /// Resolves the full execution context needed to launch ZeusDL.
-  ///
-  /// On Android, libzeusdl.so is the Nuitka standalone PIE binary (ET_DYN).
-  /// It lives in nativeLibraryDir which is always exec-capable.
-  ///
-  /// certifi.where() inside the compiled binary is patched to check SSL_CERT_FILE
-  /// before any filesystem lookup.  We extract assets/certifi/cacert.pem to
-  /// filesDir on first launch and pass the path via SSL_CERT_FILE so HTTPS works.
+  // ── Public API ────────────────────────────────────────────────────────────
+
   Future<ZeusDlExecutionContext?> resolveExecutionContext() async {
     if (Platform.isAndroid) {
-      try {
-        final nativeDir = await _binaryUtilsChannel
-            .invokeMethod<String>('getNativeLibraryDir');
-        if (nativeDir != null && nativeDir.isNotEmpty) {
-          final zeusdlBin = File('$nativeDir/libzeusdl.so');
-          if (await zeusdlBin.exists() && await zeusdlBin.length() > 0) {
-            AppLogger.log(
-              'ZeusDL: nativeLibraryDir context → ${zeusdlBin.path}',
-              logLevel: LogLevel.debug,
-              tag: LogTag.zeus,
-            );
-            final certifiPath = await _ensureCertifiExtracted();
-            return ZeusDlExecutionContext(
-              executable: zeusdlBin.path,
-              extraEnv: {
-                if (certifiPath != null) 'SSL_CERT_FILE': certifiPath,
-              },
-            );
-          }
-        }
-      } catch (e) {
-        AppLogger.log(
-          'ZeusDL: resolveExecutionContext error: $e',
-          logLevel: LogLevel.warning,
-          tag: LogTag.zeus,
-        );
-      }
+      return _resolveAndroidContext();
     }
-
-    // Non-Android or fallback: use the classic single-binary approach.
     final path = await resolveExecutable();
     if (path == null) return null;
     return ZeusDlExecutionContext(executable: path);
   }
 
-  /// Extracts assets/certifi/cacert.pem to filesDir on first launch.
-  ///
-  /// Returns the absolute path so the caller can set SSL_CERT_FILE.
-  /// The compiled certifi.where() checks SSL_CERT_FILE first (build-time patch).
-  Future<String?> _ensureCertifiExtracted() async {
+  // ── Android: Python Bionic execution ─────────────────────────────────────
+
+  Future<ZeusDlExecutionContext?> _resolveAndroidContext() async {
     try {
-      final dir = await getApplicationSupportDirectory();
-      final certFile = File('${dir.path}/certifi/cacert.pem');
-      if (await certFile.exists() && await certFile.length() > 0) {
-        return certFile.path;
-      }
-      final data = await rootBundle.load('assets/certifi/cacert.pem');
-      final bytes = data.buffer.asUint8List();
-      if (bytes.isEmpty) {
-        AppLogger.log(
-          'ZeusDL: certifi asset empty — SSL may fail',
-          logLevel: LogLevel.warning,
-          tag: LogTag.zeus,
-        );
+      final nativeDir = await _binaryUtilsChannel
+          .invokeMethod<String>('getNativeLibraryDir');
+      if (nativeDir == null || nativeDir.isEmpty) {
+        AppLogger.log('ZeusDL: nativeLibraryDir unavailable',
+            logLevel: LogLevel.error, tag: LogTag.zeus);
         return null;
       }
-      await certFile.parent.create(recursive: true);
-      await certFile.writeAsBytes(bytes, flush: true);
+
+      // Python interpreter — executed directly from nativeLibsDir (SELinux OK)
+      final pythonBin = File('$nativeDir/libpython.so');
+      if (!await pythonBin.exists() || await pythonBin.length() == 0) {
+        AppLogger.log(
+            'ZeusDL: libpython.so absent de nativeLibsDir — APK sans runtime Python?',
+            logLevel: LogLevel.error,
+            tag: LogTag.zeus);
+        return null;
+      }
+
+      final filesDir = (await getApplicationSupportDirectory()).path;
+
+      // 1. Ensure Python stdlib extracted (libpython.zip.so → filesDir/packages/python)
+      final pythonHome = await _ensurePythonExtracted(nativeDir, filesDir);
+      if (pythonHome == null) return null;
+
+      // 2. Ensure ZeusDL scripts present (download update if available)
+      final mainPy = await _ensureZeusDlReady(filesDir);
+      if (mainPy == null) return null;
+
       AppLogger.log(
-        'ZeusDL: certifi extracted (${bytes.length} bytes) → ${certFile.path}',
+        'ZeusDL: context Python → ${pythonBin.path}',
         logLevel: LogLevel.debug,
         tag: LogTag.zeus,
       );
-      return certFile.path;
-    } catch (e) {
-      AppLogger.log(
-        'ZeusDL: certifi extraction failed: $e',
-        logLevel: LogLevel.warning,
-        tag: LogTag.zeus,
+
+      return ZeusDlExecutionContext(
+        executable: pythonBin.path,
+        prependArgs: [mainPy],
+        extraEnv: {
+          'PYTHONHOME': pythonHome,
+          'LD_LIBRARY_PATH': '$pythonHome/lib',
+          'SSL_CERT_FILE': '$pythonHome/etc/tls/cert.pem',
+          'PYTHONDONTWRITEBYTECODE': '1',
+          'PYTHONUNBUFFERED': '1',
+        },
       );
+    } catch (e, st) {
+      AppLogger.log('ZeusDL: _resolveAndroidContext erreur: $e',
+          logLevel: LogLevel.error,
+          tag: LogTag.zeus,
+          error: e,
+          stackTrace: st);
       return null;
     }
   }
 
-  /// Returns the path to the executable binary, or null if unavailable.
-  ///
-  /// Priority order:
-  ///   1. nativeLibraryDir/libzeusdl.so — installed by PackageManager, always
-  ///      exec-capable on all Android versions (no SELinux restriction).
-  ///      Will exist once ZeusDL is packaged in jniLibs/ of the APK.
-  ///   2. Cached path from this session (already resolved + chmod'd).
-  ///   3. Internal support dir binary (downloaded via marketplace / user copy).
-  ///      NOTE: on Android 10+ with strict SELinux (Samsung, MIUI, etc.) this
-  ///      path may fail with EACCES on exec. Use Shizuku to work around it.
-  ///   4. Extract from bundled assets (first run / reinstall, same caveat).
+  /// Unzip libpython.zip.so (Python stdlib) from nativeLibsDir to filesDir.
+  /// Returns PYTHONHOME = filesDir/packages/python/usr, or null on failure.
+  /// Uses file size as version token (same approach as youtubedl-android).
+  Future<String?> _ensurePythonExtracted(
+      String nativeDir, String filesDir) async {
+    final zipSo = File('$nativeDir/libpython.zip.so');
+    if (!await zipSo.exists()) {
+      AppLogger.log('ZeusDL: libpython.zip.so absent',
+          logLevel: LogLevel.error, tag: LogTag.zeus);
+      return null;
+    }
+
+    final pythonDir = Directory('$filesDir/packages/python');
+    final versionFile = File('$filesDir/packages/python_size.txt');
+    final currentSize = (await zipSo.length()).toString();
+
+    if (await pythonDir.exists() && await versionFile.exists()) {
+      final stored = (await versionFile.readAsString()).trim();
+      if (stored == currentSize) {
+        AppLogger.log('ZeusDL: Python stdlib déjà extrait ($currentSize bytes)',
+            logLevel: LogLevel.debug, tag: LogTag.zeus);
+        return '$filesDir/packages/python/usr';
+      }
+    }
+
+    AppLogger.log(
+        'ZeusDL: extraction Python stdlib (${zipSo.lengthSync()} bytes)…',
+        logLevel: LogLevel.info,
+        tag: LogTag.zeus);
+
+    try {
+      if (await pythonDir.exists()) await pythonDir.delete(recursive: true);
+      await pythonDir.create(recursive: true);
+
+      await compute(_extractZip,
+          _ExtractArgs(zipSo.path, '$filesDir/packages/python'));
+
+      await versionFile.parent.create(recursive: true);
+      await versionFile.writeAsString(currentSize);
+
+      AppLogger.log('ZeusDL: Python stdlib extrait → ${pythonDir.path}',
+          logLevel: LogLevel.info, tag: LogTag.zeus);
+      return '$filesDir/packages/python/usr';
+    } catch (e, st) {
+      AppLogger.log('ZeusDL: extraction Python échouée: $e',
+          logLevel: LogLevel.error,
+          tag: LogTag.zeus,
+          error: e,
+          stackTrace: st);
+      return null;
+    }
+  }
+
+  /// Ensures ZeusDL scripts are in filesDir/zeusdl/, downloading updates from
+  /// GitHub if a newer release exists.  Falls back to the bundled asset.
+  /// Returns path to __main__.py or null on failure.
+  Future<String?> _ensureZeusDlReady(String filesDir) async {
+    final zeusDir = Directory('$filesDir/zeusdl');
+    final mainPy = File('$filesDir/zeusdl/__main__.py');
+    final versionFile = File('$filesDir/zeusdl_version.txt');
+
+    // Background update check (non-blocking for subsequent cold starts)
+    await _tryUpdateZeusDl(filesDir, zeusDir, versionFile);
+
+    if (await mainPy.exists()) return mainPy.path;
+
+    // First run or update wiped the dir — extract from bundled asset
+    AppLogger.log('ZeusDL: extraction depuis asset bundlé…',
+        logLevel: LogLevel.info, tag: LogTag.zeus);
+    try {
+      final data = await rootBundle.load('assets/zeusdl/zeusdl.zip');
+      final bytes = data.buffer.asUint8List();
+      if (bytes.isEmpty) {
+        AppLogger.log('ZeusDL: asset zeusdl.zip vide',
+            logLevel: LogLevel.error, tag: LogTag.zeus);
+        return null;
+      }
+      if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
+      await zeusDir.create(recursive: true);
+      // Extract to filesDir/ → creates filesDir/zeusdl/__main__.py
+      await compute(_extractZipBytes, _ExtractBytesArgs(bytes, filesDir));
+      AppLogger.log('ZeusDL: extrait depuis asset → $filesDir',
+          logLevel: LogLevel.info, tag: LogTag.zeus);
+    } catch (e) {
+      AppLogger.log('ZeusDL: extraction asset échouée: $e',
+          logLevel: LogLevel.error, tag: LogTag.zeus);
+      return null;
+    }
+
+    return await mainPy.exists() ? mainPy.path : null;
+  }
+
+  Future<void> _tryUpdateZeusDl(
+      String filesDir, Directory zeusDir, File versionFile) async {
+    try {
+      final storedTag =
+          await versionFile.exists() ? (await versionFile.readAsString()).trim() : '';
+
+      final res = await http
+          .get(Uri.parse(_zeusReleaseApiUrl),
+              headers: {'Accept': 'application/vnd.github+json'})
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) return;
+
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      final latestTag = (json['tag_name'] as String? ?? '').trim();
+      if (latestTag.isEmpty || latestTag == storedTag) return;
+
+      AppLogger.log('ZeusDL: mise à jour $storedTag → $latestTag',
+          logLevel: LogLevel.info, tag: LogTag.zeus);
+
+      final assets = json['assets'] as List<dynamic>;
+      String? downloadUrl;
+      for (final a in assets) {
+        if ((a['name'] as String).endsWith('zeusdl.zip')) {
+          downloadUrl = a['browser_download_url'] as String;
+          break;
+        }
+      }
+      if (downloadUrl == null) {
+        AppLogger.log('ZeusDL: pas de zeusdl.zip dans la release $latestTag',
+            logLevel: LogLevel.warning, tag: LogTag.zeus);
+        return;
+      }
+
+      final zipRes =
+          await http.get(Uri.parse(downloadUrl)).timeout(const Duration(minutes: 3));
+      if (zipRes.statusCode != 200) return;
+
+      if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
+      await zeusDir.create(recursive: true);
+      await compute(
+          _extractZipBytes, _ExtractBytesArgs(zipRes.bodyBytes, filesDir));
+
+      await versionFile.parent.create(recursive: true);
+      await versionFile.writeAsString(latestTag);
+      AppLogger.log('ZeusDL: mis à jour vers $latestTag ✓',
+          logLevel: LogLevel.info, tag: LogTag.zeus);
+    } catch (e) {
+      // Silently ignore — offline or GitHub down, use existing version
+      AppLogger.log('ZeusDL: vérif mise à jour ignorée: $e',
+          logLevel: LogLevel.debug, tag: LogTag.zeus);
+    }
+  }
+
+  // ── Non-Android: classic binary approach ─────────────────────────────────
+
   Future<String?> resolveExecutable() async {
-    // 1. nativeLibraryDir — canonical location used by youtubedl-android,
-    //    Seal, ytdlnis for all compiled ELF binaries (libaria2c.so, libffmpeg.so…)
     if (Platform.isAndroid) {
       try {
         final nativeDir = await _binaryUtilsChannel
@@ -160,11 +308,6 @@ class ZeusDlBinaryManager {
           final nativeFile = File('$nativeDir/libzeusdl.so');
           if (await nativeFile.exists() && await nativeFile.length() > 0) {
             _cachedPath = nativeFile.path;
-            AppLogger.log(
-              'ZeusDL: using nativeLibraryDir binary at ${nativeFile.path}',
-              logLevel: LogLevel.debug,
-              tag: LogTag.zeus,
-            );
             return nativeFile.path;
           }
         }
@@ -173,7 +316,6 @@ class ZeusDlBinaryManager {
 
     final internalPath = await _internalBinaryPath();
 
-    // 2. Use cached path from this session.
     if (_cachedPath != null) {
       final cached = File(_cachedPath!);
       if (await cached.exists() && await cached.length() > 0) {
@@ -182,98 +324,63 @@ class ZeusDlBinaryManager {
       _cachedPath = null;
     }
 
-    // 3. Check internal binary (downloaded via marketplace or user copy).
     final internalFile = File(internalPath);
     if (await internalFile.exists() && await internalFile.length() > 0) {
       await _ensureExecutable(internalFile);
       _cachedPath = internalPath;
-      AppLogger.log(
-        'ZeusDL: using installed binary at $internalPath',
-        logLevel: LogLevel.debug,
-        tag: LogTag.zeus,
-      );
       return internalPath;
     }
 
-    // 4. Extract from bundled assets (first run / reinstall).
     return await _extractFromAssets(internalPath);
   }
 
   Future<String?> _extractFromAssets(String targetPath) async {
     try {
-      AppLogger.log(
-        'ZeusDL: extracting from assets → $targetPath',
-        tag: LogTag.zeus,
-      );
-
       final ByteData data = await rootBundle.load(_assetPath);
       final bytes = data.buffer.asUint8List();
-
-      if (bytes.isEmpty) {
-        AppLogger.log(
-          'ZeusDL asset is empty — binary was not bundled at build time.',
-          logLevel: LogLevel.warning,
-          tag: LogTag.zeus,
-        );
-        return null;
-      }
+      if (bytes.isEmpty) return null;
 
       final file = File(targetPath);
       await file.parent.create(recursive: true);
       await file.writeAsBytes(bytes, flush: true);
       await _ensureExecutable(file);
-
       _cachedPath = targetPath;
-      AppLogger.log(
-        'ZeusDL extracted successfully (${bytes.length} bytes) → $targetPath',
-        tag: LogTag.zeus,
-      );
+      AppLogger.log('ZeusDL: extrait depuis assets ($targetPath)',
+          tag: LogTag.zeus);
       return targetPath;
     } catch (e, st) {
-      AppLogger.log(
-        'ZeusDL: failed to extract from assets',
-        logLevel: LogLevel.error,
-        tag: LogTag.zeus,
-        error: e,
-        stackTrace: st,
-      );
+      AppLogger.log('ZeusDL: extraction assets échouée',
+          logLevel: LogLevel.error,
+          tag: LogTag.zeus,
+          error: e,
+          stackTrace: st);
       return null;
     }
   }
 
   Future<void> _ensureExecutable(File file) async {
     if (Platform.isAndroid) {
-      // Prefer Java's File.setExecutable() via method channel — avoids PATH
-      // lookup for chmod and is not blocked by SELinux on any device.
       try {
-        final ok = await _binaryUtilsChannel.invokeMethod<bool>(
-          'setExecutable', {'path': file.path},
-        );
+        final ok = await _binaryUtilsChannel
+            .invokeMethod<bool>('setExecutable', {'path': file.path});
         AppLogger.log(
-          'ZeusDL: setExecutable=${ok ?? false} for ${file.path}',
-          logLevel: ok == true ? LogLevel.debug : LogLevel.warning,
-          tag: LogTag.zeus,
-        );
+            'ZeusDL: setExecutable=${ok ?? false} → ${file.path}',
+            logLevel: ok == true ? LogLevel.debug : LogLevel.warning,
+            tag: LogTag.zeus);
         return;
       } catch (e) {
-        AppLogger.log(
-          'ZeusDL: setExecutable channel failed ($e), falling back to chmod',
-          logLevel: LogLevel.warning,
-          tag: LogTag.zeus,
-        );
+        AppLogger.log('ZeusDL: setExecutable channel échoué: $e',
+            logLevel: LogLevel.warning, tag: LogTag.zeus);
       }
-      // Fallback: call chmod with full path to avoid PATH issues.
       try {
         final r = await Process.run('/system/bin/chmod', ['+x', file.path]);
         if (r.exitCode != 0) {
-          AppLogger.log(
-            'ZeusDL: chmod failed (${r.exitCode}): ${r.stderr}',
-            logLevel: LogLevel.warning,
-            tag: LogTag.zeus,
-          );
+          AppLogger.log('ZeusDL: chmod échoué (${r.exitCode}): ${r.stderr}',
+              logLevel: LogLevel.warning, tag: LogTag.zeus);
         }
       } catch (e) {
-        AppLogger.log('ZeusDL: chmod exception: $e', logLevel: LogLevel.warning, tag: LogTag.zeus);
+        AppLogger.log('ZeusDL: chmod exception: $e',
+            logLevel: LogLevel.warning, tag: LogTag.zeus);
       }
     } else if (Platform.isLinux || Platform.isMacOS) {
       try {
@@ -282,22 +389,14 @@ class ZeusDlBinaryManager {
     }
   }
 
-  /// Internal app support dir — exec-capable on Android (not mounted noexec).
   Future<String> _internalBinaryPath() async {
     final dir = await getApplicationSupportDirectory();
     return '${dir.path}/binaries/$_binaryName';
   }
 
-  /// Returns the internal install path shown in the settings UI.
   Future<String> installedBinaryPath() => _internalBinaryPath();
-
-  /// Destination path used when the user manually copies a binary via the
-  /// file picker (about_screen). Always points to internal storage — external
-  /// storage is noexec on Android 10+ and cannot be used to run binaries.
   Future<String> userOverrideDisplayPath() => _internalBinaryPath();
 
-  /// Download a binary from [url] and install it as the active binary.
-  /// [onProgress] receives (received, total) pairs while bytes stream in.
   Future<bool> downloadFromUrl(
     String url, {
     void Function(int received, int total)? onProgress,
@@ -310,14 +409,8 @@ class ZeusDlBinaryManager {
 
       final req = http.Request('GET', Uri.parse(url));
       final res = await http.Client().send(req);
-      if (res.statusCode != 200) {
-        AppLogger.log(
-          'ZeusDL download failed (${res.statusCode}) — $url',
-          logLevel: LogLevel.error,
-          tag: LogTag.zeus,
-        );
-        return false;
-      }
+      if (res.statusCode != 200) return false;
+
       final total = res.contentLength ?? 0;
       var received = 0;
       final sink = tmpFile.openWrite();
@@ -334,24 +427,17 @@ class ZeusDlBinaryManager {
       await tmpFile.rename(internalPath);
       await _ensureExecutable(File(internalPath));
       _cachedPath = internalPath;
-      AppLogger.log(
-        'ZeusDL downloaded ($received bytes) → $internalPath',
-        tag: LogTag.zeus,
-      );
       return true;
     } catch (e, st) {
-      AppLogger.log(
-        'ZeusDL downloadFromUrl error',
-        logLevel: LogLevel.error,
-        tag: LogTag.zeus,
-        error: e,
-        stackTrace: st,
-      );
+      AppLogger.log('ZeusDL: downloadFromUrl erreur',
+          logLevel: LogLevel.error,
+          tag: LogTag.zeus,
+          error: e,
+          stackTrace: st);
       return false;
     }
   }
 
-  /// Force re-extraction from assets (e.g. after an app update).
   Future<void> clearCache() async {
     _cachedPath = null;
     final internalPath = await _internalBinaryPath();
@@ -359,12 +445,8 @@ class ZeusDlBinaryManager {
     if (await file.exists()) await file.delete();
   }
 
-  /// Reset only the in-memory cache — does NOT delete the binary on disk.
-  void resetCachedPath() {
-    _cachedPath = null;
-  }
+  void resetCachedPath() => _cachedPath = null;
 
-  /// Check if the bundled asset is non-empty (build included the binary).
   Future<bool> isAssetBundled() async {
     try {
       final data = await rootBundle.load(_assetPath);
@@ -374,6 +456,5 @@ class ZeusDlBinaryManager {
     }
   }
 
-  /// Whether a user override binary exists (kept for backward compat).
   Future<bool> hasUserOverride() async => false;
 }
