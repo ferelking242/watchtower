@@ -169,29 +169,78 @@ jobs:
             ls -lh android/app/src/main/jniLibs/arm64-v8a/
             echo "assets/zeusdl:"
             ls -lh assets/zeusdl/
-      - name: Create libandroid-support.so stub
+
+      - name: Create libandroid-support.so stub (NDK clang)
         run: |
           # libpython.so (youtubedl-android) a une entree DT_NEEDED pour
-          # libandroid-support.so. Sur Android API 21+, toutes les fonctions
-          # de cette lib sont dans libc.so/libm.so. Un stub ELF vide suffit.
-          # On utilise le cross-compilateur system (pas le NDK) qui est
-          # disponible immediatement sans setup Gradle.
+          # libandroid-support.so. Sur Android API 21+, ses symboles sont
+          # dans libc/libm. On compile un stub ELF Android-natif avec le
+          # NDK clang (target android21) pour que l'Android linker l'accepte.
+          # Un stub Linux (aarch64-linux-gnu-gcc) était rejeté par le linker.
           set -euo pipefail
-          sudo apt-get install -y gcc-aarch64-linux-gnu --quiet 2>/dev/null
 
-          # arm64-v8a (seule cible du build --target-platform android-arm64)
-          printf 'void __libandroid_support_stub(void){}' \
-            | aarch64-linux-gnu-gcc -xc - -shared \
-              -Wl,-soname,libandroid-support.so \
-              -o android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so
-          echo "arm64-v8a stub OK : $(ls -lh android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so)"
+          # Locate the NDK clang on the runner (NDK 25.x typically survives the cleanup above)
+          NDK_CLANG=""
+          for candidate in /usr/local/lib/android/sdk/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/clang; do
+            if [ -f "$candidate" ]; then
+              NDK_CLANG="$candidate"
+              echo "NDK clang trouvé : $NDK_CLANG"
+              break
+            fi
+          done
 
-          # x86_64 — par coherence (meme dep possible)
-          printf 'void __libandroid_support_stub(void){}' \
-            | gcc -xc - -shared -m64 \
-              -Wl,-soname,libandroid-support.so \
-              -o android/app/src/main/jniLibs/x86_64/libandroid-support.so
-          echo "x86_64  stub OK : $(ls -lh android/app/src/main/jniLibs/x86_64/libandroid-support.so)"
+          if [ -z "$NDK_CLANG" ]; then
+            echo "AVERTISSEMENT : NDK non trouvé — fallback gcc (ELF Linux, peut échouer sur device)"
+            sudo apt-get install -y gcc-aarch64-linux-gnu --quiet 2>/dev/null
+            compile_arm64() {
+              aarch64-linux-gnu-gcc -xc - -shared \
+                -Wl,-soname,libandroid-support.so \
+                -o "$1"
+            }
+            compile_x86_64() {
+              gcc -xc - -shared -m64 \
+                -Wl,-soname,libandroid-support.so \
+                -o "$1"
+            }
+          else
+            compile_arm64() {
+              "$NDK_CLANG" \
+                -target aarch64-linux-android21 \
+                -xc - -shared -nostdlib \
+                -Wl,-soname,libandroid-support.so \
+                -o "$1"
+            }
+            compile_x86_64() {
+              "$NDK_CLANG" \
+                -target x86_64-linux-android21 \
+                -xc - -shared -nostdlib \
+                -Wl,-soname,libandroid-support.so \
+                -o "$1"
+            }
+          fi
+
+          # Stub source — exported symbol avoids linker "no symbols" warning
+          STUB_SRC='void __attribute__((visibility("default"))) __libandroid_support_init(void){}'
+
+          # arm64-v8a
+          mkdir -p android/app/src/main/jniLibs/arm64-v8a
+          printf '%s' "$STUB_SRC" \
+            | compile_arm64 android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so
+          echo "arm64-v8a stub : $(ls -lh android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so)"
+          readelf -d android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so \
+            | grep -E 'NEEDED|SONAME' || true
+
+          # x86_64 (cohérence — libpython.zip.so x86_64 a la même dep)
+          mkdir -p android/app/src/main/jniLibs/x86_64
+          printf '%s' "$STUB_SRC" \
+            | compile_x86_64 android/app/src/main/jniLibs/x86_64/libandroid-support.so
+          echo "x86_64  stub : $(ls -lh android/app/src/main/jniLibs/x86_64/libandroid-support.so)"
+          readelf -d android/app/src/main/jniLibs/x86_64/libandroid-support.so \
+            | grep -E 'NEEDED|SONAME' || true
+
+          echo "=== Vérification finale jniLibs ==="
+          ls -lh android/app/src/main/jniLibs/arm64-v8a/
+          ls -lh android/app/src/main/jniLibs/x86_64/
 
       - name: Install dependencies
         run: flutter pub get
