@@ -284,9 +284,17 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       children: [
         _buildBannerImageOnly(),
 
-        _player.buildBannerOverlay(context: context),
+        // Player fades in smoothly over cover when URL is ready
+        AnimatedOpacity(
+          opacity: _player.hasVideoUrl ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 480),
+          curve: Curves.easeInOut,
+          child: _player.buildBannerOverlay(context: context),
+        ),
 
-        if (!_player.hasVideoUrl && !_player.loadFailed && chapters.isNotEmpty)
+        // Loading pulse — visible while video URL is being resolved
+        if (!_player.hasVideoUrl && !_player.loadFailed &&
+            _player.loadedChapterId != null)
           const _LoadingBannerPulse(),
 
         // Top shadow uniquement pour lisibilité des contrôles — bord bas net
@@ -934,7 +942,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         else if (isMovie)
           _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
         else
-          _buildEpisodeStrip(
+          _buildEpisodeList(
             _sortedEpisodes(filtered),
             _sortedEpisodes(chapters),
           ),
@@ -1096,100 +1104,215 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return int.tryParse(all.last.group(0)!) ?? fallback;
   }
 
-  // ─── EPISODE STRIP (MovieBox style) ─────────────────────────────────────────
+  // ─── EPISODE LIST (card style with cover + shimmer) ─────────────────────────
 
-  static const double _kEpCardW = 50.0;
-  static const double _kEpCardH = 32.0;
-  static const double _kEpRadius = 8.0;
-  static const double _kStripH   = 52.0;
+  static const int    _kMaxVisibleEps = 5;
+  static const double _kEpThumbW      = 108.0;
 
-  Widget _buildEpisodeStrip(List<Chapter> chapters, List<Chapter> allChapters) {
-    return SizedBox(
-      height: _kStripH,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: chapters.length + 1,
-        itemBuilder: (context, index) {
-          // ── "Tous" card ──────────────────────────────────────────────────────
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => _showAllEpisodesSheet(context, allChapters),
-                child: Container(
-                  width: _kEpCardW,
-                  height: _kEpCardH,
-                  decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(_kEpRadius),
-                    border: Border.all(
-                        color: _accent.withValues(alpha: 0.70), width: 1.2),
+  Widget _buildEpisodeList(List<Chapter> chapters, List<Chapter> allChapters) {
+    if (chapters.isEmpty) return const SizedBox.shrink();
+    final display   = chapters.take(_kMaxVisibleEps).toList();
+    final remaining = chapters.length - display.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < display.length; i++) ...[
+          _buildEpCard(display[i], fallbackIndex: i + 1),
+          if (i < display.length - 1) const SizedBox(height: 8),
+        ],
+        if (remaining > 0) ...[
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => _showAllEpisodesSheet(context, allChapters),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: _card,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.grid_view_rounded, size: 16, color: _accent),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$remaining épisodes de plus',
+                    style: TextStyle(
+                        color: _accent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
                   ),
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.grid_view_rounded,
-                          size: 16, color: _accent.withValues(alpha: 0.85)),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Tous',
-                        style: TextStyle(
-                          color: _accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEpCard(Chapter chapter, {required int fallbackIndex}) {
+    final isPlaying = _player.loadedChapterId == chapter.id;
+    final watched   = (chapter.isRead ?? false) && !isPlaying;
+    final epNum     = _epNum(chapter.name, fallbackIndex);
+
+    // Thumbnail: episode-specific if available, else anime cover
+    final thumb = (chapter.thumbnailUrl?.isNotEmpty ?? false)
+        ? chapter.thumbnailUrl!
+        : toImgUrl(
+            widget.manga.customCoverFromTracker ?? widget.manga.imageUrl ?? '');
+
+    // Episode label: "Ép. N" + optional name after the raw number
+    String epLabel = 'Ép. $epNum';
+    final rawName  = chapter.name ?? '';
+    final stripped = rawName
+        .replaceAll(RegExp(r'(?:Ep\.?|Episode|Épisode)\s*\d+', caseSensitive: false), '')
+        .replaceAll(RegExp(r'^\s*[-–—·:]\s*'), '')
+        .trim();
+    if (stripped.isNotEmpty) epLabel += ' · $stripped';
+
+    return GestureDetector(
+      onTap: () => _loadEpisodeInBanner(chapter),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isPlaying
+              ? _accent.withValues(alpha: 0.09)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isPlaying
+                ? _accent.withValues(alpha: 0.38)
+                : _faint.withValues(alpha: 0.32),
+            width: isPlaying ? 1.0 : 0.6,
+          ),
+        ),
+        child: Row(
+          children: [
+            // ── Thumbnail (16:9) ──────────────────────────────────────────────
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: _kEpThumbW,
+                height: _kEpThumbW * 9 / 16,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (thumb.isEmpty)
+                      Container(color: _card)
+                    else
+                      cachedNetworkImage(
+                        imageUrl: thumb,
+                        width: _kEpThumbW,
+                        height: _kEpThumbW * 9 / 16,
+                        fit: BoxFit.cover,
+                      ),
+                    // Scrim gradient
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.3, 1.0],
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.55),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-
-          // ── Episode card ─────────────────────────────────────────────────────
-          final chapter = chapters[index - 1];
-          final isPlaying = _player.loadedChapterId == chapter.id;
-          final watched   = (chapter.isRead ?? false) && !isPlaying;
-          final epNum = _epNum(chapter.name, index);
-          final label = epNum.toString().padLeft(2, '0');
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => _loadEpisodeInBanner(chapter),
-              child: Container(
-                width: _kEpCardW,
-                height: _kEpCardH,
-                decoration: BoxDecoration(
-                  color: isPlaying
-                      ? _accent.withValues(alpha: 0.18)
-                      : watched
-                          ? _accent.withValues(alpha: 0.50)
-                          : _card,
-                  borderRadius: BorderRadius.circular(_kEpRadius),
-                  border: isPlaying
-                      ? Border.all(color: _accent, width: 1.6)
-                      : null,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: isPlaying
-                        ? _accent
-                        : watched
-                            ? Colors.white
-                            : _textPrimary,
-                    fontSize: 14,
-                    fontWeight: isPlaying ? FontWeight.w800 : FontWeight.w700,
-                  ),
+                    ),
+                    // Playing indicator
+                    if (isPlaying)
+                      Center(
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.50),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.equalizer_rounded,
+                              color: Colors.white, size: 14),
+                        ),
+                      )
+                    else
+                      // Subtle play icon on hover / default
+                      Positioned(
+                        right: 4,
+                        bottom: 4,
+                        child: Icon(
+                          watched
+                              ? Icons.check_circle_rounded
+                              : Icons.play_circle_outline_rounded,
+                          color: Colors.white.withValues(alpha: 0.70),
+                          size: 16,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-          );
-        },
+
+            const SizedBox(width: 12),
+
+            // ── Episode info ──────────────────────────────────────────────────
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    epLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isPlaying ? _accent : _textPrimary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                  if ((chapter.description?.isNotEmpty ?? false)) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      chapter.description!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: _grey, fontSize: 11, height: 1.45),
+                    ),
+                  ],
+                  if ((chapter.duration?.isNotEmpty ?? false)) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule_rounded,
+                            size: 10, color: _faint),
+                        const SizedBox(width: 3),
+                        Text(
+                          chapter.duration!,
+                          style: TextStyle(color: _faint, fontSize: 10.5),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // ── Status icon ───────────────────────────────────────────────────
+            const SizedBox(width: 6),
+            if (isPlaying)
+              Icon(Icons.volume_up_rounded, color: _accent, size: 16)
+            else if (watched)
+              Icon(Icons.check_rounded, color: _grey, size: 16),
+          ],
+        ),
       ),
     );
   }

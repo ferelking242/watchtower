@@ -372,5 +372,22 @@
     "appMinVerReq": "0.0.1",
     "dateFormat": "",
     "dateFormatLocale": ""
+  },
+  {
+    "name": "StreamIMDB",
+    "id": 911222334,
+    "lang": "en",
+    "baseUrl": "https://www.imdb.com",
+    "apiUrl": "https://streamimdb.ru",
+    "iconUrl": "https://raw.githubusercontent.com/ferelking242/watchtower/main/extensions/anime/icon/en.streamimdb.png",
+    "typeSource": "single",
+    "itemType": 1,
+    "version": "0.1.0",
+    "sourceCodeUrl": "https://raw.githubusercontent.com/ferelking242/watchtower/main/extensions/anime/src/en/streamimdb.js",
+    "isNsfw": false,
+    "hasCloudflare": false,
+    "appMinVerReq": "0.0.1",
+    "dateFormat": "",
+    "dateFormatLocale": ""
   }
 ]
