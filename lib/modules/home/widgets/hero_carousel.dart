@@ -19,6 +19,7 @@ class HeroCarousel extends ConsumerStatefulWidget {
   final void Function(AnilistMedia) onItemTap;
   final bool forceFullWidth;
   final void Function(Color)? onColorExtracted;
+  final double topPadding;
 
   const HeroCarousel({
     super.key,
@@ -26,6 +27,7 @@ class HeroCarousel extends ConsumerStatefulWidget {
     required this.onItemTap,
     this.forceFullWidth = false,
     this.onColorExtracted,
+    this.topPadding = 0.0,
   });
 
   @override
@@ -112,6 +114,15 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // ── Dominant-colour zone (behind header, above carousel image) ────
+        if (widget.topPadding > 0)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+            width: double.infinity,
+            height: widget.topPadding,
+            color: _accentColor ?? Colors.transparent,
+          ),
         MouseRegion(
           onEnter: (_) => setState(() => _hovering = true),
           onExit: (_) => setState(() => _hovering = false),
@@ -149,7 +160,32 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                                   .surfaceContainerHighest,
                             ),
 
-                          // ── Brush gradient scrim (bottom only) ──────────
+                          // ── Top colour → transparent gradient (fusion) ──
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: IgnorePointer(
+                                child: SizedBox(
+                                  height: 48,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          (_accentColor ?? Colors.transparent)
+                                              .withValues(alpha: 0.92),
+                                          Colors.transparent,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // ── Brush gradient scrim (bottom only) ──────────
                           // Heavy bottom fade → scaffold bg so the carousel
                           // "paints" seamlessly into the tab bar below —
                           // zero top fade now that tabs are beneath carousel.

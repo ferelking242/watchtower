@@ -44,6 +44,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     final _carouselColor = ValueNotifier<Color>(Colors.transparent);
     final _headerOpacity = ValueNotifier<double>(0.0);
     double _carouselH = 300.0;
+    double _headerH = 56.0;
     int _tab = 0;
 
     @override
@@ -93,7 +94,9 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   @override
     Widget build(BuildContext context) {
-      _carouselH = MediaQuery.sizeOf(context).height * 0.38;
+      final _topPad = MediaQuery.of(context).padding.top;
+      _headerH = _topPad + 56;
+      _carouselH = _headerH + MediaQuery.sizeOf(context).height * 0.34;
       return Scaffold(
       body: ValueListenableBuilder<bool>(
         valueListenable: anilistOfflineNotifier,
@@ -208,6 +211,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 onItemTap: (m) => _openDetail(context, m),
                 forceFullWidth: true,
                 onColorExtracted: (c) => _carouselColor.value = c,
+                topPadding: _headerH,
               ),
             ),
 
