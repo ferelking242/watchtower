@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
-import 'package:palette_generator/palette_generator.dart';
 
 /// Cinematic auto-cycling hero carousel.
 ///
@@ -43,8 +41,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   late PageController _ctrl;
   Timer? _timer;
   int _page = 0;
-  Color? _accentColor;
-  String? _lastUrl;
   bool _hovering = false;
 
   @override
@@ -52,9 +48,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     super.initState();
     _ctrl = PageController(viewportFraction: 1.0);
     _startTimer();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.items.isNotEmpty) _extractColor(widget.items[0]);
-    });
   }
 
   void _startTimer() {
@@ -67,27 +60,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
         curve: _animCurve,
       );
     });
-  }
-
-  Future<void> _extractColor(AnilistMedia m) async {
-    final url = m.bannerImage ?? m.bestCover;
-    if (url == null || url == _lastUrl) return;
-    _lastUrl = url;
-    try {
-      final gen = await PaletteGenerator.fromImageProvider(
-        NetworkImage(url),
-        size: const Size(300, 168),
-        maximumColorCount: 8,
-        timeout: const Duration(seconds: 4),
-      );
-      final c = gen.darkVibrantColor?.color ??
-          gen.darkMutedColor?.color ??
-          gen.dominantColor?.color;
-      if (c != null && mounted) {
-        setState(() => _accentColor = c);
-        widget.onColorExtracted?.call(c);
-      }
-    } catch (_) {}
   }
 
   @override
@@ -112,42 +84,21 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
         ? screenH * 0.70
         : (widget.forceFullWidth ? screenH * 0.36 : screenH * 0.34);
 
-    final _curSlide = widget.items[_page.clamp(0, widget.items.length - 1)];
-    final _curUrl = _curSlide.bannerImage ?? _curSlide.bestCover;
+    final effectiveCardH = cardH + widget.topPadding;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── Blurred image zone (behind header) — instant, no palette lag ──
-        if (widget.topPadding > 0)
-          SizedBox(
-            width: double.infinity,
-            height: widget.topPadding,
-            child: _curUrl != null
-                ? ClipRect(
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(
-                          sigmaX: 28, sigmaY: 28, tileMode: TileMode.clamp),
-                      child: Transform.scale(
-                        scale: 1.2,
-                        child: ExtendedImage.network(
-                            _curUrl, fit: BoxFit.cover, cache: true),
-                      ),
-                    ),
-                  )
-                : const ColoredBox(color: Colors.black54),
-          ),
         MouseRegion(
           onEnter: (_) => setState(() => _hovering = true),
           onExit: (_) => setState(() => _hovering = false),
           child: SizedBox(
-          height: cardH,
+          height: effectiveCardH,
           child: PageView.builder(
             controller: _ctrl,
             itemCount: widget.items.length,
             onPageChanged: (i) {
               setState(() => _page = i);
-              if (i < widget.items.length) _extractColor(widget.items[i]);
             },
             itemBuilder: (ctx, i) {
               final m = widget.items[i];
@@ -164,7 +115,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                             ExtendedImage.network(
                               image,
                               fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
+                              alignment: const Alignment(0, -0.3),
                               cache: true,
                             )
                           else

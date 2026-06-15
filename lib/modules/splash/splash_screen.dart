@@ -32,7 +32,6 @@ class _WatchtowerSplashScreenState extends State<WatchtowerSplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
-  late final Animation<double> _scale;
   late final Animation<double> _nameSlide;
 
   @override
@@ -40,27 +39,21 @@ class _WatchtowerSplashScreenState extends State<WatchtowerSplashScreen>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: const Duration(milliseconds: 800),
     );
     _fade = CurvedAnimation(
       parent: _ctrl,
-      curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
-    );
-    _scale = Tween<double>(begin: 0.55, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: const Interval(0.0, 0.75, curve: Curves.easeOutBack),
-      ),
+      curve: const Interval(0.0, 0.70, curve: Curves.easeOut),
     );
     _nameSlide = Tween<double>(begin: 18, end: 0).animate(
       CurvedAnimation(
         parent: _ctrl,
-        curve: const Interval(0.35, 0.85, curve: Curves.easeOutCubic),
+        curve: const Interval(0.30, 1.0, curve: Curves.easeOut),
       ),
     );
     _ctrl.forward();
 
-    Future.delayed(const Duration(milliseconds: 1900), () {
+    Future.delayed(const Duration(milliseconds: 1700), () {
       if (mounted) context.go(widget.destination);
     });
   }
@@ -81,8 +74,11 @@ class _WatchtowerSplashScreenState extends State<WatchtowerSplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.sizeOf(context).height;
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF080808),
+      backgroundColor: scaffoldBg,
       body: AnimatedBuilder(
         animation: _ctrl,
         builder: (_, __) => Stack(
@@ -91,14 +87,16 @@ class _WatchtowerSplashScreenState extends State<WatchtowerSplashScreen>
             Center(
               child: FadeTransition(
                 opacity: _fade,
-                child: ScaleTransition(
-                  scale: _scale,
-                  child: const _SplashLogo(),
+                child: Image.asset(
+                  'assets/app_icons/icon.png',
+                  width: screenH * 0.40,
+                  height: screenH * 0.40,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
 
-            // ── App name + tagline at bottom (MovieBox style) ────────────
+            // ── App name + tagline at bottom ──────────────────────────────
             Positioned(
               left: 0,
               right: 0,
@@ -141,48 +139,6 @@ class _WatchtowerSplashScreenState extends State<WatchtowerSplashScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Logo mark
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SplashLogo extends StatelessWidget {
-  const _SplashLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 112,
-      height: 112,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF7C3AED), Color(0xFF2563EB), Color(0xFF0EA5E9)],
-          stops: [0.0, 0.55, 1.0],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.50),
-            blurRadius: 48,
-            offset: const Offset(0, 16),
-          ),
-          BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.remove_red_eye_outlined,
-        color: Colors.white,
-        size: 56,
       ),
     );
   }

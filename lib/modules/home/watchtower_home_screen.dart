@@ -42,7 +42,7 @@ class WatchtowerHomeScreen extends ConsumerStatefulWidget {
 class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     final _scroll = ScrollController();
     final _carouselColor = ValueNotifier<Color>(Colors.transparent);
-    final _headerOpacity = ValueNotifier<double>(0.0);
+    final _headerOpacity = ValueNotifier<double>(0.15);
     double _carouselH = 300.0;
     double _headerH = 56.0;
     int _tab = 0;
@@ -50,6 +50,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     @override
     void initState() {
       super.initState();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
@@ -60,7 +61,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
     void _updateOpacity() {
       if (!_scroll.hasClients) return;
-      final v = (_scroll.offset / _carouselH).clamp(0.0, 1.0);
+      final v = 0.15 + (_scroll.offset / _carouselH).clamp(0.0, 0.85);
       if ((v - _headerOpacity.value).abs() > 0.005) _headerOpacity.value = v;
     }
 
@@ -176,7 +177,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 headerOpacity: _headerOpacity,
                 onSearchTap: () => context.push('/globalSearch'),
                 onAvatarTap: () => showAccountSheet(context),
-                carouselColorNotifier: _carouselColor,
               ),
             ),
           ],
@@ -1564,7 +1564,6 @@ class _HomeHeader extends StatefulWidget {
   final ValueNotifier<double> headerOpacity;
   final VoidCallback onSearchTap;
   final VoidCallback onAvatarTap;
-  final ValueNotifier<Color> carouselColorNotifier;
 
   const _HomeHeader({
     required this.tab,
@@ -1572,7 +1571,6 @@ class _HomeHeader extends StatefulWidget {
     required this.headerOpacity,
     required this.onSearchTap,
     required this.onAvatarTap,
-    required this.carouselColorNotifier,
   });
 
   @override
@@ -1584,141 +1582,109 @@ class _HomeHeaderState extends State<_HomeHeader> {
     Widget build(BuildContext context) {
       final topPad = MediaQuery.paddingOf(context).top;
       final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
-      final screenH = MediaQuery.sizeOf(context).height;
-      final carouselH = screenH * 0.38;
 
       return ValueListenableBuilder<double>(
         valueListenable: widget.headerOpacity,
         builder: (context, opacity, _) {
-          // True edge-to-edge: background is scaffoldBg at full opacity,
-          // transparent at scroll = 0.
           final bgColor = scaffoldBg.withValues(alpha: opacity);
-          // Carousel visible when not yet fully opaque
-          final carouselVisible = opacity < 0.9;
 
-          return ValueListenableBuilder<Color>(
-            valueListenable: widget.carouselColorNotifier,
-            builder: (context, dominantColor, _) {
-              return Container(
-                color: bgColor,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // ── Safe-area scrim (behind status bar icons) ──────────
-                    // Gives just enough dark background so white clock/battery
-                    // stay readable over any carousel image when transparent.
-                    Container(
-                      height: topPad,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(
-                                alpha: (1.0 - opacity) * 0.55),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
+          return Container(
+            color: bgColor,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Safe-area scrim — dark gradient behind status bar icons ──
+                // Ensures white battery/clock stay readable over bright images.
+                Container(
+                  height: topPad,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: (1.0 - opacity) * 0.55),
+                        Colors.transparent,
+                      ],
                     ),
+                  ),
+                ),
 
-                    // ── Row 1: Logo + Search bar ───────────────────────────
-                    // While carousel is visible, tint the row with the
-                    // dominant colour (fades away as header becomes opaque).
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.easeInOut,
-                      height: 56,
-                      decoration: carouselVisible
-                          ? BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  dominantColor.withValues(
-                                      alpha: 0.82 * (1.0 - opacity)),
-                                  Colors.transparent,
+                // ── Row 1: Logo + Search bar ──────────────────────────────
+                SizedBox(
+                  height: 56,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: widget.onAvatarTap,
+                          child: Image.asset(
+                            'assets/app_icons/icon.png',
+                            width: 56,
+                            height: 56,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: widget.onSearchTap,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: const Row(
+                                children: [
+                                  SizedBox(width: 14),
+                                  Icon(
+                                    Icons.search_rounded,
+                                    color: Colors.white54,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Rechercher un titre...',
+                                      style: TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 14,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Recherche',
+                                    style: TextStyle(
+                                      color: Color(0xFF00E676),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(width: 14),
                                 ],
                               ),
-                            )
-                          : null,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: Row(
-                          children: [
-                            // Logo — raw asset, no container/decoration
-                            GestureDetector(
-                              onTap: widget.onAvatarTap,
-                              child: Image.asset(
-                                'assets/app_icons/icon.png',
-                                width: 52,
-                                height: 52,
-                              ),
                             ),
-                            const SizedBox(width: 10),
-
-                            // Search bar — fully tappable, "Recherche" INSIDE
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: widget.onSearchTap,
-                                behavior: HitTestBehavior.opaque,
-                                child: Container(
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const SizedBox(width: 14),
-                                      const Icon(
-                                        Icons.search_rounded,
-                                        color: Colors.white54,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Expanded(
-                                        child: Text(
-                                          'Rechercher un titre...',
-                                          style: TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 14,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        'Recherche',
-                                        style: TextStyle(
-                                          color: Color(0xFF00E676),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-
-                    // ── Row 2: Tab pills ──────────────────────────────────
-                    SizedBox(
-                      height: 42,
-                      child: _SlidingTabRow(
-                        tab: widget.tab,
-                        onChanged: widget.onTabChanged,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              );
-            },
+
+                // ── Row 2: Tab pills — tighter gap vs Row 1 ──────────────
+                SizedBox(
+                  height: 36,
+                  child: _SlidingTabRow(
+                    tab: widget.tab,
+                    onChanged: widget.onTabChanged,
+                  ),
+                ),
+              ],
+            ),
           );
         },
       );
