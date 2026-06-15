@@ -172,91 +172,74 @@ jobs:
 
       - name: Extract Python runtime libs from zip + fix libpython.so deps
         run: |
-          # DIAGNOSTIC : Gradle exclut silencieusement tout fichier ne finissant
-          # pas par ".so". libpython3.11.so.1.0 (ext .so.1.0) n'est donc JAMAIS
-          # packagé dans l'APK, et le linker ne peut pas le trouver au runtime.
-          #
-          # FIX PROPRE (une seule passe) :
-          #   1. Extraire libpython3.11.so.1.0 du zip → renommer en libpython3.11.so
-          #      (.so terminal = Gradle l'inclut dans lib/arm64/)
-          #   2. Extraire libandroid-support.so du zip (dep de libpython3.11.so)
-          #   3. patchelf libpython.so :
-          #      - replace-needed libpython3.11.so.1.0 → libpython3.11.so
-          #      - remove-needed  libandroid-support.so  (libpython3.11.so l'apporte)
-          #
-          # Chaine finale dans l'APK (tous fichiers .so, inclus par Gradle) :
-          #   libpython.so -> libpython3.11.so -> libandroid-support.so -> libc.so ✓
+          # ROOT CAUSE: Gradle ignores files not ending in ".so".
+          # libpython3.11.so.1.0 (ends in .so.1.0) is silently dropped from the APK.
+          # FIX: extract it renamed as libpython3.11.so + patchelf replace-needed.
+          # Chain: libpython.so -> libpython3.11.so -> libandroid-support.so -> libc.so
           set -euo pipefail
-
           sudo apt-get install -y patchelf --quiet 2>/dev/null
 
-          cat > /tmp/extract_zip_entry.js << 'JSEOF'
-const fs = require('fs'), zlib = require('zlib');
-const [,, zipPath, entryName, outPath] = process.argv;
-const buf = fs.readFileSync(zipPath);
-let eocd = -1;
-for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
-  if (buf[i]===0x50&&buf[i+1]===0x4b&&buf[i+2]===0x05&&buf[i+3]===0x06) { eocd=i; break; }
-}
-if (eocd < 0) { console.error('Not a ZIP'); process.exit(1); }
-const cdOff = buf.readUInt32LE(eocd+16), cdSz = buf.readUInt32LE(eocd+12);
-let pos = cdOff, found = false;
-while (pos < cdOff + cdSz) {
-  if (buf.readUInt32LE(pos) !== 0x02014b50) break;
-  const fnLen = buf.readUInt16LE(pos+28);
-  const name  = buf.slice(pos+46, pos+46+fnLen).toString();
-  const lOff  = buf.readUInt32LE(pos+42);
-  pos += 46 + fnLen + buf.readUInt16LE(pos+30) + buf.readUInt16LE(pos+32);
-  if (name !== entryName) continue;
-  found = true;
-  const dOff = lOff + 30 + buf.readUInt16LE(lOff+26) + buf.readUInt16LE(lOff+28);
-  const m = buf.readUInt16LE(lOff+8), csz = buf.readUInt32LE(lOff+18);
-  let data = buf.slice(dOff, dOff+csz);
-  if (m === 8) data = zlib.inflateRawSync(data);
-  fs.writeFileSync(outPath, data);
-  console.log('OK ' + entryName + ' -> ' + outPath + ' (' + data.length + 'B)');
-  break;
-}
-if (!found) { console.error('NOT FOUND: ' + entryName); process.exit(1); }
-          JSEOF
+          # Write node extraction script (all lines indented = uniform YAML stripping)
+          node - << 'NODEEOF'
+          const fs = require('fs');
+          const src = `
+          const fs2 = require('fs'), zlib = require('zlib');
+          const [,, zip, entry, out] = process.argv;
+          const buf = fs2.readFileSync(zip);
+          let eocd = -1;
+          for (let i = buf.length-22; i >= Math.max(0,buf.length-65558); i--) {
+            if (buf[i]===0x50&&buf[i+1]===0x4b&&buf[i+2]===0x05&&buf[i+3]===0x06){eocd=i;break;}
+          }
+          const cdOff=buf.readUInt32LE(eocd+16), cdSz=buf.readUInt32LE(eocd+12);
+          let pos=cdOff, found=false;
+          while (pos<cdOff+cdSz) {
+            if (buf.readUInt32LE(pos)!==0x02014b50) break;
+            const fnLen=buf.readUInt16LE(pos+28), name=buf.slice(pos+46,pos+46+fnLen).toString();
+            const lOff=buf.readUInt32LE(pos+42);
+            pos+=46+fnLen+buf.readUInt16LE(pos+30)+buf.readUInt16LE(pos+32);
+            if (name!==entry) continue;
+            found=true;
+            const dOff=lOff+30+buf.readUInt16LE(lOff+26)+buf.readUInt16LE(lOff+28);
+            const m=buf.readUInt16LE(lOff+8), csz=buf.readUInt32LE(lOff+18);
+            let data=buf.slice(dOff,dOff+csz);
+            if (m===8) data=zlib.inflateRawSync(data);
+            fs2.writeFileSync(out,data);
+            console.log('OK '+entry+' ('+data.length+'B) -> '+out);
+            break;
+          }
+          if (!found){console.error('NOT FOUND: '+entry);process.exit(1);}
+          `.trim().replace(/^ {10}/gm,'');
+          fs.writeFileSync('/tmp/xzip.js', src);
+          console.log('xzip.js written');
+          NODEEOF
 
           for ABI in arm64-v8a x86_64; do
             JNIDIR="android/app/src/main/jniLibs/${ABI}"
             ZIP="${JNIDIR}/libpython.zip.so"
             LAUNCHER="${JNIDIR}/libpython.so"
-
-            if [ ! -f "$ZIP" ]; then
-              echo "SKIP ${ABI}: zip absent"
-              continue
-            fi
-
+            [ -f "$ZIP" ] || { echo "SKIP ${ABI}: zip absent"; continue; }
             echo "=== ${ABI} ==="
 
-            # 1. Interpreteur Python : extrait sous nom .so (accepte par Gradle)
-            node /tmp/extract_zip_entry.js \
-              "$ZIP" "usr/lib/libpython3.11.so.1.0" \
-              "${JNIDIR}/libpython3.11.so"
+            # 1. Python interpreter (5MB) renamed to .so so Gradle includes it
+            node /tmp/xzip.js "$ZIP" "usr/lib/libpython3.11.so.1.0" "${JNIDIR}/libpython3.11.so"
             readelf -d "${JNIDIR}/libpython3.11.so" | grep -E 'SONAME|NEEDED'
 
-            # 2. Support NDK : dependance de libpython3.11.so (libc.so seulement apres)
-            node /tmp/extract_zip_entry.js \
-              "$ZIP" "usr/lib/libandroid-support.so" \
-              "${JNIDIR}/libandroid-support.so"
+            # 2. libandroid-support (dependency of libpython3.11.so, ends in .so = OK)
+            node /tmp/xzip.js "$ZIP" "usr/lib/libandroid-support.so" "${JNIDIR}/libandroid-support.so"
             readelf -d "${JNIDIR}/libandroid-support.so" | grep NEEDED
 
-            # 3. Patch libpython.so : pointer sur le bon nom + retirer dep directe android-support
-            echo "libpython.so avant :"
+            # 3. Patch libpython.so: point to renamed lib + drop its own android-support dep
+            echo "libpython.so before:"
             readelf -d "$LAUNCHER" | grep NEEDED
             patchelf --replace-needed libpython3.11.so.1.0 libpython3.11.so "$LAUNCHER"
             patchelf --remove-needed libandroid-support.so "$LAUNCHER"
-            echo "libpython.so apres :"
+            echo "libpython.so after:"
             readelf -d "$LAUNCHER" | grep NEEDED
-
           done
 
-          echo "=== jniLibs arm64-v8a ==="
+          echo "=== arm64-v8a jniLibs ==="
           ls -lh android/app/src/main/jniLibs/arm64-v8a/
-          echo "=== jniLibs x86_64 ==="
+          echo "=== x86_64 jniLibs ==="
           ls -lh android/app/src/main/jniLibs/x86_64/
 
       - name: Install dependencies
