@@ -170,98 +170,93 @@ jobs:
             echo "assets/zeusdl:"
             ls -lh assets/zeusdl/
 
-      - name: Extract Python runtime libs from zip + patch libpython.so
+      - name: Extract Python runtime libs from zip + fix libpython.so deps
         run: |
-          # libpython.so (4KB) est un launcher qui depend de libpython3.11.so.1.0
-          # (le vrai interpreteur Python, 5MB) et celui-ci depend de libandroid-support.so.
-          # Ces deux libs sont incluses dans libpython.zip.so (archive ZIP renommee).
-          # On les extrait et on les place dans jniLibs pour qu'Android les installe
-          # dans lib/arm64/ au cote de libpython.so — le linker les trouve sans LD_LIBRARY_PATH.
-          # Compatible x86_64+ARM translation (Houdini) et ARM natif.
+          # DIAGNOSTIC : Gradle exclut silencieusement tout fichier ne finissant
+          # pas par ".so". libpython3.11.so.1.0 (ext .so.1.0) n'est donc JAMAIS
+          # packagé dans l'APK, et le linker ne peut pas le trouver au runtime.
+          #
+          # FIX PROPRE (une seule passe) :
+          #   1. Extraire libpython3.11.so.1.0 du zip → renommer en libpython3.11.so
+          #      (.so terminal = Gradle l'inclut dans lib/arm64/)
+          #   2. Extraire libandroid-support.so du zip (dep de libpython3.11.so)
+          #   3. patchelf libpython.so :
+          #      - replace-needed libpython3.11.so.1.0 → libpython3.11.so
+          #      - remove-needed  libandroid-support.so  (libpython3.11.so l'apporte)
+          #
+          # Chaine finale dans l'APK (tous fichiers .so, inclus par Gradle) :
+          #   libpython.so -> libpython3.11.so -> libandroid-support.so -> libc.so ✓
           set -euo pipefail
 
           sudo apt-get install -y patchelf --quiet 2>/dev/null
 
-          # Helper Node.js : extraction d'une entree depuis un ZIP
           cat > /tmp/extract_zip_entry.js << 'JSEOF'
-          const fs = require('fs');
-          const zlib = require('zlib');
-          const [,, zipPath, entryName, outPath] = process.argv;
-          const buf = fs.readFileSync(zipPath);
-          let eocd = -1;
-          for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
-            if (buf[i]===0x50&&buf[i+1]===0x4b&&buf[i+2]===0x05&&buf[i+3]===0x06) { eocd=i; break; }
-          }
-          if (eocd < 0) { console.error('Not a ZIP: ' + zipPath); process.exit(1); }
-          const cdOff = buf.readUInt32LE(eocd+16);
-          const cdSz  = buf.readUInt32LE(eocd+12);
-          let pos = cdOff;
-          let found = false;
-          while (pos < cdOff + cdSz) {
-            if (buf.readUInt32LE(pos) !== 0x02014b50) break;
-            const fnLen = buf.readUInt16LE(pos+28);
-            const name  = buf.slice(pos+46, pos+46+fnLen).toString();
-            const localOff = buf.readUInt32LE(pos+42);
-            pos += 46 + fnLen + buf.readUInt16LE(pos+30) + buf.readUInt16LE(pos+32);
-            if (name !== entryName) continue;
-            found = true;
-            const lhFnLen = buf.readUInt16LE(localOff+26);
-            const lhExLen = buf.readUInt16LE(localOff+28);
-            const dataOff = localOff + 30 + lhFnLen + lhExLen;
-            const compMethod = buf.readUInt16LE(localOff+8);
-            const compSize   = buf.readUInt32LE(localOff+18);
-            let data = buf.slice(dataOff, dataOff + compSize);
-            if (compMethod === 8) data = zlib.inflateRawSync(data);
-            fs.writeFileSync(outPath, data);
-            console.log('Extrait : ' + entryName + ' -> ' + outPath + ' (' + data.length + ' B)');
-            break;
-          }
-          if (!found) { console.error('Entree introuvable dans zip : ' + entryName); process.exit(1); }
+const fs = require('fs'), zlib = require('zlib');
+const [,, zipPath, entryName, outPath] = process.argv;
+const buf = fs.readFileSync(zipPath);
+let eocd = -1;
+for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
+  if (buf[i]===0x50&&buf[i+1]===0x4b&&buf[i+2]===0x05&&buf[i+3]===0x06) { eocd=i; break; }
+}
+if (eocd < 0) { console.error('Not a ZIP'); process.exit(1); }
+const cdOff = buf.readUInt32LE(eocd+16), cdSz = buf.readUInt32LE(eocd+12);
+let pos = cdOff, found = false;
+while (pos < cdOff + cdSz) {
+  if (buf.readUInt32LE(pos) !== 0x02014b50) break;
+  const fnLen = buf.readUInt16LE(pos+28);
+  const name  = buf.slice(pos+46, pos+46+fnLen).toString();
+  const lOff  = buf.readUInt32LE(pos+42);
+  pos += 46 + fnLen + buf.readUInt16LE(pos+30) + buf.readUInt16LE(pos+32);
+  if (name !== entryName) continue;
+  found = true;
+  const dOff = lOff + 30 + buf.readUInt16LE(lOff+26) + buf.readUInt16LE(lOff+28);
+  const m = buf.readUInt16LE(lOff+8), csz = buf.readUInt32LE(lOff+18);
+  let data = buf.slice(dOff, dOff+csz);
+  if (m === 8) data = zlib.inflateRawSync(data);
+  fs.writeFileSync(outPath, data);
+  console.log('OK ' + entryName + ' -> ' + outPath + ' (' + data.length + 'B)');
+  break;
+}
+if (!found) { console.error('NOT FOUND: ' + entryName); process.exit(1); }
           JSEOF
 
           for ABI in arm64-v8a x86_64; do
             JNIDIR="android/app/src/main/jniLibs/${ABI}"
             ZIP="${JNIDIR}/libpython.zip.so"
+            LAUNCHER="${JNIDIR}/libpython.so"
 
             if [ ! -f "$ZIP" ]; then
-              echo "SKIP ${ABI} : $ZIP introuvable"
+              echo "SKIP ${ABI}: zip absent"
               continue
             fi
 
             echo "=== ${ABI} ==="
 
-            # 1. libpython3.11.so.1.0 — le vrai interpreteur Python (~5MB)
-            #    Sans lui, libpython.so (launcher) ne peut pas demarrer
-            node /tmp/extract_zip_entry.js "$ZIP" \
-              "usr/lib/libpython3.11.so.1.0" \
-              "${JNIDIR}/libpython3.11.so.1.0"
-            echo "  SONAME/NEEDED de libpython3.11.so.1.0 :"
-            readelf -d "${JNIDIR}/libpython3.11.so.1.0" | grep -E 'SONAME|NEEDED'
+            # 1. Interpreteur Python : extrait sous nom .so (accepte par Gradle)
+            node /tmp/extract_zip_entry.js \
+              "$ZIP" "usr/lib/libpython3.11.so.1.0" \
+              "${JNIDIR}/libpython3.11.so"
+            readelf -d "${JNIDIR}/libpython3.11.so" | grep -E 'SONAME|NEEDED'
 
-            # 2. libandroid-support.so — dependance directe de libpython3.11.so.1.0
-            #    Contient les fonctions de support NDK manquantes sur les anciens API
-            node /tmp/extract_zip_entry.js "$ZIP" \
-              "usr/lib/libandroid-support.so" \
+            # 2. Support NDK : dependance de libpython3.11.so (libc.so seulement apres)
+            node /tmp/extract_zip_entry.js \
+              "$ZIP" "usr/lib/libandroid-support.so" \
               "${JNIDIR}/libandroid-support.so"
-            echo "  libandroid-support.so : $(ls -lh ${JNIDIR}/libandroid-support.so | awk '{print $5}')"
+            readelf -d "${JNIDIR}/libandroid-support.so" | grep NEEDED
 
-            # 3. Patch libpython.so : supprime son propre DT_NEEDED libandroid-support
-            #    (libpython3.11.so.1.0 a sa propre copie ; libpython.so n'en a pas besoin
-            #     directement et cela evite les conflits de namespace sur ARM translation)
-            LAUNCHER="${JNIDIR}/libpython.so"
-            echo "  libpython.so avant patch :"
+            # 3. Patch libpython.so : pointer sur le bon nom + retirer dep directe android-support
+            echo "libpython.so avant :"
             readelf -d "$LAUNCHER" | grep NEEDED
-            if readelf -d "$LAUNCHER" | grep -q "libandroid-support.so"; then
-              patchelf --remove-needed libandroid-support.so "$LAUNCHER"
-              echo "  -> DT_NEEDED libandroid-support supprime de libpython.so ✓"
-            fi
-            echo "  libpython.so apres patch :"
-            readelf -d "$LAUNCHER" | grep NEEDED || echo "  (aucune dep externe)"
+            patchelf --replace-needed libpython3.11.so.1.0 libpython3.11.so "$LAUNCHER"
+            patchelf --remove-needed libandroid-support.so "$LAUNCHER"
+            echo "libpython.so apres :"
+            readelf -d "$LAUNCHER" | grep NEEDED
+
           done
 
-          echo "=== Résumé jniLibs arm64-v8a ==="
+          echo "=== jniLibs arm64-v8a ==="
           ls -lh android/app/src/main/jniLibs/arm64-v8a/
-          echo "=== Résumé jniLibs x86_64 ==="
+          echo "=== jniLibs x86_64 ==="
           ls -lh android/app/src/main/jniLibs/x86_64/
 
       - name: Install dependencies
