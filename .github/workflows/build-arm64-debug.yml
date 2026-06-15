@@ -127,76 +127,48 @@ jobs:
             sudo apt-get clean -y || true
             docker image prune -af 2>/dev/null || true
             df -h
-      - name: Update ZeusDL jniLibs (Nuitka standalone PIE — no execv crash)
+      - name: Setup Python runtime + ZeusDL package
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
             set -euo pipefail
 
-            echo "=== Fetching latest ZeusDL release ==="
-            RELEASE_JSON=$(curl -fsSL \
-              -H "Authorization: token $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
-            ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
-            echo "ZeusDL version: $ZEUSDL_VERSION"
-
-            # Create asset placeholder (pubspec.yaml lists assets/binaries/)
-            mkdir -p assets/binaries
-            touch assets/binaries/.keep
-
-            # Download standalone PIE (ET_DYN) binaries for jniLibs.
-            # Nuitka --standalone: binary runs DIRECTLY from nativeLibraryDir.
-            # No --onefile bootstrap → no execv() on app_data_file → no SIGSEGV 139.
-            for ARCH in arm64 x86_64; do
-              echo "--- Processing $ARCH ---"
-              if [ "$ARCH" = "arm64" ]; then
-                JNIDIR="android/app/src/main/jniLibs/arm64-v8a"
-              else
-                JNIDIR="android/app/src/main/jniLibs/x86_64"
-              fi
-              DEST="$JNIDIR/libzeusdl.so"
-              mkdir -p "$JNIDIR"
-
-              URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-${ARCH}"
-              echo "Downloading: $URL"
-              curl -fsSL "$URL" -o "$DEST"
-              SIZE=$(wc -c < "$DEST")
-              echo "Downloaded: $SIZE bytes"
-
-              MAGIC=$(head -c 4 "$DEST" | xxd -p)
-              if [ "$MAGIC" != "7f454c46" ]; then
-                echo "ERROR: $ARCH not ELF (magic=$MAGIC)"; exit 1
-              fi
-
-              # Verify PIE (ET_DYN=0x0300 little-endian): mandatory for PackageManager
-              ELF_TYPE=$(dd if="$DEST" bs=1 skip=16 count=2 2>/dev/null | xxd -p)
-              if [ "$ELF_TYPE" != "0300" ]; then
-                echo "ERROR: $ARCH is ET_EXEC (0x${ELF_TYPE}), need PIE/ET_DYN (0x0300)"
-                exit 1
-              fi
-              echo "OK: $ARCH PIE/ET_DYN — will be installed to nativeLibraryDir"
-              ls -lh "$DEST"
-              echo "--- $ARCH done ---"
+            # ── 1. Runtime Python Bionic ARM64/x86_64 (youtubedl-android) ────────
+            # libpython.so      (4 KB)  = interpréteur Python, execv depuis nativeLibsDir ✓
+            # libpython.zip.so  (11 MB) = stdlib Python, décompressé dans filesDir au runtime
+            BASE="https://raw.githubusercontent.com/JunkFood02/youtubedl-android/master/library/src/main/jniLibs"
+            for ABI in arm64-v8a x86_64; do
+              mkdir -p "android/app/src/main/jniLibs/${ABI}"
+              for LIB in libpython.so libpython.zip.so; do
+                echo "Téléchargement ${ABI}/${LIB}…"
+                curl -fsSL "${BASE}/${ABI}/${LIB}" \
+                  -o "android/app/src/main/jniLibs/${ABI}/${LIB}"
+                echo "  → $(du -sh android/app/src/main/jniLibs/${ABI}/${LIB})"
+              done
             done
 
-            # Download certifi.pem from the ZeusDL release for SSL_CERT_FILE support.
-            # The standalone binary has certifi.where() patched to check SSL_CERT_FILE
-            # first; Watchtower extracts this PEM to filesDir at first launch and sets
-            # the env var before every ZeusDL invocation.
-            mkdir -p assets/certifi
-            CERT_URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/certifi.pem"
-            if curl -fsSL "$CERT_URL" -o assets/certifi/cacert.pem 2>/dev/null; then
-              echo "certifi.pem from ZeusDL release: $(wc -c < assets/certifi/cacert.pem) bytes"
-            else
-              echo "ZeusDL release certifi.pem not found, using system certifi"
-              python3 -c "import certifi,shutil; shutil.copy(certifi.where(),'assets/certifi/cacert.pem')"
-              echo "certifi.pem from system: $(wc -c < assets/certifi/cacert.pem) bytes"
-            fi
+            # ── 2. Package ZeusDL Python ──────────────────────────────────────────
+            RELEASE=$(curl -fsSL \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
+            TAG=$(echo "$RELEASE" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+            echo "ZeusDL tag: $TAG"
 
-            echo "=== ZeusDL jniLibs + certifi update complete ==="
+            mkdir -p assets/zeusdl
+            curl -fsSL \
+              "https://github.com/ferelking242/zeusdl/releases/download/${TAG}/zeusdl.zip" \
+              -o assets/zeusdl/zeusdl.zip
+            echo "$TAG" > assets/zeusdl/version.txt
+            echo "zeusdl.zip : $(du -sh assets/zeusdl/zeusdl.zip)"
 
-  
+            # Nettoyer anciens assets obsolètes
+            rm -rf assets/certifi assets/binaries
+
+            echo "=== Setup terminé ==="
+            echo "jniLibs arm64-v8a:"
+            ls -lh android/app/src/main/jniLibs/arm64-v8a/
+            echo "assets/zeusdl:"
+            ls -lh assets/zeusdl/
       - name: Install dependencies
         run: flutter pub get
 
