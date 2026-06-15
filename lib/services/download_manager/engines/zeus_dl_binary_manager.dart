@@ -559,34 +559,74 @@ import 'dart:async';
       }
     }
 
-    Future<String?> downloadFromUrl(String url) async {
+    // ── User-facing helpers ──────────────────────────────────────────────────
+
+    /// Chemin affiché dans l'UI quand l'utilisateur installe ZeusDL manuellement.
+    Future<String> userOverrideDisplayPath() async {
+      if (!Platform.isAndroid) return 'N/A (Android only)';
       try {
-        AppLogger.log('ZeusDL: téléchargement depuis $url',
-            logLevel: LogLevel.info, tag: LogTag.zeus);
-        final res = await http.get(Uri.parse(url));
+        final dir = await getExternalStorageDirectory();
+        return '${dir?.path ?? 'Android/data/com.watchtower.app/files'}/$_binaryName';
+      } catch (_) {
+        return 'Android/data/com.watchtower.app/files/$_binaryName';
+      }
+    }
+
+    /// Télécharge un binaire ZeusDL depuis une URL et l'installe.
+    /// [onProgress] est appelé avec (reçus, total) à chaque chunk reçu.
+    Future<bool> downloadFromUrl(
+      String url, {
+      void Function(int received, int total)? onProgress,
+    }) async {
+      AppLogger.log('ZeusDL: téléchargement depuis $url',
+          logLevel: LogLevel.info, tag: LogTag.zeus);
+      try {
+        final internalPath = await _internalBinaryPath();
+        final tmpFile = File('$internalPath.part');
+        await tmpFile.parent.create(recursive: true);
+        if (await tmpFile.exists()) await tmpFile.delete();
+
+        final req = http.Request('GET', Uri.parse(url));
+        final res = await http.Client().send(req);
         if (res.statusCode != 200) {
           AppLogger.log(
-              'ZeusDL: téléchargement échoué HTTP ${res.statusCode}',
+              'ZeusDL: téléchargement échoué HTTP ${res.statusCode} — $url',
               logLevel: LogLevel.error, tag: LogTag.zeus);
-          return null;
+          return false;
         }
-        final targetPath = await _internalBinaryPath();
-        final file = File(targetPath);
-        await file.parent.create(recursive: true);
-        await file.writeAsBytes(res.bodyBytes, flush: true);
-        await _ensureExecutable(file);
-        _cachedPath = targetPath;
-        AppLogger.log('ZeusDL: téléchargement terminé → $targetPath',
+        final total = res.contentLength ?? 0;
+        var received = 0;
+        final sink = tmpFile.openWrite();
+        await for (final chunk in res.stream) {
+          sink.add(chunk);
+          received += chunk.length;
+          onProgress?.call(received, total);
+        }
+        await sink.flush();
+        await sink.close();
+
+        final finalFile = File(internalPath);
+        if (await finalFile.exists()) await finalFile.delete();
+        await tmpFile.rename(internalPath);
+        await _ensureExecutable(finalFile);
+        _cachedPath = internalPath;
+        AppLogger.log(
+            'ZeusDL: téléchargement terminé ($received octets) → $internalPath',
             logLevel: LogLevel.info, tag: LogTag.zeus);
-        return targetPath;
+        return true;
       } catch (e, st) {
         AppLogger.log('ZeusDL: downloadFromUrl erreur',
             logLevel: LogLevel.error,
             tag: LogTag.zeus,
             error: e,
             stackTrace: st);
-        return null;
+        return false;
       }
+    }
+
+    /// Réinitialise le cache mémoire — ne supprime pas le binaire sur disque.
+    void resetCachedPath() {
+      _cachedPath = null;
     }
   }
   
