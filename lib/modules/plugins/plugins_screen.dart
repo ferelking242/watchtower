@@ -650,11 +650,13 @@ class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
           if (entry.key == 'aria2') {
             binPath = await Aria2BinaryManager.instance.resolveExecutable();
           } else if (entry.key == 'zeusdl') {
-            binPath = await ZeusDlBinaryManager.instance.resolveExecutable();
+            // Méthode B: ZeusDL = libpython.so + zeusdl/__main__.py
+            final zeusCtx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
+            binPath = zeusCtx?.executable;
           } else {
             binPath = null;
           }
-          if (binPath == null || !await File(binPath).exists() || await File(binPath).length() == 0) {
+          if (binPath == null) {
             missing.add(entry.key);
           }
         }
@@ -1719,29 +1721,20 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
     if (url.isEmpty) return;
     setState(() { _running = true; _result = null; });
     try {
-      // Use the binary manager — finds ZeusDL wherever it was installed
-      // (external storage on Android, internal fallback on other platforms)
-      final zeusPath = await ZeusDlBinaryManager.instance.resolveExecutable();
-      if (zeusPath == null || !await File(zeusPath).exists() || await File(zeusPath).length() == 0) {
+      // Méthode B: Python Bionic via libpython.so (nativeLibsDir, execv OK)
+      final zeusCtx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
+      if (zeusCtx == null) {
         if (!mounted) return;
-        setState(() { _running = false; _result = 'Erreur : ZeusDL non installé. Allez dans Marketplace → Binaires.'; });
+        setState(() { _running = false; _result = "Erreur : ZeusDL non disponible. Réinstallez l'application."; });
         return;
       }
-      // On Android: use the binary_utils method channel (Java ProcessBuilder +
-      // File.setExecutable). This bypasses Dart posix_spawn() which is blocked
-      // by SELinux on some devices (Samsung Knox, MIUI, etc.) when exec'ing
-      // files from app data directory even after chmod +x.
-      // On other platforms: use standard Dart Process.start.
+      final _zeusExec = zeusCtx.executable;
+      final _zeusArgs = [...zeusCtx.prependArgs, url];
       int exitCode;
       String output;
 
       if (Platform.isAndroid) {
         const ch = MethodChannel('com.watchtower.app.binary_utils');
-        // Ensure execute bit (filesystem permissions, always needed).
-        try { await ch.invokeMethod('setExecutable', {'path': zeusPath}); } catch (_) {}
-        // Override TMPDIR so staticx extracts to exec-capable directory.
-        // By default TMPDIR = cacheDir on Android, which is mounted noexec
-        // on Android 10+ → execv() of the extracted binary fails with EACCES.
         String? _tmpdirOverride;
         try {
           final _supDir = await getApplicationSupportDirectory();
@@ -1749,22 +1742,22 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
           await Directory(_tmpPath).create(recursive: true);
           _tmpdirOverride = _tmpPath;
         } catch (_) {}
-        // Run via channel: tries Shizuku first (shell SELinux domain, can exec
-        // app_data_file), falls back to ProcessBuilder (permissive / pre-10 devices).
-        // Throws PlatformException with code EXEC_ERROR on strict Android 10+
-        // without Shizuku → caught below and shown as actionable message.
+        final _env = <String, String>{
+          ...zeusCtx.extraEnv,
+          if (_tmpdirOverride != null) 'TMPDIR': _tmpdirOverride,
+        };
         final res = await ch.invokeMethod<Map<Object?, Object?>>(
           'runProcess', {
-            'path': zeusPath,
-            'args': [url],
-            if (_tmpdirOverride != null) 'env': {'TMPDIR': _tmpdirOverride},
+            'path': _zeusExec,
+            'args': _zeusArgs,
+            'env': _env,
           },
         );
         exitCode = (res?['exitCode'] as int?) ?? -1;
         output   = (res?['output']   as String?) ?? '';
       } else {
-        await Process.run('chmod', ['+x', zeusPath]);
-        final proc = await Process.start(zeusPath, [url]);
+        final proc = await Process.start(_zeusExec, _zeusArgs,
+            environment: zeusCtx.extraEnv.isEmpty ? null : zeusCtx.extraEnv);
         final outBuf = StringBuffer();
         proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
         proc.stderr.transform(const SystemEncoding().decoder).listen(outBuf.write);
@@ -1792,7 +1785,7 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         setState(() {
           _running = false;
           _result = 'ZeusDL refusé par le kernel (code 126).\n'
-              'CPU : $cpuArch — binaire : $zeusPath\n'
+              'CPU : $cpuArch — runtime : $_zeusExec\n'
               'Désinstallez et réinstallez le bon binaire ($cpuArch).$detail';
         });
         return;
