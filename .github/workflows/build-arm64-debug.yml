@@ -228,6 +228,11 @@ jobs:
             node /tmp/xzip.js "$ZIP" "usr/lib/libandroid-support.so" "${JNIDIR}/libandroid-support.so"
             readelf -d "${JNIDIR}/libandroid-support.so" | grep NEEDED
 
+            # 2b. libffi.so (real content 85KB, not a symlink — needed by ctypes/cffi C extensions)
+            #     In nativeLibraryDir → Android linker namespace finds it via dlopen() automatiquement
+            node /tmp/xzip.js "$ZIP" "usr/lib/libffi.so" "${JNIDIR}/libffi.so"
+            echo "  libffi.so: $(du -sh ${JNIDIR}/libffi.so)"
+
             # 3. Fix libpython3.11.so: replace Termux RUNPATH with $ORIGIN
             #    REAL ROOT CAUSE: RUNPATH=/data/data/com.termux/... hardcoded at compile time
             #    $ORIGIN = "same directory as this .so" = /data/app/.../lib/arm64/
@@ -289,19 +294,17 @@ jobs:
           cp "$SRC" "$DST"
           echo "APK: $(du -sh $DST | cut -f1)"
 
-      - name: FitGirl-style artifact — extract APK then LZMA2 ultra
+      - name: FitGirl-style artifact — LZMA2 ultra compressed APK
         run: |
           sudo apt-get install -y p7zip-full --quiet
-          mkdir -p apk_raw
-          SRC=build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
-          echo "APK size: $(du -sh $SRC)"
-          # Native .so libs stored UNCOMPRESSED in APK → LZMA2 compresses them 40-60%
-          unzip -q "$SRC" -d apk_raw/
-          echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
+          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+          echo "APK size: $(du -sh $APK)"
+          # Compress the APK file directly (not the extracted contents).
+          # .so libs are STORED uncompressed in the APK → LZMA2 ultra compresses them 40-60%.
+          # Download: .zip(.7z(APK)) — unzip → .7z → extract → installable APK.
           7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
             Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.7z \
-            apk_raw/
-          rm -rf apk_raw
+            "$APK"
           echo "=== Compressed artifact ==="
           ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.7z
 
