@@ -228,13 +228,23 @@ jobs:
             node /tmp/xzip.js "$ZIP" "usr/lib/libandroid-support.so" "${JNIDIR}/libandroid-support.so"
             readelf -d "${JNIDIR}/libandroid-support.so" | grep NEEDED
 
-            # 3. Patch libpython.so: point to renamed lib + drop its own android-support dep
+            # 3. Fix libpython3.11.so: replace Termux RUNPATH with $ORIGIN
+            #    REAL ROOT CAUSE: RUNPATH=/data/data/com.termux/... hardcoded at compile time
+            #    $ORIGIN = "same directory as this .so" = /data/app/.../lib/arm64/
+            echo "libpython3.11.so before:"
+            readelf -d "${JNIDIR}/libpython3.11.so" | grep -E 'NEEDED|RUNPATH'
+            patchelf --set-rpath '$ORIGIN' "${JNIDIR}/libpython3.11.so"
+            echo "libpython3.11.so after:"
+            readelf -d "${JNIDIR}/libpython3.11.so" | grep -E 'NEEDED|RUNPATH'
+
+            # 4. Patch libpython.so: fix NEEDED name + replace Termux RUNPATH with $ORIGIN
             echo "libpython.so before:"
-            readelf -d "$LAUNCHER" | grep NEEDED
+            readelf -d "$LAUNCHER" | grep -E 'NEEDED|RUNPATH'
             patchelf --replace-needed libpython3.11.so.1.0 libpython3.11.so "$LAUNCHER"
             patchelf --remove-needed libandroid-support.so "$LAUNCHER"
+            patchelf --set-rpath '$ORIGIN' "$LAUNCHER"
             echo "libpython.so after:"
-            readelf -d "$LAUNCHER" | grep NEEDED
+            readelf -d "$LAUNCHER" | grep -E 'NEEDED|RUNPATH'
           done
 
           echo "=== arm64-v8a jniLibs ==="
