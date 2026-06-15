@@ -69,7 +69,7 @@ enum LogMode {
       case LogMode.normal:
         return {
           kLogTagExt: true, kLogTagDl: false, kLogTagNet: false,
-          kLogTagZeus: false, kLogTagUi: false, kLogTagManga: false,
+          kLogTagZeus: true, kLogTagUi: false, kLogTagManga: false,
           kLogTagPage: false, kLogTagHls: false, kLogTagInstall: true,
           kLogTagReader: false, kLogTagWatch: false, kLogTagMaint: true,
         };
@@ -316,7 +316,7 @@ class AppLogger {
 
     // Apply file-writing filters (level, tags, image suppression).
     if (logLevel.index < _minLevel) return;
-    if (tag != null && _disabledTags.contains(tag)) return;
+    if (tag != null && _disabledTags.contains(tag) && logLevel != LogLevel.error) return;
     if (_suppressImages &&
         logLevel == LogLevel.error &&
         (message.contains('Failed to load') ||

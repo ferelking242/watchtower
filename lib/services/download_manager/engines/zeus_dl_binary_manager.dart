@@ -27,13 +27,45 @@ import 'dart:async';
     const _ExtractBytesArgs(this.bytes, this.destDir);
   }
 
-  void _extractZip(_ExtractArgs args) {
-    extractFileToDisk(args.zipPath, args.destDir);
+  Future<void> _extractZip(_ExtractArgs args) async {
+    await extractFileToDisk(args.zipPath, args.destDir);
   }
 
-  void _extractZipBytes(_ExtractBytesArgs args) {
+  Future<void> _extractZipBytes(_ExtractBytesArgs args) async {
     final archive = ZipDecoder().decodeBytes(args.bytes);
-    extractArchiveToDisk(archive, args.destDir);
+    await extractArchiveToDisk(archive, args.destDir);
+  }
+
+  /// Strip-aware extraction: detects if all zip entries share one common root
+  /// prefix (e.g. "zeusdl/") and strips it, then writes directly to [destDir].
+  /// Works correctly whether the zip is flat or has a single root folder.
+  Future<void> _extractZipBytesToDir(_ExtractBytesArgs args) async {
+    final archive = ZipDecoder().decodeBytes(args.bytes);
+    String? commonPrefix;
+    for (final f in archive.files) {
+      final name = f.name;
+      if (name.isEmpty) continue;
+      final slash = name.indexOf('/');
+      if (slash < 0) { commonPrefix = null; break; }
+      final prefix = name.substring(0, slash + 1);
+      if (commonPrefix == null) {
+        commonPrefix = prefix;
+      } else if (commonPrefix != prefix) {
+        commonPrefix = null;
+        break;
+      }
+    }
+    for (final f in archive.files) {
+      if (!f.isFile) continue;
+      var name = f.name;
+      if (commonPrefix != null && name.startsWith(commonPrefix)) {
+        name = name.substring(commonPrefix.length);
+      }
+      if (name.isEmpty) continue;
+      final outFile = File('${args.destDir}/$name');
+      await outFile.parent.create(recursive: true);
+      await outFile.writeAsBytes(f.content as List<int>);
+    }
   }
 
   // ── Result type for internal steps ─────────────────────────────────────────
@@ -320,7 +352,7 @@ import 'dart:async';
 
         if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
         await zeusDir.create(recursive: true);
-        await compute(_extractZipBytes, _ExtractBytesArgs(bytes, filesDir));
+        await compute(_extractZipBytesToDir, _ExtractBytesArgs(bytes, zeusDir.path));
 
         final exists = await mainPy.exists();
         if (!exists) {
@@ -416,7 +448,7 @@ import 'dart:async';
         if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
         await zeusDir.create(recursive: true);
         await compute(
-            _extractZipBytes, _ExtractBytesArgs(zipRes.bodyBytes, filesDir));
+            _extractZipBytesToDir, _ExtractBytesArgs(zipRes.bodyBytes, zeusDir.path));
 
         await versionFile.parent.create(recursive: true);
         await versionFile.writeAsString(latestTag);
