@@ -75,7 +75,8 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
   String _urlForArch(_ToolDef tool, _Arch arch) {
     final isX64 = arch == _Arch.x86_64;
     if (tool.name == 'zeusdl') {
-      return 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl-android-${isX64 ? 'x86_64' : 'arm64'}';
+      // Méthode B : zeusdl.zip = scripts Python, indépendant de l'arch
+      return 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl.zip';
     }
     if (tool.name == 'aria2c') {
       return 'https://github.com/abcfy2/aria2-static-build/releases/latest/download/aria2-${isX64 ? 'x86_64' : 'aarch64'}-linux-musl_static.zip';
@@ -130,6 +131,15 @@ Future<String?> _getNativeLibDir() async {
 Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
   if (nativeDir == null || nativeDir.isEmpty) return null;
   try {
+    // Méthode B : ZeusDL s'exécute via libpython.so (Python Bionic, sans SIGSEGV).
+    // Il n'y a pas de libzeusdl.so — on détecte la présence du runtime Python.
+    if (name == 'zeusdl') {
+      final pythonLib = File('$nativeDir/libpython.so');
+      if (await pythonLib.exists() && await pythonLib.length() > 0) {
+        return 'Python runtime';
+      }
+      return null;
+    }
     final libName = name == 'aria2c' ? 'libaria2c.so' : 'lib$name.so';
     final f = File('$nativeDir/$libName');
     if (await f.exists()) {
