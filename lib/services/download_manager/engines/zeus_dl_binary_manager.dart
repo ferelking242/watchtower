@@ -206,18 +206,18 @@ import 'dart:async';
       AppLogger.log('ZeusDL [4/4] __main__.py = $mainPy',
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
-      // Detecte si on est sur x86_64 qui execute arm64 via NDK translation.
-      // Le runner x86_64 (ndk_translation_program_runner_binfmt_misc_arm64) herite
-      // de LD_LIBRARY_PATH et son linker x86_64 essaie de charger les .so arm64
-      // depuis ce chemin => 'EM_AARCH64 instead of EM_X86_64' => crash immediat.
-      // Solution : ne pas definir LD_LIBRARY_PATH quand le runner de traduction est present.
+      // Sur x86_64 avec ARM translation (NDK Translation), le runner x86_64 utilise
+      // son propre RPATH (/system/lib64/) pour ses dependances — il n'est pas affecte
+      // par LD_LIBRARY_PATH. On definit donc LD_LIBRARY_PATH pour TOUS les appareils
+      // afin que les extensions C Python (lib-dynload) trouvent libffi.so, libssl.so, etc.
+      // nativeDir est inclus en premier pour que libpython3.11.so.1.0 soit trouve par SONAME.
       const _kNdkTranslationRunner =
           '/system/bin/ndk_translation_program_runner_binfmt_misc_arm64';
       final isX86WithArmTranslation =
           await File(_kNdkTranslationRunner).exists();
       AppLogger.log(
           'ZeusDL: x86_64+arm_translation=$isX86WithArmTranslation '
-          '(LD_LIBRARY_PATH ${isX86WithArmTranslation ? "desactive" : "actif"})',
+          '(LD_LIBRARY_PATH actif avec nativeDir+pythonHome/lib)',
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
       AppLogger.log(
@@ -229,10 +229,10 @@ import 'dart:async';
         prependArgs: [mainPy],
         extraEnv: {
           'PYTHONHOME': pythonHome,
-          // Sur x86_64+arm64 translation: LD_LIBRARY_PATH fait cracher le runner
-          // x86_64 qui charge les .so arm64 avec son propre linker x86_64.
-          // Sur vrai arm64: on le garde pour que Python trouve libz.so.1.3.1 etc.
-          if (!isX86WithArmTranslation) 'LD_LIBRARY_PATH': '$pythonHome/lib',
+          // LD_LIBRARY_PATH defini pour TOUS les appareils (ARM64 natif et x86_64+translation).
+          // nativeDir en premier : libpython3.11.so (SONAME libpython3.11.so.1.0) pour les C extensions.
+          // pythonHome/lib ensuite : libffi.so, libssl.so, libcrypto.so, etc.
+          'LD_LIBRARY_PATH': '$nativeDir:$pythonHome/lib',
           'SSL_CERT_FILE': '$pythonHome/etc/tls/cert.pem',
           'PYTHONDONTWRITEBYTECODE': '1',
           'PYTHONUNBUFFERED': '1',
@@ -274,7 +274,7 @@ import 'dart:async';
       }
 
       final pythonDir = Directory('$filesDir/packages/python');
-      final versionFile = File('$filesDir/packages/python_size.txt');
+      final versionFile = File('$filesDir/packages/python3.11_v2_size.txt');
       final currentSize = zipSize.toString();
 
       // Vérifier si déjà extrait avec la bonne version
