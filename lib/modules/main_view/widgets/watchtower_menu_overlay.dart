@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,7 +38,7 @@ class _WatchtowerMenuOverlayState
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 280),
     );
 
     _itemAnims = List.generate(_itemCount, (i) {
@@ -110,27 +109,21 @@ class _WatchtowerMenuOverlayState
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {
-        final bg = (_ctrl.value * 0.6).clamp(0.0, 0.6);
         return Stack(
           children: [
+            // Transparent dismiss area — no blur, no dim
             Positioned.fill(
               child: GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
                   _close();
                 },
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: _ctrl.value * 4,
-                    sigmaY: _ctrl.value * 4,
-                  ),
-                  child: Container(
-                    color: Colors.black.withValues(alpha: bg),
-                  ),
-                ),
+                behavior: HitTestBehavior.translucent,
+                child: const SizedBox.expand(),
               ),
             ),
 
+            // Menu items — stagger from bottom to top
             Positioned(
               right: 12,
               bottom: dockBottom + 8,
@@ -146,12 +139,13 @@ class _WatchtowerMenuOverlayState
                       cs: cs,
                     ),
                     if (i < items.length - 1)
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                   ],
                 ],
               ),
             ),
 
+            // FAB close button
             Positioned(
               right: 12,
               bottom: mq.padding.bottom + 7,
@@ -236,9 +230,9 @@ class _AnimatedMenuItem extends StatelessWidget {
       builder: (context, _) {
         final v = animation.value;
         return Transform.translate(
-          offset: Offset((1 - v) * 40, 0),
+          offset: Offset(0, (1 - v) * 18),
           child: Opacity(
-            opacity: v,
+            opacity: v.clamp(0.0, 1.0),
             child: GestureDetector(
               onTap: () {
                 HapticFeedback.lightImpact();
@@ -247,54 +241,65 @@ class _AnimatedMenuItem extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.10)
-                          : Colors.black.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.black.withValues(alpha: 0.06),
-                        width: 1,
+                  // Label pill
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: BackdropFilter(
+                      filter: ColorFilter.mode(
+                        Colors.transparent,
+                        BlendMode.srcOver,
                       ),
-                    ),
-                    child: Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black87,
-                        height: 1.0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.black.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.10)
+                                : Colors.black.withValues(alpha: 0.07),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          item.label,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87,
+                            height: 1.0,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // Icon square
                   Container(
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.10)
-                          : Colors.black.withValues(alpha: 0.07),
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.black.withValues(alpha: 0.06),
-                        width: 1,
+                            ? Colors.white.withValues(alpha: 0.10)
+                            : Colors.black.withValues(alpha: 0.07),
+                        width: 0.8,
                       ),
                     ),
                     child: Icon(
                       item.icon,
                       size: 20,
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.85)
+                          ? Colors.white.withValues(alpha: 0.88)
                           : Colors.black87,
                     ),
                   ),

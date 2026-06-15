@@ -337,7 +337,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     child: Stack(
                       children: [
                     Scaffold(
-                      extendBody: dockStyle == 'classic' || dockStyle == 'rounded_full',
+                      extendBody: dockStyle == 'classic',
                       body: NotificationListener<UserScrollNotification>(
                         onNotification: (n) {
                           // Only care about vertical primary scrolls so the
@@ -363,9 +363,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         },
                         child: widget.child,
                       ),
-                      bottomNavigationBar: (dockStyle == 'classic' || dockStyle == 'rounded_full')
+                      bottomNavigationBar: dockStyle == 'classic'
                               ? _RoundedOrClassicDock(
-                                  isRounded: dockStyle == 'rounded_full',
+                                  isRounded: false,
                                   dest: dest,
                                   currentIndex: currentIndex,
                                   buildDestinations:
@@ -401,7 +401,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                   location: location,
                                   dest: dest,
                                   ref: ref,
-                                  showPill: dockStyle != 'minimal' && dockStyle != 'compact',
+                                  showPill: true,
                                   onDestinationSelected: (destination) {
                                     AppLogger.log(
                                       'Nav â $destination',
@@ -629,126 +629,132 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
 
     final l10n = context.l10n;
-    final destinations = List<Widget>.filled(
-      dest.length,
-      const SizedBox.shrink(),
-    );
 
-    if (dest.contains("_disableLibSwitch")) {
-      destinations[dest.indexOf("_disableLibSwitch")] = NavigationDestination(
+    // Build a map so unrecognised routes are silently dropped (no SizedBox.shrink placeholders)
+    final destMap = <String, NavigationDestination>{};
+
+    if (dest.contains('_disableLibSwitch')) {
+      destMap['_disableLibSwitch'] = NavigationDestination(
         selectedIcon: const Icon(Icons.arrow_back),
         icon: const Icon(Icons.arrow_back),
         label: l10n.go_back,
       );
     }
-    if (dest.contains("_enableLibSwitch")) {
-      destinations[dest.indexOf("_enableLibSwitch")] = const NavigationDestination(
+    if (dest.contains('_enableLibSwitch')) {
+      destMap['_enableLibSwitch'] = const NavigationDestination(
         selectedIcon: Icon(Icons.grid_view_rounded),
         icon: Icon(Icons.grid_view_outlined),
         label: 'HUB',
       );
     }
-    if (dest.contains("/Library")) {
-      destinations[dest.indexOf("/Library")] = NavigationDestination(
+    if (dest.contains('/Library')) {
+      destMap['/Library'] = NavigationDestination(
         selectedIcon: const Icon(Icons.collections_bookmark),
         icon: const Icon(Icons.collections_bookmark_outlined),
         label: l10n.library,
       );
     }
-    if (dest.contains("/MangaLibrary")) {
-      destinations[dest.indexOf("/MangaLibrary")] = NavigationDestination(
+    if (dest.contains('/MangaLibrary')) {
+      destMap['/MangaLibrary'] = NavigationDestination(
         selectedIcon: const Icon(Icons.collections_bookmark),
         icon: const Icon(Icons.collections_bookmark_outlined),
         label: l10n.manga,
       );
     }
-    if (dest.contains("/AnimeLibrary")) {
-      destinations[dest.indexOf("/AnimeLibrary")] = NavigationDestination(
+    if (dest.contains('/AnimeLibrary')) {
+      destMap['/AnimeLibrary'] = NavigationDestination(
         selectedIcon: const Icon(Icons.video_collection),
         icon: const Icon(Icons.video_collection_outlined),
         label: l10n.watch,
       );
     }
-    if (dest.contains("/NovelLibrary")) {
-      destinations[dest.indexOf("/NovelLibrary")] = NavigationDestination(
+    if (dest.contains('/NovelLibrary')) {
+      destMap['/NovelLibrary'] = NavigationDestination(
         selectedIcon: const Icon(Icons.local_library),
         icon: const Icon(Icons.local_library_outlined),
         label: l10n.novel,
       );
     }
-    if (dest.contains("/MusicLibrary")) {
-      destinations[dest.indexOf("/MusicLibrary")] = NavigationDestination(
-        selectedIcon: const Icon(Icons.music_note),
-        icon: const Icon(Icons.music_note_outlined),
+    if (dest.contains('/MusicLibrary')) {
+      destMap['/MusicLibrary'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.music_note),
+        icon: Icon(Icons.music_note_outlined),
         label: 'Music',
       );
     }
-    if (dest.contains("/GameLibrary")) {
-      destinations[dest.indexOf("/GameLibrary")] = NavigationDestination(
-        selectedIcon: const Icon(Icons.sports_esports),
-        icon: const Icon(Icons.sports_esports_outlined),
+    if (dest.contains('/GameLibrary')) {
+      destMap['/GameLibrary'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.sports_esports),
+        icon: Icon(Icons.sports_esports_outlined),
         label: 'Games',
       );
     }
-    if (dest.contains("/WatchtowerHome")) {
-      destinations[dest.indexOf("/WatchtowerHome")] = NavigationDestination(
-        selectedIcon: const Icon(Icons.home_rounded),
-        icon: const Icon(Icons.home_outlined),
+    if (dest.contains('/WatchtowerHome')) {
+      destMap['/WatchtowerHome'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.home_rounded),
+        icon: Icon(Icons.home_outlined),
         label: 'Accueil',
       );
     }
-    if (dest.contains("/updates")) {
-      destinations[dest.indexOf("/updates")] = NavigationDestination(
-        selectedIcon: _UpdatesBadgeWidget(
-          icon: const Icon(Icons.new_releases),
-          ref: ref,
-        ),
-        icon: _UpdatesBadgeWidget(
-          icon: const Icon(Icons.new_releases_outlined),
-          ref: ref,
-        ),
+    if (dest.contains('/updates')) {
+      destMap['/updates'] = NavigationDestination(
+        selectedIcon: _UpdatesBadgeWidget(icon: const Icon(Icons.new_releases), ref: ref),
+        icon: _UpdatesBadgeWidget(icon: const Icon(Icons.new_releases_outlined), ref: ref),
         label: l10n.updates,
       );
     }
-    if (dest.contains("/history")) {
-      destinations[dest.indexOf("/history")] = NavigationDestination(
+    if (dest.contains('/history')) {
+      destMap['/history'] = NavigationDestination(
         selectedIcon: const Icon(Icons.history),
         icon: const Icon(Icons.history_outlined),
         label: l10n.history,
       );
     }
-    if (dest.contains("/browse")) {
-      destinations[dest.indexOf("/browse")] = NavigationDestination(
-        selectedIcon: _ExtensionBadgeWidget(
-          icon: const Icon(Icons.explore),
-          ref: ref,
-        ),
-        icon: _ExtensionBadgeWidget(
-          icon: const Icon(Icons.explore_outlined),
-          ref: ref,
-        ),
+    if (dest.contains('/browse')) {
+      destMap['/browse'] = NavigationDestination(
+        selectedIcon: _ExtensionBadgeWidget(icon: const Icon(Icons.explore), ref: ref),
+        icon: _ExtensionBadgeWidget(icon: const Icon(Icons.explore_outlined), ref: ref),
         label: l10n.browse,
       );
     }
-    if (dest.contains("/more")) {
-      destinations[dest.indexOf("/more")] = NavigationDestination(
+    if (dest.contains('/more')) {
+      destMap['/more'] = NavigationDestination(
         selectedIcon: const Icon(Icons.more_horiz),
         icon: const Icon(Icons.more_horiz_outlined),
         label: l10n.more,
       );
     }
-    if (dest.contains("/trackerLibrary")) {
-      destinations[dest.indexOf("/trackerLibrary")] = NavigationDestination(
+    if (dest.contains('/trackerLibrary')) {
+      destMap['/trackerLibrary'] = NavigationDestination(
         selectedIcon: const Icon(Icons.account_tree),
         icon: const Icon(Icons.account_tree_outlined),
         label: l10n.tracking,
       );
     }
+    if (dest.contains('/marketplace')) {
+      destMap['/marketplace'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.storefront),
+        icon: Icon(Icons.storefront_outlined),
+        label: 'Market',
+      );
+    }
+    if (dest.contains('/schedule')) {
+      destMap['/schedule'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.calendar_month),
+        icon: Icon(Icons.calendar_month_outlined),
+        label: 'Schedule',
+      );
+    }
 
-    final nonNullDests = destinations.nonNulls.toList();
-    _mobileDestinationsCache[cacheKey] = nonNullDests;
+    // Reconstruct in the original order, dropping any unrecognised routes
+    final result = dest
+        .where(destMap.containsKey)
+        .map((r) => destMap[r]! as Widget)
+        .toList();
+
+    _mobileDestinationsCache[cacheKey] = result;
     return [
-      ...nonNullDests,
+      ...result,
       const NavigationDestination(
         selectedIcon: Icon(Icons.close_rounded),
         icon: Icon(Icons.segment_rounded),
@@ -1716,6 +1722,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                   isActive: _isActive,
                   ref: widget.ref,
                   needsScroll: needsScroll,
+                  isGlass: widget.ref.read(navDockStyleProvider) == 'immersive',
                   onTap: (route) {
                     HapticFeedback.lightImpact();
                     widget.onDestinationSelected(route);
@@ -1737,6 +1744,7 @@ class _DockPill extends StatelessWidget {
     required this.isActive,
     required this.ref,
     required this.needsScroll,
+    required this.isGlass,
     required this.onTap,
     required this.onScrollEnd,
   });
@@ -1747,6 +1755,7 @@ class _DockPill extends StatelessWidget {
   final bool Function(String) isActive;
   final WidgetRef ref;
   final bool needsScroll;
+  final bool isGlass;
   final void Function(String) onTap;
   final void Function(ScrollMetrics) onScrollEnd;
 
@@ -1800,31 +1809,46 @@ class _DockPill extends StatelessWidget {
             ),
           );
 
-    return Container(
-      decoration: BoxDecoration(
+    final decoration = BoxDecoration(
+      color: isGlass
+          ? (isDark
+              ? Colors.white.withValues(alpha: 0.07)
+              : Colors.black.withValues(alpha: 0.04))
+          : (isDark ? const Color(0xFF1B1B1E) : cs.surfaceContainerHigh),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
         color: isDark
-            ? const Color(0xFF1B1B1E)
-            : cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color:
-                Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-            blurRadius: 16,
-            spreadRadius: -2,
-            offset: const Offset(0, 6),
-          ),
-        ],
+            ? Colors.white.withValues(alpha: isGlass ? 0.10 : 0.06)
+            : Colors.black.withValues(alpha: 0.06),
+        width: 1.0,
       ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+          blurRadius: 16,
+          spreadRadius: -2,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    );
+
+    Widget pill = Container(
+      decoration: decoration,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: itemsWidget,
     );
+
+    if (isGlass) {
+      pill = ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: pill,
+        ),
+      );
+    }
+
+    return pill;
   }
 }
 
@@ -1851,10 +1875,49 @@ class _ClassicDock extends StatelessWidget {
     final destinations = buildDestinations(ref, dest, context);
     if (destinations.isEmpty) return const SizedBox.shrink();
     final safeIdx = currentIndex.clamp(0, destinations.length - 1);
-    return NavigationBar(
-      selectedIndex: safeIdx,
-      onDestinationSelected: onDestinationSelected,
-      destinations: destinations,
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return NavigationBarTheme(
+      data: NavigationBarThemeData(
+        backgroundColor: isDark ? const Color(0xFF1A1A1E) : cs.surfaceContainer,
+        indicatorColor: cs.primary.withValues(alpha: 0.14),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        height: 64,
+        shadowColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((states) {
+          final sel = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 10.5,
+            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+            color: sel
+                ? cs.primary
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.58)
+                    : Colors.black.withValues(alpha: 0.52)),
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
+          final sel = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: sel
+                ? cs.primary
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.62)
+                    : Colors.black.withValues(alpha: 0.55)),
+            size: 22,
+          );
+        }),
+      ),
+      child: NavigationBar(
+        selectedIndex: safeIdx,
+        onDestinationSelected: onDestinationSelected,
+        destinations: destinations,
+      ),
     );
   }
 }

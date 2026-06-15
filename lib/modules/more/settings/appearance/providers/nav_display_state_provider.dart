@@ -12,7 +12,7 @@ void _navLog(String msg) => AppLogger.log(
       tag: LogTag.nav,
     );
 
-// ââ Show labels ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Show labels ──────────────────────────────────────────────────────────────
 
 class NavShowLabelsNotifier extends Notifier<bool> {
   @override
@@ -21,7 +21,7 @@ class NavShowLabelsNotifier extends Notifier<bool> {
   void set(bool v) {
     _box?.put('show_labels', v);
     state = v;
-    _navLog('show_labels â $v');
+    _navLog('show_labels → $v');
   }
 }
 
@@ -29,7 +29,7 @@ final navShowLabelsProvider = NotifierProvider<NavShowLabelsNotifier, bool>(
   NavShowLabelsNotifier.new,
 );
 
-// ââ Icon size ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Icon size ────────────────────────────────────────────────────────────────
 
 class NavIconSizeNotifier extends Notifier<double> {
   @override
@@ -39,7 +39,7 @@ class NavIconSizeNotifier extends Notifier<double> {
   void set(double v) {
     _box?.put('icon_size', v);
     state = v;
-    _navLog('icon_size â ${v.toStringAsFixed(1)} px');
+    _navLog('icon_size → ${v.toStringAsFixed(1)} px');
   }
 }
 
@@ -47,7 +47,7 @@ final navIconSizeProvider = NotifierProvider<NavIconSizeNotifier, double>(
   NavIconSizeNotifier.new,
 );
 
-// ââ Item spacing âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Item spacing ─────────────────────────────────────────────────────────────
 
 class NavItemSpacingNotifier extends Notifier<double> {
   @override
@@ -57,7 +57,7 @@ class NavItemSpacingNotifier extends Notifier<double> {
   void set(double v) {
     _box?.put('item_spacing', v);
     state = v;
-    _navLog('item_spacing â ${v.toStringAsFixed(1)} px');
+    _navLog('item_spacing → ${v.toStringAsFixed(1)} px');
   }
 }
 
@@ -65,7 +65,7 @@ final navItemSpacingProvider = NotifierProvider<NavItemSpacingNotifier, double>(
   NavItemSpacingNotifier.new,
 );
 
-// ââ Haptic feedback ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Haptic feedback ──────────────────────────────────────────────────────────
 
 class NavHapticNotifier extends Notifier<bool> {
   @override
@@ -74,7 +74,7 @@ class NavHapticNotifier extends Notifier<bool> {
   void set(bool v) {
     _box?.put('haptic', v);
     state = v;
-    _navLog('haptic â $v');
+    _navLog('haptic → $v');
   }
 }
 
@@ -82,7 +82,7 @@ final navHapticProvider = NotifierProvider<NavHapticNotifier, bool>(
   NavHapticNotifier.new,
 );
 
-// ââ Animation speed (0=off, 1=normal, 2=fast) ââââââââââââââââââââââââââââââââ
+// ── Animation speed (0=off, 1=normal, 2=fast) ────────────────────────────────
 
 class NavAnimSpeedNotifier extends Notifier<int> {
   @override
@@ -92,7 +92,7 @@ class NavAnimSpeedNotifier extends Notifier<int> {
     _box?.put('anim_speed', v);
     state = v;
     const labels = ['off', 'normal', 'fast'];
-    _navLog('anim_speed â ${labels[v.clamp(0, 2)]}');
+    _navLog('anim_speed → ${labels[v.clamp(0, 2)]}');
   }
 }
 
@@ -100,21 +100,25 @@ final navAnimSpeedProvider = NotifierProvider<NavAnimSpeedNotifier, int>(
   NavAnimSpeedNotifier.new,
 );
 
-// ââ Dock style: 'floating' | 'classic' | 'minimal' ââââââââââââââââââââââââââ
+// ── Dock style: 'classic' | 'immersive' | 'pc_sidebar' ──────────────────────
 
 class NavDockStyleNotifier extends Notifier<String> {
-  @override
-  String build() =>
-      _box?.get('dock_style', defaultValue: 'floating') as String? ??
-      'floating';
+  static const _valid = {'classic', 'immersive', 'pc_sidebar'};
 
-  /// Valid values: floating, classic, minimal, rounded_full, compact, immersive
+  @override
+  String build() {
+    final stored =
+        _box?.get('dock_style', defaultValue: 'classic') as String? ??
+        'classic';
+    return _valid.contains(stored) ? stored : 'classic';
+  }
+
+  /// Valid values: classic, immersive, pc_sidebar
   void set(String v) {
-      const valid = {'floating', 'classic', 'minimal', 'rounded_full', 'compact', 'immersive', 'pc_sidebar'};
-      final safe = valid.contains(v) ? v : 'floating';
-      _box?.put('dock_style', safe);
-      state = safe;
-      _navLog('dock_style changed to $safe');
+    final safe = _valid.contains(v) ? v : 'classic';
+    _box?.put('dock_style', safe);
+    state = safe;
+    _navLog('dock_style changed to $safe');
   }
 }
 
@@ -122,7 +126,7 @@ final navDockStyleProvider = NotifierProvider<NavDockStyleNotifier, String>(
   NavDockStyleNotifier.new,
 );
 
-// ââ Merge Library on dock (2nd entry: /Library unified page) âââââââââââââââââ
+// ── Merge Library on dock (2nd entry: /Library unified page) ─────────────────
 
 class MergeLibraryOnDockNotifier extends Notifier<bool> {
   @override
@@ -132,7 +136,7 @@ class MergeLibraryOnDockNotifier extends Notifier<bool> {
   void set(bool v) {
     _box?.put('merge_library_dock', v);
     state = v;
-    _navLog('merge_library_dock â $v');
+    _navLog('merge_library_dock → $v');
   }
 }
 

@@ -241,20 +241,21 @@ class CustomNavigationSettings extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // ── Row 1: Floating / Classic / Minimal ──────────────
+                  // ── Mobile ────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Mobile',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface.withValues(alpha: 0.45),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                   Row(
                     children: [
-                      _DockPreviewCard(
-                        label: 'Floating',
-                        description: 'Pill dock',
-                        isSelected: dockStyle == 'floating',
-                        child: _FloatingDockPreview(cs: colorScheme),
-                        onTap: () {
-                          ref.read(navDockStyleProvider.notifier).set('floating');
-                          botToast('Dock style: Floating pill');
-                        },
-                      ),
-                      const SizedBox(width: 10),
                       _DockPreviewCard(
                         label: 'Classic',
                         description: 'Full-width bar',
@@ -263,44 +264,6 @@ class CustomNavigationSettings extends ConsumerWidget {
                         onTap: () {
                           ref.read(navDockStyleProvider.notifier).set('classic');
                           botToast('Dock style: Classic full-width bar');
-                        },
-                      ),
-                      const SizedBox(width: 10),
-                      _DockPreviewCard(
-                        label: 'Minimal',
-                        description: 'Dot indicators',
-                        isSelected: dockStyle == 'minimal',
-                        child: _MinimalDockPreview(cs: colorScheme),
-                        onTap: () {
-                          ref.read(navDockStyleProvider.notifier).set('minimal');
-                          botToast('Dock style: Minimal icon-only');
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  // ── Row 2: Rounded / Compact / Immersive ─────────────────
-                  Row(
-                    children: [
-                      _DockPreviewCard(
-                        label: 'Rounded',
-                        description: 'Wide pill bar',
-                        isSelected: dockStyle == 'rounded_full',
-                        child: _RoundedFullDockPreview(cs: colorScheme),
-                        onTap: () {
-                          ref.read(navDockStyleProvider.notifier).set('rounded_full');
-                          botToast('Dock style: Rounded full-width pill');
-                        },
-                      ),
-                      const SizedBox(width: 10),
-                      _DockPreviewCard(
-                        label: 'Compact',
-                        description: 'Icons only, slim',
-                        isSelected: dockStyle == 'compact',
-                        child: _CompactDockPreview(cs: colorScheme),
-                        onTap: () {
-                          ref.read(navDockStyleProvider.notifier).set('compact');
-                          botToast('Dock style: Compact slim bar');
                         },
                       ),
                       const SizedBox(width: 10),
@@ -316,10 +279,33 @@ class CustomNavigationSettings extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  // ── Row 3: PC Sidebar ─────────────────────────────────────
+                  const SizedBox(height: 18),
+                  // ── PC / Tablet ───────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'PC / Tablet',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface.withValues(alpha: 0.45),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                   Row(
                     children: [
+                      _DockPreviewCard(
+                        label: 'Immersive',
+                        description: 'Glass overlay',
+                        isSelected: dockStyle == 'immersive',
+                        child: _ImmersiveDockPreview(cs: colorScheme),
+                        onTap: () {
+                          ref.read(navDockStyleProvider.notifier).set('immersive');
+                          botToast('Dock style: Immersive glass dock');
+                        },
+                      ),
+                      const SizedBox(width: 10),
                       _DockPreviewCard(
                         label: 'PC Sidebar',
                         description: 'Barre latérale',
@@ -330,10 +316,6 @@ class CustomNavigationSettings extends ConsumerWidget {
                           botToast('PC Sidebar — navigation en barre latérale');
                         },
                       ),
-                      const SizedBox(width: 10),
-                      const Expanded(child: SizedBox.shrink()),
-                      const SizedBox(width: 10),
-                      const Expanded(child: SizedBox.shrink()),
                     ],
                   ),
                 ],
@@ -566,48 +548,6 @@ class _DockPreviewCard extends StatelessWidget {
   }
 }
 
-class _FloatingDockPreview extends StatelessWidget {
-  final ColorScheme cs;
-  const _FloatingDockPreview({required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        height: 38,
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(
-            4,
-            (i) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
-              child: Icon(
-                _previewIcons[i],
-                size: 14,
-                color: i == 0
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ClassicDockPreview extends StatelessWidget {
   final ColorScheme cs;
   const _ClassicDockPreview({required this.cs});
@@ -646,72 +586,6 @@ class _ClassicDockPreview extends StatelessWidget {
   }
 }
 
-class _MinimalDockPreview extends StatelessWidget {
-  final ColorScheme cs;
-  const _MinimalDockPreview({required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        height: 42,
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.14),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(
-                4,
-                (i) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: Icon(
-                    _previewIcons[i],
-                    size: 13,
-                    color: i == 0
-                        ? cs.primary
-                        : cs.onSurface.withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 3),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(
-                4,
-                (i) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: Container(
-                    width: i == 0 ? 10 : 4,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: i == 0
-                          ? cs.primary
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 const _previewIcons = [
   Icons.apps_rounded,
@@ -722,59 +596,7 @@ const _previewIcons = [
 
 // ââ Slider tile âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-class _RoundedFullDockPreview extends StatelessWidget {
-    final ColorScheme cs;
-    const _RoundedFullDockPreview({required this.cs});
-
-    @override
-    Widget build(BuildContext context) {
-      return Align(
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          height: 36,
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 4),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainer,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.14), blurRadius: 8, offset: const Offset(0, 2)),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(4, (i) => Icon(_previewIcons[i], size: 14,
-              color: i == 0 ? cs.primary : cs.onSurface.withValues(alpha: 0.4))),
-          ),
-        ),
-      );
-    }
-  }
-
-  class _CompactDockPreview extends StatelessWidget {
-    final ColorScheme cs;
-    const _CompactDockPreview({required this.cs});
-
-    @override
-    Widget build(BuildContext context) {
-      return Align(
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          height: 26,
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 2),
-          color: cs.surface,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(4, (i) => Icon(_previewIcons[i], size: 12,
-              color: i == 0 ? cs.primary : cs.onSurface.withValues(alpha: 0.35))),
-          ),
-        ),
-      );
-    }
-  }
-
-  class _ImmersiveDockPreview extends StatelessWidget {
+class _ImmersiveDockPreview extends StatelessWidget {
     final ColorScheme cs;
     const _ImmersiveDockPreview({required this.cs});
 
