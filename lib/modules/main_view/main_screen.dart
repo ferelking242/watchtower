@@ -1812,37 +1812,43 @@ class _DockPill extends StatelessWidget {
     final decoration = BoxDecoration(
       color: isGlass
           ? (isDark
-              ? Colors.white.withValues(alpha: 0.07)
-              : Colors.black.withValues(alpha: 0.04))
-          : (isDark ? const Color(0xFF1B1B1E) : cs.surfaceContainerHigh),
-      borderRadius: BorderRadius.circular(20),
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05))
+          : (isDark ? const Color(0xFF161618) : cs.surfaceContainerHigh),
+      borderRadius: BorderRadius.circular(26),
       border: Border.all(
         color: isDark
-            ? Colors.white.withValues(alpha: isGlass ? 0.10 : 0.06)
-            : Colors.black.withValues(alpha: 0.06),
+            ? Colors.white.withValues(alpha: isGlass ? 0.14 : 0.09)
+            : Colors.black.withValues(alpha: 0.08),
         width: 1.0,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-          blurRadius: 16,
-          spreadRadius: -2,
-          offset: const Offset(0, 6),
+          color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.16),
+          blurRadius: 28,
+          spreadRadius: -4,
+          offset: const Offset(0, 8),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
+          blurRadius: 6,
+          spreadRadius: 0,
+          offset: const Offset(0, 2),
         ),
       ],
     );
 
     Widget pill = Container(
       decoration: decoration,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       child: itemsWidget,
     );
 
     if (isGlass) {
       pill = ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(26),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
           child: pill,
         ),
       );
@@ -2035,22 +2041,38 @@ class _ClassicDock extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: Duration(milliseconds: itemAnimMs),
-        curve: Curves.easeOut,
+        curve: Curves.easeOutCubic,
         margin: EdgeInsets.symmetric(horizontal: spacing / 2),
         decoration: BoxDecoration(
           color: active
               ? (isDark
-                  ? Colors.white.withValues(alpha: 0.07)
-                  : Colors.black.withValues(alpha: 0.05))
+                  ? cs.primary.withValues(alpha: 0.15)
+                  : cs.primary.withValues(alpha: 0.10))
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 5),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            iconWidget,
+            // Active indicator dot above icon
+            AnimatedContainer(
+              duration: Duration(milliseconds: itemAnimMs),
+              width: active ? 4 : 0,
+              height: active ? 4 : 0,
+              margin: EdgeInsets.only(bottom: active ? 3 : 0),
+              decoration: BoxDecoration(
+                color: active ? accent : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+            ),
+            AnimatedScale(
+              scale: active ? 1.12 : 1.0,
+              duration: Duration(milliseconds: itemAnimMs),
+              curve: Curves.easeOutCubic,
+              child: iconWidget,
+            ),
             if (showLabels) ...[
               const SizedBox(height: 4),
               Text(

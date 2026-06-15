@@ -8,15 +8,15 @@
 		<true/>
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Mangayomi needs access to your photo library to save and restore backups.</string>
+	<string>Watchtower needs access to your photo library to save and restore backups.</string>
 	<key>NSDocumentUsageDescription</key>
-	<string>Mangayomi needs access to your files to create and restore backups.</string>
+	<string>Watchtower needs access to your files to create and restore backups.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mangayomi</string>
+	<string>Watchtower</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,7 +24,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>watchtower</string>
+	<string>Watchtower</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -42,7 +42,7 @@
 		<string>fetch</string>
 	</array>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Mangayomi needs to authenticate using Face ID.</string>
+	<string>Watchtower needs to authenticate using Face ID.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -71,16 +71,16 @@
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
 	<key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>watchtower</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>watchtower</string>
-            </array>
-        </dict>
-    </array>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>watchtower</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>watchtower</string>
+			</array>
+		</dict>
+	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
@@ -104,7 +104,6 @@
 			</array>
 		</dict>
 	</array>
-
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

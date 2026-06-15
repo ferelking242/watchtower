@@ -219,6 +219,7 @@ jobs:
 
   # ────────────────────────────────────────────────────────────
   # iOS (no-codesign — sideload IPA)
+  # Rust is required: rust_lib_watchtower FFI plugin via cargokit
   # ────────────────────────────────────────────────────────────
   build-ios:
     name: iOS (no-codesign)
@@ -234,6 +235,22 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Install Rust (required for rust_lib_watchtower FFI plugin via cargokit)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: cargo-ios-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-ios-${{ runner.os }}-
+
       - name: Cache pub packages
         uses: actions/cache@v4
         with:
@@ -244,10 +261,23 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 
-      - name: Package IPA (max compressed)
+      - name: Verify app bundle name
+        run: |
+          APP_NAME=$(defaults read "$(pwd)/build/ios/iphoneos/Runner.app/Info.plist" CFBundleDisplayName 2>/dev/null || echo "unknown")
+          echo "CFBundleDisplayName: $APP_NAME"
+          APP_SIZE=$(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)
+          echo "App bundle size: $APP_SIZE"
+
+      - name: Package IPA
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
@@ -260,7 +290,7 @@ jobs:
         with:
           name: ios-ipa
           path: Watchtower-iOS.ipa
-          compression-level: 9
+          compression-level: 0
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────

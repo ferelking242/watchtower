@@ -6,12 +6,15 @@ import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
     show AniListErrorView;
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
     show AnilistHome, AnilistMedia, AnilistBrowseFilter, anilistHomeProvider, anilistOfflineNotifier;
+import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart'
+    show TmdbHome, TmdbMedia, tmdbHomeProvider;
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
+import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -187,6 +190,56 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   Widget _buildBody(BuildContext context, AnilistHome home) {
     final tab = _HomeTab.values[_tab.clamp(0, _HomeTab.values.length - 1)];
+
+    // Film & Série tabs use TMDB — load asynchronously
+    final isTmdbTab = tab == _HomeTab.film || tab == _HomeTab.serie;
+    if (isTmdbTab) {
+      return ref.watch(tmdbHomeProvider).when(
+        loading: () => const SkeletonHomeScreen(),
+        error: (e, _) => _buildBodyWithAnilist(context, home),
+        data: (tmdb) => _buildBodyTmdb(context, tmdb, tab),
+      );
+    }
+
+    return _buildBodyWithAnilist(context, home);
+  }
+
+  Widget _buildBodyTmdb(BuildContext context, TmdbHome tmdb, _HomeTab tab) {
+    final heroItems = tab == _HomeTab.film
+        ? tmdb.trendingMovies.where((m) => m.bannerImage != null).take(10).toList()
+        : tmdb.trendingTv.where((m) => m.bannerImage != null).take(10).toList();
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(tmdbHomeProvider);
+        await Future.delayed(const Duration(milliseconds: 700));
+      },
+      displacement: 80,
+      strokeWidth: 2,
+      color: Theme.of(context).colorScheme.primary,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      child: CustomScrollView(
+        controller: _scroll,
+        physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+        slivers: [
+          if (heroItems.isNotEmpty)
+            SliverToBoxAdapter(
+              child: TmdbHeroCarousel(
+                items: heroItems,
+                onTap: (_) {},
+                topPadding: _headerH,
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 10)),
+          ...(tab == _HomeTab.film ? _tmdbFilmTab(context, tmdb) : _tmdbSerieTab(context, tmdb)),
+          const SliverToBoxAdapter(child: SizedBox(height: 110)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBodyWithAnilist(BuildContext context, AnilistHome home) {
+    final tab = _HomeTab.values[_tab.clamp(0, _HomeTab.values.length - 1)];
     final heroItems = _heroItems(home, tab);
 
     return RefreshIndicator(
@@ -239,7 +292,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // ── Continue-watching items — hidden until real Isar history is plugged in ──
 
   List<AnilistMedia> _continueItems(AnilistHome home) {
-    // Returning empty hides the section; real history requires Isar integration
     return [];
   }
 
@@ -249,7 +301,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     bool ok(AnilistMedia m) => m.bannerImage != null || m.bestCover != null;
     switch (tab) {
       case _HomeTab.tout:
-        // New Tout = mix of all content types
         return [
           ...home.trendingAnimes.where(ok).take(4),
           ...home.animeMovies.where(ok).take(3),
@@ -263,7 +314,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           ...home.popularAnimes.where(ok).take(4),
         ]..shuffle();
       case _HomeTab.anime:
-        // Anime tab (was old Tout)
         return [
           ...home.recentlyUpdatedAnimes.where(ok).take(5),
           ...home.trendingAnimes.where(ok).take(5),
@@ -287,6 +337,90 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       case _HomeTab.jeux:
         return home.trendingAnimes.where(ok).take(6).toList();
     }
+  }
+
+  // ── TMDB Film tab ──────────────────────────────────────────────────────────
+
+  List<Widget> _tmdbFilmTab(BuildContext ctx, TmdbHome tmdb) {
+    return [
+      _TmdbLandscapeRow(
+        title: 'Films en ce moment',
+        icon: Icons.theaters_rounded,
+        color: const Color(0xFF2980B9),
+        items: tmdb.nowPlayingMovies,
+        onTap: (_) {},
+      ),
+      _TmdbRow(
+        title: 'Tendances de la semaine',
+        icon: Icons.local_fire_department_rounded,
+        color: const Color(0xFFE17055),
+        items: tmdb.trendingMovies,
+        onTap: (_) {},
+      ),
+      _TmdbRankedRow(
+        title: 'Les mieux notés',
+        icon: Icons.emoji_events_rounded,
+        color: const Color(0xFFF39C12),
+        items: tmdb.topRatedMovies.take(10).toList(),
+        onTap: (_) {},
+      ),
+      _TmdbRow(
+        title: 'Films populaires',
+        icon: Icons.star_rounded,
+        color: const Color(0xFF8E44AD),
+        items: tmdb.popularMovies,
+        onTap: (_) {},
+      ),
+      _TmdbRow(
+        title: 'Prochainement',
+        icon: Icons.upcoming_rounded,
+        color: const Color(0xFF0984E3),
+        items: tmdb.upcomingMovies,
+        onTap: (_) {},
+      ),
+    ];
+  }
+
+  // ── TMDB Série tab ─────────────────────────────────────────────────────────
+
+  List<Widget> _tmdbSerieTab(BuildContext ctx, TmdbHome tmdb) {
+    return [
+      _TmdbRow(
+        title: 'Tendances TV de la semaine',
+        icon: Icons.local_fire_department_rounded,
+        color: const Color(0xFFE74C3C),
+        items: tmdb.trendingTv,
+        onTap: (_) {},
+      ),
+      _TmdbLandscapeRow(
+        title: 'En cours de diffusion',
+        icon: Icons.live_tv_rounded,
+        color: const Color(0xFF2980B9),
+        items: tmdb.onTheAirTv,
+        onTap: (_) {},
+      ),
+      _TmdbRow(
+        title: 'Diffusées aujourd\'hui',
+        icon: Icons.fiber_new_rounded,
+        color: const Color(0xFF00B894),
+        items: tmdb.airingTodayTv,
+        onTap: (_) {},
+      ),
+      _TmdbRankedRow(
+        title: 'Les mieux notées',
+        icon: Icons.workspace_premium_rounded,
+        color: const Color(0xFF6C5CE7),
+        items: tmdb.topRatedTv.take(10).toList(),
+        onTap: (_) {},
+      ),
+      _TmdbRow(
+        title: 'Séries populaires',
+        icon: Icons.star_rounded,
+        color: const Color(0xFFF39C12),
+        items: tmdb.popularTv,
+        onTap: (_) {},
+      ),
+    ];
   }
 
   // ── Sections ───────────────────────────────────────────────────────────────
@@ -1712,6 +1846,146 @@ class _EmptySliver extends StatelessWidget {
                       .onSurface
                       .withValues(alpha: 0.50))),
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TMDB poster row — horizontal scroll of TmdbPosterCard
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TmdbRow extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<TmdbMedia> items;
+  final void Function(TmdbMedia) onTap;
+
+  const _TmdbRow({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(title: title, icon: icon, color: color),
+          SizedBox(
+            height: 195,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => TmdbPosterCard(
+                media: items[i],
+                onTap: () => onTap(items[i]),
+                width: 120,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TMDB landscape row — 16:9 cards
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TmdbLandscapeRow extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<TmdbMedia> items;
+  final void Function(TmdbMedia) onTap;
+
+  const _TmdbLandscapeRow({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(title: title, icon: icon, color: color),
+          SizedBox(
+            height: 148,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, i) => TmdbLandscapeCard(
+                media: items[i],
+                onTap: () => onTap(items[i]),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TMDB ranked row — top-10 with big rank numbers
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TmdbRankedRow extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<TmdbMedia> items;
+  final void Function(TmdbMedia) onTap;
+
+  const _TmdbRankedRow({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(title: title, icon: icon, color: color),
+          SizedBox(
+            height: 200,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => TmdbRankedCard(
+                media: items[i],
+                rank: i + 1,
+                onTap: () => onTap(items[i]),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
