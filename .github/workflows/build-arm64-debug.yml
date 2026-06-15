@@ -170,41 +170,98 @@ jobs:
             echo "assets/zeusdl:"
             ls -lh assets/zeusdl/
 
-      - name: Patch libpython.so — remove libandroid-support dependency
+      - name: Extract Python runtime libs from zip + patch libpython.so
         run: |
-          # libpython.so (youtubedl-android) a un DT_NEEDED vers libandroid-support.so.
-          # Sur Android API 21+, tous ses symboles sont déjà dans libc/libm.
-          # On supprime l'entrée DT_NEEDED directement dans le binaire avec patchelf.
-          # C'est plus fiable qu'un stub : aucune dépendance à résoudre = aucune erreur
-          # de linker, y compris sur les devices x86_64 avec ARM translation (Houdini).
+          # libpython.so (4KB) est un launcher qui depend de libpython3.11.so.1.0
+          # (le vrai interpreteur Python, 5MB) et celui-ci depend de libandroid-support.so.
+          # Ces deux libs sont incluses dans libpython.zip.so (archive ZIP renommee).
+          # On les extrait et on les place dans jniLibs pour qu'Android les installe
+          # dans lib/arm64/ au cote de libpython.so — le linker les trouve sans LD_LIBRARY_PATH.
+          # Compatible x86_64+ARM translation (Houdini) et ARM natif.
           set -euo pipefail
 
           sudo apt-get install -y patchelf --quiet 2>/dev/null
 
+          # Helper Node.js : extraction d'une entree depuis un ZIP
+          cat > /tmp/extract_zip_entry.js << 'JSEOF'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const [,, zipPath, entryName, outPath] = process.argv;
+          const buf = fs.readFileSync(zipPath);
+          let eocd = -1;
+          for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
+            if (buf[i]===0x50&&buf[i+1]===0x4b&&buf[i+2]===0x05&&buf[i+3]===0x06) { eocd=i; break; }
+          }
+          if (eocd < 0) { console.error('Not a ZIP: ' + zipPath); process.exit(1); }
+          const cdOff = buf.readUInt32LE(eocd+16);
+          const cdSz  = buf.readUInt32LE(eocd+12);
+          let pos = cdOff;
+          let found = false;
+          while (pos < cdOff + cdSz) {
+            if (buf.readUInt32LE(pos) !== 0x02014b50) break;
+            const fnLen = buf.readUInt16LE(pos+28);
+            const name  = buf.slice(pos+46, pos+46+fnLen).toString();
+            const localOff = buf.readUInt32LE(pos+42);
+            pos += 46 + fnLen + buf.readUInt16LE(pos+30) + buf.readUInt16LE(pos+32);
+            if (name !== entryName) continue;
+            found = true;
+            const lhFnLen = buf.readUInt16LE(localOff+26);
+            const lhExLen = buf.readUInt16LE(localOff+28);
+            const dataOff = localOff + 30 + lhFnLen + lhExLen;
+            const compMethod = buf.readUInt16LE(localOff+8);
+            const compSize   = buf.readUInt32LE(localOff+18);
+            let data = buf.slice(dataOff, dataOff + compSize);
+            if (compMethod === 8) data = zlib.inflateRawSync(data);
+            fs.writeFileSync(outPath, data);
+            console.log('Extrait : ' + entryName + ' -> ' + outPath + ' (' + data.length + ' B)');
+            break;
+          }
+          if (!found) { console.error('Entree introuvable dans zip : ' + entryName); process.exit(1); }
+          JSEOF
+
           for ABI in arm64-v8a x86_64; do
-            LIB="android/app/src/main/jniLibs/${ABI}/libpython.so"
-            if [ -f "$LIB" ]; then
-              echo "--- ${ABI}/libpython.so ---"
-              echo "Avant :"
-              readelf -d "$LIB" | grep NEEDED || true
+            JNIDIR="android/app/src/main/jniLibs/${ABI}"
+            ZIP="${JNIDIR}/libpython.zip.so"
 
-              # Supprime la dépendance android-support si elle existe
-              if readelf -d "$LIB" | grep -q "libandroid-support.so"; then
-                patchelf --remove-needed libandroid-support.so "$LIB"
-                echo "Entrée DT_NEEDED libandroid-support.so supprimée ✓"
-              else
-                echo "Pas de DT_NEEDED libandroid-support.so (déjà propre)"
-              fi
-
-              echo "Après :"
-              readelf -d "$LIB" | grep NEEDED || echo "(aucune dépendance)"
-            else
-              echo "AVERTISSEMENT : $LIB introuvable"
+            if [ ! -f "$ZIP" ]; then
+              echo "SKIP ${ABI} : $ZIP introuvable"
+              continue
             fi
+
+            echo "=== ${ABI} ==="
+
+            # 1. libpython3.11.so.1.0 — le vrai interpreteur Python (~5MB)
+            #    Sans lui, libpython.so (launcher) ne peut pas demarrer
+            node /tmp/extract_zip_entry.js "$ZIP" \
+              "usr/lib/libpython3.11.so.1.0" \
+              "${JNIDIR}/libpython3.11.so.1.0"
+            echo "  SONAME/NEEDED de libpython3.11.so.1.0 :"
+            readelf -d "${JNIDIR}/libpython3.11.so.1.0" | grep -E 'SONAME|NEEDED'
+
+            # 2. libandroid-support.so — dependance directe de libpython3.11.so.1.0
+            #    Contient les fonctions de support NDK manquantes sur les anciens API
+            node /tmp/extract_zip_entry.js "$ZIP" \
+              "usr/lib/libandroid-support.so" \
+              "${JNIDIR}/libandroid-support.so"
+            echo "  libandroid-support.so : $(ls -lh ${JNIDIR}/libandroid-support.so | awk '{print $5}')"
+
+            # 3. Patch libpython.so : supprime son propre DT_NEEDED libandroid-support
+            #    (libpython3.11.so.1.0 a sa propre copie ; libpython.so n'en a pas besoin
+            #     directement et cela evite les conflits de namespace sur ARM translation)
+            LAUNCHER="${JNIDIR}/libpython.so"
+            echo "  libpython.so avant patch :"
+            readelf -d "$LAUNCHER" | grep NEEDED
+            if readelf -d "$LAUNCHER" | grep -q "libandroid-support.so"; then
+              patchelf --remove-needed libandroid-support.so "$LAUNCHER"
+              echo "  -> DT_NEEDED libandroid-support supprime de libpython.so ✓"
+            fi
+            echo "  libpython.so apres patch :"
+            readelf -d "$LAUNCHER" | grep NEEDED || echo "  (aucune dep externe)"
           done
 
-          echo "=== Vérification finale jniLibs ==="
+          echo "=== Résumé jniLibs arm64-v8a ==="
           ls -lh android/app/src/main/jniLibs/arm64-v8a/
+          echo "=== Résumé jniLibs x86_64 ==="
           ls -lh android/app/src/main/jniLibs/x86_64/
 
       - name: Install dependencies
