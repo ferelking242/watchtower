@@ -206,6 +206,20 @@ import 'dart:async';
       AppLogger.log('ZeusDL [4/4] __main__.py = $mainPy',
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
+      // Detecte si on est sur x86_64 qui execute arm64 via NDK translation.
+      // Le runner x86_64 (ndk_translation_program_runner_binfmt_misc_arm64) herite
+      // de LD_LIBRARY_PATH et son linker x86_64 essaie de charger les .so arm64
+      // depuis ce chemin => 'EM_AARCH64 instead of EM_X86_64' => crash immediat.
+      // Solution : ne pas definir LD_LIBRARY_PATH quand le runner de traduction est present.
+      const _kNdkTranslationRunner =
+          '/system/bin/ndk_translation_program_runner_binfmt_misc_arm64';
+      final isX86WithArmTranslation =
+          await File(_kNdkTranslationRunner).exists();
+      AppLogger.log(
+          'ZeusDL: x86_64+arm_translation=$isX86WithArmTranslation '
+          '(LD_LIBRARY_PATH ${isX86WithArmTranslation ? "desactive" : "actif"})',
+          logLevel: LogLevel.info, tag: LogTag.zeus);
+
       AppLogger.log(
           'ZeusDL ✓ contexte prêt — ${pythonBin.path} $mainPy',
           logLevel: LogLevel.info, tag: LogTag.zeus);
@@ -215,7 +229,10 @@ import 'dart:async';
         prependArgs: [mainPy],
         extraEnv: {
           'PYTHONHOME': pythonHome,
-          'LD_LIBRARY_PATH': '$pythonHome/lib',
+          // Sur x86_64+arm64 translation: LD_LIBRARY_PATH fait cracher le runner
+          // x86_64 qui charge les .so arm64 avec son propre linker x86_64.
+          // Sur vrai arm64: on le garde pour que Python trouve libz.so.1.3.1 etc.
+          if (!isX86WithArmTranslation) 'LD_LIBRARY_PATH': '$pythonHome/lib',
           'SSL_CERT_FILE': '$pythonHome/etc/tls/cert.pem',
           'PYTHONDONTWRITEBYTECODE': '1',
           'PYTHONUNBUFFERED': '1',
