@@ -159,7 +159,7 @@ flutter:
       platforms: [android]
     - assets/trackers_icons/
     - assets/app_icons/
-    - assets/binaries/
+    - assets/zeusdl/
     - assets/icons/
 flutter_launcher_icons:
   android: "launcher_icon"
