@@ -170,73 +170,38 @@ jobs:
             echo "assets/zeusdl:"
             ls -lh assets/zeusdl/
 
-      - name: Create libandroid-support.so stub (NDK clang)
+      - name: Patch libpython.so — remove libandroid-support dependency
         run: |
-          # libpython.so (youtubedl-android) a une entree DT_NEEDED pour
-          # libandroid-support.so. Sur Android API 21+, ses symboles sont
-          # dans libc/libm. On compile un stub ELF Android-natif avec le
-          # NDK clang (target android21) pour que l'Android linker l'accepte.
-          # Un stub Linux (aarch64-linux-gnu-gcc) était rejeté par le linker.
+          # libpython.so (youtubedl-android) a un DT_NEEDED vers libandroid-support.so.
+          # Sur Android API 21+, tous ses symboles sont déjà dans libc/libm.
+          # On supprime l'entrée DT_NEEDED directement dans le binaire avec patchelf.
+          # C'est plus fiable qu'un stub : aucune dépendance à résoudre = aucune erreur
+          # de linker, y compris sur les devices x86_64 avec ARM translation (Houdini).
           set -euo pipefail
 
-          # Locate the NDK clang on the runner (NDK 25.x typically survives the cleanup above)
-          NDK_CLANG=""
-          for candidate in /usr/local/lib/android/sdk/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/clang; do
-            if [ -f "$candidate" ]; then
-              NDK_CLANG="$candidate"
-              echo "NDK clang trouvé : $NDK_CLANG"
-              break
+          sudo apt-get install -y patchelf --quiet 2>/dev/null
+
+          for ABI in arm64-v8a x86_64; do
+            LIB="android/app/src/main/jniLibs/${ABI}/libpython.so"
+            if [ -f "$LIB" ]; then
+              echo "--- ${ABI}/libpython.so ---"
+              echo "Avant :"
+              readelf -d "$LIB" | grep NEEDED || true
+
+              # Supprime la dépendance android-support si elle existe
+              if readelf -d "$LIB" | grep -q "libandroid-support.so"; then
+                patchelf --remove-needed libandroid-support.so "$LIB"
+                echo "Entrée DT_NEEDED libandroid-support.so supprimée ✓"
+              else
+                echo "Pas de DT_NEEDED libandroid-support.so (déjà propre)"
+              fi
+
+              echo "Après :"
+              readelf -d "$LIB" | grep NEEDED || echo "(aucune dépendance)"
+            else
+              echo "AVERTISSEMENT : $LIB introuvable"
             fi
           done
-
-          if [ -z "$NDK_CLANG" ]; then
-            echo "AVERTISSEMENT : NDK non trouvé — fallback gcc (ELF Linux, peut échouer sur device)"
-            sudo apt-get install -y gcc-aarch64-linux-gnu --quiet 2>/dev/null
-            compile_arm64() {
-              aarch64-linux-gnu-gcc -xc - -shared \
-                -Wl,-soname,libandroid-support.so \
-                -o "$1"
-            }
-            compile_x86_64() {
-              gcc -xc - -shared -m64 \
-                -Wl,-soname,libandroid-support.so \
-                -o "$1"
-            }
-          else
-            compile_arm64() {
-              "$NDK_CLANG" \
-                -target aarch64-linux-android21 \
-                -xc - -shared -nostdlib \
-                -Wl,-soname,libandroid-support.so \
-                -o "$1"
-            }
-            compile_x86_64() {
-              "$NDK_CLANG" \
-                -target x86_64-linux-android21 \
-                -xc - -shared -nostdlib \
-                -Wl,-soname,libandroid-support.so \
-                -o "$1"
-            }
-          fi
-
-          # Stub source — exported symbol avoids linker "no symbols" warning
-          STUB_SRC='void __attribute__((visibility("default"))) __libandroid_support_init(void){}'
-
-          # arm64-v8a
-          mkdir -p android/app/src/main/jniLibs/arm64-v8a
-          printf '%s' "$STUB_SRC" \
-            | compile_arm64 android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so
-          echo "arm64-v8a stub : $(ls -lh android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so)"
-          readelf -d android/app/src/main/jniLibs/arm64-v8a/libandroid-support.so \
-            | grep -E 'NEEDED|SONAME' || true
-
-          # x86_64 (cohérence — libpython.zip.so x86_64 a la même dep)
-          mkdir -p android/app/src/main/jniLibs/x86_64
-          printf '%s' "$STUB_SRC" \
-            | compile_x86_64 android/app/src/main/jniLibs/x86_64/libandroid-support.so
-          echo "x86_64  stub : $(ls -lh android/app/src/main/jniLibs/x86_64/libandroid-support.so)"
-          readelf -d android/app/src/main/jniLibs/x86_64/libandroid-support.so \
-            | grep -E 'NEEDED|SONAME' || true
 
           echo "=== Vérification finale jniLibs ==="
           ls -lh android/app/src/main/jniLibs/arm64-v8a/
