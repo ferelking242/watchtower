@@ -11,6 +11,9 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
+  import 'package:watchtower/modules/plugins/flare_loader.dart';
+  import 'package:watchtower/modules/plugins/flare_eval_renderer.dart';
+  import 'package:watchtower/modules/plugins/flare_html_renderer.dart';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -1524,7 +1527,152 @@ class _InstalledPluginRow extends ConsumerWidget {
   }
 }
 
-class _EnableToggle extends ConsumerWidget {
+// ─── Flare plugin view ─────────────────────────────────────────────────────────
+  //
+  // Route vers le bon renderer selon manifest.ui.method :
+  //   eval  → FlareEvalRenderer  (d4rt, widget Flutter natif)
+  //   html  → FlareHtmlRenderer  (WebView + bridge JS↔Flutter)
+  //   json  → _FlareJsonView     (lecture schema.json local + affichage natif)
+
+  class _FlarePluginView extends StatelessWidget {
+    final InstalledFlarePlugin plugin;
+    const _FlarePluginView({required this.plugin});
+
+    @override
+    Widget build(BuildContext context) {
+      return switch (plugin.manifest.ui.method) {
+        'eval' => FlareEvalRenderer(plugin: plugin),
+        'html' => FlareHtmlRenderer(
+            plugin: plugin,
+            onAction: (action, values) =>
+                debugPrint('[Flare] action=$action values=$values'),
+          ),
+        _ => _FlareJsonView(plugin: plugin),
+      };
+    }
+  }
+
+  // Affichage basique pour la méthode json (lit schema.json depuis le répertoire local)
+  class _FlareJsonView extends StatefulWidget {
+    final InstalledFlarePlugin plugin;
+    const _FlareJsonView({required this.plugin});
+    @override State<_FlareJsonView> createState() => _FlareJsonViewState();
+  }
+
+  class _FlareJsonViewState extends State<_FlareJsonView> {
+    Map<String, dynamic>? _schema;
+    bool _loading = true;
+
+    @override
+    void initState() {
+      super.initState();
+      FlareLoader.readSchema(widget.plugin).then((s) {
+        if (mounted) setState(() { _schema = s; _loading = false; });
+      });
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      if (_loading) return const Scaffold(
+        backgroundColor: _sealBg,
+        body: Center(child: CircularProgressIndicator(color: _teal)));
+      if (_schema == null) return const Scaffold(
+        backgroundColor: _sealBg,
+        body: Center(child: Text('schema.json introuvable',
+          style: TextStyle(color: _grey))));
+
+      final title = _schema!['title'] as String? ?? widget.plugin.manifest.name;
+      final sections = (_schema!['sections'] as List?) ?? [];
+
+      return Scaffold(
+        backgroundColor: _sealBg,
+        appBar: AppBar(
+          backgroundColor: _sealBg, elevation: 0, scrolledUnderElevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          title: Text(title, style: const TextStyle(
+            color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: sections.map((sec) {
+            final sTitle = (sec as Map)['title'] as String?;
+            final inputs = (sec['inputs'] as List?) ?? [];
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (sTitle != null) ...[
+                Text(sTitle.toUpperCase(), style: const TextStyle(
+                  color: _grey, fontSize: 11, fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2)),
+                const SizedBox(height: 8),
+              ],
+              ...inputs.map((inp) => _buildInput(inp as Map<String, dynamic>)),
+              const SizedBox(height: 16),
+            ]);
+          }).toList(),
+        ),
+      );
+    }
+
+    Widget _buildInput(Map<String, dynamic> inp) {
+      final type = inp['type'] as String? ?? '';
+      final label = inp['label'] as String? ?? inp['id'] as String? ?? '';
+      switch (type) {
+        case 'chip_select':
+          final opts = (inp['options'] as List?)?.map((e) => e.toString()).toList() ?? [];
+          final def = inp['default'] as String? ?? (opts.isNotEmpty ? opts.first : '');
+          return Padding(padding: const EdgeInsets.only(bottom: 14), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: const TextStyle(color: _grey, fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 8, children: opts.map((o) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: o == def ? _teal.withOpacity(0.15) : const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: o == def ? _teal : const Color(0xFF2A2A2A)),
+                ),
+                child: Text(o, style: TextStyle(
+                  color: o == def ? _teal : _grey, fontSize: 13,
+                  fontWeight: o == def ? FontWeight.w700 : FontWeight.w400,
+                )),
+              )).toList()),
+            ],
+          ));
+        case 'toggle':
+          return Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [
+            Expanded(child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14))),
+            Switch(value: inp['default'] as bool? ?? false, onChanged: (_) {}, activeColor: _teal),
+          ]));
+        case 'button':
+          return Padding(padding: const EdgeInsets.only(bottom: 8, top: 4), child:
+            SizedBox(width: double.infinity, height: 48, child: FilledButton(
+              onPressed: () {},
+              style: FilledButton.styleFrom(backgroundColor: _teal, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: Text(label, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w700)),
+            )));
+        default:
+          return Padding(padding: const EdgeInsets.only(bottom: 12), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: const TextStyle(color: _grey, fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF2A2A2A)),
+                ),
+                child: Text(inp['placeholder'] as String? ?? '', style: const TextStyle(color: _grey, fontSize: 13)),
+              ),
+            ],
+          ));
+      }
+    }
+  }
+
+  class _EnableToggle extends ConsumerWidget {
   final String id;
   final bool enabled;
   const _EnableToggle({required this.id, required this.enabled});
