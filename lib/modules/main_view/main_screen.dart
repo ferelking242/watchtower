@@ -310,6 +310,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 }
               }
 
+              // ── 5-item dock cap ───────────────────────────────────────────
+              // Classic dock gets a capped dest (4 user items); overflow goes
+              // to the menu overlay.  Floating dock caps internally in _buildItems.
+              final _cappedDest = dest.take(4).toList();
+              final _overflowRoutes =
+                  dest.length > 4 ? dest.sublist(4) : <String>[];
+
               final menuOpen = ref.watch(menuOpenProvider);
               final incognitoMode = ref.watch(incognitoModeStateProvider);
               final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
@@ -366,18 +373,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       bottomNavigationBar: dockStyle == 'classic'
                               ? _RoundedOrClassicDock(
                                   isRounded: false,
-                                  dest: dest,
+                                  dest: _cappedDest,
                                   currentIndex: currentIndex,
                                   buildDestinations:
                                       _buildNavigationWidgetsMobile,
                                   ref: ref,
                                   onDestinationSelected: (idx) {
-                                    if (idx >= dest.length) {
+                                    if (idx >= _cappedDest.length) {
                                       ref.read(menuOpenProvider.notifier).state =
                                           !ref.read(menuOpenProvider);
                                       return;
                                     }
-                                    final destination = dest[idx];
+                                    final destination = _cappedDest[idx];
                                     AppLogger.log(
                                       'Nav â $destination',
                                       logLevel: LogLevel.debug,
@@ -434,6 +441,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     if (menuOpen && !isReadingScreen)
                       Positioned.fill(
                         child: WatchtowerMenuOverlay(
+                          overflowRoutes: _overflowRoutes,
                           onClose: () =>
                               ref.read(menuOpenProvider.notifier).state = false,
                         ),
@@ -1652,6 +1660,11 @@ class _FloatingDockState extends State<_FloatingDock> {
       }
     }
 
+    // Cap at 4 user destinations; extras become overflow (shown in menu overlay)
+    if (items.length > 4) {
+      items.removeRange(4, items.length);
+    }
+
     items.add(const _DockItemData(
       route: '_watchtower_menu',
       label: 'Menu',
@@ -1693,10 +1706,9 @@ class _FloatingDockState extends State<_FloatingDock> {
         ? _dockHeight + _dockBottomPad + bottomPad
         : 0.0;
 
-    final needsScroll = items.length > _maxInlineItems;
-    final rawWidth = needsScroll
-        ? (_maxInlineItems * _itemWidth + _pillHPad * 2)
-        : (items.length * _itemWidth + _pillHPad * 2);
+    // Always a fixed Row — no scroll; cap enforces exactly 5 items (4 + Menu)
+    const needsScroll = false;
+    final rawWidth = items.length * _itemWidth + _pillHPad * 2;
     final screenWidth = MediaQuery.of(context).size.width;
     final pillWidth = rawWidth.clamp(80.0, screenWidth - 32.0);
 
@@ -1841,7 +1853,10 @@ class _DockPill extends StatelessWidget {
     Widget pill = Container(
       decoration: decoration,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      child: itemsWidget,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: itemsWidget,
+      ),
     );
 
     if (isGlass) {
@@ -1885,7 +1900,9 @@ class _ClassicDock extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return NavigationBarTheme(
       data: NavigationBarThemeData(
-        backgroundColor: isDark ? const Color(0xFF1A1A1E) : cs.surfaceContainer,
+        backgroundColor: isDark
+            ? cs.surface.withValues(alpha: 0.88)
+            : cs.surface.withValues(alpha: 0.92),
         indicatorColor: cs.primary.withValues(alpha: 0.14),
         indicatorShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -1951,7 +1968,6 @@ class _ClassicDock extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-      final cs = Theme.of(context).colorScheme;
       final base = _ClassicDock(
         dest: dest,
         currentIndex: currentIndex,
@@ -1959,13 +1975,21 @@ class _ClassicDock extends StatelessWidget {
         ref: ref,
         onDestinationSelected: onDestinationSelected,
       );
-      if (!isRounded) return base;
-      return ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(22),
-          topRight: Radius.circular(22),
+      final Widget shaped = isRounded
+          ? ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(22),
+                topRight: Radius.circular(22),
+              ),
+              child: base,
+            )
+          : base;
+      // Blur + semi-transparent background (background opacity set in _ClassicDock)
+      return ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: shaped,
         ),
-        child: base,
       );
     }
   }
