@@ -16,6 +16,7 @@ import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'get_chapter_pages.g.dart';
 
 class GetChapterPagesModel {
@@ -44,7 +45,7 @@ Future<GetChapterPagesModel> getChapterPages(
     Directory? path;
     List<PageUrl> pageUrls = [];
     List<bool> isLocaleList = [];
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     List<ChapterPageurls>? chapterPageUrlsList =
         settings!.chapterPageUrlsList ?? [];
     final isarPageUrls = chapterPageUrlsList

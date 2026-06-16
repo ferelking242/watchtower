@@ -7,6 +7,7 @@ import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'track_providers.g.dart';
 
 @riverpod
@@ -74,11 +75,11 @@ class UpdateProgressAfterReadingState
     extends _$UpdateProgressAfterReadingState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.updateProgressAfterReading ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).updateProgressAfterReading ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

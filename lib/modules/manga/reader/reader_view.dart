@@ -41,6 +41,7 @@ import 'package:photo_view/photo_view.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:watchtower/utils/constant.dart';
 
 typedef DoubleClickAnimationListener = void Function();
 
@@ -283,7 +284,7 @@ class _MangaChapterPageGalleryState
   }
 
   void _initWakelock() {
-    final keepOn = isar.settings.getSync(227)!.keepScreenOnReader ?? true;
+    final keepOn = (isar.settings.getSync(kSettingsId) ?? Settings()).keepScreenOnReader ?? true;
     if (keepOn) {
       WakelockPlus.enable();
     }
@@ -953,9 +954,7 @@ class _MangaChapterPageGalleryState
   }
 
   Duration? _doubleTapAnimationDuration() {
-    int doubleTapAnimationValue = isar.settings
-        .getSync(227)!
-        .doubleTapAnimationSpeed!;
+    int doubleTapAnimationValue = (isar.settings.getSync(kSettingsId) ?? Settings()).doubleTapAnimationSpeed ?? 0;
     if (doubleTapAnimationValue == 0) {
       return const Duration(milliseconds: 10);
     } else if (doubleTapAnimationValue == 1) {

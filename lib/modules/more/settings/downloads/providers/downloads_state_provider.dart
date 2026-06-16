@@ -7,17 +7,18 @@ import 'package:watchtower/services/download_manager/active_download_registry.da
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as path;
+import 'package:watchtower/utils/constant.dart';
 part 'downloads_state_provider.g.dart';
 
 @riverpod
 class OnlyOnWifiState extends _$OnlyOnWifiState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.downloadOnlyOnWifi ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).downloadOnlyOnWifi ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -33,11 +34,11 @@ class OnlyOnWifiState extends _$OnlyOnWifiState {
 class SaveAsCBZArchiveState extends _$SaveAsCBZArchiveState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.saveAsCBZArchive ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).saveAsCBZArchive ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -54,11 +55,11 @@ class DeleteDownloadAfterReadingState
     extends _$DeleteDownloadAfterReadingState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.deleteDownloadAfterReading ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).deleteDownloadAfterReading ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -75,11 +76,11 @@ class DownloadLocationState extends _$DownloadLocationState {
   @override
   (String, String) build() {
     _refresh();
-    return ("", isar.settings.getSync(227)!.downloadLocation ?? "");
+    return ("", (isar.settings.getSync(kSettingsId) ?? Settings()).downloadLocation ?? "");
   }
 
   void set(String location) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = (path.join(_storageProvider!.path, 'downloads'), location);
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -94,7 +95,7 @@ class DownloadLocationState extends _$DownloadLocationState {
 
   Future _refresh() async {
     _storageProvider = await StorageProvider().getDefaultDirectory();
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = (
       path.join(_storageProvider!.path, 'downloads'),
       settings!.downloadLocation ?? "",
@@ -106,11 +107,11 @@ class DownloadLocationState extends _$DownloadLocationState {
 class ConcurrentDownloadsState extends _$ConcurrentDownloadsState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.concurrentDownloads ?? 2;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).concurrentDownloads ?? 2;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

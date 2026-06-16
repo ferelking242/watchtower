@@ -3,13 +3,14 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/flex_scheme_color_state_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'theme_mode_state_provider.g.dart';
 
 @riverpod
 class ThemeModeState extends _$ThemeModeState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.themeIsDark!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).themeIsDark!;
   }
 
   void setTheme(Brightness brightness) {
@@ -21,7 +22,7 @@ class ThemeModeState extends _$ThemeModeState {
   }
 
   void setLightTheme() {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = false;
     ref
         .read(flexSchemeColorStateProvider.notifier)
@@ -39,7 +40,7 @@ class ThemeModeState extends _$ThemeModeState {
   }
 
   void setDarkTheme() {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = true;
     ref
         .read(flexSchemeColorStateProvider.notifier)
@@ -61,11 +62,11 @@ class ThemeModeState extends _$ThemeModeState {
 class FollowSystemThemeState extends _$FollowSystemThemeState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.followSystemTheme ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).followSystemTheme ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     if (value) {
       if (WidgetsBinding.instance.platformDispatcher.platformBrightness ==

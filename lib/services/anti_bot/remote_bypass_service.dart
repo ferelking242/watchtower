@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/models/settings.dart';
 
 const _kBoxName = 'anti_bot_settings';
 const _kEnabledKey = 'remote_enabled';

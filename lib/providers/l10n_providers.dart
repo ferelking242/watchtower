@@ -3,6 +3,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'l10n_providers.g.dart';
 
 @riverpod
@@ -16,12 +17,12 @@ class L10nLocaleState extends _$L10nLocaleState {
   }
 
   L10nLocale? _getLocale() {
-    return isar.settings.getSync(227)!.locale ??
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).locale ??
         L10nLocale(languageCode: "en", countryCode: "");
   }
 
   void setLocale(Locale locale) async {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     isar.writeTxnSync(() {
       isar.settings.putSync(
         settings

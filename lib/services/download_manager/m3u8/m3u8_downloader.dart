@@ -31,7 +31,7 @@ class M3u8Downloader {
   static var httpClient = MClient.httpClient(
     settings: const ClientSettings(
       throwOnStatusCode: false,
-      tlsSettings: TlsSettings(verifyCertificates: false),
+      tlsSettings: TlsSettings(verifyCertificates: true),
     ),
   );
 

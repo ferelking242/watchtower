@@ -1,17 +1,18 @@
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'reader_state_provider.g.dart';
 
 @riverpod
 class DefaultReadingModeState extends _$DefaultReadingModeState {
   @override
   ReaderMode build() {
-    return isar.settings.getSync(227)!.defaultReaderMode;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).defaultReaderMode;
   }
 
   void set(ReaderMode value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -27,11 +28,11 @@ class DefaultReadingModeState extends _$DefaultReadingModeState {
 class AnimatePageTransitionsState extends _$AnimatePageTransitionsState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.animatePageTransitions!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).animatePageTransitions!;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -47,11 +48,11 @@ class AnimatePageTransitionsState extends _$AnimatePageTransitionsState {
 class DoubleTapAnimationSpeedState extends _$DoubleTapAnimationSpeedState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.doubleTapAnimationSpeed!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).doubleTapAnimationSpeed!;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -67,11 +68,11 @@ class DoubleTapAnimationSpeedState extends _$DoubleTapAnimationSpeedState {
 class CropBordersState extends _$CropBordersState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.cropBorders ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).cropBorders ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -87,11 +88,11 @@ class CropBordersState extends _$CropBordersState {
 class ScaleTypeState extends _$ScaleTypeState {
   @override
   ScaleType build() {
-    return isar.settings.getSync(227)!.scaleType;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).scaleType;
   }
 
   void set(ScaleType value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -107,11 +108,11 @@ class ScaleTypeState extends _$ScaleTypeState {
 class PagePreloadAmountState extends _$PagePreloadAmountState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.pagePreloadAmount ?? 6;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).pagePreloadAmount ?? 6;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -127,11 +128,11 @@ class PagePreloadAmountState extends _$PagePreloadAmountState {
 class BackgroundColorState extends _$BackgroundColorState {
   @override
   BackgroundColor build() {
-    return isar.settings.getSync(227)!.backgroundColor;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).backgroundColor;
   }
 
   void set(BackgroundColor value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -147,11 +148,11 @@ class BackgroundColorState extends _$BackgroundColorState {
 class UsePageTapZonesState extends _$UsePageTapZonesState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.usePageTapZones ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).usePageTapZones ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -167,11 +168,11 @@ class UsePageTapZonesState extends _$UsePageTapZonesState {
 class FullScreenReaderState extends _$FullScreenReaderState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.fullScreenReader ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).fullScreenReader ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -204,7 +205,7 @@ class NavigationOrderState extends _$NavigationOrderState {
   @override
   List<String> build() {
     return _checkMissingItems(
-      isar.settings.getSync(227)!.navigationOrder?.toList() ?? [],
+      (isar.settings.getSync(kSettingsId) ?? Settings()).navigationOrder?.toList() ?? [],
     );
   }
 
@@ -216,7 +217,7 @@ class NavigationOrderState extends _$NavigationOrderState {
   }
 
   void set(List<String> values) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = values;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -232,7 +233,7 @@ class NavigationOrderState extends _$NavigationOrderState {
 class HideItemsState extends _$HideItemsState {
   @override
   List<String> build() {
-    return isar.settings.getSync(227)!.hideItems ??
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).hideItems ??
         const [
           '/trackerLibrary',
           '/updates',
@@ -241,7 +242,7 @@ class HideItemsState extends _$HideItemsState {
   }
 
   void set(List<String> values) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = values;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -257,11 +258,11 @@ class HideItemsState extends _$HideItemsState {
 class MergeLibraryNavMobileState extends _$MergeLibraryNavMobileState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.mergeLibraryNavMobile ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).mergeLibraryNavMobile ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -277,11 +278,11 @@ class MergeLibraryNavMobileState extends _$MergeLibraryNavMobileState {
 class NovelFontSizeState extends _$NovelFontSizeState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.novelFontSize ?? 14;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelFontSize ?? 14;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -297,11 +298,11 @@ class NovelFontSizeState extends _$NovelFontSizeState {
 class NovelTextAlignState extends _$NovelTextAlignState {
   @override
   NovelTextAlign build() {
-    return isar.settings.getSync(227)!.novelTextAlign;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelTextAlign;
   }
 
   void set(NovelTextAlign value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -317,11 +318,11 @@ class NovelTextAlignState extends _$NovelTextAlignState {
 class NovelReaderThemeState extends _$NovelReaderThemeState {
   @override
   String build() {
-    return isar.settings.getSync(227)!.novelReaderTheme ?? '#292832';
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderTheme ?? '#292832';
   }
 
   void set(String value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -337,11 +338,11 @@ class NovelReaderThemeState extends _$NovelReaderThemeState {
 class NovelReaderTextColorState extends _$NovelReaderTextColorState {
   @override
   String build() {
-    return isar.settings.getSync(227)!.novelReaderTextColor ?? '#CCCCCC';
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderTextColor ?? '#CCCCCC';
   }
 
   void set(String value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -357,11 +358,11 @@ class NovelReaderTextColorState extends _$NovelReaderTextColorState {
 class NovelReaderPaddingState extends _$NovelReaderPaddingState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.novelReaderPadding ?? 16;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderPadding ?? 16;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -377,11 +378,11 @@ class NovelReaderPaddingState extends _$NovelReaderPaddingState {
 class NovelReaderLineHeightState extends _$NovelReaderLineHeightState {
   @override
   double build() {
-    return isar.settings.getSync(227)!.novelReaderLineHeight ?? 1.5;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderLineHeight ?? 1.5;
   }
 
   void set(double value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -397,11 +398,11 @@ class NovelReaderLineHeightState extends _$NovelReaderLineHeightState {
 class NovelShowScrollPercentageState extends _$NovelShowScrollPercentageState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.novelShowScrollPercentage ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelShowScrollPercentage ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -418,12 +419,12 @@ class NovelRemoveExtraParagraphSpacingState
     extends _$NovelRemoveExtraParagraphSpacingState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.novelRemoveExtraParagraphSpacing ??
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelRemoveExtraParagraphSpacing ??
         false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -439,11 +440,11 @@ class NovelRemoveExtraParagraphSpacingState
 class NovelTapToScrollState extends _$NovelTapToScrollState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.novelTapToScroll ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelTapToScroll ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -459,11 +460,11 @@ class NovelTapToScrollState extends _$NovelTapToScrollState {
 class ShowPagesNumberState extends _$ShowPagesNumberState {
   @override
   build() {
-    return isar.settings.getSync(227)!.showPagesNumber ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).showPagesNumber ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
 
     state = value;
     isar.writeTxnSync(
@@ -480,11 +481,11 @@ class ShowPagesNumberState extends _$ShowPagesNumberState {
 class KeepScreenOnReaderState extends _$KeepScreenOnReaderState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.keepScreenOnReader ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).keepScreenOnReader ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -500,11 +501,11 @@ class KeepScreenOnReaderState extends _$KeepScreenOnReaderState {
 class WebtoonSidePaddingState extends _$WebtoonSidePaddingState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.webtoonSidePadding ?? 0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).webtoonSidePadding ?? 0;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -520,11 +521,11 @@ class WebtoonSidePaddingState extends _$WebtoonSidePaddingState {
 class ShowPageGapsState extends _$ShowPageGapsState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.showPageGaps ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).showPageGaps ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -540,11 +541,11 @@ class ShowPageGapsState extends _$ShowPageGapsState {
 class InvertColorsState extends _$InvertColorsState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.invertColors ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).invertColors ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -560,11 +561,11 @@ class InvertColorsState extends _$InvertColorsState {
 class GrayscaleState extends _$GrayscaleState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.grayscale ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).grayscale ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -580,11 +581,11 @@ class GrayscaleState extends _$GrayscaleState {
 class ReaderBrightnessState extends _$ReaderBrightnessState {
   @override
   double build() {
-    return isar.settings.getSync(227)!.readerBrightness ?? 0.0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerBrightness ?? 0.0;
   }
 
   void set(double value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -600,11 +601,11 @@ class ReaderBrightnessState extends _$ReaderBrightnessState {
 class ReaderContrastState extends _$ReaderContrastState {
   @override
   double build() {
-    return isar.settings.getSync(227)!.readerContrast ?? 1.0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerContrast ?? 1.0;
   }
 
   void set(double value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -620,11 +621,11 @@ class ReaderContrastState extends _$ReaderContrastState {
 class ReaderSaturationState extends _$ReaderSaturationState {
   @override
   double build() {
-    return isar.settings.getSync(227)!.readerSaturation ?? 1.0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerSaturation ?? 1.0;
   }
 
   void set(double value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -640,11 +641,11 @@ class ReaderSaturationState extends _$ReaderSaturationState {
 class ReaderNavigationLayoutState extends _$ReaderNavigationLayoutState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.readerNavigationLayout ?? 0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerNavigationLayout ?? 0;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -660,11 +661,11 @@ class ReaderNavigationLayoutState extends _$ReaderNavigationLayoutState {
 class TtsSpeechRateState extends _$TtsSpeechRateState {
   @override
   double build() {
-    return isar.settings.getSync(227)!.ttsSpeechRate ?? 0.5;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).ttsSpeechRate ?? 0.5;
   }
 
   void set(double value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -680,11 +681,11 @@ class TtsSpeechRateState extends _$TtsSpeechRateState {
 class TtsPitchState extends _$TtsPitchState {
   @override
   double build() {
-    return isar.settings.getSync(227)!.ttsPitch ?? 1.0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).ttsPitch ?? 1.0;
   }
 
   void set(double value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -700,11 +701,11 @@ class TtsPitchState extends _$TtsPitchState {
 class TtsLanguageState extends _$TtsLanguageState {
   @override
   String? build() {
-    return isar.settings.getSync(227)!.ttsLanguage;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).ttsLanguage;
   }
 
   void set(String? value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -720,11 +721,11 @@ class TtsLanguageState extends _$TtsLanguageState {
 class TtsVoiceState extends _$TtsVoiceState {
   @override
   String? build() {
-    return isar.settings.getSync(227)!.ttsVoice;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).ttsVoice;
   }
 
   void set(String? value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

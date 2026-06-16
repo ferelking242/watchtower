@@ -409,7 +409,7 @@ Future<void> pushToMangaReaderDetail({
       isar.mangas.putSync(mang..sourceId = sourceId);
     });
   }
-  final settings = isar.settings.getSync(227)!;
+  final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
   final sortList = settings.sortChapterList ?? [];
   final checkIfExist = sortList
       .where((element) => element.mangaId == mangaId)

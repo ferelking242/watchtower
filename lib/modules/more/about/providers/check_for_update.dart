@@ -13,6 +13,7 @@ import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'check_for_update.g.dart';
 
 @riverpod
@@ -71,7 +72,7 @@ Future<void> checkForUpdate(
 
 @riverpod
 bool checkForAppUpdates(Ref ref) {
-  return isar.settings.getSync(227)?.checkForAppUpdates ?? true;
+  return isar.settings.getSync(kSettingsId)?.checkForAppUpdates ?? true;
 }
 
 // ── Skipped version ──────────────────────────────────────────────────────────

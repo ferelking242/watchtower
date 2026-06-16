@@ -22,6 +22,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'dart:convert';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'sync_server.g.dart';
 
 @riverpod
@@ -470,7 +471,7 @@ class SyncServer extends _$SyncServer {
   }
 
   Future<void> _upsertSettings(Map<String, dynamic> jsonData) async {
-    final oldSettings = isar.settings.getSync(227)!;
+    final oldSettings = (isar.settings.getSync(kSettingsId) ?? Settings());
     final settings = Settings.fromJson(jsonData["settings"]);
     await isar.writeTxn(() async {
       await isar.settings.put(settings..cookiesList = oldSettings.cookiesList);
@@ -537,7 +538,7 @@ class SyncServer extends _$SyncServer {
   String _getSettingsData({bool download = false}) {
     Map<String, dynamic> data = {};
     if (!download) {
-      data["settings"] = isar.settings.getSync(227)!
+      data["settings"] = (isar.settings.getSync(kSettingsId) ?? Settings())
         ..updatedAt ??= DateTime.now().millisecondsSinceEpoch
         ..cookiesList = [];
     }

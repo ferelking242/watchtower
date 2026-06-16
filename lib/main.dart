@@ -62,6 +62,7 @@ import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/utils/dev_seed.dart'
+import 'package:watchtower/utils/constant.dart';
     if (dart.library.js_interop) 'package:watchtower/utils/dev_seed_stub.dart';
 
 late Isar isar;
@@ -303,7 +304,7 @@ class _MyAppState extends ConsumerState<MyApp>
         return;
       }
       // Lock the app when going to background (if lock is enabled)
-      final lockEnabled = isar.settings.getSync(227)!.appLockEnabled ?? false;
+      final lockEnabled = (isar.settings.getSync(kSettingsId) ?? Settings()).appLockEnabled ?? false;
       if (lockEnabled) {
         ref.read(appUnlockedStateProvider.notifier).lock();
       }

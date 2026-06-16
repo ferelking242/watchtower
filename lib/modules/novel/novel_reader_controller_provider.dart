@@ -6,6 +6,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'novel_reader_controller_provider.g.dart';
 
 @riverpod
@@ -21,10 +22,10 @@ class NovelReaderController extends _$NovelReaderController {
     return chapter;
   }
 
-  final incognitoMode = isar.settings.getSync(227)!.incognitoMode!;
+  final incognitoMode = (isar.settings.getSync(kSettingsId) ?? Settings()).incognitoMode!;
 
   Settings getIsarSetting() {
-    return isar.settings.getSync(227)!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings());
   }
 
   (bool, double) autoScrollValues() {

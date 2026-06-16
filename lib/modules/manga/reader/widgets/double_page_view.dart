@@ -12,6 +12,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:watchtower/utils/constant.dart';
 
 /// Unified double page view for both paged and continuous reading modes.
 ///
@@ -85,7 +86,7 @@ class _DoublePageViewState extends State<DoublePageView>
 
   Duration _doubleTapAnimationDuration() {
     final doubleTapAnimationValue =
-        isar.settings.getSync(227)?.doubleTapAnimationSpeed ?? 1;
+        isar.settings.getSync(kSettingsId)?.doubleTapAnimationSpeed ?? 1;
     return switch (doubleTapAnimationValue) {
       0 => const Duration(milliseconds: 10),
       1 => const Duration(milliseconds: 800),

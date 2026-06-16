@@ -1,6 +1,7 @@
 import 'package:http/http.dart';
 import 'package:watchtower/services/http/rhttp/rhttp.dart';
 import 'package:watchtower/src/rust/api/rhttp/http.dart' as rust;
+import 'package:watchtower/models/settings.dart';
 
 /// An HTTP client that is compatible with the `http` package.
 /// This minimizes the changes needed to switch from `http` to `rhttp`

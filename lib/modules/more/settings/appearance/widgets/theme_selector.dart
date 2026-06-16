@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/flex_scheme_color_state_provider.dart';
+import 'package:watchtower/utils/constant.dart';
 
 class ThemeSelector extends ConsumerStatefulWidget {
   const ThemeSelector({super.key, this.contentPadding});
@@ -16,7 +17,7 @@ class ThemeSelector extends ConsumerStatefulWidget {
 class _ThemeSelectorState extends ConsumerState<ThemeSelector> {
   @override
   Widget build(BuildContext context) {
-    int selected = isar.settings.getSync(227)!.flexSchemeColorIndex!;
+    int selected = (isar.settings.getSync(kSettingsId) ?? Settings()).flexSchemeColorIndex!;
     final bool isLight = Theme.of(context).brightness == Brightness.light;
     final cs = Theme.of(context).colorScheme;
 

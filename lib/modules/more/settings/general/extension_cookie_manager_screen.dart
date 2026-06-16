@@ -7,6 +7,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/utils/constant.dart';
 
 final _extensionCookiesProvider =
     NotifierProvider<_CookieNotifier, List<_ExtCookieEntry>>(
@@ -45,7 +46,7 @@ class _CookieNotifier extends Notifier<List<_ExtCookieEntry>> {
         .filter()
         .isAddedEqualTo(true)
         .findAll();
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     final allCookies = settings?.cookiesList ?? [];
 
     final entries = sources

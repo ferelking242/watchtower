@@ -1,6 +1,7 @@
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 
 part 'player_audio_state_provider.g.dart';
 
@@ -8,11 +9,11 @@ part 'player_audio_state_provider.g.dart';
 class AudioPreferredLangState extends _$AudioPreferredLangState {
   @override
   String build() {
-    return isar.settings.getSync(227)!.audioPreferredLanguages ?? "";
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).audioPreferredLanguages ?? "";
   }
 
   void set(String value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -29,11 +30,11 @@ class EnableAudioPitchCorrectionState
     extends _$EnableAudioPitchCorrectionState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.enableAudioPitchCorrection ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).enableAudioPitchCorrection ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -49,11 +50,11 @@ class EnableAudioPitchCorrectionState
 class AudioChannelState extends _$AudioChannelState {
   @override
   AudioChannel build() {
-    return isar.settings.getSync(227)!.audioChannels;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).audioChannels;
   }
 
   void set(AudioChannel value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -69,11 +70,11 @@ class AudioChannelState extends _$AudioChannelState {
 class VolumeBoostCapState extends _$VolumeBoostCapState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.volumeBoostCap ?? 30;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).volumeBoostCap ?? 30;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

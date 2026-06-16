@@ -16,6 +16,7 @@ import 'package:watchtower/modules/more/settings/track/providers/track_providers
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'reader_controller_provider.g.dart';
 
 @riverpod
@@ -63,7 +64,7 @@ class ReaderController extends _$ReaderController {
     return chapter;
   }
 
-  final incognitoMode = isar.settings.getSync(227)!.incognitoMode!;
+  final incognitoMode = (isar.settings.getSync(kSettingsId) ?? Settings()).incognitoMode!;
   ReaderMode getReaderMode() {
     final personalReaderModeList =
         getIsarSetting().personalReaderModeList ?? [];
@@ -73,7 +74,7 @@ class ReaderController extends _$ReaderController {
     if (personalReaderMode.isNotEmpty) {
       return personalReaderMode.first.readerMode;
     }
-    return isar.settings.getSync(227)!.defaultReaderMode;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).defaultReaderMode;
   }
 
   (bool, double) autoScrollValues() {
@@ -179,7 +180,7 @@ class ReaderController extends _$ReaderController {
   }
 
   Settings getIsarSetting() {
-    return isar.settings.getSync(227)!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings());
   }
 
   bool getShowPageNumber() {
@@ -467,9 +468,7 @@ extension MangaExtensions on Manga {
   List<Chapter> getFilteredChapterList() {
     final data = this.chapters.toList().reversed.toList();
     final filterUnread =
-        (isar.settings
-                    .getSync(227)!
-                    .chapterFilterUnreadList!
+        ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterUnreadList?
                     .where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
@@ -477,18 +476,14 @@ extension MangaExtensions on Manga {
             .type!;
 
     final filterBookmarked =
-        (isar.settings
-                    .getSync(227)!
-                    .chapterFilterBookmarkedList!
+        ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterBookmarkedList?
                     .where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
                 ChapterFilterBookmarked(mangaId: id, type: 0))
             .type!;
     final filterDownloaded =
-        (isar.settings
-                    .getSync(227)!
-                    .chapterFilterDownloadedList!
+        ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterDownloadedList?
                     .where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
@@ -496,9 +491,7 @@ extension MangaExtensions on Manga {
             .type!;
 
     final sortChapter =
-        (isar.settings
-                    .getSync(227)!
-                    .sortChapterList!
+        ((isar.settings.getSync(kSettingsId) ?? Settings()).sortChapterList?
                     .where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
@@ -567,7 +560,7 @@ extension MangaExtensions on Manga {
 }
 
 List<String>? _getFilterScanlator(Manga manga) {
-  final scanlators = isar.settings.getSync(227)!.filterScanlatorList ?? [];
+  final scanlators = (isar.settings.getSync(kSettingsId) ?? Settings()).filterScanlatorList ?? [];
   final filter = scanlators
       .where((element) => element.mangaId == manga.id)
       .toList();

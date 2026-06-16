@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/services/http/doh/doh_providers.dart';
+import 'package:watchtower/utils/constant.dart';
 
 class DoHProviderState {
   final bool enabled;
@@ -25,7 +26,7 @@ final doHProviderStateProvider =
 class DoHProviderNotifier extends Notifier<DoHProviderState> {
   @override
   DoHProviderState build() {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     return DoHProviderState(
       enabled: settings.doHEnabled ?? false,
       providerId: settings.doHProviderId,
@@ -33,7 +34,7 @@ class DoHProviderNotifier extends Notifier<DoHProviderState> {
   }
 
   void setDoHEnabled(bool enabled) {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     settings.doHEnabled = enabled;
     if (enabled && settings.doHProviderId == null) {
       settings.doHProviderId = 0;
@@ -50,7 +51,7 @@ class DoHProviderNotifier extends Notifier<DoHProviderState> {
       return;
     }
 
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     settings.doHProviderId = providerId;
     settings.doHEnabled = true;
     isar.writeTxnSync(() {

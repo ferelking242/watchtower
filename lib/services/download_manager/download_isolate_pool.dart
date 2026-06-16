@@ -502,7 +502,7 @@ void _workerEntryPoint(_WorkerInit init) async {
   final httpClient = MClient.httpClient(
     settings: const ClientSettings(
       throwOnStatusCode: false,
-      tlsSettings: TlsSettings(verifyCertificates: false),
+      tlsSettings: TlsSettings(verifyCertificates: true),
     ),
   );
 

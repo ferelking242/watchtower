@@ -1,17 +1,18 @@
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'algorithm_weights_state_provider.g.dart';
 
 @riverpod
 class AlgorithmWeightsState extends _$AlgorithmWeightsState {
   @override
   AlgorithmWeights build() {
-    return isar.settings.getSync(227)!.algorithmWeights ?? AlgorithmWeights();
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).algorithmWeights ?? AlgorithmWeights();
   }
 
   void set(AlgorithmWeights value) {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

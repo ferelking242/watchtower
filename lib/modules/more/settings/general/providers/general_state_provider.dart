@@ -1,17 +1,18 @@
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'general_state_provider.g.dart';
 
 @riverpod
 class CustomDnsState extends _$CustomDnsState {
   @override
   String build() {
-    return isar.settings.getSync(227)!.customDns ?? "";
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).customDns ?? "";
   }
 
   void set(String value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -27,11 +28,11 @@ class CustomDnsState extends _$CustomDnsState {
 class EnableDiscordRpcState extends _$EnableDiscordRpcState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.enableDiscordRpc ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).enableDiscordRpc ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -47,11 +48,11 @@ class EnableDiscordRpcState extends _$EnableDiscordRpcState {
 class HideDiscordRpcInIncognitoState extends _$HideDiscordRpcInIncognitoState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.hideDiscordRpcInIncognito ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).hideDiscordRpcInIncognito ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -68,11 +69,11 @@ class RpcShowReadingWatchingProgressState
     extends _$RpcShowReadingWatchingProgressState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.rpcShowReadingWatchingProgress ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).rpcShowReadingWatchingProgress ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -88,11 +89,11 @@ class RpcShowReadingWatchingProgressState
 class RpcShowTitleState extends _$RpcShowTitleState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.rpcShowTitle ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).rpcShowTitle ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -108,11 +109,11 @@ class RpcShowTitleState extends _$RpcShowTitleState {
 class RpcShowCoverImageState extends _$RpcShowCoverImageState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.rpcShowCoverImage ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).rpcShowCoverImage ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -128,11 +129,11 @@ class RpcShowCoverImageState extends _$RpcShowCoverImageState {
 class UserAgentState extends _$UserAgentState {
   @override
   String build() {
-    return isar.settings.getSync(227)!.userAgent!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent!;
   }
 
   void set(String value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

@@ -483,7 +483,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   Future<void> _resetUserAgent() async {
     try {
-      final settings = isar.settings.getSync(227)!;
+      final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
       isar.writeTxnSync(
         () => isar.settings.putSync(
           settings
@@ -919,7 +919,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               );
               if (confirm == true) {
                 try {
-                  final settings = isar.settings.getSync(227)!;
+                  final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
                   isar.writeTxnSync(
                     () => isar.settings.putSync(
                       settings

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/track.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/utils/constant.dart';
+
+/// Identifiant unique de l'objet Settings dans Isar.
+const kSettingsId = 227;
 
 const defaultUserAgent =
     "Mozilla/5.0 (Linux; Android 13; 22081212UG Build/TKQ1.220829.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/114.0.5735.131 Mobile Safari/537.36";

@@ -8,6 +8,7 @@ import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/http/rhttp/src/request.dart';
 import 'package:watchtower/src/rust/api/rhttp/client.dart' as rust_client;
 import 'package:watchtower/src/rust/api/rhttp/http.dart' as rust;
+import 'package:watchtower/models/settings.dart';
 
 /// An HTTP client that is used to make requests.
 /// Creating this is an expensive operation, so it is recommended to reuse it.

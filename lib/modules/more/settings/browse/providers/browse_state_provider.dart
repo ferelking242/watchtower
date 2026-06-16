@@ -8,6 +8,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'browse_state_provider.g.dart';
 
 @riverpod
@@ -15,7 +16,7 @@ class AndroidProxyServerState extends _$AndroidProxyServerState {
   @override
   String build() {
     String proxyServer =
-        isar.settings.getSync(227)!.androidProxyServer ??
+        (isar.settings.getSync(kSettingsId) ?? Settings()).androidProxyServer ??
         "http://127.0.0.1:8080";
     if (!proxyServer.startsWith("http")) {
       proxyServer = "http://$proxyServer";
@@ -31,7 +32,7 @@ class AndroidProxyServerState extends _$AndroidProxyServerState {
   }
 
   void set(String value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -47,11 +48,11 @@ class AndroidProxyServerState extends _$AndroidProxyServerState {
 class OnlyIncludePinnedSourceState extends _$OnlyIncludePinnedSourceState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.onlyIncludePinnedSources!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).onlyIncludePinnedSources!;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -67,11 +68,11 @@ class OnlyIncludePinnedSourceState extends _$OnlyIncludePinnedSourceState {
 class ShowNSFWState extends _$ShowNSFWState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.showNSFW ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).showNSFW ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -138,7 +139,7 @@ List<Repo> _defaultNovelRepos() => [
 class ExtensionsRepoState extends _$ExtensionsRepoState {
   @override
   List<Repo> build(ItemType itemType) {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     final existing = switch (itemType) {
       ItemType.manga => settings.mangaExtensionsRepo,
       ItemType.anime => settings.animeExtensionsRepo,
@@ -165,7 +166,7 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
   }
 
   void set(List<Repo> value) {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     state = value;
     isar.writeTxnSync(() {
       final a = switch (itemType) {
@@ -204,11 +205,11 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
 class AutoUpdateExtensionsState extends _$AutoUpdateExtensionsState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.autoExtensionsUpdates ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).autoExtensionsUpdates ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -224,11 +225,11 @@ class AutoUpdateExtensionsState extends _$AutoUpdateExtensionsState {
 class CheckForExtensionsUpdateState extends _$CheckForExtensionsUpdateState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.checkForExtensionUpdates ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).checkForExtensionUpdates ?? true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

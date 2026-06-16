@@ -10,6 +10,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/ffi/torrent_server_ffi.dart' as libmtorrentserver_ffi;
+import 'package:watchtower/utils/constant.dart';
 
 class MTorrentServer {
   // Magnet → playable HTTP requires libtorrent to:
@@ -125,7 +126,7 @@ class MTorrentServer {
 }
 
 String get _baseUrl {
-  final settings = isar.settings.getSync(227);
+  final settings = isar.settings.getSync(kSettingsId);
   final port = settings!.btServerPort ?? 0;
   final address = settings.btServerAddress ?? "127.0.0.1";
   return "http://$address:$port";
@@ -134,7 +135,7 @@ String get _baseUrl {
 void _setBtServerPort(int newPort) {
   isar.writeTxnSync(
     () => isar.settings.putSync(
-      isar.settings.getSync(227)!
+      (isar.settings.getSync(kSettingsId) ?? Settings())
         ..btServerPort = newPort
         ..updatedAt = DateTime.now().millisecondsSinceEpoch,
     ),

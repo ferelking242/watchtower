@@ -352,7 +352,7 @@ class _SubtitlesWidgetSearchState extends ConsumerState<SubtitlesWidgetSearch> {
       final client = MClient.httpClient(
         settings: const ClientSettings(
           throwOnStatusCode: false,
-          tlsSettings: TlsSettings(verifyCertificates: false),
+          tlsSettings: TlsSettings(verifyCertificates: true),
         ),
       );
       await subtitleFile.create(recursive: true);

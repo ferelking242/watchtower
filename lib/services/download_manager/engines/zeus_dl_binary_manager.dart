@@ -121,6 +121,7 @@ import 'dart:async';
     ZeusDlBinaryManager._();
 
     String? _cachedPath;
+    DateTime? _lastUpdateCheckAt;
 
     static const String _assetPath = 'assets/binaries/zeusdl';
     static const String _binaryName = 'zeusdl';
@@ -517,6 +518,18 @@ import 'dart:async';
     Future<void> _tryUpdateZeusDl(
         String filesDir, Directory zeusDir, File versionFile) async {
       try {
+        // Cache l'appel GitHub 1h pour éviter un hit réseau à chaque démarrage
+        const _kUpdateCheckInterval = Duration(hours: 1);
+        final now = DateTime.now();
+        if (_lastUpdateCheckAt != null &&
+            now.difference(_lastUpdateCheckAt!) < _kUpdateCheckInterval) {
+          AppLogger.log(
+              'ZeusDL mise à jour: check ignoré (dernier check il y a ${now.difference(_lastUpdateCheckAt!).inMinutes} min)',
+              logLevel: LogLevel.debug, tag: LogTag.zeus);
+          return;
+        }
+        _lastUpdateCheckAt = now;
+
         final storedTag = await versionFile.exists()
             ? (await versionFile.readAsString()).trim()
             : '';

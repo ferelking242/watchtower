@@ -20,6 +20,7 @@ import 'package:watchtower/models/video.dart';
 import '../../models/manga.dart';
 import '../interface.dart';
 import 'models.dart';
+import 'package:watchtower/utils/constant.dart';
 
 // MethodChannel for the inline Dalvik bridge (no external ApkBridge needed).
 const _kDalvikChannel = MethodChannel('com.watchtower.app.dalvik_bridge');
@@ -333,7 +334,7 @@ class MihonExtensionService implements ExtensionService {
     // Guard against LateInitializationError / uninitialised Isar handle.
     String? userAgent;
     try {
-      userAgent = isar.settings.getSync(227)?.userAgent;
+      userAgent = isar.settings.getSync(kSettingsId)?.userAgent;
     } catch (_) {}
     return {
       ...MClient.getCookiesPref(source.baseUrl!),

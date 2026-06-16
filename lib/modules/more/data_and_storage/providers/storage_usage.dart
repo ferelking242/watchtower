@@ -7,6 +7,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/utils/extensions/others.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'storage_usage.g.dart';
 
 @riverpod
@@ -72,11 +73,11 @@ class ClearChapterCacheOnAppLaunchState
     extends _$ClearChapterCacheOnAppLaunchState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.clearChapterCacheOnAppLaunch ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).clearChapterCacheOnAppLaunch ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

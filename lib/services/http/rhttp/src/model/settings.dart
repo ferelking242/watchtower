@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:watchtower/src/rust/api/rhttp/client.dart' as rust_client;
+import 'package:watchtower/models/settings.dart';
 
 export 'package:watchtower/src/rust/api/rhttp/client.dart' show TlsVersion;
 

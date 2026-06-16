@@ -21,6 +21,7 @@ import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
+import 'package:watchtower/utils/constant.dart';
 
 class StorageProvider {
   static final StorageProvider _instance = StorageProvider._internal();
@@ -129,7 +130,7 @@ class StorageProvider {
     Directory? directory;
     String dPath = "";
     try {
-      final setting = isar.settings.getSync(227);
+      final setting = isar.settings.getSync(kSettingsId);
       dPath = setting?.downloadLocation ?? "";
     } catch (e) {
       debugPrint("Could not get downloadLocation from Isar settings: $e");

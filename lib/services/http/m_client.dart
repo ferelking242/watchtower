@@ -22,6 +22,7 @@ import 'package:watchtower/services/http/doh/doh_providers.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
+import 'package:watchtower/utils/constant.dart';
 
 class MClient {
   MClient();
@@ -47,7 +48,7 @@ class MClient {
                 : null,
           ),
           tlsSettings: rhttp.TlsSettings(
-            verifyCertificates: reqcopyWith?["verifyCertificates"] ?? false,
+            verifyCertificates: reqcopyWith?["verifyCertificates"] ?? true,
           ),
         );
         return rhttpPool.putIfAbsent(settings, () {
@@ -66,7 +67,7 @@ class MClient {
   }) {
     Settings? appSettings;
     try {
-      appSettings = isar.settings.getSync(227);
+      appSettings = isar.settings.getSync(kSettingsId);
     } catch (_) {
       // isar not yet initialized (extension init race); skip optional settings.
     }
@@ -112,7 +113,7 @@ class MClient {
   static Map<String, String> getCookiesPref(String url) {
     List<MCookie> cookiesList;
     try {
-      cookiesList = isar.settings.getSync(227)?.cookiesList ?? [];
+      cookiesList = isar.settings.getSync(kSettingsId)?.cookiesList ?? [];
     } catch (_) {
       return {};
     }

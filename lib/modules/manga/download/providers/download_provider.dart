@@ -45,6 +45,7 @@ import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'download_provider.g.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -797,7 +798,7 @@ Future<void> downloadChapter(
     setProgress(DownloadProgress(0, 0, itemType));
 
     void savePageUrls() {
-      final settings = isar.settings.getSync(227)!;
+      final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
       List<ChapterPageurls>? chapterPageUrls = [];
       for (var chapterPageUrl in settings.chapterPageUrlsList ?? []) {
         if (chapterPageUrl.chapterId != chapter.id) {
@@ -923,7 +924,7 @@ Future<void> downloadChapter(
       final cookie = MClient.getCookiesPref(chapterUrl);
       final headers = htmlHeader;
       if (cookie.isNotEmpty) {
-        final userAgent = isar.settings.getSync(227)!.userAgent!;
+        final userAgent = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent!;
         headers.addAll(cookie);
         headers[HttpHeaders.userAgentHeader] = userAgent;
       }
@@ -1017,7 +1018,7 @@ Future<void> downloadChapter(
               ? videoHeader
               : htmlHeader;
           if (cookie.isNotEmpty) {
-            final userAgent = isar.settings.getSync(227)!.userAgent!;
+            final userAgent = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent!;
             headers.addAll(cookie);
             headers[HttpHeaders.userAgentHeader] = userAgent;
           }

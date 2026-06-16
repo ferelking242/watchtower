@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
+import 'package:watchtower/models/settings.dart';
 
 bool isCloudflareError(String? error) {
   if (error == null) return false;

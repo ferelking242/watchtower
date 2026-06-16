@@ -6,6 +6,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'state_providers.g.dart';
 
 @riverpod
@@ -104,9 +105,7 @@ class IsExtendedState extends _$IsExtendedState {
 class SortChapterState extends _$SortChapterState {
   @override
   SortChapter build({required int mangaId}) {
-    return isar.settings
-            .getSync(227)!
-            .sortChapterList!
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).sortChapterList?
             .where((element) => element.mangaId == mangaId)
             .toList()
             .firstOrNull ??
@@ -118,7 +117,7 @@ class SortChapterState extends _$SortChapterState {
       ..index = index
       ..mangaId = mangaId
       ..reverse = state.index == index ? !reverse : reverse;
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     List<SortChapter>? sortChapterList = [];
     for (var sortChapter in settings.sortChapterList!) {
       if (sortChapter.mangaId != mangaId) {
@@ -156,9 +155,7 @@ class ChapterFilterDownloadedState extends _$ChapterFilterDownloadedState {
   }
 
   int getType() {
-    return (isar.settings
-                .getSync(227)!
-                .chapterFilterDownloadedList!
+    return ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterDownloadedList?
                 .where((element) => element.mangaId == mangaId)
                 .toList()
                 .firstOrNull ??
@@ -170,7 +167,7 @@ class ChapterFilterDownloadedState extends _$ChapterFilterDownloadedState {
     var value = ChapterFilterDownloaded()
       ..type = type
       ..mangaId = mangaId;
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     List<ChapterFilterDownloaded>? chapterFilterDownloadedList = [];
     for (var filterChapter in settings.chapterFilterDownloadedList!) {
       if (filterChapter.mangaId != mangaId) {
@@ -209,9 +206,7 @@ class ChapterFilterUnreadState extends _$ChapterFilterUnreadState {
   }
 
   int getType() {
-    return (isar.settings
-                .getSync(227)!
-                .chapterFilterUnreadList!
+    return ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterUnreadList?
                 .where((element) => element.mangaId == mangaId)
                 .toList()
                 .firstOrNull ??
@@ -223,7 +218,7 @@ class ChapterFilterUnreadState extends _$ChapterFilterUnreadState {
     var value = ChapterFilterUnread()
       ..type = type
       ..mangaId = mangaId;
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     List<ChapterFilterUnread>? chapterFilterUnreadList = [];
     for (var filterChapter in settings.chapterFilterUnreadList!) {
       if (filterChapter.mangaId != mangaId) {
@@ -261,9 +256,7 @@ class ChapterFilterBookmarkedState extends _$ChapterFilterBookmarkedState {
   }
 
   int getType() {
-    return (isar.settings
-                .getSync(227)!
-                .chapterFilterBookmarkedList!
+    return ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterBookmarkedList?
                 .where((element) => element.mangaId == mangaId)
                 .toList()
                 .firstOrNull ??
@@ -275,7 +268,7 @@ class ChapterFilterBookmarkedState extends _$ChapterFilterBookmarkedState {
     var value = ChapterFilterBookmarked()
       ..type = type
       ..mangaId = mangaId;
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     List<ChapterFilterBookmarked>? chapterFilterBookmarkedList = [];
     for (var filterChapter in settings.chapterFilterBookmarkedList!) {
       if (filterChapter.mangaId != mangaId) {
@@ -427,7 +420,7 @@ class ScanlatorsFilterState extends _$ScanlatorsFilterState {
   }
 
   void set(List<String> filterScanlators) async {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     var value = FilterScanlator()
       ..scanlators = filterScanlators
       ..mangaId = manga.id;
@@ -449,7 +442,7 @@ class ScanlatorsFilterState extends _$ScanlatorsFilterState {
   }
 
   List<String>? _getFilterScanlator() {
-    final scanlators = isar.settings.getSync(227)!.filterScanlatorList ?? [];
+    final scanlators = (isar.settings.getSync(kSettingsId) ?? Settings()).filterScanlatorList ?? [];
     final filter = scanlators
         .where((element) => element.mangaId == manga.id)
         .toList();

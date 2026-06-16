@@ -9,6 +9,7 @@ import 'dart:convert';
   import 'package:watchtower/models/source.dart';
   import 'package:watchtower/services/fetch_sources_list.dart';
   import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/constant.dart';
 
   /// Silently detects Mihon/Aniyomi extensions already installed on the device
   /// and auto-installs them in Watchtower — no user action required.
@@ -40,7 +41,7 @@ import 'dart:convert';
         );
 
         // 2. Read proxy server from settings (set by MExtensionServerPlatform).
-        final settings = isar.settings.getSync(227)!;
+        final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
         String proxyServer = settings.androidProxyServer ?? 'http://127.0.0.1:8080';
         if (!proxyServer.startsWith('http')) proxyServer = 'http://$proxyServer';
 

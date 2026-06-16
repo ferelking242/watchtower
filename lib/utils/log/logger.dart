@@ -8,6 +8,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:watchtower/utils/constant.dart';
 
 // ─── Log Settings Keys (Hive box: advanced_settings) ──────────────────────────
 const _kLogBox = 'advanced_settings';
@@ -160,7 +161,7 @@ class AppLogger {
   static String? get sessionsDirPath => _sessionsDirPath;
 
   static Future<void> init() async {
-    final enabled = isar.settings.getSync(227)?.enableLogs ?? false;
+    final enabled = isar.settings.getSync(kSettingsId)?.enableLogs ?? false;
     if (!enabled) return;
 
     await _loadSettings();

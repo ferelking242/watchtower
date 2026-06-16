@@ -7,6 +7,7 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'library_state_provider.g.dart';
 
 @riverpod
@@ -75,7 +76,7 @@ class LibraryGridSizeState extends _$LibraryGridSizeState {
   }
 
   Settings get settings {
-    return isar.settings.getSync(227)!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings());
   }
 
   void set(int? value, {bool end = false}) {

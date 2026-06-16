@@ -23,6 +23,7 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../providers/storage_provider.dart';
+import 'package:watchtower/utils/constant.dart';
 
 class ExtensionServerScreen extends ConsumerStatefulWidget {
   const ExtensionServerScreen({super.key});
@@ -498,7 +499,7 @@ class _ExtensionServerScreenState extends ConsumerState<ExtensionServerScreen> {
     required String extensionServerPath,
     required String installDirectory,
   }) async {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     isar.writeTxnSync(
       () => isar.settings.putSync(
         settings!
@@ -580,7 +581,7 @@ class _ExtensionServerScreenState extends ConsumerState<ExtensionServerScreen> {
   }
 
   _ConfiguredPaths _readConfiguredPaths() {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     return _ConfiguredPaths(
       jrePath: settings?.jrePath ?? '',
       extensionServerPath: settings?.extensionServerPath ?? '',

@@ -6,6 +6,7 @@ import 'package:m_extension_server/m_extension_server.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/utils/constant.dart';
 
 class MExtensionServerPlatform {
   WidgetRef ref;
@@ -33,7 +34,7 @@ class MExtensionServerPlatform {
         final port = server.port;
         await server.close();
         if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-          final settings = isar.settings.getSync(227);
+          final settings = isar.settings.getSync(kSettingsId);
           final jrePath = settings?.jrePath;
           final serverJarPath = settings?.extensionServerPath;
           if ((jrePath?.isEmpty ?? true) || (serverJarPath?.isEmpty ?? true)) {

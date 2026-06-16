@@ -6,6 +6,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 
 part 'headers.g.dart';
 
@@ -34,7 +35,7 @@ Map<String, String> headers(
       service.dispose();
     }
     if (mSource.sourceCodeLanguage == SourceCodeLanguage.mihon) {
-      headers['user-agent'] = isar.settings.getSync(227)!.userAgent!;
+      headers['user-agent'] = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent!;
     }
   }
 

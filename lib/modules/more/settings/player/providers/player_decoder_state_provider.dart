@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 
 part 'player_decoder_state_provider.g.dart';
 
@@ -25,7 +26,7 @@ final hwdecs = {
 class HwdecModeState extends _$HwdecModeState {
   @override
   String build({bool rawValue = false}) {
-    final hwdecMode = isar.settings.getSync(227)!.hwdecMode ?? "auto";
+    final hwdecMode = (isar.settings.getSync(kSettingsId) ?? Settings()).hwdecMode ?? "auto";
     if (rawValue) {
       return hwdecMode;
     }
@@ -39,7 +40,7 @@ class HwdecModeState extends _$HwdecModeState {
   }
 
   void set(String value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -56,14 +57,14 @@ class EnableHardwareAccelState extends _$EnableHardwareAccelState {
   @override
   bool build() {
     if (kIsWeb) return false;
-    return isar.settings.getSync(227)!.enableHardwareAcceleration ??
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).enableHardwareAcceleration ??
             Platform.isMacOS
         ? false
         : true;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -79,11 +80,11 @@ class EnableHardwareAccelState extends _$EnableHardwareAccelState {
 class DebandingState extends _$DebandingState {
   @override
   DebandingType build() {
-    return isar.settings.getSync(227)!.debandingType;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).debandingType;
   }
 
   void set(DebandingType value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -99,11 +100,11 @@ class DebandingState extends _$DebandingState {
 class UseGpuNextState extends _$UseGpuNextState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.enableGpuNext ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).enableGpuNext ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -119,11 +120,11 @@ class UseGpuNextState extends _$UseGpuNextState {
 class UseYUV420PState extends _$UseYUV420PState {
   @override
   bool build() {
-    return isar.settings.getSync(227)!.useYUV420P ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).useYUV420P ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

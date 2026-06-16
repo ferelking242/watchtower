@@ -12,6 +12,7 @@ import 'package:watchtower/services/trackers/myanimelist.dart';
 import 'package:watchtower/services/trackers/simkl.dart';
 import 'package:watchtower/services/trackers/trakt_tv.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/utils/constant.dart';
 part 'track_state_providers.g.dart';
 
 @riverpod
@@ -210,7 +211,7 @@ class LastTrackerLibraryLocationState
     extends _$LastTrackerLibraryLocationState {
   @override
   (int, bool) build() {
-    final value = isar.settings.getSync(227)!.lastTrackerLibraryLocation;
+    final value = (isar.settings.getSync(kSettingsId) ?? Settings()).lastTrackerLibraryLocation;
     if (value != null) {
       final data = value.split(",");
       return (int.parse(data[0]), bool.parse(data[1]));
@@ -219,7 +220,7 @@ class LastTrackerLibraryLocationState
   }
 
   void set((int, bool) value) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     final val = "${value.$1},${value.$2}";
     state = value;
     isar.writeTxnSync(

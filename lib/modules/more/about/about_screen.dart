@@ -30,6 +30,7 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/utils/constant.dart';
 
 const String _zeusReleasesUrl =
     'https://github.com/ferelking242/zeusdl/releases';
@@ -185,7 +186,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                 value: checkForUpdates,
                                 onChanged: (value) {
                                   isar.writeTxnSync(() {
-                                    final settings = isar.settings.getSync(227);
+                                    final settings = isar.settings.getSync(kSettingsId);
                                     isar.settings.putSync(
                                       settings!
                                         ..checkForAppUpdates = value
@@ -298,7 +299,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                 value: enableLogs,
                                 onChanged: (value) {
                                   isar.writeTxnSync(() {
-                                    final settings = isar.settings.getSync(227);
+                                    final settings = isar.settings.getSync(kSettingsId);
                                     isar.settings.putSync(
                                       settings!..enableLogs = value,
                                     );

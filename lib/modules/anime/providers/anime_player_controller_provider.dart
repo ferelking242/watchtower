@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
   import 'package:watchtower/modules/more/settings/player/providers/player_state_provider.dart';
   import 'package:watchtower/services/aniskip.dart';
   import 'package:watchtower/utils/chapter_recognition.dart';
+  import 'package:watchtower/utils/constant.dart';
   import 'package:watchtower/utils/riverpod.dart';
   import 'package:riverpod_annotation/riverpod_annotation.dart';
   part 'anime_player_controller_provider.g.dart';
@@ -33,13 +34,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
     void close() {}
 
     Manga getAnime() {
-      return episode.manga.value!;
+      final anime = episode.manga.value;
+      if (anime == null) throw StateError('Manga not loaded for episode ${episode.id}');
+      return anime;
     }
 
-    final incognitoMode = isar.settings.getSync(227)!.incognitoMode!;
+    bool get incognitoMode =>
+        (isar.settings.getSync(kSettingsId) ?? Settings()).incognitoMode ?? false;
 
     Settings getIsarSetting() {
-      return isar.settings.getSync(227)!;
+      return isar.settings.getSync(kSettingsId) ?? Settings();
     }
 
     (int, bool) getEpisodeIndex() {
@@ -67,17 +71,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
       int? index;
       for (var i = 0; i < episodes.length; i++) {
         if (episodes[i].id == episode.id) {
-          index = i + 1;
+          final candidate = i + 1;
+          if (candidate < episodes.length) index = candidate;
         }
       }
       if (index == null) {
-        final episodes = getAnime().chapters.toList().reversed.toList();
-        for (var i = 0; i < episodes.length; i++) {
-          if (episodes[i].id == episode.id) {
-            index = i + 1;
+        final fallback = getAnime().chapters.toList().reversed.toList();
+        for (var i = 0; i < fallback.length; i++) {
+          if (fallback[i].id == episode.id) {
+            final candidate = i + 1;
+            if (candidate < fallback.length) index = candidate;
           }
         }
-        return (index!, false);
+        if (index == null) return (-1, false);
+        return (index, false);
       }
       return (index, true);
     }
@@ -87,23 +94,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
       int? index;
       for (var i = 0; i < episodes.length; i++) {
         if (episodes[i].id == episode.id) {
-          index = i - 1;
+          final candidate = i - 1;
+          if (candidate >= 0) index = candidate;
         }
       }
       if (index == null) {
-        final episodes = getAnime().chapters.toList().reversed.toList();
-        for (var i = 0; i < episodes.length; i++) {
-          if (episodes[i].id == episode.id) {
-            index = i - 1;
+        final fallback = getAnime().chapters.toList().reversed.toList();
+        for (var i = 0; i < fallback.length; i++) {
+          if (fallback[i].id == episode.id) {
+            final candidate = i - 1;
+            if (candidate >= 0) index = candidate;
           }
         }
-        return (index!, false);
+        if (index == null) return (-1, false);
+        return (index, false);
       }
       return (index, true);
     }
 
+    bool hasPrevEpisode() => getPrevEpisodeIndex().$1 >= 0;
+    bool hasNextEpisode() => getNextEpisodeIndex().$1 >= 0;
+
     Chapter getPrevEpisode() {
       final prevEpIdx = getPrevEpisodeIndex();
+      if (prevEpIdx.$1 < 0) throw StateError('No previous episode');
       return prevEpIdx.$2
           ? getAnime().getFilteredChapterList()[prevEpIdx.$1]
           : getAnime().chapters.toList().reversed.toList()[prevEpIdx.$1];
@@ -111,6 +125,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
     Chapter getNextEpisode() {
       final nextEpIdx = getNextEpisodeIndex();
+      if (nextEpIdx.$1 < 0) throw StateError('No next episode');
       return nextEpIdx.$2
           ? getAnime().getFilteredChapterList()[nextEpIdx.$1]
           : getAnime().chapters.toList().reversed.toList()[nextEpIdx.$1];

@@ -13,17 +13,18 @@ import 'package:watchtower/models/manga.dart'; // Has Manga model and ItemType e
 import 'package:watchtower/models/chapter.dart'; // Has Chapter model with archivePath
 import 'package:watchtower/providers/storage_provider.dart'; // Provides storage directory selection
 import 'package:riverpod_annotation/riverpod_annotation.dart'; // Annotations for code generation
+import 'package:watchtower/utils/constant.dart';
 part 'file_scanner.g.dart';
 
 @riverpod
 class LocalFoldersState extends _$LocalFoldersState {
   @override
   List<String> build() {
-    return isar.settings.getSync(227)!.localFolders ?? [];
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).localFolders ?? [];
   }
 
   void set(List<String> value) {
-    final settings = isar.settings.getSync(227)!;
+    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(

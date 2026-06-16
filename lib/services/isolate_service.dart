@@ -11,6 +11,8 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/log.dart';
+import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/models/settings.dart';
 
 class _IsolateData {
   final SendPort sendPort;
@@ -94,7 +96,7 @@ class GetIsolateService {
     // provider crashes with LateInitializationError at startup.
     //
     // The one caller that reads `isar` inside this isolate (MihonService
-    // .getCookie → isar.settings.getSync(227)!.userAgent) is now guarded with
+    // .getCookie → (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent) is now guarded with
     // a try-catch and falls back to an empty user-agent when isar is not
     // available in this isolate's memory space.
 

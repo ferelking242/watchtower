@@ -6,13 +6,14 @@ import 'package:watchtower/modules/more/data_and_storage/providers/backup.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as p;
+import 'package:watchtower/utils/constant.dart';
 part 'auto_backup.g.dart';
 
 @riverpod
 class BackupFrequencyState extends _$BackupFrequencyState {
   @override
   int build() {
-    return isar.settings.getSync(227)!.backupFrequency ?? 0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).backupFrequency ?? 0;
   }
 
   void set(int value) {
@@ -25,12 +26,12 @@ class BackupFrequencyState extends _$BackupFrequencyState {
 class BackupFrequencyOptionsState extends _$BackupFrequencyOptionsState {
   @override
   List<int> build() {
-    return isar.settings.getSync(227)!.backupListOptions ??
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).backupListOptions ??
         [0, 1, 2, 3, 4, 5, 6, 7, 10];
   }
 
   void set(List<int> values) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = values;
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -48,11 +49,11 @@ class AutoBackupLocationState extends _$AutoBackupLocationState {
   (String, String) build() {
     ref.keepAlive();
     _refresh();
-    return ("", isar.settings.getSync(227)!.autoBackupLocation ?? "");
+    return ("", (isar.settings.getSync(kSettingsId) ?? Settings()).autoBackupLocation ?? "");
   }
 
   void set(String location) {
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = (p.join(_storageProvider!.path, "backup"), location);
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -69,7 +70,7 @@ class AutoBackupLocationState extends _$AutoBackupLocationState {
     _storageProvider = (!kIsWeb && Platform.isIOS)
         ? await StorageProvider().getIosBackupDirectory()
         : await StorageProvider().getDefaultDirectory();
-    final settings = isar.settings.getSync(227);
+    final settings = isar.settings.getSync(kSettingsId);
     state = (
       (!kIsWeb && Platform.isIOS)
           ? _storageProvider!.path
@@ -82,7 +83,7 @@ class AutoBackupLocationState extends _$AutoBackupLocationState {
 @riverpod
 Future<void> checkAndBackup(Ref ref) async {
   ref.keepAlive();
-  final settings = isar.settings.getSync(227);
+  final settings = isar.settings.getSync(kSettingsId);
   final backupFrequency = _duration(settings!.backupFrequency);
   if (backupFrequency == null || settings.startDatebackup == null) return;
 
@@ -126,7 +127,7 @@ Duration? _duration(int? backupFrequency) {
 }
 
 void _setBackupFrequency(int value) {
-  final settings = isar.settings.getSync(227);
+  final settings = isar.settings.getSync(kSettingsId);
   final duration = _duration(value);
   final now = DateTime.now();
   final startDate = duration != null ? now.add(duration) : null;
