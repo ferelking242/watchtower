@@ -38,7 +38,12 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   String _query = "";
   final _textEditingController = TextEditingController();
   late final bool _showNSFW = ref.read(showNSFWStateProvider);
-  late final List<Source> sourceList = () {
+
+  // ── Filter state ──────────────────────────────────────────────────────────
+  String? _selectedLang;
+  bool _pinnedOnly = false;
+
+  late final List<Source> _allSources = () {
     final sources = ref.read(onlyIncludePinnedSourceStateProvider)
         ? isar.sources
               .filter()
@@ -58,15 +63,44 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     return sources.where((e) => !(e.isNsfw ?? false)).toList();
   }();
 
+  /// Unique, sorted list of language codes present in _allSources.
+  late final List<String> _availableLangs = _allSources
+      .map((s) => s.lang ?? '')
+      .where((l) => l.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+
+  List<Source> get _filteredSources {
+    var list = _allSources;
+    if (_pinnedOnly) list = list.where((s) => s.isPinned ?? false).toList();
+    if (_selectedLang != null) {
+      list = list.where((s) => s.lang == _selectedLang).toList();
+    }
+    return list;
+  }
+
   @override
   void initState() {
     super.initState();
     _textEditingController.text = widget.search ?? "";
   }
 
+  void _clearFilters() {
+    setState(() {
+      _selectedLang = null;
+      _pinnedOnly = false;
+    });
+  }
+
+  bool get _hasActiveFilters => _selectedLang != null || _pinnedOnly;
+
   @override
   Widget build(BuildContext context) {
     final query = _query.isNotEmpty ? _query : widget.search ?? "";
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final filtered = _filteredSources;
 
     return Scaffold(
       appBar: AppBar(
@@ -82,11 +116,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 setState(() {
                   _query = "";
                 });
-                // Yield a frame so the empty state is rendered before re-querying
                 await WidgetsBinding.instance.endOfFrame;
                 AppLogger.log(
                   'Global search started | type=${widget.itemType.name} '
-                  '| sources=${sourceList.length} | query="$value"',
+                  '| sources=${filtered.length} | query="$value"',
                   logLevel: LogLevel.info,
                   tag: LogTag.search,
                 );
@@ -105,23 +138,54 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           ),
         ],
       ),
-      body: _query.isNotEmpty || widget.search != null
-          ? SuperListView.builder(
-              itemCount: sourceList.length,
-              extentPrecalculationPolicy: SuperPrecalculationPolicy(),
-              itemBuilder: (context, index) {
-                final source = sourceList[index];
-                return SizedBox(
-                  height: 260,
-                  child: SourceSearchScreen(
-                    key: ValueKey(query),
-                    query: query,
-                    source: source,
-                  ),
-                );
-              },
-            )
-          : Container(),
+      body: Column(
+        children: [
+          // ── Filter chips row ─────────────────────────────────────────────
+          if (_allSources.isNotEmpty)
+            _FilterRow(
+              availableLangs: _availableLangs,
+              selectedLang: _selectedLang,
+              pinnedOnly: _pinnedOnly,
+              hasActiveFilters: _hasActiveFilters,
+              cs: cs,
+              isDark: isDark,
+              onLangSelected: (lang) =>
+                  setState(() => _selectedLang = lang == _selectedLang ? null : lang),
+              onPinnedToggled: () =>
+                  setState(() => _pinnedOnly = !_pinnedOnly),
+              onClearAll: _clearFilters,
+            ),
+
+          // ── Results ──────────────────────────────────────────────────────
+          Expanded(
+            child: (_query.isNotEmpty || widget.search != null)
+                ? filtered.isEmpty
+                    ? _EmptyFiltersState(
+                        hasFilters: _hasActiveFilters,
+                        onClear: _clearFilters,
+                        cs: cs,
+                        isDark: isDark,
+                      )
+                    : SuperListView.builder(
+                        itemCount: filtered.length,
+                        extentPrecalculationPolicy:
+                            SuperPrecalculationPolicy(),
+                        itemBuilder: (context, index) {
+                          final source = filtered[index];
+                          return SizedBox(
+                            height: 260,
+                            child: SourceSearchScreen(
+                              key: ValueKey('${query}_${source.id}'),
+                              query: query,
+                              source: source,
+                            ),
+                          );
+                        },
+                      )
+                : _SearchEmptyState(cs: cs, isDark: isDark),
+          ),
+        ],
+      ),
     );
   }
 
@@ -131,6 +195,256 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     super.dispose();
   }
 }
+
+// ── Filter chips row ──────────────────────────────────────────────────────────
+
+class _FilterRow extends StatelessWidget {
+  final List<String> availableLangs;
+  final String? selectedLang;
+  final bool pinnedOnly;
+  final bool hasActiveFilters;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(String) onLangSelected;
+  final VoidCallback onPinnedToggled;
+  final VoidCallback onClearAll;
+
+  const _FilterRow({
+    required this.availableLangs,
+    required this.selectedLang,
+    required this.pinnedOnly,
+    required this.hasActiveFilters,
+    required this.cs,
+    required this.isDark,
+    required this.onLangSelected,
+    required this.onPinnedToggled,
+    required this.onClearAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        children: [
+          // Clear all chip — only when filters are active
+          if (hasActiveFilters) ...[
+            _Chip(
+              label: 'Réinitialiser',
+              icon: Icons.close_rounded,
+              selected: false,
+              isReset: true,
+              cs: cs,
+              isDark: isDark,
+              onTap: onClearAll,
+            ),
+            const SizedBox(width: 6),
+          ],
+
+          // Pinned filter
+          _Chip(
+            label: 'Épinglés',
+            icon: Icons.push_pin_rounded,
+            selected: pinnedOnly,
+            cs: cs,
+            isDark: isDark,
+            onTap: onPinnedToggled,
+          ),
+
+          // Language chips
+          for (final lang in availableLangs) ...[
+            const SizedBox(width: 6),
+            _Chip(
+              label: completeLanguageName(lang),
+              selected: selectedLang == lang,
+              cs: cs,
+              isDark: isDark,
+              onTap: () => onLangSelected(lang),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final bool selected;
+  final bool isReset;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _Chip({
+    required this.label,
+    this.icon,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+    this.isReset = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isReset
+        ? cs.error.withValues(alpha: 0.12)
+        : selected
+            ? cs.primary.withValues(alpha: 0.15)
+            : (isDark
+                ? Colors.white.withValues(alpha: 0.07)
+                : Colors.black.withValues(alpha: 0.05));
+    final fg = isReset
+        ? cs.error
+        : selected
+            ? cs.primary
+            : cs.onSurfaceVariant;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.40)
+                : isReset
+                    ? cs.error.withValues(alpha: 0.30)
+                    : cs.outline.withValues(alpha: 0.18),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: fg),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: selected || isReset
+                    ? FontWeight.w600
+                    : FontWeight.w500,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Empty states ──────────────────────────────────────────────────────────────
+
+class _SearchEmptyState extends StatelessWidget {
+  final ColorScheme cs;
+  final bool isDark;
+  const _SearchEmptyState({required this.cs, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_rounded,
+            size: 64,
+            color: cs.onSurface.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Recherche globale',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Tapez un titre pour chercher\ndans toutes vos sources',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: cs.onSurface.withValues(alpha: 0.38),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyFiltersState extends StatelessWidget {
+  final bool hasFilters;
+  final VoidCallback onClear;
+  final ColorScheme cs;
+  final bool isDark;
+
+  const _EmptyFiltersState({
+    required this.hasFilters,
+    required this.onClear,
+    required this.cs,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasFilters ? Icons.filter_list_off_rounded : Icons.search_off_rounded,
+            size: 56,
+            color: cs.onSurface.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            hasFilters ? 'Aucune source trouvée' : 'Aucun résultat',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            hasFilters
+                ? 'Aucune source ne correspond\naux filtres actifs'
+                : 'Essayez un autre terme de recherche',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: cs.onSurface.withValues(alpha: 0.38),
+            ),
+          ),
+          if (hasFilters) ...[
+            const SizedBox(height: 20),
+            FilledButton.tonal(
+              onPressed: onClear,
+              child: const Text('Réinitialiser les filtres'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Per-source search widget ──────────────────────────────────────────────────
 
 class SourceSearchScreen extends ConsumerStatefulWidget {
   final String query;
@@ -179,8 +493,6 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
         });
       }
     } catch (e, st) {
-      // Always log per-source search failures so the user can diagnose which
-      // extensions are broken during a global search.
       AppLogger.log(
         'Source "${widget.source.name}" (${widget.source.lang}) FAILED '
         '| query="${widget.query}"',

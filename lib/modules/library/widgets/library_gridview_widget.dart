@@ -56,9 +56,13 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
         final isLongPressed = ref.watch(isLongPressedStateProvider);
         final itemType = widget.itemType;
 
-        final gridSize = ref.watch(
+        final rawGridSize = ref.watch(
           libraryGridSizeStateProvider(itemType: itemType),
         );
+        // Default to 3 columns (matching the browse catalog) when the user
+        // hasn't set an explicit preference.
+        final gridSize =
+            (rawGridSize == null || rawGridSize == 0) ? 3 : rawGridSize;
         return GridViewWidget(
           gridSize: gridSize,
           childAspectRatio: widget.isComfortableGrid ? 0.642 : 0.69,

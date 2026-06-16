@@ -86,6 +86,166 @@ class _ExtensionListTileWidgetState
     });
   }
 
+  void _showActionSheet(BuildContext ctx) {
+    final isPinned = widget.source.isPinned ?? false;
+    final cs = Theme.of(ctx).colorScheme;
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
+    showModalBottomSheet<void>(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return Container(
+          margin: EdgeInsets.fromLTRB(
+            12,
+            0,
+            12,
+            12 + MediaQuery.of(sheetCtx).padding.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.10)
+                  : Colors.black.withValues(alpha: 0.07),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+                blurRadius: 28,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Extension name header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: widget.source.iconUrl!.isEmpty
+                          ? const Icon(Icons.extension_rounded, size: 18)
+                          : cachedNetworkImage(
+                              imageUrl: widget.source.iconUrl!,
+                              fit: BoxFit.contain,
+                              width: 36,
+                              height: 36,
+                              errorWidget: const SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: Center(
+                                    child: Icon(Icons.extension_rounded,
+                                        size: 18)),
+                              ),
+                              useCustomNetworkImage: false,
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.source.name!,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            widget.source.version ?? '',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurface.withValues(alpha: 0.50),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                color: cs.outline.withValues(alpha: 0.12),
+              ),
+
+              // ── Actions ───────────────────────────────────────────────
+              if (_sourceNotEmpty)
+                _SheetAction(
+                  icon: Icons.settings_outlined,
+                  label: 'Ouvrir les paramètres',
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    ctx.push('/extension_detail', extra: widget.source);
+                  },
+                ),
+              if (_sourceNotEmpty && _updateAvailable)
+                _SheetAction(
+                  icon: Icons.system_update_alt_outlined,
+                  label: 'Mettre à jour',
+                  accent: Colors.orange.shade400,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    _handleSourceFetch();
+                  },
+                ),
+              _SheetAction(
+                icon: isPinned
+                    ? Icons.push_pin_rounded
+                    : Icons.push_pin_outlined,
+                label: isPinned ? 'Désépingler' : 'Épingler',
+                cs: cs,
+                isDark: isDark,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _togglePin();
+                },
+              ),
+              if (_sourceNotEmpty)
+                _SheetAction(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Désinstaller',
+                  accent: cs.error,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    _uninstall(ctx);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _uninstall(BuildContext ctx) {
     showDialog(
       context: ctx,
@@ -246,6 +406,7 @@ class _ExtensionListTileWidgetState
                 _handleSourceFetch();
               }
             },
+      onLongPress: _isLoading ? null : () => _showActionSheet(context),
       leading: Container(
         height: 30,
         width: 30,
@@ -590,6 +751,51 @@ class _SwipeTileState extends State<_SwipeTile>
           ),
         );
       },
+    );
+  }
+}
+
+// ── Bottom-sheet action row ───────────────────────────────────────────────────
+
+class _SheetAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? accent;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _SheetAction({
+    required this.icon,
+    required this.label,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+    this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = accent ?? (isDark ? Colors.white : Colors.black87);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: fg),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

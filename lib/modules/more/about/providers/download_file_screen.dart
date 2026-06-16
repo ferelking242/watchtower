@@ -32,7 +32,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
   final List<int> _bytes = [];
   StreamSubscription<List<int>>? _subscription;
 
-  // Simple entry animation — fade + slide up only, no glow/float/elastic
   late AnimationController _entryController;
   late Animation<double> _fadeAnim;
   late Animation<double> _slideAnim;
@@ -61,7 +60,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     super.dispose();
   }
 
-  /// Close dialog but keep download running in background.
   void _sendToBackground() {
     if (context.mounted) Navigator.pop(context);
   }
@@ -128,8 +126,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
       ),
     );
   }
-
-  // ── Header ───────────────────────────────────────────────────────────────
 
   Widget _buildHeader(
     (String, String, String, List<dynamic>) upd,
@@ -198,8 +194,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     );
   }
 
-  // ── Body (changelog + progress) ──────────────────────────────────────────
-
   Widget _buildBody(
     (String, String, String, List<dynamic>) upd,
     ColorScheme cs,
@@ -211,7 +205,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Changelog
           if (notes.isNotEmpty) ...[
             Row(
               children: [
@@ -231,8 +224,9 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
               ],
             ),
             const SizedBox(height: 8),
+            // Taller changelog area — shows more content without clipping
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 150),
+              constraints: const BoxConstraints(maxHeight: 260),
               child: SingleChildScrollView(
                 child: Text(
                   notes,
@@ -247,7 +241,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
             const SizedBox(height: 16),
           ],
 
-          // Download progress
           if (_total > 0) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -287,8 +280,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     );
   }
 
-  // ── Actions ──────────────────────────────────────────────────────────────
-
   Widget _buildActions(
     dynamic l10n,
     (String, String, String, List<dynamic>) upd,
@@ -298,109 +289,111 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     final isDownloading = _total > 0;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 2, 22, 20),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Main action row ───────────────────────────────────────────
-          Row(
-            children: [
-              // Cancel / Background
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    side: BorderSide(
-                      color: cs.outline.withValues(alpha: 0.35),
+          // ── Three equal-width action buttons ──────────────────────────────
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Button 1 – Skip version
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(
+                          color: cs.outline.withValues(alpha: 0.28),
+                        ),
+                      ),
+                      foregroundColor: cs.onSurface.withValues(alpha: 0.45),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () async {
-                    if (isDownloading) {
-                      _sendToBackground();
-                    } else {
-                      try {
-                        await _subscription?.cancel();
-                      } catch (_) {}
-                      if (context.mounted) Navigator.pop(context);
-                    }
-                  },
-                  child: Text(
-                    isDownloading ? 'Arrière-plan' : l10n.cancel,
-                    style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.70),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                    onPressed: isDownloading
+                        ? null
+                        : () {
+                            skipAppUpdate(upd.$1);
+                            if (context.mounted) Navigator.pop(context);
+                          },
+                    child: const Text(
+                      'Ignorer',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 8),
 
-              // Download / Downloading
-              Expanded(
-                flex: 2,
-                child: _DownloadButton(
-                  isDownloading: isDownloading,
-                  cs: cs,
-                  onPressed: isDownloading
-                      ? null
-                      : () async {
-                          if (!kIsWeb && Platform.isAndroid) {
-                            final deviceInfo = DeviceInfoPlugin();
-                            final androidInfo =
-                                await deviceInfo.androidInfo;
-                            String apkUrl = '';
-                            for (final abi
-                                in androidInfo.supportedAbis) {
-                              final url = upd.$4.firstWhereOrNull(
-                                (apk) => (apk as String).contains(abi),
-                              );
-                              if (url != null) {
-                                apkUrl = url;
-                                break;
+                // Button 2 – Background (dismiss while download runs)
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(
+                        color: cs.outline.withValues(
+                            alpha: isDownloading ? 0.55 : 0.28),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      foregroundColor: isDownloading
+                          ? cs.onSurface.withValues(alpha: 0.80)
+                          : cs.onSurface.withValues(alpha: 0.35),
+                    ),
+                    onPressed: isDownloading ? _sendToBackground : null,
+                    child: const Text(
+                      'Arrière-plan',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Button 3 – Download / In-progress indicator
+                Expanded(
+                  child: _DownloadButton(
+                    isDownloading: isDownloading,
+                    cs: cs,
+                    onPressed: isDownloading
+                        ? null
+                        : () async {
+                            if (!kIsWeb && Platform.isAndroid) {
+                              final deviceInfo = DeviceInfoPlugin();
+                              final androidInfo =
+                                  await deviceInfo.androidInfo;
+                              String apkUrl = '';
+                              for (final abi
+                                  in androidInfo.supportedAbis) {
+                                final url = upd.$4.firstWhereOrNull(
+                                  (apk) => (apk as String).contains(abi),
+                                );
+                                if (url != null) {
+                                  apkUrl = url;
+                                  break;
+                                }
                               }
+                              await _downloadApk(apkUrl);
+                            } else {
+                              _launchInBrowser(Uri.parse(upd.$3));
                             }
-                            await _downloadApk(apkUrl);
-                          } else {
-                            _launchInBrowser(Uri.parse(upd.$3));
-                          }
-                        },
-                  label: l10n.download,
+                          },
+                    label: l10n.download,
+                  ),
                 ),
-              ),
-            ],
-          ),
-
-          // ── Skip version ──────────────────────────────────────────────
-          const SizedBox(height: 14),
-          TextButton(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            onPressed: () {
-              skipAppUpdate(upd.$1);
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: Text(
-              'Ignorer cette version',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: cs.onSurface.withValues(alpha: 0.38),
-                fontWeight: FontWeight.w500,
-              ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
-
-  // ── Download logic ────────────────────────────────────────────────────────
 
   Future<void> _downloadApk(String url) async {
     var status = await Permission.storage.status;
@@ -438,8 +431,22 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
 
   Future<void> _installApk(File file) async {
     var status = await Permission.requestInstallPackages.status;
-    if (!status.isGranted) {
-      await Permission.requestInstallPackages.request();
+    if (status.isDenied) {
+      status = await Permission.requestInstallPackages.request();
+    }
+    if (status.isPermanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Permission d\'installation refusée. '
+              'Activez-la dans les paramètres système.',
+            ),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
     }
     await ApkInstaller.installApk(file.path);
   }
@@ -450,8 +457,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     }
   }
 }
-
-// ── Stateless download button ─────────────────────────────────────────────
 
 class _DownloadButton extends StatelessWidget {
   final bool isDownloading;
@@ -480,55 +485,62 @@ class _DownloadButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(vertical: 13),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
         ),
         onPressed: onPressed,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: isDownloading
-              ? [
+        child: isDownloading
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 15,
+                    height: 15,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor:
                           AlwaysStoppedAnimation<Color>(cs.primary),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'En cours…',
-                    style: TextStyle(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ]
-              : [
-                  const Icon(Icons.download_rounded,
-                      color: Colors.white, size: 19),
-                  const SizedBox(width: 7),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'En cours…',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                      ),
                     ),
                   ),
                 ],
-        ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.download_rounded,
+                      color: Colors.white, size: 18),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
 }
-
-// ── APK installer ─────────────────────────────────────────────────────────
 
 class ApkInstaller {
   static const _platform = MethodChannel('com.watchtower.app.apk_install');
