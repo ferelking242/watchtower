@@ -66,7 +66,7 @@ class GetIsolateService {
           Logger.add(LoggerLevel.info, message);
         }
         if (kDebugMode) {
-          print(message.replaceFirst('LoggerLevel.warning:', ''));
+          if (kDebugMode) print(message.replaceFirst('LoggerLevel.warning:', ''));
         }
       }
     });

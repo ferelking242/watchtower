@@ -28,7 +28,7 @@ class JsUtils {
     runtime.onMessage('log', (dynamic args) {
       if (kDebugMode || useLogger) {
         // ignore: avoid_print
-        print("LoggerLevel.warning:${args[0]}");
+        if (kDebugMode) print("LoggerLevel.warning:${args[0]}");
         Logger.add(LoggerLevel.warning, "${args[0]}");
       }
 

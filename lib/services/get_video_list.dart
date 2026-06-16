@@ -25,9 +25,11 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
     final storageProvider = StorageProvider();
     final mpvDirectory = await storageProvider.getMpvDirectory();
     final mangaDirectory = await storageProvider.getMangaMainDirectory(episode);
+    final epManga = episode.manga.value;
+    if (epManga == null) throw StateError('Episode has no linked manga');
     final isLocalArchive =
-        episode.manga.value!.isLocalArchive! &&
-        episode.manga.value!.source != "torrent";
+        (epManga.isLocalArchive ?? false) &&
+        epManga.source != "torrent";
     final mp4animePath = p.join(
       mangaDirectory!.path,
       "${episode.name!.replaceForbiddenCharacters(' ')}.mp4",
@@ -67,9 +69,9 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       );
     }
     final source = getSource(
-      episode.manga.value!.lang!,
-      episode.manga.value!.source!,
-      episode.manga.value!.sourceId,
+      epManga.lang!,
+      epManga.source!,
+      epManga.sourceId,
     );
     final proxyServer = ref.read(androidProxyServerStateProvider);
 
@@ -77,7 +79,7 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
         source?.sourceCodeLanguage == SourceCodeLanguage.mihon &&
         source!.name!.contains("(Torrent");
     if ((source?.isTorrent ?? false) ||
-        episode.manga.value!.source == "torrent" ||
+        epManga.source == "torrent" ||
         isMihonTorrent) {
       List<Video> list = [];
 

@@ -61,11 +61,12 @@ Future<GetChapterPagesModel> getChapterPages(
 
     List<Uint8List?> archiveImages = [];
     final isLocalArchive = (chapter.archivePath ?? '').isNotEmpty;
-    if (!chapter.manga.value!.isLocalArchive!) {
+    final chManga = chapter.manga.value;
+    if (!(chManga?.isLocalArchive ?? false)) {
       final source = getSource(
-        chapter.manga.value!.lang!,
-        chapter.manga.value!.source!,
-        chapter.manga.value!.sourceId,
+        chManga?.lang ?? '',
+        chManga?.source ?? '',
+        chManga?.sourceId,
       )!;
       if ((isarPageUrls?.urls?.isNotEmpty ?? false) &&
           (isarPageUrls?.chapterUrl ?? chapter.url) == chapter.url) {

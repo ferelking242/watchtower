@@ -113,7 +113,7 @@ class ImageCropIsolate {
     await start();
     if (_sendPort == null) {
       if (kDebugMode) {
-        print('Image crop isolate is not running');
+        if (kDebugMode) print('Image crop isolate is not running');
       }
       return null;
     }
@@ -128,7 +128,7 @@ class ImageCropIsolate {
           completer.complete(response['data'] as Uint8List);
         } else {
           if (kDebugMode) {
-            print('Image cropping failed: ${response['error']}');
+            if (kDebugMode) print('Image cropping failed: ${response['error']}');
           }
           completer.complete(Future.value(null));
         }

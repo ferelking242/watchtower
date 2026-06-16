@@ -59,7 +59,7 @@ class JsExtensionService implements ExtensionService {
         _ => LogLevel.debug,
       };
       AppLogger.log(
-        '[JS:$'extensionLabel'] $'message',
+        '[JS:${extensionLabel}] ${message}',
         logLevel: logLevel,
         tag: LogTag.extension_,
       );

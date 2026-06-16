@@ -49,7 +49,7 @@ class DownloadIsolatePool {
   static void configure({int poolSize = 3}) {
     if (_instance != null && _instance!._initialized) {
       if (kDebugMode) {
-        print('[DownloadPool] Cannot reconfigure after initialization');
+        if (kDebugMode) print('[DownloadPool] Cannot reconfigure after initialization');
       }
       return;
     }
@@ -61,7 +61,7 @@ class DownloadIsolatePool {
     if (_initialized) return;
 
     if (kDebugMode) {
-      print('[DownloadPool] Initializing with $poolSize workers...');
+      if (kDebugMode) print('[DownloadPool] Initializing with $poolSize workers...');
     }
 
     for (int i = 0; i < poolSize; i++) {
@@ -72,7 +72,7 @@ class DownloadIsolatePool {
 
     _initialized = true;
     if (kDebugMode) {
-      print('[DownloadPool] Pool initialized with $poolSize workers');
+      if (kDebugMode) print('[DownloadPool] Pool initialized with $poolSize workers');
     }
   }
 
@@ -258,7 +258,7 @@ class DownloadIsolatePool {
       final worker = _workers[workerIndex];
 
       if (kDebugMode) {
-        print(
+        if (kDebugMode) print(
           '[DownloadPool] Worker $workerIndex starting task ${task.taskId}',
         );
       }
@@ -266,7 +266,7 @@ class DownloadIsolatePool {
       worker.executeTask(task).then((_) {
         _availableWorkers.add(workerIndex); // Worker is free again
         if (kDebugMode) {
-          print(
+          if (kDebugMode) print(
             '[DownloadPool] Worker $workerIndex finished task ${task.taskId}, available workers: ${_availableWorkers.length}',
           );
         }
@@ -523,7 +523,7 @@ void _workerEntryPoint(_WorkerInit init) async {
   );
 
   if (kDebugMode) {
-    print('[Worker ${init.workerId}] Ready');
+    if (kDebugMode) print('[Worker ${init.workerId}] Ready');
   }
 
   // Listen for tasks

@@ -297,10 +297,10 @@ class DoHResolver {
     final timestamp = DateTime.now().toIso8601String();
     if (kDebugMode) {
       if (isError) {
-        print('❌ [$timestamp] DoH: $message');
+        if (kDebugMode) print('❌ [$timestamp] DoH: $message');
       } else {
         // ignore: avoid_print
-        print('✓ [$timestamp] DoH: $message');
+        if (kDebugMode) print('✓ [$timestamp] DoH: $message');
       }
     }
   }

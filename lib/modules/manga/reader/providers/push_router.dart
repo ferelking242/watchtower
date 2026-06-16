@@ -10,11 +10,13 @@ Future<void> pushMangaReaderView({
   required BuildContext context,
   required Chapter chapter,
 }) async {
+  final chManga = chapter.manga.value;
+  if (chManga == null) return;
   final sourceExist = isar.sources
       .filter()
-      .langContains(chapter.manga.value!.lang!, caseSensitive: false)
+      .langContains(chManga.lang!, caseSensitive: false)
       .and()
-      .nameContains(chapter.manga.value!.source!, caseSensitive: false)
+      .nameContains(chManga.source!, caseSensitive: false)
       .and()
       .idIsNotNull()
       .and()
@@ -23,15 +25,18 @@ Future<void> pushMangaReaderView({
       .isAddedEqualTo(true)
       .findAllSync()
       .isNotEmpty;
-  if (sourceExist || chapter.manga.value!.isLocalArchive!) {
-    switch (chapter.manga.value!.itemType) {
+  if (sourceExist || (chManga.isLocalArchive ?? false)) {
+    switch (chManga.itemType) {
       case ItemType.manga:
+        if (!context.mounted) return;
         await context.push('/mangaReaderView', extra: chapter.id!);
         break;
       case ItemType.anime:
+        if (!context.mounted) return;
         await context.push('/animePlayerView', extra: chapter.id!);
         break;
       case ItemType.novel:
+        if (!context.mounted) return;
         await context.push('/novelReaderView', extra: chapter.id!);
         break;
       case ItemType.music:
@@ -45,7 +50,9 @@ void pushReplacementMangaReaderView({
   required BuildContext context,
   required Chapter chapter,
 }) {
-  switch (chapter.manga.value!.itemType) {
+  final chManga = chapter.manga.value;
+  if (chManga == null) return;
+  switch (chManga.itemType) {
     case ItemType.manga:
       context.pushReplacement('/mangaReaderView', extra: chapter.id!);
       break;

@@ -300,7 +300,7 @@ class MProviderBridged {
     ) {
       if (kDebugMode || useLogger) {
         // ignore: avoid_print
-        print("LoggerLevel.warning:${positionalArgs[0]}");
+        if (kDebugMode) print("LoggerLevel.warning:${positionalArgs[0]}");
         Logger.add(LoggerLevel.warning, "${positionalArgs[0]}");
       }
 

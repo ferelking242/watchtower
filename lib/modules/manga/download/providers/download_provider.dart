@@ -657,9 +657,9 @@ Future<void> downloadChapter(
     );
     List<Track>? subtitles;
     bool isOk = false;
-    final manga = chapter.manga.value!;
+    final manga = chapter.manga.value ?? (throw StateError('chapter.manga not loaded'));
     final chapterName = chapter.name!.replaceForbiddenCharacters(' ');
-    final itemType = chapter.manga.value!.itemType;
+    final itemType = manga.itemType;
     final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
       chapter,
       mangaMainDirectory: mangaMainDirectory,

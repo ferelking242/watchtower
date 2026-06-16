@@ -372,7 +372,7 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
         final propName = prop.ref.name.cast<Utf8>().toDartString();
         if (kDebugMode) {
           if (propName.startsWith("user-data/")) {
-            print("DEBUG 00: $propName - ${prop.ref.format}");
+            if (kDebugMode) print("DEBUG 00: $propName - ${prop.ref.format}");
           }
         }
         if (propName.startsWith("user-data/") &&
