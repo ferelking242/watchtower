@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/services/mini_webview_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -1910,12 +1911,17 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               onRefresh: () => _webViewController?.reload(),
               onMinimize: () {
                 if (_snap == _PanelSnap.full) {
-                  setState(() => _snap = _PanelSnap.mini);
+                  // Minimize to floating tab grouper — pop route so app is interactive
+                  final label = _title.isNotEmpty ? _title : _displayHost(_url);
+                  ref.read(miniWebViewProvider.notifier).push(
+                        MiniWebViewEntry(url: _url, title: label),
+                      );
                   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                  _animateTo(_snapFraction(_PanelSnap.mini));
+                  if (mounted) context.pop();
                 } else {
                   setState(() => _snap = _PanelSnap.full);
-                  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                  SystemChrome.setEnabledSystemUIMode(
+                      SystemUiMode.immersiveSticky);
                   _animateTo(_snapFraction(_PanelSnap.full));
                 }
               },

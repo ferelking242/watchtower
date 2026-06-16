@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
@@ -19,6 +20,7 @@ import 'package:watchtower/services/http/rhttp/rhttp.dart' as rhttp;
 import 'package:watchtower/services/http/doh/doh_resolver.dart';
 import 'package:watchtower/services/http/doh/doh_providers.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
+import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 
 class MClient {
@@ -290,15 +292,11 @@ class LoggerInterceptor extends InterceptorContract {
       BypassNotificationService.instance
           .notifyChallengeDetected(url: url)
           .ignore();
+      // Toast 1 — detection (the retry policy will show toasts 2 & 3)
       try {
-        botToast(
-          "$status Failed to bypass Cloudflare",
-          hasCloudFlare: true,
-          url: url,
-        );
-      } catch (e) {
-        throw "Failed to bypass Cloudflare.\n\n\nYou can try to bypass it manually in the webview \n\n\nstatusCode: $status";
-      }
+        final host = Uri.tryParse(url)?.host ?? url;
+        botToast('🛡 $host bloqué par Cloudflare', second: 4);
+      } catch (_) {}
     }
 
     return response;
@@ -314,8 +312,51 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
   bool showCloudFlareError;
   int _attempt = 0;
   ResolveCloudFlareChallenge(this.showCloudFlareError);
+
   @override
   int get maxRetryAttempts => 3;
+
+  // ── Toast helpers ─────────────────────────────────────────────────────────
+  void _toast2() {
+    try {
+      botToast('🔄 Résolution Cloudflare en cours...', second: 6);
+    } catch (_) {}
+  }
+
+  void _toastSuccess(String url) {
+    try {
+      final host = Uri.tryParse(url)?.host ?? url;
+      botToast('✅ $host débloqué', second: 4);
+    } catch (_) {}
+  }
+
+  void _toastFailure(String url) {
+    try {
+      botToast('❌ Résolution échouée — résolvez manuellement', second: 8);
+    } catch (_) {}
+    // Open bypass WebView for manual resolution
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null) {
+      showModalBottomSheet<void>(
+        context: ctx,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => DraggableScrollableSheet(
+          initialChildSize: 0.92,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, sc) => ClipRRect(
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
+            child: BypassWebViewSheet(url: url),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Future<bool> shouldAttemptRetryOnResponse(BaseResponse response) async {
     if (!showCloudFlareError || Platform.isLinux) return false;
@@ -323,6 +364,9 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
 
     final url = response.request!.url.toString();
     _attempt++;
+
+    // Toast 2 on first attempt only
+    if (_attempt == 1) _toast2();
 
     // ── Attempts 1–2: headless WebView ────────────────────────────────────
     if (_attempt <= 2) {
@@ -334,9 +378,13 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
         );
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body) as Map<String, dynamic>;
-          if (data['result'] == true) return true;
+          if (data['result'] == true) {
+            _toastSuccess(url);
+            return true;
+          }
         }
       } catch (_) {}
+      _toastFailure(url);
       return false;
     }
 
@@ -348,10 +396,12 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
         if (result.success && result.cookies.isNotEmpty) {
           await MClient.setCookie(url, result.userAgent, null,
               cookie: result.cookies);
+          _toastSuccess(url);
           return true;
         }
       }
     } catch (_) {}
+    _toastFailure(url);
     return false;
   }
 }

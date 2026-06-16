@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:watchtower/eval/model/m_bridge.dart';
 
 class BypassWebViewSheet extends StatefulWidget {
   final String url;
@@ -134,13 +135,28 @@ class _BypassWebViewSheetState extends State<BypassWebViewSheet> {
             onProgressChanged: (ctrl, progress) {
               if (mounted) setState(() => _progress = progress / 100.0);
             },
-            onLoadStop: (ctrl, url) {
+            onLoadStop: (ctrl, url) async {
               if (url != null && mounted) {
                 setState(() {
                   _currentUrl = url.toString();
                   _progress = 1.0;
                 });
               }
+              // Auto-close when Cloudflare sets the cf_clearance cookie
+              try {
+                final cookies = await CookieManager.instance().getCookies(
+                  url: WebUri(widget.url),
+                );
+                final resolved =
+                    cookies.any((c) => c.name == 'cf_clearance');
+                if (resolved && mounted) {
+                  await Future.delayed(const Duration(milliseconds: 600));
+                  if (mounted) {
+                    botToast('✅ Cloudflare résolu — accès rétabli', second: 4);
+                    Navigator.of(context).pop(true);
+                  }
+                }
+              } catch (_) {}
             },
           ),
         ),
