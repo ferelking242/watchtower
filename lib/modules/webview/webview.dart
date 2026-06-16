@@ -1048,7 +1048,13 @@ bool _isSecure(String rawUrl) {
 class MangaWebView extends ConsumerStatefulWidget {
   final String url;
   final String title;
-  const MangaWebView({super.key, required this.url, required this.title});
+  final double initialFraction;
+  const MangaWebView({
+    super.key,
+    required this.url,
+    required this.title,
+    this.initialFraction = 1.0,
+  });
 
   @override
   ConsumerState<MangaWebView> createState() => _MangaWebViewState();
@@ -1092,6 +1098,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   double _currentFraction = 1.0;
   double _dragStartFraction = 1.0;
   double _dragStartY = 0;
+  bool _isClosing = false;
 
   late AnimationController _animCtrl;
   late Animation<double> _animation;
@@ -1099,18 +1106,26 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   @override
   void initState() {
     super.initState();
+    _currentFraction = widget.initialFraction;
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 280),
+      duration: const Duration(milliseconds: 300),
     );
-    _animation = Tween<double>(begin: 1.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic),
-    );
+    _animation = Tween<double>(
+      begin: widget.initialFraction,
+      end: widget.initialFraction,
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut));
     _animation.addListener(() {
       if (mounted) setState(() => _currentFraction = _animation.value);
     });
     // Enter fullscreen (hide status bar) when WebView opens
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // If restoring from dock, animate fraction from 0 → 1
+    if (widget.initialFraction < 1.0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _animateTo(1.0);
+      });
+    }
   }
 
   @override
@@ -1255,9 +1270,31 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   void _dismiss() {
     _animateTo(0.0);
-    Future.delayed(const Duration(milliseconds: 280), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) context.pop();
     });
+  }
+
+  /// Animate the panel down to 0 then push to the mini dock and pop.
+  void _minimizeToDock() {
+    _isClosing = true;
+    _animation = Tween<double>(begin: _currentFraction, end: 0.0).animate(
+      CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
+    );
+    _animCtrl.forward(from: 0);
+    _animCtrl.addStatusListener(_onMinimizeAnimDone);
+  }
+
+  void _onMinimizeAnimDone(AnimationStatus status) {
+    if (status == AnimationStatus.completed && _isClosing) {
+      _animCtrl.removeStatusListener(_onMinimizeAnimDone);
+      final label = _title.isNotEmpty ? _title : _displayHost(_url);
+      ref.read(miniWebViewProvider.notifier).push(
+            MiniWebViewEntry(url: _url, title: label),
+          );
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      if (mounted) context.pop();
+    }
   }
 
   // ── AdBlock ───────────────────────────────────────────────────────────────
@@ -1911,13 +1948,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               onRefresh: () => _webViewController?.reload(),
               onMinimize: () {
                 if (_snap == _PanelSnap.full) {
-                  // Minimize to floating tab grouper — pop route so app is interactive
-                  final label = _title.isNotEmpty ? _title : _displayHost(_url);
-                  ref.read(miniWebViewProvider.notifier).push(
-                        MiniWebViewEntry(url: _url, title: label),
-                      );
-                  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                  if (mounted) context.pop();
+                  // Animate panel to 0 then push to mini dock (Telegram-style)
+                  _minimizeToDock();
                 } else {
                   setState(() => _snap = _PanelSnap.full);
                   SystemChrome.setEnabledSystemUIMode(
@@ -2085,7 +2117,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         Align(
           alignment: Alignment.bottomCenter,
           child: SizedBox(
-            height: (screenH * _currentFraction).clamp(56.0, screenH),
+            height: _isClosing
+                ? (screenH * _currentFraction).clamp(0.0, screenH)
+                : (screenH * _currentFraction).clamp(56.0, screenH),
             child: panelContent,
           ),
         ),

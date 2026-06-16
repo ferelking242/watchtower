@@ -263,7 +263,11 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<Map<String, dynamic>>(
       name: "mangawebview",
-      builder: (data) => MangaWebView(url: data["url"]!, title: data['title']!),
+      builder: (data) => MangaWebView(
+        url: data["url"]!,
+        title: data['title']!,
+        initialFraction: (data['initialFraction'] as double?) ?? 1.0,
+      ),
     ),
     _genericRoute<(bool, int)>(
       name: "categories",

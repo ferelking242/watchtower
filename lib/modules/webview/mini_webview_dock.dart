@@ -33,6 +33,7 @@ class _TabGroupPill extends StatelessWidget {
       context.push('/mangawebview', extra: {
         'url': entry.url,
         'title': entry.title,
+        'initialFraction': 0.0,
       });
     }
   }
