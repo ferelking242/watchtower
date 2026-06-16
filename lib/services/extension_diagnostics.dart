@@ -1,4 +1,5 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
@@ -30,9 +31,16 @@ class DiagStepResult {
 class ExtDiagResult {
   final Source source;
   final Map<DiagStep, DiagStepResult> steps;
+  final int totalMs;
   bool get allOk => steps.values.every((s) => s.ok);
   bool get anyFailed => steps.values.any((s) => !s.ok);
-  const ExtDiagResult({required this.source, required this.steps});
+  int get okCount => steps.values.where((s) => s.ok).length;
+  int get failCount => steps.values.where((s) => !s.ok).length;
+  const ExtDiagResult({
+    required this.source,
+    required this.steps,
+    this.totalMs = 0,
+  });
 }
 
 typedef OnExtResult = void Function(ExtDiagResult result);
@@ -40,6 +48,35 @@ typedef OnExtResult = void Function(ExtDiagResult result);
 String _nowTime() {
   final n = DateTime.now();
   return '${n.hour.toString().padLeft(2, "0")}:${n.minute.toString().padLeft(2, "0")}:${n.second.toString().padLeft(2, "0")}';
+}
+
+// ─── Semaphore for concurrency control ────────────────────────────────────────
+
+class _Semaphore {
+  final int maxConcurrent;
+  int _running = 0;
+  final List<Completer<void>> _queue = [];
+
+  _Semaphore(this.maxConcurrent);
+
+  Future<void> acquire() async {
+    if (_running < maxConcurrent) {
+      _running++;
+      return;
+    }
+    final completer = Completer<void>();
+    _queue.add(completer);
+    await completer.future;
+    _running++;
+  }
+
+  void release() {
+    _running--;
+    if (_queue.isNotEmpty) {
+      final next = _queue.removeAt(0);
+      next.complete();
+    }
+  }
 }
 
 // ─── Legacy runner (parallel, no logs) ───────────────────────────────────────
@@ -66,16 +103,22 @@ Future<List<ExtDiagResult>> runExtensionDiagnosticsFull(
   );
 
   final results = <ExtDiagResult>[];
+  final sem = _Semaphore(4);
   final futures = sources.map((src) async {
-    final result = await _diagnoseSource(src, itemType);
-    results.add(result);
-    onResult?.call(result);
-    AppLogger.log(
-      '${result.allOk ? "✅" : "❌"} ${src.name} [${src.lang}]',
-      logLevel: result.anyFailed ? LogLevel.warning : LogLevel.info,
-      tag: kLogTagExt,
-    );
-    return result;
+    await sem.acquire();
+    try {
+      final result = await _diagnoseSource(src, itemType);
+      results.add(result);
+      onResult?.call(result);
+      AppLogger.log(
+        '${result.allOk ? "✅" : "❌"} ${src.name} [${src.lang}]',
+        logLevel: result.anyFailed ? LogLevel.warning : LogLevel.info,
+        tag: kLogTagExt,
+      );
+      return result;
+    } finally {
+      sem.release();
+    }
   }).toList();
   await Future.wait(futures);
 
@@ -88,35 +131,78 @@ Future<List<ExtDiagResult>> runExtensionDiagnosticsFull(
   return results;
 }
 
-// ─── Scoped runner (sequential, with live logs) ───────────────────────────────
+// ─── Scoped runner — parallel with pool of 4 (QuickJS+) ─────────────────────
+//
+// QuickJS+ supporte plusieurs contextes JS simultanément.
+// On limite à 4 diagnostics en parallèle pour éviter de saturer le réseau.
+// Chaque extension est diagnostiquée indépendamment (Popular → Latest →
+// Detail → Media). Les logs sont thread-safe via un mutex sur la liste.
 
-/// Runs diagnostics for a given list of sources, sequentially.
-/// [onLog] receives formatted log lines in real-time.
 Future<List<ExtDiagResult>> runDiagnosticsForSources(
   List<Source> sources,
   ItemType itemType, {
   OnExtResult? onResult,
   void Function(String line)? onLog,
+  int concurrency = 4,
 }) async {
-  onLog?.call('${_nowTime()}  [START] Démarrage — ${sources.length} extension(s)');
+  final sw = Stopwatch()..start();
+  onLog?.call('${_nowTime()}  ┌─ START ─── ${sources.length} extension(s) · pool=$concurrency');
 
   final results = <ExtDiagResult>[];
-  for (final src in sources) {
-    onLog?.call('');
-    onLog?.call('${_nowTime()}  [RUN] "${src.name}" [${(src.lang ?? "?").toUpperCase()}]…');
-    final result = await _diagnoseSourceWithLog(src, itemType, onLog);
-    results.add(result);
-    onResult?.call(result);
-    final okCount = result.steps.values.where((s) => s.ok).length;
-    onLog?.call(
-      '${_nowTime()}  ${result.allOk ? "[OK]" : "[FAIL]"} "${src.name}" — $okCount/${result.steps.length} étapes OK',
-    );
+  final sem = _Semaphore(concurrency.clamp(1, 8));
+
+  // Thread-safe log: serialize writes via a Completer chain
+  var _logChain = Future<void>.value();
+  void safeLog(String line) {
+    _logChain = _logChain.then((_) async {
+      onLog?.call(line);
+    });
   }
 
+  final futures = sources.map((src) async {
+    await sem.acquire();
+    try {
+      safeLog('${_nowTime()}  ├─ [RUN] "${src.name}" [${(src.lang ?? "?").toUpperCase()}]…');
+      final result = await _diagnoseSourceWithLog(src, itemType, safeLog);
+      results.add(result);
+      onResult?.call(result);
+      final bar = _progressBar(result.okCount, result.steps.length);
+      safeLog(
+        '${_nowTime()}  │   ${result.allOk ? "✅" : "❌"} "${src.name}"'
+        ' $bar ${result.okCount}/${result.steps.length} · ${result.totalMs}ms',
+      );
+      return result;
+    } finally {
+      sem.release();
+    }
+  }).toList();
+
+  await Future.wait(futures);
+  await _logChain;
+
+  sw.stop();
   final ok = results.where((r) => r.allOk).length;
-  onLog?.call('');
-  onLog?.call('${_nowTime()}  [DONE] Terminé — $ok/${results.length} extensions OK');
+  final failed = results.length - ok;
+  final rate = results.isEmpty ? 0 : (ok * 100 ~/ results.length);
+  onLog?.call('${_nowTime()}  └─ DONE ── $ok OK · $failed FAIL · ${rate}% · ${_formatDuration(sw.elapsedMilliseconds)}');
+
   return results;
+}
+
+String _progressBar(int ok, int total) {
+  if (total == 0) return '';
+  const full = '█';
+  const empty = '░';
+  final filled = (ok * 4 ~/ total);
+  return '[${full * filled}${empty * (4 - filled)}]';
+}
+
+String _formatDuration(int ms) {
+  if (ms < 1000) return '${ms}ms';
+  final s = ms ~/ 1000;
+  final rem = ms % 1000;
+  if (s < 60) return '${s}.${(rem ~/ 100)}s';
+  return '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
 }
 
 // ─── Core step runner ─────────────────────────────────────────────────────────
@@ -126,12 +212,12 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
   ItemType itemType,
   void Function(String)? onLog,
 ) async {
+  final totalSw = Stopwatch()..start();
   final steps = <DiagStep, DiagStepResult>{};
+  final prefix = '${src.name ?? "?"}';
 
   // ── Step 1 : Popular ──────────────────────────────────────────────────────
-  // probeUrls: up to 3 popular items used by step 3 to find a multi-episode series.
   List<String> probeUrls = [];
-  String? firstItemUrl;
   {
     final sw = Stopwatch()..start();
     try {
@@ -145,22 +231,23 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
           .map((e) => e.link ?? '')
           .where((u) => u.isNotEmpty)
           .toList();
-      firstItemUrl = probeUrls.isNotEmpty ? probeUrls.first : null;
       steps[DiagStep.popular] = DiagStepResult(
         ok: count > 0,
         count: count,
         ms: sw.elapsedMilliseconds,
-        error: count == 0 ? 'Aucun résultat' : null,
+        error: count == 0 ? 'Aucun résultat retourné' : null,
       );
       onLog?.call(
-        '${_nowTime()}    [POP] Popular: ${count > 0 ? "[OK] $count entrées" : "[FAIL] Aucun résultat"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}  │   [$prefix] POP ${count > 0 ? "✓" : "✗"}'
+        ' ${count > 0 ? "$count items" : "vide"} · ${_formatDuration(sw.elapsedMilliseconds)}',
       );
     } catch (e) {
       sw.stop();
-      final err = e.toString().split('\n').first;
+      final err = _trimError(e.toString());
       steps[DiagStep.popular] =
           DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
-      onLog?.call('${_nowTime()}    [POP] Popular: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
+      onLog?.call(
+          '${_nowTime()}  │   [$prefix] POP ✗ $err · ${_formatDuration(sw.elapsedMilliseconds)}');
     }
   }
 
@@ -177,25 +264,25 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         ok: count > 0,
         count: count,
         ms: sw.elapsedMilliseconds,
-        error: count == 0 ? 'Aucun résultat' : null,
+        error: count == 0 ? 'Aucun résultat retourné' : null,
       );
       onLog?.call(
-        '${_nowTime()}    [LAT] Latest: ${count > 0 ? "[OK] $count entrées" : "[FAIL] Aucun résultat"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}  │   [$prefix] LAT ${count > 0 ? "✓" : "✗"}'
+        ' ${count > 0 ? "$count items" : "vide"} · ${_formatDuration(sw.elapsedMilliseconds)}',
       );
     } catch (e) {
       sw.stop();
-      final err = e.toString().split('\n').first;
+      final err = _trimError(e.toString());
       steps[DiagStep.latest] =
           DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
-      onLog?.call('${_nowTime()}    [LAT] Latest: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
+      onLog?.call(
+          '${_nowTime()}  │   [$prefix] LAT ✗ $err · ${_formatDuration(sw.elapsedMilliseconds)}');
     }
   }
 
   // ── Step 3 : Detail ───────────────────────────────────────────────────────
-  // Probe up to 3 popular items and pick the one with the most chapters/episodes.
-  // Stop early once we find a true series (> 1 episode).  This avoids the common
-  // false-negative where the very first popular entry is a movie / one-shot with
-  // a single episode, making the source look broken.
+  // Probe up to 3 popular items; pick the one with the most chapters/episodes.
+  // Stop early once we find a true series (> 1 episode).
   String? firstEpisodeUrl;
   if (probeUrls.isNotEmpty) {
     final sw = Stopwatch()..start();
@@ -205,9 +292,6 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
     for (final probeUrl in probeUrls) {
       probeIndex++;
       try {
-        onLog?.call(
-          '${_nowTime()}    [DET] Sondage $probeIndex/${probeUrls.length}…',
-        );
         final d = await getIsolateService
             .get<MManga>(url: probeUrl, source: src, serviceType: 'getDetail')
             .timeout(const Duration(seconds: 45));
@@ -216,12 +300,11 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
             chapCount > (bestDetail.chapters?.length ?? 0)) {
           bestDetail = d;
         }
-        // A series with > 1 episode is conclusive — stop probing.
         if (chapCount > 1) break;
       } catch (e) {
-        lastError = e.toString().split('\n').first;
+        lastError = _trimError(e.toString());
         onLog?.call(
-          '${_nowTime()}    [DET] Sondage $probeIndex échec: $lastError',
+          '${_nowTime()}  │   [$prefix] DET probe $probeIndex/${ probeUrls.length} ✗ $lastError',
         );
       }
     }
@@ -240,29 +323,27 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         error: ok ? null : 'Détail vide (nom absent, 0 chapitres)',
       );
       onLog?.call(
-        '${_nowTime()}    [DET] Détail (meilleur sur ${probeUrls.length}): '
-        '${ok ? "[OK] $chapCount chapitres/épisodes" : "[FAIL] Détail vide"} '
-        '(${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}  │   [$prefix] DET ${ok ? "✓" : "✗"}'
+        ' ${ok ? "$chapCount épisodes/chapitres" : "vide"} · ${_formatDuration(sw.elapsedMilliseconds)}',
       );
     } else {
-      // All probes failed
       steps[DiagStep.detail] = DiagStepResult(
         ok: false,
         error: lastError ?? 'Tous les sondages ont échoué',
         ms: sw.elapsedMilliseconds,
       );
       onLog?.call(
-        '${_nowTime()}    [DET] Détail: [FAIL] ${lastError ?? "Tous les sondages ont échoué"} '
-        '(${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}  │   [$prefix] DET ✗ ${lastError ?? "tous les sondages ont échoué"}'
+        ' · ${_formatDuration(sw.elapsedMilliseconds)}',
       );
     }
   } else {
     steps[DiagStep.detail] = const DiagStepResult(
       ok: false,
-      error: "Ignoré (popular échoué)",
+      error: 'Ignoré — Popular a échoué',
       ms: 0,
     );
-    onLog?.call("${_nowTime()}    [DET] Détail: [SKIP] Ignoré (popular échoué)");
+    onLog?.call('${_nowTime()}  │   [$prefix] DET ⤼ skipped (Popular failed)');
   }
 
   // ── Step 4 : Media (getVideoList / getPageList) ───────────────────────────
@@ -270,7 +351,7 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
     final sw = Stopwatch()..start();
     final svcType =
         itemType == ItemType.anime ? 'getVideoList' : 'getPageList';
-    final mediaLabel = itemType == ItemType.anime ? 'Vidéos' : 'Pages';
+    final mediaLabel = itemType == ItemType.anime ? 'VID' : 'PAGE';
     try {
       final list = await getIsolateService
           .get<List<dynamic>>(
@@ -285,50 +366,48 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         ok: count > 0,
         count: count,
         ms: sw.elapsedMilliseconds,
-        error: count == 0 ? 'Aucun média' : null,
+        error: count == 0 ? 'Aucun média retourné' : null,
       );
       onLog?.call(
-        '${_nowTime()}    [VID] $mediaLabel: ${count > 0 ? "[OK] $count source(s)" : "[FAIL] Aucun média"} (${sw.elapsedMilliseconds}ms)',
+        '${_nowTime()}  │   [$prefix] $mediaLabel ${count > 0 ? "✓" : "✗"}'
+        ' ${count > 0 ? "$count sources" : "vide"} · ${_formatDuration(sw.elapsedMilliseconds)}',
       );
-      // Afficher l'URL directe du flux (vérification URL uniquement, pas la lecture)
-      if (count > 0) {
+
+      // Verify first URL accessibility
+      if (count > 0 && !kIsWeb) {
         String rawUrl = '';
+        Map<String, String>? hdrs;
         try {
           rawUrl = (list.first as dynamic).url?.toString() ?? '';
-          if (rawUrl.isNotEmpty) {
-            final truncated = rawUrl.length > 90
-                ? '${rawUrl.substring(0, 87)}...'
-                : rawUrl;
-            onLog?.call('${_nowTime()}      [URL] $truncated');
-          }
+          final h = (list.first as dynamic).headers;
+          if (h is Map) hdrs = Map<String, String>.from(h);
         } catch (_) {}
-        // Verify URL accessibility via HTTP HEAD (or GET with Range if HEAD fails)
-        if (rawUrl.isNotEmpty && !kIsWeb) {
+
+        if (rawUrl.isNotEmpty) {
+          final truncated = rawUrl.length > 80
+              ? '${rawUrl.substring(0, 77)}…'
+              : rawUrl;
+          onLog?.call('${_nowTime()}  │   [$prefix] URL $truncated');
           try {
-            final Map<String, String>? hdrs = (() {
-              try {
-                final h = (list.first as dynamic).headers;
-                if (h is Map) return Map<String, String>.from(h);
-              } catch (_) {}
-              return null;
-            })();
             final uri = Uri.parse(rawUrl);
             http.Response httpResp;
             try {
-              httpResp = await http.head(uri, headers: hdrs)
-                  .timeout(const Duration(seconds: 15));
+              httpResp = await http
+                  .head(uri, headers: hdrs)
+                  .timeout(const Duration(seconds: 12));
             } catch (_) {
               final req = http.Request('GET', uri);
               req.headers['Range'] = 'bytes=0-1023';
               if (hdrs != null) req.headers.addAll(hdrs);
               final stream = await http.Client()
                   .send(req)
-                  .timeout(const Duration(seconds: 15));
+                  .timeout(const Duration(seconds: 12));
               httpResp = await http.Response.fromStream(stream);
             }
             final statusOk = httpResp.statusCode < 400;
             onLog?.call(
-              '${_nowTime()}      [HTTP] ${httpResp.statusCode} — ${statusOk ? "[OK] URL accessible" : "[FAIL] URL inaccessible"}',
+              '${_nowTime()}  │   [$prefix] HTTP ${httpResp.statusCode}'
+              ' ${statusOk ? "✓ accessible" : "✗ inaccessible"}',
             );
             if (!statusOk) {
               steps[DiagStep.media] = DiagStepResult(
@@ -339,29 +418,40 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
               );
             }
           } catch (httpErr) {
-            onLog?.call('${_nowTime()}      [HTTP] Vérification impossible: $httpErr');
+            onLog?.call(
+                '${_nowTime()}  │   [$prefix] HTTP ⚠ vérification impossible: ${_trimError(httpErr.toString())}');
           }
         }
       }
     } catch (e) {
       sw.stop();
-      final err = e.toString().split('\n').first;
+      final err = _trimError(e.toString());
       steps[DiagStep.media] =
           DiagStepResult(ok: false, error: err, ms: sw.elapsedMilliseconds);
       onLog?.call(
-          '${_nowTime()}    [VID] $mediaLabel: [FAIL] $err (${sw.elapsedMilliseconds}ms)');
+          '${_nowTime()}  │   [$prefix] $mediaLabel ✗ $err · ${_formatDuration(sw.elapsedMilliseconds)}');
     }
   } else {
     steps[DiagStep.media] = const DiagStepResult(
       ok: false,
-      error: "Ignoré (détail échoué)",
+      error: 'Ignoré — Détail a échoué',
       ms: 0,
     );
-    onLog?.call(
-        "${_nowTime()}    [VID] Médias: [SKIP] Ignoré (détail échoué)");
+    onLog?.call('${_nowTime()}  │   [$prefix] VID ⤼ skipped (Detail failed)');
   }
 
-  return ExtDiagResult(source: src, steps: steps);
+  totalSw.stop();
+  return ExtDiagResult(
+    source: src,
+    steps: steps,
+    totalMs: totalSw.elapsedMilliseconds,
+  );
+}
+
+String _trimError(String raw) {
+  // Keep only the first meaningful line, strip stack traces
+  final line = raw.split('\n').first.trim();
+  return line.length > 160 ? '${line.substring(0, 157)}…' : line;
 }
 
 Future<ExtDiagResult> _diagnoseSource(Source src, ItemType itemType) =>
@@ -380,6 +470,8 @@ String generateMarkdownReport({
       '${now.hour.toString().padLeft(2, "0")}:${now.minute.toString().padLeft(2, "0")}:${now.second.toString().padLeft(2, "0")}';
   final ok = results.where((r) => r.allOk).length;
   final failed = results.length - ok;
+  final rate = results.isEmpty ? 0 : (ok * 100 ~/ results.length);
+  final totalMs = results.fold<int>(0, (acc, r) => acc + r.totalMs);
   final typeLabel = switch (itemType) {
     ItemType.anime => 'Watch / Anime',
     ItemType.manga => 'Manga',
@@ -390,13 +482,39 @@ String generateMarkdownReport({
   final buf = StringBuffer();
   buf.writeln('# Diagnostic Watchtower — $dateStr');
   buf.writeln();
-  buf.writeln('| | |');
+  buf.writeln('| Champ | Valeur |');
   buf.writeln('|---|---|');
   buf.writeln('| **Type** | $typeLabel |');
   buf.writeln('| **Scope** | $scopeLabel |');
   buf.writeln('| **Total** | ${results.length} extensions |');
-  buf.writeln(
-      '| **Résultat** | ${ok > 0 ? "✅" : ""} $ok OK  ·  ${failed > 0 ? "❌" : ""} $failed échec(s) |');
+  buf.writeln('| **Résultat** | ✅ $ok OK · ❌ $failed échec(s) · $rate% de réussite |');
+  buf.writeln('| **Durée totale** | ${_formatDuration(totalMs)} |');
+  buf.writeln();
+
+  // Step breakdown
+  final stepTotals = <DiagStep, int>{};
+  final stepOk = <DiagStep, int>{};
+  for (final step in DiagStep.values) {
+    stepTotals[step] = results.where((r) => r.steps.containsKey(step)).length;
+    stepOk[step] = results.where((r) => r.steps[step]?.ok == true).length;
+  }
+  buf.writeln('## Résumé par étape');
+  buf.writeln();
+  buf.writeln('| Étape | OK | Échec | Taux |');
+  buf.writeln('|---|---|---|---|');
+  for (final step in DiagStep.values) {
+    final label = switch (step) {
+      DiagStep.popular => '📋 Popular',
+      DiagStep.latest  => '🕐 Latest',
+      DiagStep.detail  => '🔍 Détail',
+      DiagStep.media   => itemType == ItemType.anime ? '▶️ Vidéos' : '📄 Pages',
+    };
+    final total = stepTotals[step] ?? 0;
+    final okN = stepOk[step] ?? 0;
+    final failN = total - okN;
+    final stepRate = total == 0 ? '—' : '${okN * 100 ~/ total}%';
+    buf.writeln('| $label | $okN | $failN | $stepRate |');
+  }
   buf.writeln();
   buf.writeln('---');
   buf.writeln();
@@ -409,28 +527,29 @@ String generateMarkdownReport({
 
   for (final result in sorted) {
     final src = result.source;
-    final okSteps = result.steps.values.where((s) => s.ok).length;
+    final okSteps = result.okCount;
+    final bar = _progressBar(okSteps, result.steps.length);
 
     buf.writeln('<details>');
     buf.writeln(
-        '<summary>${result.allOk ? "✅" : "❌"} ${src.name ?? "Unknown"}'
-        ' (${(src.lang ?? "?").toUpperCase()}) — $okSteps/${result.steps.length} OK</summary>');
+        '<summary>${result.allOk ? "✅" : "❌"} **${src.name ?? "Unknown"}**'
+        ' `${(src.lang ?? "?").toUpperCase()}` $bar $okSteps/${result.steps.length}'
+        ' · ${_formatDuration(result.totalMs)}</summary>');
     buf.writeln();
     buf.writeln('| Étape | Statut | Résultat | Durée |');
     buf.writeln('|-------|--------|----------|-------|');
     for (final e in result.steps.entries) {
       final stepLabel = switch (e.key) {
         DiagStep.popular => '📋 Popular',
-        DiagStep.latest => '🕐 Latest',
-        DiagStep.detail => '🔍 Détail',
-        DiagStep.media =>
-          itemType == ItemType.anime ? '▶️ Vidéos' : '📄 Pages',
+        DiagStep.latest  => '🕐 Latest',
+        DiagStep.detail  => '🔍 Détail',
+        DiagStep.media   => itemType == ItemType.anime ? '▶️ Vidéos' : '📄 Pages',
       };
       final status = e.value.ok ? '✅ OK' : '❌ FAIL';
       final res = e.value.count != null
-          ? '${e.value.count} entrées'
+          ? '${e.value.count} résultats'
           : (e.value.error ?? '—');
-      buf.writeln('| $stepLabel | $status | $res | ${e.value.ms}ms |');
+      buf.writeln('| $stepLabel | $status | $res | ${_formatDuration(e.value.ms)} |');
     }
 
     final errors = result.steps.entries
@@ -438,15 +557,18 @@ String generateMarkdownReport({
         .toList();
     if (errors.isNotEmpty) {
       buf.writeln();
-      buf.writeln('**Erreurs :**');
+      buf.writeln('**Erreurs détaillées :**');
+      buf.writeln();
       for (final e in errors) {
         final n = switch (e.key) {
           DiagStep.popular => 'Popular',
-          DiagStep.latest => 'Latest',
-          DiagStep.detail => 'Détail',
-          DiagStep.media => 'Médias',
+          DiagStep.latest  => 'Latest',
+          DiagStep.detail  => 'Détail',
+          DiagStep.media   => itemType == ItemType.anime ? 'Vidéos' : 'Pages',
         };
-        buf.writeln('- `[$n]` ${e.value.error}');
+        buf.writeln('```');
+        buf.writeln('[$n] ${e.value.error}');
+        buf.writeln('```');
       }
     }
     buf.writeln();
@@ -457,7 +579,7 @@ String generateMarkdownReport({
   return buf.toString();
 }
 
-/// Saves the report to [Watchtower/dev/diagnostic_TYPE_TIMESTAMP.md].
+/// Saves the report to [Watchtower/dev/Diagnostic_nNNN.md].
 /// Returns the file path on success, null on failure.
 Future<String?> saveDiagnosticReport({
   required List<ExtDiagResult> results,
@@ -477,7 +599,6 @@ Future<String?> saveDiagnosticReport({
     final devDir = Directory(p.join(baseDir.path, 'dev'));
     await devDir.create(recursive: true);
 
-    // Auto-increment: Diagnostic_n001.md, Diagnostic_n002.md, …
     int nextN = 1;
     try {
       final existing = devDir
@@ -492,7 +613,8 @@ Future<String?> saveDiagnosticReport({
           .toList();
       if (existing.isNotEmpty) nextN = existing.reduce((a, b) => a > b ? a : b) + 1;
     } catch (_) {}
-    final filePath = p.join(devDir.path, 'Diagnostic_n${nextN.toString().padLeft(3, "0")}.md');
+    final filePath = p.join(
+        devDir.path, 'Diagnostic_n${nextN.toString().padLeft(3, "0")}.md');
 
     await File(filePath).writeAsString(content);
     AppLogger.log(

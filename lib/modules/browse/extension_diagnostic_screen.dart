@@ -126,8 +126,8 @@ class _ExtensionDiagnosticScreenState
   Source? _selectedSource;
 
   // Extension filters
-  SourceCodeLanguage? _compatFilter;  // null = all compat types
-  bool? _nsfwFilter;                  // null = all, true = NSFW only, false = non-NSFW only
+  SourceCodeLanguage? _compatFilter;
+  bool? _nsfwFilter;
 
   // Running / done
   final List<String> _logLines = [];
@@ -234,9 +234,11 @@ class _ExtensionDiagnosticScreenState
       title: 'Diagnostic ${_typeLabelShort()} en cours…',
     );
 
+    // Pool of 4 — QuickJS+ supports multiple concurrent JS contexts
     await runDiagnosticsForSources(
       sources,
       widget.itemType,
+      concurrency: 4,
       onResult: (result) {
         if (!mounted) return;
         setState(() {
@@ -266,7 +268,6 @@ class _ExtensionDiagnosticScreenState
       },
     );
 
-    // Save report
     final savedPath = await saveDiagnosticReport(
       results: _results,
       itemType: widget.itemType,
@@ -362,18 +363,16 @@ class _ExtensionDiagnosticScreenState
           ),
           const SizedBox(height: 22),
 
-          // ── All ────────────────────────────────────────────────────────────
           _ScopeCard(
             selected: _scopeType == _ScopeType.all,
             icon: Icons.all_inclusive_rounded,
             title: 'Toutes les extensions',
             subtitle:
-                '${allSources.length} extensions — peut prendre plusieurs minutes',
+                '${allSources.length} extensions · parallèle (pool=4)',
             onTap: () => setState(() => _scopeType = _ScopeType.all),
           ),
           const SizedBox(height: 10),
 
-          // ── By language ────────────────────────────────────────────────────
           _ScopeCard(
             selected: _scopeType == _ScopeType.byLanguage,
             icon: Icons.language_rounded,
@@ -407,7 +406,6 @@ class _ExtensionDiagnosticScreenState
             ),
           const SizedBox(height: 10),
 
-          // ── Single ─────────────────────────────────────────────────────────
           _ScopeCard(
             selected: _scopeType == _ScopeType.single,
             icon: Icons.extension_rounded,
@@ -443,7 +441,6 @@ class _ExtensionDiagnosticScreenState
 
           const SizedBox(height: 22),
 
-          // ── Compat filter ──────────────────────────────────────────────────
           Text(
             'Type de source',
             style: Theme.of(context)
@@ -492,7 +489,6 @@ class _ExtensionDiagnosticScreenState
 
           const SizedBox(height: 18),
 
-          // ── Tag filters ───────────────────────────────────────────────────
           Text(
             'Tags',
             style: Theme.of(context)
@@ -563,6 +559,8 @@ class _ExtensionDiagnosticScreenState
   Widget _buildRunningView() {
     final cs = Theme.of(context).colorScheme;
     final progress = _total == 0 ? 0.0 : _done / _total;
+    // Estimate how many are currently active (running concurrently)
+    final activeCount = (_total - _done).clamp(0, 4);
 
     return Column(
       children: [
@@ -571,6 +569,7 @@ class _ExtensionDiagnosticScreenState
           total: _total,
           progress: progress,
           running: true,
+          activeCount: activeCount,
           cs: cs,
         ),
         Expanded(
@@ -589,7 +588,6 @@ class _ExtensionDiagnosticScreenState
 
     return Column(
       children: [
-        // Summary header
         _DoneHeader(
           ok: ok,
           failed: failed,
@@ -602,7 +600,6 @@ class _ExtensionDiagnosticScreenState
             scopeLabel: _scopeLabel,
           ),
         ),
-        // Tabs: log + results
         Expanded(
           child: DefaultTabController(
             length: 2,
@@ -623,12 +620,10 @@ class _ExtensionDiagnosticScreenState
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // Log tab
                       _LogView(
                           lines: _logLines,
                           controller: ScrollController(),
                           cs: cs),
-                      // Results tab
                       _ResultsList(
                           results: _results, itemType: widget.itemType, cs: cs),
                     ],
@@ -724,6 +719,7 @@ class _ProgressHeader extends StatelessWidget {
   final int total;
   final double progress;
   final bool running;
+  final int activeCount;
   final ColorScheme cs;
 
   const _ProgressHeader({
@@ -732,6 +728,7 @@ class _ProgressHeader extends StatelessWidget {
     required this.progress,
     required this.running,
     required this.cs,
+    this.activeCount = 0,
   });
 
   @override
@@ -753,11 +750,30 @@ class _ProgressHeader extends StatelessWidget {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: cs.primary)),
             if (running) const SizedBox(width: 10),
-            Text(
-              running ? 'Test en cours… $done / $total' : 'Terminé',
-              style:
-                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+            Expanded(
+              child: Text(
+                running
+                    ? 'En cours… $done / $total'
+                    : 'Terminé',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+              ),
             ),
+            if (running && activeCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$activeCount actif${activeCount > 1 ? "s" : ""} · pool=4',
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary),
+                ),
+              ),
           ]),
           const SizedBox(height: 8),
           ClipRRect(
@@ -770,8 +786,10 @@ class _ProgressHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text('4 étapes par extension : Popular · Latest · Détail · Médias',
-              style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant)),
+          Text(
+            'Popular · Latest · Détail · Médias — 4 étapes par extension',
+            style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant),
+          ),
         ],
       ),
     );
@@ -899,65 +917,59 @@ class _LogLine extends StatelessWidget {
   final ColorScheme cs;
   const _LogLine({required this.line, required this.cs});
 
-  static const _tagPrefixes = {
-    '[FAIL]', '[OK]', '[START]', '[DONE]', '[RUN]', '[SKIP]',
-    '[URL]', '[HTTP]', '[POP]', '[LAT]', '[DET]', '[VID]',
-  };
-
-  (IconData?, Color?) _parse() {
-    if (line.contains('[FAIL]')) return (Icons.error_outline_rounded, cs.error);
-    if (line.contains('[OK]'))   return (Icons.check_circle_outline_rounded, Colors.green.shade700);
-    if (line.contains('[START]')) return (Icons.science_outlined, cs.primary);
-    if (line.contains('[DONE]')) return (Icons.flag_outlined, cs.secondary);
-    if (line.contains('[RUN]'))  return (Icons.timer_outlined, cs.primary);
-    if (line.contains('[SKIP]')) return (Icons.skip_next_rounded, cs.onSurfaceVariant.withOpacity(0.55));
-    if (line.contains('[URL]'))  return (Icons.link_rounded, cs.primary.withOpacity(0.75));
-    if (line.contains('[HTTP]') && line.contains('[OK]'))  return (Icons.wifi_rounded, Colors.green.shade700);
-    if (line.contains('[HTTP]') && line.contains('[FAIL]')) return (Icons.wifi_off_rounded, cs.error);
-    if (line.contains('[HTTP]')) return (Icons.http_rounded, cs.primary.withOpacity(0.7));
-    if (line.contains('[POP]'))  return (Icons.list_rounded, cs.onSurfaceVariant);
-    if (line.contains('[LAT]'))  return (Icons.update_rounded, cs.onSurfaceVariant);
-    if (line.contains('[DET]'))  return (Icons.info_outline_rounded, cs.onSurfaceVariant);
-    if (line.contains('[VID]'))  return (Icons.play_circle_outline_rounded, cs.onSurfaceVariant);
-    return (null, null);
-  }
-
-  String _clean() {
-    var s = line;
-    for (final tag in _tagPrefixes) {
-      s = s.replaceAll(tag, '');
+  // New log format uses tree chars + ✓/✗ + step codes
+  (Color?, bool) _classify() {
+    // Error / fail indicators
+    if (line.contains('✗') || line.contains('FAIL')) {
+      return (cs.error, true);
     }
-    return s.trim();
+    // Success
+    if (line.contains('✅') || line.contains('✓')) {
+      return (Colors.green.shade600, true);
+    }
+    // Start / done markers
+    if (line.contains('START') || line.contains('DONE')) {
+      return (cs.primary, true);
+    }
+    // Skip / ignored
+    if (line.contains('⤼') || line.contains('skipped')) {
+      return (cs.onSurfaceVariant.withOpacity(0.5), false);
+    }
+    // RUN marker
+    if (line.contains('[RUN]')) {
+      return (cs.primary, true);
+    }
+    // URL / HTTP lines
+    if (line.contains(' URL ') || line.contains(' HTTP ')) {
+      return (cs.primary.withOpacity(0.65), false);
+    }
+    return (null, false);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (line.isEmpty) return const SizedBox(height: 6);
-    final (icon, color) = _parse();
+    if (line.isEmpty) return const SizedBox(height: 4);
+    final (color, bold) = _classify();
+
+    // Tree chars get dimmed prefix treatment
+    final isTreeChar = line.trimLeft().startsWith('├') ||
+        line.trimLeft().startsWith('│') ||
+        line.trimLeft().startsWith('└');
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 16,
-            child: icon != null
-                ? Icon(icon, size: 12, color: color)
-                : null,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              _clean(),
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11.5,
-                color: color ?? cs.onSurfaceVariant,
-                fontWeight: color != null ? FontWeight.w500 : FontWeight.normal,
-              ),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Text(
+        line,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 11.5,
+          height: 1.35,
+          color: color ??
+              (isTreeChar
+                  ? cs.onSurfaceVariant.withOpacity(0.75)
+                  : cs.onSurfaceVariant),
+          fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+        ),
       ),
     );
   }
@@ -1011,6 +1023,14 @@ class _ExtDiagCardState extends State<_ExtDiagCard> {
     _expanded = widget.result.anyFailed;
   }
 
+  String _fmtMs(int ms) {
+    if (ms == 0) return '—';
+    if (ms < 1000) return '${ms}ms';
+    final s = ms ~/ 1000;
+    final rem = (ms % 1000) ~/ 100;
+    return s < 60 ? '${s}.${rem}s' : '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     final src = widget.result.source;
@@ -1037,7 +1057,6 @@ class _ExtDiagCardState extends State<_ExtDiagCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header row
               Row(children: [
                 Icon(
                   allOk
@@ -1047,7 +1066,6 @@ class _ExtDiagCardState extends State<_ExtDiagCard> {
                   size: 18,
                 ),
                 const SizedBox(width: 8),
-                // Real extension icon
                 if ((src.iconUrl ?? '').isNotEmpty) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(5),
@@ -1068,6 +1086,7 @@ class _ExtDiagCardState extends State<_ExtDiagCard> {
                         fontWeight: FontWeight.w700, fontSize: 13.5),
                   ),
                 ),
+                // Language badge
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -1084,14 +1103,31 @@ class _ExtDiagCardState extends State<_ExtDiagCard> {
                         letterSpacing: 0.5),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
+                // Total time badge
+                if (widget.result.totalMs > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _fmtMs(widget.result.totalMs),
+                      style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                const SizedBox(width: 6),
                 Icon(
                   _expanded ? Icons.expand_less : Icons.expand_more,
                   size: 18,
                   color: cs.onSurfaceVariant,
                 ),
               ]),
-              // Expanded content
               if (_expanded) ...[
                 const SizedBox(height: 10),
                 Wrap(
@@ -1178,6 +1214,13 @@ class _StepChip extends StatelessWidget {
         DiagStep.media   => itemType == ItemType.anime ? 'Vidéos' : 'Pages',
       };
 
+  String _fmtMs(int ms) {
+    if (ms == 0) return '—';
+    if (ms < 1000) return '${ms}ms';
+    final s = ms ~/ 1000;
+    return '${s}.${((ms % 1000) ~/ 100)}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (result == null) {
@@ -1189,7 +1232,7 @@ class _StepChip extends StatelessWidget {
         : cs.errorContainer.withOpacity(0.5);
     final fg = ok ? Colors.green.shade700 : cs.onErrorContainer;
     final count = result!.count != null ? ' ${result!.count}' : '';
-    final label = '$_stepName$count · ${result!.ms}ms';
+    final label = '$_stepName$count · ${_fmtMs(result!.ms)}';
     return _chip(ok ? Icons.check_rounded : Icons.close_rounded, label, bg, fg);
   }
 
