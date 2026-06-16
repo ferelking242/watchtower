@@ -40,5 +40,14 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # Force wakelock_plus to static library — TrollStore ldid CoreTrust bypass
+    # fails on this framework when compiled as a dynamic .framework.
+    # Static linkage merges it into the main Runner binary → no separate signing needed.
+    if target.name == 'wakelock_plus'
+      target.build_configurations.each do |config|
+        config.build_settings['MACH_O_TYPE'] = 'staticlib'
+      end
+    end
   end
 end
