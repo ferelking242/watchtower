@@ -316,7 +316,19 @@ class LibPythonManager {
   /// [pluginId]   : identifiant du plugin (ex: "com.watchtower.telegram-source")
   /// [pluginDeps] : liste des packages requis par le plugin
   /// [markerKey]  : clé unique pour le fichier marqueur (évite double-install)
-  Future<String> resolvePluginDeps({
+  /// Vérifie si les deps sont déjà vendorées dans le bundle extrait du plugin.
+    /// Si c'est le cas, on court-circuite pip install (inutile + lent sur réseau mobile).
+    Future<bool> _areDepsInPluginBundle(
+        String pluginExtractDir, List<String> deps) async {
+      for (final dep in deps) {
+        final normalized = dep.replaceAll('-', '_').toLowerCase();
+        final dir = Directory('$pluginExtractDir/$normalized');
+        if (!await dir.exists()) return false;
+      }
+      return true;
+    }
+
+    Future<String> resolvePluginDeps({
     required String pluginId,
     required List<String> pluginDeps,
     String? markerKey,
@@ -331,6 +343,17 @@ class LibPythonManager {
 
     if (await markerFile.exists()) {
       return 'Dépendances $pluginId déjà installées ✓';
+    }
+
+    // Vérifier si les deps sont déjà vendées dans le bundle du plugin
+    final bundleDir = '$fd/plugins/$pluginId';
+    if (await _areDepsInPluginBundle(bundleDir, pluginDeps)) {
+      AppLogger.log(
+          'LibPython: deps $pluginId dans le bundle — skip pip',
+          tag: LogTag.zeus, logLevel: LogLevel.debug);
+      await markerFile.parent.create(recursive: true);
+      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      return 'Dépendances $pluginId présentes dans le bundle ✓';
     }
 
     final installed = await listInstalledPackages();
@@ -408,6 +431,19 @@ class LibPythonManager {
 
     if (_depsEnsured && await markerFile.exists()) {
       return 'Dépendances ZeusDL déjà installées ✓';
+    }
+
+    // Court-circuit si les deps ZeusDL sont déjà dans le bundle extrait
+    const _zeusBundleDeps = ['requests', 'certifi', 'urllib3', 'websockets', 'mutagen'];
+    final zeusBundleDir = '$fd/plugins/zeusdl';
+    if (await _areDepsInPluginBundle(zeusBundleDir, List.from(_zeusBundleDeps))) {
+      _depsEnsured = true;
+      await markerFile.parent.create(recursive: true);
+      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      AppLogger.log(
+          'LibPython: deps ZeusDL dans le bundle — skip pip',
+          tag: LogTag.zeus, logLevel: LogLevel.debug);
+      return 'Dépendances ZeusDL présentes dans le bundle ✓';
     }
 
     final depsStatus = await checkZeusDeps();
