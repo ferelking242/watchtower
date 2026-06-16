@@ -105,8 +105,8 @@ class IsExtendedState extends _$IsExtendedState {
 class SortChapterState extends _$SortChapterState {
   @override
   SortChapter build({required int mangaId}) {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).sortChapterList?
-            .where((element) => element.mangaId == mangaId)
+    final list = (isar.settings.getSync(kSettingsId) ?? Settings()).sortChapterList;
+    return list?.where((element) => element.mangaId == mangaId)
             .toList()
             .firstOrNull ??
         SortChapter(mangaId: mangaId, index: 1, reverse: false);
@@ -155,8 +155,8 @@ class ChapterFilterDownloadedState extends _$ChapterFilterDownloadedState {
   }
 
   int getType() {
-    return ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterDownloadedList?
-                .where((element) => element.mangaId == mangaId)
+    final list = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterDownloadedList;
+    return (list?.where((element) => element.mangaId == mangaId)
                 .toList()
                 .firstOrNull ??
             ChapterFilterDownloaded(mangaId: mangaId, type: 0))
@@ -206,8 +206,8 @@ class ChapterFilterUnreadState extends _$ChapterFilterUnreadState {
   }
 
   int getType() {
-    return ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterUnreadList?
-                .where((element) => element.mangaId == mangaId)
+    final list = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterUnreadList;
+    return (list?.where((element) => element.mangaId == mangaId)
                 .toList()
                 .firstOrNull ??
             ChapterFilterUnread(mangaId: mangaId, type: 0))
@@ -256,8 +256,8 @@ class ChapterFilterBookmarkedState extends _$ChapterFilterBookmarkedState {
   }
 
   int getType() {
-    return ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterBookmarkedList?
-                .where((element) => element.mangaId == mangaId)
+    final list = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterBookmarkedList;
+    return (list?.where((element) => element.mangaId == mangaId)
                 .toList()
                 .firstOrNull ??
             ChapterFilterBookmarked(mangaId: mangaId, type: 0))

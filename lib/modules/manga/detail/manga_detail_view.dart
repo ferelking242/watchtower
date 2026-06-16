@@ -766,7 +766,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                           ),
                         ],
                       ),
-                    ),
+                    );
               },
             ),
           ),

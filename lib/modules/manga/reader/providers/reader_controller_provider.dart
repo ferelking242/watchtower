@@ -467,32 +467,32 @@ extension ChapterExtensions on Chapter {
 extension MangaExtensions on Manga {
   List<Chapter> getFilteredChapterList() {
     final data = this.chapters.toList().reversed.toList();
+    final _unreadList = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterUnreadList;
     final filterUnread =
-        ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterUnreadList?
-                    .where((element) => element.mangaId == id)
+        (_unreadList?.where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
                 ChapterFilterUnread(mangaId: id, type: 0))
             .type!;
 
+    final _bookmarkedList = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterBookmarkedList;
     final filterBookmarked =
-        ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterBookmarkedList?
-                    .where((element) => element.mangaId == id)
+        (_bookmarkedList?.where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
                 ChapterFilterBookmarked(mangaId: id, type: 0))
             .type!;
+    final _downloadedList = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterDownloadedList;
     final filterDownloaded =
-        ((isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterDownloadedList?
-                    .where((element) => element.mangaId == id)
+        (_downloadedList?.where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
                 ChapterFilterDownloaded(mangaId: id, type: 0))
             .type!;
 
+    final _sortList = (isar.settings.getSync(kSettingsId) ?? Settings()).sortChapterList;
     final sortChapter =
-        ((isar.settings.getSync(kSettingsId) ?? Settings()).sortChapterList?
-                    .where((element) => element.mangaId == id)
+        (_sortList?.where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
                 SortChapter(mangaId: id, index: 1, reverse: false))
