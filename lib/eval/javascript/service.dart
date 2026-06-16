@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/eval/javascript/bytecode_cache.dart';
+import 'package:watchtower/stubs/js_bytecode_exports.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
 import 'package:watchtower/eval/javascript/dom_selector.dart';
 import 'package:watchtower/eval/javascript/extractors.dart';
@@ -109,11 +110,11 @@ async function jsonStringify(fn) {
       final cache = BytecodeCache.instance;
       final cached = await cache.get(sourceCode);
       if (cached != null) {
-        loadResult = runtime.evaluateBytecode(cached);
+        loadResult = evalBytecode(runtime, cached);
       } else {
-        final bytecode = runtime.compile(sourceCode, source.name ?? 'ext');
+        final bytecode = compileJs(runtime, sourceCode, source.name ?? 'ext');
         await cache.put(sourceCode, bytecode);
-        loadResult = runtime.evaluateBytecode(bytecode);
+        loadResult = evalBytecode(runtime, bytecode);
       }
       if (loadResult.isError) {
         throw Exception(
