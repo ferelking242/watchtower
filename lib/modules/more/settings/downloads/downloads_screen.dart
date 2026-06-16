@@ -14,6 +14,7 @@ import 'package:watchtower/modules/more/settings/downloads/sub_pages/novel_downl
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/download_cards_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/services/watchtower_folder_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -550,7 +551,12 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                       );
                     },
                     icon: const Icon(Icons.delete_outlined),
-                    tooltip: 'Supprimer le dossier',
+                    tooltip: 'Supprimer l
+              // ── Dossiers Watchtower ───────────────────────────────────────
+              _SectionHeader(title: 'Dossiers Watchtower'),
+              _WatchtowerDossiersSection(),
+
+  e dossier',
                   ),
                 ],
               ),
@@ -651,3 +657,140 @@ class _BadgeChip extends StatelessWidget {
     );
   }
 }
+
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // _WatchtowerDossiersSection
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class _WatchtowerDossiersSection extends StatefulWidget {
+    const _WatchtowerDossiersSection();
+    @override
+    State<_WatchtowerDossiersSection> createState() => _WatchtowerDossiersSectionState();
+  }
+
+  class _WatchtowerDossiersSectionState extends State<_WatchtowerDossiersSection> {
+    List<WatchtowerFolderInfo>? _folders;
+    bool _loading = true;
+    String? _basePath;
+
+    @override
+    void initState() {
+      super.initState();
+      _load();
+    }
+
+    Future<void> _load() async {
+      if (!mounted) return;
+      setState(() => _loading = true);
+      try {
+        await WatchtowerFolderService.instance.initialize();
+        final folders = await WatchtowerFolderService.instance.getFolderInfoList();
+        if (mounted) {
+          setState(() {
+            _folders = folders;
+            _basePath = WatchtowerFolderService.instance.baseDir;
+            _loading = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _loading = false);
+      }
+    }
+
+    Future<void> _requestPerms() async {
+      final granted = await WatchtowerFolderService.instance.requestPermissions();
+      if (granted) _load();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      final scheme = Theme.of(context).colorScheme;
+
+      if (_loading) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Path display
+          if (_basePath != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(children: [
+                Icon(Icons.folder_outlined, size: 13, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _basePath!,
+                    style: TextStyle(
+                      fontSize: 11, color: scheme.onSurfaceVariant,
+                      fontFamily: 'monospace',
+                    ),
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.refresh_rounded, size: 16, color: scheme.primary),
+                  onPressed: _load,
+                  tooltip: 'Actualiser',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ]),
+            ),
+
+          // No permissions case
+          if (_folders == null || _folders!.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Permissions de stockage requises pour créer les dossiers.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: _requestPerms,
+                    icon: const Icon(Icons.folder_open_rounded, size: 16),
+                    label: const Text('Autoriser l\'accès'),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...(_folders!.map((f) => ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(f.iconLabel, style: const TextStyle(fontSize: 18)),
+              ),
+              title: Text(f.displayName,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              subtitle: Text(
+                f.exists
+                    ? '${f.fileCount} fichier${f.fileCount != 1 ? "s" : ""} · ${f.formattedSize}'
+                    : 'Dossier non encore créé',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
+              trailing: f.exists
+                  ? Icon(Icons.check_circle_outline_rounded,
+                      size: 17, color: Colors.green.shade400)
+                  : Icon(Icons.radio_button_unchecked_rounded,
+                      size: 17, color: scheme.outlineVariant),
+            ))),
+        ],
+      );
+    }
+  }
+  

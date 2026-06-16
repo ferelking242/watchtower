@@ -769,37 +769,79 @@ class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
 // ─── Small widgets ────────────────────────────────────────────────────────────
 
 class _PluginIcon extends StatelessWidget {
-  final String url;
-  final double size;
-  const _PluginIcon({required this.url, required this.size});
+    final String url;
+    final double size;
+    final bool showBadge;
+    const _PluginIcon({required this.url, required this.size, this.showBadge = true});
 
-  bool get _isSvg => url.toLowerCase().endsWith('.svg');
+    bool get _isSvg => url.toLowerCase().endsWith('.svg');
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size, height: size,
-      decoration: BoxDecoration(
-        color: _card2,
-        borderRadius: BorderRadius.circular(size * 0.22),
-        border: Border.all(color: _border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: url.isNotEmpty
-          ? (_isSvg
-              ? SvgPicture.network(
-                  url,
-                  width: size, height: size,
-                  fit: BoxFit.cover,
-                  placeholderBuilder: (_) => _FallbackIcon(size: size),
-                )
-              : Image.network(url, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _FallbackIcon(size: size)))
-          : _FallbackIcon(size: size),
-    );
+    @override
+    Widget build(BuildContext context) {
+      final iconWidget = Container(
+        width: size, height: size,
+        decoration: BoxDecoration(
+          color: _card2,
+          borderRadius: BorderRadius.circular(size * 0.22),
+          border: Border.all(color: _border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: url.isNotEmpty
+            ? (_isSvg
+                ? SvgPicture.network(
+                    url,
+                    width: size, height: size,
+                    fit: BoxFit.cover,
+                    placeholderBuilder: (_) => _FallbackIcon(size: size),
+                  )
+                : Image.network(url, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _FallbackIcon(size: size)))
+            : _FallbackIcon(size: size),
+      );
+
+      if (!showBadge) return iconWidget;
+
+      final badgeSz = (size * 0.38).clamp(14.0, 20.0);
+      return SizedBox(
+        width: size, height: size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            iconWidget,
+            Positioned(
+              right: -(badgeSz * 0.28),
+              bottom: -(badgeSz * 0.28),
+              child: Container(
+                width: badgeSz,
+                height: badgeSz,
+                decoration: BoxDecoration(
+                  color: _bg,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _bg, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/icons/playstore_icon.png',
+                    width: badgeSz,
+                    height: badgeSz,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
-}
-
+  
 class _FallbackIcon extends StatelessWidget {
   final double size;
   const _FallbackIcon({required this.size});
