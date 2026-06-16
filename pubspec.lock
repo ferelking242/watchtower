@@ -605,10 +605,12 @@ packages:
   flutter_qjs:
     dependency: "direct main"
     description:
-      path: "web_stubs/flutter_qjs"
-      relative: true
-    source: path
-    version: "0.0.1"
+      path: "."
+      ref: main
+      resolved-ref: b96bfec7e7d28c5a31b8a5df1d36e7ea88f03cb9
+      url: "https://github.com/ferelking242/quickjs-plus.git"
+    source: git
+    version: "1.0.0"
   flutter_riverpod:
     dependency: "direct main"
     description:
