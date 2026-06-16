@@ -127,9 +127,8 @@ import 'dart:async';
     // ── Public API ────────────────────────────────────────────────────────────
 
     Future<ZeusDlExecutionContext?> resolveExecutionContext() async {
-      if (Platform.isAndroid) {
-        return _resolveAndroidContext();
-      }
+      if (Platform.isAndroid) return _resolveAndroidContext();
+      if (Platform.isIOS) return _resolveIOSContext();
       final path = await resolveExecutable();
       if (path == null) return null;
       return ZeusDlExecutionContext(executable: path);
