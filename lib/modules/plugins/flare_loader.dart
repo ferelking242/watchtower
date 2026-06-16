@@ -213,6 +213,27 @@ import 'package:http/http.dart' as http;
       return file.readAsString();
     }
   
+    // ── Charger un seul plugin installé par ID ────────────────────────────────
+    static Future<InstalledFlarePlugin?> loadSingle(String pluginId) async {
+      try {
+        final base = await _pluginsDir();
+        final dir = Directory('${base.path}/$pluginId');
+        final manifestFile = File('${dir.path}/manifest.json');
+        if (!await manifestFile.exists()) return null;
+        final manifest = FlareManifest.fromJson(
+          jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>,
+        );
+        return InstalledFlarePlugin(
+          id: manifest.id,
+          version: manifest.version,
+          installedDir: dir.path,
+          manifest: manifest,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+
     // ── Installer un plugin depuis les URLs brutes GitHub (sans .flare ZIP) ──────
     static Future<InstalledFlarePlugin?> installFromNetwork({
       required String pluginId,

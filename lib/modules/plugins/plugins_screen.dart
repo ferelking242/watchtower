@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -19,6 +20,9 @@ import 'package:watchtower/services/download_manager/engines/aria2_binary_manage
 
 const _kPluginsJsonUrl =
     'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main/plugins/index.json';
+
+const _kPluginsBaseUrl =
+    'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main/plugins';
 
 const _bg    = Color(0xFF0E0E0E);
 const _card  = Color(0xFF1A1A1A);
@@ -711,6 +715,11 @@ class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
 
       if (!mounted) return;
       await ref.read(installedPluginsProvider.notifier).install(widget.plugin);
+      // Télécharge les fichiers UI Flare (manifest.json, schema.json, etc.) en arrière-plan
+      unawaited(FlareLoader.installFromNetwork(
+        pluginId: widget.plugin.id,
+        baseUrl: _kPluginsBaseUrl,
+      ).catchError((_) {}));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: _card,
@@ -921,6 +930,11 @@ class _PluginDetailPageState extends ConsumerState<PluginDetailPage> {
     setState(() => _installing = true);
     try {
       await ref.read(installedPluginsProvider.notifier).install(p);
+      // Télécharge les fichiers UI Flare en arrière-plan
+      unawaited(FlareLoader.installFromNetwork(
+        pluginId: p.id,
+        baseUrl: _kPluginsBaseUrl,
+      ).catchError((_) {}));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: _card,
@@ -1498,13 +1512,25 @@ class _InstalledPluginRow extends ConsumerWidget {
               ],
               // Launch button
               GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    fullscreenDialog: true,
-                    builder: (_) => _LaunchPluginScreen(installed: installed, meta: meta),
-                  ),
-                ),
+                onTap: () async {
+                  // Utilise l'UI Flare du plugin si disponible, sinon fallback générique
+                  final flarePlugin = await FlareLoader.loadSingle(installed.id);
+                  if (!context.mounted) return;
+                  if (flarePlugin != null) {
+                    Navigator.push(context, MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) => _FlarePluginView(plugin: flarePlugin),
+                    ));
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        fullscreenDialog: true,
+                        builder: (_) => _LaunchPluginScreen(installed: installed, meta: meta),
+                      ),
+                    );
+                  }
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -1920,16 +1946,18 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       }
       final _zeusExec = zeusCtx.executable;
 
-      // Répertoire de sortie writable : external app-private si dispo, sinon internal.
-      // getExternalStorageDirectory() → /storage/emulated/0/Android/data/<pkg>/files
-      // pas de permission requise, visible dans l'app Fichiers.
+      // Répertoire de sortie : /storage/emulated/0/watchtower/download/plugin/<id>/
+      // Utilise MANAGE_EXTERNAL_STORAGE (déjà déclaré dans le manifest).
       String _outputDir;
       try {
         final extDir = await getExternalStorageDirectory();
-        _outputDir = '${extDir!.path}/Watchtower/Downloads';
+        // extDir.path = /storage/emulated/0/Android/data/<pkg>/files
+        // On remonte jusqu'à la racine SD pour obtenir /storage/emulated/0
+        final sdRoot = extDir!.path.split('/Android/data').first;
+        _outputDir = '$sdRoot/watchtower/download/plugin/${widget.installed.id}';
       } catch (_) {
         final supDir = await getApplicationSupportDirectory();
-        _outputDir = '${supDir.path}/downloads';
+        _outputDir = '${supDir.path}/watchtower/download/plugin/${widget.installed.id}';
       }
       await Directory(_outputDir).create(recursive: true);
 
@@ -1979,6 +2007,14 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       if (!mounted) return;
       output = output.trim();
 
+      // Vérification réelle du succès :
+      // ZeusDL peut sortir avec exitCode 0 même quand le téléchargement a échoué.
+      // On cherche les marqueurs d'erreur dans l'output même si exitCode == 0.
+      final bool _hasRealError = exitCode != 0 ||
+          RegExp(r'ERROR:\s', caseSensitive: false).hasMatch(output) ||
+          RegExp(r'^\[error\]', caseSensitive: false, multiLine: true).hasMatch(output) ||
+          (output.contains('[download]') && !output.contains('[download] 100%'));
+
       // Detect CPU arch only if we need it for the error message.
       String cpuArch = 'arm64-v8a';
       if (exitCode == 126) {
@@ -2003,9 +2039,9 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       }
       setState(() {
         _running = false;
-        _result = exitCode == 0
+        _result = !_hasRealError
             ? 'Téléchargement terminé ✓\nSauvegardé dans : $_outputDir${output.isNotEmpty ? '\n$output' : ''}'
-            : 'Erreur (code $exitCode)${output.isNotEmpty ? ' : $output' : ''}';
+            : 'Erreur${exitCode != 0 ? ' (code $exitCode)' : ''}${output.isNotEmpty ? ' : $output' : ''}';
       });
     } on PlatformException catch (e) {
       if (!mounted) return;
@@ -2137,12 +2173,60 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
                                 : _fabIcon.withOpacity(0.4),
                           ),
                         ),
-                        child: Text(
-                          _result!,
-                          style: TextStyle(
-                            color: _result!.startsWith('Erreur') ? Colors.red.shade300 : _fabIcon,
-                            fontSize: 13,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header avec bouton copie
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Clipboard.setData(ClipboardData(text: _result!));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text('Copié dans le presse-papiers',
+                                          style: TextStyle(color: Colors.white, fontSize: 13)),
+                                        backgroundColor: _card,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.06),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: Colors.white.withOpacity(0.12)),
+                                    ),
+                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                      Icon(Icons.copy_rounded, size: 12,
+                                        color: _result!.startsWith('Erreur')
+                                            ? Colors.red.shade300
+                                            : _fabIcon),
+                                      const SizedBox(width: 4),
+                                      Text('Copier', style: TextStyle(
+                                        fontSize: 11,
+                                        color: _result!.startsWith('Erreur')
+                                            ? Colors.red.shade300
+                                            : _fabIcon,
+                                      )),
+                                    ]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _result!,
+                              style: TextStyle(
+                                color: _result!.startsWith('Erreur') ? Colors.red.shade300 : _fabIcon,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
