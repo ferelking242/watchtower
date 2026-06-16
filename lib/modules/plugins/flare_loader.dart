@@ -1,6 +1,7 @@
 import 'dart:convert';
   import 'dart:io';
   import 'package:archive/archive.dart';
+import 'package:http/http.dart' as http;
   import 'package:path_provider/path_provider.dart';
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -211,4 +212,64 @@ import 'dart:convert';
       if (!await file.exists()) return null;
       return file.readAsString();
     }
-  }
+  
+    // ── Installer un plugin depuis les URLs brutes GitHub (sans .flare ZIP) ──────
+    static Future<InstalledFlarePlugin?> installFromNetwork({
+      required String pluginId,
+      required String baseUrl,
+    }) async {
+      try {
+        final base = baseUrl.endsWith('/') ? baseUrl.dropLast(1) : baseUrl;
+        final pluginBase = '$base/$pluginId';
+
+        // Télécharger manifest.json
+        final manifestRes = await http.get(Uri.parse('$pluginBase/manifest.json'));
+        if (manifestRes.statusCode != 200) {
+          throw Exception('manifest.json introuvable (HTTP ${manifestRes.statusCode})');
+        }
+        final manifest = FlareManifest.fromJson(
+          jsonDecode(manifestRes.body) as Map<String, dynamic>,
+        );
+
+        // Créer le répertoire local
+        final pluginsBase = await _pluginsDir();
+        final installDir = Directory('${pluginsBase.path}/$pluginId');
+        if (await installDir.exists()) await installDir.delete(recursive: true);
+        await installDir.create(recursive: true);
+
+        // Sauvegarder manifest.json
+        await File('${installDir.path}/manifest.json').writeAsString(manifestRes.body);
+
+        // Télécharger les fichiers UI selon la méthode déclarée
+        final uiDir = Directory('${installDir.path}/ui');
+        await uiDir.create(recursive: true);
+
+        final filesToFetch = <String>[
+          'ui/schema.json',
+          'ui/main.dart',
+          'ui/index.html',
+        ];
+
+        for (final relPath in filesToFetch) {
+          try {
+            final res = await http.get(Uri.parse('$pluginBase/$relPath'));
+            if (res.statusCode == 200) {
+              final f = File('${installDir.path}/$relPath');
+              await f.parent.create(recursive: true);
+              await f.writeAsBytes(res.bodyBytes);
+            }
+          } catch (_) {}
+        }
+
+        return InstalledFlarePlugin(
+          id: manifest.id,
+          version: manifest.version,
+          installedDir: installDir.path,
+          manifest: manifest,
+        );
+      } catch (e) {
+        return null;
+      }
+    }
+  
+}
