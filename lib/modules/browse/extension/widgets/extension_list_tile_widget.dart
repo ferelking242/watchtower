@@ -202,11 +202,15 @@ class _ExtensionListTileWidgetState
                     ctx.push('/extension_detail', extra: widget.source);
                   },
                 ),
-              if (_sourceNotEmpty && _updateAvailable)
+              if (_sourceNotEmpty)
                 _SheetAction(
-                  icon: Icons.system_update_alt_outlined,
-                  label: 'Mettre à jour',
-                  accent: Colors.orange.shade400,
+                  icon: _updateAvailable
+                      ? Icons.system_update_alt_outlined
+                      : Icons.refresh_rounded,
+                  label: _updateAvailable
+                      ? 'Mettre à jour'
+                      : 'Vérifier la mise à jour',
+                  accent: _updateAvailable ? Colors.orange.shade400 : null,
                   cs: cs,
                   isDark: isDark,
                   onTap: () {

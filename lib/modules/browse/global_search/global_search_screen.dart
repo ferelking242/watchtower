@@ -6,11 +6,11 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
-import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/search_.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -41,6 +41,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
   // ── Filter state ──────────────────────────────────────────────────────────
   String? _selectedLang;
+  SourceCodeLanguage? _selectedType;
   bool _pinnedOnly = false;
 
   late final List<Source> _allSources = () {
@@ -63,7 +64,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     return sources.where((e) => !(e.isNsfw ?? false)).toList();
   }();
 
-  /// Unique, sorted list of language codes present in _allSources.
+  /// Unique, sorted language codes present in _allSources.
   late final List<String> _availableLangs = _allSources
       .map((s) => s.lang ?? '')
       .where((l) => l.isNotEmpty)
@@ -71,11 +72,26 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       .toList()
     ..sort();
 
+  /// Source code language types present in _allSources (excluding dart default
+  /// when all sources are that type, to avoid a useless single chip).
+  late final List<SourceCodeLanguage> _availableTypes = () {
+    final types = _allSources
+        .map((s) => s.sourceCodeLanguage)
+        .toSet()
+        .toList();
+    return types.length > 1 ? types : <SourceCodeLanguage>[];
+  }();
+
   List<Source> get _filteredSources {
     var list = _allSources;
     if (_pinnedOnly) list = list.where((s) => s.isPinned ?? false).toList();
     if (_selectedLang != null) {
       list = list.where((s) => s.lang == _selectedLang).toList();
+    }
+    if (_selectedType != null) {
+      list = list
+          .where((s) => s.sourceCodeLanguage == _selectedType)
+          .toList();
     }
     return list;
   }
@@ -89,11 +105,13 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   void _clearFilters() {
     setState(() {
       _selectedLang = null;
+      _selectedType = null;
       _pinnedOnly = false;
     });
   }
 
-  bool get _hasActiveFilters => _selectedLang != null || _pinnedOnly;
+  bool get _hasActiveFilters =>
+      _selectedLang != null || _selectedType != null || _pinnedOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -144,13 +162,17 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           if (_allSources.isNotEmpty)
             _FilterRow(
               availableLangs: _availableLangs,
+              availableTypes: _availableTypes,
               selectedLang: _selectedLang,
+              selectedType: _selectedType,
               pinnedOnly: _pinnedOnly,
               hasActiveFilters: _hasActiveFilters,
               cs: cs,
               isDark: isDark,
-              onLangSelected: (lang) =>
-                  setState(() => _selectedLang = lang == _selectedLang ? null : lang),
+              onLangSelected: (lang) => setState(
+                  () => _selectedLang = lang == _selectedLang ? null : lang),
+              onTypeSelected: (type) => setState(
+                  () => _selectedType = type == _selectedType ? null : type),
               onPinnedToggled: () =>
                   setState(() => _pinnedOnly = !_pinnedOnly),
               onClearAll: _clearFilters,
@@ -200,26 +222,45 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
 class _FilterRow extends StatelessWidget {
   final List<String> availableLangs;
+  final List<SourceCodeLanguage> availableTypes;
   final String? selectedLang;
+  final SourceCodeLanguage? selectedType;
   final bool pinnedOnly;
   final bool hasActiveFilters;
   final ColorScheme cs;
   final bool isDark;
   final void Function(String) onLangSelected;
+  final void Function(SourceCodeLanguage) onTypeSelected;
   final VoidCallback onPinnedToggled;
   final VoidCallback onClearAll;
 
   const _FilterRow({
     required this.availableLangs,
+    required this.availableTypes,
     required this.selectedLang,
+    required this.selectedType,
     required this.pinnedOnly,
     required this.hasActiveFilters,
     required this.cs,
     required this.isDark,
     required this.onLangSelected,
+    required this.onTypeSelected,
     required this.onPinnedToggled,
     required this.onClearAll,
   });
+
+  String _typeLabel(SourceCodeLanguage t) {
+    switch (t) {
+      case SourceCodeLanguage.javascript:
+        return 'JS';
+      case SourceCodeLanguage.dart:
+        return 'Dart';
+      case SourceCodeLanguage.mihon:
+        return 'Mihon';
+      case SourceCodeLanguage.lnreader:
+        return 'LN Reader';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +293,18 @@ class _FilterRow extends StatelessWidget {
             isDark: isDark,
             onTap: onPinnedToggled,
           ),
+
+          // Source code type chips (JS / Dart / Mihon / LN Reader)
+          for (final type in availableTypes) ...[
+            const SizedBox(width: 6),
+            _Chip(
+              label: _typeLabel(type),
+              selected: selectedType == type,
+              cs: cs,
+              isDark: isDark,
+              onTap: () => onTypeSelected(type),
+            ),
+          ],
 
           // Language chips
           for (final lang in availableLangs) ...[
@@ -407,7 +460,9 @@ class _EmptyFiltersState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            hasFilters ? Icons.filter_list_off_rounded : Icons.search_off_rounded,
+            hasFilters
+                ? Icons.filter_list_off_rounded
+                : Icons.search_off_rounded,
             size: 56,
             color: cs.onSurface.withValues(alpha: 0.15),
           ),
@@ -448,8 +503,8 @@ class _EmptyFiltersState extends StatelessWidget {
 
 class SourceSearchScreen extends ConsumerStatefulWidget {
   final String query;
-
   final Source source;
+
   const SourceSearchScreen({
     super.key,
     required this.query,
@@ -470,6 +525,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
   String _errorMessage = "";
   bool _isLoading = true;
   MPages? pages;
+
   Future<void> _init() async {
     try {
       _errorMessage = "";

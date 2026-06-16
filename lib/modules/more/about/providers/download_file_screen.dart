@@ -96,32 +96,41 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     bool isDark,
   ) {
     final surface = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final maxH = MediaQuery.of(context).size.height * 0.85;
 
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 460),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: isDark ? 0.20 : 0.14),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 460, maxHeight: maxH),
+      child: Container(
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.20 : 0.14),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(upd, cs),
-            _buildBody(upd, cs, isDark),
-            _buildActions(l10n, upd, cs, isDark),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+              blurRadius: 32,
+              offset: const Offset(0, 12),
+            ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          // Use a Column where the body is Flexible so the header + actions
+          // always stay visible while the changelog scrolls if needed.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(upd, cs),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: _buildBody(upd, cs, isDark),
+                ),
+              ),
+              _buildActions(l10n, upd, cs, isDark),
+            ],
+          ),
         ),
       ),
     );
@@ -224,18 +233,14 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
               ],
             ),
             const SizedBox(height: 8),
-            // Taller changelog area — shows more content without clipping
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 260),
-              child: SingleChildScrollView(
-                child: Text(
-                  notes,
-                  style: TextStyle(
-                    color: isDark ? Colors.white70 : Colors.black87,
-                    fontSize: 13.5,
-                    height: 1.55,
-                  ),
-                ),
+            // No maxHeight constraint — the card-level Flexible handles
+            // overflow so the full changelog is reachable by scrolling.
+            Text(
+              notes,
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black87,
+                fontSize: 13.5,
+                height: 1.55,
               ),
             ),
             const SizedBox(height: 16),
