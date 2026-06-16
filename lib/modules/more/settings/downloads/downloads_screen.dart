@@ -551,21 +551,19 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                       );
                     },
                     icon: const Icon(Icons.delete_outlined),
-                    tooltip: 'Supprimer l
-              // ── Dossiers Watchtower ───────────────────────────────────────
-              _SectionHeader(title: 'Dossiers Watchtower'),
-              _WatchtowerDossiersSection(),
-
-  e dossier',
-                  ),
-                ],
-              ),
-          ],
+                    tooltip: 'Supprimer le dossier',
+                    ),
+                  ],
+                ),
+                // ── Dossiers Watchtower ───────────────────────────────────────
+                _SectionHeader(title: 'Dossiers Watchtower'),
+                _WatchtowerDossiersSection(),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared helper widgets (private to this library)

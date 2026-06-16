@@ -47,7 +47,7 @@ class _FlareHtmlRendererState extends State<FlareHtmlRenderer> {
     ),
     onWebViewCreated: (ctrl) async {
       _ctrl = ctrl;
-      await ctrl.addJavaScriptHandler(
+      ctrl.addJavaScriptHandler(
         handlerName: 'watchtower',
         callback: (args) {
           if (args.isEmpty || args[0] is! Map) return;
