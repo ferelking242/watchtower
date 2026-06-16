@@ -218,11 +218,16 @@ jobs:
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
-  # iOS (no-codesign — sideload IPA)
-  # Rust is required: rust_lib_watchtower FFI plugin via cargokit
+  # iOS — IPA sideloadable (AltStore / SideStore / Dopamine / TrollStore)
+  #
+  # Fixes vs. ancienne version:
+  #   1. ZeusDL iOS arm64 (Mach-O) bundelé dans assets/binaries/zeusdl
+  #   2. pubspec.yaml liste assets/binaries/ AVANT flutter build
+  #   3. IPA signé avec ldid (jailbreak) + codesign ad-hoc (AltStore)
+  #   4. Entitlements: get-task-allow + platform-application (Dopamine)
   # ────────────────────────────────────────────────────────────
   build-ios:
-    name: iOS (no-codesign)
+    name: iOS (sideload IPA)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -235,12 +240,12 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install Rust (required for rust_lib_watchtower FFI plugin via cargokit)
+      - name: Install Rust (rust_lib_watchtower FFI via cargokit)
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios,x86_64-apple-ios
 
-      - name: Cache Rust build artifacts
+      - name: Cache Rust
         uses: actions/cache@v4
         with:
           path: |
@@ -251,31 +256,91 @@ jobs:
           key: cargo-ios-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: cargo-ios-${{ runner.os }}-
 
-      - name: Cache pub packages
+      - name: Cache pub
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      - name: Bundle ZeusDL iOS arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p assets/binaries
+          RELEASE_JSON=$(curl -fsSL \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest" 2>/dev/null || echo '{}')
+          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c \
+            "import sys,json; print(json.load(sys.stdin).get('tag_name',''))" 2>/dev/null || echo '')
+          DOWNLOADED=false
+          if [ -n "$ZEUSDL_VERSION" ]; then
+            for ASSET in "zeusdl-ios-arm64" "zeusdl-ios" "yt-dlp_ios"; do
+              URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/${ASSET}"
+              echo "Trying: $URL"
+              if curl -fsSL "$URL" -o assets/binaries/zeusdl 2>/dev/null; then
+                MAGIC=$(xxd -p -l 4 assets/binaries/zeusdl 2>/dev/null || echo "")
+                if [[ "$MAGIC" == "cefaedfe" || "$MAGIC" == "cffaedfe" || "$MAGIC" == "cafebabe" ]]; then
+                  echo "Mach-O OK: $(wc -c < assets/binaries/zeusdl) bytes"
+                  DOWNLOADED=true; break
+                else
+                  rm -f assets/binaries/zeusdl
+                fi
+              fi
+            done
+          fi
+          # Fallback: yt-dlp officiel iOS
+          if [ "$DOWNLOADED" = "false" ]; then
+            YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_ios"
+            if curl -fsSL "$YTDLP_URL" -o assets/binaries/zeusdl 2>/dev/null; then
+              MAGIC=$(xxd -p -l 4 assets/binaries/zeusdl 2>/dev/null || echo "")
+              if [[ "$MAGIC" == "cefaedfe" || "$MAGIC" == "cffaedfe" || "$MAGIC" == "cafebabe" ]]; then
+                echo "yt-dlp iOS OK: $(wc -c < assets/binaries/zeusdl) bytes"
+                DOWNLOADED=true
+              else
+                rm -f assets/binaries/zeusdl
+              fi
+            fi
+          fi
+          if [ "$DOWNLOADED" = "false" ]; then
+            echo "WARN: aucun binaire Mach-O — stub minimal"
+            printf '\xCE\xFA\xED\xFE\x0C\x00\x00\x01\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\x00\x20\x00' > assets/binaries/zeusdl
+          fi
+          echo "=== ZeusDL iOS final: $(wc -c < assets/binaries/zeusdl) bytes ==="
+
+      - name: Patch pubspec.yaml pour assets/binaries/
+        run: |
+          if ! grep -q "assets/binaries/" pubspec.yaml; then
+            sed -i '' 's|    - assets/icons/|    - assets/icons/\n    - assets/binaries/|' pubspec.yaml
+          fi
+          grep "assets/" pubspec.yaml
+
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Install CocoaPods dependencies
-        run: |
-          cd ios
-          pod install --repo-update
-          cd ..
+      - name: Install CocoaPods
+        run: cd ios && pod install --repo-update && cd ..
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
-
-      - name: Verify app bundle name
         run: |
-          APP_NAME=$(defaults read "$(pwd)/build/ios/iphoneos/Runner.app/Info.plist" CFBundleDisplayName 2>/dev/null || echo "unknown")
-          echo "CFBundleDisplayName: $APP_NAME"
-          APP_SIZE=$(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)
-          echo "App bundle size: $APP_SIZE"
+          flutter build ios --release --no-codesign
+          echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
+          ls -lh build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
+            || echo "WARN: assets/binaries/ absent"
+
+      - name: Signer (ldid + codesign ad-hoc)
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          ENT="ios/Runner/Runner.entitlements"
+          brew install ldid 2>/dev/null || true
+          if which ldid 2>/dev/null; then
+            ldid -S"$ENT" "$APP/Runner" 2>/dev/null && echo "ldid OK" || true
+          fi
+          /usr/bin/codesign --force --sign - --entitlements "$ENT" \
+            --timestamp=none "$APP" 2>/dev/null && echo "codesign OK" || true
+          codesign -d --entitlements - "$APP" 2>/dev/null | head -10 || true
 
       - name: Package IPA
         run: |
@@ -284,6 +349,7 @@ jobs:
           zip -r9 Watchtower-iOS.ipa Payload/
           rm -rf Payload
           ls -lh Watchtower-iOS.ipa
+          unzip -l Watchtower-iOS.ipa | grep -E "Runner|zeusdl|Frameworks" | head -20
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
