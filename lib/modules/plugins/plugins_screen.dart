@@ -1729,7 +1729,28 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
         return;
       }
       final _zeusExec = zeusCtx.executable;
-      final _zeusArgs = [...zeusCtx.prependArgs, url];
+
+      // Répertoire de sortie writable : external app-private si dispo, sinon internal.
+      // getExternalStorageDirectory() → /storage/emulated/0/Android/data/<pkg>/files
+      // pas de permission requise, visible dans l'app Fichiers.
+      String _outputDir;
+      try {
+        final extDir = await getExternalStorageDirectory();
+        _outputDir = '${extDir!.path}/Watchtower/Downloads';
+      } catch (_) {
+        final supDir = await getApplicationSupportDirectory();
+        _outputDir = '${supDir.path}/downloads';
+      }
+      await Directory(_outputDir).create(recursive: true);
+
+      // -o template absolu : ZeusDL écrit dans _outputDir au lieu du CWD (read-only).
+      // --no-update : supprime le warning "Your version is older than 90 days".
+      final _zeusArgs = [
+        ...zeusCtx.prependArgs,
+        '-o', '$_outputDir/%(title)s [%(id)s].%(ext)s',
+        '--no-update',
+        url,
+      ];
       int exitCode;
       String output;
 
@@ -1793,7 +1814,7 @@ class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
       setState(() {
         _running = false;
         _result = exitCode == 0
-            ? 'Téléchargement lancé ✓${output.isNotEmpty ? '\n$output' : ''}'
+            ? 'Téléchargement terminé ✓\nSauvegardé dans : $_outputDir${output.isNotEmpty ? '\n$output' : ''}'
             : 'Erreur (code $exitCode)${output.isNotEmpty ? ' : $output' : ''}';
       });
     } on PlatformException catch (e) {
