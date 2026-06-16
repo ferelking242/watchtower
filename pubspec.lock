@@ -607,7 +607,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: bd704d4b8bec74ab87e185096f323e3850c2d3ea
+      resolved-ref: cf58b32ca4de7849d5b064a71d6a81ba4e8e0c18
       url: "https://github.com/ferelking242/quickjs-plus.git"
     source: git
     version: "1.0.0"
