@@ -219,7 +219,7 @@ import 'package:http/http.dart' as http;
       required String baseUrl,
     }) async {
       try {
-        final base = baseUrl.endsWith('/') ? baseUrl.dropLast(1) : baseUrl;
+        final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
         final pluginBase = '$base/$pluginId';
 
         // Télécharger manifest.json
