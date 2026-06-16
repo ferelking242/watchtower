@@ -147,7 +147,24 @@ jobs:
               done
             done
 
-            # ── 2. Package ZeusDL Python ──────────────────────────────────────────
+              # ── 1b. libandroid-support.so depuis le NDK Android ─────────────────
+              # ROOT CAUSE du crash : libpython3.11.so dépend de libandroid-support.so
+              # pour des fonctions POSIX manquantes sur Android sans Termux.
+              # NDK : sources/cxx-stl/llvm-libc++/libs/<ABI>/libandroid-support.so
+              for ABI in arm64-v8a x86_64; do
+                SUPPORT_SO=$(find \
+                  "${ANDROID_NDK_HOME:-/usr/local/lib/android/sdk/ndk}" \
+                  -name "libandroid-support.so" -path "*${ABI}*" 2>/dev/null \
+                  | head -1)
+                if [ -n "$SUPPORT_SO" ]; then
+                  cp "$SUPPORT_SO" "android/app/src/main/jniLibs/${ABI}/libandroid-support.so"
+                  echo "  ✅ libandroid-support.so (NDK) → ${ABI}"
+                else
+                  echo "  ⚠️  libandroid-support.so introuvable NDK/${ABI} — le step Extract l'extraira du zip"
+                fi
+              done
+
+              # ── 2. Package ZeusDL Python ──────────────────────────────────────────
             RELEASE=$(curl -fsSL \
               -H "Authorization: token $GITHUB_TOKEN" \
               "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
