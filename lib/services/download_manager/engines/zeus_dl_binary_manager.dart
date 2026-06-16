@@ -487,9 +487,19 @@ import 'dart:async';
             'ZeusDL scripts: asset chargé (${bytes.length} octets) — extraction vers $filesDir',
             logLevel: LogLevel.info, tag: LogTag.zeus);
 
-        if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
-        await zeusDir.create(recursive: true);
-        await compute(_extractZipBytesToDir, _ExtractBytesArgs(bytes, zeusDir.path));
+        final tmpAssetDir = Directory(
+            '${zeusDir.path}_tmp_${DateTime.now().millisecondsSinceEpoch}');
+        try {
+          await tmpAssetDir.create(recursive: true);
+          await compute(_extractZipBytesToDir, _ExtractBytesArgs(bytes, tmpAssetDir.path));
+          if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
+          await tmpAssetDir.rename(zeusDir.path);
+        } catch (e) {
+          if (await tmpAssetDir.exists()) {
+            await tmpAssetDir.delete(recursive: true).catchError((_) {});
+          }
+          rethrow;
+        }
 
         final exists = await mainPy.exists();
         if (!exists) {
@@ -594,10 +604,20 @@ import 'dart:async';
         AppLogger.log(
             'ZeusDL mise à jour: extraction ${zipRes.bodyBytes.length} octets → $filesDir',
             logLevel: LogLevel.info, tag: LogTag.zeus);
-        if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
-        await zeusDir.create(recursive: true);
-        await compute(
-            _extractZipBytesToDir, _ExtractBytesArgs(zipRes.bodyBytes, zeusDir.path));
+        final tmpUpdateDir = Directory(
+            '${zeusDir.path}_tmp_${DateTime.now().millisecondsSinceEpoch}');
+        try {
+          await tmpUpdateDir.create(recursive: true);
+          await compute(
+              _extractZipBytesToDir, _ExtractBytesArgs(zipRes.bodyBytes, tmpUpdateDir.path));
+          if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
+          await tmpUpdateDir.rename(zeusDir.path);
+        } catch (e) {
+          if (await tmpUpdateDir.exists()) {
+            await tmpUpdateDir.delete(recursive: true).catchError((_) {});
+          }
+          rethrow;
+        }
 
         await versionFile.parent.create(recursive: true);
         await versionFile.writeAsString(latestTag);

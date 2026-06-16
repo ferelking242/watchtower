@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -37,7 +39,9 @@ class LibPythonManager {
       final result = await _channel.invokeMethod<String>('getNativeLibraryDir');
       _cachedNativeDir = result;
       return result;
-    } catch (_) {
+    } catch (e, stack) {
+      AppLogger.log('[Python] getNativeLibraryDir échoué',
+          logLevel: LogLevel.error, error: e, stackTrace: stack);
       return null;
     }
   }
@@ -114,7 +118,10 @@ class LibPythonManager {
           .timeout(const Duration(seconds: 15));
       _pipAvailable = res.exitCode == 0;
       return _pipAvailable!;
-    } catch (_) {
+    } catch (e, stack) {
+      AppLogger.log('[Python] pip indisponible : $e',
+          logLevel: LogLevel.warning, tag: LogTag.zeus,
+          error: e, stackTrace: stack);
       _pipAvailable = false;
       return false;
     }
@@ -341,8 +348,10 @@ class LibPythonManager {
     final key = markerKey ?? pluginId.replaceAll('.', '_');
     final markerFile = File('$fd/python_packages/.deps_ok_$key');
 
+    final depsHash = sha256.convert(utf8.encode(pluginDeps.join(','))).toString();
     if (await markerFile.exists()) {
-      return 'Dépendances $pluginId déjà installées ✓';
+      final stored = (await markerFile.readAsString()).trim();
+      if (stored == depsHash) return 'Dépendances $pluginId déjà installées ✓';
     }
 
     // Vérifier si les deps sont déjà vendées dans le bundle du plugin
@@ -352,7 +361,7 @@ class LibPythonManager {
           'LibPython: deps $pluginId dans le bundle — skip pip',
           tag: LogTag.zeus, logLevel: LogLevel.debug);
       await markerFile.parent.create(recursive: true);
-      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      await markerFile.writeAsString(depsHash);
       return 'Dépendances $pluginId présentes dans le bundle ✓';
     }
 
@@ -368,7 +377,7 @@ class LibPythonManager {
 
     if (missing.isEmpty) {
       await markerFile.parent.create(recursive: true);
-      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      await markerFile.writeAsString(depsHash);
       AppLogger.log(
           'LibPython: dépendances $pluginId toutes présentes ✓',
           tag: LogTag.zeus, logLevel: LogLevel.debug);
@@ -414,7 +423,7 @@ class LibPythonManager {
     final allOk = results.every((r) => r.startsWith('✓'));
     if (allOk) {
       await markerFile.parent.create(recursive: true);
-      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      await markerFile.writeAsString(depsHash);
     }
 
     return results.join('\n');
@@ -428,9 +437,13 @@ class LibPythonManager {
 
     final fd = await _filesDir;
     final markerFile = File('$fd/python_packages/.zeus_deps_ok');
+    final depsHash = sha256
+        .convert(utf8.encode(zeusRequiredPackages.join(',')))
+        .toString();
 
     if (_depsEnsured && await markerFile.exists()) {
-      return 'Dépendances ZeusDL déjà installées ✓';
+      final stored = (await markerFile.readAsString()).trim();
+      if (stored == depsHash) return 'Dépendances ZeusDL déjà installées ✓';
     }
 
     // Court-circuit si les deps ZeusDL sont déjà dans le bundle extrait
@@ -439,7 +452,7 @@ class LibPythonManager {
     if (await _areDepsInPluginBundle(zeusBundleDir, List.from(_zeusBundleDeps))) {
       _depsEnsured = true;
       await markerFile.parent.create(recursive: true);
-      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      await markerFile.writeAsString(depsHash);
       AppLogger.log(
           'LibPython: deps ZeusDL dans le bundle — skip pip',
           tag: LogTag.zeus, logLevel: LogLevel.debug);
@@ -453,7 +466,7 @@ class LibPythonManager {
     if (missing.isEmpty) {
       _depsEnsured = true;
       await markerFile.parent.create(recursive: true);
-      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      await markerFile.writeAsString(depsHash);
       AppLogger.log(
           'LibPython: toutes les dépendances ZeusDL présentes ✓',
           tag: LogTag.zeus,
@@ -506,7 +519,7 @@ class LibPythonManager {
     if (allOk) {
       _depsEnsured = true;
       await markerFile.parent.create(recursive: true);
-      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      await markerFile.writeAsString(depsHash);
     }
 
     return results.join('\n');

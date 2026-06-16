@@ -96,7 +96,6 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
       reFresh: true,
       itemType: source.itemType,
     );
-    if (!(source.isAdded ?? false)) ref.invalidate(provider);
     await ref.read(provider.future);
   }
 
@@ -106,13 +105,22 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
     } else {
       if (mounted) setState(() => _installingAll = true);
     }
+    final installed = <Source>[];
     try {
       for (final source in sources) {
         if (!(source.isAdded ?? false)) {
           await _installSource(source);
+          installed.add(source);
         }
       }
     } finally {
+      for (final source in installed) {
+        ref.invalidate(fetchItemSourcesListProvider(
+          id: source.id,
+          reFresh: true,
+          itemType: source.itemType,
+        ));
+      }
       if (mounted) {
         setState(() {
           if (lang != null) {

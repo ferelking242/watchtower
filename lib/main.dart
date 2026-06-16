@@ -55,6 +55,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:watchtower/modules/db_error_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
@@ -175,7 +176,16 @@ void main(List<String> args) async {
         seedMockWebData(_mockIsar);
         isar = _mockIsar;
       } else {
-        isar = await storage.initDB(null, inspector: false);
+        try {
+          isar = await storage.initDB(null, inspector: false);
+        } catch (e, stack) {
+          AppLogger.log(
+            'Échec critique initDB: $e\n$stack',
+            logLevel: LogLevel.error,
+          );
+          runApp(DbErrorScreen(error: e.toString()));
+          return;
+        }
       }
       // Start the background isolate AFTER the DB is open and isar is assigned.
       if (!kIsWeb) {

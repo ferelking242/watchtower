@@ -41,11 +41,11 @@ class MClient {
               : null,
           timeout: reqcopyWith?["timeout"] != null
               ? Duration(seconds: reqcopyWith?["timeout"])
-              : null,
+              : const Duration(seconds: 60),
           timeoutSettings: TimeoutSettings(
             connectTimeout: reqcopyWith?["connectTimeout"] != null
                 ? Duration(seconds: reqcopyWith?["connectTimeout"])
-                : null,
+                : const Duration(seconds: 30),
           ),
           tlsSettings: rhttp.TlsSettings(
             verifyCertificates: reqcopyWith?["verifyCertificates"] ?? true,
@@ -64,7 +64,11 @@ class MClient {
     Map<String, dynamic>? reqcopyWith,
     rhttp.ClientSettings? settings,
     bool showCloudFlareError = true,
+    bool bypassSSL = false,
   }) {
+    if (bypassSSL) {
+      reqcopyWith = {...?reqcopyWith, 'verifyCertificates': false};
+    }
     Settings? appSettings;
     try {
       appSettings = isar.settings.getSync(kSettingsId);
@@ -156,8 +160,9 @@ class MClient {
     if (cookies.isNotEmpty) {
       final host = Uri.parse(url).host;
       final newCookie = cookies.join("; ");
-      final settings = await isar.settings.get(227);
-      final existingCookies = settings!.cookiesList ?? [];
+      final settings = await isar.settings.get(kSettingsId);
+      if (settings == null) return;
+      final existingCookies = settings.cookiesList ?? [];
       final filteredCookies = removeCookiesForHost(existingCookies, host);
       filteredCookies.add(
         MCookie()
@@ -169,10 +174,11 @@ class MClient {
       );
     }
     if (ua.isNotEmpty) {
-      final settings = await isar.settings.get(227);
+      final settings = await isar.settings.get(kSettingsId);
+      if (settings == null) return;
       await isar.writeTxn(
         () => isar.settings.put(
-          settings!
+          settings
             ..userAgent = ua
             ..updatedAt = DateTime.now().millisecondsSinceEpoch,
         ),
@@ -190,8 +196,9 @@ class MClient {
   }
 
   static Future<void> deleteAllCookies(String url) async {
-    final settings = await isar.settings.get(227);
-    final oldCookies = settings!.cookiesList ?? [];
+    final settings = await isar.settings.get(kSettingsId);
+    if (settings == null) return;
+    final oldCookies = settings.cookiesList ?? [];
     final host = Uri.parse(url).host;
     settings.cookiesList = removeCookiesForHost(oldCookies, host);
     await isar.writeTxn(() => isar.settings.put(settings));
@@ -206,8 +213,8 @@ class MCookieManager extends InterceptorContract {
   Future<BaseRequest> interceptRequest({required BaseRequest request}) async {
     final cookie = MClient.getCookiesPref(request.url.toString());
     if (cookie.isNotEmpty) {
-      final settings = await isar.settings.get(227);
-      final userAgent = settings!.userAgent!;
+      final settings = await isar.settings.get(kSettingsId);
+      final userAgent = settings?.userAgent ?? defaultUserAgent;
       if (request.headers[HttpHeaders.cookieHeader] == null) {
         request.headers.addAll(cookie);
       }

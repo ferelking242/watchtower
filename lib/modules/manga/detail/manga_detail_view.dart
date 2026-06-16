@@ -92,20 +92,21 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     super.initState();
     _scrollController = ScrollController()
       ..addListener(() {
-        if (mounted) setState(() { _offset = _scrollController.offset; });
+        _scrollOffset.value = _scrollController.offset;
       });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _scrollOffset.dispose();
     super.dispose();
   }
 
-  double _offset = 0.0;
+  final _scrollOffset = ValueNotifier<double>(0.0);
   bool _expanded = false;
   late final ScrollController _scrollController;
-  late final isLocalArchive = widget.manga!.isLocalArchive ?? false;
+  late final isLocalArchive = widget.manga?.isLocalArchive ?? false;
   @override
   Widget build(BuildContext context) {
     final scanlators = ref.watch(scanlatorsFilterStateProvider(widget.manga!));
@@ -276,80 +277,83 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
         .isNotEmptySync();
     return Stack(
       children: [
-        Consumer(
-          builder: (context, ref, child) {
+        ValueListenableBuilder<double>(
+          valueListenable: _scrollOffset,
+          builder: (context, offset, _) {
             return Positioned(
               top: 0,
-              child: _offset == 0.0
-                  ? Stack(
-                      children: [
-                        widget.manga!.customCoverImage != null
-                            ? Image.memory(
-                                widget.manga!.customCoverImage as Uint8List,
-                                width: context.width(1),
-                                height: 300,
-                                fit: BoxFit.cover,
-                              )
-                            : cachedNetworkImage(
-                                headers: widget.manga!.isLocalArchive!
-                                    ? null
-                                    : ref.watch(
-                                        headersProvider(
-                                          source: widget.manga!.source!,
-                                          lang: widget.manga!.lang!,
-                                          sourceId: widget.manga!.sourceId,
+              child: offset == 0.0
+                  ? Consumer(
+                      builder: (context, ref, child) => Stack(
+                        children: [
+                          widget.manga!.customCoverImage != null
+                              ? Image.memory(
+                                  widget.manga!.customCoverImage as Uint8List,
+                                  width: context.width(1),
+                                  height: 300,
+                                  fit: BoxFit.cover,
+                                )
+                              : cachedNetworkImage(
+                                  headers: isLocalArchive
+                                      ? null
+                                      : ref.watch(
+                                          headersProvider(
+                                            source: widget.manga!.source!,
+                                            lang: widget.manga!.lang!,
+                                            sourceId: widget.manga!.sourceId,
+                                          ),
                                         ),
-                                      ),
-                                imageUrl: toImgUrl(
-                                  widget.manga!.customCoverFromTracker ??
-                                      widget.manga!.imageUrl ??
-                                      "",
-                                ),
-                                width: context.width(1),
-                                height: 300,
-                                fit: BoxFit.cover,
-                              ),
-                        Stack(
-                          children: [
-                            Column(
-                              children: [
-                                Container(
+                                  imageUrl: toImgUrl(
+                                    widget.manga!.customCoverFromTracker ??
+                                        widget.manga!.imageUrl ??
+                                        "",
+                                  ),
                                   width: context.width(1),
-                                  height: AppBar().preferredSize.height,
-                                  color: context.isTablet
-                                      ? Theme.of(
-                                          context,
-                                        ).scaffoldBackgroundColor
-                                      : Theme.of(context)
-                                            .scaffoldBackgroundColor
-                                            .withValues(alpha: 0.9),
+                                  height: 300,
+                                  fit: BoxFit.cover,
                                 ),
-                                Container(
-                                  width: context.width(1),
-                                  height: 465,
-                                  color: context.isTablet
-                                      ? Theme.of(
-                                          context,
-                                        ).scaffoldBackgroundColor
-                                      : Theme.of(context)
-                                            .scaffoldBackgroundColor
-                                            .withValues(alpha: 0.9),
-                                ),
-                              ],
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              child: Container(
-                                width: context.width(1),
-                                height: 100,
-                                color: Theme.of(
-                                  context,
-                                ).scaffoldBackgroundColor,
+                          Stack(
+                            children: [
+                              Column(
+                                children: [
+                                  Container(
+                                    width: context.width(1),
+                                    height: AppBar().preferredSize.height,
+                                    color: context.isTablet
+                                        ? Theme.of(
+                                            context,
+                                          ).scaffoldBackgroundColor
+                                        : Theme.of(context)
+                                              .scaffoldBackgroundColor
+                                              .withValues(alpha: 0.9),
+                                  ),
+                                  Container(
+                                    width: context.width(1),
+                                    height: 465,
+                                    color: context.isTablet
+                                        ? Theme.of(
+                                            context,
+                                          ).scaffoldBackgroundColor
+                                        : Theme.of(context)
+                                              .scaffoldBackgroundColor
+                                              .withValues(alpha: 0.9),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              Positioned(
+                                bottom: 0,
+                                child: Container(
+                                  width: context.width(1),
+                                  height: 100,
+                                  color: Theme.of(
+                                    context,
+                                  ).scaffoldBackgroundColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     )
                   : Container(),
             );
@@ -425,14 +429,16 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                           ],
                         ),
                       )
-                    : AppBar(
-                        title: _offset > 200
+                    : ValueListenableBuilder<double>(
+                        valueListenable: _scrollOffset,
+                        builder: (context, offset, _) => AppBar(
+                        title: offset > 200
                             ? Text(
                                 widget.manga!.name!,
                                 style: const TextStyle(fontSize: 17),
                               )
                             : null,
-                        backgroundColor: _offset == 0.0
+                        backgroundColor: offset == 0.0
                             ? Colors.transparent
                             : Theme.of(context).scaffoldBackgroundColor,
                         actions: [
@@ -759,7 +765,8 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                             },
                           ),
                         ],
-                      );
+                      ),
+                    ),
               },
             ),
           ),
