@@ -638,6 +638,17 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       appBar: AppBar(title: const Text("Avancé")),
       body: ListView(
         children: [
+          // ── Section : LibPython ─────────────────────────────────────────
+            if (!kIsWeb && Platform.isAndroid) ...[
+              _sectionHeader("Python & ZeusDL"),
+              _action(
+                title: "LibPython — Gestionnaire de packages",
+                subtitle: "pip, packages Python, dépendances ZeusDL",
+                onTap: () => context.push('/libpython'),
+                trailing: Icons.arrow_forward_ios_rounded,
+              ),
+            ],
+
           // ── Section : Installation automatique ─────────────────────────
             if (!kIsWeb && Platform.isAndroid) ...[
               _sectionHeader("Installation automatique"),

@@ -7,6 +7,7 @@ import 'dart:async';
   import 'package:http/http.dart' as http;
   import 'package:path_provider/path_provider.dart';
   import 'package:watchtower/utils/log/logger.dart';
+  import 'package:watchtower/services/python/libpython_manager.dart';
 
   const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
 
@@ -324,6 +325,22 @@ import 'dart:async';
           'ZeusDL ✓ contexte prêt — ${pythonBin.path} $mainPy',
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
+      // ── Étape 5 : site-packages (dépendances pip) ───────────────────────
+      final sitePackagesDir = await LibPythonManager.instance.sitePackagesDir;
+      AppLogger.log('ZeusDL [5/5] PYTHONPATH = $sitePackagesDir',
+          logLevel: LogLevel.debug, tag: LogTag.zeus);
+
+      // Installer les dépendances ZeusDL manquantes en arrière-plan (non-bloquant)
+      LibPythonManager.instance
+          .ensureZeusDlDeps(
+            onProgress: (msg) => AppLogger.log('LibPython: $msg',
+                tag: LogTag.zeus, logLevel: LogLevel.debug),
+          )
+          .then((result) => AppLogger.log('LibPython deps: $result',
+              tag: LogTag.zeus, logLevel: LogLevel.info))
+          .catchError((e) => AppLogger.log('LibPython deps erreur: $e',
+              tag: LogTag.zeus, logLevel: LogLevel.warning));
+
       return ZeusDlExecutionContext(
         executable: pythonBin.path,
         prependArgs: [mainPy],
@@ -336,6 +353,8 @@ import 'dart:async';
           'SSL_CERT_FILE': '$pythonHome/etc/tls/cert.pem',
           'PYTHONDONTWRITEBYTECODE': '1',
           'PYTHONUNBUFFERED': '1',
+          // PYTHONPATH : dépendances pip installées par LibPythonManager
+          'PYTHONPATH': sitePackagesDir,
         },
       );
     }

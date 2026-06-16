@@ -159,7 +159,46 @@ jobs:
               "https://github.com/ferelking242/zeusdl/releases/download/${TAG}/zeusdl.zip" \
               -o assets/zeusdl/zeusdl.zip
             echo "$TAG" > assets/zeusdl/version.txt
-            echo "zeusdl.zip : $(du -sh assets/zeusdl/zeusdl.zip)"
+            echo "zeusdl.zip original : $(du -sh assets/zeusdl/zeusdl.zip)"
+
+            # ── 3. Vendoring des dépendances pure-Python dans zeusdl.zip ────────
+            # Les packages pure-Python ne nécessitent pas de compilation C.
+            # Ils sont extraits dans le même répertoire que __main__.py, donc
+            # Python les trouve automatiquement via sys.path (répertoire du script).
+            echo "Vendoring dépendances pure-Python dans zeusdl.zip..."
+
+            VENDOR_DIR="$(mktemp -d)"
+            pip3 install \
+              requests \
+              certifi \
+              urllib3 \
+              charset-normalizer \
+              idna \
+              websockets \
+              mutagen \
+              --target "$VENDOR_DIR" \
+              --no-compile \
+              -q 2>&1 | tail -5
+
+            # Supprimer .dist-info et __pycache__ (pas nécessaires au runtime)
+            find "$VENDOR_DIR" -name "*.dist-info" -type d -exec rm -rf {} + 2>/dev/null || true
+            find "$VENDOR_DIR" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+            find "$VENDOR_DIR" -name "*.pth" -delete 2>/dev/null || true
+            echo "Vendor dir: $(du -sh $VENDOR_DIR)"
+
+            # Décompresser zeusdl.zip, ajouter les vendored packages, recompresser
+            ZEUS_UNPACK="$(mktemp -d)"
+            unzip -q assets/zeusdl/zeusdl.zip -d "$ZEUS_UNPACK"
+
+            # Copier les packages vendored (sans écraser le code ZeusDL)
+            cp -rn "$VENDOR_DIR/." "$ZEUS_UNPACK/" 2>/dev/null || cp -r "$VENDOR_DIR/." "$ZEUS_UNPACK/"
+
+            # Recompresser
+            cd "$ZEUS_UNPACK" && zip -qr /tmp/zeusdl_bundled.zip . && cd -
+            mv /tmp/zeusdl_bundled.zip assets/zeusdl/zeusdl.zip
+            rm -rf "$VENDOR_DIR" "$ZEUS_UNPACK"
+
+            echo "zeusdl.zip avec dépendances : $(du -sh assets/zeusdl/zeusdl.zip)"
 
             # Nettoyer anciens assets obsolètes
             rm -rf assets/certifi assets/binaries

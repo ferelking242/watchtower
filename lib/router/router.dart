@@ -81,6 +81,7 @@ import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/modules/more/settings/settings_screen.dart';
 import 'package:watchtower/modules/more/settings/security/security_screen.dart';
 import 'package:watchtower/modules/more/settings/advanced/advanced_screen.dart';
+import 'package:watchtower/modules/more/settings/advanced/libpython_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/modules/splash/splash_screen.dart';
@@ -286,6 +287,7 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute(name: "dataAndStorage", child: const DataAndStorage()),
     _genericRoute(name: "security", child: const SecurityScreen()),
     _genericRoute(name: "advanced", child: const AdvancedScreen()),
+    _genericRoute(name: "libpython", child: const LibPythonScreen()),
     _genericRoute(name: "manageTrackers", child: const ManageTrackersScreen()),
     _genericRoute<TrackPreference>(
       name: "trackingDetail",
