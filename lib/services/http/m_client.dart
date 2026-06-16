@@ -23,6 +23,7 @@ import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/router/router.dart' show navigatorKey;
 
 class MClient {
   MClient();
