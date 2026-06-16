@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_qjs/quickjs/bytecode_cache.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
 import 'package:watchtower/eval/javascript/dom_selector.dart';
 import 'package:watchtower/eval/javascript/extractors.dart';
@@ -26,7 +27,17 @@ class JsExtensionService implements ExtensionService {
 
   JsExtensionService(this.source);
 
-  void _init() {
+  /// Sets up the runtime bridges (HTTP, DOM, utils…) and evaluates the
+  /// MProvider base class + the extension source code.
+  ///
+  /// On native platforms the source is compiled to QuickJS bytecode on the
+  /// first call and the result is persisted to disk via [BytecodeCache].
+  /// Subsequent launches load the cached bytecode directly — no re-parse,
+  /// no re-compile.
+  ///
+  /// On Flutter web the FFI compile() path is unavailable; we fall back to a
+  /// plain evaluate().
+  Future<void> _initAsync() async {
     if (_isInitialized) return;
     runtime = getJavascriptRuntime();
     JsHttpClient(runtime).init();
@@ -88,119 +99,61 @@ async function jsonStringify(fn) {
     return JSON.stringify(await fn());
 }
 ''');
-    String _normalizeJsExtensionCode(String code) {
-      // Some published extensions (e.g. FlixGaze) ship a regex literal that
-      // contains a *literal* newline — JavaScript treats that as an unterminated
-      // regex and the whole extension fails to install. We escape line
-      // terminators inside `/.../flags` regex literals before evaluation.
-      final buf = StringBuffer();
-      bool inSingle = false, inDouble = false, inBack = false;
-      bool inLineComment = false, inBlockComment = false, inRegex = false;
-      bool regexInClass = false;
-      String? prev;
-      for (var i = 0; i < code.length; i++) {
-        final ch = code[i];
-        final next = i + 1 < code.length ? code[i + 1] : '';
-        if (inLineComment) {
-          buf.write(ch);
-          if (ch == '\n') inLineComment = false;
-        } else if (inBlockComment) {
-          buf.write(ch);
-          if (ch == '*' && next == '/') {
-            buf.write(next);
-            i++;
-            inBlockComment = false;
-          }
-        } else if (inSingle) {
-          buf.write(ch);
-          if (ch == '\\' && next.isNotEmpty) {
-            buf.write(next);
-            i++;
-          } else if (ch == "'") {
-            inSingle = false;
-          }
-        } else if (inDouble) {
-          buf.write(ch);
-          if (ch == '\\' && next.isNotEmpty) {
-            buf.write(next);
-            i++;
-          } else if (ch == '"') {
-            inDouble = false;
-          }
-        } else if (inBack) {
-          buf.write(ch);
-          if (ch == '\\' && next.isNotEmpty) {
-            buf.write(next);
-            i++;
-          } else if (ch == '`') {
-            inBack = false;
-          }
-        } else if (inRegex) {
-          if (ch == '\\' && next.isNotEmpty) {
-            buf.write(ch);
-            buf.write(next);
-            i++;
-          } else if (ch == '[') {
-            regexInClass = true;
-            buf.write(ch);
-          } else if (ch == ']') {
-            regexInClass = false;
-            buf.write(ch);
-          } else if (ch == '/' && !regexInClass) {
-            inRegex = false;
-            buf.write(ch);
-          } else if (ch == '\n' || ch == '\r' || ch.codeUnitAt(0) == 0x2028 || ch.codeUnitAt(0) == 0x2029) {
-            // Escape literal line terminators inside regex literal
-            buf.write('\\n');
-          } else {
-            buf.write(ch);
-          }
-        } else {
-          if (ch == '/' && next == '/') {
-            inLineComment = true;
-            buf.write(ch);
-          } else if (ch == '/' && next == '*') {
-            inBlockComment = true;
-            buf.write(ch);
-          } else if (ch == "'") {
-            inSingle = true;
-            buf.write(ch);
-          } else if (ch == '"') {
-            inDouble = true;
-            buf.write(ch);
-          } else if (ch == '`') {
-            inBack = true;
-            buf.write(ch);
-          } else if (ch == '/') {
-            // Heuristic: treat as regex if previous non-whitespace token
-            // cannot end an expression (operators / keywords / punctuation).
-            final p = prev ?? '';
-            const continuators = {
-              '', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}',
-              ';', '+', '-', '*', '%', '<', '>', '^', '~', '\n',
-            };
-            if (continuators.contains(p)) {
-              inRegex = true;
-              regexInClass = false;
-            }
-            buf.write(ch);
-          } else {
-            buf.write(ch);
-          }
-        }
-        if (ch.trim().isNotEmpty) prev = ch;
+
+    final sourceCode = _normalizeJsExtensionCode(source.sourceCode ?? '');
+
+    JsEvalResult loadResult;
+
+    if (!kIsWeb) {
+      // ── Native: compile to bytecode once, cache to disk ──────────────────
+      final cache = BytecodeCache.instance;
+      final cached = await cache.get(sourceCode);
+      if (cached != null) {
+        loadResult = runtime.evaluateBytecode(cached);
+      } else {
+        final bytecode = runtime.compile(sourceCode, source.name ?? 'ext');
+        await cache.put(sourceCode, bytecode);
+        loadResult = runtime.evaluateBytecode(bytecode);
       }
-      return buf.toString();
-    }
-    final _initResult = runtime.evaluate('''${_normalizeJsExtensionCode(source.sourceCode ?? '')}
+      if (loadResult.isError) {
+        throw Exception(
+          'Extension "${source.name ?? source.id}" failed to load bytecode: ${loadResult.stringResult}',
+        );
+      }
+      final extResult = runtime.evaluate('var extention = new DefaultExtension();');
+      if (extResult.isError) {
+        throw Exception(
+          'Extension "${source.name ?? source.id}" failed to initialise: ${extResult.stringResult}',
+        );
+      }
+    } else {
+      // ── Web: plain evaluate (no FFI) ──────────────────────────────────────
+      loadResult = runtime.evaluate('''$sourceCode
 var extention = new DefaultExtension();
 ''');
-    if (_initResult.isError) {
-      throw Exception(
-        'Extension "${source.name ?? source.id}" failed to initialise: ${_initResult.stringResult}',
+      if (loadResult.isError) {
+        throw Exception(
+          'Extension "${source.name ?? source.id}" failed to initialise: ${loadResult.stringResult}',
+        );
+      }
+    }
+
+    _isInitialized = true;
+  }
+
+  /// Sync guard used by the few synchronous methods (getHeaders, supportsLatest,
+  /// getFilterList…). Those methods are called only after the extension has
+  /// already been warmed up by an async call (getPopular/getLatestUpdates/…),
+  /// so _isInitialized should already be true. If not (e.g. direct sync call
+  /// before any async call), we throw a clear error instead of silently
+  /// doing nothing.
+  void _ensureInitialized() {
+    if (!_isInitialized) {
+      throw StateError(
+        'JsExtensionService for "${source.name}" is not initialised. '
+        'Call an async method (getPopular, getLatestUpdates, …) first.',
       );
     }
-    _isInitialized = true;
   }
 
   @override
@@ -212,7 +165,8 @@ var extention = new DefaultExtension();
 
   @override
   Map<String, String> getHeaders() {
-    return _extensionCall<Map>(
+    _ensureInitialized();
+    return _extensionCallSync<Map>(
       'getHeaders(${jsonEncode(source.baseUrl ?? '')})',
       {},
     ).toMapStringString!;
@@ -220,7 +174,8 @@ var extention = new DefaultExtension();
 
   @override
   bool get supportsLatest {
-    return _extensionCall<bool>('supportsLatest', true);
+    _ensureInitialized();
+    return _extensionCallSync<bool>('supportsLatest', true);
   }
 
   @override
@@ -230,11 +185,13 @@ var extention = new DefaultExtension();
 
   @override
   Future<MPages> getPopular(int page) async {
+    await _initAsync();
     return MPages.fromJson(await _extensionCallAsync('getPopular($page)'));
   }
 
   @override
   Future<MPages> getLatestUpdates(int page) async {
+    await _initAsync();
     return MPages.fromJson(
       await _extensionCallAsync('getLatestUpdates($page)'),
     );
@@ -242,6 +199,7 @@ var extention = new DefaultExtension();
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
+    await _initAsync();
     return MPages.fromJson(
       await _extensionCallAsync(
         'search(${jsonEncode(query)},$page,${jsonEncode(filterValuesListToJson(filters))})',
@@ -251,6 +209,7 @@ var extention = new DefaultExtension();
 
   @override
   Future<MManga> getDetail(String url) async {
+    await _initAsync();
     return MManga.fromJson(
       await _extensionCallAsync('getDetail(${jsonEncode(url)})'),
     );
@@ -258,6 +217,7 @@ var extention = new DefaultExtension();
 
   @override
   Future<List<PageUrl>> getPageList(String url) async {
+    await _initAsync();
     final pages = LinkedHashSet<PageUrl>(
       equals: (a, b) => a.url == b.url,
       hashCode: (p) => p.url.hashCode,
@@ -279,6 +239,7 @@ var extention = new DefaultExtension();
 
   @override
   Future<List<Video>> getVideoList(String url) async {
+    await _initAsync();
     final videos = LinkedHashSet<Video>(
       equals: (a, b) => a.url == b.url && a.originalUrl == b.originalUrl,
       hashCode: (v) => Object.hash(v.url, v.originalUrl),
@@ -296,7 +257,7 @@ var extention = new DefaultExtension();
 
   @override
   Future<String> getHtmlContent(String name, String url) async {
-    _init();
+    await _initAsync();
     final res = (await runtime.handlePromise(
       await runtime.evaluateAsync(
         'jsonStringify(() => extention.getHtmlContent(${jsonEncode(name)}, ${jsonEncode(url)}))',
@@ -307,7 +268,7 @@ var extention = new DefaultExtension();
 
   @override
   Future<String> cleanHtmlContent(String html) async {
-    _init();
+    await _initAsync();
     final res = (await runtime.handlePromise(
       await runtime.evaluateAsync(
         'jsonStringify(() => extention.cleanHtmlContent(${jsonEncode(html)}))',
@@ -318,10 +279,11 @@ var extention = new DefaultExtension();
 
   @override
   FilterList getFilterList() {
+    _ensureInitialized();
     List<dynamic> list;
 
     try {
-      list = fromJsonFilterValuesToList(_extensionCall('getFilterList()', []));
+      list = fromJsonFilterValuesToList(_extensionCallSync('getFilterList()', []));
     } catch (_) {
       list = [];
     }
@@ -331,7 +293,8 @@ var extention = new DefaultExtension();
 
   @override
   List<SourcePreference> getSourcePreferences() {
-    return _extensionCall(
+    _ensureInitialized();
+    return _extensionCallSync(
       'getSourcePreferences()',
       [],
     ).map((e) => SourcePreference.fromJson(e)..sourceId = source.id).toList();
@@ -339,8 +302,9 @@ var extention = new DefaultExtension();
 
   @override
   List<Map<String, dynamic>> getCustomLists() {
+    _ensureInitialized();
     try {
-      final result = _extensionCall<List>('getCustomLists()', []);
+      final result = _extensionCallSync<List>('getCustomLists()', []);
       return result
           .whereType<Map>()
           .map((e) => e.cast<String, dynamic>())
@@ -352,6 +316,7 @@ var extention = new DefaultExtension();
 
   @override
   Future<MPages> getCustomList(String id, int page) async {
+    await _initAsync();
     return MPages.fromJson(
       await _extensionCallAsync(
         'getCustomList(${jsonEncode(id)},$page)',
@@ -359,25 +324,17 @@ var extention = new DefaultExtension();
     );
   }
 
-  T _extensionCall<T>(String call, T def) {
-    _init();
-
+  T _extensionCallSync<T>(String call, T def) {
     try {
       final res = runtime.evaluate('JSON.stringify(extention.$call)');
-
       return jsonDecode(res.stringResult) as T;
     } catch (_) {
-      if (def != null) {
-        return def;
-      }
-
+      if (def != null) return def;
       rethrow;
     }
   }
 
   Future<T> _extensionCallAsync<T>(String call) async {
-    _init();
-
     final promised = await runtime.handlePromise(
       await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),
     );
@@ -401,5 +358,128 @@ var extention = new DefaultExtension();
         '(got: ${raw.length > 120 ? raw.substring(0, 120) : raw}): $e',
       );
     }
+  }
+
+  /// Escapes literal line terminators inside regex literals so that QuickJS
+  /// doesn't reject the source with "unterminated regular expression".
+  static String _normalizeJsExtensionCode(String code) {
+    final buf = StringBuffer();
+    bool inSingle = false, inDouble = false, inBack = false;
+    bool inLineComment = false, inBlockComment = false, inRegex = false;
+    bool regexInClass = false;
+    String? prev;
+    for (var i = 0; i < code.length; i++) {
+      final ch = code[i];
+      final next = i + 1 < code.length ? code[i + 1] : '';
+      if (inLineComment) {
+        buf.write(ch);
+        if (ch == '\n') inLineComment = false;
+      } else if (inBlockComment) {
+        buf.write(ch);
+        if (ch == '*' && next == '/') {
+          buf.write(next);
+          i++;
+          inBlockComment = false;
+        }
+      } else if (inSingle) {
+        buf.write(ch);
+        if (ch == '\\' && next.isNotEmpty) {
+          buf.write(next);
+          i++;
+        } else if (ch == "'") {
+          inSingle = false;
+        }
+      } else if (inDouble) {
+        buf.write(ch);
+        if (ch == '\\' && next.isNotEmpty) {
+          buf.write(next);
+          i++;
+        } else if (ch == '"') {
+          inDouble = false;
+        }
+      } else if (inBack) {
+        buf.write(ch);
+        if (ch == '\\' && next.isNotEmpty) {
+          buf.write(next);
+          i++;
+        } else if (ch == '`') {
+          inBack = false;
+        }
+      } else if (inRegex) {
+        if (ch == '\\' && next.isNotEmpty) {
+          buf.write(ch);
+          buf.write(next);
+          i++;
+        } else if (ch == '[') {
+          regexInClass = true;
+          buf.write(ch);
+        } else if (ch == ']') {
+          regexInClass = false;
+          buf.write(ch);
+        } else if (ch == '/' && !regexInClass) {
+          inRegex = false;
+          buf.write(ch);
+        } else if (ch == '\n' ||
+            ch == '\r' ||
+            ch.codeUnitAt(0) == 0x2028 ||
+            ch.codeUnitAt(0) == 0x2029) {
+          buf.write('\\n');
+        } else {
+          buf.write(ch);
+        }
+      } else {
+        if (ch == '/' && next == '/') {
+          inLineComment = true;
+          buf.write(ch);
+        } else if (ch == '/' && next == '*') {
+          inBlockComment = true;
+          buf.write(ch);
+        } else if (ch == "'") {
+          inSingle = true;
+          buf.write(ch);
+        } else if (ch == '"') {
+          inDouble = true;
+          buf.write(ch);
+        } else if (ch == '`') {
+          inBack = true;
+          buf.write(ch);
+        } else if (ch == '/') {
+          final p = prev ?? '';
+          const continuators = {
+            '',
+            '(',
+            ',',
+            '=',
+            ':',
+            '[',
+            '!',
+            '&',
+            '|',
+            '?',
+            '{',
+            '}',
+            ';',
+            '+',
+            '-',
+            '*',
+            '%',
+            '<',
+            '>',
+            '^',
+            '~',
+            '\n',
+          };
+          if (continuators.contains(p)) {
+            inRegex = true;
+            regexInClass = false;
+          }
+          buf.write(ch);
+        } else {
+          buf.write(ch);
+        }
+      }
+      if (ch.trim().isNotEmpty) prev = ch;
+    }
+    return buf.toString();
   }
 }
