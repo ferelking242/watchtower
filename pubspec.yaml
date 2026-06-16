@@ -155,8 +155,6 @@ flutter:
   assets:
     - assets/
     - assets/animations/
-    - path: assets/fonts/
-      platforms: [android]
     - assets/trackers_icons/
     - assets/app_icons/
     - assets/zeusdl/

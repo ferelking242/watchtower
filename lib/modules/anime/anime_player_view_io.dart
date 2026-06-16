@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:http/http.dart' as http;
 import 'package:collection/collection.dart';
 import 'dart:convert';
 import 'dart:ffi';
@@ -1048,21 +1049,29 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
       try {
         final subDir = await getApplicationDocumentsDirectory();
         final fontPath = path.join(subDir.path, 'subfont.ttf');
-        final data = await rootBundle.load('assets/fonts/subfont.ttf');
-        final bytes = data.buffer.asInt8List(
-          data.offsetInBytes,
-          data.lengthInBytes,
-        );
-        final fontFile = await File(fontPath).create(recursive: true);
-        await fontFile.writeAsBytes(bytes);
-        await (_player.platform as NativePlayer).setProperty(
-          'sub-fonts-dir',
-          subDir.path,
-        );
-        await (_player.platform as NativePlayer).setProperty(
-          'sub-font',
-          'Droid Sans Fallback',
-        );
+        final fontFile = File(fontPath);
+
+        // Utilise le cache local si la police est déjà présente
+        if (!await fontFile.exists() || await fontFile.length() < 1024) {
+          const fontUrl =
+              'https://raw.githubusercontent.com/ferelking242/watchtower/main/assets/fonts/subfont.ttf';
+          final res = await http.get(Uri.parse(fontUrl));
+          if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+            await fontFile.create(recursive: true);
+            await fontFile.writeAsBytes(res.bodyBytes);
+          }
+        }
+
+        if (await fontFile.exists() && await fontFile.length() > 1024) {
+          await (_player.platform as NativePlayer).setProperty(
+            'sub-fonts-dir',
+            subDir.path,
+          );
+          await (_player.platform as NativePlayer).setProperty(
+            'sub-font',
+            'Droid Sans Fallback',
+          );
+        }
       } catch (_) {}
     }
   }

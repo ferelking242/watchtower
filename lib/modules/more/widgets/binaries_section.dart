@@ -37,6 +37,12 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
       icon: Icons.bolt_rounded,
     ),
     _ToolDef(
+      name: 'yt-dlp',
+      label: 'yt-dlp',
+      description: 'Téléchargement YouTube & 1000+ sites. Tourne sur le runtime Python déjà embarqué — aucun poids supplémentaire.',
+      icon: Icons.video_library_rounded,
+    ),
+    _ToolDef(
       name: 'aria2c',
       label: 'aria2c',
       description: 'Téléchargement HTTP/FTP/Magnet multi-segment haute performance.',
@@ -77,6 +83,10 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
     if (tool.name == 'zeusdl') {
       // Méthode B : zeusdl.zip = scripts Python, indépendant de l'arch
       return 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl.zip';
+    }
+    if (tool.name == 'yt-dlp') {
+      // Python zipapp indépendant de l'arch — tourne sur libpython.so déjà embarqué
+      return 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
     }
     if (tool.name == 'aria2c') {
       return 'https://github.com/abcfy2/aria2-static-build/releases/latest/download/aria2-${isX64 ? 'x86_64' : 'aarch64'}-linux-musl_static.zip';
@@ -131,9 +141,9 @@ Future<String?> _getNativeLibDir() async {
 Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
   if (nativeDir == null || nativeDir.isEmpty) return null;
   try {
-    // Méthode B : ZeusDL s'exécute via libpython.so (Python Bionic, sans SIGSEGV).
-    // Il n'y a pas de libzeusdl.so — on détecte la présence du runtime Python.
-    if (name == 'zeusdl') {
+    // ZeusDL et yt-dlp s'exécutent via libpython.so (Python Bionic, sans SIGSEGV).
+    // Pas de lib native dédiée — on détecte la présence du runtime Python.
+    if (name == 'zeusdl' || name == 'yt-dlp') {
       final pythonLib = File('$nativeDir/libpython.so');
       if (await pythonLib.exists() && await pythonLib.length() > 0) {
         return 'Python runtime';
@@ -859,7 +869,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                   ),
                 ),
                 const SizedBox(width: 6),
-                _TagChip(label: tool.name == 'aria2c' ? 'HTTP/FTP' : 'Universal'),
+                _TagChip(label: tool.name == 'aria2c' ? 'HTTP/FTP' : tool.name == 'yt-dlp' ? 'Python' : 'Universal'),
               ],
             ),
             // ── Download progress ─────────────────────────────────────────────
