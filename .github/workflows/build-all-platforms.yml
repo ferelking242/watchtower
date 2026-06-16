@@ -66,20 +66,25 @@ jobs:
             ZEUSDL_ARCH="x86_64"
           fi
           echo "=== Bundling ZeusDL ($ZEUSDL_ARCH) as Flutter asset ==="
-          RELEASE_JSON=$(curl -fsSL \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
-          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
-          echo "ZeusDL version: $ZEUSDL_VERSION"
           # Remove ET_EXEC stubs — Android 10+ rejects non-PIE .so at install time
           rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
           rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
-          # Bundle binary as Flutter asset (extracted to internal storage at runtime)
-          mkdir -p assets/binaries
-          URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-${ZEUSDL_ARCH}"
-          echo "Downloading: $URL"
-          curl -fsSL "$URL" -o assets/binaries/zeusdl
+          # Ensure asset dirs exist (Flutter requires every declared asset dir to be present)
+          mkdir -p assets/binaries assets/zeusdl
+          # Search the last 10 releases for the per-arch binary.
+          # "releases/latest" only returns a zip; per-arch ELFs live in standalone releases.
+          ASSET_NAME="zeusdl-android-${ZEUSDL_ARCH}"
+          ASSET_URL=$(curl -fsSL \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/ferelking242/zeusdl/releases?per_page=10" | \
+            jq -r --arg n "$ASSET_NAME" \
+            '[.[].assets[] | select(.name == $n)] | first | .browser_download_url // ""')
+          if [ -z "$ASSET_URL" ]; then
+            echo "ERROR: asset $ASSET_NAME not found in last 10 releases"; exit 1
+          fi
+          echo "Downloading: $ASSET_URL"
+          curl -fsSL "$ASSET_URL" -o assets/binaries/zeusdl
           SIZE=$(wc -c < assets/binaries/zeusdl)
           MAGIC=$(head -c 4 assets/binaries/zeusdl | xxd -p)
           if [ "$MAGIC" != "7f454c46" ]; then
@@ -170,17 +175,22 @@ jobs:
         run: |
           set -euo pipefail
           echo "=== Bundling ZeusDL (arm64) as Flutter asset for Universal APK ==="
-          RELEASE_JSON=$(curl -fsSL \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest")
-          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
-          echo "ZeusDL version: $ZEUSDL_VERSION"
           rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
           rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
-          mkdir -p assets/binaries
-          URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/zeusdl-android-arm64"
-          curl -fsSL "$URL" -o assets/binaries/zeusdl
+          # Ensure asset dirs exist (Flutter requires every declared asset dir to be present)
+          mkdir -p assets/binaries assets/zeusdl
+          # Search the last 10 releases for the per-arch binary.
+          # "releases/latest" only returns a zip; per-arch ELFs live in standalone releases.
+          ASSET_URL=$(curl -fsSL \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/ferelking242/zeusdl/releases?per_page=10" | \
+            jq -r '[.[].assets[] | select(.name == "zeusdl-android-arm64")] | first | .browser_download_url // ""')
+          if [ -z "$ASSET_URL" ]; then
+            echo "ERROR: asset zeusdl-android-arm64 not found in last 10 releases"; exit 1
+          fi
+          echo "Downloading: $ASSET_URL"
+          curl -fsSL "$ASSET_URL" -o assets/binaries/zeusdl
           SIZE=$(wc -c < assets/binaries/zeusdl)
           MAGIC=$(head -c 4 assets/binaries/zeusdl | xxd -p)
           if [ "$MAGIC" != "7f454c46" ]; then echo "ERROR: not ELF"; exit 1; fi
