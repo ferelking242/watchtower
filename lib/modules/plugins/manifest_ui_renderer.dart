@@ -39,7 +39,7 @@ import 'dart:convert';
 
   // ─── Schema models ────────────────────────────────────────────────────────────
 
-  enum _InputType { urlField, textField, select, toggle, unknown }
+  enum _InputType { urlField, textField, select, toggle, chipSelect, unknown }
 
   class _InputSpec {
     final String id;
@@ -67,6 +67,7 @@ import 'dart:convert';
         'text_field' => _InputType.textField,
         'select'     => _InputType.select,
         'toggle'     => _InputType.toggle,
+        'chip_select' => _InputType.chipSelect,
         _            => _InputType.unknown,
       };
       return _InputSpec(
@@ -441,6 +442,8 @@ import 'dart:convert';
             ),
           );
 
+        case _InputType.chipSelect:
+          return _buildChipSelect(inp);
         case _InputType.unknown:
           return const SizedBox.shrink();
       }
