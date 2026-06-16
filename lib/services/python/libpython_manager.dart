@@ -308,6 +308,96 @@ class LibPythonManager {
     return result;
   }
 
+
+  // ── Plugin-generic dep resolution ────────────────────────────────────────
+
+  /// Résout et installe les dépendances Python pour n'importe quel plugin.
+  ///
+  /// [pluginId]   : identifiant du plugin (ex: "com.watchtower.telegram-source")
+  /// [pluginDeps] : liste des packages requis par le plugin
+  /// [markerKey]  : clé unique pour le fichier marqueur (évite double-install)
+  Future<String> resolvePluginDeps({
+    required String pluginId,
+    required List<String> pluginDeps,
+    String? markerKey,
+    void Function(String msg)? onProgress,
+  }) async {
+    final exe = await pythonExe;
+    if (exe == null) return 'libpython.so introuvable — skip';
+
+    final fd = await _filesDir;
+    final key = markerKey ?? pluginId.replaceAll('.', '_');
+    final markerFile = File('$fd/python_packages/.deps_ok_$key');
+
+    if (await markerFile.exists()) {
+      return 'Dépendances $pluginId déjà installées ✓';
+    }
+
+    final installed = await listInstalledPackages();
+    final installedNames = installed
+        .map((p) => p.name.toLowerCase().replaceAll('-', '_'))
+        .toSet();
+
+    final missing = pluginDeps.where((pkg) {
+      final normalized = pkg.toLowerCase().replaceAll('-', '_');
+      return !installedNames.contains(normalized);
+    }).toList();
+
+    if (missing.isEmpty) {
+      await markerFile.parent.create(recursive: true);
+      await markerFile.writeAsString(DateTime.now().toIso8601String());
+      AppLogger.log(
+          'LibPython: dépendances $pluginId toutes présentes ✓',
+          tag: LogTag.zeus, logLevel: LogLevel.debug);
+      return 'Toutes les dépendances $pluginId sont présentes ✓';
+    }
+
+    AppLogger.log(
+        'LibPython: installation deps $pluginId manquantes: ${missing.join(", ")}',
+        tag: LogTag.zeus, logLevel: LogLevel.info);
+    onProgress?.call('$pluginId — installation: ${missing.join(", ")}...');
+
+    final sp = await sitePackagesDir;
+    final env = await _env;
+    final results = <String>[];
+
+    for (final pkg in missing) {
+      onProgress?.call('$pluginId — installation de $pkg...');
+      try {
+        final res = await Process.run(
+          exe,
+          ['-m', 'pip', 'install', pkg,
+           '--target', sp,
+           '--no-warn-script-location',
+           '--prefer-binary', '-q'],
+          environment: env,
+        ).timeout(const Duration(minutes: 3));
+
+        if (res.exitCode == 0) {
+          results.add('✓ $pkg');
+          AppLogger.log('LibPython: $pkg installé ✓',
+              tag: LogTag.zeus, logLevel: LogLevel.info);
+        } else {
+          results.add('✗ $pkg');
+          AppLogger.log(
+              'LibPython: $pkg ERREUR: ${(res.stderr as String).split("\n").last}',
+              tag: LogTag.zeus, logLevel: LogLevel.warning);
+        }
+      } catch (e) {
+        results.add('✗ $pkg ($e)');
+      }
+    }
+
+    final allOk = results.every((r) => r.startsWith('✓'));
+    if (allOk) {
+      await markerFile.parent.create(recursive: true);
+      await markerFile.writeAsString(DateTime.now().toIso8601String());
+    }
+
+    return results.join('\n');
+  }
+
+
   /// Ensures all ZeusDL deps are installed. Fire-and-forget safe.
   Future<String> ensureZeusDlDeps({void Function(String msg)? onProgress}) async {
     final exe = await pythonExe;
