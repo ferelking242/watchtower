@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -17,7 +19,13 @@ import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 
+import 'package:watchtower/utils/log/logger.dart';
+
 import '../interface.dart';
+
+/// Default JS execution timeout per async extension call.
+/// Prevents hanging if an extension JS awaits a Promise that never resolves.
+const Duration _kJsExecutionTimeout = Duration(seconds: 30);
 
 class JsExtensionService implements ExtensionService {
   late JavascriptRuntime runtime;
@@ -41,6 +49,22 @@ class JsExtensionService implements ExtensionService {
   Future<void> _initAsync() async {
     if (_isInitialized) return;
     runtime = getJavascriptRuntime();
+
+    // \u2500\u2500 Wire JS console.log / .warn / .error \u2192 AppLogger \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    final extensionLabel = source.name ?? source.id ?? 'ext';
+    runtime.consoleLogHandler = (level, message) {
+      final logLevel = switch (level) {
+        'error' => LogLevel.error,
+        'warn' => LogLevel.warning,
+        _ => LogLevel.debug,
+      };
+      AppLogger.log(
+        '[JS:$'extensionLabel'] $'message',
+        logLevel: logLevel,
+        tag: LogTag.extension_,
+      );
+    };
+
     JsHttpClient(runtime).init();
     _jsDomSelector = JsDomSelector(runtime)..init();
     JsUtils(runtime).init();
@@ -161,6 +185,7 @@ var extention = new DefaultExtension();
   void dispose() {
     if (!_isInitialized) return;
     _jsDomSelector.dispose();
+    runtime.dispose(); // cancel timers + close QuickJS engine
     _isInitialized = false;
   }
 
@@ -338,6 +363,12 @@ var extention = new DefaultExtension();
   Future<T> _extensionCallAsync<T>(String call) async {
     final promised = await runtime.handlePromise(
       await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),
+    ).timeout(
+      _kJsExecutionTimeout,
+      onTimeout: () => throw TimeoutException(
+        'Extension JS call "\${source.name ?? source.id}" exceeded '
+        '\${_kJsExecutionTimeout.inSeconds}s timeout.',
+      ),
     );
 
     if (promised.isError) {

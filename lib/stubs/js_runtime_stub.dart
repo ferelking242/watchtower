@@ -28,6 +28,7 @@
     Map<String, dynamic> dartContext = {};
 
     JavascriptRuntime init() => this;
+    Function(String level, String message)? consoleLogHandler;
     void dispose();
     JsEvalResult evaluate(String code, {String? sourceUrl});
     Future<JsEvalResult> evaluateAsync(String code, {String? sourceUrl});
