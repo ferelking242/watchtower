@@ -1,7 +1,7 @@
 import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_qjs/quickjs/bytecode_cache.dart';
+import 'package:watchtower/eval/javascript/bytecode_cache.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
 import 'package:watchtower/eval/javascript/dom_selector.dart';
 import 'package:watchtower/eval/javascript/extractors.dart';
