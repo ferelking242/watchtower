@@ -108,9 +108,9 @@ class NavDockStyleNotifier extends Notifier<String> {
   @override
   String build() {
     final stored =
-        _box?.get('dock_style', defaultValue: 'classic') as String? ??
-        'classic';
-    return _valid.contains(stored) ? stored : 'classic';
+        _box?.get('dock_style', defaultValue: 'immersive') as String? ??
+        'immersive';
+    return _valid.contains(stored) ? stored : 'immersive';
   }
 
   /// Valid values: classic, immersive, pc_sidebar

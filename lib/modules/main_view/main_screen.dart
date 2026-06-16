@@ -344,7 +344,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     child: Stack(
                       children: [
                     Scaffold(
-                      extendBody: dockStyle == 'classic',
+                      extendBody: true,
                       body: NotificationListener<UserScrollNotification>(
                         onNotification: (n) {
                           // Only care about vertical primary scrolls so the
@@ -2067,30 +2067,11 @@ class _ClassicDock extends StatelessWidget {
         duration: Duration(milliseconds: itemAnimMs),
         curve: Curves.easeOutCubic,
         margin: EdgeInsets.symmetric(horizontal: spacing / 2),
-        decoration: BoxDecoration(
-          color: active
-              ? (isDark
-                  ? cs.primary.withValues(alpha: 0.15)
-                  : cs.primary.withValues(alpha: 0.10))
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
         padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 5),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Active indicator dot above icon
-            AnimatedContainer(
-              duration: Duration(milliseconds: itemAnimMs),
-              width: active ? 4 : 0,
-              height: active ? 4 : 0,
-              margin: EdgeInsets.only(bottom: active ? 3 : 0),
-              decoration: BoxDecoration(
-                color: active ? accent : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-            ),
             AnimatedScale(
               scale: active ? 1.12 : 1.0,
               duration: Duration(milliseconds: itemAnimMs),
@@ -2098,7 +2079,7 @@ class _ClassicDock extends StatelessWidget {
               child: iconWidget,
             ),
             if (showLabels) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 item.label,
                 maxLines: 1,
@@ -2113,6 +2094,17 @@ class _ClassicDock extends StatelessWidget {
                 ),
               ),
             ],
+            // Active indicator dot — bottom of item
+            AnimatedContainer(
+              duration: Duration(milliseconds: itemAnimMs),
+              width: active ? 4 : 0,
+              height: active ? 4 : 0,
+              margin: EdgeInsets.only(top: active ? 3 : 0),
+              decoration: BoxDecoration(
+                color: active ? accent : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+            ),
           ],
         ),
       ),

@@ -6,18 +6,17 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 
 class _MenuItem {
+  final String route;
   final String label;
   final IconData icon;
-  final VoidCallback onTap;
 
   const _MenuItem({
+    required this.route,
     required this.label,
     required this.icon,
-    required this.onTap,
   });
 }
 
-// Route → (label, icon) for overflow item display and reorder panel
 const _kRouteInfo = <String, (String, IconData)>{
   '/WatchtowerHome': ('Accueil', Icons.home_rounded),
   '/AnimeLibrary': ('Watch', Icons.live_tv_rounded),
@@ -26,11 +25,11 @@ const _kRouteInfo = <String, (String, IconData)>{
   '/MusicLibrary': ('Music', Icons.music_note),
   '/GameLibrary': ('Games', Icons.sports_esports),
   '/Library': ('Library', Icons.collections_bookmark),
-  '/browse': ('Extensions', Icons.extension_rounded),
+  '/browse': ('Extensions', Icons.explore_rounded),
   '/history': ('History', Icons.history_rounded),
   '/updates': ('Updates', Icons.new_releases_rounded),
   '/trackerLibrary': ('Tracking', Icons.account_tree),
-  '/more': ('More', Icons.apps_rounded),
+  '/more': ('More', Icons.settings_rounded),
   '/schedule': ('Schedule', Icons.calendar_month_rounded),
   '/marketplace': ('Market', Icons.storefront_rounded),
   '_enableLibSwitch': ('Hub', Icons.grid_view_rounded),
@@ -58,7 +57,6 @@ const _kDefaultHideItems = [
   '/history',
 ];
 
-// Static routes always shown in menu (minus duplicates with overflow)
 const _kStaticRoutes = [
   '/more',
   '/browse',
@@ -86,29 +84,22 @@ class _WatchtowerMenuOverlayState
     extends ConsumerState<WatchtowerMenuOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  late List<Animation<double>> _itemAnims;
+  late final Animation<Offset> _slideAnim;
+  late final Animation<double> _fadeAnim;
   bool _reorderMode = false;
-
-  void _rebuildAnims(int count) {
-    final n = count.clamp(1, 20);
-    _itemAnims = List.generate(n, (i) {
-      final start = i * 0.07;
-      final end = (start + 0.5).clamp(0.0, 1.0);
-      return CurvedAnimation(
-        parent: _ctrl,
-        curve: Interval(start, end, curve: Curves.easeOutCubic),
-      );
-    });
-  }
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 280),
+      duration: const Duration(milliseconds: 300),
     );
-    _rebuildAnims(5);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _ctrl.forward();
   }
 
@@ -128,39 +119,31 @@ class _WatchtowerMenuOverlayState
     if (mounted) context.go(route);
   }
 
-  List<_MenuItem> _buildMenuItems() {
+  List<_MenuItem> _buildItems() {
     final overflowSet = widget.overflowRoutes.toSet();
+    final seen = <String>{};
+    final items = <_MenuItem>[];
 
-    // Overflow items rendered first so they're always accessible
-    final overflowItems = widget.overflowRoutes
-        .map((r) {
-          final info = _kRouteInfo[r];
-          if (info == null) return null;
-          return _MenuItem(
-            label: info.$1,
-            icon: info.$2,
-            onTap: () => _navigate(r),
-          );
-        })
-        .nonNulls
-        .toList();
+    // Overflow first
+    for (final r in widget.overflowRoutes) {
+      final info = _kRouteInfo[r];
+      if (info == null) continue;
+      if (seen.add(r)) {
+        items.add(_MenuItem(route: r, label: info.$1, icon: info.$2));
+      }
+    }
 
-    // Static items — skip any already covered by overflow to avoid duplication
-    final staticItems = _kStaticRoutes
-        .where((r) => !overflowSet.contains(r))
-        .map((r) {
-          final info = _kRouteInfo[r];
-          if (info == null) return null;
-          return _MenuItem(
-            label: info.$1,
-            icon: info.$2,
-            onTap: () => _navigate(r),
-          );
-        })
-        .nonNulls
-        .toList();
+    // Static routes
+    for (final r in _kStaticRoutes) {
+      if (overflowSet.contains(r)) continue;
+      final info = _kRouteInfo[r];
+      if (info == null) continue;
+      if (seen.add(r)) {
+        items.add(_MenuItem(route: r, label: info.$1, icon: info.$2));
+      }
+    }
 
-    return [...overflowItems, ...staticItems];
+    return items;
   }
 
   void _onReorder(List<String> currentOrder, int oldIndex, int newIndex) {
@@ -185,173 +168,60 @@ class _WatchtowerMenuOverlayState
     final mq = MediaQuery.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
+    // Dock is 64px pill + 14px bottom pad + safe area; panel sits above it
     final dockBottom = 14.0 + 64.0 + mq.padding.bottom;
 
     if (_reorderMode) {
       return _buildReorderMode(context, mq, isDark, cs, dockBottom);
     }
 
-    final items = _buildMenuItems();
-    _rebuildAnims(items.length);
+    final items = _buildItems();
 
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        return Stack(
-          children: [
-            // Transparent dismiss area — no dim, no blur, app stays interactive
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () {
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Stack(
+        children: [
+          // Transparent dismiss tap-outside
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _close();
+              },
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+          ),
+
+          // Bottom panel — slides up above the dock
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: dockBottom + 10,
+            child: SlideTransition(
+              position: _slideAnim,
+              child: _MenuPanel(
+                isDark: isDark,
+                cs: cs,
+                items: items,
+                currentLocation: GoRouterState.of(context).matchedLocation,
+                onItemTap: (route) {
                   HapticFeedback.lightImpact();
-                  _close();
+                  _navigate(route);
                 },
-                behavior: HitTestBehavior.translucent,
-                child: const SizedBox.expand(),
-              ),
-            ),
-
-            // Menu items — overflow first, then static, stagger from bottom to top
-            Positioned(
-              right: 12,
-              bottom: dockBottom + 8,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (int i = 0; i < items.length; i++) ...[
-                    _AnimatedMenuItem(
-                      item: items[i],
-                      animation: i < _itemAnims.length
-                          ? _itemAnims[i]
-                          : const AlwaysStoppedAnimation(1.0),
-                      isDark: isDark,
-                      cs: cs,
-                    ),
-                    if (i < items.length - 1) const SizedBox(height: 8),
-                  ],
-                ],
-              ),
-            ),
-
-            // FAB close button — bottom-right
-            Positioned(
-              right: 12,
-              bottom: mq.padding.bottom + 7,
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  _close();
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF1B1B1E)
-                        : cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.10)
-                          : Colors.black.withValues(alpha: 0.08),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black
-                            .withValues(alpha: isDark ? 0.45 : 0.12),
-                        blurRadius: 16,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Transform.rotate(
-                        angle: _ctrl.value * 3.14159 / 4,
-                        child: Icon(
-                          Icons.close_rounded,
-                          color: cs.primary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Menu',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Wrench button — bottom-left — enters reorder mode
-            Positioned(
-              left: 12,
-              bottom: mq.padding.bottom + 7,
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
+                onReorderTap: () {
+                  HapticFeedback.mediumImpact();
                   setState(() => _reorderMode = true);
                 },
-                child: Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF1B1B1E)
-                        : cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.10)
-                          : Colors.black.withValues(alpha: 0.08),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black
-                            .withValues(alpha: isDark ? 0.45 : 0.12),
-                        blurRadius: 16,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.build_rounded,
-                        color: cs.onSurface.withValues(alpha: 0.65),
-                        size: 20,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Reorder',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurface.withValues(alpha: 0.55),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                onClose: () {
+                  HapticFeedback.lightImpact();
+                  _close();
+                },
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -365,258 +235,427 @@ class _WatchtowerMenuOverlayState
     final navOrder = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
 
-    return Stack(
-      children: [
-        // Transparent dismiss — app remains fully interactive behind the panel
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              setState(() => _reorderMode = false);
-            },
-            behavior: HitTestBehavior.translucent,
-            child: const SizedBox.expand(),
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                setState(() => _reorderMode = false);
+              },
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
           ),
-        ),
 
-        // Reorder panel anchored above the dock
-        Positioned(
-          left: 12,
-          right: 12,
-          bottom: dockBottom + 8,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: mq.size.height * 0.55),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.55)
-                        : Colors.white.withValues(alpha: 0.78),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: dockBottom + 10,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: mq.size.height * 0.55),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.10)
-                          : Colors.black.withValues(alpha: 0.08),
-                      width: 1,
+                          ? Colors.black.withValues(alpha: 0.60)
+                          : Colors.white.withValues(alpha: 0.82),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.10)
+                            : Colors.black.withValues(alpha: 0.08),
+                        width: 1,
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header row
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.build_rounded,
-                              size: 15,
-                              color: cs.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Reorder Navigation',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: cs.onSurface,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.swap_vert_rounded,
+                                  size: 16, color: cs.primary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Réorganiser la navigation',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.onSurface,
+                                  ),
                                 ),
                               ),
-                            ),
-                            // X — reset both providers to defaults
-                            IconButton(
-                              onPressed: () {
-                                HapticFeedback.mediumImpact();
-                                _resetProviders();
-                              },
-                              icon: Icon(
-                                Icons.refresh_rounded,
-                                size: 18,
-                                color: cs.error,
+                              IconButton(
+                                onPressed: () {
+                                  HapticFeedback.mediumImpact();
+                                  _resetProviders();
+                                },
+                                icon: Icon(Icons.refresh_rounded,
+                                    size: 18, color: cs.error),
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(),
                               ),
-                              tooltip: 'Reset to defaults',
-                              padding: const EdgeInsets.all(6),
-                              constraints: const BoxConstraints(),
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                        child: Text(
-                          'Drag to reorder  ·  First 4 = dock  ·  Rest = menu',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: cs.onSurface.withValues(alpha: 0.48),
+                              IconButton(
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  setState(() => _reorderMode = false);
+                                },
+                                icon: Icon(Icons.check_rounded,
+                                    size: 18, color: cs.primary),
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      const Divider(height: 1, thickness: 0.5),
-                      // Reorderable list
-                      Flexible(
-                        child: ReorderableListView.builder(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          proxyDecorator: (child, index, animation) =>
-                              Material(
-                                color: Colors.transparent,
-                                elevation: 0,
-                                child: child,
-                              ),
-                          onReorder: (oldIndex, newIndex) {
-                            HapticFeedback.selectionClick();
-                            _onReorder(navOrder, oldIndex, newIndex);
-                          },
-                          itemCount: navOrder.length,
-                          itemBuilder: (context, index) {
-                            final route = navOrder[index];
-                            final info = _kRouteInfo[route];
-                            final label =
-                                info?.$1 ?? route.replaceAll('/', '');
-                            final icon =
-                                info?.$2 ?? Icons.circle_outlined;
-                            final isHidden = hideItems.contains(route);
-                            final inDock = index < 4 && !isHidden;
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Text(
+                            'Glisser pour réordonner  ·  4 premiers = dock  ·  reste = menu',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: cs.onSurface.withValues(alpha: 0.45),
+                            ),
+                          ),
+                        ),
+                        Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            color: cs.onSurface.withValues(alpha: 0.12)),
+                        Flexible(
+                          child: ReorderableListView.builder(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            proxyDecorator: (child, index, animation) =>
+                                Material(
+                              color: Colors.transparent,
+                              elevation: 0,
+                              child: child,
+                            ),
+                            onReorder: (oldIndex, newIndex) {
+                              HapticFeedback.selectionClick();
+                              _onReorder(navOrder, oldIndex, newIndex);
+                            },
+                            itemCount: navOrder.length,
+                            itemBuilder: (context, index) {
+                              final route = navOrder[index];
+                              final info = _kRouteInfo[route];
+                              final label =
+                                  info?.$1 ?? route.replaceAll('/', '');
+                              final icon = info?.$2 ?? Icons.circle_outlined;
+                              final isHidden = hideItems.contains(route);
+                              final inDock = index < 4 && !isHidden;
 
-                            return ListTile(
-                              key: ValueKey(route),
-                              leading: Icon(
-                                icon,
-                                size: 20,
-                                color: inDock
-                                    ? cs.primary
-                                    : cs.onSurface.withValues(
-                                        alpha: isHidden ? 0.30 : 0.55,
-                                      ),
-                              ),
-                              title: Text(
-                                label,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: inDock
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: cs.onSurface.withValues(
-                                    alpha: isHidden ? 0.38 : 1.0,
-                                  ),
-                                ),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _ReorderBadge(
-                                    label: inDock
-                                        ? 'dock'
-                                        : isHidden
-                                            ? 'hidden'
-                                            : 'menu',
+                              return ListTile(
+                                key: ValueKey(route),
+                                leading: Icon(icon,
+                                    size: 20,
                                     color: inDock
                                         ? cs.primary
-                                        : cs.onSurface
-                                            .withValues(alpha: 0.38),
-                                    bg: inDock
-                                        ? cs.primary.withValues(alpha: 0.12)
-                                        : cs.onSurface
-                                            .withValues(alpha: 0.07),
+                                        : cs.onSurface.withValues(
+                                            alpha: isHidden ? 0.28 : 0.52)),
+                                title: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: inDock
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: cs.onSurface.withValues(
+                                        alpha: isHidden ? 0.35 : 1.0),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    Icons.drag_handle_rounded,
-                                    size: 18,
-                                    color: cs.onSurface
-                                        .withValues(alpha: 0.28),
-                                  ),
-                                ],
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 0,
-                              ),
-                              dense: true,
-                              minVerticalPadding: 4,
-                            );
-                          },
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _Badge(
+                                      label: inDock
+                                          ? 'dock'
+                                          : isHidden
+                                              ? 'caché'
+                                              : 'menu',
+                                      color: inDock
+                                          ? cs.primary
+                                          : cs.onSurface
+                                              .withValues(alpha: 0.38),
+                                      bg: inDock
+                                          ? cs.primary.withValues(alpha: 0.12)
+                                          : cs.onSurface
+                                              .withValues(alpha: 0.07),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.drag_handle_rounded,
+                                        size: 18,
+                                        color: cs.onSurface
+                                            .withValues(alpha: 0.28)),
+                                  ],
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16),
+                                dense: true,
+                                minVerticalPadding: 4,
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Wrench button — bottom-left — highlighted while in reorder mode
-        Positioned(
-          left: 12,
-          bottom: mq.padding.bottom + 7,
-          child: GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              setState(() => _reorderMode = false);
-            },
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? cs.primary.withValues(alpha: 0.20)
-                    : cs.primary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: cs.primary.withValues(alpha: 0.38),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black
-                        .withValues(alpha: isDark ? 0.45 : 0.12),
-                    blurRadius: 16,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.build_rounded, color: cs.primary, size: 20),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Done',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: cs.primary,
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-// ── Small badge chip used in the reorder list ─────────────────────────────────
+// ── Menu panel (bottom sheet card) ────────────────────────────────────────────
 
-class _ReorderBadge extends StatelessWidget {
-  const _ReorderBadge({
-    required this.label,
-    required this.color,
-    required this.bg,
+class _MenuPanel extends StatelessWidget {
+  final bool isDark;
+  final ColorScheme cs;
+  final List<_MenuItem> items;
+  final String? currentLocation;
+  final void Function(String) onItemTap;
+  final VoidCallback onReorderTap;
+  final VoidCallback onClose;
+
+  const _MenuPanel({
+    required this.isDark,
+    required this.cs,
+    required this.items,
+    required this.currentLocation,
+    required this.onItemTap,
+    required this.onReorderTap,
+    required this.onClose,
   });
 
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.58)
+                : Colors.white.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.10)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header row
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
+                child: Row(
+                  children: [
+                    // Reorder button
+                    _HeaderBtn(
+                      icon: Icons.swap_vert_rounded,
+                      label: 'Réorganiser',
+                      isDark: isDark,
+                      cs: cs,
+                      onTap: onReorderTap,
+                    ),
+                    const Spacer(),
+                    // Close button
+                    _HeaderBtn(
+                      icon: Icons.close_rounded,
+                      label: 'Fermer',
+                      isDark: isDark,
+                      cs: cs,
+                      color: cs.primary,
+                      onTap: onClose,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Divider
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.07),
+              ),
+
+              // Grid of items
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final item in items)
+                      _GridItem(
+                        item: item,
+                        isActive: currentLocation == item.route,
+                        isDark: isDark,
+                        cs: cs,
+                        onTap: () => onItemTap(item.route),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GridItem extends StatelessWidget {
+  final _MenuItem item;
+  final bool isActive;
+  final bool isDark;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  const _GridItem({
+    required this.item,
+    required this.isActive,
+    required this.isDark,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = cs.primary;
+    final inactiveColor = isDark
+        ? Colors.white.withValues(alpha: 0.70)
+        : Colors.black.withValues(alpha: 0.60);
+    final iconColor = isActive ? accent : inactiveColor;
+    final labelColor = isActive ? accent : inactiveColor;
+
+    // Compute width so 4 items fit per row
+    final screenW = MediaQuery.of(context).size.width;
+    // panel is screen - 32 (margins 16*2) - 24 (padding 12*2) - 8*3 (spacing)
+    final itemW = ((screenW - 32 - 24 - 24) / 4).clamp(56.0, 80.0);
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: itemW,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: isActive
+                    ? accent.withValues(alpha: isDark ? 0.18 : 0.12)
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.05)),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isActive
+                      ? accent.withValues(alpha: 0.30)
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.07)),
+                  width: 1,
+                ),
+              ),
+              child: Icon(item.icon, size: 22, color: iconColor),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: labelColor,
+                height: 1.0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final ColorScheme cs;
+  final Color? color;
+  final VoidCallback onTap;
+
+  const _HeaderBtn({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    required this.cs,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? cs.onSurface.withValues(alpha: 0.55);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: c),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: c,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Badge chip ────────────────────────────────────────────────────────────────
+
+class _Badge extends StatelessWidget {
   final String label;
   final Color color;
   final Color bg;
+
+  const _Badge({required this.label, required this.color, required this.bg});
 
   @override
   Widget build(BuildContext context) {
@@ -634,111 +673,6 @@ class _ReorderBadge extends StatelessWidget {
           color: color,
         ),
       ),
-    );
-  }
-}
-
-// ── Animated menu item row ────────────────────────────────────────────────────
-
-class _AnimatedMenuItem extends StatelessWidget {
-  final _MenuItem item;
-  final Animation<double> animation;
-  final bool isDark;
-  final ColorScheme cs;
-
-  const _AnimatedMenuItem({
-    required this.item,
-    required this.animation,
-    required this.isDark,
-    required this.cs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, _) {
-        final v = animation.value;
-        return Transform.translate(
-          offset: Offset(0, (1 - v) * 18),
-          child: Opacity(
-            opacity: v.clamp(0.0, 1.0),
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                item.onTap();
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Label pill
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: BackdropFilter(
-                      filter: ColorFilter.mode(
-                        Colors.transparent,
-                        BlendMode.srcOver,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.black.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.10)
-                                : Colors.black.withValues(alpha: 0.07),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          item.label,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.black87,
-                            height: 1.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Icon square
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.black.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.10)
-                            : Colors.black.withValues(alpha: 0.07),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 20,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.88)
-                          : Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
