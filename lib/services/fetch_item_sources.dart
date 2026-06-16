@@ -1,4 +1,3 @@
-import 'package:watchtower/extension/extension_loader.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
@@ -40,13 +39,4 @@ Future<void> fetchItemSourcesList(
     }
   }
 
-  // After index load, auto-activate any extensions already on the device
-  // (installed via Mihon, Aniyomi, or any compatible app).
-  // Only on full loads, not targeted single-extension installs.
-  if (id == null) {
-    await syncExtensions(
-      itemType: itemType,
-      androidProxyServer: androidProxyServer,
-    );
-  }
 }
