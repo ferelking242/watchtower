@@ -135,6 +135,107 @@ import 'dart:async';
       return ZeusDlExecutionContext(executable: path);
     }
 
+
+
+      // ── iOS: résolution du contexte d'exécution ───────────────────────────────
+      //
+      // Non-jailbreaké   : Process.start() interdit par le sandbox iOS.
+      //                    On retourne null → ZeusDL désactivé sur cet appareil.
+      // Dopamine/rootless: les binaires arm64 dans /var/jb sont exécutables
+      //                    si signés avec ldid et si le jailbreak patche posix_spawn.
+      // Rooted (classic) : /usr/bin, /usr/local/bin accessibles directement.
+      Future<ZeusDlExecutionContext?> _resolveIOSContext() async {
+        AppLogger.log('ZeusDL iOS: résolution contexte',
+            logLevel: LogLevel.info, tag: LogTag.zeus);
+
+        // ── 1. AppDelegate channel: détection jailbreak + chemin yt-dlp ──────────
+        try {
+          final path = await _binaryUtilsChannel.invokeMethod<String?>('getYtDlpPath');
+          if (path != null && path.isNotEmpty) {
+            if (await File(path).exists()) {
+              AppLogger.log('ZeusDL iOS ✓ via AppDelegate: $path',
+                  logLevel: LogLevel.info, tag: LogTag.zeus);
+              return ZeusDlExecutionContext(executable: path);
+            }
+          }
+        } catch (e) {
+          AppLogger.log('ZeusDL iOS: getYtDlpPath error: $e',
+              logLevel: LogLevel.debug, tag: LogTag.zeus);
+        }
+
+        // ── 2. Chemins jailbreak connus ───────────────────────────────────────────
+        const _kJBPaths = <String>[
+          '/var/jb/usr/local/bin/zeusdl',   // Dopamine rootless
+          '/var/jb/usr/bin/zeusdl',
+          '/var/jb/usr/local/bin/yt-dlp',
+          '/var/jb/usr/bin/yt-dlp',
+          '/usr/local/bin/zeusdl',          // Rooted classique
+          '/usr/bin/zeusdl',
+          '/usr/local/bin/yt-dlp',
+          '/usr/bin/yt-dlp',
+        ];
+        for (final p in _kJBPaths) {
+          if (await File(p).exists()) {
+            AppLogger.log('ZeusDL iOS ✓ jailbreak path: $p',
+                logLevel: LogLevel.info, tag: LogTag.zeus);
+            return ZeusDlExecutionContext(executable: p);
+          }
+        }
+
+        // ── 3. Binaire bundlé dans les assets (Mach-O arm64 apple-ios) ───────────
+        final bundled = await _extractIOSBundledBinary();
+        if (bundled != null) {
+          AppLogger.log('ZeusDL iOS ✓ asset extrait: $bundled',
+              logLevel: LogLevel.info, tag: LogTag.zeus);
+          return ZeusDlExecutionContext(executable: bundled);
+        }
+
+        AppLogger.log(
+            'ZeusDL iOS: aucun binaire disponible (non-jailbreaké ou binaire absent)',
+            logLevel: LogLevel.warning, tag: LogTag.zeus);
+        return null;
+      }
+
+      Future<String?> _extractIOSBundledBinary() async {
+        try {
+          final supportDir = (await getApplicationSupportDirectory()).path;
+          final destPath = '$supportDir/zeusdl';
+          final dest = File(destPath);
+          if (await dest.exists() && await dest.length() > 100000) return destPath;
+
+          // Charger depuis les assets Flutter
+          try {
+            final data = await rootBundle.load(_assetPath);
+            final bytes = data.buffer.asUint8List();
+            // Valider le magic Mach-O arm64 : CE FA ED FE ou CF FA ED FE
+            if (bytes.length < 4) return null;
+            final isMachO = (bytes[0] == 0xCE || bytes[0] == 0xCF) &&
+                            bytes[1] == 0xFA && bytes[2] == 0xED && bytes[3] == 0xFE;
+            final isFat = bytes[0] == 0xCA && bytes[1] == 0xFE &&
+                          bytes[2] == 0xBA && bytes[3] == 0xBE;
+            if (!isMachO && !isFat) {
+              AppLogger.log(
+                'ZeusDL iOS: asset non Mach-O (magic=${bytes.sublist(0,4).map((b) => b.toRadixString(16).padLeft(2,"0")).join()})',
+                logLevel: LogLevel.error, tag: LogTag.zeus);
+              return null;
+            }
+            await dest.parent.create(recursive: true);
+            await dest.writeAsBytes(bytes);
+            // chmod +x via AppDelegate (évite Process.run sur iOS sandbox)
+            try {
+              await _binaryUtilsChannel.invokeMethod('chmod', {'path': destPath});
+            } catch (_) {}
+            AppLogger.log('ZeusDL iOS: asset extrait (${bytes.length} bytes)',
+                logLevel: LogLevel.info, tag: LogTag.zeus);
+            return destPath;
+          } on FlutterError {
+            return null; // Asset absent du bundle
+          }
+        } catch (_) {
+          return null;
+        }
+      }
+
     // ── Android: Python Bionic execution ─────────────────────────────────────
 
     Future<ZeusDlExecutionContext?> _resolveAndroidContext() async {
