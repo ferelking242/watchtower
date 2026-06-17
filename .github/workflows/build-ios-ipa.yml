@@ -119,6 +119,12 @@ jobs:
           grep -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|ARCHS" "$PBXPROJ" | head -25
 
       - name: Build iOS (no codesign)
+        env:
+          FLUTTER_XCODE_CODE_SIGNING_ALLOWED: "NO"
+          FLUTTER_XCODE_CODE_SIGNING_REQUIRED: "NO"
+          FLUTTER_XCODE_CODE_SIGN_IDENTITY: ""
+          FLUTTER_XCODE_DEVELOPMENT_TEAM: ""
+          FLUTTER_XCODE_PROVISIONING_PROFILE_SPECIFIER: ""
         run: |
           flutter build ios --release --no-codesign
           echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
