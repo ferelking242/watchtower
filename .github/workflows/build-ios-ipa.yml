@@ -21,7 +21,7 @@ jobs:
       - name: Install Rust (rust_lib_watchtower FFI via cargokit)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios
+          targets: aarch64-apple-ios,x86_64-apple-ios
 
       - name: Cache Rust
         uses: actions/cache@v4
@@ -41,27 +41,39 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      # ── ZeusDL ──────────────────────────────────────────────────────────────
+      # Télécharge le binaire iOS arm64. Si introuvable ou format inconnu →
+      # on ne bundle RIEN (pas de stub) pour éviter que ldid plante.
       - name: Bundle ZeusDL iOS arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p assets/binaries
+          DOWNLOADED=false
+
           RELEASE_JSON=$(curl -fsSL \
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/ferelking242/zeusdl/releases/latest" 2>/dev/null || echo '{}')
           ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c \
             "import sys,json; print(json.load(sys.stdin).get('tag_name',''))" 2>/dev/null || echo '')
-          DOWNLOADED=false
+
           if [ -n "$ZEUSDL_VERSION" ]; then
             for ASSET in "zeusdl-ios-arm64" "zeusdl-ios" "yt-dlp_ios"; do
               URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/${ASSET}"
               echo "Trying: $URL"
-              if curl -fsSL "$URL" -o assets/binaries/zeusdl 2>/dev/null; then
+              if curl -fsSL --max-time 60 "$URL" -o assets/binaries/zeusdl 2>/dev/null; then
                 MAGIC=$(xxd -p -l 4 assets/binaries/zeusdl 2>/dev/null || echo "")
-                if [[ "$MAGIC" == "cefaedfe" || "$MAGIC" == "cffaedfe" || "$MAGIC" == "cafebabe" ]]; then
-                  echo "Mach-O OK: $(wc -c < assets/binaries/zeusdl) bytes"
+                if [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" || "$MAGIC" == "cafebabe" ]]; then
+                  echo "OK: $(wc -c < assets/binaries/zeusdl) bytes magic=$MAGIC"
+                  # Thin to arm64 immediately if fat
+                  if [[ "$MAGIC" == "cafebabe" ]]; then
+                    lipo assets/binaries/zeusdl -thin arm64 -output assets/binaries/zeusdl.thin 2>/dev/null \
+                      && mv assets/binaries/zeusdl.thin assets/binaries/zeusdl \
+                      && echo "zeusdl thinned to arm64" \
+                      || rm -f assets/binaries/zeusdl
+                  fi
                   DOWNLOADED=true; break
                 else
                   rm -f assets/binaries/zeusdl
@@ -69,23 +81,31 @@ jobs:
               fi
             done
           fi
+
+          # Fallback: yt-dlp officiel
           if [ "$DOWNLOADED" = "false" ]; then
             YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_ios"
-            if curl -fsSL "$YTDLP_URL" -o assets/binaries/zeusdl 2>/dev/null; then
+            if curl -fsSL --max-time 60 "$YTDLP_URL" -o assets/binaries/zeusdl 2>/dev/null; then
               MAGIC=$(xxd -p -l 4 assets/binaries/zeusdl 2>/dev/null || echo "")
-              if [[ "$MAGIC" == "cefaedfe" || "$MAGIC" == "cffaedfe" || "$MAGIC" == "cafebabe" ]]; then
-                echo "yt-dlp iOS OK: $(wc -c < assets/binaries/zeusdl) bytes"
+              if [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" || "$MAGIC" == "cafebabe" ]]; then
+                if [[ "$MAGIC" == "cafebabe" ]]; then
+                  lipo assets/binaries/zeusdl -thin arm64 -output assets/binaries/zeusdl.thin 2>/dev/null \
+                    && mv assets/binaries/zeusdl.thin assets/binaries/zeusdl \
+                    || rm -f assets/binaries/zeusdl
+                fi
                 DOWNLOADED=true
+                echo "yt-dlp iOS: $(wc -c < assets/binaries/zeusdl 2>/dev/null || echo 0) bytes"
               else
                 rm -f assets/binaries/zeusdl
               fi
             fi
           fi
+
           if [ "$DOWNLOADED" = "false" ]; then
-            echo "WARN: aucun binaire Mach-O — placeholder vide (TrollStore-safe)"
-            : > assets/binaries/zeusdl
+            # Pas de stub — on laisse le dossier vide, l'app gère l'absence
+            echo "WARN: zeusdl introuvable — assets/binaries/ restera vide"
+            ls -la assets/binaries/ || true
           fi
-          echo "=== ZeusDL iOS final: $(wc -c < assets/binaries/zeusdl) bytes ==="
 
       - name: Patch pubspec.yaml pour assets/binaries/
         run: |
@@ -99,144 +119,133 @@ jobs:
 
       - name: Regenerate app icons (flutter_launcher_icons)
         run: dart run flutter_launcher_icons:main
-        continue-on-error: false
 
       - name: Install CocoaPods
         run: cd ios && pod install --repo-update && cd ..
 
-      - name: Patch Xcode project for CI (no team, manual signing, arm64)
+      # ── Patch Xcode ─────────────────────────────────────────────────────────
+      # CODE_SIGN_STYLE=Automatic sans DEVELOPMENT_TEAM fait échouer le build.
+      # On passe en Manual + identité vide → --no-codesign fonctionne.
+      - name: Patch Xcode project for CI (manual signing, no team)
         run: |
           PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
-          # Switch Automatic → Manual so Xcode doesn't demand a Development Team
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
-          # Clear codesign identity — we sign ad-hoc after build
           sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
           sed -i '' 's/DEVELOPMENT_TEAM = [A-Z0-9][A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
-          # Force ARCHS = arm64 in pbxproj
-          sed -i '' 's/ARCHS = "$(ARCHS_STANDARD)";/ARCHS = arm64;/g' "$PBXPROJ" || true
-          sed -i '' 's/ARCHS = "$(ARCHS_STANDARD_64_BIT)";/ARCHS = arm64;/g' "$PBXPROJ" || true
-          echo "=== Signing + ARCHS settings ==="
-          grep -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|ARCHS" "$PBXPROJ" | head -25
+          echo "=== CODE_SIGN après patch ==="
+          grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM" "$PBXPROJ" | sort -u
 
       - name: Build iOS (no codesign)
-        env:
-          FLUTTER_XCODE_CODE_SIGNING_ALLOWED: "NO"
-          FLUTTER_XCODE_CODE_SIGNING_REQUIRED: "NO"
-          FLUTTER_XCODE_CODE_SIGN_IDENTITY: ""
-          FLUTTER_XCODE_DEVELOPMENT_TEAM: ""
-          FLUTTER_XCODE_PROVISIONING_PROFILE_SPECIFIER: ""
         run: |
           flutter build ios --release --no-codesign
-          echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
-          ls -lh build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
-            || echo "WARN: assets/binaries/ absent"
+          echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
+          echo "=== Frameworks count: $(ls build/ios/iphoneos/Runner.app/Frameworks/ | wc -l) ==="
+          ls build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
+            && echo "zeusdl présent" || echo "zeusdl absent (OK)"
 
-      - name: Verify Runner.app arch (arm64 only)
+      # ── Thin FAT → arm64 ────────────────────────────────────────────────────
+      # TrollStore sur iPhone 7 utilise un vieux ldid qui ne comprend pas arm64e.
+      # media_kit_libs_ios_video et consorts livrent des fat binaries (arm64+arm64e).
+      # On thin tout à arm64 avant de signer.
+      - name: Thin all FAT framework binaries to arm64
         run: |
-          APP="build/ios/iphoneos/Runner.app/Runner"
-          if [ -f "$APP" ]; then
-            echo "Runner arch info:"
-            lipo -info "$APP"
-          else
-            echo "WARN: Runner binary not found at $APP"
-          fi
+          APP="build/ios/iphoneos/Runner.app"
+          THINNED=0; ALREADY=0; SKIPPED=0
+          for fw in "$APP/Frameworks"/*.framework; do
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            [ -f "$BIN" ] || { echo "SKIP $NAME (no binary)"; SKIPPED=$((SKIPPED+1)); continue; }
+            MAGIC=$(xxd -p -l 4 "$BIN" 2>/dev/null || echo "")
+            if [[ "$MAGIC" == "cafebabe" ]]; then
+              if lipo -info "$BIN" 2>/dev/null | grep -q "arm64"; then
+                lipo "$BIN" -thin arm64 -output "${BIN}.thin" 2>/dev/null \
+                  && mv "${BIN}.thin" "$BIN" \
+                  && echo "THINNED: $NAME" \
+                  && THINNED=$((THINNED+1)) \
+                  || { echo "WARN: lipo failed $NAME — leaving fat"; SKIPPED=$((SKIPPED+1)); }
+              else
+                echo "WARN: $NAME fat but no arm64 slice"
+                SKIPPED=$((SKIPPED+1))
+              fi
+            elif [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" ]]; then
+              ALREADY=$((ALREADY+1))
+            else
+              echo "NOTE: $NAME magic=$MAGIC (not Mach-O — static or resource)"
+              SKIPPED=$((SKIPPED+1))
+            fi
+          done
+          echo "=== Thin résultat: $THINNED thinned | $ALREADY déjà arm64 | $SKIPPED skip ==="
 
-      - name: Fix zeusdl binary for TrollStore ldid compatibility
-        run: |
-          ZEUSDL="build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/zeusdl"
-          if [ ! -f "$ZEUSDL" ]; then
-            echo "No zeusdl found in bundle — skipping"
-            exit 0
-          fi
-          MAGIC=$(xxd -p -l 4 "$ZEUSDL" 2>/dev/null || echo "")
-          echo "zeusdl magic: $MAGIC (size: $(wc -c < "$ZEUSDL") bytes)"
-          if [[ "$MAGIC" == "cafebabe" ]]; then
-            echo "Fat binary — thinning to arm64"
-            lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.arm64" 2>/dev/null \
-              && mv "${ZEUSDL}.arm64" "$ZEUSDL" \
-              || echo "lipo failed — will try to sign as-is"
+          # Thin aussi le binaire zeusdl si présent
+          ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
+          if [ -f "$ZEUSDL" ]; then
             MAGIC=$(xxd -p -l 4 "$ZEUSDL" 2>/dev/null || echo "")
-            echo "After thin — magic: $MAGIC size: $(wc -c < "$ZEUSDL") bytes"
+            echo "zeusdl magic=$MAGIC"
+            if [[ "$MAGIC" == "cafebabe" ]]; then
+              lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.thin" 2>/dev/null \
+                && mv "${ZEUSDL}.thin" "$ZEUSDL" && echo "zeusdl thinned" \
+                || rm -f "$ZEUSDL" && echo "zeusdl removed (lipo failed)"
+            elif [[ "$MAGIC" != "cffaedfe" && "$MAGIC" != "cefaedfe" ]]; then
+              rm -f "$ZEUSDL"
+              echo "zeusdl removed (magic inconnu: $MAGIC)"
+            fi
           fi
-          if [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" ]]; then
-            echo "Valid Mach-O — signing ad-hoc"
-            /usr/bin/codesign --force --sign - --timestamp=none "$ZEUSDL" 2>/dev/null \
-              && echo "zeusdl codesign OK" \
-              || echo "WARN: codesign failed on zeusdl"
-          else
-            echo "Unknown magic '${MAGIC}' — removing zeusdl from bundle (ldid would choke)"
-            rm -f "$ZEUSDL"
-          fi
 
-      - name: Strip framework signatures for TrollStore ldid (Error 175 fix)
-        run: |
-          APP="build/ios/iphoneos/Runner.app"
-          echo "=== Removing _CodeSignature dirs so ldid can sign clean ==="
-          find "$APP" -name "_CodeSignature" -type d | while read -r sig; do
-            echo "  rm: $sig"
-            rm -rf "$sig"
-          done
-          echo "=== Removing PrivacyInfo.xcprivacy (confuses older ldid) ==="
-          find "$APP" -name "PrivacyInfo.xcprivacy" | while read -r pinfo; do
-            echo "  rm: $pinfo"
-            rm -f "$pinfo"
-          done
-          echo "=== Strip done ==="
-
-      - name: Pre-sign all Mach-O binaries (TrollStore ldid compatibility)
-        run: |
-          APP="build/ios/iphoneos/Runner.app"
-          echo "=== Pre-signing all Mach-O files in bundle ==="
-          find "$APP" -type f | while read -r f; do
-            MAGIC=$(xxd -p -l 4 "$f" 2>/dev/null || echo "")
-            case "$MAGIC" in
-              cefaedfe|cffaedfe)
-                /usr/bin/codesign --force --sign - --timestamp=none "$f" 2>/dev/null \
-                  && echo "signed: $f" || echo "WARN: skip $f"
-                ;;
-              cafebabe|bebafeca)
-                # Fat binary — thin to arm64 first then sign
-                lipo "$f" -thin arm64 -output "${f}.arm64" 2>/dev/null \
-                  && mv "${f}.arm64" "$f" \
-                  || true
-                /usr/bin/codesign --force --sign - --timestamp=none "$f" 2>/dev/null \
-                  && echo "signed (thinned): $f" || echo "WARN: skip $f"
-                ;;
-              *)
-                # Not Mach-O — check extension; remove files ldid would choke on
-                ext="${f##*.}"
-                case "$ext" in
-                  dylib|so|o)
-                    echo "REMOVE non-Mach-O binary: $f (magic: $MAGIC)"
-                    rm -f "$f"
-                    ;;
-                esac
-                ;;
-            esac
-          done
-          echo "=== Pre-sign done ==="
-
-      - name: Signer (ldid + codesign deep ad-hoc)
+      # ── Signer ──────────────────────────────────────────────────────────────
+      # 1. ldid -S (sans entitlements) sur chaque framework → pré-signe
+      # 2. ldid -S<ent> sur Runner → entitlements TrollStore
+      # 3. codesign --force --sign - récursif → signature ad-hoc finale
+      - name: Sign for TrollStore (ldid per-framework + codesign recursive)
         run: |
           APP="build/ios/iphoneos/Runner.app"
           ENT="ios/Runner/Runner.entitlements"
           brew install ldid 2>/dev/null || true
-          if which ldid 2>/dev/null; then
-            ldid -S"$ENT" "$APP/Runner" 2>/dev/null && echo "ldid main binary OK" || true
-          fi
-          # --deep recursively signs all nested frameworks/dylibs
-          /usr/bin/codesign --force --deep --sign - --entitlements "$ENT" \
-            --timestamp=none "$APP" 2>/dev/null && echo "codesign --deep OK" || true
-          codesign -d --entitlements - "$APP" 2>/dev/null | head -10 || true
 
+          echo "=== ldid par framework ==="
+          for fw in "$APP/Frameworks"/*.framework; do
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            if [ -f "$BIN" ]; then
+              ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
+            fi
+          done
+
+          # Signer zeusdl si présent
+          ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
+          if [ -f "$ZEUSDL" ]; then
+            ldid -S "$ZEUSDL" 2>/dev/null && echo "ldid zeusdl OK" || rm -f "$ZEUSDL" && echo "zeusdl removed (ldid failed)"
+          fi
+
+          echo "=== ldid Runner avec entitlements ==="
+          ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK" || echo "WARN: ldid Runner failed"
+
+          echo "=== codesign récursif ad-hoc ==="
+          /usr/bin/codesign --force --deep --sign - \
+            --entitlements "$ENT" --timestamp=none "$APP" \
+            && echo "codesign OK" || echo "WARN: codesign failed"
+
+          echo "=== Vérification entitlements ==="
+          codesign -d --entitlements :- "$APP" 2>/dev/null | head -20 || true
+
+          echo "=== Frameworks présents ==="
+          ls "$APP/Frameworks/" | wc -l
+          echo "wakelock_plus binary: $([ -f "$APP/Frameworks/wakelock_plus.framework/wakelock_plus" ] && echo PRESENT || echo absent-static-OK)"
+
+      # ── Package IPA ─────────────────────────────────────────────────────────
       - name: Package IPA
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r9 Watchtower-iOS.ipa Payload/
           rm -rf Payload
-          ls -lh Watchtower-iOS.ipa
-          unzip -l Watchtower-iOS.ipa | grep -E "Runner|zeusdl|Frameworks" | head -20
+          IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
+          echo "=== IPA: $IPA_SIZE ==="
+          echo "=== Frameworks dans IPA ==="
+          unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
+          echo "=== Vérif wakelock_plus ==="
+          unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent des Frameworks binaries) ✓"
+          echo "=== Vérif zeusdl ==="
+          unzip -l Watchtower-iOS.ipa | grep zeusdl || echo "zeusdl: absent ✓"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
