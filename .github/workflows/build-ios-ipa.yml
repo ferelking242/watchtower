@@ -149,6 +149,21 @@ jobs:
             rm -f "$ZEUSDL"
           fi
 
+      - name: Strip framework signatures for TrollStore ldid (Error 175 fix)
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          echo "=== Removing _CodeSignature dirs so ldid can sign clean ==="
+          find "$APP" -name "_CodeSignature" -type d | while read -r sig; do
+            echo "  rm: $sig"
+            rm -rf "$sig"
+          done
+          echo "=== Removing PrivacyInfo.xcprivacy (confuses older ldid) ==="
+          find "$APP" -name "PrivacyInfo.xcprivacy" | while read -r pinfo; do
+            echo "  rm: $pinfo"
+            rm -f "$pinfo"
+          done
+          echo "=== Strip done ==="
+
       - name: Pre-sign all Mach-O binaries (TrollStore ldid compatibility)
         run: |
           APP="build/ios/iphoneos/Runner.app"
