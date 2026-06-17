@@ -495,7 +495,7 @@ import 'package:watchtower/core/config/app_config.dart';
           await compute(_extractZipBytesToDir, _ExtractBytesArgs(bytes, tmpAssetDir.path));
           if (!kIsWeb) {
             final extractedFiles = tmpAssetDir.listSync(recursive: true);
-            AppLogger.d('[ZEUS] Fichiers extraits: ${extractedFiles.map((f) => f.path.replaceAll(tmpAssetDir.path, '')).join(', ')}');
+            AppLogger.log('[ZEUS] Fichiers extraits: ${extractedFiles.map((f) => f.path.replaceAll(tmpAssetDir.path, '')).join(', ')}', logLevel: LogLevel.debug, tag: LogTag.zeus);
           }
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
           await tmpAssetDir.rename(zeusDir.path);
@@ -620,7 +620,7 @@ import 'package:watchtower/core/config/app_config.dart';
               _extractZipBytesToDir, _ExtractBytesArgs(zipRes.bodyBytes, tmpUpdateDir.path));
           if (!kIsWeb) {
             final updatedFiles = tmpUpdateDir.listSync(recursive: true);
-            AppLogger.d('[ZEUS] Fichiers mis à jour: ${updatedFiles.map((f) => f.path.replaceAll(tmpUpdateDir.path, '')).join(', ')}');
+            AppLogger.log('[ZEUS] Fichiers mis à jour: ${updatedFiles.map((f) => f.path.replaceAll(tmpUpdateDir.path, '')).join(', ')}', logLevel: LogLevel.debug, tag: LogTag.zeus);
           }
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
           await tmpUpdateDir.rename(zeusDir.path);
