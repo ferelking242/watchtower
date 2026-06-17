@@ -33,7 +33,7 @@ import 'package:watchtower/modules/more/settings/appearance/providers/nav_displa
 import 'package:watchtower/modules/home/widgets/home_header.dart' show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
 
@@ -439,23 +439,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         incognitoMode: incognitoMode,
                         l10n: l10n,
                       ),
-                    // Speed-dial menu anchored at bottom-right above the dock
-                    if (!isReadingScreen && dockStyle != 'pc_sidebar')
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: SafeArea(
-                          top: false,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: 16,
-                              // classic: dock is in Scaffold so no extra offset;
-                              // floating: 64 px pill + 14 px pad + 8 gap
-                              bottom: dockStyle == 'classic' ? 8.0 : 86.0,
-                            ),
-                            child: _WatchtowerSpeedDial(
-                              overflowRoutes: _overflowRoutes,
-                            ),
-                          ),
+                    // Menu overlay — triggered by the dock Menu button
+                    if (!isReadingScreen && menuOpen && dockStyle != 'pc_sidebar')
+                      Positioned.fill(
+                        child: WatchtowerMenuOverlay(
+                          overflowRoutes: _overflowRoutes,
+                          onClose: () =>
+                              ref.read(menuOpenProvider.notifier).state = false,
                         ),
                       ),
                   ],
@@ -2238,170 +2228,3 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
   }
 }
 
-
-// ── Speed-dial menu — Seanime style: items float from bottom-right corner ─────
-//
-// Mirrors UIBottomNav.kt #android-floating-menu { right:1.25rem; bottom:4.5rem }
-// Each SpeedDialChild = circle icon button + label on the left, items slide up.
-
-class _WatchtowerSpeedDial extends ConsumerStatefulWidget {
-  final List<String> overflowRoutes;
-  const _WatchtowerSpeedDial({required this.overflowRoutes});
-
-  @override
-  ConsumerState<_WatchtowerSpeedDial> createState() =>
-      _WatchtowerSpeedDialState();
-}
-
-class _WatchtowerSpeedDialState
-    extends ConsumerState<_WatchtowerSpeedDial> {
-  late final ValueNotifier<bool> _dialOpen;
-
-  @override
-  void initState() {
-    super.initState();
-    _dialOpen = ValueNotifier<bool>(false);
-  }
-
-  @override
-  void dispose() {
-    _dialOpen.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final menuOpen = ref.watch(menuOpenProvider);
-    final isDark   = Theme.of(context).brightness == Brightness.dark;
-    final cs       = Theme.of(context).colorScheme;
-
-    // Sync menuOpenProvider → SpeedDial notifier without calling setState
-    // directly during build.
-    if (_dialOpen.value != menuOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _dialOpen.value != menuOpen) {
-          _dialOpen.value = menuOpen;
-        }
-      });
-    }
-
-    final childBg  = isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh;
-    final labelBg  = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final labelFg  = isDark ? Colors.white : Colors.black87;
-    final labelStyle = TextStyle(
-      color: labelFg,
-      fontSize: 13.5,
-      fontWeight: FontWeight.w600,
-    );
-
-    // Build children: overflow items first, then static items.
-    // The dial shows them bottom→top, so last item added appears at the top.
-    final overflowSet = widget.overflowRoutes.toSet();
-    final seen        = <String>{};
-    final items       = <SpeedDialChild>[];
-
-    for (final r in widget.overflowRoutes) {
-      if (!seen.add(r)) continue;
-      final info = kWtRouteInfo[r];
-      if (info == null) continue;
-      items.add(_child(r, info, childBg, labelBg, labelStyle, isDark, cs));
-    }
-    for (final r in kWtStaticRoutes) {
-      if (overflowSet.contains(r) || !seen.add(r)) continue;
-      final info = kWtRouteInfo[r];
-      if (info == null) continue;
-      items.add(_child(r, info, childBg, labelBg, labelStyle, isDark, cs));
-    }
-
-    // "Réorganiser" pinned at top of the dial (last in list = first visible)
-    items.add(SpeedDialChild(
-      child: Icon(Icons.swap_vert_rounded, size: 20, color: cs.primary),
-      label: 'Réorganiser',
-      labelStyle: labelStyle.copyWith(color: labelFg),
-      labelBackgroundColor: labelBg,
-      backgroundColor: childBg,
-      foregroundColor: cs.primary,
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        _dialOpen.value = false;
-        ref.read(menuOpenProvider.notifier).state = false;
-        // Small delay so the dial close animation finishes first
-        Future.delayed(const Duration(milliseconds: 180), () {
-          if (mounted) showWatchtowerReorderSheet(context, ref);
-        });
-      },
-    ));
-
-    return SpeedDial(
-      openCloseDial: _dialOpen,
-      direction:     SpeedDialDirection.up,
-      // No dim overlay — dock and content remain interactive
-      renderOverlay:  false,
-      overlayOpacity: 0.0,
-      backgroundColor:
-          isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh,
-      foregroundColor:
-          isDark ? Colors.white.withValues(alpha: 0.90) : cs.onSurface,
-      activeBackgroundColor:
-          isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh,
-      activeForegroundColor: cs.primary,
-      elevation: 8,
-      buttonSize:          const Size(54, 54),
-      childrenButtonSize:  const Size(50, 50),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      // Hamburger ↔ close animated icon (same visual as Seanime hamburger/X)
-      animatedIcon: AnimatedIcons.menu_close,
-      animatedIconTheme: IconThemeData(
-        size: 22,
-        color:
-            isDark ? Colors.white.withValues(alpha: 0.90) : cs.onSurface,
-      ),
-      spacing: 8,
-      spaceBetweenChildren: 8,
-      animationDuration: const Duration(milliseconds: 200),
-      childMargin: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-      onOpen: () {
-        HapticFeedback.lightImpact();
-        if (!ref.read(menuOpenProvider)) {
-          ref.read(menuOpenProvider.notifier).state = true;
-        }
-      },
-      onClose: () {
-        if (ref.read(menuOpenProvider)) {
-          ref.read(menuOpenProvider.notifier).state = false;
-        }
-      },
-      children: items,
-    );
-  }
-
-  SpeedDialChild _child(
-    String route,
-    (String, IconData) info,
-    Color childBg,
-    Color labelBg,
-    TextStyle labelStyle,
-    bool isDark,
-    ColorScheme cs,
-  ) {
-    return SpeedDialChild(
-      child:              Icon(info.$2, size: 20),
-      label:              info.$1,
-      labelStyle:         labelStyle,
-      labelBackgroundColor: labelBg,
-      backgroundColor:    childBg,
-      foregroundColor:
-          isDark ? Colors.white.withValues(alpha: 0.90) : Colors.black87,
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      onTap: () {
-        HapticFeedback.lightImpact();
-        _dialOpen.value = false;
-        ref.read(menuOpenProvider.notifier).state = false;
-        context.go(route);
-      },
-    );
-  }
-}
