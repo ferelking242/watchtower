@@ -82,8 +82,8 @@ jobs:
             fi
           fi
           if [ "$DOWNLOADED" = "false" ]; then
-            echo "WARN: aucun binaire Mach-O — stub minimal"
-            printf '\xCE\xFA\xED\xFE\x0C\x00\x00\x01\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\x00\x20\x00' > assets/binaries/zeusdl
+            echo "WARN: aucun binaire Mach-O — placeholder vide (TrollStore-safe)"
+            : > assets/binaries/zeusdl
           fi
           echo "=== ZeusDL iOS final: $(wc -c < assets/binaries/zeusdl) bytes ==="
 
@@ -149,16 +149,50 @@ jobs:
             rm -f "$ZEUSDL"
           fi
 
-      - name: Signer (ldid + codesign ad-hoc)
+      - name: Pre-sign all Mach-O binaries (TrollStore ldid compatibility)
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          echo "=== Pre-signing all Mach-O files in bundle ==="
+          find "$APP" -type f | while read -r f; do
+            MAGIC=$(xxd -p -l 4 "$f" 2>/dev/null || echo "")
+            case "$MAGIC" in
+              cefaedfe|cffaedfe)
+                /usr/bin/codesign --force --sign - --timestamp=none "$f" 2>/dev/null \
+                  && echo "signed: $f" || echo "WARN: skip $f"
+                ;;
+              cafebabe|bebafeca)
+                # Fat binary — thin to arm64 first then sign
+                lipo "$f" -thin arm64 -output "${f}.arm64" 2>/dev/null \
+                  && mv "${f}.arm64" "$f" \
+                  || true
+                /usr/bin/codesign --force --sign - --timestamp=none "$f" 2>/dev/null \
+                  && echo "signed (thinned): $f" || echo "WARN: skip $f"
+                ;;
+              *)
+                # Not Mach-O — check extension; remove files ldid would choke on
+                ext="${f##*.}"
+                case "$ext" in
+                  dylib|so|o)
+                    echo "REMOVE non-Mach-O binary: $f (magic: $MAGIC)"
+                    rm -f "$f"
+                    ;;
+                esac
+                ;;
+            esac
+          done
+          echo "=== Pre-sign done ==="
+
+      - name: Signer (ldid + codesign deep ad-hoc)
         run: |
           APP="build/ios/iphoneos/Runner.app"
           ENT="ios/Runner/Runner.entitlements"
           brew install ldid 2>/dev/null || true
           if which ldid 2>/dev/null; then
-            ldid -S"$ENT" "$APP/Runner" 2>/dev/null && echo "ldid OK" || true
+            ldid -S"$ENT" "$APP/Runner" 2>/dev/null && echo "ldid main binary OK" || true
           fi
-          /usr/bin/codesign --force --sign - --entitlements "$ENT" \
-            --timestamp=none "$APP" 2>/dev/null && echo "codesign OK" || true
+          # --deep recursively signs all nested frameworks/dylibs
+          /usr/bin/codesign --force --deep --sign - --entitlements "$ENT" \
+            --timestamp=none "$APP" 2>/dev/null && echo "codesign --deep OK" || true
           codesign -d --entitlements - "$APP" 2>/dev/null | head -10 || true
 
       - name: Package IPA

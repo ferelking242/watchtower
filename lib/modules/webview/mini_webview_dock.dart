@@ -1,9 +1,32 @@
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/services/mini_webview_state.dart';
+
+/// Returns the Google favicon URL for a given page URL.
+String? _faviconUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.host.isEmpty) return null;
+  return 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=32';
+}
+
+/// Favicon widget with globe fallback.
+Widget _favicon(String url, {double size = 20}) {
+  final src = _faviconUrl(url);
+  if (src == null) {
+    return Icon(Icons.language_rounded,
+        color: Colors.white.withValues(alpha: 0.85), size: size);
+  }
+  return Image.network(
+    src,
+    width: size,
+    height: size,
+    fit: BoxFit.contain,
+    errorBuilder: (_, __, ___) => Icon(Icons.language_rounded,
+        color: Colors.white.withValues(alpha: 0.85), size: size),
+  );
+}
 
 /// Floating pill that groups minimised WebView tabs.
 /// 1 tab  → tap opens directly.
@@ -15,16 +38,12 @@ class MiniWebViewTabGrouper extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tabs = ref.watch(miniWebViewProvider);
     if (tabs.isEmpty) return const SizedBox.shrink();
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          // Sit above the floating navigation dock (64 px pill + 14 px pad)
-          padding: const EdgeInsets.only(bottom: 78.0),
-          child: _TabGroupPill(tabs: tabs, ref: ref),
-        ),
-      ),
+    // Positioned at bottom: 0 — sits below the floating dock
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: _TabGroupPill(tabs: tabs, ref: ref),
     );
   }
 }
@@ -57,7 +76,10 @@ class _TabGroupPill extends StatelessWidget {
       builder: (ctx) => _TabManagerSheet(
         onOpenTab: (index) {
           Navigator.pop(ctx);
-          _openAt(context, index);
+          // Use a post-frame callback so the modal is fully dismissed first
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _openAt(context, index);
+          });
         },
         onCloseAll: () {
           Navigator.pop(ctx);
@@ -75,84 +97,91 @@ class _TabGroupPill extends StatelessWidget {
     final title = tabs.first.title.isNotEmpty ? tabs.first.title : 'Page web';
     final label = count > 1 ? '$count onglets' : title;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: GestureDetector(
-        onTap: () =>
-            count >= 2 ? _showTabManager(context) : _openFirst(context),
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.38),
-                blurRadius: 18,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 14),
-              count >= 2
-                  ? Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.28),
-                          width: 1.5,
+    return SafeArea(
+      top: false,
+      bottom: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: GestureDetector(
+          onTap: () =>
+              count >= 2 ? _showTabManager(context) : _openFirst(context),
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.38),
+                  blurRadius: 18,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 14),
+                // Favicon or count badge
+                count >= 2
+                    ? Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(7),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.28),
+                            width: 1.5,
+                          ),
                         ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$count',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: _favicon(tabs.first.url, size: 20),
                       ),
-                    )
-                  : Icon(Icons.language_rounded,
-                      color: Colors.white.withValues(alpha: 0.85), size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              IconButton(
-                icon: Icon(
-                  count >= 2
-                      ? Icons.grid_view_rounded
-                      : Icons.keyboard_arrow_up_rounded,
-                  color: Colors.white.withValues(alpha: 0.85),
-                  size: 22,
+                IconButton(
+                  icon: Icon(
+                    count >= 2
+                        ? Icons.grid_view_rounded
+                        : Icons.keyboard_arrow_up_rounded,
+                    color: Colors.white.withValues(alpha: 0.85),
+                    size: 22,
+                  ),
+                  onPressed: () => count >= 2
+                      ? _showTabManager(context)
+                      : _openFirst(context),
                 ),
-                onPressed: () => count >= 2
-                    ? _showTabManager(context)
-                    : _openFirst(context),
-              ),
-              IconButton(
-                icon: Icon(Icons.close_rounded,
-                    color: Colors.white.withValues(alpha: 0.55), size: 20),
-                onPressed: () =>
-                    ref.read(miniWebViewProvider.notifier).clear(),
-              ),
-              const SizedBox(width: 4),
-            ],
+                IconButton(
+                  icon: Icon(Icons.close_rounded,
+                      color: Colors.white.withValues(alpha: 0.55), size: 20),
+                  onPressed: () =>
+                      ref.read(miniWebViewProvider.notifier).clear(),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
           ),
         ),
       ),
@@ -161,7 +190,6 @@ class _TabGroupPill extends StatelessWidget {
 }
 
 // ── Tab manager sheet ─────────────────────────────────────────────────────────
-// Pure ConsumerWidget — no WidgetRef constructor param needed.
 
 class _TabManagerSheet extends ConsumerWidget {
   final void Function(int) onOpenTab;
@@ -260,24 +288,16 @@ class _TabManagerSheet extends ConsumerWidget {
                   final tab = tabs[index];
                   return ListTile(
                     onTap: () => onOpenTab(index),
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.07)
-                            : Colors.black.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(Icons.language_rounded,
-                          size: 18, color: cs.primary),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: _favicon(tab.url, size: 20),
                     ),
                     title: Text(
                       tab.title.isNotEmpty ? tab.title : 'Page web',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 13.5, fontWeight: FontWeight.w500),
+                          fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                     subtitle: Text(
                       tab.url,
