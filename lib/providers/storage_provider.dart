@@ -325,11 +325,11 @@ class StorageProvider {
         }
       }
 
-    // CDN jsDelivr — faster, globally cached, no GitHub rate limits.
+    // raw.githubusercontent — always up-to-date, no CDN staleness issues.
     const _wtBase =
-        'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
-    const _oldWtBase =
         'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
+    const _cdnBase =
+        'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
 
     final mangaRepo = Repo(
       jsonUrl: '$_wtBase/index/manga.json',
@@ -376,9 +376,9 @@ class StorageProvider {
       if (repos == null) return false;
       var changed = false;
       for (final r in repos) {
-        // A — Watchtower: raw.githubusercontent → jsDelivr
-        if (r.jsonUrl?.startsWith(_oldWtBase) == true) {
-          r.jsonUrl = r.jsonUrl!.replaceFirst(_oldWtBase, _wtBase);
+        // A — Watchtower: jsDelivr → raw.githubusercontent (jsDelivr @main is unreliable)
+        if (r.jsonUrl?.startsWith(_cdnBase) == true) {
+          r.jsonUrl = r.jsonUrl!.replaceFirst(_cdnBase, _wtBase);
           changed = true;
         }
         // B — Mihon: old broken mihonapp/extensions → keiyoushi (real repo)
