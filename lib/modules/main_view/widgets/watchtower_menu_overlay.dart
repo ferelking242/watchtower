@@ -17,7 +17,7 @@ class _MenuItem {
   });
 }
 
-const _kRouteInfo = <String, (String, IconData)>{
+const kWtRouteInfo = <String, (String, IconData)>{
   '/WatchtowerHome': ('Accueil', Icons.home_rounded),
   '/AnimeLibrary': ('Watch', Icons.live_tv_rounded),
   '/MangaLibrary': ('Manga', Icons.auto_stories),
@@ -35,7 +35,7 @@ const _kRouteInfo = <String, (String, IconData)>{
   '_enableLibSwitch': ('Hub', Icons.grid_view_rounded),
 };
 
-const _kDefaultNavigationOrder = [
+const kWtDefaultNavOrder = [
   '/WatchtowerHome',
   '/AnimeLibrary',
   '/MangaLibrary',
@@ -51,13 +51,13 @@ const _kDefaultNavigationOrder = [
   '/more',
 ];
 
-const _kDefaultHideItems = [
+const kWtDefaultHideItems = [
   '/trackerLibrary',
   '/updates',
   '/history',
 ];
 
-const _kStaticRoutes = [
+const kWtStaticRoutes = [
   '/more',
   '/browse',
   '/schedule',
@@ -126,7 +126,7 @@ class _WatchtowerMenuOverlayState
 
     // Overflow first
     for (final r in widget.overflowRoutes) {
-      final info = _kRouteInfo[r];
+      final info = kWtRouteInfo[r];
       if (info == null) continue;
       if (seen.add(r)) {
         items.add(_MenuItem(route: r, label: info.$1, icon: info.$2));
@@ -134,9 +134,9 @@ class _WatchtowerMenuOverlayState
     }
 
     // Static routes
-    for (final r in _kStaticRoutes) {
+    for (final r in kWtStaticRoutes) {
       if (overflowSet.contains(r)) continue;
-      final info = _kRouteInfo[r];
+      final info = kWtRouteInfo[r];
       if (info == null) continue;
       if (seen.add(r)) {
         items.add(_MenuItem(route: r, label: info.$1, icon: info.$2));
@@ -157,10 +157,10 @@ class _WatchtowerMenuOverlayState
   void _resetProviders() {
     ref
         .read(navigationOrderStateProvider.notifier)
-        .set(List<String>.from(_kDefaultNavigationOrder));
+        .set(List<String>.from(kWtDefaultNavOrder));
     ref
         .read(hideItemsStateProvider.notifier)
-        .set(List<String>.from(_kDefaultHideItems));
+        .set(List<String>.from(kWtDefaultHideItems));
   }
 
   @override
@@ -347,7 +347,7 @@ class _WatchtowerMenuOverlayState
                             itemCount: navOrder.length,
                             itemBuilder: (context, index) {
                               final route = navOrder[index];
-                              final info = _kRouteInfo[route];
+                              final info = kWtRouteInfo[route];
                               final label =
                                   info?.$1 ?? route.replaceAll('/', '');
                               final icon = info?.$2 ?? Icons.circle_outlined;
@@ -671,6 +671,196 @@ class _Badge extends StatelessWidget {
           fontSize: 9.5,
           fontWeight: FontWeight.w600,
           color: color,
+        ),
+      ),
+    );
+  }
+}
+
+
+// ── Public helper — open the reorder panel from anywhere ─────────────────────
+
+void showWatchtowerReorderSheet(BuildContext context, WidgetRef ref) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    isDismissible: true,
+    enableDrag: true,
+    builder: (_) => const _ReorderSheet(),
+  );
+}
+
+class _ReorderSheet extends ConsumerWidget {
+  const _ReorderSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final navOrder  = ref.watch(navigationOrderStateProvider);
+    final hideItems = ref.watch(hideItemsStateProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs     = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.22)
+                      : Colors.black.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.swap_vert_rounded, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Réorganiser la navigation',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon:
+                        Icon(Icons.refresh_rounded, size: 18, color: cs.error),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      ref
+                          .read(navigationOrderStateProvider.notifier)
+                          .set(List<String>.from(kWtDefaultNavOrder));
+                      ref
+                          .read(hideItemsStateProvider.notifier)
+                          .set(List<String>.from(kWtDefaultHideItems));
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.check_rounded,
+                        size: 18, color: cs.primary),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Glisser pour réordonner  ·  4 premiers = dock  ·  reste = menu',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: cs.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: cs.onSurface.withValues(alpha: 0.12),
+            ),
+            Flexible(
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                proxyDecorator: (child, index, animation) =>
+                    Material(color: Colors.transparent, child: child),
+                onReorder: (oldIndex, newIndex) {
+                  HapticFeedback.selectionClick();
+                  final list = List<String>.from(navOrder);
+                  if (newIndex > oldIndex) newIndex--;
+                  final item = list.removeAt(oldIndex);
+                  list.insert(newIndex, item);
+                  ref
+                      .read(navigationOrderStateProvider.notifier)
+                      .set(list);
+                },
+                itemCount: navOrder.length,
+                itemBuilder: (context, index) {
+                  final route    = navOrder[index];
+                  final info     = kWtRouteInfo[route];
+                  final label    = info?.$1 ?? route.replaceAll('/', '');
+                  final icon     = info?.$2 ?? Icons.circle_outlined;
+                  final isHidden = hideItems.contains(route);
+                  final inDock   = index < 4 && !isHidden;
+
+                  return ListTile(
+                    key: ValueKey(route),
+                    leading: Icon(
+                      icon,
+                      size: 20,
+                      color: inDock
+                          ? cs.primary
+                          : cs.onSurface.withValues(
+                              alpha: isHidden ? 0.28 : 0.52),
+                    ),
+                    title: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight:
+                            inDock ? FontWeight.w600 : FontWeight.w400,
+                        color: cs.onSurface
+                            .withValues(alpha: isHidden ? 0.35 : 1.0),
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _Badge(
+                          label: inDock
+                              ? 'dock'
+                              : isHidden
+                                  ? 'caché'
+                                  : 'menu',
+                          color: inDock
+                              ? cs.primary
+                              : cs.onSurface.withValues(alpha: 0.38),
+                          bg: inDock
+                              ? cs.primary.withValues(alpha: 0.12)
+                              : cs.onSurface.withValues(alpha: 0.07),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.drag_handle_rounded,
+                          size: 18,
+                          color: cs.onSurface.withValues(alpha: 0.28),
+                        ),
+                      ],
+                    ),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16),
+                    dense: true,
+                    minVerticalPadding: 4,
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+          ],
         ),
       ),
     );
