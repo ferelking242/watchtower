@@ -1,4 +1,6 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:async';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -18,13 +20,32 @@ Future<File> _markerFile() async {
 Future<bool> onboardingIsComplete() async {
   if (kIsWeb) return true;
   try {
-    return (await _markerFile()).existsSync();
+    // Primary: Hive 'ui_prefs' key — lives in app-private storage, cleared on
+    // fresh install / 'Clear data'.  Avoids the file marker surviving sideload
+    // upgrades (old APK data is preserved across reinstalls on Android).
+    final box = Hive.box('ui_prefs');
+    if (box.containsKey('onboarding_done')) {
+      return box.get('onboarding_done') as bool;
+    }
+    // Legacy fallback: file marker written by earlier builds.
+    // If present, back-fill the Hive key so existing users keep their state.
+    final fileComplete = (await _markerFile()).existsSync();
+    if (fileComplete) {
+      unawaited(box.put('onboarding_done', true));
+    }
+    return fileComplete;
   } catch (_) {
     return false;
   }
 }
 
 Future<void> markOnboardingComplete() async {
+  // Write Hive key — primary persistence layer.
+  try {
+    final box = Hive.box('ui_prefs');
+    await box.put('onboarding_done', true);
+  } catch (_) {}
+  // Also write legacy file marker for forward compatibility.
   try {
     final f = await _markerFile();
     await f.create(recursive: true);
