@@ -32,6 +32,7 @@ class JsExtensionService implements ExtensionService {
   @override
   late Source source;
   bool _isInitialized = false;
+  bool _isDisposing = false;
   late JsDomSelector _jsDomSelector;
 
   JsExtensionService(this.source);
@@ -183,10 +184,18 @@ var extention = new DefaultExtension();
 
   @override
   void dispose() {
-    if (!_isInitialized) return;
-    _jsDomSelector.dispose();
-    runtime.dispose(); // cancel timers + close QuickJS engine
+    if (!_isInitialized || _isDisposing) return;
+    _isDisposing = true;
+    // Block new calls immediately — set before any teardown step.
     _isInitialized = false;
+    try { _jsDomSelector.dispose(); } catch (_) {}
+    try {
+      // Flush pending JS microtasks/Promise callbacks before freeing the
+      // runtime. Without this the QuickJS assertion
+      // "list_empty(&rt->gc_obj_list)" in JS_FreeRuntime fires → SIGABRT.
+      runtime.evaluate('null');
+    } catch (_) {}
+    try { runtime.dispose(); } catch (_) {}
   }
 
   @override
