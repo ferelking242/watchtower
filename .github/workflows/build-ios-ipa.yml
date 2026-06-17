@@ -143,51 +143,69 @@ jobs:
           ls build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
             && echo "zeusdl présent" || echo "zeusdl absent (OK)"
 
-      # ── Thin FAT → arm64 ────────────────────────────────────────────────────
-      # TrollStore sur iPhone 7 utilise un vieux ldid qui ne comprend pas arm64e.
-      # media_kit_libs_ios_video et consorts livrent des fat binaries (arm64+arm64e).
-      # On thin tout à arm64 avant de signer.
-      - name: Thin all FAT framework binaries to arm64
+      # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
+      # TrollStore sur iPhone 7 utilise un vieux ldid qui :
+      #   1. Ne comprend pas arm64e → thin FAT → arm64
+      #   2. Ne comprend pas les archives statiques (ar) → remove du framework
+      #   3. Choke sur fichiers non-Mach-O dans .framework → remove
+      - name: Prepare bundle for TrollStore ldid compatibility
         run: |
           APP="build/ios/iphoneos/Runner.app"
-          THINNED=0; ALREADY=0; SKIPPED=0
+          THINNED=0; ALREADY=0; REMOVED=0; SKIPPED=0
+
           for fw in "$APP/Frameworks"/*.framework; do
             NAME=$(basename "$fw" .framework)
             BIN="$fw/$NAME"
-            [ -f "$BIN" ] || { echo "SKIP $NAME (no binary)"; SKIPPED=$((SKIPPED+1)); continue; }
-            MAGIC=$(xxd -p -l 4 "$BIN" 2>/dev/null || echo "")
-            if [[ "$MAGIC" == "cafebabe" ]]; then
+            [ -f "$BIN" ] || { SKIPPED=$((SKIPPED+1)); continue; }
+
+            # file(1) ne nécessite pas xxd — identifie le type réel
+            FILETYPE=$(file -b "$BIN")
+
+            if echo "$FILETYPE" | grep -q "ar archive"; then
+              # Archive statique (ex: wakelock_plus compilé staticlib)
+              # ldid ne sait pas lire ar → "Unknown header magic" → on supprime
+              rm -f "$BIN"
+              echo "REMOVED static archive: $NAME"
+              REMOVED=$((REMOVED+1))
+
+            elif echo "$FILETYPE" | grep -q "Mach-O.*universal"; then
+              # FAT binary — thin à arm64
               if lipo -info "$BIN" 2>/dev/null | grep -q "arm64"; then
                 lipo "$BIN" -thin arm64 -output "${BIN}.thin" 2>/dev/null \
                   && mv "${BIN}.thin" "$BIN" \
                   && echo "THINNED: $NAME" \
                   && THINNED=$((THINNED+1)) \
-                  || { echo "WARN: lipo failed $NAME — leaving fat"; SKIPPED=$((SKIPPED+1)); }
+                  || { echo "WARN: lipo failed $NAME"; SKIPPED=$((SKIPPED+1)); }
               else
-                echo "WARN: $NAME fat but no arm64 slice"
+                echo "WARN: $NAME fat sans slice arm64"
                 SKIPPED=$((SKIPPED+1))
               fi
-            elif [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" ]]; then
+
+            elif echo "$FILETYPE" | grep -q "Mach-O"; then
               ALREADY=$((ALREADY+1))
+
             else
-              echo "NOTE: $NAME magic=$MAGIC (not Mach-O — static or resource)"
-              SKIPPED=$((SKIPPED+1))
+              # Autre format inconnu dans un .framework → supprimer
+              echo "REMOVED unknown: $NAME ($FILETYPE)"
+              rm -f "$BIN"
+              REMOVED=$((REMOVED+1))
             fi
           done
-          echo "=== Thin résultat: $THINNED thinned | $ALREADY déjà arm64 | $SKIPPED skip ==="
 
-          # Thin aussi le binaire zeusdl si présent
+          echo "=== Résultat: $THINNED thinned | $ALREADY arm64 OK | $REMOVED removed | $SKIPPED skip ==="
+
+          # Zeusdl dans assets
           ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
           if [ -f "$ZEUSDL" ]; then
-            MAGIC=$(xxd -p -l 4 "$ZEUSDL" 2>/dev/null || echo "")
-            echo "zeusdl magic=$MAGIC"
-            if [[ "$MAGIC" == "cafebabe" ]]; then
+            ZTYPE=$(file -b "$ZEUSDL")
+            echo "zeusdl type: $ZTYPE"
+            if echo "$ZTYPE" | grep -q "Mach-O.*universal"; then
               lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.thin" 2>/dev/null \
                 && mv "${ZEUSDL}.thin" "$ZEUSDL" && echo "zeusdl thinned" \
-                || rm -f "$ZEUSDL" && echo "zeusdl removed (lipo failed)"
-            elif [[ "$MAGIC" != "cffaedfe" && "$MAGIC" != "cefaedfe" ]]; then
+                || { rm -f "$ZEUSDL"; echo "zeusdl removed (lipo failed)"; }
+            elif ! echo "$ZTYPE" | grep -q "Mach-O"; then
               rm -f "$ZEUSDL"
-              echo "zeusdl removed (magic inconnu: $MAGIC)"
+              echo "zeusdl removed (not Mach-O: $ZTYPE)"
             fi
           fi
 
@@ -230,6 +248,16 @@ jobs:
           echo "=== Frameworks présents ==="
           ls "$APP/Frameworks/" | wc -l
           echo "wakelock_plus binary: $([ -f "$APP/Frameworks/wakelock_plus.framework/wakelock_plus" ] && echo PRESENT || echo absent-static-OK)"
+
+      # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
+      # ldid -S crée des fichiers .ldid.<name> dans chaque .framework
+      # TrollStore les inclut dans son scan → "Unknown header magic"
+      - name: Cleanup ldid residual files
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          COUNT=$(find "$APP" -name ".ldid.*" | wc -l)
+          find "$APP" -name ".ldid.*" -delete
+          echo "Cleaned $COUNT .ldid.* files"
 
       # ── Package IPA ─────────────────────────────────────────────────────────
       - name: Package IPA
