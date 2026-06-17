@@ -7,6 +7,7 @@ import 'dart:async';
   import 'package:http/http.dart' as http;
   import 'package:path_provider/path_provider.dart';
   import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/core/config/app_config.dart';
   import 'package:watchtower/services/python/libpython_manager.dart';
 
   const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
@@ -492,6 +493,8 @@ import 'dart:async';
         try {
           await tmpAssetDir.create(recursive: true);
           await compute(_extractZipBytesToDir, _ExtractBytesArgs(bytes, tmpAssetDir.path));
+          final extractedFiles = tmpAssetDir.listSync(recursive: true);
+          AppLogger.d('[ZEUS] Fichiers extraits: ${extractedFiles.map((f) => f.path.replaceAll(tmpAssetDir.path, '')).join(', ')}');
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
           await tmpAssetDir.rename(zeusDir.path);
         } catch (e) {
@@ -549,8 +552,11 @@ import 'dart:async';
             logLevel: LogLevel.debug, tag: LogTag.zeus);
 
         final res = await http
-            .get(Uri.parse(_zeusReleaseApiUrl),
-                headers: {'Accept': 'application/vnd.github+json'})
+            .get(Uri.parse(_zeusReleaseApiUrl), headers: {
+              'Accept': 'application/vnd.github+json',
+              if (AppConfig.githubToken.isNotEmpty)
+                'Authorization': 'token ${AppConfig.githubToken}',
+            })
             .timeout(const Duration(seconds: 10));
 
         if (res.statusCode != 200) {
@@ -610,6 +616,8 @@ import 'dart:async';
           await tmpUpdateDir.create(recursive: true);
           await compute(
               _extractZipBytesToDir, _ExtractBytesArgs(zipRes.bodyBytes, tmpUpdateDir.path));
+          final updatedFiles = tmpUpdateDir.listSync(recursive: true);
+          AppLogger.d('[ZEUS] Fichiers mis à jour: ${updatedFiles.map((f) => f.path.replaceAll(tmpUpdateDir.path, '')).join(', ')}');
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
           await tmpUpdateDir.rename(zeusDir.path);
         } catch (e) {

@@ -117,12 +117,24 @@ jobs:
 
       - name: Build iOS (no codesign)
         run: |
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign \
+            ARCHS=arm64 VALID_ARCHS=arm64 EXCLUDED_ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO
           echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
           ls -lh build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
             || echo "WARN: assets/binaries/ absent"
 
-      - name: Fix zeusdl binary for TrollStore ldid compatibility
+
+        - name: Verify Runner.app arch (arm64 only)
+          run: |
+            APP="build/ios/iphoneos/Runner.app/Runner"
+            if [ -f "$APP" ]; then
+              echo "Runner arch info:"
+              lipo -info "$APP"
+            else
+              echo "WARN: Runner binary not found at $APP"
+            fi
+
+        - name: Fix zeusdl binary for TrollStore ldid compatibility
         run: |
           ZEUSDL="build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/zeusdl"
           if [ ! -f "$ZEUSDL" ]; then

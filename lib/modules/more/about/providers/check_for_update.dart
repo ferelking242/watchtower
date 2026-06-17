@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:watchtower/core/config/app_config.dart';
 import 'dart:developer';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:flutter/foundation.dart';
@@ -128,8 +129,15 @@ Future<(String, String, String, List<dynamic>)> _fetchAppUpdate() async {
       Uri.parse(
         "https://api.github.com/repos/ferelking242/watchtower/releases?page=1&per_page=10",
       ),
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        if (AppConfig.githubToken.isNotEmpty)
+          'Authorization': 'token ${AppConfig.githubToken}',
+      },
     );
-    List resListJson = jsonDecode(res.body) as List;
+    final json = jsonDecode(res.body);
+    if (json is! List) throw Exception('GitHub API: unexpected response ${res.statusCode}');
+    List resListJson = json;
     // No releases published yet → treat as up to date
     if (resListJson.isEmpty) {
       return ('0.0.0', '', '', []);

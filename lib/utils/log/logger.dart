@@ -9,6 +9,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:watchtower/utils/constant.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // ─── Log Settings Keys (Hive box: advanced_settings) ──────────────────────────
 const _kLogBox = 'advanced_settings';
@@ -167,6 +168,13 @@ class AppLogger {
     await _loadSettings();
 
     final storage = StorageProvider();
+    if (!kIsWeb && Platform.isAndroid) {
+      final status = await Permission.storage.status;
+      if (!status.isGranted) {
+        final result = await Permission.storage.request();
+        if (!result.isGranted) return;
+      }
+    }
     final directory = await storage.getDefaultDirectory();
 
     // ── New: one log file PER session, kept in `<storage>/logs_sessions/`.

@@ -1,4 +1,5 @@
 import 'dart:async';
+  import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'utils/io_stub.dart';
 import 'package:app_links/app_links.dart';
@@ -220,7 +221,13 @@ void main(List<String> args) async {
 }
 
 Future<void> _postLaunchInit(StorageProvider storage) async {
-  await AppLogger.init();
+  if (!kIsWeb && Platform.isAndroid) {
+      await [
+        Permission.storage,
+        Permission.manageExternalStorage,
+      ].request();
+    }
+    await AppLogger.init();
   if (!kIsWeb) {
     unawaited(DevSeed.seedGumball().catchError((_) {}));
   }

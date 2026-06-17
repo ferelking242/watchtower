@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:watchtower/core/config/app_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -83,8 +84,15 @@ Future<ZeusRelease?> _fetchZeusRelease() async {
       Uri.parse(
         'https://api.github.com/repos/ferelking242/zeusdl/releases?page=1&per_page=5',
       ),
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        if (AppConfig.githubToken.isNotEmpty)
+          'Authorization': 'token ${AppConfig.githubToken}',
+      },
     );
-    final List data = jsonDecode(res.body) as List;
+    final jsonBody = jsonDecode(res.body);
+    if (jsonBody is! List) throw Exception('GitHub API: unexpected response ${res.statusCode}');
+    final List data = jsonBody;
     if (data.isEmpty) return null;
     final first = data.first as Map<String, dynamic>;
     final tag = (first['tag_name'] ?? first['name'] ?? 'unknown').toString();

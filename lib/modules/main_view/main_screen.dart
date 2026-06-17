@@ -32,7 +32,6 @@ import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart' show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
-import 'package:watchtower/modules/main_view/widgets/watchtower_speed_dial.dart';
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
 
@@ -345,11 +344,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       children: [
                     Scaffold(
                       extendBody: true,
-                      floatingActionButton: !isReadingScreen
-                          ? const WatchtowerSpeedDial()
-                          : null,
-                      floatingActionButtonLocation:
-                          FloatingActionButtonLocation.endFloat,
                       body: NotificationListener<UserScrollNotification>(
                         onNotification: (n) {
                           // Only care about vertical primary scrolls so the

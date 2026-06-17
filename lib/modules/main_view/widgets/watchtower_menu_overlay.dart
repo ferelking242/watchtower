@@ -99,7 +99,7 @@ class _WatchtowerMenuOverlayState
     );
     _itemCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 800),
     );
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 1),
@@ -186,18 +186,6 @@ class _WatchtowerMenuOverlayState
       opacity: _fadeAnim,
       child: Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                _close();
-              },
-              behavior: HitTestBehavior.translucent,
-              child: const SizedBox.expand(),
-            ),
-          ),
-
-          Positioned(
             left: 16,
             right: 16,
             bottom: dockBottom + 10,
@@ -225,6 +213,37 @@ class _WatchtowerMenuOverlayState
             ),
           ),
         ],
+          Positioned(
+              left: 16,
+              bottom: mq.padding.bottom + 12,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.red),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      _resetProviders();
+                    },
+                    iconSize: 22,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(Icons.build_rounded,
+                        color: cs.onSurface.withValues(alpha: 0.65)),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => _reorderMode = true);
+                    },
+                    iconSize: 22,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
       ),
     );
   }
@@ -243,18 +262,6 @@ class _WatchtowerMenuOverlayState
       opacity: _fadeAnim,
       child: Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                setState(() => _reorderMode = false);
-              },
-              behavior: HitTestBehavior.translucent,
-              child: const SizedBox.expand(),
-            ),
-          ),
-
-          Positioned(
             left: 16,
             right: 16,
             bottom: dockBottom + 10,
@@ -417,6 +424,37 @@ class _WatchtowerMenuOverlayState
               ),
             ),
           ),
+          Positioned(
+              left: 16,
+              bottom: mq.padding.bottom + 12,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.red),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      _resetProviders();
+                    },
+                    iconSize: 22,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(Icons.build_rounded,
+                        color: cs.onSurface.withValues(alpha: 0.65)),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => _reorderMode = !_reorderMode);
+                    },
+                    iconSize: 22,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -516,11 +554,19 @@ class _MenuPanel extends StatelessWidget {
                           isActive: currentLocation == it.route,
                           isDark: isDark,
                           cs: cs,
-                          entryAnim: CurvedAnimation(
+                          iconAnim: CurvedAnimation(
                             parent: animCtrl,
                             curve: Interval(
-                              min(0.9, i * 0.08),
-                              min(1.0, i * 0.08 + 0.35),
+                              min(0.9, i * 0.0625),
+                              min(1.0, i * 0.0625 + 0.25),
+                              curve: Curves.easeOut,
+                            ),
+                          ),
+                          labelAnim: CurvedAnimation(
+                            parent: animCtrl,
+                            curve: Interval(
+                              min(0.9, i * 0.0625 + 0.1875),
+                              min(1.0, i * 0.0625 + 0.4375),
                               curve: Curves.easeOut,
                             ),
                           ),
@@ -543,7 +589,8 @@ class _GridItem extends StatelessWidget {
   final bool isActive;
   final bool isDark;
   final ColorScheme cs;
-  final Animation<double> entryAnim;
+  final Animation<double> iconAnim;
+  final Animation<double> labelAnim;
   final VoidCallback onTap;
 
   const _GridItem({
@@ -551,7 +598,8 @@ class _GridItem extends StatelessWidget {
     required this.isActive,
     required this.isDark,
     required this.cs,
-    required this.entryAnim,
+    required this.iconAnim,
+    required this.labelAnim,
     required this.onTap,
   });
 
@@ -572,59 +620,56 @@ class _GridItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: itemW,
-        child: AnimatedBuilder(
-          animation: entryAnim,
-          builder: (context, child) {
-            final v = entryAnim.value;
-            return Opacity(
-              opacity: v,
-              child: Transform.translate(
-                offset: Offset(0, 10 * (1.0 - v)),
-                child: child,
-              ),
-            );
-          },
-          child: Column(
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? accent.withValues(alpha: isDark ? 0.18 : 0.12)
-                      : (isDark
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : Colors.black.withValues(alpha: 0.05)),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isActive
-                        ? accent.withValues(alpha: 0.30)
-                        : (isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.black.withValues(alpha: 0.07)),
-                    width: 1,
-                  ),
+              AnimatedBuilder(
+                animation: iconAnim,
+                builder: (context, child) {
+                  final v = iconAnim.value;
+                  return Opacity(
+                    opacity: v,
+                    child: Transform.translate(
+                      offset: Offset(0, 10 * (1.0 - v)),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  color: Colors.transparent,
+                  child: Center(child: Icon(item.icon, size: 22, color: iconColor)),
                 ),
-                child: Icon(item.icon, size: 22, color: iconColor),
               ),
               const SizedBox(height: 5),
-              Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: labelColor,
-                  height: 1.0,
+              AnimatedBuilder(
+                animation: labelAnim,
+                builder: (context, child) {
+                  final v = labelAnim.value;
+                  return Opacity(
+                    opacity: v,
+                    child: Transform.translate(
+                      offset: Offset(0, 6 * (1.0 - v)),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: labelColor,
+                    height: 1.0,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
       ),
     );
   }
