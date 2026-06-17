@@ -15,7 +15,7 @@ import 'package:watchtower/core/config/app_config.dart';
   const _zeusReleaseApiUrl =
       'https://api.github.com/repos/ferelking242/zeusdl/releases/latest';
 
-  // ── Isolate helpers (top-level, required by compute()) ─────────────────────
+  // ââ Isolate helpers (top-level, required by compute()) âââââââââââââââââââââ
 
   class _ExtractArgs {
     final String zipPath;
@@ -70,7 +70,7 @@ import 'package:watchtower/core/config/app_config.dart';
     }
   }
 
-  // ── Result type for internal steps ─────────────────────────────────────────
+  // ââ Result type for internal steps âââââââââââââââââââââââââââââââââââââââââ
 
   /// Wraps either a success value [T] or an error [message].
   class _Result<T> {
@@ -81,13 +81,13 @@ import 'package:watchtower/core/config/app_config.dart';
     bool get isOk => error == null;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   /// Execution context returned by [ZeusDlBinaryManager.resolveExecutionContext].
   ///
   /// Android (Python Bionic via youtubedl-android runtime):
-  ///   executable  = nativeLibsDir/libpython.so     ← Python ARM64 Bionic, execv OK
-  ///   prependArgs = [filesDir/zeusdl/__main__.py]   ← ZeusDL Python entry point
+  ///   executable  = nativeLibsDir/libpython.so     â Python ARM64 Bionic, execv OK
+  ///   prependArgs = [filesDir/zeusdl/__main__.py]   â ZeusDL Python entry point
   ///   extraEnv    = {PYTHONHOME, LD_LIBRARY_PATH, SSL_CERT_FILE}
   ///
   /// Desktop / fallback:
@@ -106,15 +106,15 @@ import 'package:watchtower/core/config/app_config.dart';
 
   /// Manages the ZeusDL lifecycle.
   ///
-  /// Android — Python-based execution (no SIGSEGV, no SELinux block):
-  ///   • libpython.so     (4 KB)  lives in nativeLibsDir → execv'd directly ✓
-  ///   • libpython.zip.so (11 MB) lives in nativeLibsDir → unzipped to filesDir
-  ///   • zeusdl.zip               bundled in assets + downloadable from GitHub
+  /// Android â Python-based execution (no SIGSEGV, no SELinux block):
+  ///   â¢ libpython.so     (4 KB)  lives in nativeLibsDir â execv'd directly â
+  ///   â¢ libpython.zip.so (11 MB) lives in nativeLibsDir â unzipped to filesDir
+  ///   â¢ zeusdl.zip               bundled in assets + downloadable from GitHub
   ///
   /// Update flow:
   ///   On each [resolveExecutionContext] call the manager checks GitHub for a
   ///   new ZeusDL release.  If one exists it downloads zeusdl.zip and re-extracts
-  ///   it to filesDir — no APK reinstall needed.
+  ///   it to filesDir â no APK reinstall needed.
   class ZeusDlBinaryManager {
     static ZeusDlBinaryManager? _instance;
     static ZeusDlBinaryManager get instance =>
@@ -127,7 +127,7 @@ import 'package:watchtower/core/config/app_config.dart';
     static const String _assetPath = 'assets/binaries/zeusdl';
     static const String _binaryName = 'zeusdl';
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ââ Public API ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     Future<ZeusDlExecutionContext?> resolveExecutionContext() async {
       if (Platform.isAndroid) return _resolveAndroidContext();
@@ -139,23 +139,23 @@ import 'package:watchtower/core/config/app_config.dart';
 
 
 
-      // ── iOS: résolution du contexte d'exécution ───────────────────────────────
+      // ââ iOS: rÃ©solution du contexte d'exÃ©cution âââââââââââââââââââââââââââââââ
       //
-      // Non-jailbreaké   : Process.start() interdit par le sandbox iOS.
-      //                    On retourne null → ZeusDL désactivé sur cet appareil.
-      // Dopamine/rootless: les binaires arm64 dans /var/jb sont exécutables
-      //                    si signés avec ldid et si le jailbreak patche posix_spawn.
+      // Non-jailbreakÃ©   : Process.start() interdit par le sandbox iOS.
+      //                    On retourne null â ZeusDL dÃ©sactivÃ© sur cet appareil.
+      // Dopamine/rootless: les binaires arm64 dans /var/jb sont exÃ©cutables
+      //                    si signÃ©s avec ldid et si le jailbreak patche posix_spawn.
       // Rooted (classic) : /usr/bin, /usr/local/bin accessibles directement.
       Future<ZeusDlExecutionContext?> _resolveIOSContext() async {
-        AppLogger.log('ZeusDL iOS: résolution contexte',
+        AppLogger.log('ZeusDL iOS: rÃ©solution contexte',
             logLevel: LogLevel.info, tag: LogTag.zeus);
 
-        // ── 1. AppDelegate channel: détection jailbreak + chemin yt-dlp ──────────
+        // ââ 1. AppDelegate channel: dÃ©tection jailbreak + chemin yt-dlp ââââââââââ
         try {
           final path = await _binaryUtilsChannel.invokeMethod<String?>('getYtDlpPath');
           if (path != null && path.isNotEmpty) {
             if (await File(path).exists()) {
-              AppLogger.log('ZeusDL iOS ✓ via AppDelegate: $path',
+              AppLogger.log('ZeusDL iOS â via AppDelegate: $path',
                   logLevel: LogLevel.info, tag: LogTag.zeus);
               return ZeusDlExecutionContext(executable: path);
             }
@@ -165,7 +165,7 @@ import 'package:watchtower/core/config/app_config.dart';
               logLevel: LogLevel.debug, tag: LogTag.zeus);
         }
 
-        // ── 2. Chemins jailbreak connus ───────────────────────────────────────────
+        // ââ 2. Chemins jailbreak connus âââââââââââââââââââââââââââââââââââââââââââ
         const _kJBPaths = <String>[
           '/var/jb/usr/local/bin/zeusdl',   // Dopamine rootless
           '/var/jb/usr/bin/zeusdl',
@@ -178,22 +178,22 @@ import 'package:watchtower/core/config/app_config.dart';
         ];
         for (final p in _kJBPaths) {
           if (await File(p).exists()) {
-            AppLogger.log('ZeusDL iOS ✓ jailbreak path: $p',
+            AppLogger.log('ZeusDL iOS â jailbreak path: $p',
                 logLevel: LogLevel.info, tag: LogTag.zeus);
             return ZeusDlExecutionContext(executable: p);
           }
         }
 
-        // ── 3. Binaire bundlé dans les assets (Mach-O arm64 apple-ios) ───────────
+        // ââ 3. Binaire bundlÃ© dans les assets (Mach-O arm64 apple-ios) âââââââââââ
         final bundled = await _extractIOSBundledBinary();
         if (bundled != null) {
-          AppLogger.log('ZeusDL iOS ✓ asset extrait: $bundled',
+          AppLogger.log('ZeusDL iOS â asset extrait: $bundled',
               logLevel: LogLevel.info, tag: LogTag.zeus);
           return ZeusDlExecutionContext(executable: bundled);
         }
 
         AppLogger.log(
-            'ZeusDL iOS: aucun binaire disponible (non-jailbreaké ou binaire absent)',
+            'ZeusDL iOS: aucun binaire disponible (non-jailbreakÃ© ou binaire absent)',
             logLevel: LogLevel.warning, tag: LogTag.zeus);
         return null;
       }
@@ -223,7 +223,7 @@ import 'package:watchtower/core/config/app_config.dart';
             }
             await dest.parent.create(recursive: true);
             await dest.writeAsBytes(bytes);
-            // chmod +x via AppDelegate (évite Process.run sur iOS sandbox)
+            // chmod +x via AppDelegate (Ã©vite Process.run sur iOS sandbox)
             try {
               await _binaryUtilsChannel.invokeMethod('chmod', {'path': destPath});
             } catch (_) {}
@@ -238,20 +238,20 @@ import 'package:watchtower/core/config/app_config.dart';
         }
       }
 
-    // ── Android: Python Bionic execution ─────────────────────────────────────
+    // ââ Android: Python Bionic execution âââââââââââââââââââââââââââââââââââââ
 
     Future<ZeusDlExecutionContext?> _resolveAndroidContext() async {
-      AppLogger.log('ZeusDL: démarrage résolution contexte Android',
+      AppLogger.log('ZeusDL: dÃ©marrage rÃ©solution contexte Android',
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
-      // ── Étape 1 : nativeLibraryDir ──────────────────────────────────────────
+      // ââ Ãtape 1 : nativeLibraryDir ââââââââââââââââââââââââââââââââââââââââââ
       final String nativeDir;
       try {
         final result = await _binaryUtilsChannel
             .invokeMethod<String>('getNativeLibraryDir');
         if (result == null || result.isEmpty) {
           AppLogger.log(
-              'ZeusDL [ERREUR] nativeLibraryDir vide — MethodChannel sans réponse',
+              'ZeusDL [ERREUR] nativeLibraryDir vide â MethodChannel sans rÃ©ponse',
               logLevel: LogLevel.error, tag: LogTag.zeus);
           return null;
         }
@@ -259,29 +259,29 @@ import 'package:watchtower/core/config/app_config.dart';
         AppLogger.log('ZeusDL [1/4] nativeDir = $nativeDir',
             logLevel: LogLevel.debug, tag: LogTag.zeus);
       } catch (e, st) {
-        AppLogger.log('ZeusDL [ERREUR] getNativeLibraryDir a lancé une exception',
+        AppLogger.log('ZeusDL [ERREUR] getNativeLibraryDir a lancÃ© une exception',
             logLevel: LogLevel.error, tag: LogTag.zeus, error: e, stackTrace: st);
         return null;
       }
 
-      // ── Étape 2 : libpython.so ──────────────────────────────────────────────
+      // ââ Ãtape 2 : libpython.so ââââââââââââââââââââââââââââââââââââââââââââââ
       final pythonBin = File('$nativeDir/libpython.so');
       final pythonBinExists = await pythonBin.exists();
       final pythonBinSize = pythonBinExists ? await pythonBin.length() : 0;
       AppLogger.log(
-          'ZeusDL [2/4] libpython.so — existe=$pythonBinExists taille=${pythonBinSize}B',
+          'ZeusDL [2/4] libpython.so â existe=$pythonBinExists taille=${pythonBinSize}B',
           logLevel: pythonBinExists && pythonBinSize > 0
               ? LogLevel.info
               : LogLevel.error,
           tag: LogTag.zeus);
       if (!pythonBinExists || pythonBinSize == 0) {
         AppLogger.log(
-            'ZeusDL [ERREUR] libpython.so absent ou vide dans $nativeDir — APK mal assemblé',
+            'ZeusDL [ERREUR] libpython.so absent ou vide dans $nativeDir â APK mal assemblÃ©',
             logLevel: LogLevel.error, tag: LogTag.zeus);
         return null;
       }
 
-      // ── Étape 3 : Python stdlib (libpython.zip.so → filesDir) ───────────────
+      // ââ Ãtape 3 : Python stdlib (libpython.zip.so â filesDir) âââââââââââââââ
       final filesDir = (await getApplicationSupportDirectory()).path;
       AppLogger.log('ZeusDL [3/4] filesDir = $filesDir',
           logLevel: LogLevel.debug, tag: LogTag.zeus);
@@ -297,7 +297,7 @@ import 'package:watchtower/core/config/app_config.dart';
       AppLogger.log('ZeusDL [3/4] PYTHONHOME = $pythonHome',
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
-      // ── Étape 4 : scripts ZeusDL (__main__.py) ──────────────────────────────
+      // ââ Ãtape 4 : scripts ZeusDL (__main__.py) ââââââââââââââââââââââââââââââ
       final scriptResult = await _ensureZeusDlScripts(filesDir);
       if (!scriptResult.isOk) {
         AppLogger.log(
@@ -310,7 +310,7 @@ import 'package:watchtower/core/config/app_config.dart';
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
       // Sur x86_64 avec ARM translation (NDK Translation), le runner x86_64 utilise
-      // son propre RPATH (/system/lib64/) pour ses dependances — il n'est pas affecte
+      // son propre RPATH (/system/lib64/) pour ses dependances â il n'est pas affecte
       // par LD_LIBRARY_PATH. On definit donc LD_LIBRARY_PATH pour TOUS les appareils
       // afin que les extensions C Python (lib-dynload) trouvent libffi.so, libssl.so, etc.
       // nativeDir est inclus en premier pour que libpython3.11.so.1.0 soit trouve par SONAME.
@@ -324,15 +324,15 @@ import 'package:watchtower/core/config/app_config.dart';
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
       AppLogger.log(
-          'ZeusDL ✓ contexte prêt — ${pythonBin.path} $mainPy',
+          'ZeusDL â contexte prÃªt â ${pythonBin.path} $mainPy',
           logLevel: LogLevel.info, tag: LogTag.zeus);
 
-      // ── Étape 5 : site-packages (dépendances pip) ───────────────────────
+      // ââ Ãtape 5 : site-packages (dÃ©pendances pip) âââââââââââââââââââââââ
       final sitePackagesDir = await LibPythonManager.instance.sitePackagesDir;
       AppLogger.log('ZeusDL [5/5] PYTHONPATH = $sitePackagesDir',
           logLevel: LogLevel.debug, tag: LogTag.zeus);
 
-      // Installer les dépendances ZeusDL manquantes en arrière-plan (non-bloquant)
+      // Installer les dÃ©pendances ZeusDL manquantes en arriÃ¨re-plan (non-bloquant)
       LibPythonManager.instance
           .ensureZeusDlDeps(
             onProgress: (msg) => AppLogger.log('LibPython: $msg',
@@ -355,13 +355,13 @@ import 'package:watchtower/core/config/app_config.dart';
           'SSL_CERT_FILE': '$pythonHome/etc/tls/cert.pem',
           'PYTHONDONTWRITEBYTECODE': '1',
           'PYTHONUNBUFFERED': '1',
-          // PYTHONPATH : dépendances pip installées par LibPythonManager
+          // PYTHONPATH : dÃ©pendances pip installÃ©es par LibPythonManager
           'PYTHONPATH': sitePackagesDir,
         },
       );
     }
 
-    // ── Python stdlib extraction ──────────────────────────────────────────────
+    // ââ Python stdlib extraction ââââââââââââââââââââââââââââââââââââââââââââââ
 
     /// Extrait libpython.zip.so (stdlib Python) depuis nativeLibsDir vers filesDir.
     /// Retourne PYTHONHOME = filesDir/packages/python/usr, ou une erreur.
@@ -371,18 +371,18 @@ import 'package:watchtower/core/config/app_config.dart';
       final zipExists = await zipSo.exists();
       final zipSize = zipExists ? await zipSo.length() : 0;
       AppLogger.log(
-          'ZeusDL stdlib: libpython.zip.so — existe=$zipExists taille=${zipSize}B — chemin=${zipSo.path}',
+          'ZeusDL stdlib: libpython.zip.so â existe=$zipExists taille=${zipSize}B â chemin=${zipSo.path}',
           logLevel: LogLevel.debug, tag: LogTag.zeus);
 
       if (!zipExists || zipSize == 0) {
-        // Lister ce qui est présent dans nativeDir pour aider au diagnostic
+        // Lister ce qui est prÃ©sent dans nativeDir pour aider au diagnostic
         try {
           final contents = Directory(nativeDir)
               .listSync()
               .map((e) => e.path.split('/').last)
               .join(', ');
           AppLogger.log(
-              'ZeusDL stdlib [ERREUR] libpython.zip.so absent — '
+              'ZeusDL stdlib [ERREUR] libpython.zip.so absent â '
               'contenu de nativeDir : $contents',
               logLevel: LogLevel.error, tag: LogTag.zeus);
         } catch (_) {
@@ -391,41 +391,41 @@ import 'package:watchtower/core/config/app_config.dart';
               logLevel: LogLevel.error, tag: LogTag.zeus);
         }
         return const _Result.fail(
-            'libpython.zip.so absent de nativeLibsDir — APK mal packagé');
+            'libpython.zip.so absent de nativeLibsDir â APK mal packagÃ©');
       }
 
       final pythonDir = Directory('$filesDir/packages/python');
       final versionFile = File('$filesDir/packages/python3.11_v2_size.txt');
       final currentSize = zipSize.toString();
 
-      // Vérifier si déjà extrait avec la bonne version
+      // VÃ©rifier si dÃ©jÃ  extrait avec la bonne version
       if (await pythonDir.exists() && await versionFile.exists()) {
         final stored = (await versionFile.readAsString()).trim();
         if (stored == currentSize) {
           AppLogger.log(
-              'ZeusDL stdlib: déjà extrait ($currentSize octets) — pas de re-extraction',
+              'ZeusDL stdlib: dÃ©jÃ  extrait ($currentSize octets) â pas de re-extraction',
               logLevel: LogLevel.debug, tag: LogTag.zeus);
           return _Result.ok('$filesDir/packages/python/usr');
         }
         AppLogger.log(
-            'ZeusDL stdlib: version changée (stockée=$stored actuelle=$currentSize) — re-extraction',
+            'ZeusDL stdlib: version changÃ©e (stockÃ©e=$stored actuelle=$currentSize) â re-extraction',
             logLevel: LogLevel.info, tag: LogTag.zeus);
       } else {
         AppLogger.log(
-            'ZeusDL stdlib: première extraction ($currentSize octets)',
+            'ZeusDL stdlib: premiÃ¨re extraction ($currentSize octets)',
             logLevel: LogLevel.info, tag: LogTag.zeus);
       }
 
       try {
         if (await pythonDir.exists()) {
-          AppLogger.log('ZeusDL stdlib: suppression ancien répertoire',
+          AppLogger.log('ZeusDL stdlib: suppression ancien rÃ©pertoire',
               logLevel: LogLevel.debug, tag: LogTag.zeus);
           await pythonDir.delete(recursive: true);
         }
         await pythonDir.create(recursive: true);
 
         AppLogger.log(
-            'ZeusDL stdlib: extraction en cours vers ${pythonDir.path}…',
+            'ZeusDL stdlib: extraction en cours vers ${pythonDir.path}â¦',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         await compute(_extractZip,
             _ExtractArgs(zipSo.path, '$filesDir/packages/python'));
@@ -434,46 +434,46 @@ import 'package:watchtower/core/config/app_config.dart';
         await versionFile.writeAsString(currentSize);
 
         AppLogger.log(
-            'ZeusDL stdlib: extraction terminée → ${pythonDir.path}',
+            'ZeusDL stdlib: extraction terminÃ©e â ${pythonDir.path}',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         return _Result.ok('$filesDir/packages/python/usr');
       } catch (e, st) {
         AppLogger.log(
-            'ZeusDL stdlib [ERREUR] extraction échouée',
+            'ZeusDL stdlib [ERREUR] extraction Ã©chouÃ©e',
             logLevel: LogLevel.error,
             tag: LogTag.zeus,
             error: e,
             stackTrace: st);
-        return _Result.fail('Extraction libpython.zip.so échouée : $e');
+        return _Result.fail('Extraction libpython.zip.so Ã©chouÃ©e : $e');
       }
     }
 
-    // ── ZeusDL scripts ───────────────────────────────────────────────────────
+    // ââ ZeusDL scripts âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     /// Assure que filesDir/zeusdl/__main__.py existe.
-    /// Tente d'abord une mise à jour GitHub, puis replie sur l'asset bundlé.
+    /// Tente d'abord une mise Ã  jour GitHub, puis replie sur l'asset bundlÃ©.
     Future<_Result<String>> _ensureZeusDlScripts(String filesDir) async {
       final zeusDir = Directory('$filesDir/zeusdl');
       final mainPy = File('$filesDir/zeusdl/__main__.py');
       final versionFile = File('$filesDir/zeusdl_version.txt');
 
-      AppLogger.log('ZeusDL scripts: vérification dans ${zeusDir.path}',
+      AppLogger.log('ZeusDL scripts: vÃ©rification dans ${zeusDir.path}',
           logLevel: LogLevel.debug, tag: LogTag.zeus);
 
-      // Tentative de mise à jour en arrière-plan
+      // Tentative de mise Ã  jour en arriÃ¨re-plan
       await _tryUpdateZeusDl(filesDir, zeusDir, versionFile);
 
       if (await mainPy.exists()) {
         final size = await mainPy.length();
         AppLogger.log(
-            'ZeusDL scripts: __main__.py présent ($size octets)',
+            'ZeusDL scripts: __main__.py prÃ©sent ($size octets)',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         return _Result.ok(mainPy.path);
       }
 
-      // __main__.py absent — extraction depuis l'asset bundlé
+      // __main__.py absent â extraction depuis l'asset bundlÃ©
       AppLogger.log(
-          'ZeusDL scripts: __main__.py absent, extraction depuis asset bundlé…',
+          'ZeusDL scripts: __main__.py absent, extraction depuis asset bundlÃ©â¦',
           logLevel: LogLevel.info, tag: LogTag.zeus);
       try {
         final data = await rootBundle.load('assets/zeusdl/zeusdl.zip');
@@ -485,7 +485,7 @@ import 'package:watchtower/core/config/app_config.dart';
           return const _Result.fail('Asset zeusdl.zip vide dans APK');
         }
         AppLogger.log(
-            'ZeusDL scripts: asset chargé (${bytes.length} octets) — extraction vers $filesDir',
+            'ZeusDL scripts: asset chargÃ© (${bytes.length} octets) â extraction vers $filesDir',
             logLevel: LogLevel.info, tag: LogTag.zeus);
 
         final tmpAssetDir = Directory(
@@ -493,8 +493,10 @@ import 'package:watchtower/core/config/app_config.dart';
         try {
           await tmpAssetDir.create(recursive: true);
           await compute(_extractZipBytesToDir, _ExtractBytesArgs(bytes, tmpAssetDir.path));
-          final extractedFiles = tmpAssetDir.listSync(recursive: true);
-          AppLogger.d('[ZEUS] Fichiers extraits: ${extractedFiles.map((f) => f.path.replaceAll(tmpAssetDir.path, '')).join(', ')}');
+          if (!kIsWeb) {
+            final extractedFiles = tmpAssetDir.listSync(recursive: true);
+            AppLogger.d('[ZEUS] Fichiers extraits: ${extractedFiles.map((f) => f.path.replaceAll(tmpAssetDir.path, '')).join(', ')}');
+          }
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
           await tmpAssetDir.rename(zeusDir.path);
         } catch (e) {
@@ -507,37 +509,37 @@ import 'package:watchtower/core/config/app_config.dart';
         final exists = await mainPy.exists();
         if (!exists) {
           AppLogger.log(
-              'ZeusDL scripts [ERREUR] __main__.py introuvable après extraction — '
+              'ZeusDL scripts [ERREUR] __main__.py introuvable aprÃ¨s extraction â '
               'structure de zeusdl.zip incorrecte ?',
               logLevel: LogLevel.error, tag: LogTag.zeus);
           return const _Result.fail(
-              '__main__.py absent après extraction — vérifier la structure de zeusdl.zip');
+              '__main__.py absent aprÃ¨s extraction â vÃ©rifier la structure de zeusdl.zip');
         }
         AppLogger.log(
-            'ZeusDL scripts: extraction asset réussie → ${mainPy.path}',
+            'ZeusDL scripts: extraction asset rÃ©ussie â ${mainPy.path}',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         return _Result.ok(mainPy.path);
       } catch (e, st) {
         AppLogger.log(
-            'ZeusDL scripts [ERREUR] extraction asset échouée',
+            'ZeusDL scripts [ERREUR] extraction asset Ã©chouÃ©e',
             logLevel: LogLevel.error,
             tag: LogTag.zeus,
             error: e,
             stackTrace: st);
-        return _Result.fail('Extraction asset zeusdl.zip échouée : $e');
+        return _Result.fail('Extraction asset zeusdl.zip Ã©chouÃ©e : $e');
       }
     }
 
     Future<void> _tryUpdateZeusDl(
         String filesDir, Directory zeusDir, File versionFile) async {
       try {
-        // Cache l'appel GitHub 1h pour éviter un hit réseau à chaque démarrage
+        // Cache l'appel GitHub 1h pour Ã©viter un hit rÃ©seau Ã  chaque dÃ©marrage
         const _kUpdateCheckInterval = Duration(hours: 1);
         final now = DateTime.now();
         if (_lastUpdateCheckAt != null &&
             now.difference(_lastUpdateCheckAt!) < _kUpdateCheckInterval) {
           AppLogger.log(
-              'ZeusDL mise à jour: check ignoré (dernier check il y a ${now.difference(_lastUpdateCheckAt!).inMinutes} min)',
+              'ZeusDL mise Ã  jour: check ignorÃ© (dernier check il y a ${now.difference(_lastUpdateCheckAt!).inMinutes} min)',
               logLevel: LogLevel.debug, tag: LogTag.zeus);
           return;
         }
@@ -548,7 +550,7 @@ import 'package:watchtower/core/config/app_config.dart';
             : '';
 
         AppLogger.log(
-            'ZeusDL mise à jour: vérification GitHub (version locale = "$storedTag")…',
+            'ZeusDL mise Ã  jour: vÃ©rification GitHub (version locale = "$storedTag")â¦',
             logLevel: LogLevel.debug, tag: LogTag.zeus);
 
         final res = await http
@@ -561,7 +563,7 @@ import 'package:watchtower/core/config/app_config.dart';
 
         if (res.statusCode != 200) {
           AppLogger.log(
-              'ZeusDL mise à jour: GitHub API ${res.statusCode} — ignoré',
+              'ZeusDL mise Ã  jour: GitHub API ${res.statusCode} â ignorÃ©',
               logLevel: LogLevel.debug, tag: LogTag.zeus);
           return;
         }
@@ -570,13 +572,13 @@ import 'package:watchtower/core/config/app_config.dart';
         final latestTag = (json['tag_name'] as String? ?? '').trim();
         if (latestTag.isEmpty || latestTag == storedTag) {
           AppLogger.log(
-              'ZeusDL mise à jour: déjà à jour ("$latestTag")',
+              'ZeusDL mise Ã  jour: dÃ©jÃ  Ã  jour ("$latestTag")',
               logLevel: LogLevel.debug, tag: LogTag.zeus);
           return;
         }
 
         AppLogger.log(
-            'ZeusDL mise à jour: nouvelle version disponible $storedTag → $latestTag',
+            'ZeusDL mise Ã  jour: nouvelle version disponible $storedTag â $latestTag',
             logLevel: LogLevel.info, tag: LogTag.zeus);
 
         final assets = json['assets'] as List<dynamic>;
@@ -589,26 +591,26 @@ import 'package:watchtower/core/config/app_config.dart';
         }
         if (downloadUrl == null) {
           AppLogger.log(
-              'ZeusDL mise à jour [WARN] pas de zeusdl.zip dans la release $latestTag',
+              'ZeusDL mise Ã  jour [WARN] pas de zeusdl.zip dans la release $latestTag',
               logLevel: LogLevel.warning, tag: LogTag.zeus);
           return;
         }
 
         AppLogger.log(
-            'ZeusDL mise à jour: téléchargement $downloadUrl',
+            'ZeusDL mise Ã  jour: tÃ©lÃ©chargement $downloadUrl',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         final zipRes = await http
             .get(Uri.parse(downloadUrl))
             .timeout(const Duration(minutes: 3));
         if (zipRes.statusCode != 200) {
           AppLogger.log(
-              'ZeusDL mise à jour [WARN] téléchargement échoué HTTP ${zipRes.statusCode}',
+              'ZeusDL mise Ã  jour [WARN] tÃ©lÃ©chargement Ã©chouÃ© HTTP ${zipRes.statusCode}',
               logLevel: LogLevel.warning, tag: LogTag.zeus);
           return;
         }
 
         AppLogger.log(
-            'ZeusDL mise à jour: extraction ${zipRes.bodyBytes.length} octets → $filesDir',
+            'ZeusDL mise Ã  jour: extraction ${zipRes.bodyBytes.length} octets â $filesDir',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         final tmpUpdateDir = Directory(
             '${zeusDir.path}_tmp_${DateTime.now().millisecondsSinceEpoch}');
@@ -616,8 +618,10 @@ import 'package:watchtower/core/config/app_config.dart';
           await tmpUpdateDir.create(recursive: true);
           await compute(
               _extractZipBytesToDir, _ExtractBytesArgs(zipRes.bodyBytes, tmpUpdateDir.path));
-          final updatedFiles = tmpUpdateDir.listSync(recursive: true);
-          AppLogger.d('[ZEUS] Fichiers mis à jour: ${updatedFiles.map((f) => f.path.replaceAll(tmpUpdateDir.path, '')).join(', ')}');
+          if (!kIsWeb) {
+            final updatedFiles = tmpUpdateDir.listSync(recursive: true);
+            AppLogger.d('[ZEUS] Fichiers mis à jour: ${updatedFiles.map((f) => f.path.replaceAll(tmpUpdateDir.path, '')).join(', ')}');
+          }
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
           await tmpUpdateDir.rename(zeusDir.path);
         } catch (e) {
@@ -630,16 +634,16 @@ import 'package:watchtower/core/config/app_config.dart';
         await versionFile.parent.create(recursive: true);
         await versionFile.writeAsString(latestTag);
         AppLogger.log(
-            'ZeusDL mise à jour: $latestTag installé avec succès ✓',
+            'ZeusDL mise Ã  jour: $latestTag installÃ© avec succÃ¨s â',
             logLevel: LogLevel.info, tag: LogTag.zeus);
       } catch (e) {
         AppLogger.log(
-            'ZeusDL mise à jour: vérification ignorée (réseau/timeout) : $e',
+            'ZeusDL mise Ã  jour: vÃ©rification ignorÃ©e (rÃ©seau/timeout) : $e',
             logLevel: LogLevel.debug, tag: LogTag.zeus);
       }
     }
 
-    // ── Non-Android: classic binary approach ─────────────────────────────────
+    // ââ Non-Android: classic binary approach âââââââââââââââââââââââââââââââââ
 
     Future<String?> resolveExecutable() async {
       if (Platform.isAndroid) {
@@ -691,7 +695,7 @@ import 'package:watchtower/core/config/app_config.dart';
             tag: LogTag.zeus);
         return targetPath;
       } catch (e, st) {
-        AppLogger.log('ZeusDL: extraction assets échouée',
+        AppLogger.log('ZeusDL: extraction assets Ã©chouÃ©e',
             logLevel: LogLevel.error,
             tag: LogTag.zeus,
             error: e,
@@ -706,19 +710,19 @@ import 'package:watchtower/core/config/app_config.dart';
           final ok = await _binaryUtilsChannel
               .invokeMethod<bool>('setExecutable', {'path': file.path});
           AppLogger.log(
-              'ZeusDL: setExecutable=${ok ?? false} → ${file.path}',
+              'ZeusDL: setExecutable=${ok ?? false} â ${file.path}',
               logLevel: ok == true ? LogLevel.debug : LogLevel.warning,
               tag: LogTag.zeus);
           return;
         } catch (e) {
-          AppLogger.log('ZeusDL: setExecutable channel échoué: $e',
+          AppLogger.log('ZeusDL: setExecutable channel Ã©chouÃ©: $e',
               logLevel: LogLevel.warning, tag: LogTag.zeus);
         }
         try {
           final r = await Process.run('/system/bin/chmod', ['+x', file.path]);
           if (r.exitCode != 0) {
             AppLogger.log(
-                'ZeusDL: chmod échoué (${r.exitCode}): ${r.stderr}',
+                'ZeusDL: chmod Ã©chouÃ© (${r.exitCode}): ${r.stderr}',
                 logLevel: LogLevel.warning, tag: LogTag.zeus);
           }
         } catch (e) {
@@ -746,7 +750,7 @@ import 'package:watchtower/core/config/app_config.dart';
       return '${dir.path}/$_binaryName.exe';
     }
 
-    // ── Helpers for UI (binaries_section, marketplace) ───────────────────────
+    // ââ Helpers for UI (binaries_section, marketplace) âââââââââââââââââââââââ
 
     Future<int?> getBundledBinarySize() async {
       if (Platform.isAndroid) {
@@ -768,9 +772,9 @@ import 'package:watchtower/core/config/app_config.dart';
       }
     }
 
-    // ── User-facing helpers ──────────────────────────────────────────────────
+    // ââ User-facing helpers ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-    /// Chemin affiché dans l'UI quand l'utilisateur installe ZeusDL manuellement.
+    /// Chemin affichÃ© dans l'UI quand l'utilisateur installe ZeusDL manuellement.
     Future<String> userOverrideDisplayPath() async {
       if (!Platform.isAndroid) return 'N/A (Android only)';
       try {
@@ -781,13 +785,13 @@ import 'package:watchtower/core/config/app_config.dart';
       }
     }
 
-    /// Télécharge un binaire ZeusDL depuis une URL et l'installe.
-    /// [onProgress] est appelé avec (reçus, total) à chaque chunk reçu.
+    /// TÃ©lÃ©charge un binaire ZeusDL depuis une URL et l'installe.
+    /// [onProgress] est appelÃ© avec (reÃ§us, total) Ã  chaque chunk reÃ§u.
     Future<bool> downloadFromUrl(
       String url, {
       void Function(int received, int total)? onProgress,
     }) async {
-      AppLogger.log('ZeusDL: téléchargement depuis $url',
+      AppLogger.log('ZeusDL: tÃ©lÃ©chargement depuis $url',
           logLevel: LogLevel.info, tag: LogTag.zeus);
       try {
         final internalPath = await _internalBinaryPath();
@@ -799,7 +803,7 @@ import 'package:watchtower/core/config/app_config.dart';
         final res = await http.Client().send(req);
         if (res.statusCode != 200) {
           AppLogger.log(
-              'ZeusDL: téléchargement échoué HTTP ${res.statusCode} — $url',
+              'ZeusDL: tÃ©lÃ©chargement Ã©chouÃ© HTTP ${res.statusCode} â $url',
               logLevel: LogLevel.error, tag: LogTag.zeus);
           return false;
         }
@@ -820,7 +824,7 @@ import 'package:watchtower/core/config/app_config.dart';
         await _ensureExecutable(finalFile);
         _cachedPath = internalPath;
         AppLogger.log(
-            'ZeusDL: téléchargement terminé ($received octets) → $internalPath',
+            'ZeusDL: tÃ©lÃ©chargement terminÃ© ($received octets) â $internalPath',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         return true;
       } catch (e, st) {
@@ -833,7 +837,7 @@ import 'package:watchtower/core/config/app_config.dart';
       }
     }
 
-    /// Réinitialise le cache mémoire — ne supprime pas le binaire sur disque.
+    /// RÃ©initialise le cache mÃ©moire â ne supprime pas le binaire sur disque.
     void resetCachedPath() {
       _cachedPath = null;
     }

@@ -1,5 +1,5 @@
 import 'dart:async';
-  import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'utils/io_stub.dart';
 import 'package:app_links/app_links.dart';
@@ -103,7 +103,7 @@ void main(List<String> args) async {
           'PlatformDispatcher error: $msg\n$stack',
           logLevel: LogLevel.error,
         );
-        return true; // handled — prevent app termination
+        return true; // handled â prevent app termination
       };
 
       MediaKit.ensureInitialized();
@@ -151,7 +151,7 @@ void main(List<String> args) async {
               mangaExtensionsRepo: [
                 Repo(
                   jsonUrl: '$_wtBase/manga/index.json',
-                  name: 'Watchtower – Manga',
+                  name: 'Watchtower â Manga',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
                 ),
@@ -159,7 +159,7 @@ void main(List<String> args) async {
               animeExtensionsRepo: [
                 Repo(
                   jsonUrl: '$_wtBase/watch/index.json',
-                  name: 'Watchtower – Watch',
+                  name: 'Watchtower â Watch',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
                 ),
@@ -167,7 +167,7 @@ void main(List<String> args) async {
               novelExtensionsRepo: [
                 Repo(
                   jsonUrl: '$_wtBase/novel/index.json',
-                  name: 'Watchtower – Novels',
+                  name: 'Watchtower â Novels',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
                 ),
@@ -181,7 +181,7 @@ void main(List<String> args) async {
           isar = await storage.initDB(null, inspector: false);
         } catch (e, stack) {
           AppLogger.log(
-            'Échec critique initDB: $e\n$stack',
+            'Ãchec critique initDB: $e\n$stack',
             logLevel: LogLevel.error,
           );
           runApp(DbErrorScreen(error: e.toString()));
@@ -222,12 +222,12 @@ void main(List<String> args) async {
 
 Future<void> _postLaunchInit(StorageProvider storage) async {
   if (!kIsWeb && Platform.isAndroid) {
-      await [
-        Permission.storage,
-        Permission.manageExternalStorage,
-      ].request();
-    }
-    await AppLogger.init();
+    await [
+      Permission.storage,
+      Permission.manageExternalStorage,
+    ].request();
+  }
+  await AppLogger.init();
   if (!kIsWeb) {
     unawaited(DevSeed.seedGumball().catchError((_) {}));
   }
@@ -570,12 +570,12 @@ class _MyAppState extends ConsumerState<MyApp>
     if (kIsWeb) return;
     // Wait for storage permission before touching external storage.
     // On first launch (onboarding not yet complete) the permission is not
-    // granted yet — creating directories would throw Permission denied.
+    // granted yet â creating directories would throw Permission denied.
     if (!kIsWeb && Platform.isAndroid) {
       final hasPermission = await StorageProvider()
           .requestPermission(requestIfNeeded: false);
       if (!hasPermission) {
-        debugPrint('_setupMpvConfig: skipped — storage permission not granted yet');
+        debugPrint('_setupMpvConfig: skipped â storage permission not granted yet');
         return;
       }
     }
@@ -688,7 +688,7 @@ class AllowScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-// ── Page transition theme helper ─────────────────────────────────────────────
+// ââ Page transition theme helper âââââââââââââââââââââââââââââââââââââââââââââ
 
 PageTransitionsTheme _buildPageTransitionsTheme(int style) {
   PageTransitionsBuilder builder;
