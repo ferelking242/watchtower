@@ -104,6 +104,17 @@ jobs:
       - name: Install CocoaPods
         run: cd ios && pod install --repo-update && cd ..
 
+      - name: Patch Xcode project for CI (no team, manual signing)
+        run: |
+          PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
+          # Switch Automatic → Manual so Xcode doesn't demand a Development Team
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
+          # Clear any codesign identity — we sign ad-hoc after build
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
+          sed -i '' 's/DEVELOPMENT_TEAM = [A-Z0-9][A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
+          echo "=== Signing settings after patch ==="
+          grep -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | head -20
+
       - name: Build iOS (no codesign)
         run: |
           flutter build ios --release --no-codesign
