@@ -111,6 +111,33 @@ jobs:
           ls -lh build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
             || echo "WARN: assets/binaries/ absent"
 
+      - name: Fix zeusdl binary for TrollStore ldid compatibility
+        run: |
+          ZEUSDL="build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/zeusdl"
+          if [ ! -f "$ZEUSDL" ]; then
+            echo "No zeusdl found in bundle — skipping"
+            exit 0
+          fi
+          MAGIC=$(xxd -p -l 4 "$ZEUSDL" 2>/dev/null || echo "")
+          echo "zeusdl magic: $MAGIC (size: $(wc -c < "$ZEUSDL") bytes)"
+          if [[ "$MAGIC" == "cafebabe" ]]; then
+            echo "Fat binary → thinning to arm64"
+            lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.arm64" 2>/dev/null \
+              && mv "${ZEUSDL}.arm64" "$ZEUSDL" \
+              || echo "lipo failed — will try to sign as-is"
+            MAGIC=$(xxd -p -l 4 "$ZEUSDL" 2>/dev/null || echo "")
+            echo "After thin — magic: $MAGIC size: $(wc -c < "$ZEUSDL") bytes"
+          fi
+          if [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" ]]; then
+            echo "Valid Mach-O — signing ad-hoc"
+            /usr/bin/codesign --force --sign - --timestamp=none "$ZEUSDL" 2>/dev/null \
+              && echo "zeusdl codesign OK" \
+              || echo "WARN: codesign failed on zeusdl"
+          else
+            echo "Unknown magic '$MAGIC' — removing zeusdl from bundle (ldid would choke)"
+            rm -f "$ZEUSDL"
+          fi
+
       - name: Signer (ldid + codesign ad-hoc)
         run: |
           APP="build/ios/iphoneos/Runner.app"
