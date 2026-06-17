@@ -2101,14 +2101,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Semi-transparent backdrop when minimized — tap to expand
+        // Dim overlay when minimized — purely visual, no tap-to-dismiss
         if (_currentFraction < 0.99)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(() => _snap = _PanelSnap.full);
-              _animateTo(1.0);
-            },
+          IgnorePointer(
             child: Container(
               color: Colors.black.withValues(alpha: (1.0 - _currentFraction).clamp(0, 0.65)),
             ),
