@@ -99,7 +99,7 @@ class _WatchtowerMenuOverlayState
     );
     _itemCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500),
     );
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 1),
@@ -186,6 +186,18 @@ class _WatchtowerMenuOverlayState
       opacity: _fadeAnim,
       child: Stack(
         children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _close();
+              },
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+          ),
+
+          Positioned(
             left: 16,
             right: 16,
             bottom: dockBottom + 10,
@@ -213,37 +225,6 @@ class _WatchtowerMenuOverlayState
             ),
           ),
         ],
-          Positioned(
-              left: 16,
-              bottom: mq.padding.bottom + 12,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.red),
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      _resetProviders();
-                    },
-                    iconSize: 22,
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(Icons.build_rounded,
-                        color: cs.onSurface.withValues(alpha: 0.65)),
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      setState(() => _reorderMode = true);
-                    },
-                    iconSize: 22,
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
       ),
     );
   }
@@ -262,6 +243,18 @@ class _WatchtowerMenuOverlayState
       opacity: _fadeAnim,
       child: Stack(
         children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                setState(() => _reorderMode = false);
+              },
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+          ),
+
+          Positioned(
             left: 16,
             right: 16,
             bottom: dockBottom + 10,
@@ -424,37 +417,6 @@ class _WatchtowerMenuOverlayState
               ),
             ),
           ),
-          Positioned(
-              left: 16,
-              bottom: mq.padding.bottom + 12,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.red),
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      _resetProviders();
-                    },
-                    iconSize: 22,
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(Icons.build_rounded,
-                        color: cs.onSurface.withValues(alpha: 0.65)),
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      setState(() => _reorderMode = !_reorderMode);
-                    },
-                    iconSize: 22,
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
@@ -506,42 +468,9 @@ class _MenuPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header — Réorganiser gauche · Fermer droite
+              // Grid of items
               Padding(
-                padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
-                child: Row(
-                  children: [
-                    _HeaderBtn(
-                      icon: Icons.swap_vert_rounded,
-                      label: 'Réorganiser',
-                      isDark: isDark,
-                      cs: cs,
-                      onTap: onReorderTap,
-                    ),
-                    const Spacer(),
-                    _HeaderBtn(
-                      icon: Icons.close_rounded,
-                      label: 'Fermer',
-                      isDark: isDark,
-                      cs: cs,
-                      color: cs.primary,
-                      onTap: onClose,
-                    ),
-                  ],
-                ),
-              ),
-
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.07),
-              ),
-
-              // Grid of items with staggered entry animation
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -557,22 +486,57 @@ class _MenuPanel extends StatelessWidget {
                           iconAnim: CurvedAnimation(
                             parent: animCtrl,
                             curve: Interval(
-                              min(0.9, i * 0.0625),
-                              min(1.0, i * 0.0625 + 0.25),
+                              min(0.9, i * 0.08),
+                              min(1.0, i * 0.08 + 0.28),
                               curve: Curves.easeOut,
                             ),
                           ),
                           labelAnim: CurvedAnimation(
                             parent: animCtrl,
                             curve: Interval(
-                              min(0.9, i * 0.0625 + 0.1875),
-                              min(1.0, i * 0.0625 + 0.4375),
+                              min(0.9, i * 0.08 + 0.18),
+                              min(1.0, i * 0.08 + 0.46),
                               curve: Curves.easeOut,
                             ),
                           ),
                           onTap: () => onItemTap(it.route),
                         );
                       }(),
+                  ],
+                ),
+              ),
+
+              // Divider
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.07),
+              ),
+
+              // Bottom row — wrench + X in bottom-left
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    _HeaderBtn(
+                      icon: Icons.build_rounded,
+                      label: 'Réorganiser',
+                      isDark: isDark,
+                      cs: cs,
+                      onTap: onReorderTap,
+                    ),
+                    const SizedBox(width: 4),
+                    _HeaderBtn(
+                      icon: Icons.close_rounded,
+                      label: 'Fermer',
+                      isDark: isDark,
+                      cs: cs,
+                      color: cs.primary,
+                      onTap: onClose,
+                    ),
                   ],
                 ),
               ),
@@ -621,55 +585,52 @@ class _GridItem extends StatelessWidget {
       child: SizedBox(
         width: itemW,
         child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedBuilder(
-                animation: iconAnim,
-                builder: (context, child) {
-                  final v = iconAnim.value;
-                  return Opacity(
-                    opacity: v,
-                    child: Transform.translate(
-                      offset: Offset(0, 10 * (1.0 - v)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Container(
-                  width: 52,
-                  height: 52,
-                  color: Colors.transparent,
-                  child: Center(child: Icon(item.icon, size: 22, color: iconColor)),
-                ),
-              ),
-              const SizedBox(height: 5),
-              AnimatedBuilder(
-                animation: labelAnim,
-                builder: (context, child) {
-                  final v = labelAnim.value;
-                  return Opacity(
-                    opacity: v,
-                    child: Transform.translate(
-                      offset: Offset(0, 6 * (1.0 - v)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    color: labelColor,
-                    height: 1.0,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon with slideIn + fadeIn
+            AnimatedBuilder(
+              animation: iconAnim,
+              builder: (context, child) {
+                final v = iconAnim.value;
+                return Opacity(
+                  opacity: v,
+                  child: Transform.translate(
+                    offset: Offset(0, 12 * (1.0 - v)),
+                    child: child,
                   ),
+                );
+              },
+              child: SizedBox(
+                width: 52,
+                height: 52,
+                child: Center(
+                  child: Icon(item.icon, size: 22, color: iconColor),
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 5),
+            // Label with fadeIn after icon
+            AnimatedBuilder(
+              animation: labelAnim,
+              builder: (context, child) => Opacity(
+                opacity: labelAnim.value,
+                child: child,
+              ),
+              child: Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: labelColor,
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -743,6 +704,194 @@ class _Badge extends StatelessWidget {
           fontSize: 9.5,
           fontWeight: FontWeight.w600,
           color: color,
+        ),
+      ),
+    );
+  }
+}
+
+
+// ── Public helper — open the reorder panel from anywhere ─────────────────────
+
+void showWatchtowerReorderSheet(BuildContext context, WidgetRef ref) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    isDismissible: true,
+    enableDrag: true,
+    builder: (_) => const _ReorderSheet(),
+  );
+}
+
+class _ReorderSheet extends ConsumerWidget {
+  const _ReorderSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final navOrder  = ref.watch(navigationOrderStateProvider);
+    final hideItems = ref.watch(hideItemsStateProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs     = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.22)
+                      : Colors.black.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.swap_vert_rounded, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Réorganiser la navigation',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon:
+                        Icon(Icons.refresh_rounded, size: 18, color: cs.error),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      ref
+                          .read(navigationOrderStateProvider.notifier)
+                          .set(List<String>.from(kWtDefaultNavOrder));
+                      ref
+                          .read(hideItemsStateProvider.notifier)
+                          .set(List<String>.from(kWtDefaultHideItems));
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.check_rounded,
+                        size: 18, color: cs.primary),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Glisser pour réordonner  ·  4 premiers = dock  ·  reste = menu',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: cs.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: cs.onSurface.withValues(alpha: 0.12),
+            ),
+            Flexible(
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                proxyDecorator: (child, index, animation) =>
+                    Material(color: Colors.transparent, child: child),
+                onReorder: (oldIndex, newIndex) {
+                  HapticFeedback.selectionClick();
+                  final list = List<String>.from(navOrder);
+                  if (newIndex > oldIndex) newIndex--;
+                  final item = list.removeAt(oldIndex);
+                  list.insert(newIndex, item);
+                  ref
+                      .read(navigationOrderStateProvider.notifier)
+                      .set(list);
+                },
+                itemCount: navOrder.length,
+                itemBuilder: (context, index) {
+                  final route    = navOrder[index];
+                  final info     = kWtRouteInfo[route];
+                  final label    = info?.$1 ?? route.replaceAll('/', '');
+                  final icon     = info?.$2 ?? Icons.circle_outlined;
+                  final isHidden = hideItems.contains(route);
+                  final inDock   = index < 4 && !isHidden;
+
+                  return ListTile(
+                    key: ValueKey(route),
+                    leading: Icon(
+                      icon,
+                      size: 20,
+                      color: inDock
+                          ? cs.primary
+                          : cs.onSurface.withValues(
+                              alpha: isHidden ? 0.28 : 0.52),
+                    ),
+                    title: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight:
+                            inDock ? FontWeight.w600 : FontWeight.w400,
+                        color: cs.onSurface
+                            .withValues(alpha: isHidden ? 0.35 : 1.0),
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _Badge(
+                          label: inDock
+                              ? 'dock'
+                              : isHidden
+                                  ? 'caché'
+                                  : 'menu',
+                          color: inDock
+                              ? cs.primary
+                              : cs.onSurface.withValues(alpha: 0.38),
+                          bg: inDock
+                              ? cs.primary.withValues(alpha: 0.12)
+                              : cs.onSurface.withValues(alpha: 0.07),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.drag_handle_rounded,
+                          size: 18,
+                          color: cs.onSurface.withValues(alpha: 0.28),
+                        ),
+                      ],
+                    ),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16),
+                    dense: true,
+                    minVerticalPadding: 4,
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+          ],
         ),
       ),
     );
