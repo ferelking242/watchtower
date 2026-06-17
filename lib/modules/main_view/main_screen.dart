@@ -310,13 +310,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 }
               }
 
-              // ── 5-item dock cap ───────────────────────────────────────────
-              // Classic dock gets a capped dest (4 user items); overflow goes
-              // to the menu overlay.  Floating dock caps internally in _buildItems.
-              final _cappedDest = dest.take(4).toList();
-              final _overflowRoutes =
-                  dest.length > 4 ? dest.sublist(4) : <String>[];
-
               final menuOpen = ref.watch(menuOpenProvider);
               final incognitoMode = ref.watch(incognitoModeStateProvider);
               final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
@@ -344,7 +337,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     child: Stack(
                       children: [
                     Scaffold(
-                      extendBody: true,
+                      extendBody: dockStyle == 'classic',
                       body: NotificationListener<UserScrollNotification>(
                         onNotification: (n) {
                           // Only care about vertical primary scrolls so the
@@ -373,18 +366,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       bottomNavigationBar: dockStyle == 'classic'
                               ? _RoundedOrClassicDock(
                                   isRounded: false,
-                                  dest: _cappedDest,
+                                  dest: dest,
                                   currentIndex: currentIndex,
                                   buildDestinations:
                                       _buildNavigationWidgetsMobile,
                                   ref: ref,
                                   onDestinationSelected: (idx) {
-                                    if (idx >= _cappedDest.length) {
+                                    if (idx >= dest.length) {
                                       ref.read(menuOpenProvider.notifier).state =
                                           !ref.read(menuOpenProvider);
                                       return;
                                     }
-                                    final destination = _cappedDest[idx];
+                                    final destination = dest[idx];
                                     AppLogger.log(
                                       'Nav â $destination',
                                       logLevel: LogLevel.debug,
@@ -438,13 +431,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         incognitoMode: incognitoMode,
                         l10n: l10n,
                       ),
-                    if (!isReadingScreen && menuOpen)
+                    if (menuOpen && !isReadingScreen)
                       Positioned.fill(
                         child: WatchtowerMenuOverlay(
-                          overflowRoutes: _overflowRoutes,
-                          onClose: () {
-                            ref.read(menuOpenProvider.notifier).state = false;
-                          },
+                          onClose: () =>
+                              ref.read(menuOpenProvider.notifier).state = false,
                         ),
                       ),
                   ],
@@ -1661,11 +1652,6 @@ class _FloatingDockState extends State<_FloatingDock> {
       }
     }
 
-    // Cap at 4 user destinations; extras become overflow (shown in menu overlay)
-    if (items.length > 4) {
-      items.removeRange(4, items.length);
-    }
-
     items.add(const _DockItemData(
       route: '_watchtower_menu',
       label: 'Menu',
@@ -1707,9 +1693,10 @@ class _FloatingDockState extends State<_FloatingDock> {
         ? _dockHeight + _dockBottomPad + bottomPad
         : 0.0;
 
-    // Always a fixed Row — no scroll; cap enforces exactly 5 items (4 + Menu)
-    const needsScroll = false;
-    final rawWidth = items.length * _itemWidth + _pillHPad * 2;
+    final needsScroll = items.length > _maxInlineItems;
+    final rawWidth = needsScroll
+        ? (_maxInlineItems * _itemWidth + _pillHPad * 2)
+        : (items.length * _itemWidth + _pillHPad * 2);
     final screenWidth = MediaQuery.of(context).size.width;
     final pillWidth = rawWidth.clamp(80.0, screenWidth - 32.0);
 
@@ -1825,46 +1812,37 @@ class _DockPill extends StatelessWidget {
     final decoration = BoxDecoration(
       color: isGlass
           ? (isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.05))
-          : (isDark ? const Color(0xFF161618) : cs.surfaceContainerHigh),
-      borderRadius: BorderRadius.circular(26),
+              ? Colors.white.withValues(alpha: 0.07)
+              : Colors.black.withValues(alpha: 0.04))
+          : (isDark ? const Color(0xFF1B1B1E) : cs.surfaceContainerHigh),
+      borderRadius: BorderRadius.circular(20),
       border: Border.all(
         color: isDark
-            ? Colors.white.withValues(alpha: isGlass ? 0.14 : 0.09)
-            : Colors.black.withValues(alpha: 0.08),
+            ? Colors.white.withValues(alpha: isGlass ? 0.10 : 0.06)
+            : Colors.black.withValues(alpha: 0.06),
         width: 1.0,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.16),
-          blurRadius: 28,
-          spreadRadius: -4,
-          offset: const Offset(0, 8),
-        ),
-        BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
-          blurRadius: 6,
-          spreadRadius: 0,
-          offset: const Offset(0, 2),
+          color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+          blurRadius: 16,
+          spreadRadius: -2,
+          offset: const Offset(0, 6),
         ),
       ],
     );
 
     Widget pill = Container(
       decoration: decoration,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: itemsWidget,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: itemsWidget,
     );
 
     if (isGlass) {
       pill = ClipRRect(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(20),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: pill,
         ),
       );
@@ -1901,9 +1879,7 @@ class _ClassicDock extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return NavigationBarTheme(
       data: NavigationBarThemeData(
-        backgroundColor: isDark
-            ? cs.surface.withValues(alpha: 0.88)
-            : cs.surface.withValues(alpha: 0.92),
+        backgroundColor: isDark ? const Color(0xFF1A1A1E) : cs.surfaceContainer,
         indicatorColor: cs.primary.withValues(alpha: 0.14),
         indicatorShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -1969,6 +1945,7 @@ class _ClassicDock extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
       final base = _ClassicDock(
         dest: dest,
         currentIndex: currentIndex,
@@ -1976,21 +1953,13 @@ class _ClassicDock extends StatelessWidget {
         ref: ref,
         onDestinationSelected: onDestinationSelected,
       );
-      final Widget shaped = isRounded
-          ? ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(22),
-                topRight: Radius.circular(22),
-              ),
-              child: base,
-            )
-          : base;
-      // Blur + semi-transparent background (background opacity set in _ClassicDock)
-      return ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: shaped,
+      if (!isRounded) return base;
+      return ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(22),
+          topRight: Radius.circular(22),
         ),
+        child: base,
       );
     }
   }
@@ -2066,21 +2035,24 @@ class _ClassicDock extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: Duration(milliseconds: itemAnimMs),
-        curve: Curves.easeOutCubic,
+        curve: Curves.easeOut,
         margin: EdgeInsets.symmetric(horizontal: spacing / 2),
-        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 5),
+        decoration: BoxDecoration(
+          color: active
+              ? (isDark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.05))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedScale(
-              scale: active ? 1.12 : 1.0,
-              duration: Duration(milliseconds: itemAnimMs),
-              curve: Curves.easeOutCubic,
-              child: iconWidget,
-            ),
+            iconWidget,
             if (showLabels) ...[
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Text(
                 item.label,
                 maxLines: 1,
@@ -2095,17 +2067,6 @@ class _ClassicDock extends StatelessWidget {
                 ),
               ),
             ],
-            // Active indicator dot — bottom of item
-            AnimatedContainer(
-              duration: Duration(milliseconds: itemAnimMs),
-              width: active ? 4 : 0,
-              height: active ? 4 : 0,
-              margin: EdgeInsets.only(top: active ? 3 : 0),
-              decoration: BoxDecoration(
-                color: active ? accent : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-            ),
           ],
         ),
       ),
@@ -2226,5 +2187,3 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
     );
   }
 }
-
-
