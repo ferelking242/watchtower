@@ -401,6 +401,11 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
   }
 
   Future<void> _downloadApk(String url) async {
+    if (url.isEmpty || !Uri.parse(url).hasAuthority) {
+      log('[DOWNLOAD] URL invalide: $url');
+      return;
+    }
+
     var status = await Permission.storage.status;
     if (!status.isGranted) await Permission.storage.request();
 
