@@ -32,6 +32,7 @@ import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart' show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
 
@@ -436,6 +437,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         downloadedOnly: downloadedOnly,
                         incognitoMode: incognitoMode,
                         l10n: l10n,
+                      ),
+                    if (!isReadingScreen && menuOpen)
+                      Positioned.fill(
+                        child: WatchtowerMenuOverlay(
+                          overflowRoutes: _overflowRoutes,
+                          onClose: () {
+                            ref.read(menuOpenProvider.notifier).state = false;
+                          },
+                        ),
                       ),
                   ],
                 ),
