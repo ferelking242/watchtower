@@ -66,7 +66,9 @@ final _kDefaultItems = <_SpeedItem>[
     icon: Icons.cloud_off_rounded,
     action: (ctx, ref) {
       final current = ref.read(downloadedOnlyStateProvider);
-      ref.read(downloadedOnlyStateProvider.notifier).setDownloadedOnly(!current);
+      ref
+          .read(downloadedOnlyStateProvider.notifier)
+          .setDownloadedOnly(!current);
     },
   ),
   _SpeedItem(
@@ -106,9 +108,7 @@ class WatchtowerSpeedDial extends ConsumerStatefulWidget {
 class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
     with SingleTickerProviderStateMixin {
   late final AnimationController _labelCtrl;
-  final _openNotifier = ValueNotifier<bool>(false);
   List<_SpeedItem> _orderedItems = List.from(_kDefaultItems);
-  bool _syncing = false;
 
   @override
   void initState() {
@@ -117,27 +117,28 @@ class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _openNotifier.addListener(_onOpenChanged);
     _loadOrder();
   }
 
   @override
   void dispose() {
-    _openNotifier.removeListener(_onOpenChanged);
-    _openNotifier.dispose();
     _labelCtrl.dispose();
     super.dispose();
   }
 
-  void _onOpenChanged() {
-    if (_openNotifier.value) {
-      // Labels appear 150ms after icons start rising
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted && _openNotifier.value) {
-          _labelCtrl.forward(from: 0);
-        }
-      });
-    } else {
+  void _onOpen() {
+    HapticFeedback.mediumImpact();
+    if (mounted) ref.read(menuOpenProvider.notifier).state = true;
+    // Labels appear 150ms after icons start rising
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) _labelCtrl.forward(from: 0);
+    });
+  }
+
+  void _onClose() {
+    HapticFeedback.lightImpact();
+    if (mounted) {
+      ref.read(menuOpenProvider.notifier).state = false;
       _labelCtrl.reverse();
     }
   }
@@ -153,7 +154,7 @@ class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
         for (final id in ids) {
           if (itemMap.containsKey(id)) ordered.add(itemMap[id]!);
         }
-        // Append any newly added items not yet in saved order
+        // Append any new items not yet in saved order
         for (final it in _kDefaultItems) {
           if (!ids.contains(it.id)) ordered.add(it);
         }
@@ -173,21 +174,13 @@ class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
   }
 
   Future<void> _showReorderSheet() async {
-    _syncing = true;
-    _openNotifier.value = false;
-    if (mounted) ref.read(menuOpenProvider.notifier).state = false;
-    _syncing = false;
-
-    await Future.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
-
     final newOrder = await showModalBottomSheet<List<_SpeedItem>>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => _ReorderSheet(items: List.from(_orderedItems)),
     );
-
     if (newOrder != null && mounted) {
       setState(() => _orderedItems = newOrder);
       _saveOrder();
@@ -200,8 +193,8 @@ class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
     bool isDark,
     ColorScheme cs,
   ) {
-    // dialIndex 0 = bottom (closest to FAB), animates first
-    // Stagger: 50ms between items → 50/600 ≈ 0.083 of controller span
+    // dialIndex 0 = bottom (first to appear, closest to FAB)
+    // Stagger: 50ms per item → 50/600 ≈ 0.083 of controller span
     final t = dialIndex * 0.083;
     final anim = CurvedAnimation(
       parent: _labelCtrl,
@@ -227,10 +220,6 @@ class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
       ),
       onTap: () {
         HapticFeedback.lightImpact();
-        _syncing = true;
-        _openNotifier.value = false;
-        if (mounted) ref.read(menuOpenProvider.notifier).state = false;
-        _syncing = false;
         Future.delayed(
           const Duration(milliseconds: 120),
           () {
@@ -244,39 +233,16 @@ class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
 
   @override
   Widget build(BuildContext context) {
-    // Sync: when dock "Menu" toggles menuOpenProvider, open/close the SpeedDial
-    ref.listen(menuOpenProvider, (prev, next) {
-      if (_syncing) return;
-      if (next != _openNotifier.value) {
-        _openNotifier.value = next;
-      }
-    });
-
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // SpeedDial shows children[0] closest to FAB (bottom).
-    // User order: Search=top, Schedule=bottom → pass reversed list.
+    // User default order: Search=top, Schedule=bottom → pass reversed.
     final dialItems = _orderedItems.reversed.toList();
 
     return SpeedDial(
-      openStateNotifier: _openNotifier,
-      onOpen: () {
-        HapticFeedback.mediumImpact();
-        if (!_syncing) {
-          _syncing = true;
-          if (mounted) ref.read(menuOpenProvider.notifier).state = true;
-          _syncing = false;
-        }
-      },
-      onClose: () {
-        HapticFeedback.lightImpact();
-        if (!_syncing) {
-          _syncing = true;
-          if (mounted) ref.read(menuOpenProvider.notifier).state = false;
-          _syncing = false;
-        }
-      },
+      onOpen: _onOpen,
+      onClose: _onClose,
       direction: SpeedDialDirection.up,
       animationDuration: const Duration(milliseconds: 250),
       animationCurve: Curves.easeOutBack,
@@ -420,11 +386,7 @@ class _ReorderSheetState extends State<_ReorderSheet> {
             padding: const EdgeInsets.fromLTRB(20, 8, 8, 12),
             child: Row(
               children: [
-                Icon(
-                  Icons.drag_handle_rounded,
-                  size: 18,
-                  color: cs.primary,
-                ),
+                Icon(Icons.drag_handle_rounded, size: 18, color: cs.primary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -458,10 +420,8 @@ class _ReorderSheetState extends State<_ReorderSheet> {
             child: ReorderableListView.builder(
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(vertical: 8),
-              proxyDecorator: (child, index, animation) => Material(
-                color: Colors.transparent,
-                child: child,
-              ),
+              proxyDecorator: (child, index, animation) =>
+                  Material(color: Colors.transparent, child: child),
               onReorder: (oldIndex, newIndex) {
                 HapticFeedback.selectionClick();
                 setState(() {
