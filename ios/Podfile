@@ -43,11 +43,12 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['ARCHS'] = 'arm64'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
     end
 
-    # Force wakelock_plus to static library — TrollStore ldid CoreTrust bypass
+    # Force wakelock_plus to static library â TrollStore ldid CoreTrust bypass
     # fails on this framework when compiled as a dynamic .framework.
-    # Static linkage merges it into the main Runner binary → no separate signing needed.
+    # Static linkage merges it into the main Runner binary â no separate signing needed.
     if target.name == 'wakelock_plus'
       target.build_configurations.each do |config|
         config.build_settings['MACH_O_TYPE'] = 'staticlib'

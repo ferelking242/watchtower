@@ -21,7 +21,7 @@ jobs:
       - name: Install Rust (rust_lib_watchtower FFI via cargokit)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,x86_64-apple-ios
+          targets: aarch64-apple-ios
 
       - name: Cache Rust
         uses: actions/cache@v4
@@ -104,37 +104,38 @@ jobs:
       - name: Install CocoaPods
         run: cd ios && pod install --repo-update && cd ..
 
-      - name: Patch Xcode project for CI (no team, manual signing)
+      - name: Patch Xcode project for CI (no team, manual signing, arm64)
         run: |
           PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
           # Switch Automatic → Manual so Xcode doesn't demand a Development Team
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
-          # Clear any codesign identity — we sign ad-hoc after build
+          # Clear codesign identity — we sign ad-hoc after build
           sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
           sed -i '' 's/DEVELOPMENT_TEAM = [A-Z0-9][A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
-          echo "=== Signing settings after patch ==="
-          grep -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | head -20
+          # Force ARCHS = arm64 in pbxproj
+          sed -i '' 's/ARCHS = "$(ARCHS_STANDARD)";/ARCHS = arm64;/g' "$PBXPROJ" || true
+          sed -i '' 's/ARCHS = "$(ARCHS_STANDARD_64_BIT)";/ARCHS = arm64;/g' "$PBXPROJ" || true
+          echo "=== Signing + ARCHS settings ==="
+          grep -E "CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|ARCHS" "$PBXPROJ" | head -25
 
       - name: Build iOS (no codesign)
         run: |
-          flutter build ios --release --no-codesign \
-            ARCHS=arm64 VALID_ARCHS=arm64 EXCLUDED_ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO
+          flutter build ios --release --no-codesign
           echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
           ls -lh build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
             || echo "WARN: assets/binaries/ absent"
 
+      - name: Verify Runner.app arch (arm64 only)
+        run: |
+          APP="build/ios/iphoneos/Runner.app/Runner"
+          if [ -f "$APP" ]; then
+            echo "Runner arch info:"
+            lipo -info "$APP"
+          else
+            echo "WARN: Runner binary not found at $APP"
+          fi
 
-        - name: Verify Runner.app arch (arm64 only)
-          run: |
-            APP="build/ios/iphoneos/Runner.app/Runner"
-            if [ -f "$APP" ]; then
-              echo "Runner arch info:"
-              lipo -info "$APP"
-            else
-              echo "WARN: Runner binary not found at $APP"
-            fi
-
-        - name: Fix zeusdl binary for TrollStore ldid compatibility
+      - name: Fix zeusdl binary for TrollStore ldid compatibility
         run: |
           ZEUSDL="build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/zeusdl"
           if [ ! -f "$ZEUSDL" ]; then
@@ -144,7 +145,7 @@ jobs:
           MAGIC=$(xxd -p -l 4 "$ZEUSDL" 2>/dev/null || echo "")
           echo "zeusdl magic: $MAGIC (size: $(wc -c < "$ZEUSDL") bytes)"
           if [[ "$MAGIC" == "cafebabe" ]]; then
-            echo "Fat binary → thinning to arm64"
+            echo "Fat binary — thinning to arm64"
             lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.arm64" 2>/dev/null \
               && mv "${ZEUSDL}.arm64" "$ZEUSDL" \
               || echo "lipo failed — will try to sign as-is"
@@ -157,7 +158,7 @@ jobs:
               && echo "zeusdl codesign OK" \
               || echo "WARN: codesign failed on zeusdl"
           else
-            echo "Unknown magic '$MAGIC' — removing zeusdl from bundle (ldid would choke)"
+            echo "Unknown magic '${MAGIC}' — removing zeusdl from bundle (ldid would choke)"
             rm -f "$ZEUSDL"
           fi
 
