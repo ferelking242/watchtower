@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/modules/plugins/flare_loader.dart';
 import 'package:d4rt/d4rt.dart';
 
-// FlareEvalRenderer — méthode eval : interprète ui/main.dart via d4rt
-// Le script hérite de WPlugin (bridge injecté) qui expose ZeusDL, Log, Notif, Storage
+// FlareEvalRenderer — methode eval : interprete ui/main.dart via d4rt
+// WPlugin etend StatelessWidget : l'instance retournee par d4rt EST un Widget.
 
 class FlareEvalRenderer extends StatefulWidget {
   final InstalledFlarePlugin plugin;
@@ -39,22 +39,33 @@ class _FlareEvalRendererState extends State<FlareEvalRenderer> {
     }
   }
 
-  // Stub d4rt context injecté avant le code du plugin
-  String _buildStub() => '''
+  // Stub injecte avant le code du plugin.
+  // IMPORTANT : WPlugin etend StatelessWidget.
+  // Le plugin definit class FooPlugin extends WPlugin et se termine par FooPlugin().
+  // d4rt execute() retourne cette instance — qui EST un Flutter Widget.
+  String _buildStub() {
+    final id = widget.plugin.manifest.id;
+    return '''
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
-// ── WPlugin : bridge statique entre le plugin et Watchtower ──────────────────
-// Les plugins utilisent UNIQUEMENT les méthodes statiques de WPlugin.
-// WPlugin n'est PAS étendu directement ; les plugins étendent StatefulWidget.
-abstract class WPlugin {
+// WPlugin : bridge statique entre le plugin et Watchtower.
+// Etend StatelessWidget pour que l instance retournee par d4rt soit un Widget.
+abstract class WPlugin extends StatelessWidget {
+  const WPlugin({super.key});
+
+  // build() appelle buildWidget() — implementee par chaque plugin.
+  @override
+  Widget build(BuildContext context) => buildWidget(context);
+
+  Widget buildWidget(BuildContext context);
+
   static const _storageCh = MethodChannel('com.watchtower.app.storage');
   static const _pluginCh  = MethodChannel('com.watchtower.app.plugin');
   static const _urlCh     = MethodChannel('com.watchtower.app.url');
 
-  // ── Préférences persistées (Secure Storage) ───────────────────────────────
   static Future<String?> getPreference(String key) async {
     try {
       final r = await _storageCh.invokeMethod('get', {'key': key});
@@ -68,7 +79,6 @@ abstract class WPlugin {
     } catch (_) {}
   }
 
-  // ── Appel backend Python ──────────────────────────────────────────────────
   static Future<Map<String,dynamic>> invoke(String action, Map<String,dynamic> args) async {
     try {
       final r = await _pluginCh.invokeMethod('invoke', {
@@ -81,27 +91,22 @@ abstract class WPlugin {
     } catch (e) { return {'status': 'error', 'error': e.toString()}; }
   }
 
-  // ── URL externe ───────────────────────────────────────────────────────────
   static Future<void> openUrl(String url) async {
     try { await _urlCh.invokeMethod('open', {'url': url}); } catch (_) {}
   }
 
-  // ── Ouvrir le lecteur Watchtower ──────────────────────────────────────────
   static Future<void> openReader(Map<String,dynamic> args) async {
     try { await _pluginCh.invokeMethod('openReader', {'args': args}); } catch (_) {}
   }
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
   static void showToast(String message) {
     try { _pluginCh.invokeMethod('toast', {'message': message}); } catch (_) {}
   }
 
-  // ── Utilitaires ───────────────────────────────────────────────────────────
   static Uint8List base64Decode(String b64) => base64.decode(b64);
   static dynamic  parseJson(String s)       => jsonDecode(s);
 }
 
-// ZeusDL — binaire déjà dans l APK, appelé via commandScopes
 class WatchtowerZeusDL {
   static const _ch = MethodChannel('com.watchtower.app.zeusdl');
   static Future<Map<String,dynamic>> start({
@@ -138,19 +143,21 @@ class WatchtowerNotif {
 
 class WatchtowerContext {
   static Map<String,dynamic> userConfig = {};
-  static String pluginId = '${widget.plugin.manifest.id}';
+  static String pluginId = '\$id';
 }
 ''';
+  }
 
   Future<Widget> _interpret(String source) async {
     final interpreter = D4rt();
     final full = _buildStub() + source;
-    // execute() peut retourner directement un Widget ou un Future<Widget> selon d4rt
+    // execute() retourne la derniere expression — FooPlugin() extends WPlugin extends StatelessWidget.
     final raw = interpreter.execute(source: full);
     final result = (raw is Future) ? await (raw as Future<dynamic>) : raw;
     if (result is Widget) return result as Widget;
     throw Exception(
-      'Le plugin ne retourne pas un Widget (reçu : ${result?.runtimeType}).');
+      'Le plugin ne retourne pas un Widget (recu : \${result?.runtimeType}). '
+      'Assurez-vous que ui/main.dart se termine par PluginClass().');
   }
 
   @override
@@ -168,7 +175,7 @@ class WatchtowerContext {
           Text(_error!, style: const TextStyle(color: _grey), textAlign: TextAlign.center),
           const SizedBox(height: 16),
           TextButton(onPressed: _load,
-            child: const Text('Réessayer', style: TextStyle(color: _teal))),
+            child: const Text('Reessayer', style: TextStyle(color: _teal))),
         ]),
       )),
     );
