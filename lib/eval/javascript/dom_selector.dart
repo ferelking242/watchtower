@@ -433,7 +433,7 @@ import 'dart:convert';
       attr(attr) {
           return sendMessage(
               "doc_attr",
-              JSON.stringify([this.html, attr])
+              JSON.stringify([this.key, attr])
           );
       }
       hasAttr(attr) {
@@ -519,7 +519,7 @@ import 'dart:convert';
       }
       xpath(xpath) {
           return JSON.parse(sendMessage(
-              "xpath",
+              "ele_xpath",
               JSON.stringify([xpath, this.key]))
           );
       }
@@ -531,7 +531,7 @@ import 'dart:convert';
       }
       xpathFirst(xpath) {
           return sendMessage(
-              "xpathFirst",
+              "ele_xpathFirst",
               JSON.stringify([xpath, this.key])
           );
       }

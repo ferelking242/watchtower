@@ -72,7 +72,7 @@ class Client {
     async put(url, headers, body) {
         headers = headers;
         const result = await sendMessage(
-            "http_post",
+            "http_put",
             JSON.stringify([null, this.reqcopyWith, url, headers, body])
         );
         return JSON.parse(result);
@@ -80,7 +80,7 @@ class Client {
     async delete(url, headers, body) {
         headers = headers;
         const result = await sendMessage(
-            "http_post",
+            "http_delete",
             JSON.stringify([null, this.reqcopyWith, url, headers, body])
         );
         return JSON.parse(result);
@@ -88,7 +88,7 @@ class Client {
     async patch(url, headers, body) {
         headers = headers;
         const result = await sendMessage(
-            "http_post",
+            "http_patch",
             JSON.stringify([null, this.reqcopyWith, url, headers, body])
         );
         return JSON.parse(result);
