@@ -199,6 +199,44 @@ import UIKit
         }
       }
 
+      // ── Plugin executor stub (iOS — Python non disponible) ────────────────────
+      // Sur iOS il n'y a pas de libpython ni de script.py. On enregistre quand même
+      // le channel pour éviter MissingPluginException dans le code Dart commun.
+      let pluginChannel = FlutterMethodChannel(
+        name: "com.watchtower.app.plugin",
+        binaryMessenger: controller.binaryMessenger
+      )
+      pluginChannel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+        result(FlutterError(
+          code: "PLATFORM_NOT_SUPPORTED",
+          message: "L'exécution Python des plugins n'est pas disponible sur iOS.",
+          details: nil
+        ))
+      }
+
+      // ── Plugin storage (UserDefaults) ─────────────────────────────────────────
+      let storageChannel = FlutterMethodChannel(
+        name: "com.watchtower.app.storage",
+        binaryMessenger: controller.binaryMessenger
+      )
+      storageChannel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+        let defaults = UserDefaults.standard
+        let args = call.arguments as? [String: Any]
+        let key = "wtplugin_\(args?["key"] as? String ?? "")"
+        switch call.method {
+        case "get":
+          result(defaults.string(forKey: key) as Any)
+        case "set":
+          defaults.set(args?["value"] as? String ?? "", forKey: key)
+          result(nil)
+        case "delete":
+          defaults.removeObject(forKey: key)
+          result(nil)
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      }
+
       GeneratedPluginRegistrant.register(with: self)
 
       if let url = AppLinks.shared.getLink(launchOptions: launchOptions) {

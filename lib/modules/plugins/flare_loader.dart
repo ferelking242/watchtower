@@ -52,12 +52,25 @@ import 'package:http/http.dart' as http;
       iconPath:      j['icon'] as String? ?? 'assets/icon.png',
       color:         j['color'] as String? ?? '#00D4AA',
       category:      j['category'] as String? ?? 'utility',
-      ui:            FlareUiConfig.fromJson((j['ui'] as Map<String, dynamic>?) ?? {}),
+      ui:            FlareUiConfig.fromJson(_migrateUiField(j['ui'])),
       requirements:  (j['requirements'] as Map<String, dynamic>?) ?? {},
       commandScopes: (j['commandScopes'] as List?)?.map((e) => e is Map ? (e['command'] as String? ?? '') : e.toString()).toList() ?? [],
       userConfig:    (j['userConfig'] as Map<String, dynamic>?) ?? {},
       featured:      j['featured'] as bool? ?? false,
     );
+
+    /// Migration: accepte l'ancien format string ("flutter_eval", "eval") OU le
+    /// format objet actuel ({"method": "eval", "evalSource": "ui/main.dart"}).
+    /// Sans cette migration, les plugins installés AVANT la correction du manifest
+    /// restent bloqués sur la vue JSON générique (cast silencieux → null → method:'json').
+    static Map<String, dynamic> _migrateUiField(dynamic raw) {
+      if (raw is Map<String, dynamic>) return raw;
+      if (raw is String) {
+        final method = (raw == 'flutter_eval' || raw == 'eval') ? 'eval' : 'json';
+        return {'method': method, 'evalSource': 'ui/main.dart'};
+      }
+      return {};
+    }
   }
 
   class FlareUiConfig {

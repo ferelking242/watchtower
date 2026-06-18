@@ -14,9 +14,11 @@ jobs:
         with:
           lfs: true
 
+      # Flutter 3.27.x = dernier stable supportant iOS 15.x (iPhone 7 max = 15.8.5)
+      # Flutter 3.29+ a élevé le minimum iOS à 16.0, causant un abort() au démarrage sur iOS 15
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.x'
+          flutter-version: '3.27.x'
           channel: stable
           cache: true
 
@@ -115,6 +117,22 @@ jobs:
             sed -i '' 's|    - assets/icons/|    - assets/icons/\n    - assets/binaries/|' pubspec.yaml
           fi
           grep "assets/" pubspec.yaml
+
+      # ── Patch SDK constraint pour Flutter 3.27.x (Dart 3.6.x) ─────────────────
+      # pubspec.yaml déclare sdk: ^3.10.0 pour les builds Android (Flutter 3.38.x)
+      # Pour iOS 15, on downgrade Flutter → il faut élargir la contrainte SDK.
+      # Ce patch est LOCAL au runner CI, il ne modifie pas le repo.
+      - name: Patch pubspec SDK constraint for Flutter 3.27.x
+        run: |
+          sed -i '' 's/sdk: \^3\.10\.0/sdk: ">=3.6.0 <4.0.0"/' pubspec.yaml || \
+          sed -i   's/sdk: \^3\.10\.0/sdk: ">=3.6.0 <4.0.0"/' pubspec.yaml
+          echo "=== SDK constraint après patch ==="
+          grep "sdk:" pubspec.yaml | head -3
+
+      # ── Supprimer Podfile.lock avant pod install ─────────────────────────────
+      # Podfile.lock a été généré avec Flutter 3.38.x, incompatible avec 3.27.x
+      - name: Remove stale Podfile.lock (Flutter version changed)
+        run: rm -f ios/Podfile.lock
 
       - name: Flutter pub get
         run: flutter pub get
