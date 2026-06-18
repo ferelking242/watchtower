@@ -62,7 +62,6 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
-import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/dev_seed.dart'
     if (dart.library.js_interop) 'package:watchtower/utils/dev_seed_stub.dart';
@@ -626,10 +625,6 @@ class _MyAppState extends ConsumerState<MyApp>
 
   Future<void> _startExtensionServerAndSync() async {
       await MExtensionServerPlatform(ref).startServer();
-      if (!kIsWeb && Platform.isAndroid) {
-        await Future.delayed(const Duration(seconds: 2));
-        unawaited(MihonAutoSync.run());
-      }
     }
 
       Future<void> _checkTrackerRefresh() async {
