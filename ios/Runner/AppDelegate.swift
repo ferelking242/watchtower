@@ -36,65 +36,6 @@ import UIKit
             result(FlutterError(code: "ERROR", message: error.debugDescription, details: nil))
           }
 
-        case "runProcess":
-          guard let args = call.arguments as? [String: Any],
-                let path = args["path"] as? String
-          else {
-            result(FlutterError(code: "NO_PATH", message: "path required", details: nil))
-            return
-          }
-          let processArgs = args["args"] as? [String] ?? []
-          let envOverrides = args["env"] as? [String: String] ?? [:]
-          DispatchQueue.global(qos: .userInitiated).async {
-            let allArgs = [path] + processArgs
-            var argv = allArgs.map { strdup($0) }
-            argv.append(nil)
-            defer { argv.dropLast().forEach { free($0) } }
-            var envDict = ProcessInfo.processInfo.environment
-            envDict.merge(envOverrides) { _, new in new }
-            var envp = envDict.map { strdup("\($0.key)=\($0.value)") }
-            envp.append(nil)
-            defer { envp.dropLast().forEach { free($0) } }
-            var outPipe = [Int32](repeating: 0, count: 2)
-            var errPipe = [Int32](repeating: 0, count: 2)
-            guard pipe(&outPipe) == 0, pipe(&errPipe) == 0 else {
-              DispatchQueue.main.async {
-                result(FlutterError(code: "PIPE_ERR", message: "pipe() failed", details: nil))
-              }
-              return
-            }
-            var actions: posix_spawn_file_actions_t?
-            posix_spawn_file_actions_init(&actions)
-            posix_spawn_file_actions_adddup2(&actions, outPipe[1], STDOUT_FILENO)
-            posix_spawn_file_actions_adddup2(&actions, errPipe[1], STDERR_FILENO)
-            posix_spawn_file_actions_addclose(&actions, outPipe[0])
-            posix_spawn_file_actions_addclose(&actions, errPipe[0])
-            var pid: pid_t = 0
-            let spawnErr = posix_spawn(&pid, path, &actions, nil, &argv, &envp)
-            posix_spawn_file_actions_destroy(&actions)
-            close(outPipe[1])
-            close(errPipe[1])
-            guard spawnErr == 0 else {
-              close(outPipe[0])
-              close(errPipe[0])
-              DispatchQueue.main.async {
-                result(FlutterError(code: "EXEC_ERR",
-                  message: String(cString: strerror(spawnErr)), details: nil))
-              }
-              return
-            }
-            let outFH = FileHandle(fileDescriptor: outPipe[0], closeOnDealloc: true)
-            let errFH = FileHandle(fileDescriptor: errPipe[0], closeOnDealloc: true)
-            let output = (String(data: outFH.readDataToEndOfFile(), encoding: .utf8) ?? "")
-                       + (String(data: errFH.readDataToEndOfFile(), encoding: .utf8) ?? "")
-            var status: Int32 = 0
-            waitpid(pid, &status, 0)
-            let code = WIFEXITED(status) ? Int(WEXITSTATUS(status)) : -1
-            DispatchQueue.main.async {
-              result(["exitCode": code, "output": output, "via": "posix_spawn"])
-            }
-          }
-
         default:
           result(FlutterMethodNotImplemented)
         }
@@ -247,7 +188,7 @@ import UIKit
                        + (String(data: errFH.readDataToEndOfFile(), encoding: .utf8) ?? "")
             var status: Int32 = 0
             waitpid(pid, &status, 0)
-            let code = WIFEXITED(status) ? Int(WEXITSTATUS(status)) : -1
+            let code = (status & 0x7f) == 0 ? Int((status >> 8) & 0xff) : -1
             DispatchQueue.main.async {
               result(["exitCode": code, "output": output, "via": "posix_spawn"])
             }
