@@ -47,6 +47,41 @@ import 'package:flutter/services.dart';
 // Bridge de base — tout plugin extends WPlugin
 abstract class WPlugin {
   Widget buildWidget(BuildContext context);
+
+  static const _storageCh = MethodChannel('com.watchtower.app.storage');
+  static const _pluginCh  = MethodChannel('com.watchtower.app.plugin');
+  static const _urlCh     = MethodChannel('com.watchtower.app.url');
+
+  // Lire une préférence persistée (Secure Storage côté Android)
+  static Future<String?> getPreference(String key) async {
+    try {
+      final r = await _storageCh.invokeMethod('get', {'key': key});
+      return r?.toString();
+    } catch (_) { return null; }
+  }
+
+  // Écrire une préférence persistée
+  static Future<void> setPreference(String key, String value) async {
+    try {
+      await _storageCh.invokeMethod('set', {'key': key, 'value': value});
+    } catch (_) {}
+  }
+
+  // Appeler une action du backend Python (commandScopes)
+  static Future<Map<String,dynamic>> invoke(String action, Map<String,dynamic> args) async {
+    try {
+      final r = await _pluginCh.invokeMethod('invoke', {'action': action, 'args': args});
+      if (r is Map) return Map<String,dynamic>.from(r);
+      return {'status': 'ok', 'data': r};
+    } catch (e) { return {'status': 'error', 'error': e.toString()}; }
+  }
+
+  // Ouvrir une URL dans le navigateur système
+  static Future<void> openUrl(String url) async {
+    try {
+      await _urlCh.invokeMethod('open', {'url': url});
+    } catch (_) {}
+  }
 }
 
 // ZeusDL — binaire déjà dans l APK, appelé via commandScopes
