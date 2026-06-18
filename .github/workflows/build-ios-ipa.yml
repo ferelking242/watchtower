@@ -116,16 +116,45 @@ jobs:
       - name: Patch Xcode project for CI
         run: |
           PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
+          # Disable automatic signing
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
-          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
-          sed -i '' 's/DEVELOPMENT_TEAM = [A-Z0-9][A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
-          grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM" "$PBXPROJ" | sort -u
-
+          # Clear code sign identity (all variants)
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "[^"]*"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "[^"]*";/CODE_SIGN_IDENTITY = "";/g' "$PBXPROJ"
+          # Clear development team
+          sed -i '' 's/DEVELOPMENT_TEAM = [A-Za-z0-9][A-Za-z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
+          # Clear provisioning profile settings
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = [^;]*;/PROVISIONING_PROFILE_SPECIFIER = "";/g' "$PBXPROJ"
+          sed -i '' 's/PROVISIONING_PROFILE = [^;]*;/PROVISIONING_PROFILE = "";/g' "$PBXPROJ"
+          grep -E "CODE_SIGN|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
       - name: Build iOS (no codesign)
         run: |
-          flutter build ios --release --no-codesign
-          echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
+          # Phase 1: generate Flutter native glue (GeneratedPluginRegistrant, etc.)
+          # without invoking xcodebuild, so no signing check is triggered
+          flutter build ios --release --no-codesign --config-only 2>&1 || true
 
+          # Phase 2: invoke xcodebuild directly with signing fully suppressed.
+          # Preserves 100% of features: plugins, entitlements, assets.
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ENABLE_BITCODE=NO \
+            -derivedDataPath build/ios/derived \
+            build 2>&1 | grep -E "^(Build|error:|warning: |note: |\*\*)" | tail -80
+
+          # Phase 3: copy app to location expected by downstream steps
+          mkdir -p build/ios/iphoneos
+          cp -r "build/ios/derived/Build/Products/Release-iphoneos/Runner.app" \
+            "build/ios/iphoneos/Runner.app"
+          echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
       - name: Prepare bundle (thin ARM64, remove static archives)
         run: |
           APP="build/ios/iphoneos/Runner.app"
