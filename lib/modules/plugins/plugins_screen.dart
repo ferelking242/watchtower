@@ -187,6 +187,15 @@ class InstalledPluginsNotifier extends AsyncNotifier<List<InstalledPlugin>> {
   Future<void> install(PluginEntry plugin) async {
     final current = state.value ?? [];
     if (current.any((p) => p.id == plugin.id)) return;
+
+    // 1. Télécharger les fichiers Flare en premier — bloquant
+    //    Si ça échoue → exception propagée à l'appelant, rien n'est ajouté à installed
+    await FlareLoader.installFromNetwork(
+      pluginId: plugin.id,
+      baseUrl: _kPluginsBaseUrl,
+    );
+
+    // 2. Seulement si le download a réussi → persister dans installed_plugins.json
     final updated = [
       ...current,
       InstalledPlugin(
@@ -715,11 +724,6 @@ class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
 
       if (!mounted) return;
       await ref.read(installedPluginsProvider.notifier).install(widget.plugin);
-      // Télécharge les fichiers UI Flare (manifest.json, schema.json, etc.) en arrière-plan
-      unawaited(FlareLoader.installFromNetwork(
-        pluginId: widget.plugin.id,
-        baseUrl: _kPluginsBaseUrl,
-      ).catchError((_) {}));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: _card,
@@ -930,11 +934,6 @@ class _PluginDetailPageState extends ConsumerState<PluginDetailPage> {
     setState(() => _installing = true);
     try {
       await ref.read(installedPluginsProvider.notifier).install(p);
-      // Télécharge les fichiers UI Flare en arrière-plan
-      unawaited(FlareLoader.installFromNetwork(
-        pluginId: p.id,
-        baseUrl: _kPluginsBaseUrl,
-      ).catchError((_) {}));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: _card,
@@ -1512,30 +1511,15 @@ class _InstalledPluginRow extends ConsumerWidget {
               ],
               // Launch button
               GestureDetector(
-                onTap: () async {
-                  // Charge l’UI Flare. Si absent (install en cours ou echec reseau),
-                  // on tente une installation a la demande avant le fallback generique.
-                  InstalledFlarePlugin? flarePlugin = await FlareLoader.loadSingle(installed.id);
-                  flarePlugin ??= await FlareLoader.installFromNetwork(
-                    pluginId: installed.id,
-                    baseUrl: _kPluginsBaseUrl,
-                  ).catchError((_) => null);
-                  if (!context.mounted) return;
-                  if (flarePlugin != null) {
-                    Navigator.push(context, MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (_) => _FlarePluginView(plugin: flarePlugin!),
-                    ));
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        fullscreenDialog: true,
-                        builder: (_) => _LaunchPluginScreen(installed: installed, meta: meta),
-                      ),
-                    );
-                  }
-                },
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => _FlarePluginView(
+                      installed: installed,
+                      meta: meta,
+                    ),
+                  ),
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -1558,31 +1542,97 @@ class _InstalledPluginRow extends ConsumerWidget {
   }
 }
 
-// ─── Flare plugin view ─────────────────────────────────────────────────────────
-  //
-  // Route vers le bon renderer selon manifest.ui.method :
-  //   eval  → FlareEvalRenderer  (d4rt, widget Flutter natif)
-  //   html  → FlareHtmlRenderer  (WebView + bridge JS↔Flutter)
-  //   json  → _FlareJsonView     (lecture schema.json local + affichage natif)
+// ─── Flare plugin view ────────────────────────────────────────────────
 
-  class _FlarePluginView extends StatelessWidget {
-    final InstalledFlarePlugin plugin;
-    const _FlarePluginView({required this.plugin});
+class _FlarePluginView extends StatefulWidget {
+  final InstalledPlugin installed;
+  final PluginEntry meta;
+  const _FlarePluginView({required this.installed, required this.meta});
+  @override
+  State<_FlarePluginView> createState() => _FlarePluginViewState();
+}
 
-    @override
-    Widget build(BuildContext context) {
-      return switch (plugin.manifest.ui.method) {
-        'eval' => FlareEvalRenderer(plugin: plugin),
-        'html' => FlareHtmlRenderer(
-            plugin: plugin,
-            onAction: (action, values) =>
-                debugPrint('[Flare] action=$action values=$values'),
-          ),
-        'json' => _FlareJsonView(plugin: plugin),
-        final m => _FlareUnsupportedMethodView(method: m),
-      };
+class _FlarePluginViewState extends State<_FlarePluginView> {
+  InstalledFlarePlugin? _flare;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final fp = await FlareLoader.loadSingle(widget.installed.id);
+      if (fp == null) {
+        setState(() {
+          _loading = false;
+          _error = 'Fichiers du plugin introuvables.\n'
+              'Désinstallez et réinstallez le plugin.';
+        });
+        return;
+      }
+      setState(() { _flare = fp; _loading = false; });
+    } catch (e) {
+      setState(() { _loading = false; _error = 'Erreur chargement plugin : $e'; });
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0F0F0F),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF00D4AA))),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0F0F0F),
+        appBar: AppBar(backgroundColor: const Color(0xFF0F0F0F)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              TextButton(
+                onPressed: () { setState(() { _loading = true; _error = null; }); _load(); },
+                child: const Text('Réessayer', style: TextStyle(color: Color(0xFF00D4AA))),
+              ),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    final method = _flare!.manifest.ui.method;
+    return switch (method) {
+      'eval' => FlareEvalRenderer(plugin: _flare!),
+      'html' => FlareHtmlRenderer(plugin: _flare!),
+      _      => Scaffold(
+          backgroundColor: const Color(0xFF0F0F0F),
+          appBar: AppBar(backgroundColor: const Color(0xFF0F0F0F)),
+          body: Center(
+            child: Text(
+              'Méthode UI inconnue : "$method"\nVérifiez le manifest.json du plugin.',
+              style: const TextStyle(color: Colors.white70),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+    };
+  }
+}
 
   // Affichage basique pour la méthode json (lit schema.json depuis le répertoire local)
   class _FlareJsonView extends StatefulWidget {
@@ -1915,444 +1965,4 @@ class _PluginsSkeletonState extends State<_PluginsSkeleton>
       ]),
     ),
   );
-}
-
-// ─── Launch plugin full-screen (Seal-style) ───────────────────────────────────
-
-const _sealBg      = Color(0xFF0B0B0B);
-const _fabPaste    = Color(0xFF3D5C2E);
-const _fabDown     = Color(0xFF2A4820);
-const _fabIcon     = Color(0xFF9EC88C);
-
-class _LaunchPluginScreen extends StatefulWidget {
-  final InstalledPlugin installed;
-  final PluginEntry meta;
-  const _LaunchPluginScreen({required this.installed, required this.meta});
-
-  @override
-  State<_LaunchPluginScreen> createState() => _LaunchPluginScreenState();
-}
-
-class _LaunchPluginScreenState extends State<_LaunchPluginScreen> {
-  final _urlController = TextEditingController();
-  bool _running = false;
-  String? _result;
-
-  bool get _isDownloader =>
-      widget.meta.category == 'downloader' ||
-      widget.meta.runtimeTypes.contains('downloader') ||
-      widget.meta.commandScopes.contains('download');
-
-  // Example/test URLs shown as tappable chips below the text field
-  List<String> get _exampleUrls {
-    final id = widget.installed.id;
-    if (id.contains('tiktok')) {
-      return [
-        'https://vt.tiktok.com/ZSQ5BWgYL/',
-        'https://vm.tiktok.com/ZSQ5BWgYL/',
-      ];
-    }
-    if (id.contains('facebook')) {
-      return [
-        'https://www.facebook.com/reel/1513782869267473',
-        'https://fb.watch/example123/',
-      ];
-    }
-    return [];
-  }
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _paste() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null && mounted) {
-      setState(() => _urlController.text = data!.text!);
-    }
-  }
-
-  Future<void> _run() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) return;
-    setState(() { _running = true; _result = null; });
-    try {
-      // Méthode B: Python Bionic via libpython.so (nativeLibsDir, execv OK)
-      final zeusCtx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
-      if (zeusCtx == null) {
-        if (!mounted) return;
-        setState(() { _running = false; _result = 'ZeusDL indisponible — consultez les logs Watchtower (Paramètres → Logs, tag ZeusDL) pour le détail.'; });
-        return;
-      }
-      final _zeusExec = zeusCtx.executable;
-
-      // Répertoire de sortie : /storage/emulated/0/watchtower/download/plugin/<id>/
-      // Utilise MANAGE_EXTERNAL_STORAGE (déjà déclaré dans le manifest).
-      String _outputDir;
-      try {
-        final extDir = await getExternalStorageDirectory();
-        // extDir.path = /storage/emulated/0/Android/data/<pkg>/files
-        // On remonte jusqu'à la racine SD pour obtenir /storage/emulated/0
-        final sdRoot = extDir!.path.split('/Android/data').first;
-        _outputDir = '$sdRoot/watchtower/download/plugin/${widget.installed.id}';
-      } catch (_) {
-        final supDir = await getApplicationSupportDirectory();
-        _outputDir = '${supDir.path}/watchtower/download/plugin/${widget.installed.id}';
-      }
-      await Directory(_outputDir).create(recursive: true);
-
-      // -o template absolu : ZeusDL écrit dans _outputDir au lieu du CWD (read-only).
-      // --no-update : supprime le warning "Your version is older than 90 days".
-      final _zeusArgs = [
-        ...zeusCtx.prependArgs,
-        '-o', '$_outputDir/%(title)s [%(id)s].%(ext)s',
-        '--no-update',
-        url,
-      ];
-      int exitCode;
-      String output;
-
-      if (Platform.isAndroid) {
-        const ch = MethodChannel('com.watchtower.app.binary_utils');
-        String? _tmpdirOverride;
-        try {
-          final _supDir = await getApplicationSupportDirectory();
-          final _tmpPath = '${_supDir.path}/tmp';
-          await Directory(_tmpPath).create(recursive: true);
-          _tmpdirOverride = _tmpPath;
-        } catch (_) {}
-        final _env = <String, String>{
-          ...zeusCtx.extraEnv,
-          if (_tmpdirOverride != null) 'TMPDIR': _tmpdirOverride,
-        };
-        final res = await ch.invokeMethod<Map<Object?, Object?>>(
-          'runProcess', {
-            'path': _zeusExec,
-            'args': _zeusArgs,
-            'env': _env,
-          },
-        );
-        exitCode = (res?['exitCode'] as int?) ?? -1;
-        output   = (res?['output']   as String?) ?? '';
-      } else {
-        final proc = await Process.start(_zeusExec, _zeusArgs,
-            environment: zeusCtx.extraEnv.isEmpty ? null : zeusCtx.extraEnv);
-        final outBuf = StringBuffer();
-        proc.stdout.transform(const SystemEncoding().decoder).listen(outBuf.write);
-        proc.stderr.transform(const SystemEncoding().decoder).listen(outBuf.write);
-        exitCode = await proc.exitCode;
-        output   = outBuf.toString();
-      }
-
-      if (!mounted) return;
-      output = output.trim();
-
-      // Vérification réelle du succès :
-      // ZeusDL peut sortir avec exitCode 0 même quand le téléchargement a échoué.
-      // On cherche les marqueurs d'erreur dans l'output même si exitCode == 0.
-      final bool _hasRealError = exitCode != 0 ||
-          RegExp(r'ERROR:\s', caseSensitive: false).hasMatch(output) ||
-          RegExp(r'^\[error\]', caseSensitive: false, multiLine: true).hasMatch(output) ||
-          (output.contains('[download]') && !output.contains('[download] 100%'));
-
-      // Detect CPU arch only if we need it for the error message.
-      String cpuArch = 'arm64-v8a';
-      if (exitCode == 126) {
-        try {
-          final propR = await Process.run('getprop', ['ro.product.cpu.abilist']);
-          final abiList = propR.stdout.toString().trim().toLowerCase();
-          final primaryAbi = abiList.split(',').first.trim();
-          if (primaryAbi.contains('x86_64')) cpuArch = 'x86_64';
-        } catch (_) {}
-        // Exit 126 = kernel refused exec. Causes:
-        //   A. Architecture mismatch.
-        //   B. SELinux denial.
-        //   C. Corrupted ELF.
-        final detail = output.isNotEmpty ? '\nDétail : $output' : '';
-        setState(() {
-          _running = false;
-          _result = 'ZeusDL refusé par le kernel (code 126).\n'
-              'CPU : $cpuArch — runtime : $_zeusExec\n'
-              'Désinstallez et réinstallez le bon binaire ($cpuArch).$detail';
-        });
-        return;
-      }
-      setState(() {
-        _running = false;
-        _result = !_hasRealError
-            ? 'Téléchargement terminé ✓\nSauvegardé dans : $_outputDir${output.isNotEmpty ? '\n$output' : ''}'
-            : 'Erreur${exitCode != 0 ? ' (code $exitCode)' : ''}${output.isNotEmpty ? ' : $output' : ''}';
-      });
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-      final detail = e.message ?? e.code;
-      final String msg;
-      if (e.code == 'EXEC_ERROR') {
-        // error=2 / ENOENT → either the binary isn't extracted yet (rare first-boot
-        // race) or the binary uses a dynamic linker not present on Android
-        // (e.g. musl /lib/ld-musl-aarch64.so.1). Not a SELinux issue — nativeLibraryDir
-        // is always exec-capable.
-        final isNotFound = detail.contains('error=2') || detail.contains('No such file');
-        if (isNotFound) {
-          msg = 'ZeusDL introuvable sur cet appareil.\n\n'
-              'Le binaire est intégré à l\'APK mais n\'a pas pu être lancé.\n'
-              'Cause probable : incompatibilité du binaire avec Android '
-              '(linker musl au lieu du linker Android).\n\n'
-              'Une mise à jour de l\'application corrigera ce problème.\n\n'
-              'Détail : $detail';
-        } else {
-          msg = 'ZeusDL n\'a pas pu être exécuté.\n\nDétail : $detail';
-        }
-      } else {
-        msg = 'Erreur plateforme : $detail';
-      }
-      setState(() { _running = false; _result = msg; });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() { _running = false; _result = 'Erreur inattendue : ${e is Exception ? (e as Exception).toString().replaceFirst("Exception: ", "") : e}'; });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final name = widget.meta.name.isNotEmpty ? widget.meta.name : widget.installed.id;
-    return Scaffold(
-      backgroundColor: _sealBg,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // ── Main content ──────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-                  // Top bar
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70, size: 22),
-                        onPressed: () => Navigator.pop(context),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
-                  const SizedBox(height: 52),
-                  // Plugin title — large à gauche comme "Seal"
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: -1,
-                      height: 1.05,
-                    ),
-                  ),
-                  const SizedBox(height: 36),
-                  // URL input field
-                  if (_isDownloader) ...[
-                    TextField(
-                      controller: _urlController,
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
-                      keyboardType: TextInputType.url,
-                      decoration: InputDecoration(
-                        hintText: 'Lien vidéo',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 15),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.22), width: 1.5),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54, width: 1.5),
-                        ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                    // Example URL chips
-                    if (_exampleUrls.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: _exampleUrls.map((exUrl) => GestureDetector(
-                          onTap: () => setState(() => _urlController.text = exUrl),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.06),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withOpacity(0.14)),
-                            ),
-                            child: Text(
-                              exUrl.length > 32 ? '${exUrl.substring(0, 30)}…' : exUrl,
-                              style: const TextStyle(color: Colors.white54, fontSize: 11),
-                            ),
-                          ),
-                        )).toList(),
-                      ),
-                    ],
-                    // Result card
-                    if (_result != null) ...[
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: _result!.startsWith('Erreur')
-                              ? Colors.red.withOpacity(0.12)
-                              : _fabPaste.withOpacity(0.22),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: _result!.startsWith('Erreur')
-                                ? Colors.red.withOpacity(0.35)
-                                : _fabIcon.withOpacity(0.4),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Header avec bouton copie
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    Clipboard.setData(ClipboardData(text: _result!));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text('Copié dans le presse-papiers',
-                                          style: TextStyle(color: Colors.white, fontSize: 13)),
-                                        backgroundColor: _card,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                        duration: const Duration(seconds: 2),
-                                      ),
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.06),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: Colors.white.withOpacity(0.12)),
-                                    ),
-                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      Icon(Icons.copy_rounded, size: 12,
-                                        color: _result!.startsWith('Erreur')
-                                            ? Colors.red.shade300
-                                            : _fabIcon),
-                                      const SizedBox(width: 4),
-                                      Text('Copier', style: TextStyle(
-                                        fontSize: 11,
-                                        color: _result!.startsWith('Erreur')
-                                            ? Colors.red.shade300
-                                            : _fabIcon,
-                                      )),
-                                    ]),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _result!,
-                              style: TextStyle(
-                                color: _result!.startsWith('Erreur') ? Colors.red.shade300 : _fabIcon,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ] else ...[
-                    // Non-downloader plugin: show feature list
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF161616),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Fonctionnalités actives',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70)),
-                          const SizedBox(height: 12),
-                          if (widget.meta.runtimeTypes.isNotEmpty)
-                            ...widget.meta.runtimeTypes.map((r) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(children: [
-                                const Icon(Icons.check_circle_outline_rounded, size: 14, color: _fabIcon),
-                                const SizedBox(width: 10),
-                                Text(r, style: const TextStyle(color: Colors.white60, fontSize: 13)),
-                              ]),
-                            ))
-                          else
-                            const Text('Ce plugin est actif et fonctionne en arrière-plan.',
-                              style: TextStyle(color: Colors.white38, fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-            // ── FABs bottom-right (Seal style) ────────────────────────────────
-            if (_isDownloader)
-              Positioned(
-                right: 20,
-                bottom: 28,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Paste
-                    GestureDetector(
-                      onTap: _paste,
-                      child: Container(
-                        width: 62, height: 62,
-                        decoration: BoxDecoration(
-                          color: _fabPaste,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: const Icon(Icons.content_paste_rounded, color: _fabIcon, size: 26),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    // Download / run
-                    GestureDetector(
-                      onTap: _running ? null : _run,
-                      child: Container(
-                        width: 62, height: 62,
-                        decoration: BoxDecoration(
-                          color: _running ? const Color(0xFF1A3012) : _fabDown,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: _running
-                            ? const Center(
-                                child: SizedBox(
-                                  width: 24, height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: _fabIcon),
-                                ),
-                              )
-                            : const Icon(Icons.file_download_rounded, color: _fabIcon, size: 30),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
