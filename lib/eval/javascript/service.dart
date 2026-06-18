@@ -27,12 +27,25 @@ import '../interface.dart';
 /// Prevents hanging if an extension JS awaits a Promise that never resolves.
 const Duration _kJsExecutionTimeout = Duration(seconds: 30);
 
+/// Maximum iterations of [executePendingJob] when draining the QuickJS job
+/// queue before freeing the runtime.  In practice the queue is empty after
+/// a handful of iterations; this cap prevents an infinite loop if a buggy
+/// extension schedules jobs recursively.
+const int _kDrainJobsGuard = 2000;
+
 class JsExtensionService implements ExtensionService {
   late JavascriptRuntime runtime;
   @override
   late Source source;
+
+  // ── Init state ─────────────────────────────────────────────────────────────
+  // _initCompleter serialises concurrent _initAsync() calls: the first caller
+  // creates and completes it; subsequent callers await the same future instead
+  // of racing to create a second runtime.
   bool _isInitialized = false;
   bool _isDisposing = false;
+  Completer<void>? _initCompleter;
+
   late JsDomSelector _jsDomSelector;
 
   JsExtensionService(this.source);
@@ -49,31 +62,50 @@ class JsExtensionService implements ExtensionService {
   /// plain evaluate().
   Future<void> _initAsync() async {
     if (_isInitialized) return;
-    runtime = getJavascriptRuntime();
 
-    // \u2500\u2500 Wire JS console.log / .warn / .error \u2192 AppLogger \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    final extensionLabel = source.name ?? source.id ?? 'ext';
-    runtime.consoleLogHandler = (level, message) {
-      final logLevel = switch (level) {
-        'error' => LogLevel.error,
-        'warn' => LogLevel.warning,
-        _ => LogLevel.debug,
-      };
-      AppLogger.log(
-        '[JS:${extensionLabel}] ${message}',
-        logLevel: logLevel,
-        tag: LogTag.extension_,
+    // If another coroutine is already initialising, wait for it to finish
+    // instead of racing to create a second runtime.
+    if (_initCompleter != null) {
+      return _initCompleter!.future;
+    }
+
+    // Guard: do not start initialising if dispose was already requested.
+    if (_isDisposing) {
+      throw StateError(
+        'JsExtensionService for "${source.name}" is being disposed; '
+        'cannot initialise.',
       );
-    };
+    }
 
-    JsHttpClient(runtime).init();
-    _jsDomSelector = JsDomSelector(runtime)..init();
-    JsUtils(runtime).init();
-    JsVideosExtractors(runtime).init();
-    JsPreferences(runtime, source).init();
-    final sourceJson = jsonEncode(source.toMSource().toJson());
+    final completer = Completer<void>();
+    _initCompleter = completer;
 
-    runtime.evaluate('''
+    try {
+      runtime = getJavascriptRuntime();
+
+      // ── Wire JS console.log / .warn / .error → AppLogger ──────────────────
+      final extensionLabel = source.name ?? source.id ?? 'ext';
+      runtime.consoleLogHandler = (level, message) {
+        final logLevel = switch (level) {
+          'error' => LogLevel.error,
+          'warn'  => LogLevel.warning,
+          _       => LogLevel.debug,
+        };
+        AppLogger.log(
+          '[JS:$extensionLabel] $message',
+          logLevel: logLevel,
+          tag: LogTag.extension_,
+        );
+      };
+
+      JsHttpClient(runtime).init();
+      _jsDomSelector = JsDomSelector(runtime)..init();
+      JsUtils(runtime).init();
+      JsVideosExtractors(runtime).init();
+      JsPreferences(runtime, source).init();
+      final sourceJson = jsonEncode(source.toMSource().toJson());
+
+      runtime.evaluate('''
 class MProvider {
     get source() {
         return $sourceJson;
@@ -126,53 +158,62 @@ async function jsonStringify(fn) {
 }
 ''');
 
-    final sourceCode = _normalizeJsExtensionCode(source.sourceCode ?? '');
+      final sourceCode = _normalizeJsExtensionCode(source.sourceCode ?? '');
 
-    JsEvalResult loadResult;
+      JsEvalResult loadResult;
 
-    if (!kIsWeb) {
-      // ── Native: compile to bytecode once, cache to disk ──────────────────
-      final cache = BytecodeCache.instance;
-      final cached = await cache.get(sourceCode);
-      if (cached != null) {
-        loadResult = evalBytecode(runtime, cached);
+      if (!kIsWeb) {
+        // ── Native: compile to bytecode once, cache to disk ──────────────────
+        final cache = BytecodeCache.instance;
+        final cached = await cache.get(sourceCode);
+        if (cached != null) {
+          loadResult = evalBytecode(runtime, cached);
+        } else {
+          final bytecode = compileJs(runtime, sourceCode, source.name ?? 'ext');
+          await cache.put(sourceCode, bytecode);
+          loadResult = evalBytecode(runtime, bytecode);
+        }
+        if (loadResult.isError) {
+          throw Exception(
+            'Extension "${source.name ?? source.id}" failed to load bytecode: '
+            '${loadResult.stringResult}',
+          );
+        }
+        final extResult =
+            runtime.evaluate('var extention = new DefaultExtension();');
+        if (extResult.isError) {
+          throw Exception(
+            'Extension "${source.name ?? source.id}" failed to initialise: '
+            '${extResult.stringResult}',
+          );
+        }
       } else {
-        final bytecode = compileJs(runtime, sourceCode, source.name ?? 'ext');
-        await cache.put(sourceCode, bytecode);
-        loadResult = evalBytecode(runtime, bytecode);
-      }
-      if (loadResult.isError) {
-        throw Exception(
-          'Extension "${source.name ?? source.id}" failed to load bytecode: ${loadResult.stringResult}',
-        );
-      }
-      final extResult = runtime.evaluate('var extention = new DefaultExtension();');
-      if (extResult.isError) {
-        throw Exception(
-          'Extension "${source.name ?? source.id}" failed to initialise: ${extResult.stringResult}',
-        );
-      }
-    } else {
-      // ── Web: plain evaluate (no FFI) ──────────────────────────────────────
-      loadResult = runtime.evaluate('''$sourceCode
+        // ── Web: plain evaluate (no FFI) ──────────────────────────────────────
+        loadResult = runtime.evaluate('''$sourceCode
 var extention = new DefaultExtension();
 ''');
-      if (loadResult.isError) {
-        throw Exception(
-          'Extension "${source.name ?? source.id}" failed to initialise: ${loadResult.stringResult}',
-        );
+        if (loadResult.isError) {
+          throw Exception(
+            'Extension "${source.name ?? source.id}" failed to initialise: '
+            '${loadResult.stringResult}',
+          );
+        }
       }
-    }
 
-    _isInitialized = true;
+      _isInitialized = true;
+      completer.complete();
+    } catch (e, st) {
+      // Reset so callers can retry (e.g. after a bytecode cache hit fails).
+      _initCompleter = null;
+      completer.completeError(e, st);
+      rethrow;
+    }
   }
 
   /// Sync guard used by the few synchronous methods (getHeaders, supportsLatest,
   /// getFilterList…). Those methods are called only after the extension has
   /// already been warmed up by an async call (getPopular/getLatestUpdates/…),
-  /// so _isInitialized should already be true. If not (e.g. direct sync call
-  /// before any async call), we throw a clear error instead of silently
-  /// doing nothing.
+  /// so _isInitialized should already be true.
   void _ensureInitialized() {
     if (!_isInitialized) {
       throw StateError(
@@ -182,21 +223,46 @@ var extention = new DefaultExtension();
     }
   }
 
+  // ── Dispose ────────────────────────────────────────────────────────────────
+
   @override
   void dispose() {
-    if (!_isInitialized || _isDisposing) return;
+    if (_isDisposing) return;
     _isDisposing = true;
-    // Block new calls immediately — set before any teardown step.
+
+    // Stop new calls from starting the runtime.
     _isInitialized = false;
+
+    if (_initCompleter != null && !_initCompleter!.isCompleted) {
+      // Init was in progress — complete with error so waiters don't hang.
+      _initCompleter!.completeError(StateError('disposed during init'));
+    }
+    _initCompleter = null;
+
     try { _jsDomSelector.dispose(); } catch (_) {}
+
+    // ── Drain the QuickJS job queue ─────────────────────────────────────────
+    // JS_FreeRuntime asserts that the GC object list is empty when the runtime
+    // is freed.  Every unprocessed Promise callback keeps at least one JS
+    // object alive.  The correct drain pattern is to loop
+    // executePendingJob() until it returns ≤ 0 (queue empty or error).
+    //
+    // runtime.evaluate('null') does NOT flush the queue — it only evaluates
+    // a value expression and returns immediately without processing any
+    // pending microtasks.  Using it as a "flush" was the original bug.
     try {
-      // Flush pending JS microtasks/Promise callbacks before freeing the
-      // runtime. Without this the QuickJS assertion
-      // "list_empty(&rt->gc_obj_list)" in JS_FreeRuntime fires → SIGABRT.
-      runtime.evaluate('null');
+      var guard = 0;
+      int n;
+      do {
+        n = runtime.executePendingJob();
+        guard++;
+      } while (n > 0 && guard < _kDrainJobsGuard);
     } catch (_) {}
+
     try { runtime.dispose(); } catch (_) {}
   }
+
+  // ── Public API ─────────────────────────────────────────────────────────────
 
   @override
   Map<String, String> getHeaders() {
@@ -214,9 +280,7 @@ var extention = new DefaultExtension();
   }
 
   @override
-  String get sourceBaseUrl {
-    return source.baseUrl!;
-  }
+  String get sourceBaseUrl => source.baseUrl!;
 
   @override
   Future<MPages> getPopular(int page) async {
@@ -316,13 +380,11 @@ var extention = new DefaultExtension();
   FilterList getFilterList() {
     _ensureInitialized();
     List<dynamic> list;
-
     try {
       list = fromJsonFilterValuesToList(_extensionCallSync('getFilterList()', []));
     } catch (_) {
       list = [];
     }
-
     return FilterList(list);
   }
 
@@ -359,6 +421,8 @@ var extention = new DefaultExtension();
     );
   }
 
+  // ── Internal helpers ────────────────────────────────────────────────────────
+
   T _extensionCallSync<T>(String call, T def) {
     try {
       final res = runtime.evaluate('JSON.stringify(extention.$call)');
@@ -370,13 +434,23 @@ var extention = new DefaultExtension();
   }
 
   Future<T> _extensionCallAsync<T>(String call) async {
+    // Guard: if the service was disposed between the caller's await _initAsync()
+    // and this point (e.g. timeout or navigation), throw cleanly instead of
+    // accessing a freed runtime.
+    if (_isDisposing) {
+      throw StateError(
+        'JsExtensionService for "${source.name ?? source.id}" was disposed '
+        'before the JS call "$call" could run.',
+      );
+    }
+
     final promised = await runtime.handlePromise(
       await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),
     ).timeout(
       _kJsExecutionTimeout,
       onTimeout: () => throw TimeoutException(
-        'Extension JS call "\${source.name ?? source.id}" exceeded '
-        '\${_kJsExecutionTimeout.inSeconds}s timeout.',
+        'Extension JS call "${source.name ?? source.id}" exceeded '
+        '${_kJsExecutionTimeout.inSeconds}s timeout.',
       ),
     );
 
