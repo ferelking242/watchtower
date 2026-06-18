@@ -1,6 +1,11 @@
 import UIKit
   import Flutter
-  import Libmtorrentserver
+  // IMPORTANT: Libmtorrentserver n'est PAS importé ici.
+  // Cause du crash iOS 15 : le runtime Go démarre ses goroutines (SIGURG preemption)
+  // via dyld AU DÉMARRAGE, avant que la Dart VM de Flutter s'initialise.
+  // Les deux utilisent SIGURG → conflit → abort().
+  // Fix : dlopen() appelé APRÈS l'init Flutter dans le channel handler.
+  import Darwin   // dlopen / dlsym / dlerror
   import app_links
 
   @main
@@ -25,15 +30,38 @@ import UIKit
       torrentChannel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
         switch call.method {
         case "start":
-          let args = call.arguments as? [String: Any]
-          let config = args?["config"] as? String
-          var error: NSError?
-          let mPort = UnsafeMutablePointer<Int>.allocate(capacity: MemoryLayout<Int>.stride)
+          let args      = call.arguments as? [String: Any]
+          let configStr = (args?["config"] as? String) ?? "{}"
+
+          // Lazy-load : le framework est dans PrivateLibraries/ (pas Frameworks/)
+          // pour que dyld ne le charge PAS au boot (évite le conflit SIGURG Go ↔ Dart VM).
+          let fwPath = Bundle.main.bundlePath
+            + "/PrivateLibraries/Libmtorrentserver.framework/Libmtorrentserver"
+          guard let handle = dlopen(fwPath, RTLD_NOW | RTLD_LOCAL) else {
+            let msg = dlerror().map { String(cString: $0) } ?? "dlopen failed"
+            result(FlutterError(code: "MT_LOAD", message: msg, details: fwPath))
+            return
+          }
+          guard let sym = dlsym(handle, "LibmtorrentserverStart") else {
+            result(FlutterError(code: "MT_SYM", message: "LibmtorrentserverStart not found", details: nil))
+            return
+          }
+
+          typealias MTStartFn = @convention(c) (
+            UnsafePointer<CChar>?,
+            UnsafeMutablePointer<Int>?,
+            UnsafeMutableRawPointer?
+          ) -> Bool
+
+          let startFn = unsafeBitCast(sym, to: MTStartFn.self)
+          let mPort   = UnsafeMutablePointer<Int>.allocate(capacity: 1)
           defer { mPort.deallocate() }
-          if LibmtorrentserverStart(config, mPort, &error) {
+
+          let nsConfig = configStr as NSString
+          if startFn(nsConfig.utf8String, mPort, nil) {
             result(mPort.pointee)
           } else {
-            result(FlutterError(code: "ERROR", message: error.debugDescription, details: nil))
+            result(FlutterError(code: "MT_ERR", message: "LibmtorrentserverStart retourned false", details: nil))
           }
 
         default:

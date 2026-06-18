@@ -14,11 +14,12 @@ jobs:
         with:
           lfs: true
 
-      # Flutter 3.27.x = dernier stable supportant iOS 15.x (iPhone 7 max = 15.8.5)
-      # Flutter 3.29+ a élevé le minimum iOS à 16.0, causant un abort() au démarrage sur iOS 15
+      # Flutter 3.38.x = Dart 3.10.x — go_router 17.x / riverpod 3.x nécessitent Dart ≥ 3.10.
+      # Le crash iOS 15 (Go SIGURG ↔ Dart VM SIGURG) est traité par le lazy-load de
+      # Libmtorrentserver ci-dessous (voir step "Lazy-load Libmtorrentserver").
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.x'
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
 
@@ -118,20 +119,8 @@ jobs:
           fi
           grep "assets/" pubspec.yaml
 
-      # ── Patch SDK constraint pour Flutter 3.27.x (Dart 3.6.x) ─────────────────
-      # pubspec.yaml déclare sdk: ^3.10.0 pour les builds Android (Flutter 3.38.x)
-      # Pour iOS 15, on downgrade Flutter → il faut élargir la contrainte SDK.
-      # Ce patch est LOCAL au runner CI, il ne modifie pas le repo.
-      - name: Patch pubspec SDK constraint for Flutter 3.27.x
-        run: |
-          sed -i '' 's/sdk: \^3\.10\.0/sdk: ">=3.6.0 <4.0.0"/' pubspec.yaml || \
-          sed -i   's/sdk: \^3\.10\.0/sdk: ">=3.6.0 <4.0.0"/' pubspec.yaml
-          echo "=== SDK constraint après patch ==="
-          grep "sdk:" pubspec.yaml | head -3
-
-      # ── Supprimer Podfile.lock avant pod install ─────────────────────────────
-      # Podfile.lock a été généré avec Flutter 3.38.x, incompatible avec 3.27.x
-      - name: Remove stale Podfile.lock (Flutter version changed)
+      # ── Supprimer Podfile.lock avant pod install ────────────────────────────────
+      - name: Remove stale Podfile.lock
         run: rm -f ios/Podfile.lock
 
       - name: Flutter pub get
@@ -162,6 +151,83 @@ jobs:
           echo "=== Frameworks count: $(ls build/ios/iphoneos/Runner.app/Frameworks/ | wc -l) ==="
           ls build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
             && echo "zeusdl présent" || echo "zeusdl absent (OK)"
+
+      # ── Lazy-load Libmtorrentserver (fix crash iOS 15 — iPhone 7) ────────────
+      # Root cause : import Libmtorrentserver → dyld charge le framework Go AU BOOT,
+      # avant Flutter. Le runtime Go démarre ses goroutines (SIGURG preemption).
+      # La Dart VM veut aussi installer un handler SIGURG → conflit → abort().
+      # Fix en deux temps :
+      #   1. AppDelegate utilise dlopen() APRÈS que Flutter soit initialisé
+      #   2. CI change LC_LOAD_DYLIB → LC_LOAD_WEAK_DYLIB + déplace le framework
+      #      dans PrivateLibraries/ (pas scanné par dyld au boot)
+      - name: Lazy-load Libmtorrentserver (fix iOS crash)
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          FW="$APP/Frameworks/Libmtorrentserver.framework"
+          RUNNER="$APP/Runner"
+
+          if [ ! -d "$FW" ]; then
+            echo "Libmtorrentserver.framework absent — skip"
+            exit 0
+          fi
+
+          # Déplacer vers PrivateLibraries/ (non scanné par dyld au démarrage)
+          mkdir -p "$APP/PrivateLibraries"
+          cp -r "$FW" "$APP/PrivateLibraries/Libmtorrentserver.framework"
+          rm -rf "$FW"
+          echo "Déplacé → PrivateLibraries/"
+
+          # Patcher LC_LOAD_DYLIB → LC_LOAD_WEAK_DYLIB dans Runner
+          # dyld ignore silencieusement un weak-linked framework manquant
+          python3 - "$RUNNER" << 'PY'
+import sys, struct
+
+path = sys.argv[1]
+LC_LOAD_DYLIB      = 0x0000000C
+LC_LOAD_WEAK_DYLIB = 0x80000018
+MH_MAGIC_64        = 0xFEEDFACF
+
+with open(path, "rb") as f:
+    data = bytearray(f.read())
+
+def patch(base):
+    if struct.unpack_from("<I", data, base)[0] != MH_MAGIC_64:
+        return 0
+    ncmds = struct.unpack_from("<I", data, base + 16)[0]
+    off   = base + 32
+    n     = 0
+    for _ in range(ncmds):
+        cmd     = struct.unpack_from("<I", data, off)[0]
+        cmdsize = struct.unpack_from("<I", data, off + 4)[0]
+        if cmdsize < 8: break
+        if cmd == LC_LOAD_DYLIB:
+            nameoff = struct.unpack_from("<I", data, off + 8)[0]
+            name = data[off+nameoff:off+nameoff+256].split(b"\x00")[0].decode("ascii","replace")
+            if "Libmtorrentserver" in name:
+                struct.pack_into("<I", data, off, LC_LOAD_WEAK_DYLIB)
+                print(f"  weak-linked: {name}")
+                n += 1
+        off += cmdsize
+    return n
+
+# FAT ou thin
+if data[0:4] == b'\xca\xfe\xba\xbe':
+    nfat = struct.unpack_from(">I", data, 4)[0]
+    for i in range(nfat):
+        aoff = struct.unpack_from(">I", data, 8 + i * 20 + 8)[0]
+        patch(aoff)
+else:
+    patch(0)
+
+with open(path, "wb") as f:
+    f.write(data)
+print("patch LC_LOAD_WEAK_DYLIB OK")
+PY
+
+          echo "=== PrivateLibraries ==="
+          ls "$APP/PrivateLibraries/"
+          echo "=== Libmtorrent dans Frameworks ==="
+          ls "$APP/Frameworks/" | grep -i libmtorrent || echo "(absent — OK)"
 
       # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
       # TrollStore sur iPhone 7 utilise un vieux ldid qui :
@@ -242,12 +308,22 @@ jobs:
           ENT="ios/Runner/Runner.entitlements"
           brew install ldid 2>/dev/null || true
 
-          echo "=== ldid par framework ==="
+          echo "=== ldid par framework (Frameworks/) ==="
           for fw in "$APP/Frameworks"/*.framework; do
             NAME=$(basename "$fw" .framework)
             BIN="$fw/$NAME"
             if [ -f "$BIN" ]; then
               ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
+            fi
+          done
+
+          echo "=== ldid PrivateLibraries/ (lazy-loaded frameworks) ==="
+          for fw in "$APP/PrivateLibraries"/*.framework; do
+            [ -d "$fw" ] || continue
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            if [ -f "$BIN" ]; then
+              ldid -S "$BIN" 2>/dev/null && echo "ldid OK: PrivateLibraries/$NAME" || echo "ldid SKIP: PrivateLibraries/$NAME"
             fi
           done
 

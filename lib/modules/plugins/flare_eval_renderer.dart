@@ -43,16 +43,18 @@ class _FlareEvalRendererState extends State<FlareEvalRenderer> {
   String _buildStub() => '''
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-// Bridge de base — tout plugin extends WPlugin
+// ── WPlugin : bridge statique entre le plugin et Watchtower ──────────────────
+// Les plugins utilisent UNIQUEMENT les méthodes statiques de WPlugin.
+// WPlugin n'est PAS étendu directement ; les plugins étendent StatefulWidget.
 abstract class WPlugin {
-  Widget buildWidget(BuildContext context);
-
   static const _storageCh = MethodChannel('com.watchtower.app.storage');
   static const _pluginCh  = MethodChannel('com.watchtower.app.plugin');
   static const _urlCh     = MethodChannel('com.watchtower.app.url');
 
-  // Lire une préférence persistée (Secure Storage côté Android)
+  // ── Préférences persistées (Secure Storage) ───────────────────────────────
   static Future<String?> getPreference(String key) async {
     try {
       final r = await _storageCh.invokeMethod('get', {'key': key});
@@ -60,28 +62,43 @@ abstract class WPlugin {
     } catch (_) { return null; }
   }
 
-  // Écrire une préférence persistée
   static Future<void> setPreference(String key, String value) async {
     try {
       await _storageCh.invokeMethod('set', {'key': key, 'value': value});
     } catch (_) {}
   }
 
-  // Appeler une action du backend Python (commandScopes)
+  // ── Appel backend Python ──────────────────────────────────────────────────
   static Future<Map<String,dynamic>> invoke(String action, Map<String,dynamic> args) async {
     try {
-      final r = await _pluginCh.invokeMethod('invoke', {'pluginId': WatchtowerContext.pluginId, 'action': action, 'args': args});
+      final r = await _pluginCh.invokeMethod('invoke', {
+        'pluginId': WatchtowerContext.pluginId,
+        'action': action,
+        'args': args,
+      });
       if (r is Map) return Map<String,dynamic>.from(r);
       return {'status': 'ok', 'data': r};
     } catch (e) { return {'status': 'error', 'error': e.toString()}; }
   }
 
-  // Ouvrir une URL dans le navigateur système
+  // ── URL externe ───────────────────────────────────────────────────────────
   static Future<void> openUrl(String url) async {
-    try {
-      await _urlCh.invokeMethod('open', {'url': url});
-    } catch (_) {}
+    try { await _urlCh.invokeMethod('open', {'url': url}); } catch (_) {}
   }
+
+  // ── Ouvrir le lecteur Watchtower ──────────────────────────────────────────
+  static Future<void> openReader(Map<String,dynamic> args) async {
+    try { await _pluginCh.invokeMethod('openReader', {'args': args}); } catch (_) {}
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  static void showToast(String message) {
+    try { _pluginCh.invokeMethod('toast', {'message': message}); } catch (_) {}
+  }
+
+  // ── Utilitaires ───────────────────────────────────────────────────────────
+  static Uint8List base64Decode(String b64) => base64.decode(b64);
+  static dynamic  parseJson(String s)       => jsonDecode(s);
 }
 
 // ZeusDL — binaire déjà dans l APK, appelé via commandScopes
@@ -106,10 +123,10 @@ class WatchtowerZeusDL {
 }
 
 class WatchtowerLog {
-  static void info(String m)    => debugPrint('[Plugin/INFO] ' + m);
-  static void warn(String m)    => debugPrint('[Plugin/WARN] ' + m);
-  static void error(String m)   => debugPrint('[Plugin/ERR ] ' + m);
-  static void success(String m) => debugPrint('[Plugin/OK  ] ' + m);
+  static void info(String m)    => debugPrint('[Plugin/INFO] \$m');
+  static void warn(String m)    => debugPrint('[Plugin/WARN] \$m');
+  static void error(String m)   => debugPrint('[Plugin/ERR ] \$m');
+  static void success(String m) => debugPrint('[Plugin/OK  ] \$m');
   static void progress(double p, Map opts) {}
 }
 
@@ -128,9 +145,12 @@ class WatchtowerContext {
   Future<Widget> _interpret(String source) async {
     final interpreter = D4rt();
     final full = _buildStub() + source;
-    final result = interpreter.execute(source: full);
-    if (result is Widget) return result;
-    throw Exception('Plugin ne retourne pas un Widget.');
+    // execute() peut retourner directement un Widget ou un Future<Widget> selon d4rt
+    final raw = interpreter.execute(source: full);
+    final result = (raw is Future) ? await (raw as Future<dynamic>) : raw;
+    if (result is Widget) return result as Widget;
+    throw Exception(
+      'Le plugin ne retourne pas un Widget (reçu : ${result?.runtimeType}).');
   }
 
   @override
