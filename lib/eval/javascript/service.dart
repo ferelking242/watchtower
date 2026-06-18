@@ -285,25 +285,40 @@ var extention = new DefaultExtension();
   @override
   Future<MPages> getPopular(int page) async {
     await _initAsync();
-    return MPages.fromJson(await _extensionCallAsync('getPopular($page)'));
+    try {
+      return MPages.fromJson(await _extensionCallAsync('getPopular($page)'));
+    } catch (e) {
+      AppLogger.log('getPopular failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
+      return MPages(list: [], hasNextPage: false);
+    }
   }
 
   @override
   Future<MPages> getLatestUpdates(int page) async {
     await _initAsync();
-    return MPages.fromJson(
-      await _extensionCallAsync('getLatestUpdates($page)'),
-    );
+    try {
+      return MPages.fromJson(
+        await _extensionCallAsync('getLatestUpdates($page)'),
+      );
+    } catch (e) {
+      AppLogger.log('getLatestUpdates failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
+      return MPages(list: [], hasNextPage: false);
+    }
   }
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
     await _initAsync();
-    return MPages.fromJson(
-      await _extensionCallAsync(
-        'search(${jsonEncode(query)},$page,${jsonEncode(filterValuesListToJson(filters))})',
-      ),
-    );
+    try {
+      return MPages.fromJson(
+        await _extensionCallAsync(
+          'search(${jsonEncode(query)},$page,${jsonEncode(filterValuesListToJson(filters))})',
+        ),
+      );
+    } catch (e) {
+      AppLogger.log('search failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
+      return MPages(list: [], hasNextPage: false);
+    }
   }
 
   @override
@@ -414,11 +429,16 @@ var extention = new DefaultExtension();
   @override
   Future<MPages> getCustomList(String id, int page) async {
     await _initAsync();
-    return MPages.fromJson(
-      await _extensionCallAsync(
-        'getCustomList(${jsonEncode(id)},$page)',
-      ),
-    );
+    try {
+      return MPages.fromJson(
+        await _extensionCallAsync(
+          'getCustomList(${jsonEncode(id)},$page)',
+        ),
+      );
+    } catch (e) {
+      AppLogger.log('getCustomList failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
+      return MPages(list: [], hasNextPage: false);
+    }
   }
 
   // ── Internal helpers ────────────────────────────────────────────────────────
