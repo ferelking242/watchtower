@@ -909,10 +909,11 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
     '/updates', '/browse', '/more', '/trackerLibrary', '/globalSearch',
-    '/settings', '/marketplace',
+    '/settings', '/marketplace', '/discover',
   };
 
   static const _mainItems = [
+    (route: '/discover',       icon: Icons.travel_explore_outlined,     activeIcon: Icons.travel_explore,             tooltip: 'Discover'),
     (route: '/WatchtowerHome', icon: Icons.home_outlined,               activeIcon: Icons.home_rounded,               tooltip: 'Accueil'),
     (route: '/AnimeLibrary',   icon: Icons.live_tv_outlined,            activeIcon: Icons.live_tv,                    tooltip: 'Watch'),
     (route: '/MangaLibrary',   icon: Icons.auto_stories_outlined,       activeIcon: Icons.auto_stories,               tooltip: 'Manga'),
@@ -1637,6 +1638,13 @@ class _FloatingDockState extends State<_FloatingDock> {
             label: l10n.tracking,
             icon: Icons.account_tree_outlined,
             activeIcon: Icons.account_tree,
+          ));
+        case '/discover':
+          items.add(const _DockItemData(
+            route: '/discover',
+            label: 'Discover',
+            icon: Icons.travel_explore_outlined,
+            activeIcon: Icons.travel_explore,
           ));
         case '/marketplace':
           items.add(const _DockItemData(

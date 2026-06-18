@@ -87,6 +87,7 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/modules/splash/splash_screen.dart';
 import 'package:watchtower/modules/transfer/transfer_screen.dart';
 import 'package:watchtower/modules/browse/local_how_to_screen.dart';
+import 'package:watchtower/modules/search/watchtower_discover_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/cupertino.dart';
 part 'router.g.dart';
@@ -199,6 +200,7 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(name: "marketplace", child: const MarketplaceScreen()),
         _genericRoute(name: "more", child: const MoreScreen()),
         _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
+        _genericRoute(name: "discover", child: const WatchtowerDiscoverScreen()),
       ],
     ),
     _genericRoute<(Source?, bool)>(
