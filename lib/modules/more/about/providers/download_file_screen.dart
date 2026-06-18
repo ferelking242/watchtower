@@ -563,9 +563,17 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               icon: Icons.install_mobile_rounded,
               cs: cs,
               onPressed: () async {
+                final fileToDelete = _completedFile;
                 await _installApk(_completedFile!);
                 _AppDownloadTask.clear();
                 if (mounted) Navigator.pop(context);
+                // Supprimer l'APK 5 s après le lancement de l'intent.
+                // PackageInstaller a déjà copié le fichier via FileProvider à ce stade.
+                if (fileToDelete != null) {
+                  Future.delayed(const Duration(seconds: 5), () async {
+                    try { await fileToDelete.delete(); } catch (_) {}
+                  });
+                }
               },
             ),
             const SizedBox(height: 10),
@@ -662,16 +670,38 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       await Permission.storage.request();
     }
 
+    // APKs stockés dans : /storage/emulated/0/Download/Watchtower-X.X.X-bXXX-arm64.apk
     Directory? dir = Directory('/storage/emulated/0/Download');
     if (!await dir.exists()) dir = await getExternalStorageDirectory();
 
     final file = File(
         '${dir!.path}/${url.split("/").lastOrNull ?? "Watchtower.apk"}');
 
-    // Already downloaded — go straight to install.
+    // Nettoyer les anciens APKs Watchtower (versions précédentes) dans Downloads.
+    try {
+      final dlDir = Directory('/storage/emulated/0/Download');
+      if (await dlDir.exists()) {
+        await for (final entity in dlDir.list()) {
+          if (entity is File &&
+              entity.path.contains('Watchtower') &&
+              entity.path.toLowerCase().endsWith('.apk') &&
+              entity.path != file.path) {
+            await entity.delete();
+            log('[DOWNLOAD] Deleted old APK: ${entity.path}');
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Already downloaded — validate before reusing to avoid installing a
+    // corrupted or partial file (which would cause "parse package" error).
     if (await file.exists()) {
-      if (mounted) setState(() => _completedFile = file);
-      return;
+      if (await _isValidApk(file)) {
+        if (mounted) setState(() => _completedFile = file);
+        return;
+      }
+      // Corrupted / partial download — delete and re-download.
+      await file.delete();
     }
 
     if (mounted) {
@@ -707,6 +737,21 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       return;
     }
     await ApkInstaller.installApk(file.path);
+  }
+
+  /// Returns true if [file] looks like a valid APK:
+  ///   • size > 1 MB (a real APK is never smaller)
+  ///   • first two bytes are the ZIP magic "PK" (0x50 0x4B)
+  static Future<bool> _isValidApk(File file) async {
+    try {
+      final stat = await file.stat();
+      if (stat.size < 1024 * 1024) return false;
+      final chunks = await file.openRead(0, 4).toList();
+      final header = chunks.expand((e) => e).take(4).toList();
+      return header.length >= 2 && header[0] == 0x50 && header[1] == 0x4B;
+    } catch (_) {
+      return false;
+    }
   }
 }
 
