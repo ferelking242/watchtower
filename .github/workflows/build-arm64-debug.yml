@@ -52,6 +52,31 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      # Cache Rust — rust_lib_watchtower compile aarch64-linux-android (~150-200s sans cache)
+      - name: Cache Rust (Android arm64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-arm64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-arm64-${{ runner.os }}-
+
+      # Cache Android NDK 27 + CMake 3.22.1 — telecharges par Gradle a chaque run
+      - name: Cache Android SDK extras (NDK 27, CMake)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      # Pre-install Rust Android target pour eviter le download live dans Gradle
+      - name: Install Rust Android target
+        run: rustup target add aarch64-linux-android
+
       - name: Compute and bump version
         id: ver
         run: |
@@ -132,7 +157,7 @@ jobs:
             df -h
             # Remove large pre-installed packages not needed for Flutter builds
             sudo rm -rf /usr/local/lib/android/sdk/ndk/26* /usr/local/lib/android/sdk/ndk/29* || true
-            sudo rm -rf /usr/local/lib/android/sdk/build-tools/34* /usr/local/lib/android/sdk/build-tools/35* || true
+            sudo rm -rf /usr/local/lib/android/sdk/build-tools/33* /usr/local/lib/android/sdk/build-tools/34* || true
             sudo rm -rf /usr/local/.ghcup /usr/local/share/powershell || true
             sudo apt-get clean -y || true
             docker image prune -af 2>/dev/null || true
