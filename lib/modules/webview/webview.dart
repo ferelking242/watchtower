@@ -2648,35 +2648,43 @@ class _MoreSheetState extends State<_MoreSheet> {
       final effectiveColor = highlight
           ? (accent ?? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600))
           : (accent ?? iconColor);
+      final iconBg = highlight
+          ? (accent ?? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)).withValues(alpha: 0.12)
+          : (isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05));
       return GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.translucent,
         child: SizedBox(
-          width: 64,
+          width: 62,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 64,
-                height: 44,
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Center(
                   child: svgAsset != null
                       ? SvgPicture.asset(
                           svgAsset,
-                          width: 24,
-                          height: 24,
+                          width: 26,
+                          height: 26,
                           colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
                         )
-                      : Icon(icon, size: 24, color: effectiveColor),
+                      : Icon(icon, size: 26, color: effectiveColor),
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 10.5,
                   color: highlight ? effectiveColor : (accent ?? labelColor),
                   fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
+                  decoration: TextDecoration.none,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -2696,7 +2704,7 @@ class _MoreSheetState extends State<_MoreSheet> {
         while (rowItems.length < 5) rowItems.add(const SizedBox(width: 62));
         rows.add(
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: rowItems,
@@ -2774,11 +2782,10 @@ class _MoreSheetState extends State<_MoreSheet> {
     ]);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+      // Pleine largeur, arrondi uniquement en haut
       decoration: BoxDecoration(
         color: bg,
-        // 4 coins arrondis — style Via browser
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.48 : 0.14),
@@ -2792,54 +2799,53 @@ class _MoreSheetState extends State<_MoreSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // PageView — 3 pages
             SizedBox(
-              height: 168,
+              height: 190,
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
                 child: PageView(
                   controller: _pageCtrl,
                   onPageChanged: (i) => setState(() => _page = i),
                   children: [
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: page1),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: page2),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: page3),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: page1),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: page2),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: page3),
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 4),
-
-            // Dots — cercles uniformes, minimalistes (style Via)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(3, (i) {
-                final active = _page == i;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: active
-                        ? (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.75))
-                        : (isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.18)),
-                  ),
-                );
-              }),
-            ),
-
-            const SizedBox(height: 2),
-
-            // Boutons Power + Collapse — centrés, espacés, style Via
+            // Dots — cercles uniformes, bien centrés
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(3, (i) {
+                  final active = _page == i;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: active ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      color: active
+                          ? (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.72))
+                          : (isDark ? Colors.white.withValues(alpha: 0.22) : Colors.black.withValues(alpha: 0.18)),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+            // Boutons Power + Chevron — alignés à droite
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 20, 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   // Power = fermer le WebView
                   GestureDetector(
@@ -2848,26 +2854,36 @@ class _MoreSheetState extends State<_MoreSheet> {
                       widget.onCloseWebView();
                     },
                     behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Icon(
                         Icons.power_settings_new_rounded,
-                        size: 24,
-                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.5),
+                        size: 22,
+                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.50),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 72),
+                  const SizedBox(width: 10),
                   // Chevron bas = fermer le sheet
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        size: 28,
-                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.5),
+                        size: 26,
+                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.50),
                       ),
                     ),
                   ),
