@@ -1513,13 +1513,18 @@ class _InstalledPluginRow extends ConsumerWidget {
               // Launch button
               GestureDetector(
                 onTap: () async {
-                  // Utilise l'UI Flare du plugin si disponible, sinon fallback générique
-                  final flarePlugin = await FlareLoader.loadSingle(installed.id);
+                  // Charge l’UI Flare. Si absent (install en cours ou echec reseau),
+                  // on tente une installation a la demande avant le fallback generique.
+                  InstalledFlarePlugin? flarePlugin = await FlareLoader.loadSingle(installed.id);
+                  flarePlugin ??= await FlareLoader.installFromNetwork(
+                    pluginId: installed.id,
+                    baseUrl: _kPluginsBaseUrl,
+                  ).catchError((_) => null);
                   if (!context.mounted) return;
                   if (flarePlugin != null) {
                     Navigator.push(context, MaterialPageRoute(
                       fullscreenDialog: true,
-                      builder: (_) => _FlarePluginView(plugin: flarePlugin),
+                      builder: (_) => _FlarePluginView(plugin: flarePlugin!),
                     ));
                   } else {
                     Navigator.push(
