@@ -208,10 +208,10 @@ class _WatchtowerSpeedDialState extends ConsumerState<WatchtowerSpeedDial>
     return SpeedDialChild(
       child: Icon(item.icon, size: 22),
       backgroundColor: isDark
-          ? Colors.white.withValues(alpha: 0.10)
-          : Colors.black.withValues(alpha: 0.08),
-      foregroundColor: isDark ? Colors.white : Colors.black87,
-      shape: const CircleBorder(),
+          ? const Color(0xFF0F0F14)
+          : const Color(0xFFE4E4E8),
+      foregroundColor: isDark ? Colors.white.withValues(alpha: 0.88) : Colors.black87,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       labelWidget: _AnimatedLabel(
         label: item.label,
         isDark: isDark,
@@ -297,16 +297,15 @@ class _AnimatedLabel extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.72)
-                : Colors.white.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
+                ? const Color(0xFF0F0F14)
+                : const Color(0xFFF0F0F4),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.10)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 0.8,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -314,9 +313,10 @@ class _AnimatedLabel extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: isDark ? Colors.white : Colors.black87,
+                  letterSpacing: -0.1,
                 ),
               ),
               const SizedBox(width: 8),

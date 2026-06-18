@@ -44,12 +44,12 @@ const kWtStaticRoutes = ['/browse', '/more', '/schedule', '/updates', '/history'
 
 // ── Visual constants (Seanime-style solid dark boxes) ─────────────────────────
 
-// Dark mode
-const _kDarkIconBg  = Color(0xFF2C2C2E); // solid charcoal — icon box
-const _kDarkLabelBg = Color(0xFF1C1C1E); // slightly darker — label pill
+// Dark mode — Seanime exact values (#0f0f14 = paper, rgba(255,255,255,0.10) = border)
+const _kDarkIconBg  = Color(0xFF0F0F14); // Seanime paper — near-black, purple tint
+const _kDarkLabelBg = Color(0xFF090910); // slightly darker than paper
 // Light mode
-const _kLightIconBg  = Color(0xFFE0E0E3);
-const _kLightLabelBg = Color(0xFFF0F0F2);
+const _kLightIconBg  = Color(0xFFE4E4E8);
+const _kLightLabelBg = Color(0xFFF0F0F4);
 
 // ── Public overlay ─────────────────────────────────────────────────────────────
 
@@ -319,12 +319,12 @@ class _WatchtowerMenuOverlayState
                 child: Container(
                   decoration: BoxDecoration(
                     color: isDark
-                        ? Colors.black.withValues(alpha: 0.72)
-                        : Colors.white.withValues(alpha: 0.90),
+                        ? const Color(0xFF0F0F14).withValues(alpha: 0.96)
+                        : Colors.white.withValues(alpha: 0.92),
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
+                          ? Colors.white.withValues(alpha: 0.10)
                           : Colors.black.withValues(alpha: 0.06),
                       width: 0.8,
                     ),
@@ -492,6 +492,12 @@ class _MenuRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: lblBg,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.06),
+                  width: 0.8,
+                ),
               ),
               child: Text(
                 item.label,
@@ -499,7 +505,7 @@ class _MenuRow extends StatelessWidget {
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: lblColor,
-                  letterSpacing: 0.05,
+                  letterSpacing: -0.1,
                   height: 1.2,
                   decoration: TextDecoration.none,
                   decorationColor: Colors.transparent,
@@ -519,6 +525,14 @@ class _MenuRow extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isActive ? activeIconBg : iconBg,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isActive
+                        ? accent.withValues(alpha: 0.28)
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.10)
+                            : Colors.black.withValues(alpha: 0.08)),
+                    width: 0.8,
+                  ),
                 ),
                 child: Center(
                   child: Icon(item.icon, size: 24, color: isActive ? accent : iconColor),

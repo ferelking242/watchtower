@@ -1836,7 +1836,7 @@ class _DockPill extends StatelessWidget {
           ? (isDark
               ? Colors.white.withValues(alpha: 0.08)
               : Colors.black.withValues(alpha: 0.05))
-          : (isDark ? const Color(0xFF161618) : cs.surfaceContainerHigh),
+          : (isDark ? const Color(0xFF0E0E12) : cs.surfaceContainerHigh),
       borderRadius: BorderRadius.circular(26),
       border: Border.all(
         color: isDark
@@ -2023,8 +2023,8 @@ class _ClassicDock extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = cs.primary;
     final inactiveColor = isDark
-        ? Colors.white.withValues(alpha: 0.62)
-        : Colors.black.withValues(alpha: 0.55);
+        ? Colors.white.withValues(alpha: 0.45)
+        : Colors.black.withValues(alpha: 0.52);
 
     final iconColor = active ? accent : inactiveColor;
     final labelColor = active ? accent : inactiveColor;
