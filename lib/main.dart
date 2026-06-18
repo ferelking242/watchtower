@@ -228,7 +228,6 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   }
   await AppLogger.init();
   if (!kIsWeb) {
-    unawaited(DevSeed.seedGumball().catchError((_) {}));
   }
   if (!kIsWeb) {
     unawaited(MDownloader.initializeIsolatePool(poolSize: 6));
