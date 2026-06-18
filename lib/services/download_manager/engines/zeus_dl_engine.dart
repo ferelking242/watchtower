@@ -129,9 +129,9 @@ class ZeusDlEngine implements DownloadEngine {
       );
       throw DownloadEngineException(
         'ZeusDL binary not available. '
-        'Place a zeusdl binary at '
-        'Android/data/com.Watchtower.app/files/zeusdl '
-        'or reinstall the app to restore the bundled binary.',
+        'Reinstall the app to restore the bundled binary '
+        '(Android: Android/data/com.Watchtower.app/files/zeusdl, '
+        'iOS: applicationSupportDirectory/zeusdl).',
         null,
         false,
       );
@@ -158,7 +158,7 @@ class ZeusDlEngine implements DownloadEngine {
     final Map<String, String> procEnv =
         Map<String, String>.from(Platform.environment);
 
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isIOS) {
       try {
         final supportDir = await getApplicationSupportDirectory();
         final tmpDir = Directory('${supportDir.path}/tmp');
@@ -166,7 +166,7 @@ class ZeusDlEngine implements DownloadEngine {
         procEnv['TMPDIR'] = tmpDir.path;
         procEnv['STATICX_TMPDIR'] = tmpDir.path;
         AppLogger.log(
-          'ZeusDL: TMPDIR/STATICX_TMPDIR set to ${tmpDir.path}',
+          'ZeusDL: TMPDIR set to ${tmpDir.path}',
           logLevel: LogLevel.debug,
           tag: LogTag.zeus,
         );
@@ -297,7 +297,7 @@ class ZeusDlEngine implements DownloadEngine {
       _paused = true;
       AppLogger.log('Paused | chapter=$chapterId', tag: LogTag.zeus);
       // SIGSTOP works on Android (Linux kernel), macOS, and Linux
-      if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS) {
+      if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS || Platform.isIOS) {
         _process!.kill(ProcessSignal.sigstop);
       }
     }
@@ -309,7 +309,7 @@ class ZeusDlEngine implements DownloadEngine {
       _paused = false;
       AppLogger.log('Resumed | chapter=$chapterId', tag: LogTag.zeus);
       // SIGCONT to resume a suspended process
-      if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS) {
+      if (Platform.isAndroid || Platform.isLinux || Platform.isMacOS || Platform.isIOS) {
         _process!.kill(ProcessSignal.sigcont);
       }
     }
@@ -319,7 +319,7 @@ class ZeusDlEngine implements DownloadEngine {
   Future<void> cancel() async {
     _cancelled = true;
     AppLogger.log('Cancel requested | chapter=$chapterId', tag: LogTag.zeus);
-    if (_paused && (Platform.isAndroid || Platform.isLinux || Platform.isMacOS)) {
+    if (_paused && (Platform.isAndroid || Platform.isLinux || Platform.isMacOS || Platform.isIOS)) {
       // Resume first so the process can receive SIGTERM
       _process?.kill(ProcessSignal.sigcont);
     }
