@@ -1618,7 +1618,7 @@ class _FlarePluginViewState extends State<_FlarePluginView> {
     final method = _flare!.manifest.ui.method;
     return switch (method) {
       'eval' => FlareEvalRenderer(plugin: _flare!),
-      'html' => FlareHtmlRenderer(plugin: _flare!),
+      'html' => FlareHtmlRenderer(plugin: _flare!, onAction: (action, values) => debugPrint('[Flare] action=$action values=$values')),
       _      => Scaffold(
           backgroundColor: const Color(0xFF0F0F0F),
           appBar: AppBar(backgroundColor: const Color(0xFF0F0F0F)),
@@ -1633,6 +1633,10 @@ class _FlarePluginViewState extends State<_FlarePluginView> {
     };
   }
 }
+
+
+// Constante partagée par _FlareJsonView et _FlareUnsupportedMethodView
+const _sealBg = Color(0xFF0B0B0B);
 
   // Affichage basique pour la méthode json (lit schema.json depuis le répertoire local)
   class _FlareJsonView extends StatefulWidget {
