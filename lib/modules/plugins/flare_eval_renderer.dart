@@ -70,7 +70,7 @@ abstract class WPlugin {
   // Appeler une action du backend Python (commandScopes)
   static Future<Map<String,dynamic>> invoke(String action, Map<String,dynamic> args) async {
     try {
-      final r = await _pluginCh.invokeMethod('invoke', {'action': action, 'args': args});
+      final r = await _pluginCh.invokeMethod('invoke', {'pluginId': WatchtowerContext.pluginId, 'action': action, 'args': args});
       if (r is Map) return Map<String,dynamic>.from(r);
       return {'status': 'ok', 'data': r};
     } catch (e) { return {'status': 'error', 'error': e.toString()}; }
@@ -121,7 +121,7 @@ class WatchtowerNotif {
 
 class WatchtowerContext {
   static Map<String,dynamic> userConfig = {};
-  static String pluginId = '';
+  static String pluginId = '${widget.plugin.manifest.id}';
 }
 ''';
 

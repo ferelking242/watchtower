@@ -1,13 +1,11 @@
 name: Build All Platforms
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 
 jobs:
   # ────────────────────────────────────────────────────────────

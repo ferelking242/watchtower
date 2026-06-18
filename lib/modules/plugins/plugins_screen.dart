@@ -1573,7 +1573,8 @@ class _InstalledPluginRow extends ConsumerWidget {
             onAction: (action, values) =>
                 debugPrint('[Flare] action=$action values=$values'),
           ),
-        _ => _FlareJsonView(plugin: plugin),
+        'json' => _FlareJsonView(plugin: plugin),
+        final m => _FlareUnsupportedMethodView(method: m),
       };
     }
   }
@@ -1642,7 +1643,7 @@ class _InstalledPluginRow extends ConsumerWidget {
     }
 
     Widget _buildInput(Map<String, dynamic> inp) {
-      final type = inp['type'] as String? ?? '';
+      final type  = inp['type']  as String? ?? '';
       final label = inp['label'] as String? ?? inp['id'] as String? ?? '';
       switch (type) {
         case 'chip_select':
@@ -1695,6 +1696,42 @@ class _InstalledPluginRow extends ConsumerWidget {
             ],
           ));
       }
+    }
+  }
+
+  // Méthode UI inconnue — aucun fallback silencieux, erreur explicite
+  class _FlareUnsupportedMethodView extends StatelessWidget {
+    final String method;
+    const _FlareUnsupportedMethodView({required this.method});
+
+    @override
+    Widget build(BuildContext context) {
+      return Scaffold(
+        backgroundColor: _sealBg,
+        appBar: AppBar(
+          backgroundColor: _sealBg, elevation: 0, scrolledUnderElevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          title: const Text('Plugin non supporté', style: TextStyle(
+            color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+        ),
+        body: Center(child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Méthode UI non supportée : "$method"\n\n'
+              'Ce plugin requiert une version de Watchtower plus récente '
+              'ou son manifest.json est invalide.',
+              style: const TextStyle(color: _grey, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ]),
+        )),
+      );
     }
   }
 
