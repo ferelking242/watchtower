@@ -43,8 +43,14 @@ import 'package:watchtower/core/config/app_config.dart';
   /// Works correctly whether the zip is flat or has a single root folder.
   Future<void> _extractZipBytesToDir(_ExtractBytesArgs args) async {
     final archive = ZipDecoder().decodeBytes(args.bytes);
+
+    // ── Detect common root prefix ────────────────────────────────────────────
+    // Only consider FILE entries when computing the prefix (directory entries
+    // like "zeusdl" have no slash, which used to incorrectly reset the prefix
+    // to null and leave a nested folder after rename).
     String? commonPrefix;
     for (final f in archive.files) {
+      if (!f.isFile) continue; // skip directory entries
       final name = f.name;
       if (name.isEmpty) continue;
       final slash = name.indexOf('/');
@@ -57,6 +63,8 @@ import 'package:watchtower/core/config/app_config.dart';
         break;
       }
     }
+
+    // ── Extract files, stripping the common prefix when present ─────────────
     for (final f in archive.files) {
       if (!f.isFile) continue;
       var name = f.name;

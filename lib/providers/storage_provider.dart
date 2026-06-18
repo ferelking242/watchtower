@@ -418,14 +418,17 @@ class StorageProvider {
     bool _hasRepo(List<Repo>? repos, String urlFragment) =>
         repos?.any((r) => r.jsonUrl?.contains(urlFragment) == true) == true;
 
+    bool _hasRepoUrl(Repo r, String urlFragment) =>
+        r.jsonUrl?.contains(urlFragment) == true;
+
     try {
       final settings = await isar.settings.filter().idEqualTo(227).findFirst();
       if (settings == null) {
         await isar.writeTxn(
           () async => isar.settings.put(
             Settings(
-              mangaExtensionsRepo: [mangaRepo, keiyoushiMangaRepo],
-              animeExtensionsRepo: [watchRepo, aniyomiWatchRepo],
+              mangaExtensionsRepo: [mangaRepo],
+              animeExtensionsRepo: [watchRepo],
               novelExtensionsRepo: [novelRepo],
             ),
           ),
@@ -441,7 +444,8 @@ class StorageProvider {
         settings.animeExtensionsRepo = _cleanRepos(settings.animeExtensionsRepo);
         settings.novelExtensionsRepo = _cleanRepos(settings.novelExtensionsRepo);
 
-        // 2 — Ensure Watchtower base repos are present
+        // 2 — Ensure Watchtower base repos are present (users can add
+        //     third-party repos like Keiyoushi or Aniyomi manually via settings)
         if (!_hasRepo(settings.mangaExtensionsRepo, 'index/manga.json')) {
           settings.mangaExtensionsRepo = [...settings.mangaExtensionsRepo!, mangaRepo];
           needsUpdate = true;
@@ -455,17 +459,18 @@ class StorageProvider {
           needsUpdate = true;
         }
 
-        // 3 — Add Keiyoushi (real Mihon community manga repo)
-        if (!_hasRepo(settings.mangaExtensionsRepo, 'keiyoushi/extensions')) {
-          settings.mangaExtensionsRepo = [...settings.mangaExtensionsRepo!, keiyoushiMangaRepo];
-          needsUpdate = true;
-        }
-
-        // 4 — Add Aniyomi (official anime extensions)
-        if (!_hasRepo(settings.animeExtensionsRepo, 'aniyomiorg/aniyomi-extensions')) {
-          settings.animeExtensionsRepo = [...settings.animeExtensionsRepo!, aniyomiWatchRepo];
-          needsUpdate = true;
-        }
+        // 3 — Remove Keiyoushi/Aniyomi if forcibly added in an older version
+        //     (we no longer push third-party repos onto users without consent)
+        final prevMangaLen = settings.mangaExtensionsRepo?.length ?? 0;
+        final prevAnimeLen = settings.animeExtensionsRepo?.length ?? 0;
+        settings.mangaExtensionsRepo = settings.mangaExtensionsRepo
+            ?.where((r) => !_hasRepoUrl(r, 'keiyoushi/extensions'))
+            .toList();
+        settings.animeExtensionsRepo = settings.animeExtensionsRepo
+            ?.where((r) => !_hasRepoUrl(r, 'aniyomiorg/aniyomi-extensions'))
+            .toList();
+        if ((settings.mangaExtensionsRepo?.length ?? 0) != prevMangaLen) needsUpdate = true;
+        if ((settings.animeExtensionsRepo?.length ?? 0) != prevAnimeLen) needsUpdate = true;
 
         if (needsUpdate) {
           await isar.writeTxn(() async => isar.settings.put(settings));
@@ -487,8 +492,8 @@ class StorageProvider {
           await isar.writeTxn(
             () async => isar.settings.put(
               Settings(
-                mangaExtensionsRepo: [mangaRepo, keiyoushiMangaRepo],
-                animeExtensionsRepo: [watchRepo, aniyomiWatchRepo],
+                mangaExtensionsRepo: [mangaRepo],
+                animeExtensionsRepo: [watchRepo],
                 novelExtensionsRepo: [novelRepo],
               ),
             ),
