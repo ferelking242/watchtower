@@ -408,8 +408,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         ],
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(AppBar().preferredSize.height * 0.8),
-          child: Column(
-            children: [
+          child: ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Column(
+              children: [
               SizedBox(
                 width: context.width(1),
                 height: 45,
@@ -532,7 +534,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 height: 0.3,
                 width: context.width(1),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -704,121 +707,94 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                   ),
                 );
               },
-              error: (error, stackTrace) => Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(15),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Column(
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                if (_selectedIndex == 2 &&
-                                        (_isSearch && _query.isNotEmpty) ||
-                                    _isFiltering) {
-                                  ref.invalidate(
-                                    searchProvider(
-                                      source: source,
-                                      query: _query,
-                                      page: 1,
-                                      filterList: filters,
-                                    ),
-                                  );
-                                } else if (_selectedIndex == 1 &&
-                                    !_isSearch &&
-                                    _query.isEmpty) {
-                                  ref.invalidate(
-                                    getLatestUpdatesProvider(
-                                      source: source,
-                                      page: 1,
-                                    ),
-                                  );
-                                } else if (_selectedIndex == 0 &&
-                                    !_isSearch &&
-                                    _query.isEmpty) {
-                                  ref.invalidate(
-                                    getPopularProvider(source: source, page: 1),
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.refresh),
+              error: (error, stackTrace) {
+                  void _retry() {
+                    if ((_selectedIndex == 2 && (_isSearch && _query.isNotEmpty)) || _isFiltering) {
+                      ref.invalidate(searchProvider(source: source, query: _query, page: 1, filterList: filters));
+                    } else if (_selectedIndex == 1 && !_isSearch && _query.isEmpty) {
+                      ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
+                    } else {
+                      ref.invalidate(getPopularProvider(source: source, page: 1));
+                    }
+                  }
+                  if (isCloudflareError(error.toString())) {
+                    return Column(children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: CloudflareErrorWidget(
+                              errorText: error.toString(),
+                              url: source.baseUrl ?? '',
+                              onRetry: _retry,
                             ),
-                            Text(l10n.refresh),
-                          ],
-                        ),
-                        const SizedBox(width: 20),
-                        Column(
-                          children: [
-                            IconButton(
-                              onPressed: () async {
-                                final baseUrl = ref.watch(
-                                  sourceBaseUrlProvider(source: source),
-                                );
-                                Map<String, dynamic> data = {
-                                  'url': baseUrl,
-                                  'sourceId': source.id.toString(),
-                                  'title': '',
-                                  "hasCloudFlare":
-                                      source.hasCloudflare ?? false,
-                                };
-                                context.push("/mangawebview", extra: data);
-                              },
-                              icon: Icon(
-                                Icons.public,
-                                size: 22,
-                                color: context.secondaryColor,
-                              ),
-                            ),
-                            const Text("Webview"),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isCloudflareError(error.toString()))
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: CloudflareErrorWidget(
-                            errorText: error.toString(),
-                            url: source.baseUrl ?? '',
-                            onRetry: () {
-                              if (_selectedIndex == 2 &&
-                                      (_isSearch && _query.isNotEmpty) ||
-                                  _isFiltering) {
-                                ref.invalidate(searchProvider(
-                                  source: source,
-                                  query: _query,
-                                  page: 1,
-                                  filterList: filters,
-                                ));
-                              } else if (_selectedIndex == 1 &&
-                                  !_isSearch &&
-                                  _query.isEmpty) {
-                                ref.invalidate(getLatestUpdatesProvider(
-                                  source: source,
-                                  page: 1,
-                                ));
-                              } else {
-                                ref.invalidate(
-                                    getPopularProvider(source: source, page: 1));
-                              }
-                            },
                           ),
                         ),
                       ),
-                    )
-                  else
-                    Expanded(child: ErrorText(error)),
-                ],
-              ),
+                    ]);
+                  }
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '(╥_╥)',
+                                  style: TextStyle(
+                                    fontSize: 52,
+                                    color: Theme.of(context).hintColor.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                SelectableText(
+                                  error.toString(),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.4,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontFamilyFallback: const ['monospace'],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: _retry,
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: Text(l10n.refresh),
+                            ),
+                            const SizedBox(width: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                final baseUrl = ref.read(sourceBaseUrlProvider(source: source));
+                                context.push('/mangawebview', extra: {
+                                  'url': baseUrl,
+                                  'sourceId': source.id.toString(),
+                                  'title': '',
+                                  'hasCloudFlare': source.hasCloudflare ?? false,
+                                });
+                              },
+                              icon: Icon(Icons.public_rounded, size: 18, color: context.secondaryColor),
+                              label: const Text('Webview'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               loading: () => const Center(child: CircularProgressIndicator()),
             ),
     );
