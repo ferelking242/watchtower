@@ -15,21 +15,21 @@ class _MenuItem {
 }
 
 const kWtRouteInfo = <String, (String, IconData)>{
-  '/WatchtowerHome':  ('Accueil',   Icons.home_rounded),
-  '/AnimeLibrary':    ('Watch',     Icons.live_tv_rounded),
-  '/MangaLibrary':    ('Manga',     Icons.auto_stories),
-  '/NovelLibrary':    ('Novel',     Icons.local_library),
-  '/MusicLibrary':    ('Music',     Icons.music_note),
-  '/GameLibrary':     ('Games',     Icons.sports_esports),
-  '/Library':         ('Library',   Icons.collections_bookmark),
-  '/browse':          ('Extensions',Icons.explore_rounded),
-  '/history':         ('History',   Icons.history_rounded),
-  '/updates':         ('Updates',   Icons.new_releases_rounded),
-  '/trackerLibrary':  ('Tracking',  Icons.account_tree),
-  '/more':            ('More',      Icons.settings_rounded),
-  '/schedule':        ('Schedule',  Icons.calendar_month_rounded),
-  '/marketplace':     ('Market',    Icons.storefront_rounded),
-  '_enableLibSwitch': ('Hub',       Icons.grid_view_rounded),
+  '/WatchtowerHome':  ('Accueil',    Icons.home_rounded),
+  '/AnimeLibrary':    ('Watch',      Icons.live_tv_rounded),
+  '/MangaLibrary':    ('Manga',      Icons.auto_stories),
+  '/NovelLibrary':    ('Novel',      Icons.local_library),
+  '/MusicLibrary':    ('Music',      Icons.music_note),
+  '/GameLibrary':     ('Games',      Icons.sports_esports),
+  '/Library':         ('Library',    Icons.collections_bookmark),
+  '/browse':          ('Extensions', Icons.explore_rounded),
+  '/history':         ('History',    Icons.history_rounded),
+  '/updates':         ('Updates',    Icons.new_releases_rounded),
+  '/trackerLibrary':  ('Tracking',   Icons.account_tree),
+  '/more':            ('More',       Icons.settings_rounded),
+  '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
+  '/marketplace':     ('Market',     Icons.storefront_rounded),
+  '_enableLibSwitch': ('Hub',        Icons.grid_view_rounded),
 };
 
 const kWtDefaultNavOrder = [
@@ -65,12 +65,18 @@ class _WatchtowerMenuOverlayState
   late final AnimationController _ctrl;
   bool _reorderMode = false;
 
+  // Total duration: 1100 ms
+  // Phase 1: icons appear bottom-to-top, one by one (each 55 ms apart, 200 ms each)
+  // Phase 2: after icons, labels fade in bottom-to-top (40 ms apart, 180 ms each)
+  // Phase 3: wrench + X slide from left (wrench 0..200 ms, X 60..260 ms)
+  static const int _totalMs = 1100;
+
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 760),
+      duration: const Duration(milliseconds: _totalMs),
     );
     _ctrl.forward();
   }
@@ -96,7 +102,6 @@ class _WatchtowerMenuOverlayState
     final overflowSet = widget.overflowRoutes.toSet();
     final seen = <String>{};
     final items = <_MenuItem>[];
-
     for (final r in widget.overflowRoutes) {
       final info = kWtRouteInfo[r];
       if (info == null || !seen.add(r)) continue;
@@ -125,62 +130,80 @@ class _WatchtowerMenuOverlayState
         .set(List<String>.from(kWtDefaultHideItems));
   }
 
-  // ── Helpers to build interval-based animations from the shared controller ──
-
-  Animation<double> _fade(double start, double end) => CurvedAnimation(
+  Animation<double> _intervalFade(int startMs, int endMs) => CurvedAnimation(
         parent: _ctrl,
-        curve: Interval(start.clamp(0, 1), end.clamp(0, 1),
-            curve: Curves.easeOut),
-      );
-
-  Animation<Offset> _slideUp(double start, double end) =>
-      Tween<Offset>(begin: const Offset(0, 0.45), end: Offset.zero).animate(
-        CurvedAnimation(
-          parent: _ctrl,
-          curve: Interval(start.clamp(0, 1), end.clamp(0, 1),
-              curve: Curves.easeOutCubic),
+        curve: Interval(
+          (startMs / _totalMs).clamp(0.0, 1.0),
+          (endMs   / _totalMs).clamp(0.0, 1.0),
+          curve: Curves.easeOut,
         ),
       );
 
-  Animation<Offset> _slideLeft(double start, double end) =>
-      Tween<Offset>(begin: const Offset(-0.9, 0), end: Offset.zero).animate(
+  Animation<Offset> _intervalSlideUp(int startMs, int endMs) =>
+      Tween<Offset>(begin: const Offset(0, 0.55), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _ctrl,
-          curve: Interval(start.clamp(0, 1), end.clamp(0, 1),
-              curve: Curves.easeOutCubic),
+          curve: Interval(
+            (startMs / _totalMs).clamp(0.0, 1.0),
+            (endMs   / _totalMs).clamp(0.0, 1.0),
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+      );
+
+  Animation<Offset> _intervalSlideLeft(int startMs, int endMs) =>
+      Tween<Offset>(begin: const Offset(-1.2, 0), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: _ctrl,
+          curve: Interval(
+            (startMs / _totalMs).clamp(0.0, 1.0),
+            (endMs   / _totalMs).clamp(0.0, 1.0),
+            curve: Curves.easeOutCubic,
+          ),
         ),
       );
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-    final dockBottom = 14.0 + 64.0 + mq.padding.bottom;
+    final mq     = MediaQuery.of(context);
+    final isDark  = Theme.of(context).brightness == Brightness.dark;
+    final cs      = Theme.of(context).colorScheme;
+    final dockBot = 14.0 + 64.0 + mq.padding.bottom;
 
     if (_reorderMode) {
-      return _buildReorderMode(context, mq, isDark, cs, dockBottom);
+      return _buildReorderMode(context, mq, isDark, cs, dockBot);
     }
 
-    final items = _buildItems();
-    final n = items.length;
+    final items    = _buildItems();
+    final n        = items.length;
     final location = GoRouterState.of(context).matchedLocation;
 
-    // Overall overlay fade
-    final overlayFade = _fade(0.0, 0.15);
+    // Overlay appears quickly
+    final overlayFade = _intervalFade(0, 120);
 
-    // Wrench slides in from left first; X follows slightly after
-    final wrenchFade  = _fade(0.00, 0.22);
-    final wrenchSlide = _slideLeft(0.00, 0.22);
-    final xFade       = _fade(0.06, 0.28);
-    final xSlide      = _slideLeft(0.06, 0.28);
+    // ── Phase 1: icons — bottom item first, each 55 ms later ──────────────
+    // icons last 200 ms each; bottom item at 0 ms, top item at (n-1)*55 ms
+    int iconStart(int displayIdx) => (n - 1 - displayIdx) * 55;
+    int iconEnd  (int displayIdx) => iconStart(displayIdx) + 200;
+
+    // ── Phase 2: labels — after all icons finish, then stagger 40 ms each ─
+    // All icons done at (n-1)*55 + 200 ms; labels start 80 ms later
+    final labelPhaseStart = (n - 1) * 55 + 200 + 80;
+    int labelStart(int displayIdx) => labelPhaseStart + (n - 1 - displayIdx) * 40;
+    int labelEnd  (int displayIdx) => labelStart(displayIdx) + 180;
+
+    // ── Wrench slides in from left; X follows 60 ms later ─────────────────
+    final wrenchFade  = _intervalFade(0, 200);
+    final wrenchSlide = _intervalSlideLeft(0, 200);
+    final xFade       = _intervalFade(60, 260);
+    final xSlide      = _intervalSlideLeft(60, 260);
 
     return FadeTransition(
       opacity: overlayFade,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // ── Dismiss area ──────────────────────────────────────────────────
+          // ── Tap-outside to dismiss ────────────────────────────────────────
           Positioned.fill(
             child: GestureDetector(
               onTap: () { HapticFeedback.lightImpact(); _close(); },
@@ -189,36 +212,27 @@ class _WatchtowerMenuOverlayState
             ),
           ),
 
-          // ── Items column — right side, bottom-to-top cascade ──────────────
-          // Bottom item (displayIdx = n-1) → delay 0 → appears first
+          // ── Items column — right side ─────────────────────────────────────
           Positioned(
             right: 16,
-            bottom: dockBottom + 16,
+            bottom: dockBot + 18,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: List.generate(n, (displayIdx) {
-                final item = items[displayIdx];
-                // Stagger: each step = 52ms / 760ms ≈ 0.068
-                final step = 52.0 / 760.0;
-                // Bottom item (displayIdx = n-1) → delay = 0
-                // Top item (displayIdx = 0) → delay = (n-1) * step
-                final d = (n - 1 - displayIdx) * step;
-
-                final iconFade  = _fade(d, d + 0.26);
-                final iconSlide = _slideUp(d, d + 0.26);
-                final lblFade   = _fade(d + 0.09, d + 0.34);
+                final item     = items[displayIdx];
+                final isActive = location == item.route;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: _MenuRow(
-                    item: item,
-                    isActive: location == item.route,
-                    isDark: isDark,
-                    cs: cs,
-                    iconFade:  iconFade,
-                    iconSlide: iconSlide,
-                    lblFade:   lblFade,
+                    item:       item,
+                    isActive:   isActive,
+                    isDark:     isDark,
+                    cs:         cs,
+                    iconFade:   _intervalFade(iconStart(displayIdx), iconEnd(displayIdx)),
+                    iconSlide:  _intervalSlideUp(iconStart(displayIdx), iconEnd(displayIdx)),
+                    labelFade:  _intervalFade(labelStart(displayIdx), labelEnd(displayIdx)),
                     onTap: () { HapticFeedback.lightImpact(); _navigate(item.route); },
                   ),
                 );
@@ -226,72 +240,36 @@ class _WatchtowerMenuOverlayState
             ),
           ),
 
-          // ── Wrench button — bottom-left, slide in from left ───────────────
+          // ── Wrench — bottom-left ──────────────────────────────────────────
           Positioned(
-            bottom: dockBottom + 4,
+            bottom: dockBot + 4,
             left: 16,
-            child: ClipRect(
-              child: SlideTransition(
-                position: wrenchSlide,
-                child: FadeTransition(
-                  opacity: wrenchFade,
-                  child: GestureDetector(
-                    onTap: () { HapticFeedback.mediumImpact(); setState(() => _reorderMode = true); },
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.black.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(13),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.12)
-                              : Colors.black.withValues(alpha: 0.08),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(Icons.build_rounded, size: 19,
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.70)
-                            : Colors.black.withValues(alpha: 0.58)),
-                    ),
-                  ),
-                ),
-              ),
+            child: _SlideButton(
+              fade:  wrenchFade,
+              slide: wrenchSlide,
+              onTap: () { HapticFeedback.mediumImpact(); setState(() => _reorderMode = true); },
+              isDark: isDark,
+              cs:    cs,
+              child: Icon(Icons.build_rounded, size: 20,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.82)
+                    : Colors.black.withValues(alpha: 0.68)),
             ),
           ),
 
-          // ── X reset button — above wrench, same column, slide in from left ─
+          // ── X reset — same column, above wrench, offset right (diagonal) ──
           Positioned(
-            bottom: dockBottom + 56,
-            left: 16,
-            child: ClipRect(
-              child: SlideTransition(
-                position: xSlide,
-                child: FadeTransition(
-                  opacity: xFade,
-                  child: GestureDetector(
-                    onTap: () { HapticFeedback.mediumImpact(); _resetProviders(); },
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: cs.error.withValues(alpha: isDark ? 0.15 : 0.09),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: cs.error.withValues(alpha: 0.28),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(Icons.close_rounded, size: 16, color: cs.error),
-                    ),
-                  ),
-                ),
-              ),
+            bottom: dockBot + 56,
+            left:   42,             // offset right → wrench+X form a diagonal
+            child: _SlideButton(
+              fade:  xFade,
+              slide: xSlide,
+              onTap: () { HapticFeedback.mediumImpact(); _resetProviders(); },
+              isDark: isDark,
+              cs:    cs,
+              isError: true,
+              child: Icon(Icons.close_rounded, size: 20,
+                color: cs.error),
             ),
           ),
         ],
@@ -299,19 +277,18 @@ class _WatchtowerMenuOverlayState
     );
   }
 
-  // ── Reorder mode ──────────────────────────────────────────────────────────────
+  // ── Reorder mode ─────────────────────────────────────────────────────────────
 
   Widget _buildReorderMode(
     BuildContext context,
     MediaQueryData mq,
     bool isDark,
     ColorScheme cs,
-    double dockBottom,
+    double dockBot,
   ) {
     final navOrder  = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
-
-    final panelFade = _fade(0.0, 0.20);
+    final panelFade = _intervalFade(0, 140);
 
     return FadeTransition(
       opacity: panelFade,
@@ -326,7 +303,7 @@ class _WatchtowerMenuOverlayState
           ),
           Positioned(
             left: 16, right: 16,
-            bottom: dockBottom + 10,
+            bottom: dockBot + 10,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxHeight: mq.size.height * 0.55),
               child: ClipRRect(
@@ -336,14 +313,14 @@ class _WatchtowerMenuOverlayState
                   child: Container(
                     decoration: BoxDecoration(
                       color: isDark
-                          ? Colors.black.withValues(alpha: 0.62)
-                          : Colors.white.withValues(alpha: 0.84),
+                          ? Colors.black.withValues(alpha: 0.70)
+                          : Colors.white.withValues(alpha: 0.88),
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.09)
                             : Colors.black.withValues(alpha: 0.07),
-                        width: 1,
+                        width: 0.8,
                       ),
                     ),
                     child: Column(
@@ -361,6 +338,7 @@ class _WatchtowerMenuOverlayState
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       color: cs.onSurface,
+                                      decoration: TextDecoration.none,
                                     )),
                               ),
                               IconButton(
@@ -385,6 +363,7 @@ class _WatchtowerMenuOverlayState
                             style: TextStyle(
                               fontSize: 10,
                               color: cs.onSurface.withValues(alpha: 0.42),
+                              decoration: TextDecoration.none,
                             ),
                           ),
                         ),
@@ -420,6 +399,7 @@ class _WatchtowerMenuOverlayState
                                       fontSize: 13,
                                       fontWeight: inDock ? FontWeight.w500 : FontWeight.w400,
                                       color: cs.onSurface.withValues(alpha: isHidden ? 0.35 : 1.0),
+                                      decoration: TextDecoration.none,
                                     )),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -456,9 +436,11 @@ class _WatchtowerMenuOverlayState
   }
 }
 
-// ── Menu row: label (left) + icon box (right) ──────────────────────────────────
-// Icon box: small (40×40), rounded corners, transparent.
-// Icons animate in first (slide up + fade), labels follow right after (fade only).
+// ── Menu row widget ────────────────────────────────────────────────────────────
+// Layout: [label pill] · [icon box]
+// Icon box: solid dark/opaque rounded rectangle (not transparent).
+// Icon phase 1: slides up + fades in.
+// Label phase 2: fades in only, after ALL icons are done.
 
 class _MenuRow extends StatelessWidget {
   final _MenuItem item;
@@ -467,7 +449,7 @@ class _MenuRow extends StatelessWidget {
   final ColorScheme cs;
   final Animation<double> iconFade;
   final Animation<Offset> iconSlide;
-  final Animation<double> lblFade;
+  final Animation<double> labelFade;
   final VoidCallback onTap;
 
   const _MenuRow({
@@ -477,18 +459,31 @@ class _MenuRow extends StatelessWidget {
     required this.cs,
     required this.iconFade,
     required this.iconSlide,
-    required this.lblFade,
+    required this.labelFade,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final accent    = cs.primary;
     final iconColor = isActive
-        ? cs.primary
+        ? accent
+        : (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.72));
+    final lblColor  = isActive
+        ? accent
         : (isDark ? Colors.white.withValues(alpha: 0.82) : Colors.black.withValues(alpha: 0.70));
-    final lblColor = isActive
-        ? cs.primary
-        : (isDark ? Colors.white.withValues(alpha: 0.80) : Colors.black.withValues(alpha: 0.68));
+
+    // Icon box background — solid dark pill, NOT transparent
+    final iconBg = isActive
+        ? accent.withValues(alpha: 0.18)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.13)
+            : Colors.black.withValues(alpha: 0.11));
+
+    // Label pill background
+    final lblBg = isDark
+        ? Colors.black.withValues(alpha: 0.55)
+        : Colors.white.withValues(alpha: 0.80);
 
     return GestureDetector(
       onTap: onTap,
@@ -497,41 +492,42 @@ class _MenuRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Label — fades in after icon
+          // Label pill — phase 2: fades in after icons
           FadeTransition(
-            opacity: lblFade,
+            opacity: labelFade,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.42)
-                    : Colors.white.withValues(alpha: 0.72),
+                color: lblBg,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 item.label,
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
                   color: lblColor,
-                  letterSpacing: 0.1,
+                  letterSpacing: 0.08,
                   height: 1.2,
+                  // Explicitly disable any inherited text decoration (underline, etc.)
+                  decoration: TextDecoration.none,
+                  decorationColor: Colors.transparent,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          // Icon box — appears first, slides up
+          // Icon box — phase 1: slides up from bottom + fades in
           SlideTransition(
             position: iconSlide,
             child: FadeTransition(
               opacity: iconFade,
               child: Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: Center(
                   child: Icon(item.icon, size: 22, color: iconColor),
@@ -545,25 +541,85 @@ class _MenuRow extends StatelessWidget {
   }
 }
 
+// ── Wrench / X button — shared style, same size, slide from left ───────────────
+
+class _SlideButton extends StatelessWidget {
+  final Animation<double> fade;
+  final Animation<Offset> slide;
+  final VoidCallback onTap;
+  final bool isDark;
+  final ColorScheme cs;
+  final Widget child;
+  final bool isError;
+
+  const _SlideButton({
+    required this.fade,
+    required this.slide,
+    required this.onTap,
+    required this.isDark,
+    required this.cs,
+    required this.child,
+    this.isError = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isError
+        ? cs.error.withValues(alpha: isDark ? 0.16 : 0.11)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.10)
+            : Colors.black.withValues(alpha: 0.07));
+    final borderColor = isError
+        ? cs.error.withValues(alpha: 0.30)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.14)
+            : Colors.black.withValues(alpha: 0.10));
+
+    return ClipRect(
+      child: SlideTransition(
+        position: slide,
+        child: FadeTransition(
+          opacity: fade,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: borderColor, width: 1),
+              ),
+              child: Center(child: child),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Badge chip ─────────────────────────────────────────────────────────────────
 
 class _Badge extends StatelessWidget {
   final String label;
   final Color color;
   final Color bg;
-
   const _Badge({required this.label, required this.color, required this.bg});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
       child: Text(label,
-          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: color)),
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+            color: color,
+            decoration: TextDecoration.none,
+          )),
     );
   }
 }
@@ -622,7 +678,12 @@ class _ReorderSheet extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text('Réorganiser la navigation',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                          decoration: TextDecoration.none,
+                        )),
                   ),
                   IconButton(
                     icon: Icon(Icons.refresh_rounded, size: 18, color: cs.error),
@@ -645,7 +706,11 @@ class _ReorderSheet extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
                 '4 premiers = dock  ·  glisser pour réordonner  ·  reste = menu',
-                style: TextStyle(fontSize: 10.5, color: cs.onSurface.withValues(alpha: 0.45)),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: cs.onSurface.withValues(alpha: 0.45),
+                  decoration: TextDecoration.none,
+                ),
               ),
             ),
             Divider(height: 1, thickness: 0.5, color: cs.onSurface.withValues(alpha: 0.12)),
@@ -682,6 +747,7 @@ class _ReorderSheet extends ConsumerWidget {
                           fontSize: 13,
                           fontWeight: inDock ? FontWeight.w500 : FontWeight.w400,
                           color: cs.onSurface.withValues(alpha: isHidden ? 0.35 : 1.0),
+                          decoration: TextDecoration.none,
                         )),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
