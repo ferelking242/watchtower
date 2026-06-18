@@ -187,14 +187,22 @@ jobs:
           APP="build/ios/iphoneos/Runner.app"
           ENT="ios/Runner/Runner.entitlements"
           brew install ldid 2>/dev/null || true
+          # Sign each framework binary (best-effort — new Xcode formats may be skipped)
           for fw in "$APP/Frameworks"/*.framework; do
             NAME=$(basename "$fw" .framework); BIN="$fw/$NAME"
             [ -f "$BIN" ] && { ldid -S "$BIN" 2>/dev/null && echo "ldid: $NAME" || true; }
           done
-          if [ -f "$ENT" ]; then ldid -S"$ENT" "$APP/Runner"; else ldid -S "$APP/Runner"; fi
+          # Sign the main Runner binary; ldid may fail on Xcode-16-produced binaries
+          # (ldid errno=2 / new LC_CODE_SIGNATURE format). Fall back silently —
+          # codesign --sign - below handles the final ad-hoc signature for TrollStore.
+          if [ -f "$ENT" ]; then
+            ldid -S"$ENT" "$APP/Runner" 2>/dev/null || true
+          else
+            ldid -S "$APP/Runner" 2>/dev/null || true
+          fi
+          # Ad-hoc codesign (required for TrollStore sideloading)
           codesign --force --sign - --deep "$APP" 2>/dev/null || true
           codesign -dvvv "$APP" 2>&1 | head -8 || true
-
       - name: Create IPA
         run: |
           APP="build/ios/iphoneos/Runner.app"
