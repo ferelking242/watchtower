@@ -22,7 +22,7 @@ import 'package:watchtower/eval/interface.dart';
     static final _cache = <String, ExtensionService>{};
 
     static String _key(Source source) =>
-        source.id ?? source.name ?? source.hashCode.toString();
+        (source.id ?? source.name ?? source.hashCode.toString()).toString();
 
     /// Returns the cached service for [source], creating one if needed.
     static ExtensionService get(Source source, String proxyServer) {
