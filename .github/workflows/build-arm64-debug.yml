@@ -42,6 +42,16 @@ jobs:
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-pub-
 
+      # Cache Gradle — evite de re-telecharger ~400 MB de deps a chaque build
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Compute and bump version
         id: ver
         run: |
@@ -233,7 +243,7 @@ jobs:
           # FIX: extract it renamed as libpython3.11.so + patchelf replace-needed.
           # Chain: libpython.so -> libpython3.11.so -> libandroid-support.so -> libc.so
           set -euo pipefail
-          sudo apt-get install -y patchelf --quiet 2>/dev/null
+          sudo apt-get install -y patchelf p7zip-full --quiet 2>/dev/null
 
           # Write node extraction script (all lines indented = uniform YAML stripping)
           node - << 'NODEEOF'
@@ -321,7 +331,7 @@ jobs:
 
       - name: Build APK (ARMv8 profile)
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
         run: |
           for attempt in 1 2 3; do
             echo "--- Build attempt $attempt/3 ---"
@@ -329,6 +339,7 @@ jobs:
               --profile \
               --target-platform android-arm64 \
               --split-per-abi \
+              --no-tree-shake-icons \
               --build-name=${{ steps.ver.outputs.name }} \
               --build-number=${{ steps.ver.outputs.code }}; then
               echo "Build succeeded on attempt $attempt"
@@ -352,7 +363,6 @@ jobs:
 
       - name: FitGirl-style artifact — LZMA2 ultra compressed APK
         run: |
-          sudo apt-get install -y p7zip-full --quiet
           APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
           echo "APK size: $(du -sh $APK)"
           # Compress the APK file directly (not the extracted contents).
