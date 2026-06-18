@@ -234,7 +234,7 @@ jobs:
           # Signer zeusdl si présent
           ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
           if [ -f "$ZEUSDL" ]; then
-            ldid -S "$ZEUSDL" 2>/dev/null && echo "ldid zeusdl OK" || rm -f "$ZEUSDL" && echo "zeusdl removed (ldid failed)"
+            ldid -S "$ZEUSDL" 2>/dev/null && echo "ldid zeusdl OK" || echo "WARN: ldid zeusdl skipped (déjà signé ou format PyInstaller) — binaire conservé"
           fi
 
           echo "=== ldid Runner avec entitlements ==="
@@ -276,7 +276,7 @@ jobs:
           echo "=== Vérif wakelock_plus ==="
           unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent des Frameworks binaries) ✓"
           echo "=== Vérif zeusdl ==="
-          unzip -l Watchtower-iOS.ipa | grep zeusdl || echo "zeusdl: absent ✓"
+          unzip -l Watchtower-iOS.ipa | grep zeusdl && echo "zeusdl: présent ✓" || echo "WARN: zeusdl absent de l'IPA"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
