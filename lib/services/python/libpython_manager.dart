@@ -480,6 +480,21 @@ class LibPythonManager {
         logLevel: LogLevel.info);
     onProgress?.call('Installation: ${missing.join(", ")}...');
 
+    // Ensure pip is available before attempting any install.
+    if (!await isPipAvailable()) {
+      onProgress?.call('Bootstrap pip...');
+      AppLogger.log('LibPython: pip absent — bootstrap en cours...',
+          tag: LogTag.zeus, logLevel: LogLevel.warning);
+      final br = await bootstrapPip();
+      AppLogger.log('LibPython: bootstrap résultat: $br',
+          tag: LogTag.zeus, logLevel: LogLevel.info);
+      // Reset cached flag so next isPipAvailable() re-checks.
+      _pipAvailable = null;
+      if (!await isPipAvailable()) {
+        return 'ERREUR: pip non disponible après bootstrap.\n$br';
+      }
+    }
+
     final sp = await sitePackagesDir;
     final env = await _env;
     final results = <String>[];
@@ -494,19 +509,23 @@ class LibPythonManager {
             '--target', sp,
             '--no-warn-script-location',
             '--prefer-binary',
-            '-q',
+            '--no-cache-dir',
+            '--index-url', 'https://pypi.org/simple/',
+            '--trusted-host', 'pypi.org',
+            '--trusted-host', 'files.pythonhosted.org',
           ],
           environment: env,
         ).timeout(const Duration(minutes: 3));
 
+        final out = '${res.stdout}\n${res.stderr}'.trim();
         if (res.exitCode == 0) {
           results.add('✓ $pkg');
           AppLogger.log('LibPython: $pkg installé ✓',
               tag: LogTag.zeus, logLevel: LogLevel.info);
         } else {
-          results.add('✗ $pkg');
+          results.add('✗ $pkg (code ${res.exitCode})');
           AppLogger.log(
-              'LibPython: $pkg ERREUR: ${(res.stderr as String).split('\n').last}',
+              'LibPython: $pkg ERREUR (${res.exitCode}): $out',
               tag: LogTag.zeus,
               logLevel: LogLevel.warning);
         }

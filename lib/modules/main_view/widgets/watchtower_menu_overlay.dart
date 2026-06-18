@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
+    show pendingUpdateBanner, pendingUpdateData;
+import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 
 // ── Route metadata ─────────────────────────────────────────────────────────────
@@ -22,7 +25,8 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/MusicLibrary':    ('Music',      Icons.music_note),
   '/GameLibrary':     ('Games',      Icons.sports_esports),
   '/Library':         ('Library',    Icons.collections_bookmark),
-  '/browse':          ('Search',     Icons.search_rounded),
+  '/discover':        ('Search',     Icons.travel_explore_rounded),
+  '/browse':          ('Browser',    Icons.explore_rounded),
   '/history':         ('History',    Icons.history_rounded),
   '/updates':         ('Updates',    Icons.new_releases_rounded),
   '/trackerLibrary':  ('Tracking',   Icons.account_tree),
@@ -34,19 +38,33 @@ const kWtRouteInfo = <String, (String, IconData)>{
 
 const kWtDefaultNavOrder = [
   '/WatchtowerHome', '/AnimeLibrary', '/MangaLibrary', '/NovelLibrary',
-  '/MusicLibrary',   '/GameLibrary',  '/Library',      '/browse',
-  '/marketplace',    '/history',      '/updates',      '/trackerLibrary', '/more',
+  '/MusicLibrary',   '/GameLibrary',  '/Library',      '/discover',
+  '/browse',         '/marketplace',  '/history',      '/updates',
+  '/trackerLibrary', '/more',
 ];
 
 const kWtDefaultHideItems = ['/trackerLibrary', '/updates', '/history'];
 
-const kWtStaticRoutes = ['/browse', '/more', '/schedule', '/updates', '/history'];
+const kWtStaticRoutes = [
+  '/discover', '/browse', '/marketplace', '/schedule', '/updates', '/history', '/more',
+];
+
+// French label overrides — used when device/app locale is 'fr'.
+const _kFrLabels = <String, String>{
+  '/discover':    'Recherche',
+  '/browse':      'Explorer',
+  '/more':        'Plus',
+  '/schedule':    'Planning',
+  '/updates':     'Nouveautés',
+  '/history':     'Historique',
+  '/marketplace': 'Marché',
+};
 
 // ── Visual constants (Seanime-style solid dark boxes) ─────────────────────────
 
-// Dark mode — Seanime exact values (#0f0f14 = paper, rgba(255,255,255,0.10) = border)
-const _kDarkIconBg  = Color(0xFF0F0F14); // Seanime paper — near-black, purple tint
-const _kDarkLabelBg = Color(0xFF090910); // slightly darker than paper
+// Dark mode — slightly transparent boxes so background bleeds through a little.
+const _kDarkIconBg  = Color(0xCC0F0F14); // ~80% opacity, near-black purple tint
+const _kDarkLabelBg = Color(0xCC090910); // ~80% opacity, slightly darker
 // Light mode
 const _kLightIconBg  = Color(0xFFE4E4E8);
 const _kLightLabelBg = Color(0xFFF0F0F4);
@@ -111,20 +129,27 @@ class _WatchtowerMenuOverlayState
     if (mounted) context.go(route);
   }
 
-  List<_MenuItem> _buildItems() {
+  List<_MenuItem> _buildItems(BuildContext context) {
+    final isFr = Localizations.localeOf(context).languageCode == 'fr';
     final overflowSet = widget.overflowRoutes.toSet();
     final seen = <String>{};
     final items = <_MenuItem>[];
+
+    String label(String route) {
+      final base = kWtRouteInfo[route]?.$1 ?? route.replaceAll('/', '');
+      return isFr ? (_kFrLabels[route] ?? base) : base;
+    }
+
     for (final r in widget.overflowRoutes) {
       final info = kWtRouteInfo[r];
       if (info == null || !seen.add(r)) continue;
-      items.add(_MenuItem(route: r, label: info.$1, icon: info.$2));
+      items.add(_MenuItem(route: r, label: label(r), icon: info.$2));
     }
     for (final r in kWtStaticRoutes) {
       if (overflowSet.contains(r)) continue;
       final info = kWtRouteInfo[r];
       if (info == null || !seen.add(r)) continue;
-      items.add(_MenuItem(route: r, label: info.$1, icon: info.$2));
+      items.add(_MenuItem(route: r, label: label(r), icon: info.$2));
     }
     return items;
   }
@@ -180,7 +205,7 @@ class _WatchtowerMenuOverlayState
       return _buildReorderMode(context, mq, isDark, cs, dockBot);
     }
 
-    final items    = _buildItems();
+    final items    = _buildItems(context);
     final n        = items.length;
     final location = GoRouterState.of(context).matchedLocation;
 
@@ -192,6 +217,9 @@ class _WatchtowerMenuOverlayState
     final wrenchSlide = _slideLeft(0, 180);
     final xFade       = _fade(45, 225);
     final xSlide      = _slideLeft(45, 225);
+
+    final updateVersion = pendingUpdateBanner;
+    final updateData    = pendingUpdateData;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -214,28 +242,51 @@ class _WatchtowerMenuOverlayState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: List.generate(n, (displayIdx) {
-              final item     = items[displayIdx];
-              final isActive = location == item.route;
-
-              // Bottom item (n-1) → delay 0; top item (0) → delay (n-1)*step
-              final iconDelayMs  = (n - 1 - displayIdx) * _iconStep;
-              final labelDelayMs = labelPhaseMs + (n - 1 - displayIdx) * _labelStep;
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _MenuRow(
-                  item:      item,
-                  isActive:  isActive,
-                  isDark:    isDark,
-                  cs:        cs,
-                  iconFade:  _fade(iconDelayMs, iconDelayMs + _iconDur),
-                  iconSlide: _slideUp(iconDelayMs, iconDelayMs + _iconDur),
-                  lblFade:   _fade(labelDelayMs, labelDelayMs + _labelDur),
-                  onTap: () { HapticFeedback.lightImpact(); _navigate(item.route); },
+            children: [
+              // ── Animated update-available banner (top of menu) ──────────
+              if (updateVersion != null && updateData != null) ...[
+                _UpdateBanner(
+                  version: updateVersion,
+                  cs: cs,
+                  onTap: () async {
+                    await _close();
+                    if (mounted) {
+                      Navigator.of(context, rootNavigator: true).push(
+                        MaterialPageRoute(
+                          fullscreenDialog: true,
+                          builder: (_) =>
+                              DownloadFileScreen(updateAvailable: updateData),
+                        ),
+                      );
+                    }
+                  },
                 ),
-              );
-            }),
+                const SizedBox(height: 10),
+              ],
+              // ── Regular menu items ──────────────────────────────────────
+              ...List.generate(n, (displayIdx) {
+                final item     = items[displayIdx];
+                final isActive = location == item.route;
+
+                // Bottom item (n-1) → delay 0; top item (0) → delay (n-1)*step
+                final iconDelayMs  = (n - 1 - displayIdx) * _iconStep;
+                final labelDelayMs = labelPhaseMs + (n - 1 - displayIdx) * _labelStep;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _MenuRow(
+                    item:      item,
+                    isActive:  isActive,
+                    isDark:    isDark,
+                    cs:        cs,
+                    iconFade:  _fade(iconDelayMs, iconDelayMs + _iconDur),
+                    iconSlide: _slideUp(iconDelayMs, iconDelayMs + _iconDur),
+                    lblFade:   _fade(labelDelayMs, labelDelayMs + _labelDur),
+                    onTap: () { HapticFeedback.lightImpact(); _navigate(item.route); },
+                  ),
+                );
+              }),
+            ],
           ),
         ),
 
@@ -757,6 +808,96 @@ class _ReorderSheet extends ConsumerWidget {
             ),
             SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Animated update-available banner ─────────────────────────────────────────
+
+class _UpdateBanner extends StatefulWidget {
+  final String version;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  const _UpdateBanner({
+    required this.version,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  State<_UpdateBanner> createState() => _UpdateBannerState();
+}
+
+class _UpdateBannerState extends State<_UpdateBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _glow = CurvedAnimation(parent: _pulse, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _glow,
+      builder: (context, _) => GestureDetector(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          widget.onTap();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [widget.cs.primary, widget.cs.tertiary],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: widget.cs.primary.withValues(
+                    alpha: 0.30 + _glow.value * 0.42),
+                blurRadius: 14 + _glow.value * 10,
+                spreadRadius: _glow.value * 3,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.system_update_alt_rounded,
+                  size: 15, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'v${widget.version} disponible',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 15, color: Colors.white70),
+            ],
+          ),
         ),
       ),
     );

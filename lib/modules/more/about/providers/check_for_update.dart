@@ -52,19 +52,22 @@ Future<void> checkForUpdate(
     if (!manualUpdate && _skippedVersion != null && _skippedVersion == updateAvailable.$1) {
       return;
     }
+    pendingUpdateBanner = updateAvailable.$1;
+    pendingUpdateData = updateAvailable;
     if (manualUpdate) {
       botToast(l10n.new_update_available);
       await Future.delayed(const Duration(seconds: 1));
     }
     if (context.mounted) {
-      showDialog(
-        context: context,
-        builder: (context) {
-          return DownloadFileScreen(updateAvailable: updateAvailable);
-        },
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => DownloadFileScreen(updateAvailable: updateAvailable),
+        ),
       );
     }
   } else {
+    pendingUpdateBanner = null;
     if (manualUpdate) {
       botToast(l10n.no_new_updates_available);
     }
@@ -77,15 +80,22 @@ bool checkForAppUpdates(Ref ref) {
 }
 
 // ── Skipped version ──────────────────────────────────────────────────────────
-//
-// When the user taps "Ignorer cette version" in the update dialog the version
-// string is stored here. Automatic background checks will skip that version.
-// Manual checks (from About page) always show the dialog regardless.
 String? _skippedVersion;
+
+// ── Pending update banner (read by menu overlay) ─────────────────────────────
+/// The latest known update version string, or null if the app is up to date.
+/// Set whenever an update is found; cleared when the version is skipped.
+String? pendingUpdateBanner;
+
+/// Full update payload for the pending update (so the menu overlay can open
+/// the download screen directly without an extra network call).
+(String, String, String, List<dynamic>)? pendingUpdateData;
 
 /// Called by the update dialog when the user taps "Ignorer cette version".
 void skipAppUpdate(String version) {
   _skippedVersion = version;
+  pendingUpdateBanner = null;
+  pendingUpdateData = null;
 }
 
 // ── Caching ──────────────────────────────────────────────────────────────────
@@ -134,7 +144,7 @@ Future<(String, String, String, List<dynamic>)> _fetchAppUpdate() async {
         if (AppConfig.githubToken.isNotEmpty)
           'Authorization': 'token ${AppConfig.githubToken}',
       },
-    );
+    ).timeout(const Duration(seconds: 12));
     final json = jsonDecode(res.body);
     if (json is! List) throw Exception('GitHub API: unexpected response ${res.statusCode}');
     List resListJson = json;

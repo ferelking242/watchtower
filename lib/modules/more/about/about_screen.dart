@@ -251,9 +251,11 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                             if (mounted) botToast(l10n.new_update_available);
                                             await Future.delayed(const Duration(seconds: 1));
                                             if (mounted) {
-                                              showDialog(
-                                                context: context,
-                                                builder: (_) => DownloadFileScreen(updateAvailable: result),
+                                              Navigator.of(context, rootNavigator: true).push(
+                                                MaterialPageRoute(
+                                                  fullscreenDialog: true,
+                                                  builder: (_) => DownloadFileScreen(updateAvailable: result),
+                                                ),
                                               );
                                             }
                                           } else {

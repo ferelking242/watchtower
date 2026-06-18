@@ -6,15 +6,191 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
     show skipAppUpdate;
+
+// ── Static background download task ──────────────────────────────────────────
+// Survives widget disposal so download continues in the background.
+
+class _AppDownloadTask {
+  static _AppDownloadTask? _current;
+  static _AppDownloadTask? get current => _current;
+  static const int _notifId = 8001;
+  static bool _channelCreated = false;
+
+  final String version;
+  int received = 0;
+  int total = 0;
+  bool _done = false;
+  bool get isDone => _done;
+  File? completedFile;
+  String? errorMsg;
+
+  void Function(int r, int t)? onProgress;
+  void Function(File f)? onDone;
+  void Function(String e)? onError;
+
+  StreamSubscription<List<int>>? _sub;
+
+  _AppDownloadTask._({required this.version});
+
+  static _AppDownloadTask start({required String version}) {
+    _current?._sub?.cancel();
+    final task = _AppDownloadTask._(version: version);
+    _current = task;
+    return task;
+  }
+
+  static void clear() => _current = null;
+
+  // Ensure the Android notification channel exists (idempotent).
+  static Future<void> _ensureChannel(FlutterLocalNotificationsPlugin p) async {
+    if (_channelCreated || kIsWeb) return;
+    if (!Platform.isAndroid) { _channelCreated = true; return; }
+    _channelCreated = true;
+    final android = p.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      'wt_app_update',
+      'Mise à jour de l\'application',
+      description: 'Téléchargement de mises à jour de Watchtower',
+      importance: Importance.low,
+    ));
+  }
+
+  Future<void> run(String url, File destFile) async {
+    final notifs = FlutterLocalNotificationsPlugin();
+    await _ensureChannel(notifs);
+
+    try {
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse(url));
+      // Disable compression so Content-Length is accurate for progress.
+      request.headers['Accept-Encoding'] = 'identity';
+      final response = await client.send(request);
+      total = response.contentLength ?? 0;
+
+      _showProgressNotif(notifs, 0, total, version);
+
+      final sink = destFile.openWrite();
+      int lastNotifAt = 0;
+
+      _sub = response.stream.listen(
+        (chunk) {
+          sink.add(chunk);
+          received += chunk.length;
+          onProgress?.call(received, total);
+          // Throttle notifications: update every ~5% or min 2 MB.
+          final threshold = total > 0
+              ? (total * 0.05).clamp(2097152, 10485760).toInt()
+              : 4194304;
+          if (received - lastNotifAt >= threshold) {
+            lastNotifAt = received;
+            _showProgressNotif(notifs, received, total, version);
+          }
+        },
+        onDone: () async {
+          await sink.close();
+          completedFile = destFile;
+          _done = true;
+          onDone?.call(destFile);
+          _showDoneNotif(notifs, version);
+        },
+        onError: (Object e) async {
+          await sink.close();
+          errorMsg = e.toString();
+          onError?.call(errorMsg!);
+          _cancelNotif(notifs);
+        },
+        cancelOnError: true,
+      );
+    } catch (e) {
+      errorMsg = e.toString();
+      onError?.call(errorMsg!);
+      _cancelNotif(notifs);
+    }
+  }
+
+  void cancel() {
+    _sub?.cancel();
+    _sub = null;
+  }
+
+  static void _showProgressNotif(
+      FlutterLocalNotificationsPlugin p, int recv, int tot, String version) {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final pct = tot > 0 ? ((recv / tot) * 100).round() : 0;
+    final body = tot > 0
+        ? '${(recv / 1048576).toStringAsFixed(1)} / ${(tot / 1048576).toStringAsFixed(1)} MB'
+        : 'Téléchargement en cours…';
+    p.show(
+      _notifId,
+      'Watchtower v$version — Mise à jour',
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'wt_app_update',
+          'Mise à jour de l\'application',
+          channelDescription: 'Téléchargement de mises à jour de Watchtower',
+          importance: Importance.low,
+          priority: Priority.low,
+          showProgress: true,
+          maxProgress: 100,
+          progress: pct,
+          indeterminate: tot == 0,
+          ongoing: true,
+          autoCancel: false,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+    );
+  }
+
+  static void _showDoneNotif(FlutterLocalNotificationsPlugin p, String version) {
+    if (kIsWeb || !Platform.isAndroid) return;
+    p.show(
+      _notifId,
+      'Watchtower v$version prêt à installer',
+      'Appuyez pour installer la mise à jour',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'wt_app_update',
+          'Mise à jour de l\'application',
+          channelDescription: 'Téléchargement de mises à jour de Watchtower',
+          importance: Importance.high,
+          priority: Priority.high,
+          autoCancel: true,
+          actions: [
+            const AndroidNotificationAction(
+              'install', 'Installer',
+              showsUserInterface: true,
+            ),
+            const AndroidNotificationAction('dismiss', 'Ignorer'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _cancelNotif(FlutterLocalNotificationsPlugin p) {
+    if (!kIsWeb && Platform.isAndroid) p.cancel(_notifId);
+  }
+}
+
+// ── Visual constants ──────────────────────────────────────────────────────────
+
+const _kBg     = Color(0xFF0E0E14);
+const _kCard   = Color(0xFF1A1A22);
+const _kBorder = Color(0x1AFFFFFF);
+
+// ── Main screen widget ────────────────────────────────────────────────────────
 
 class DownloadFileScreen extends ConsumerStatefulWidget {
   final (String, String, String, List<dynamic>) updateAvailable;
@@ -24,332 +200,433 @@ class DownloadFileScreen extends ConsumerStatefulWidget {
   ConsumerState<DownloadFileScreen> createState() => _DownloadFileScreenState();
 }
 
-class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
-    with SingleTickerProviderStateMixin {
-  // ── Download state ────────────────────────────────────────────────────────
+class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   bool _isDownloading = false;
   int _total = 0;
   int _received = 0;
-  http.StreamedResponse? _response;
-  final List<int> _bytes = [];
-  StreamSubscription<List<int>>? _subscription;
-
-  // ── Entry animation ───────────────────────────────────────────────────────
-  late AnimationController _entryController;
-  late Animation<double> _fadeAnim;
-  late Animation<double> _slideAnim;
+  String? _errorMsg;
+  File? _completedFile;
 
   @override
   void initState() {
     super.initState();
-    _entryController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-    _fadeAnim = CurvedAnimation(parent: _entryController, curve: Curves.easeOut);
-    _slideAnim = Tween<double>(begin: 24, end: 0).animate(
-      CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
-    );
-    _entryController.forward();
+    // Reconnect to a running background task (e.g. user re-opened the screen).
+    final task = _AppDownloadTask.current;
+    if (task != null &&
+        task.version == widget.updateAvailable.$1 &&
+        !task.isDone) {
+      _isDownloading = true;
+      _total = task.total;
+      _received = task.received;
+      _attachCallbacks(task);
+    } else if (task != null && task.isDone && task.completedFile != null) {
+      _completedFile = task.completedFile;
+    }
   }
 
   @override
   void dispose() {
-    _entryController.dispose();
-    _subscription?.cancel();
+    // Detach UI callbacks — download continues independently.
+    final task = _AppDownloadTask.current;
+    if (task != null) {
+      task.onProgress = null;
+      task.onDone = null;
+      task.onError = null;
+    }
     super.dispose();
   }
 
-  void _sendToBackground() {
-    if (context.mounted) Navigator.pop(context);
+  void _attachCallbacks(_AppDownloadTask task) {
+    task.onProgress = (r, t) {
+      if (mounted) setState(() { _received = r; _total = t; });
+    };
+    task.onDone = (f) {
+      if (mounted) setState(() { _isDownloading = false; _completedFile = f; });
+    };
+    task.onError = (e) {
+      if (mounted) setState(() { _isDownloading = false; _errorMsg = e; });
+    };
   }
+
+  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final l10n = l10nLocalizations(context)!;
-    final updateAvailable = widget.updateAvailable;
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final upd = widget.updateAvailable;
+    final cs  = Theme.of(context).colorScheme;
+    final mq  = MediaQuery.of(context);
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: AnimatedBuilder(
-        animation: _entryController,
-        builder: (context, child) => Opacity(
-          opacity: _fadeAnim.value.clamp(0.0, 1.0),
-          child: Transform.translate(
-            offset: Offset(0, _slideAnim.value),
-            child: child,
-          ),
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top navigation bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 6, 16, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _isDownloading
+                          ? Icons.minimize_rounded
+                          : Icons.close_rounded,
+                      color: Colors.white.withValues(alpha: 0.65),
+                    ),
+                    tooltip: _isDownloading ? 'Continuer en fond' : 'Fermer',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                  if (!_isDownloading && _completedFile == null)
+                    TextButton(
+                      onPressed: () {
+                        skipAppUpdate(upd.$1);
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Ignorer',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.40),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Scrollable content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Update icon
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.40),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Icon(Icons.system_update_alt_rounded,
+                          color: cs.primary, size: 30),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Title
+                    const Text(
+                      'Mise à jour disponible !',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        height: 1.15,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Version chip
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(
+                            color: cs.primary.withValues(alpha: 0.28)),
+                      ),
+                      child: Text(
+                        'v${upd.$1}',
+                        style: TextStyle(
+                          color: cs.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Release notes
+                    if (upd.$2.trim().isNotEmpty) ...[
+                      Text(
+                        'NOTES DE VERSION',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.38),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: _kCard,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: _kBorder),
+                        ),
+                        child: Text(
+                          upd.$2.trim(),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.78),
+                            fontSize: 14,
+                            height: 1.65,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(upd.$3),
+                            mode: LaunchMode.externalApplication),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.open_in_new_rounded,
+                                size: 13,
+                                color: cs.primary.withValues(alpha: 0.65)),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Ouvrir sur GitHub',
+                              style: TextStyle(
+                                color: cs.primary.withValues(alpha: 0.65),
+                                fontSize: 13,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Progress indicator
+                    if (_isDownloading) ...[
+                      const SizedBox(height: 24),
+                      _buildProgress(cs),
+                    ],
+
+                    // Done indicator
+                    if (_completedFile != null) ...[
+                      const SizedBox(height: 24),
+                      _buildDoneCard(cs),
+                    ],
+
+                    // Error
+                    if (_errorMsg != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.22)),
+                        ),
+                        child: Text(
+                          'Erreur : $_errorMsg',
+                          style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 12.5,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    SizedBox(height: mq.padding.bottom + 8),
+                  ],
+                ),
+              ),
+            ),
+
+            // Fixed bottom action buttons
+            _buildActions(context, upd, cs, mq),
+          ],
         ),
-        child: _buildCard(context, l10n, updateAvailable, cs, isDark),
       ),
     );
   }
 
-  Widget _buildCard(
-    BuildContext context,
-    dynamic l10n,
-    (String, String, String, List<dynamic>) upd,
-    ColorScheme cs,
-    bool isDark,
-  ) {
-    final surface = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final screenH = MediaQuery.of(context).size.height;
+  Widget _buildProgress(ColorScheme cs) {
+    final pct = _total > 0 ? (_received / _total) : null;
+    final label = _total > 0
+        ? '${(_received / 1048576).toStringAsFixed(1)} / '
+          '${(_total / 1048576).toStringAsFixed(1)} MB'
+        : 'Téléchargement en cours…';
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: 460,
-        // ── FIX 1: min height so changelog always has breathing room ────────
-        minHeight: screenH * 0.48,
-        maxHeight: screenH * 0.88,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: isDark ? 0.20 : 0.14),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-              blurRadius: 32,
-              offset: const Offset(0, 12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Téléchargement en cours',
+              style: TextStyle(
+                color: cs.primary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 12,
+                decoration: TextDecoration.none,
+              ),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(upd, cs),
-              // ── Scrollable changelog area ─────────────────────────────────
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.zero,
-                  child: _buildBody(upd, cs, isDark),
-                ),
-              ),
-              _buildActions(l10n, upd, cs, isDark),
-            ],
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 6,
+            backgroundColor: cs.primary.withValues(alpha: 0.12),
+            valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(
-    (String, String, String, List<dynamic>) upd,
-    ColorScheme cs,
-  ) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [cs.primary, cs.tertiary],
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Mise à jour disponible',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    'v${upd.$1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+        if (pct != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            '${(pct * 100).toStringAsFixed(0)} %',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.30),
+              fontSize: 11,
+              decoration: TextDecoration.none,
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _buildBody(
-    (String, String, String, List<dynamic>) upd,
-    ColorScheme cs,
-    bool isDark,
-  ) {
-    final notes = upd.$2.trim();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 18, 22, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildDoneCard(ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.22)),
+      ),
+      child: Row(
         children: [
-          if (notes.isNotEmpty) ...[
-            Row(
-              children: [
-                Icon(Icons.notes_rounded, size: 14, color: cs.primary.withValues(alpha: 0.75)),
-                const SizedBox(width: 6),
-                Text(
-                  'Notes de version',
-                  style: TextStyle(
-                    color: cs.onSurfaceVariant,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ],
+          const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+          const SizedBox(width: 12),
+          Text(
+            'Téléchargement terminé',
+            style: TextStyle(
+              color: Colors.green.shade300,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
             ),
-            const SizedBox(height: 8),
-            Text(
-              notes,
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black87,
-                fontSize: 13.5,
-                height: 1.55,
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // ── Download progress ──────────────────────────────────────────────
-          if (_isDownloading) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Téléchargement…',
-                  style: TextStyle(
-                    color: cs.primary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (_total > 0)
-                  Text(
-                    '${(_received / 1048576.0).toStringAsFixed(1)} / '
-                    '${(_total / 1048576.0).toStringAsFixed(1)} MB',
-                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: _total > 0 ? (_received * 1.0) / _total : null,
-                minHeight: 7,
-                backgroundColor: cs.primary.withValues(alpha: 0.12),
-                valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
+          ),
         ],
       ),
     );
   }
 
   Widget _buildActions(
-    dynamic l10n,
+    BuildContext context,
     (String, String, String, List<dynamic>) upd,
     ColorScheme cs,
-    bool isDark,
+    MediaQueryData mq,
   ) {
-    // ── FIX 2: use _isDownloading bool (set via setState) ──────────────────
-    final isDownloading = _isDownloading;
+    final bottomPad = mq.padding.bottom + 16;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: _kBorder, width: 0.8)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              // Button 1 – Skip version
-              Expanded(
-                child: _ActionButton(
-                  label: 'Ignorer',
-                  icon: Icons.close_rounded,
-                  style: _ActionButtonStyle.ghost,
-                  cs: cs,
-                  enabled: !isDownloading,
-                  onPressed: () {
-                    skipAppUpdate(upd.$1);
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Button 2 – Background (only useful while downloading)
-              Expanded(
-                child: _ActionButton(
-                  label: 'Fond',
-                  icon: Icons.minimize_rounded,
-                  style: _ActionButtonStyle.outlined,
-                  cs: cs,
-                  enabled: isDownloading,
-                  onPressed: _sendToBackground,
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Button 3 – Download / in-progress
-              Expanded(
-                child: _DownloadButton(
-                  isDownloading: isDownloading,
-                  cs: cs,
-                  label: l10n.download,
-                  onPressed: isDownloading
-                      ? null
-                      : () async {
-                          if (!kIsWeb && Platform.isAndroid) {
-                            await _startAndroidDownload(upd);
-                          } else {
-                            _launchInBrowser(Uri.parse(upd.$3));
-                          }
-                        },
-                ),
-              ),
-            ],
-          ),
+          if (_completedFile != null) ...[
+            _BigButton(
+              label: 'Installer maintenant',
+              icon: Icons.install_mobile_rounded,
+              cs: cs,
+              onPressed: () async {
+                await _installApk(_completedFile!);
+                _AppDownloadTask.clear();
+                if (mounted) Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 10),
+            _BigButton(
+              label: 'Fermer',
+              icon: Icons.close_rounded,
+              style: _BtnStyle.ghost,
+              cs: cs,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ] else if (_isDownloading) ...[
+            _BigButton(
+              label: 'Continuer en arrière-plan',
+              icon: Icons.minimize_rounded,
+              style: _BtnStyle.outlined,
+              cs: cs,
+              onPressed: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 10),
+            _BigButton(
+              label: 'Annuler le téléchargement',
+              icon: Icons.cancel_outlined,
+              style: _BtnStyle.ghost,
+              cs: cs,
+              onPressed: () {
+                _AppDownloadTask.current?.cancel();
+                _AppDownloadTask.clear();
+                if (mounted) setState(() { _isDownloading = false; });
+              },
+            ),
+          ] else ...[
+            _BigButton(
+              label: 'Télécharger',
+              icon: Icons.download_rounded,
+              cs: cs,
+              onPressed: _errorMsg != null
+                  ? null
+                  : () async {
+                      if (!kIsWeb && Platform.isAndroid) {
+                        await _startAndroidDownload(upd);
+                      } else {
+                        launchUrl(Uri.parse(upd.$3),
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
+            ),
+            const SizedBox(height: 10),
+            _BigButton(
+              label: 'Pas maintenant',
+              icon: Icons.access_time_rounded,
+              style: _BtnStyle.ghost,
+              cs: cs,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // ── Android download ───────────────────────────────────────────────────────
+  // ── Android download logic ──────────────────────────────────────────────────
 
   Future<void> _startAndroidDownload(
     (String, String, String, List<dynamic>) upd,
@@ -357,44 +634,30 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     final deviceInfo = DeviceInfoPlugin();
     final androidInfo = await deviceInfo.androidInfo;
 
-    // ── FIX 3: smarter APK URL selection ─────────────────────────────────
     final assets = upd.$4.map((a) => a.toString()).toList();
     String apkUrl = '';
 
-    // Pass 1 – exact ABI match
     for (final abi in androidInfo.supportedAbis) {
       final url = assets.firstWhereOrNull((a) => a.contains(abi));
-      if (url != null) {
-        apkUrl = url;
-        break;
-      }
+      if (url != null) { apkUrl = url; break; }
     }
-
-    // Pass 2 – any .apk in assets
     if (apkUrl.isEmpty) {
       apkUrl = assets.firstWhereOrNull(
-            (a) => a.toLowerCase().endsWith('.apk'),
-          ) ??
+              (a) => a.toLowerCase().endsWith('.apk')) ??
           '';
     }
-
-    // Last resort – open release page in browser
     if (apkUrl.isEmpty) {
-      log('[DOWNLOAD] No APK asset found – opening browser');
-      _launchInBrowser(Uri.parse(upd.$3));
+      log('[DOWNLOAD] No APK asset found — opening browser');
+      launchUrl(Uri.parse(upd.$3), mode: LaunchMode.externalApplication);
       return;
     }
 
-    await _downloadApk(apkUrl);
+    await _downloadApk(apkUrl, upd.$1);
   }
 
-  Future<void> _downloadApk(String url) async {
-    if (url.isEmpty || !Uri.parse(url).hasAuthority) {
-      log('[DOWNLOAD] URL invalide: $url');
-      return;
-    }
+  Future<void> _downloadApk(String url, String version) async {
+    if (url.isEmpty || !Uri.parse(url).hasAuthority) return;
 
-    // Request storage permission (Android ≤ 9 needs it; ≥ 10 ignores it gracefully)
     if (await Permission.storage.isDenied) {
       await Permission.storage.request();
     }
@@ -403,62 +666,26 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     if (!await dir.exists()) dir = await getExternalStorageDirectory();
 
     final file = File(
-      '${dir!.path}/${url.split("/").lastOrNull ?? "Watchtower.apk"}',
-    );
+        '${dir!.path}/${url.split("/").lastOrNull ?? "Watchtower.apk"}');
 
-    // If already downloaded, skip straight to install
+    // Already downloaded — go straight to install.
     if (await file.exists()) {
-      await _installApk(file);
-      if (mounted) Navigator.pop(context);
+      if (mounted) setState(() => _completedFile = file);
       return;
     }
 
-    // ── FIX 4: setState immediately so button shows "En cours…" ──────────
-    setState(() {
-      _isDownloading = true;
-      _total = 0;
-      _received = 0;
-    });
-
-    try {
-      _response = await http.Client().send(http.Request('GET', Uri.parse(url)));
-
+    if (mounted) {
       setState(() {
-        _total = _response?.contentLength ?? 0;
+        _isDownloading = true;
+        _total = 0;
+        _received = 0;
+        _errorMsg = null;
       });
-
-      _subscription = _response?.stream.listen(
-        (value) {
-          setState(() {
-            _bytes.addAll(value);
-            _received += value.length;
-          });
-        },
-        onDone: () async {
-          await file.writeAsBytes(_bytes);
-          await _installApk(file);
-          if (mounted) Navigator.pop(context);
-        },
-        onError: (e) {
-          log('[DOWNLOAD] Stream error: $e');
-          if (mounted) {
-            setState(() => _isDownloading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur de téléchargement: $e')),
-            );
-          }
-        },
-        cancelOnError: true,
-      );
-    } catch (e) {
-      log('[DOWNLOAD] Error: $e');
-      if (mounted) {
-        setState(() => _isDownloading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
     }
+
+    final task = _AppDownloadTask.start(version: version);
+    _attachCallbacks(task);
+    unawaited(task.run(url, file));
   }
 
   Future<void> _installApk(File file) async {
@@ -471,9 +698,8 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Permission d\'installation refusée. '
-              'Activez-la dans les paramètres système.',
-            ),
+                'Permission d\'installation refusée. '
+                'Activez-la dans les paramètres système.'),
             duration: Duration(seconds: 4),
           ),
         );
@@ -482,161 +708,101 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen>
     }
     await ApkInstaller.installApk(file.path);
   }
-
-  Future<void> _launchInBrowser(Uri url) async {
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      throw 'Could not launch $url';
-    }
-  }
 }
 
-// ── Reusable ghost / outlined action button ───────────────────────────────────
+// ── Button variants ───────────────────────────────────────────────────────────
 
-enum _ActionButtonStyle { ghost, outlined }
+enum _BtnStyle { filled, outlined, ghost }
 
-class _ActionButton extends StatelessWidget {
+class _BigButton extends StatelessWidget {
   final String label;
   final IconData icon;
-  final _ActionButtonStyle style;
-  final ColorScheme cs;
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.style,
-    required this.cs,
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final fgColor = style == _ActionButtonStyle.ghost
-        ? cs.onSurface.withValues(alpha: enabled ? 0.55 : 0.25)
-        : cs.onSurface.withValues(alpha: enabled ? 0.80 : 0.30);
-
-    final borderColor = cs.outline.withValues(alpha: enabled ? 0.35 : 0.18);
-
-    return SizedBox(
-      height: 48,
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          side: BorderSide(color: borderColor),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          foregroundColor: fgColor,
-        ),
-        onPressed: enabled ? onPressed : null,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: fgColor),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: fgColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Download / in-progress button ─────────────────────────────────────────────
-
-class _DownloadButton extends StatelessWidget {
-  final bool isDownloading;
+  final _BtnStyle style;
   final ColorScheme cs;
   final VoidCallback? onPressed;
-  final String label;
 
-  const _DownloadButton({
-    required this.isDownloading,
+  const _BigButton({
+    required this.label,
+    required this.icon,
     required this.cs,
     required this.onPressed,
-    required this.label,
+    this.style = _BtnStyle.filled,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: isDownloading
-              ? null
-              : LinearGradient(colors: [cs.primary, cs.tertiary]),
-          color: isDownloading ? cs.surfaceContainerHighest : null,
-        ),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    switch (style) {
+      case _BtnStyle.filled:
+        return SizedBox(
+          width: double.infinity, height: 52,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: onPressed != null
+                  ? LinearGradient(colors: [cs.primary, cs.tertiary])
+                  : null,
+              color: onPressed != null
+                  ? null
+                  : Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+              ),
+              icon: Icon(icon, size: 19, color: Colors.white),
+              label: Text(label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    decoration: TextDecoration.none,
+                  )),
+              onPressed: onPressed,
+            ),
           ),
-          onPressed: onPressed,
-          child: isDownloading
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'En cours…',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.download_rounded, color: Colors.white, size: 17),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        label,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
-    );
+        );
+
+      case _BtnStyle.outlined:
+        return SizedBox(
+          width: double.infinity, height: 52,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: cs.primary.withValues(alpha: 0.55)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+            icon: Icon(icon, size: 19, color: cs.primary),
+            label: Text(label,
+                style: TextStyle(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  decoration: TextDecoration.none,
+                )),
+            onPressed: onPressed,
+          ),
+        );
+
+      case _BtnStyle.ghost:
+        return SizedBox(
+          width: double.infinity, height: 48,
+          child: TextButton.icon(
+            icon: Icon(icon,
+                size: 16, color: Colors.white.withValues(alpha: 0.35)),
+            label: Text(label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.40),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13.5,
+                  decoration: TextDecoration.none,
+                )),
+            onPressed: onPressed,
+          ),
+        );
+    }
   }
 }
 
@@ -649,9 +815,7 @@ class ApkInstaller {
     try {
       await _platform.invokeMethod('installApk', {'filePath': filePath});
     } catch (e) {
-      if (kDebugMode) {
-        log("Erreur d'installation : $e");
-      }
+      if (kDebugMode) log("Erreur d'installation : $e");
     }
   }
 }
