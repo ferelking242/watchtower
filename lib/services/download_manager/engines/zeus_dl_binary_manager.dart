@@ -364,7 +364,8 @@ import 'package:watchtower/core/config/app_config.dart';
           'PYTHONDONTWRITEBYTECODE': '1',
           'PYTHONUNBUFFERED': '1',
           // PYTHONPATH : dÃ©pendances pip installÃ©es par LibPythonManager
-          'PYTHONPATH': sitePackagesDir,
+          // filesDir contient les paquets Python bundlés dans zeusdl.zip
+          'PYTHONPATH': '$filesDir:$sitePackagesDir',
         },
       );
     }
@@ -505,8 +506,35 @@ import 'package:watchtower/core/config/app_config.dart';
             final extractedFiles = tmpAssetDir.listSync(recursive: true);
             AppLogger.log('[ZEUS] Fichiers extraits: ${extractedFiles.map((f) => f.path.replaceAll(tmpAssetDir.path, '')).join(', ')}', logLevel: LogLevel.debug, tag: LogTag.zeus);
           }
+          // zeusdl.zip a plusieurs dossiers racine (zeusdl/, charset_normalizer/, urllib3/…)
+          // → strip-prefix désactivé → on déplace sélectivement les sous-dossiers.
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
-          await tmpAssetDir.rename(zeusDir.path);
+          final tmpZeusSubDir = Directory('${tmpAssetDir.path}/zeusdl');
+          if (await tmpZeusSubDir.exists()) {
+            // Cas normal : zip contient zeusdl/ → déplace zeusdl/ en zeusDir
+            await tmpZeusSubDir.rename(zeusDir.path);
+            // Déplace les paquets Python bundlés (charset_normalizer/, urllib3/, …) vers filesDir
+            if (await tmpAssetDir.exists()) {
+              await for (final entity in tmpAssetDir.list()) {
+                final name = entity.path.split('/').last;
+                if (name.startsWith('.') || name.isEmpty) continue;
+                final dest = '$filesDir/$name';
+                try {
+                  if (entity is Directory) {
+                    final destDir = Directory(dest);
+                    if (await destDir.exists()) await destDir.delete(recursive: true);
+                    await entity.rename(dest);
+                  } else if (entity is File) {
+                    await entity.rename(dest);
+                  }
+                } catch (_) {}
+              }
+              await tmpAssetDir.delete(recursive: true).catchError((_) {});
+            }
+          } else {
+            // Fallback : zip à plat (pas de sous-dossier zeusdl/) → rename direct
+            await tmpAssetDir.rename(zeusDir.path);
+          }
         } catch (e) {
           if (await tmpAssetDir.exists()) {
             await tmpAssetDir.delete(recursive: true).catchError((_) {});
@@ -630,8 +658,31 @@ import 'package:watchtower/core/config/app_config.dart';
             final updatedFiles = tmpUpdateDir.listSync(recursive: true);
             AppLogger.log('[ZEUS] Fichiers mis à jour: ${updatedFiles.map((f) => f.path.replaceAll(tmpUpdateDir.path, '')).join(', ')}', logLevel: LogLevel.debug, tag: LogTag.zeus);
           }
+          // Même logique que l'extraction initiale : zip multi-dossiers racine
           if (await zeusDir.exists()) await zeusDir.delete(recursive: true);
-          await tmpUpdateDir.rename(zeusDir.path);
+          final tmpZeusSubDirU = Directory('${tmpUpdateDir.path}/zeusdl');
+          if (await tmpZeusSubDirU.exists()) {
+            await tmpZeusSubDirU.rename(zeusDir.path);
+            if (await tmpUpdateDir.exists()) {
+              await for (final entity in tmpUpdateDir.list()) {
+                final name = entity.path.split('/').last;
+                if (name.startsWith('.') || name.isEmpty) continue;
+                final dest = '$filesDir/$name';
+                try {
+                  if (entity is Directory) {
+                    final destDir = Directory(dest);
+                    if (await destDir.exists()) await destDir.delete(recursive: true);
+                    await entity.rename(dest);
+                  } else if (entity is File) {
+                    await entity.rename(dest);
+                  }
+                } catch (_) {}
+              }
+              await tmpUpdateDir.delete(recursive: true).catchError((_) {});
+            }
+          } else {
+            await tmpUpdateDir.rename(zeusDir.path);
+          }
         } catch (e) {
           if (await tmpUpdateDir.exists()) {
             await tmpUpdateDir.delete(recursive: true).catchError((_) {});
