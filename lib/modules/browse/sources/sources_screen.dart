@@ -75,11 +75,6 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                       .toList();
                 }
 
-                final filtered = _applyFilters(sources);
-                final isFiltering = _searchQuery.isNotEmpty ||
-                    _langFilter != null ||
-                    _typeFilter != null;
-
                 if (sources.isEmpty) {
                   return _EmptyState(
                     onShowExtensions: widget.onShowExtensions,
@@ -87,49 +82,13 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   );
                 }
 
-                if (filtered.isEmpty && isFiltering) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.search_off_rounded,
-                            size: 48,
-                            color: cs.onSurfaceVariant.withOpacity(0.4)),
-                        const SizedBox(height: 12),
-                        Text('Aucune source trouvée',
-                            style: TextStyle(color: cs.onSurfaceVariant)),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () => setState(() {
-                            _searchQuery = '';
-                            _langFilter = null;
-                            _typeFilter = null;
-                            _searchController.clear();
-                          }),
-                          child: const Text('Effacer les filtres'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // When filtering by search/type, show flat list (no grouping)
-                if (isFiltering) {
-                  return _FlatSourceList(
-                    sources: filtered,
-                    itemType: widget.itemType,
-                    controller: _scrollController,
-                    l10n: l10n,
-                  );
-                }
-
-                // Normal grouped view
+                // Grouped view
                 final lastUsedEntries =
-                    filtered.where((e) => e.lastUsed!).toList();
+                    sources.where((e) => e.lastUsed!).toList();
                 final isPinnedEntries =
-                    filtered.where((e) => e.isPinned!).toList();
+                    sources.where((e) => e.isPinned!).toList();
                 final allEntriesWithoutPinned =
-                    filtered.where((e) => !e.isPinned!).toList();
+                    sources.where((e) => !e.isPinned!).toList();
 
                 final Map<String, List<Source>> grouped = {};
                 for (final src in allEntriesWithoutPinned) {
