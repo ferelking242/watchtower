@@ -205,6 +205,13 @@ class _ExtensionDiagnosticScreenState
     return _selectedSource != null;
   }
 
+  /// Parallel pool size: more concurrency for broad scopes, gentler for single.
+  int get _poolSize => switch (_scopeType) {
+    _ScopeType.all        => 6,
+    _ScopeType.byLanguage => 4,
+    _ScopeType.single     => 2,
+  };
+
   // ── Start diagnostics ──────────────────────────────────────────────────────
 
   Future<void> _startDiagnostics() async {
@@ -234,11 +241,11 @@ class _ExtensionDiagnosticScreenState
       title: 'Diagnostic ${_typeLabelShort()} en cours…',
     );
 
-    // Pool of 4 — QuickJS+ supports multiple concurrent JS contexts
+    // Dynamic pool: 6 (all) · 4 (by-lang) · 2 (single)
     await runDiagnosticsForSources(
       sources,
       widget.itemType,
-      concurrency: 4,
+      concurrency: _poolSize,
       onResult: (result) {
         if (!mounted) return;
         setState(() {
@@ -368,7 +375,7 @@ class _ExtensionDiagnosticScreenState
             icon: Icons.all_inclusive_rounded,
             title: 'Toutes les extensions',
             subtitle:
-                '${allSources.length} extensions · parallèle (pool=4)',
+                '${allSources.length} extension(s) · parallèle (pool=6)',
             onTap: () => setState(() => _scopeType = _ScopeType.all),
           ),
           const SizedBox(height: 10),
@@ -377,7 +384,7 @@ class _ExtensionDiagnosticScreenState
             selected: _scopeType == _ScopeType.byLanguage,
             icon: Icons.language_rounded,
             title: 'Par langue',
-            subtitle: 'Tester toutes les extensions d\'une langue',
+            subtitle: 'Extensions d\'une langue · parallèle (pool=4)',
             onTap: () => setState(() => _scopeType = _ScopeType.byLanguage),
           ),
           if (_scopeType == _ScopeType.byLanguage && langs.isNotEmpty)
@@ -410,7 +417,7 @@ class _ExtensionDiagnosticScreenState
             selected: _scopeType == _ScopeType.single,
             icon: Icons.extension_rounded,
             title: 'Une seule extension',
-            subtitle: 'Tester une extension spécifique',
+            subtitle: 'Tester une extension spécifique · pool=2',
             onTap: () => setState(() => _scopeType = _ScopeType.single),
           ),
           if (_scopeType == _ScopeType.single && allSources.isNotEmpty)
@@ -560,7 +567,7 @@ class _ExtensionDiagnosticScreenState
     final cs = Theme.of(context).colorScheme;
     final progress = _total == 0 ? 0.0 : _done / _total;
     // Estimate how many are currently active (running concurrently)
-    final activeCount = (_total - _done).clamp(0, 4);
+    final activeCount = (_total - _done).clamp(0, _poolSize);
 
     return Column(
       children: [
