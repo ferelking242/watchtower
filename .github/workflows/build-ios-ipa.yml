@@ -163,9 +163,12 @@ jobs:
 
             if echo "$FILETYPE" | grep -q "ar archive"; then
               # Archive statique (ex: wakelock_plus compilé staticlib)
-              # ldid ne sait pas lire ar → "Unknown header magic" → on supprime
-              rm -f "$BIN"
-              echo "REMOVED static archive: $NAME"
+              # Le code est déjà linké dans Runner → le .framework entier est inutile.
+              # Si on supprime juste le binaire, ldid -s (TrollStore) tente quand même
+              # d'ouvrir <framework>/<name> → DiskFolder::Open assert → erreur 175.
+              # Solution : supprimer tout le dossier .framework.
+              rm -rf "$fw"
+              echo "REMOVED framework dir (static archive): $NAME"
               REMOVED=$((REMOVED+1))
 
             elif echo "$FILETYPE" | grep -q "Mach-O.*universal"; then
