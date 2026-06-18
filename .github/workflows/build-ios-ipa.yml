@@ -14,16 +14,15 @@ jobs:
         with:
           lfs: true
 
-      # Flutter 3.38.x = Dart 3.10.x — go_router 17.x / riverpod 3.x nécessitent Dart ≥ 3.10.
-      # Le crash iOS 15 (Go SIGURG ↔ Dart VM SIGURG) est traité par le lazy-load de
-      # Libmtorrentserver ci-dessous (voir step "Lazy-load Libmtorrentserver").
+      # Flutter 3.38.x = Dart 3.10.x - go_router 17.x / riverpod 3.x necessitent Dart >= 3.10.
+      # Le crash iOS 15 (SIGURG Go vs Dart VM) est resolu dans AppDelegate.swift via dlopen().
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.38.x'
           channel: stable
           cache: true
 
-      - name: Install Rust (rust_lib_watchtower FFI via cargokit)
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios,x86_64-apple-ios
@@ -46,9 +45,6 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      # ── ZeusDL ──────────────────────────────────────────────────────────────
-      # Télécharge le binaire iOS arm64. Si introuvable ou format inconnu →
-      # on ne bundle RIEN (pas de stub) pour éviter que ldid plante.
       - name: Bundle ZeusDL iOS arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -56,27 +52,20 @@ jobs:
           set -euo pipefail
           mkdir -p assets/binaries
           DOWNLOADED=false
-
           RELEASE_JSON=$(curl -fsSL \
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/ferelking242/zeusdl/releases/latest" 2>/dev/null || echo '{}')
-          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c \
-            "import sys,json; print(json.load(sys.stdin).get('tag_name',''))" 2>/dev/null || echo '')
-
-          if [ -n "$ZEUSDL_VERSION" ]; then
+          VER=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tag_name',''))" 2>/dev/null || echo '')
+          if [ -n "$VER" ]; then
             for ASSET in "zeusdl-ios-arm64" "zeusdl-ios" "yt-dlp_ios"; do
-              URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/${ASSET}"
-              echo "Trying: $URL"
+              URL="https://github.com/ferelking242/zeusdl/releases/download/${VER}/${ASSET}"
               if curl -fsSL --max-time 60 "$URL" -o assets/binaries/zeusdl 2>/dev/null; then
                 MAGIC=$(xxd -p -l 4 assets/binaries/zeusdl 2>/dev/null || echo "")
                 if [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" || "$MAGIC" == "cafebabe" ]]; then
-                  echo "OK: $(wc -c < assets/binaries/zeusdl) bytes magic=$MAGIC"
-                  # Thin to arm64 immediately if fat
                   if [[ "$MAGIC" == "cafebabe" ]]; then
                     lipo assets/binaries/zeusdl -thin arm64 -output assets/binaries/zeusdl.thin 2>/dev/null \
                       && mv assets/binaries/zeusdl.thin assets/binaries/zeusdl \
-                      && echo "zeusdl thinned to arm64" \
                       || rm -f assets/binaries/zeusdl
                   fi
                   DOWNLOADED=true; break
@@ -86,8 +75,6 @@ jobs:
               fi
             done
           fi
-
-          # Fallback: yt-dlp officiel
           if [ "$DOWNLOADED" = "false" ]; then
             YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_ios"
             if curl -fsSL --max-time 60 "$YTDLP_URL" -o assets/binaries/zeusdl 2>/dev/null; then
@@ -99,17 +86,13 @@ jobs:
                     || rm -f assets/binaries/zeusdl
                 fi
                 DOWNLOADED=true
-                echo "yt-dlp iOS: $(wc -c < assets/binaries/zeusdl 2>/dev/null || echo 0) bytes"
               else
                 rm -f assets/binaries/zeusdl
               fi
             fi
           fi
-
           if [ "$DOWNLOADED" = "false" ]; then
-            # Pas de stub — on laisse le dossier vide, l'app gère l'absence
-            echo "WARN: zeusdl introuvable — assets/binaries/ restera vide"
-            ls -la assets/binaries/ || true
+            echo "WARN: zeusdl introuvable"
           fi
 
       - name: Patch pubspec.yaml pour assets/binaries/
@@ -117,267 +100,94 @@ jobs:
           if ! grep -q "assets/binaries/" pubspec.yaml; then
             sed -i '' 's|    - assets/icons/|    - assets/icons/\n    - assets/binaries/|' pubspec.yaml
           fi
-          grep "assets/" pubspec.yaml
 
-      # ── Supprimer Podfile.lock avant pod install ────────────────────────────────
       - name: Remove stale Podfile.lock
         run: rm -f ios/Podfile.lock
 
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Regenerate app icons (flutter_launcher_icons)
+      - name: Regenerate app icons
         run: dart run flutter_launcher_icons:main
 
       - name: Install CocoaPods
         run: cd ios && pod install --repo-update && cd ..
 
-      # ── Patch Xcode ─────────────────────────────────────────────────────────
-      # CODE_SIGN_STYLE=Automatic sans DEVELOPMENT_TEAM fait échouer le build.
-      # On passe en Manual + identité vide → --no-codesign fonctionne.
-      - name: Patch Xcode project for CI (manual signing, no team)
+      - name: Patch Xcode project for CI
         run: |
           PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
           sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
           sed -i '' 's/DEVELOPMENT_TEAM = [A-Z0-9][A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
-          echo "=== CODE_SIGN après patch ==="
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM" "$PBXPROJ" | sort -u
 
       - name: Build iOS (no codesign)
         run: |
           flutter build ios --release --no-codesign
-          echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
-          echo "=== Frameworks count: $(ls build/ios/iphoneos/Runner.app/Frameworks/ | wc -l) ==="
-          ls build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
-            && echo "zeusdl présent" || echo "zeusdl absent (OK)"
+          echo "Bundle: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1)"
 
-      # ── Lazy-load Libmtorrentserver (fix crash iOS 15 — iPhone 7) ────────────
-      # Root cause : import Libmtorrentserver → dyld charge le framework Go AU BOOT,
-      # avant Flutter. Le runtime Go démarre ses goroutines (SIGURG preemption).
-      # La Dart VM veut aussi installer un handler SIGURG → conflit → abort().
-      # Fix en deux temps :
-      #   1. AppDelegate utilise dlopen() APRÈS que Flutter soit initialisé
-      #   2. CI change LC_LOAD_DYLIB → LC_LOAD_WEAK_DYLIB + déplace le framework
-      #      dans PrivateLibraries/ (pas scanné par dyld au boot)
-      - name: Lazy-load Libmtorrentserver (fix iOS crash)
+      - name: Prepare bundle (thin ARM64, remove static archives)
         run: |
           APP="build/ios/iphoneos/Runner.app"
-          FW="$APP/Frameworks/Libmtorrentserver.framework"
-          RUNNER="$APP/Runner"
-
-          if [ ! -d "$FW" ]; then
-            echo "Libmtorrentserver.framework absent — skip"
-            exit 0
-          fi
-
-          # Déplacer vers PrivateLibraries/ (non scanné par dyld au démarrage)
-          mkdir -p "$APP/PrivateLibraries"
-          cp -r "$FW" "$APP/PrivateLibraries/Libmtorrentserver.framework"
-          rm -rf "$FW"
-          echo "Déplacé → PrivateLibraries/"
-
-          # Patcher LC_LOAD_DYLIB → LC_LOAD_WEAK_DYLIB dans Runner
-          # dyld ignore silencieusement un weak-linked framework manquant
-          python3 - "$RUNNER" << 'PY'
-import sys, struct
-
-path = sys.argv[1]
-LC_LOAD_DYLIB      = 0x0000000C
-LC_LOAD_WEAK_DYLIB = 0x80000018
-MH_MAGIC_64        = 0xFEEDFACF
-
-with open(path, "rb") as f:
-    data = bytearray(f.read())
-
-def patch(base):
-    if struct.unpack_from("<I", data, base)[0] != MH_MAGIC_64:
-        return 0
-    ncmds = struct.unpack_from("<I", data, base + 16)[0]
-    off   = base + 32
-    n     = 0
-    for _ in range(ncmds):
-        cmd     = struct.unpack_from("<I", data, off)[0]
-        cmdsize = struct.unpack_from("<I", data, off + 4)[0]
-        if cmdsize < 8: break
-        if cmd == LC_LOAD_DYLIB:
-            nameoff = struct.unpack_from("<I", data, off + 8)[0]
-            name = data[off+nameoff:off+nameoff+256].split(b"\x00")[0].decode("ascii","replace")
-            if "Libmtorrentserver" in name:
-                struct.pack_into("<I", data, off, LC_LOAD_WEAK_DYLIB)
-                print(f"  weak-linked: {name}")
-                n += 1
-        off += cmdsize
-    return n
-
-# FAT ou thin
-if data[0:4] == b'\xca\xfe\xba\xbe':
-    nfat = struct.unpack_from(">I", data, 4)[0]
-    for i in range(nfat):
-        aoff = struct.unpack_from(">I", data, 8 + i * 20 + 8)[0]
-        patch(aoff)
-else:
-    patch(0)
-
-with open(path, "wb") as f:
-    f.write(data)
-print("patch LC_LOAD_WEAK_DYLIB OK")
-PY
-
-          echo "=== PrivateLibraries ==="
-          ls "$APP/PrivateLibraries/"
-          echo "=== Libmtorrent dans Frameworks ==="
-          ls "$APP/Frameworks/" | grep -i libmtorrent || echo "(absent — OK)"
-
-      # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
-      # TrollStore sur iPhone 7 utilise un vieux ldid qui :
-      #   1. Ne comprend pas arm64e → thin FAT → arm64
-      #   2. Ne comprend pas les archives statiques (ar) → remove du framework
-      #   3. Choke sur fichiers non-Mach-O dans .framework → remove
-      - name: Prepare bundle for TrollStore ldid compatibility
-        run: |
-          APP="build/ios/iphoneos/Runner.app"
-          THINNED=0; ALREADY=0; REMOVED=0; SKIPPED=0
-
           for fw in "$APP/Frameworks"/*.framework; do
-            NAME=$(basename "$fw" .framework)
-            BIN="$fw/$NAME"
-            [ -f "$BIN" ] || { SKIPPED=$((SKIPPED+1)); continue; }
-
-            # file(1) ne nécessite pas xxd — identifie le type réel
+            NAME=$(basename "$fw" .framework); BIN="$fw/$NAME"
+            [ -f "$BIN" ] || continue
             FILETYPE=$(file -b "$BIN")
-
             if echo "$FILETYPE" | grep -q "ar archive"; then
-              # Archive statique (ex: wakelock_plus compilé staticlib)
-              # Le code est déjà linké dans Runner → le .framework entier est inutile.
-              # Si on supprime juste le binaire, ldid -s (TrollStore) tente quand même
-              # d'ouvrir <framework>/<name> → DiskFolder::Open assert → erreur 175.
-              # Solution : supprimer tout le dossier .framework.
-              rm -rf "$fw"
-              echo "REMOVED framework dir (static archive): $NAME"
-              REMOVED=$((REMOVED+1))
-
+              rm -rf "$fw"; echo "REMOVED static: $NAME"
             elif echo "$FILETYPE" | grep -q "Mach-O.*universal"; then
-              # FAT binary — thin à arm64
               if lipo -info "$BIN" 2>/dev/null | grep -q "arm64"; then
-                lipo "$BIN" -thin arm64 -output "${BIN}.thin" 2>/dev/null \
-                  && mv "${BIN}.thin" "$BIN" \
-                  && echo "THINNED: $NAME" \
-                  && THINNED=$((THINNED+1)) \
-                  || { echo "WARN: lipo failed $NAME"; SKIPPED=$((SKIPPED+1)); }
-              else
-                echo "WARN: $NAME fat sans slice arm64"
-                SKIPPED=$((SKIPPED+1))
+                lipo "$BIN" -thin arm64 -output "${BIN}.t" 2>/dev/null \
+                  && mv "${BIN}.t" "$BIN" && echo "THINNED: $NAME" \
+                  || echo "SKIP thin: $NAME"
               fi
-
-            elif echo "$FILETYPE" | grep -q "Mach-O"; then
-              ALREADY=$((ALREADY+1))
-
-            else
-              # Autre format inconnu dans un .framework → supprimer
-              echo "REMOVED unknown: $NAME ($FILETYPE)"
-              rm -f "$BIN"
-              REMOVED=$((REMOVED+1))
             fi
           done
-
-          echo "=== Résultat: $THINNED thinned | $ALREADY arm64 OK | $REMOVED removed | $SKIPPED skip ==="
-
-          # Zeusdl dans assets
           ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
           if [ -f "$ZEUSDL" ]; then
             ZTYPE=$(file -b "$ZEUSDL")
-            echo "zeusdl type: $ZTYPE"
             if echo "$ZTYPE" | grep -q "Mach-O.*universal"; then
-              lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.thin" 2>/dev/null \
-                && mv "${ZEUSDL}.thin" "$ZEUSDL" && echo "zeusdl thinned" \
-                || { rm -f "$ZEUSDL"; echo "zeusdl removed (lipo failed)"; }
+              lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.t" && mv "${ZEUSDL}.t" "$ZEUSDL" || rm -f "$ZEUSDL"
             elif ! echo "$ZTYPE" | grep -q "Mach-O"; then
               rm -f "$ZEUSDL"
-              echo "zeusdl removed (not Mach-O: $ZTYPE)"
             fi
           fi
 
-      # ── Signer ──────────────────────────────────────────────────────────────
-      # 1. ldid -S (sans entitlements) sur chaque framework → pré-signe
-      # 2. ldid -S<ent> sur Runner → entitlements TrollStore
-      # 3. codesign --force --sign - récursif → signature ad-hoc finale
-      - name: Sign for TrollStore (ldid per-framework + codesign recursive)
+      - name: Sign for TrollStore
         run: |
           APP="build/ios/iphoneos/Runner.app"
           ENT="ios/Runner/Runner.entitlements"
           brew install ldid 2>/dev/null || true
-
-          echo "=== ldid par framework (Frameworks/) ==="
           for fw in "$APP/Frameworks"/*.framework; do
-            NAME=$(basename "$fw" .framework)
-            BIN="$fw/$NAME"
-            if [ -f "$BIN" ]; then
-              ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
-            fi
+            NAME=$(basename "$fw" .framework); BIN="$fw/$NAME"
+            [ -f "$BIN" ] && { ldid -S "$BIN" 2>/dev/null && echo "ldid: $NAME" || true; }
           done
+          if [ -f "$ENT" ]; then ldid -S"$ENT" "$APP/Runner"; else ldid -S "$APP/Runner"; fi
+          codesign --force --sign - --deep "$APP" 2>/dev/null || true
+          codesign -dvvv "$APP" 2>&1 | head -8 || true
 
-          echo "=== ldid PrivateLibraries/ (lazy-loaded frameworks) ==="
-          for fw in "$APP/PrivateLibraries"/*.framework; do
-            [ -d "$fw" ] || continue
-            NAME=$(basename "$fw" .framework)
-            BIN="$fw/$NAME"
-            if [ -f "$BIN" ]; then
-              ldid -S "$BIN" 2>/dev/null && echo "ldid OK: PrivateLibraries/$NAME" || echo "ldid SKIP: PrivateLibraries/$NAME"
-            fi
-          done
-
-          # Signer zeusdl si présent
-          ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
-          if [ -f "$ZEUSDL" ]; then
-            ldid -S "$ZEUSDL" 2>/dev/null && echo "ldid zeusdl OK" || echo "WARN: ldid zeusdl skipped (déjà signé ou format PyInstaller) — binaire conservé"
-          fi
-
-          echo "=== ldid Runner avec entitlements ==="
-          ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK" || echo "WARN: ldid Runner failed"
-
-          echo "=== codesign récursif ad-hoc ==="
-          /usr/bin/codesign --force --deep --sign - \
-            --entitlements "$ENT" --timestamp=none "$APP" \
-            && echo "codesign OK" || echo "WARN: codesign failed"
-
-          echo "=== Vérification entitlements ==="
-          codesign -d --entitlements :- "$APP" 2>/dev/null | head -20 || true
-
-          echo "=== Frameworks présents ==="
-          ls "$APP/Frameworks/" | wc -l
-          echo "wakelock_plus binary: $([ -f "$APP/Frameworks/wakelock_plus.framework/wakelock_plus" ] && echo PRESENT || echo absent-static-OK)"
-
-      # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
-      # ldid -S crée des fichiers .ldid.<name> dans chaque .framework
-      # TrollStore les inclut dans son scan → "Unknown header magic"
-      - name: Cleanup ldid residual files
+      - name: Create IPA
         run: |
           APP="build/ios/iphoneos/Runner.app"
-          COUNT=$(find "$APP" -name ".ldid.*" | wc -l)
-          find "$APP" -name ".ldid.*" -delete
-          echo "Cleaned $COUNT .ldid.* files"
+          mkdir -p build/ios/iphoneos/Payload
+          cp -r "$APP" build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos && zip -r ../../Runner.ipa Payload/
+          ls -lh build/Runner.ipa
 
-      # ── Package IPA ─────────────────────────────────────────────────────────
-      - name: Package IPA
-        run: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r9 Watchtower-iOS.ipa Payload/
-          rm -rf Payload
-          IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
-          echo "=== IPA: $IPA_SIZE ==="
-          echo "=== Frameworks dans IPA ==="
-          unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
-          echo "=== Vérif wakelock_plus ==="
-          unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent des Frameworks binaries) ✓"
-          echo "=== Vérif zeusdl ==="
-          unzip -l Watchtower-iOS.ipa | grep zeusdl && echo "zeusdl: présent ✓" || echo "WARN: zeusdl absent de l'IPA"
-
-      - name: Upload IPA
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-ipa
-          path: Watchtower-iOS.ipa
-          compression-level: 0
+          name: watchtower-ios-ipa
+          path: build/Runner.ipa
           retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-latest
+          name: "Watchtower iOS (TrollStore)"
+          prerelease: true
+          files: build/Runner.ipa
+          body: IPA pour TrollStore (iPhone 7 / iOS 15+). Build auto depuis main.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
