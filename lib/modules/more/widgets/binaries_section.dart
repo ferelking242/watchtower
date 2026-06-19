@@ -829,7 +829,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                   ),
                 ),
                 const SizedBox(width: 6),
-                _TagChip(label: tool.name == 'aria2c' ? 'HTTP/FTP' : tool.name == 'yt-dlp' ? 'Python' : 'Universal'),
+                _TagChip(label: tool.name == 'aria2c' ? 'HTTP/FTP' : 'Universal'),
               ],
             ),
             // ── Download progress ─────────────────────────────────────────────

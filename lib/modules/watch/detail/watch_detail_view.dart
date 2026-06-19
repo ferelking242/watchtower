@@ -2297,7 +2297,7 @@ class _AideButton extends StatelessWidget {
 
 // ─── DOWNLOAD SHEET — Refonte complète style MovieBox ─────────────────────────
 
-enum _Downloader { internal, aria2, zeus, external }
+enum _Downloader { internal, aria2, external }
 
 class _DownloadSheet extends ConsumerStatefulWidget {
   final Manga manga;
@@ -2474,7 +2474,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     switch (_downloader) {
       case _Downloader.internal: return 'Interne';
       case _Downloader.aria2: return 'Aria2';
-      case _Downloader.zeus: return 'Zeus';
       case _Downloader.external: return _externalApp.toUpperCase();
     }
   }
@@ -2901,13 +2900,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             label: 'Aria2',
             subtitle: 'Téléchargeur multi-connexions',
             value: _Downloader.aria2,
-          ),
-          Divider(height: 1, indent: 52, color: _faint),
-          _downloaderTile(
-            icon: Icons.bolt_outlined,
-            label: 'Zeus',
-            subtitle: 'Téléchargeur haute vitesse',
-            value: _Downloader.zeus,
           ),
           Divider(height: 1, indent: 52, color: _faint),
           _externalTile(),

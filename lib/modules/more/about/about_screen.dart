@@ -31,13 +31,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/utils/constant.dart';
 
 // Generic release/asset types used by binary download helpers (e.g. aria2).
-class ZeusRelease {
+class GithubRelease {
   final String version;
   final String htmlUrl;
   final String publishedAt;
   final bool isNightly;
-  final List<ZeusReleaseAsset> assets;
-  const ZeusRelease({
+  final List<GithubReleaseAsset> assets;
+  const GithubRelease({
     required this.version,
     required this.htmlUrl,
     required this.publishedAt,
@@ -46,11 +46,11 @@ class ZeusRelease {
   });
 }
 
-class ZeusReleaseAsset {
+class GithubReleaseAsset {
   final String name;
   final String downloadUrl;
   final int size;
-  const ZeusReleaseAsset({
+  const GithubReleaseAsset({
     required this.name,
     required this.downloadUrl,
     required this.size,
@@ -1087,7 +1087,7 @@ Future<void> _autoFetchAria2Download(BuildContext context) async {
     final rawAssets = (data['assets'] as List?) ?? const [];
     final assets = rawAssets
         .whereType<Map<String, dynamic>>()
-        .map((a) => ZeusReleaseAsset(
+        .map((a) => GithubReleaseAsset(
               name: (a['name'] ?? '').toString(),
               downloadUrl: (a['browser_download_url'] ?? '').toString(),
               size: (a['size'] is int) ? a['size'] as int : 0,
@@ -1100,7 +1100,7 @@ Future<void> _autoFetchAria2Download(BuildContext context) async {
       return;
     }
 
-    final release = ZeusRelease(
+    final release = GithubRelease(
       version: tag,
       htmlUrl: (data['html_url'] ?? '').toString(),
       publishedAt: (data['published_at'] ?? '').toString(),
@@ -1117,10 +1117,10 @@ Future<void> _autoFetchAria2Download(BuildContext context) async {
 
 Future<void> _startAria2Download(
   BuildContext context,
-  ZeusRelease release,
+  GithubRelease release,
 ) async {
   final abiTokens = await _currentPlatformAbiTokens();
-  List<ZeusReleaseAsset> compatible = release.assets.where((a) {
+  List<GithubReleaseAsset> compatible = release.assets.where((a) {
     if (_isWrongPlatform(a.name)) return false;
     if (abiTokens.isEmpty) return true;
     final n = a.name.toLowerCase();
@@ -1129,10 +1129,10 @@ Future<void> _startAria2Download(
 
   if (compatible.isEmpty) compatible = release.assets;
 
-  ZeusReleaseAsset picked = compatible.first;
+  GithubReleaseAsset picked = compatible.first;
 
   if (release.assets.length > 1 && context.mounted) {
-    final selected = await showModalBottomSheet<ZeusReleaseAsset>(
+    final selected = await showModalBottomSheet<GithubReleaseAsset>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -1194,9 +1194,9 @@ Future<void> _importAria2Binary(BuildContext context) async {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AssetPickerSheet extends StatefulWidget {
-  final List<ZeusReleaseAsset> compatible;
-  final List<ZeusReleaseAsset> allAssets;
-  final ZeusReleaseAsset initial;
+  final List<GithubReleaseAsset> compatible;
+  final List<GithubReleaseAsset> allAssets;
+  final GithubReleaseAsset initial;
 
   const _AssetPickerSheet({
     required this.compatible,

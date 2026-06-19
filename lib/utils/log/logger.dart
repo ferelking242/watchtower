@@ -18,7 +18,6 @@ const kLogMode = 'log_mode';
 const kLogTagExt = 'log_tag_ext';
 const kLogTagDl = 'log_tag_dl';
 const kLogTagNet = 'log_tag_net';
-const kLogTagZeus = 'log_tag_zeus';
 const kLogTagUi = 'log_tag_ui';
 const kLogTagManga = 'log_tag_manga';
 const kLogTagPage = 'log_tag_page';
@@ -71,28 +70,28 @@ enum LogMode {
       case LogMode.normal:
         return {
           kLogTagExt: true, kLogTagDl: false, kLogTagNet: false,
-          kLogTagZeus: true, kLogTagUi: false, kLogTagManga: false,
+          kLogTagUi: false, kLogTagManga: false,
           kLogTagPage: false, kLogTagHls: false, kLogTagInstall: true,
           kLogTagReader: false, kLogTagWatch: false, kLogTagMaint: true,
         };
       case LogMode.verbose:
         return {
           kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
-          kLogTagZeus: true, kLogTagUi: true, kLogTagManga: true,
+          kLogTagUi: true, kLogTagManga: true,
           kLogTagPage: false, kLogTagHls: true, kLogTagInstall: true,
           kLogTagReader: false, kLogTagWatch: true, kLogTagMaint: true,
         };
       case LogMode.debug:
         return {
           kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
-          kLogTagZeus: true, kLogTagUi: true, kLogTagManga: true,
+          kLogTagUi: true, kLogTagManga: true,
           kLogTagPage: false, kLogTagHls: true, kLogTagInstall: true,
           kLogTagReader: true, kLogTagWatch: true, kLogTagMaint: true,
         };
       case LogMode.extreme:
         return {
           kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
-          kLogTagZeus: true, kLogTagUi: true, kLogTagManga: true,
+          kLogTagUi: true, kLogTagManga: true,
           kLogTagPage: true, kLogTagHls: true, kLogTagInstall: true,
           kLogTagReader: true, kLogTagWatch: true, kLogTagMaint: true,
         };
@@ -243,7 +242,6 @@ class AppLogger {
         LogTag.extension_: kLogTagExt,
         LogTag.download: kLogTagDl,
         LogTag.network: kLogTagNet,
-        LogTag.zeus: kLogTagZeus,
         LogTag.ui: kLogTagUi,
         LogTag.manga: kLogTagManga,
         LogTag.page: kLogTagPage,
@@ -396,7 +394,6 @@ enum LogLevel {
 
 abstract final class LogTag {
   static const extension_ = 'EXT';
-  static const zeus = 'ZEUS';
   static const download = 'DL';
   static const network = 'NET';
   static const repo = 'REPO';

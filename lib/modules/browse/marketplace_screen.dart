@@ -5724,7 +5724,7 @@ class _PluginsTabSliver extends ConsumerWidget {
 
 // ─── Binary tab ────────────────────────────────────────────────────────────────
 // Shown as the 8th tab in the marketplace — displays downloadable binary engines
-// (ZeusDL, aria2c) using the same BinariesSection used in Settings.
+// (aria2c) using the same BinariesSection used in Settings.
 
 class _BinaryTab extends StatelessWidget {
   const _BinaryTab();
