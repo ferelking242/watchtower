@@ -449,81 +449,14 @@ package com.watchtower.app
           }
 
           // ── 9. Plugin executor (Flare eval bridge) ──────────────────────────
-          // Executes a Flare plugin's script.py via libpython.so.
-          // Plugin files are extracted to filesDir/flare_plugins/{pluginId}/.
-          // Invoked by WPlugin.invoke() from d4rt-interpreted ui/main.dart.
+          // Python-based execution removed — plugins now use native binaries only.
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.plugin",
               StandardMethodCodec.INSTANCE,
               flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
-          ).setMethodCallHandler { call, result ->
-              when (call.method) {
-                  "invoke" -> {
-                      val pluginId = call.argument<String>("pluginId") ?: run {
-                          result.error("NO_PLUGIN_ID", "pluginId required", null)
-                          return@setMethodCallHandler
-                      }
-                      val action = call.argument<String>("action") ?: run {
-                          result.error("NO_ACTION", "action required", null)
-                          return@setMethodCallHandler
-                      }
-                      @Suppress("UNCHECKED_CAST")
-                      val argsMap = (call.argument<Any>("args") as? Map<*, *>)
-                          ?.entries?.associate { it.key.toString() to (it.value ?: "") } ?: emptyMap()
-                      val argsJson = org.json.JSONObject(argsMap).toString()
-
-                      val nativeDir  = applicationInfo.nativeLibraryDir
-                      val pythonBin  = File("$nativeDir/libpython.so")
-                      val pluginDir  = File("${filesDir.absolutePath}/flare_plugins/$pluginId")
-                      val scriptFile = File("${pluginDir.absolutePath}/script.py")
-                      val supportDir = filesDir.absolutePath
-                      val pythonHome = "$supportDir/packages/python/usr"
-                      val sitePackages = "$supportDir/python_packages"
-
-                      if (!pythonBin.exists()) {
-                          result.error("NO_PYTHON", "libpython.so introuvable dans nativeLibraryDir", null)
-                          return@setMethodCallHandler
-                      }
-                      if (!scriptFile.exists()) {
-                          result.error("NO_SCRIPT", "script.py introuvable pour le plugin $pluginId", null)
-                          return@setMethodCallHandler
-                      }
-
-                      try {
-                          val pb = ProcessBuilder(
-                              pythonBin.absolutePath, scriptFile.absolutePath, action, argsJson
-                          ).apply {
-                              environment().apply {
-                                  put("PYTHONHOME", pythonHome)
-                                  put("LD_LIBRARY_PATH", "$nativeDir:$pythonHome/lib")
-                                  put("SSL_CERT_FILE", "$pythonHome/etc/tls/cert.pem")
-                                  put("PYTHONDONTWRITEBYTECODE", "1")
-                                  put("PYTHONUNBUFFERED", "1")
-                                  put("PYTHONPATH", "${pluginDir.absolutePath}:$sitePackages")
-                                  put("HOME", pythonHome)
-                                  put("TMPDIR", cacheDir.absolutePath)
-                              }
-                              redirectErrorStream(true)
-                          }
-                          val proc     = pb.start()
-                          val output   = proc.inputStream.bufferedReader().readText()
-                          val exitCode = proc.waitFor()
-                          if (exitCode == 0) {
-                              try {
-                                  result.success(pluginJsonToMap(org.json.JSONObject(output.trim())))
-                              } catch (_: Exception) {
-                                  result.success(mapOf("status" to "ok", "data" to output.trim()))
-                              }
-                          } else {
-                              result.error("SCRIPT_ERROR", "exit=$exitCode\n$output", null)
-                          }
-                      } catch (e: Exception) {
-                          result.error("EXEC_ERROR", e.message ?: "unknown", null)
-                      }
-                  }
-                  else -> result.notImplemented()
-              }
+          ).setMethodCallHandler { _, result ->
+              result.error("NOT_SUPPORTED", "Python plugin execution removed", null)
           }
 
           // ── 10. Plugin storage (SharedPreferences pour préférences plugin) ───
