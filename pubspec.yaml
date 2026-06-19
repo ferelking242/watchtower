@@ -59,6 +59,7 @@ dependencies:
       path: libs/universal/media_kit_libs_video
   crypto: ^3.0.7
   cupertino_icons: ^1.0.9
+  d4rt: ^0.2.2
   window_manager: ^0.5.1
   ffi: ^2.1.5
   ffigen: ^20.1.1
