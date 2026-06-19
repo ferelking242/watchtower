@@ -784,7 +784,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       final sections = <String, List<String>>{};
       String currentSection = 'change';
 
-      for (final line in cleaned.split('\n') {
+      for (final line in cleaned.split('\n')) {
         final trimmed = line.trim();
         if (trimmed.isEmpty) continue;
 
