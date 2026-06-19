@@ -1,7 +1,6 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -231,8 +230,8 @@ class ChapterPageDownload extends ConsumerWidget {
                       onPressed: () {
                         _startDownload(null, download.id, ref);
                       },
-                      icon: FaIcon(
-                        FontAwesomeIcons.circleDown,
+                      icon: Icon(
+                        Icons.download_for_offline_outlined,
                         color: Theme.of(
                           context,
                         ).iconTheme.color!.withValues(alpha: 0.7),

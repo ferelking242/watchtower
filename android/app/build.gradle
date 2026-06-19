@@ -81,13 +81,16 @@ android {
    }
    buildTypes {
        release {
-           signingConfig signingConfigs.release
+           signingConfig signingConfigs.watchtower
            minifyEnabled true
            shrinkResources true
            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
        }
        profile {
            signingConfig signingConfigs.watchtower
+           minifyEnabled true
+           shrinkResources true
+           proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
        }
        debug {
            signingConfig signingConfigs.watchtower
