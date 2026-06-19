@@ -663,7 +663,236 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     );
   }
 
-  // ── Grid / list view ───────────────────────────────────────────────────────
+
+    // ── Multi-section home view (Accueil) ─────────────────────────────────────
+
+    Widget _buildSectionHeader(BuildContext ctx, {
+      required String title,
+      VoidCallback? onSeeAll,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 22, 12, 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            if (onSeeAll != null)
+              GestureDetector(
+                onTap: onSeeAll,
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 28,
+                  color: ctx.primaryColor,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    Widget _buildHorizontalCoverRow(BuildContext ctx, List<MManga> mangas) {
+      if (mangas.isEmpty) return const SizedBox(height: 4);
+      final items = mangas.take(10).toList();
+      return SizedBox(
+        height: 210,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          itemCount: items.length,
+          itemBuilder: (c, i) => SizedBox(
+            width: 115,
+            child: MangaHomeImageCard(
+              manga: items[i],
+              source: source,
+              itemType: source.itemType,
+              isComfortableGrid: false,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget _buildHorizontalSkeleton(BuildContext ctx) {
+      final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
+      final high = Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
+      return Skeletonizer(
+        enabled: true,
+        effect: ShimmerEffect(
+          baseColor: base,
+          highlightColor: high,
+          duration: const Duration(milliseconds: 1200),
+        ),
+        child: SizedBox(
+          height: 210,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: 6,
+            itemBuilder: (_, __) => Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 110,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: base,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 90,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: base,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget _buildLatestVerticalList(BuildContext ctx, List<MManga> mangas) {
+      if (mangas.isEmpty) return const SizedBox(height: 4);
+      final items = mangas.take(10).toList();
+      return Column(
+        children: items
+            .map((m) => MangaHomeImageCardListTile(
+                  manga: m,
+                  source: source,
+                  itemType: source.itemType,
+                ))
+            .toList(),
+      );
+    }
+
+    Widget _buildLatestSkeleton(BuildContext ctx) {
+      final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
+      final high = Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
+      return Skeletonizer(
+        enabled: true,
+        effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
+        child: Column(
+          children: List.generate(5, (_) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 50, height: 72, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(6))),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(height: 14, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                      const SizedBox(height: 6),
+                      Container(width: 140, height: 12, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ),
+      );
+    }
+
+    Widget _buildSectionsView(BuildContext ctx) {
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Popular section ────────────────────────────────────────────────
+            _buildSectionHeader(ctx, title: 'Populaires'),
+            Consumer(
+              builder: (c, ref, _) {
+                final pop = ref.watch(getPopularProvider(source: source, page: 1));
+                return pop.when(
+                  data: (d) => _buildHorizontalCoverRow(ctx, d?.list ?? []),
+                  loading: () => _buildHorizontalSkeleton(ctx),
+                  error: (_, __) => const SizedBox(height: 8),
+                );
+              },
+            ),
+
+            // Custom list sections ────────────────────────────────────────────
+            ...List.generate(_customLists.length, (i) {
+              final cl = _customLists[i];
+              final listId = cl['id'] as String;
+              final listName = cl['name'] as String? ?? listId;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader(
+                    ctx,
+                    title: listName,
+                    onSeeAll: () {
+                      _mangaList.clear();
+                      setState(() {
+                        _selectedIndex = _kCustomBase + i;
+                        _isFiltering = false;
+                        _page = 1;
+                      });
+                    },
+                  ),
+                  Consumer(
+                    builder: (c, ref, _) {
+                      final data = ref.watch(getCustomListProvider(
+                        source: source,
+                        listId: listId,
+                        page: 1,
+                      ));
+                      return data.when(
+                        data: (d) => _buildHorizontalCoverRow(ctx, d?.list ?? []),
+                        loading: () => _buildHorizontalSkeleton(ctx),
+                        error: (_, __) => const SizedBox(height: 8),
+                      );
+                    },
+                  ),
+                ],
+              );
+            }),
+
+            // Latest Updates section ─────────────────────────────────────────
+            _buildSectionHeader(
+              ctx,
+              title: 'Dernières mises à jour',
+              onSeeAll: () {
+                _mangaList.clear();
+                setState(() {
+                  _selectedIndex = _kLatestIdx;
+                  _isFiltering = false;
+                  _page = 1;
+                });
+              },
+            ),
+            Consumer(
+              builder: (c, ref, _) {
+                final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+                return latest.when(
+                  data: (d) => _buildLatestVerticalList(ctx, d?.list ?? []),
+                  loading: () => _buildLatestSkeleton(ctx),
+                  error: (_, __) => const SizedBox(height: 8),
+                );
+              },
+            ),
+
+            const SizedBox(height: 32),
+          ],
+        ),
+      );
+    }
+
+    // ── Grid / list view ───────────────────────────────────────────────────────
 
   Widget _buildGrid(BuildContext context) {
     final displayType = (_selectedIndex == _kPopularIdx && _customLists.isNotEmpty)
@@ -860,6 +1089,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   // ── Body ───────────────────────────────────────────────────────────────────
 
   Widget _buildBody(BuildContext context) {
+    if (_selectedIndex == _kPopularIdx && _customLists.isNotEmpty) {
+      return _buildSectionsView(context);
+    }
+
     if (_getManga == null) return const SizedBox.shrink();
 
     if (_getManga!.isLoading && _mangaList.isEmpty) {
@@ -1084,66 +1317,101 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                       height: kToolbarHeight,
                       child: Center(
                         child: AnimatedOpacity(
-                          opacity: innerBoxIsScrolled ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 180),
-                          child: Text(
-                            sourceName,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
+                            opacity: innerBoxIsScrolled ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 180),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(5),
+                                    child: Image.network(
+                                      source.iconUrl!,
+                                      width: 22,
+                                      height: 22,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                    ),
+                                  ),
+                                if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
+                                  const SizedBox(width: 8),
+                                Text(
+                                  sourceName,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
                       ),
                     ),
                   ),
                   // Large title — sits just above the pills, fades out when scrolled.
-                  SafeArea(
-                    bottom: false,
-                    child: Align(
-                      alignment: Alignment.bottomLeft,
-                      child: AnimatedOpacity(
-                        opacity: innerBoxIsScrolled ? 0.0 : 1.0,
-                        duration: const Duration(milliseconds: 180),
-                        child: Padding(
-                          // bottom: 50 = pills height, so title sits above pills
-                          padding: const EdgeInsets.only(left: 18, bottom: 58),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                sourceName,
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.5,
+                    SafeArea(
+                      bottom: false,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: AnimatedOpacity(
+                          opacity: innerBoxIsScrolled ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 180),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 58),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: Image.network(
+                                          source.iconUrl!,
+                                          width: 36,
+                                          height: 36,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                    if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
+                                      const SizedBox(width: 12),
+                                    Text(
+                                      sourceName,
+                                      style: const TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -0.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (source.notes != null &&
-                                  source.notes!.isNotEmpty)
-                                SizedBox(
-                                  height: 18,
-                                  child: Marquee(
-                                    text: l10n.extension_notes(source.notes!),
-                                    style: const TextStyle(fontSize: 12),
-                                    blankSpace: 40.0,
-                                    velocity: 30.0,
-                                    pauseAfterRound:
-                                        const Duration(seconds: 1),
-                                    startPadding: 10.0,
+                                if (source.notes != null && source.notes!.isNotEmpty)
+                                  SizedBox(
+                                    height: 18,
+                                    child: Marquee(
+                                      text: l10n.extension_notes(source.notes!),
+                                      style: const TextStyle(fontSize: 12),
+                                      blankSpace: 40.0,
+                                      velocity: 30.0,
+                                      pauseAfterRound: const Duration(seconds: 1),
+                                      startPadding: 10.0,
+                                    ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
