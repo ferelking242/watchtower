@@ -111,14 +111,9 @@ class ZeusDlEngine implements DownloadEngine {
     List<String> args,
     void Function(DownloadProgress) onProgress,
   ) async {
-    // Resolve the execution context (executable + prepended args + extra env).
-    // On Android this uses the musl-linker trick to avoid execv() on noexec
-    // filesystems (Samsung Knox, MIUI strict mode, etc.):
-    //   executable  = nativeLibraryDir/libmusl.so
-    //   prependArgs = [nativeLibraryDir/libzeusdl.so]
-    //   extraEnv    = {LD_PRELOAD: nativeLibraryDir/libz_zeusdl.so}
-    // All three files live in nativeLibraryDir which is installed by
-    // PackageManager with exec-capable SELinux context on ALL devices.
+    // Resolve the execution context (executable path + args + env).
+    // Binary is extracted from assets/binaries/zeusdl (CI-injected)
+    // or previously downloaded via the binaries marketplace.
     final ctx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
 
     if (ctx == null) {

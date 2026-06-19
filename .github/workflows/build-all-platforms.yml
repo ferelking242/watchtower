@@ -64,9 +64,6 @@ jobs:
             ZEUSDL_ARCH="x86_64"
           fi
           echo "=== Bundling ZeusDL ($ZEUSDL_ARCH) as Flutter asset ==="
-          # Remove ET_EXEC stubs — Android 10+ rejects non-PIE .so at install time
-          rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
-          rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
           # Ensure asset dir exists (Flutter requires every declared asset dir to be present)
           mkdir -p assets/binaries
           # Search the last 10 releases for the per-arch binary.
@@ -173,8 +170,6 @@ jobs:
         run: |
           set -euo pipefail
           echo "=== Bundling ZeusDL (arm64) as Flutter asset for Universal APK ==="
-          rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
-          rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
           # Ensure asset dir exists (Flutter requires every declared asset dir to be present)
           mkdir -p assets/binaries
           # Search the last 10 releases for the per-arch binary.
