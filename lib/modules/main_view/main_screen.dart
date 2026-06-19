@@ -755,6 +755,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: 'Schedule',
       );
     }
+    if (dest.contains('/plugins')) {
+      destMap['/plugins'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.extension_rounded),
+        icon: Icon(Icons.extension_outlined),
+        label: 'Plugins',
+      );
+    }
 
     // Reconstruct in the original order, dropping any unrecognised routes
     final result = dest
@@ -909,7 +916,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
     '/updates', '/browse', '/more', '/trackerLibrary', '/globalSearch',
-    '/settings', '/marketplace', '/discover',
+    '/settings', '/marketplace', '/discover', '/plugins',
   };
 
   static const _mainItems = [

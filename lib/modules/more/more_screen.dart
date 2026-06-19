@@ -258,11 +258,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
           label: (_) => l10n.data_and_storage,
           route: '/dataAndStorage',
         ),
-        _NavItem(
-          icon: Icons.extension_rounded,
-          label: (_) => 'Plugins',
-          route: '/plugins',
-        ),
+    
         _NavItem(
           icon: Icons.language_rounded,
           label: (_) => 'Web View',
