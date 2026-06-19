@@ -12,17 +12,13 @@
   chrono = "0.4.44"
   futures-util = "0.3.31"
   reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls", "stream", "multipart", "socks", "brotli", "gzip"] }
+  # Direct rustls + webpki-roots so we can call use_preconfigured_tls() with a
+  # Mozilla CA bundle.  This bypasses rustls-platform-verifier entirely — it panics
+  # on Android without JNI initialisation and is not available on iOS/TrollStore.
+  rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
+  webpki-roots = "0.26"
   tokio = { version = "1.50.0", features = ["full"] }
   tokio-util = "0.7.16"
   epub = "2.1.5"
   zip = "8.5.0"
-
-  # Android: initialise rustls-platform-verifier from JNI_OnLoad so that HTTPS
-  # requests via reqwest/rustls can verify server certificates through the Android
-  # system trust-store.  ndk-context is used to obtain the Application context
-  # (Flutter sets it up before loading our library via RustLib.init()).
-  [target.'cfg(target_os = "android")'.dependencies]
-  jni = { version = "0.21.1", default-features = false }
-  rustls-platform-verifier = "0.6.2"
-  ndk-context = "0.1.1"
   
