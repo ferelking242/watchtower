@@ -158,9 +158,22 @@ async function jsonStringify(fn) {
 }
 ''');
 
-      final sourceCode = _normalizeJsExtensionCode(source.sourceCode ?? '');
+      final rawSourceCode = source.sourceCode ?? '';
+        final sourceCode = _normalizeJsExtensionCode(rawSourceCode);
+        AppLogger.log(
+          '_initAsync "${source.name ?? source.id}" — sourceCode=${rawSourceCode.length} chars'
+          '${rawSourceCode.isEmpty ? " [EMPTY — extension not installed?]" : ""}',
+          logLevel: rawSourceCode.isEmpty ? LogLevel.error : LogLevel.info,
+          tag: LogTag.extension_,
+        );
+        if (rawSourceCode.isEmpty) {
+          throw Exception(
+            'Extension "${source.name ?? source.id}" has no source code. '
+            'Please uninstall and reinstall the extension.',
+          );
+        }
 
-      JsEvalResult loadResult;
+        JsEvalResult loadResult;
 
       if (!kIsWeb) {
         // ── Native: compile to bytecode once, cache to disk ──────────────────
@@ -201,14 +214,26 @@ var extention = new DefaultExtension();
       }
 
       _isInitialized = true;
-      completer.complete();
-    } catch (e, st) {
-      // Reset so callers can retry (e.g. after a bytecode cache hit fails).
-      _initCompleter = null;
-      completer.completeError(e, st);
-      rethrow;
+        AppLogger.log(
+          '_initAsync "${source.name ?? source.id}" complete',
+          logLevel: LogLevel.info,
+          tag: LogTag.extension_,
+        );
+        completer.complete();
+      } catch (e, st) {
+        AppLogger.log(
+          '_initAsync "${source.name ?? source.id}" FAILED: $e',
+          logLevel: LogLevel.error,
+          tag: LogTag.extension_,
+          error: e,
+          stackTrace: st,
+        );
+        // Reset so callers can retry (e.g. after a bytecode cache hit fails).
+        _initCompleter = null;
+        completer.completeError(e, st);
+        rethrow;
+      }
     }
-  }
 
   /// Sync guard used by the few synchronous methods (getHeaders, supportsLatest,
   /// getFilterList…). Those methods are called only after the extension has
@@ -284,32 +309,32 @@ var extention = new DefaultExtension();
 
   @override
   Future<MPages> getPopular(int page) async {
-    await _initAsync();
-    try {
-      return MPages.fromJson(await _extensionCallAsync('getPopular($page)'));
-    } catch (e) {
-      AppLogger.log('getPopular failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
-      return MPages(list: [], hasNextPage: false);
+      try {
+        await _initAsync();
+        return MPages.fromJson(await _extensionCallAsync('getPopular($page)'));
+      } catch (e) {
+        AppLogger.log('getPopular failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
+        return MPages(list: [], hasNextPage: false);
+      }
     }
-  }
 
   @override
   Future<MPages> getLatestUpdates(int page) async {
-    await _initAsync();
-    try {
-      return MPages.fromJson(
-        await _extensionCallAsync('getLatestUpdates($page)'),
-      );
-    } catch (e) {
-      AppLogger.log('getLatestUpdates failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
-      return MPages(list: [], hasNextPage: false);
+      try {
+        await _initAsync();
+        return MPages.fromJson(
+          await _extensionCallAsync('getLatestUpdates($page)'),
+        );
+      } catch (e) {
+        AppLogger.log('getLatestUpdates failed: $e', logLevel: LogLevel.error, tag: LogTag.extension_);
+        return MPages(list: [], hasNextPage: false);
+      }
     }
-  }
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
-    await _initAsync();
-    try {
+      try {
+        await _initAsync();
       return MPages.fromJson(
         await _extensionCallAsync(
           'search(${jsonEncode(query)},$page,${jsonEncode(filterValuesListToJson(filters))})',
@@ -475,7 +500,7 @@ var extention = new DefaultExtension();
       AppLogger.log(
         '$call → rawType=${evalResult.rawResult?.runtimeType} '
         'str=${evalResult.stringResult.length > 80 ? evalResult.stringResult.substring(0, 80) + "…" : evalResult.stringResult}',
-        logLevel: LogLevel.debug,
+        logLevel: LogLevel.info,
         tag: LogTag.extension_,
       );
 
