@@ -11,15 +11,17 @@
   image = "0.25.10"
   chrono = "0.4.44"
   futures-util = "0.3.31"
-  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls-ring", "stream", "multipart", "socks", "brotli", "gzip"] }
-  # Direct rustls + webpki-roots so we can call use_preconfigured_tls() with a
-  # Mozilla CA bundle.  This bypasses rustls-platform-verifier entirely.
+  # rustls-no-provider = rustls stack (hyper-rustls, tokio-rustls, rustls) with
+  # rustls-platform-verifier as cert verifier BUT without any bundled crypto
+  # provider.  We supply ring ourselves via the direct rustls dep below.
   #
-  # IMPORTANT: use "ring" (pure Rust) NOT "aws_lc_rs".
-  # aws-lc-rs is a fork of BoringSSL written in C.  It runs FIPS power-on
-  # self-tests at dylib load time (before any Dart/Flutter code runs).  On
-  # TrollStore those tests call abort() → SIGABRT with 0 logs, instant crash.
-  # ring has no C code and no startup initialisation — safe on iOS/TrollStore.
+  # DO NOT use the plain "rustls" feature — it adds "__rustls-aws-lc-rs" which
+  # enables aws-lc-rs on every rustls crate in the graph.  aws-lc-rs runs FIPS
+  # C self-tests at dylib load time (before Flutter/Dart).  On TrollStore those
+  # tests call abort() → SIGABRT with 0 logs — instant silent crash on launch.
+  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls-no-provider", "stream", "multipart", "socks", "brotli", "gzip"] }
+  # ring is 100% Rust, zero C init, zero FIPS POST — safe on iOS/TrollStore.
+  # It is installed as the process-default provider in client.rs before any TLS.
   rustls = { version = "0.23", default-features = false, features = ["ring"] }
   webpki-roots = "0.26"
   tokio = { version = "1.50.0", features = ["full"] }
