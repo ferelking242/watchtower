@@ -495,41 +495,61 @@ class PythonPackageInfo {
     final env = await _env;
     final results = <String>[];
 
-    for (final pkg in missing) {
-      onProgress?.call('$pluginId — installation de $pkg...');
-      try {
-        final res = await Process.run(
-          exe,
-          ['-m', 'pip', 'install', pkg,
-           '--target', sp,
-           '--no-warn-script-location',
-           '--prefer-binary', '-q'],
-          environment: env,
-        ).timeout(const Duration(minutes: 3));
+    // Packages with C extensions — force binary-only (no C toolchain on device).
+      // Pre-built wheels for linux_aarch64 cover Android arm64 in the Python-for-Android runtime.
+      const _binaryOnlyPackages = <String>{'tgcrypto'};
+      // Optional packages: failure is non-blocking, dependents have pure-Python fallbacks.
+      const _optionalPackages = <String>{'tgcrypto'};
 
-        if (res.exitCode == 0) {
-          results.add('✓ $pkg');
-          AppLogger.log('LibPython: $pkg installé ✓',
-              tag: LogTag.zeus, logLevel: LogLevel.info);
-        } else {
-          results.add('✗ $pkg');
-          AppLogger.log(
-              'LibPython: $pkg ERREUR: ${(res.stderr as String).split("\n").last}',
-              tag: LogTag.zeus, logLevel: LogLevel.warning);
+      for (final pkg in missing) {
+        onProgress?.call('$pluginId — installation de $pkg...');
+        final binaryOnly = _binaryOnlyPackages.contains(pkg.toLowerCase());
+        try {
+          final res = await Process.run(
+            exe,
+            [
+              '-m', 'pip', 'install', pkg,
+              '--target', sp,
+              '--no-warn-script-location',
+              '--prefer-binary',
+              if (binaryOnly) '--only-binary', if (binaryOnly) ':all:',
+            ],
+            environment: env,
+          ).timeout(const Duration(minutes: 3));
+
+          if (res.exitCode == 0) {
+            results.add('✓ $pkg');
+            AppLogger.log('LibPython: $pkg installé ✓',
+                tag: LogTag.zeus, logLevel: LogLevel.info);
+          } else {
+            results.add('✗ $pkg');
+            final errLines = (res.stderr as String)
+                .split('\n')
+                .where((l) => l.trim().isNotEmpty)
+                .toList();
+            final errMsg = errLines.isEmpty ? '(vide)' : errLines.last;
+            AppLogger.log('LibPython: $pkg ERREUR: $errMsg',
+                tag: LogTag.zeus, logLevel: LogLevel.warning);
+          }
+        } catch (e) {
+          results.add('✗ $pkg ($e)');
         }
-      } catch (e) {
-        results.add('✗ $pkg ($e)');
       }
-    }
 
-    final allOk = results.every((r) => r.startsWith('✓'));
-    if (allOk) {
-      await markerFile.parent.create(recursive: true);
-      await markerFile.writeAsString(depsHash);
-    }
+      // Write marker if all *critical* packages succeeded.
+      // Optional packages (tgcrypto) do not block the marker — pyrogram has a
+      // built-in pure-Python crypto fallback when tgcrypto is absent.
+      final criticalFailed = missing
+          .where((pkg) => !_optionalPackages.contains(pkg.toLowerCase()))
+          .any((pkg) => results.any((r) => r.startsWith('✗') && r.contains(pkg)));
 
-    return results.join('\n');
-  }
+      if (!criticalFailed) {
+        await markerFile.parent.create(recursive: true);
+        await markerFile.writeAsString(depsHash);
+      }
+
+      return results.join('\n');
+    }
 
 
   /// Ensures all ZeusDL deps are installed. Fire-and-forget safe.
