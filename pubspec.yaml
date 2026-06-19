@@ -159,11 +159,8 @@ flutter:
     - assets/animations/
     - assets/trackers_icons/
     - assets/app_icons/
-    - assets/zeusdl/
     - assets/icons/
     - assets/binaries/
-    - assets/wheels/
-    - assets/telegram/
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true

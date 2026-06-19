@@ -113,22 +113,6 @@ jobs:
           fi
           grep "assets/" pubspec.yaml
 
-      - name: Bundle pip wheel (offline pip bootstrap)
-        run: |
-          set -euo pipefail
-          mkdir -p assets/wheels /tmp/py_wheels_ios
-          pip3 download "pip>=24.0" \
-            --only-binary :all: \
-            --no-deps \
-            -d /tmp/py_wheels_ios/
-          PIP_WHL=$(ls /tmp/py_wheels_ios/pip*.whl 2>/dev/null | head -1)
-          if [ -n "$PIP_WHL" ]; then
-            cp "$PIP_WHL" assets/wheels/pip.whl
-            echo "pip bundled: $(basename $PIP_WHL)"
-          else
-            echo "WARN: pip wheel not found"
-          fi
-
       - name: Remove stale Podfile.lock
         run: rm -f ios/Podfile.lock
 

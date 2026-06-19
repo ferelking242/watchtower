@@ -24,7 +24,6 @@ import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.da
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
 import 'package:watchtower/modules/plugins/plugins_page.dart';
 import 'package:watchtower/modules/plugins/zeus_dl_screen.dart';
-import 'package:watchtower/modules/plugins/telegram_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
@@ -83,7 +82,6 @@ import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/modules/more/settings/settings_screen.dart';
 import 'package:watchtower/modules/more/settings/security/security_screen.dart';
 import 'package:watchtower/modules/more/settings/advanced/advanced_screen.dart';
-import 'package:watchtower/modules/more/settings/advanced/libpython_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/modules/splash/splash_screen.dart';
@@ -254,7 +252,6 @@ class RouterNotifier extends ChangeNotifier {
           AnilistBrowseScreen(filter: data.$1, title: data.$2),
     ),
     _genericRoute(name: "zeusdl", child: const ZeusDlScreen()),
-    _genericRoute(name: "telegram", child: const TelegramScreen()),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),
     _genericRoute(name: "track", child: const TrackScreen()),
@@ -293,7 +290,6 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute(name: "dataAndStorage", child: const DataAndStorage()),
     _genericRoute(name: "security", child: const SecurityScreen()),
     _genericRoute(name: "advanced", child: const AdvancedScreen()),
-    _genericRoute(name: "libpython", child: const LibPythonScreen()),
     _genericRoute(name: "manageTrackers", child: const ManageTrackersScreen()),
     _genericRoute<TrackPreference>(
       name: "trackingDetail",

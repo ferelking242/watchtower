@@ -439,19 +439,6 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                               ),
                               const SizedBox(width: 10),
                               _SocialButton(
-                                icon: const FaIcon(
-                                  FontAwesomeIcons.telegram,
-                                  size: 18,
-                                ),
-                                label: 'Telegram',
-                                cs: cs,
-                                isDark: isDark,
-                                onTap: () => _launchInBrowser(
-                                  Uri.parse('https://t.me/watchtowerapp'),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              _SocialButton(
                                 icon: const Icon(
                                   Icons.email_outlined,
                                   size: 18,

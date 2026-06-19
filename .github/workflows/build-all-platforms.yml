@@ -52,49 +52,6 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Bundle Python wheels (pip + tgcrypto + pyrogram)
-        run: |
-          set -euo pipefail
-          mkdir -p assets/wheels /tmp/py_wheels
-
-          # Arch-specific wheel for tgcrypto (C extension)
-          if [[ "${{ matrix.target }}" == *"arm64"* ]]; then
-            PLATFORM="manylinux_2_17_aarch64"
-          else
-            PLATFORM="manylinux_2_17_x86_64"
-          fi
-          echo "=== Downloading tgcrypto ($PLATFORM) ==="
-          pip3 download tgcrypto \
-            --platform "$PLATFORM" \
-            --python-version 311 \
-            --only-binary :all: \
-            --no-deps \
-            -d /tmp/py_wheels/
-          TGCRYPTO=$(ls /tmp/py_wheels/tgcrypto*.whl | head -1)
-          cp "$TGCRYPTO" assets/wheels/tgcrypto.whl
-          echo "  tgcrypto: $(basename $TGCRYPTO)"
-
-          echo "=== Downloading pyrogram wheel (pure Python) ==="
-          pip3 download pyrogram \
-            --only-binary :all: \
-            --no-deps \
-            -d /tmp/py_wheels/
-          PYROGRAM=$(ls /tmp/py_wheels/pyrogram*.whl | head -1)
-          cp "$PYROGRAM" assets/wheels/pyrogram.whl
-          echo "  pyrogram: $(basename $PYRO
-            echo "=== Downloading pip wheel (pure Python ~2MB, offline bootstrap) ==="
-            pip3 download "pip>=24.0" \
-              --only-binary :all: \
-              --no-deps \
-              -d /tmp/py_wheels/
-            PIP_WHL=$(ls /tmp/py_wheels/pip*.whl 2>/dev/null | head -1)
-            if [ -n "$PIP_WHL" ]; then
-              cp "$PIP_WHL" assets/wheels/pip.whl
-              echo "  pip: $(basename $PIP_WHL) ($(wc -c < assets/wheels/pip.whl) bytes)"
-            else
-              echo "WARN: pip wheel not found — pip bootstrap will use ensurepip/get-pip.py"
-            fi
-
       - name: Bundle ZeusDL as Flutter asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -110,8 +67,8 @@ jobs:
           # Remove ET_EXEC stubs — Android 10+ rejects non-PIE .so at install time
           rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
           rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
-          # Ensure asset dirs exist (Flutter requires every declared asset dir to be present)
-          mkdir -p assets/binaries assets/zeusdl
+          # Ensure asset dir exists (Flutter requires every declared asset dir to be present)
+          mkdir -p assets/binaries
           # Search the last 10 releases for the per-arch binary.
           # "releases/latest" only returns a zip; per-arch ELFs live in standalone releases.
           ASSET_NAME="zeusdl-android-${ZEUSDL_ARCH}"
@@ -218,8 +175,8 @@ jobs:
           echo "=== Bundling ZeusDL (arm64) as Flutter asset for Universal APK ==="
           rm -f android/app/src/main/jniLibs/arm64-v8a/libzeusdl.so
           rm -f android/app/src/main/jniLibs/x86_64/libzeusdl.so
-          # Ensure asset dirs exist (Flutter requires every declared asset dir to be present)
-          mkdir -p assets/binaries assets/zeusdl
+          # Ensure asset dir exists (Flutter requires every declared asset dir to be present)
+          mkdir -p assets/binaries
           # Search the last 10 releases for the per-arch binary.
           # "releases/latest" only returns a zip; per-arch ELFs live in standalone releases.
           ASSET_URL=$(curl -fsSL \

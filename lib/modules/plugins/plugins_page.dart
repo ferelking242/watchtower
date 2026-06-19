@@ -47,19 +47,6 @@ const _kBuiltIn = [
     iconBg: Color(0xFF6C3CE1),
     route: '/zeusdl',
   ),
-  _PluginMeta(
-    id: 'telegram-plugin',
-    name: 'Telegram',
-    subtitle: 'telegram-plugin',
-    description: 'Source de contenu via Telegram. Accès aux canaux, groupes et messages privés.',
-    version: '1.0.0',
-    author: 'Watchtower',
-    lang: 'Global',
-    icon: Icons.send_rounded,
-    iconColor: Colors.white,
-    iconBg: Color(0xFF2AABEE),
-    route: '/telegram',
-  ),
 ];
 
 // ─── Main page ───────────────────────────────────────────────────────────────

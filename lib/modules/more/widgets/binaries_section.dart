@@ -39,7 +39,7 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
     _ToolDef(
       name: 'yt-dlp',
       label: 'yt-dlp',
-      description: 'Téléchargement YouTube & 1000+ sites. Tourne sur le runtime Python déjà embarqué — aucun poids supplémentaire.',
+      description: 'Téléchargement YouTube & 1000+ sites.',
       icon: Icons.video_library_rounded,
     ),
     _ToolDef(
@@ -81,11 +81,10 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
   String _urlForArch(_ToolDef tool, _Arch arch) {
     final isX64 = arch == _Arch.x86_64;
     if (tool.name == 'zeusdl') {
-      // Méthode B : zeusdl.zip = scripts Python, indépendant de l'arch
-      return 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl.zip';
+      final archSuffix = arch == _Arch.x86_64 ? 'x86_64' : 'arm64';
+      return 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl-android-$archSuffix';
     }
     if (tool.name == 'yt-dlp') {
-      // Python zipapp indépendant de l'arch — tourne sur libpython.so déjà embarqué
       return 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
     }
     if (tool.name == 'aria2c') {
@@ -141,12 +140,10 @@ Future<String?> _getNativeLibDir() async {
 Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
   if (nativeDir == null || nativeDir.isEmpty) return null;
   try {
-    // ZeusDL et yt-dlp s'exécutent via libpython.so (Python Bionic, sans SIGSEGV).
-    // Pas de lib native dédiée — on détecte la présence du runtime Python.
-    if (name == 'zeusdl' || name == 'yt-dlp') {
-      final pythonLib = File('$nativeDir/libpython.so');
-      if (await pythonLib.exists() && await pythonLib.length() > 0) {
-        return 'Python runtime';
+    if (name == 'zeusdl') {
+      final nativeLib = File('$nativeDir/libzeusdl.so');
+      if (await nativeLib.exists() && await nativeLib.length() > 0) {
+        return _fmtBytes(await nativeLib.length());
       }
       return null;
     }
