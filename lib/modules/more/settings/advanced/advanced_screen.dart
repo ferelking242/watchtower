@@ -86,7 +86,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   bool _logTagExt = true;
   bool _logTagDl = true;
   bool _logTagNet = true;
-  bool _logTagZeus = true;
   bool _logTagUi = true;
   bool _logTagManga = false;
   bool _logTagPage = false;
@@ -247,7 +246,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _getBool(kLogTagExt, defaultValue: true),
       _getBool(kLogTagDl, defaultValue: true),
       _getBool(kLogTagNet, defaultValue: true),
-      _getBool(kLogTagZeus, defaultValue: true),
       _getBool(kLogTagUi, defaultValue: true),
       _getBool(kLogTagManga, defaultValue: true),
       _getBool(kLogTagPage, defaultValue: true),
@@ -270,15 +268,14 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         _logTagExt = results[8] as bool;
         _logTagDl = results[9] as bool;
         _logTagNet = results[10] as bool;
-        _logTagZeus = results[11] as bool;
-        _logTagUi = results[12] as bool;
-        _logTagManga = results[13] as bool;
-        _logTagPage = results[14] as bool;
-        _logTagHls = results[15] as bool;
-        _logTagInstall = results[16] as bool;
-        _logTagReader = results[17] as bool;
-        _logTagWatch = results[18] as bool;
-        _logTagMaint = results[19] as bool;
+        _logTagUi = results[11] as bool;
+        _logTagManga = results[12] as bool;
+        _logTagPage = results[13] as bool;
+        _logTagHls = results[14] as bool;
+        _logTagInstall = results[15] as bool;
+        _logTagReader = results[16] as bool;
+        _logTagWatch = results[17] as bool;
+        _logTagMaint = results[18] as bool;
         _loading = false;
       });
     }
@@ -298,7 +295,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _logTagExt = tags[kLogTagExt]!;
       _logTagDl = tags[kLogTagDl]!;
       _logTagNet = tags[kLogTagNet]!;
-      _logTagZeus = tags[kLogTagZeus]!;
       _logTagUi = tags[kLogTagUi]!;
       _logTagManga = tags[kLogTagManga]!;
       _logTagPage = tags[kLogTagPage]!;
@@ -1054,7 +1050,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             logTagExt: _logTagExt,
             logTagDl: _logTagDl,
             logTagNet: _logTagNet,
-            logTagZeus: _logTagZeus,
             logTagUi: _logTagUi,
             logTagManga: _logTagManga,
             logTagPage: _logTagPage,
@@ -1074,7 +1069,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   case kLogTagExt: _logTagExt = v; break;
                   case kLogTagDl: _logTagDl = v; break;
                   case kLogTagNet: _logTagNet = v; break;
-                  case kLogTagZeus: _logTagZeus = v; break;
                   case kLogTagUi: _logTagUi = v; break;
                   case kLogTagManga: _logTagManga = v; break;
                   case kLogTagPage: _logTagPage = v; break;
@@ -1106,7 +1100,6 @@ class _LogAdvancedSection extends ConsumerWidget {
   final bool logTagExt;
   final bool logTagDl;
   final bool logTagNet;
-  final bool logTagZeus;
   final bool logTagUi;
   final bool logTagManga;
   final bool logTagPage;
@@ -1125,7 +1118,6 @@ class _LogAdvancedSection extends ConsumerWidget {
     required this.logTagExt,
     required this.logTagDl,
     required this.logTagNet,
-    required this.logTagZeus,
     required this.logTagUi,
     required this.logTagManga,
     required this.logTagPage,
@@ -1366,12 +1358,6 @@ class _LogAdvancedSection extends ConsumerWidget {
           subtitle: "Requêtes HTTP, redirections, erreurs réseau",
           tagKey: kLogTagNet,
           value: logTagNet,
-        ),
-        _logToggle(
-          title: "ZeusDL [ZEUS]",
-          subtitle: "Moteur ZeusDL / yt-dlp – sorties complètes",
-          tagKey: kLogTagZeus,
-          value: logTagZeus,
         ),
         _logToggle(
           title: "Manga [MANGA]",

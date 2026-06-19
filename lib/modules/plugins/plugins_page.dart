@@ -33,21 +33,7 @@ class _PluginMeta {
   });
 }
 
-const _kBuiltIn = [
-  _PluginMeta(
-    id: 'zeusdl-plugin',
-    name: 'ZeusDL',
-    subtitle: 'zeusdl-plugin',
-    description: 'Téléchargeur vidéo & audio universel. YouTube, Twitter, TikTok et +1000 sites supportés.',
-    version: '1.0.0',
-    author: 'ZeusDL',
-    lang: 'Global',
-    icon: Icons.download_for_offline_rounded,
-    iconColor: Colors.white,
-    iconBg: Color(0xFF6C3CE1),
-    route: '/zeusdl',
-  ),
-];
+const _kBuiltIn = <_PluginMeta>[];
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 

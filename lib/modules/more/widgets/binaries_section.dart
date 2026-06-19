@@ -5,7 +5,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:http/http.dart' as http;
   import 'package:path_provider/path_provider.dart';
   import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
-  import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
   import 'package:watchtower/utils/log/logger.dart';
 
 const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
@@ -30,18 +29,6 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
   }
 
   const List<_ToolDef> _kTools = [
-    _ToolDef(
-      name: 'zeusdl',
-      label: 'ZeusDL',
-      description: 'Moteur de téléchargement universel — TikTok, YouTube, Instagram, etc.',
-      icon: Icons.bolt_rounded,
-    ),
-    _ToolDef(
-      name: 'yt-dlp',
-      label: 'yt-dlp',
-      description: 'Téléchargement YouTube & 1000+ sites.',
-      icon: Icons.video_library_rounded,
-    ),
     _ToolDef(
       name: 'aria2c',
       label: 'aria2c',
@@ -80,13 +67,6 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
 
   String _urlForArch(_ToolDef tool, _Arch arch) {
     final isX64 = arch == _Arch.x86_64;
-    if (tool.name == 'zeusdl') {
-      final archSuffix = arch == _Arch.x86_64 ? 'x86_64' : 'arm64';
-      return 'https://github.com/ferelking242/zeusdl/releases/latest/download/zeusdl-android-$archSuffix';
-    }
-    if (tool.name == 'yt-dlp') {
-      return 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
-    }
     if (tool.name == 'aria2c') {
       return 'https://github.com/abcfy2/aria2-static-build/releases/latest/download/aria2-${isX64 ? 'x86_64' : 'aarch64'}-linux-musl_static.zip';
     }
@@ -275,7 +255,6 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         }
         try { await Process.run('chmod', ['+x', dstFile.path]); } catch (_) {}
 
-        ZeusDlBinaryManager.instance.resetCachedPath();
         Aria2BinaryManager.instance.resetCachedPath();
 
         final sz = _fmtBytes(await dstFile.length());
@@ -304,7 +283,6 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         final dir = await _binariesDir();
         final f = File('${dir.path}/${tool.name}');
         if (await f.exists()) await f.delete();
-        ZeusDlBinaryManager.instance.resetCachedPath();
         Aria2BinaryManager.instance.resetCachedPath();
       } catch (e) {
         AppLogger.log('Uninstall error: ${tool.name}: $e', logLevel: LogLevel.error);

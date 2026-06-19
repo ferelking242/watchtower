@@ -14,7 +14,6 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
-import 'package:watchtower/modules/more/about/providers/check_zeus_update.dart';
 import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
 import 'package:watchtower/services/fetch_sources_list.dart' show compareVersions;
 import 'package:watchtower/modules/more/about/providers/get_package_info.dart';
@@ -23,7 +22,6 @@ import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
-import 'package:watchtower/services/download_manager/engines/zeus_dl_binary_manager.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -32,10 +30,32 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/utils/constant.dart';
 
-const String _zeusReleasesUrl =
-    'https://github.com/ferelking242/zeusdl/releases';
-String? _zeusInstalledVersion;
-bool _zeusInstalledIsNightly = false;
+// Generic release/asset types used by binary download helpers (e.g. aria2).
+class ZeusRelease {
+  final String version;
+  final String htmlUrl;
+  final String publishedAt;
+  final bool isNightly;
+  final List<ZeusReleaseAsset> assets;
+  const ZeusRelease({
+    required this.version,
+    required this.htmlUrl,
+    required this.publishedAt,
+    required this.isNightly,
+    required this.assets,
+  });
+}
+
+class ZeusReleaseAsset {
+  final String name;
+  final String downloadUrl;
+  final int size;
+  const ZeusReleaseAsset({
+    required this.name,
+    required this.downloadUrl,
+    required this.size,
+  });
+}
 
 class AboutScreen extends ConsumerStatefulWidget {
   const AboutScreen({super.key});
@@ -52,7 +72,6 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     final l10n = l10nLocalizations(context)!;
     final checkForUpdates = ref.watch(checkForAppUpdatesProvider);
     final enableLogs = ref.watch(logsStateProvider);
-    final zeusAsync = ref.watch(zeusLatestReleaseProvider);
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -592,16 +611,6 @@ class _BinaryStoreSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _StoreEngineRow(
-              icon: Icons.bolt_rounded,
-              iconColor: cs.primary,
-              name: 'ZeusDL',
-              badge: 'Streaming',
-              badgeColor: cs.primary,
-              description: 'Moteur basé sur yt-dlp — streaming, HLS, DASH, YouTube et plus.',
-              installed: _zeusInstalledVersion != null,
-            ),
-            const SizedBox(height: 10),
-            _StoreEngineRow(
               icon: Icons.account_tree_rounded,
               iconColor: cs.tertiary,
               name: 'Aria2',
@@ -942,276 +951,6 @@ class _Aria2Feature extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ZeusDL Card
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ZeusDLCard extends StatelessWidget {
-  final AsyncValue<ZeusRelease?> zeusAsync;
-  final ColorScheme colorScheme;
-  final bool isDark;
-  final VoidCallback onCheckTap;
-
-  const _ZeusDLCard({
-    required this.zeusAsync,
-    required this.colorScheme,
-    required this.isDark,
-    required this.onCheckTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = colorScheme;
-    final isLoading = zeusAsync.isLoading;
-    final ZeusRelease? latest = zeusAsync.when(
-      data: (v) => v,
-      loading: () => null,
-      error: (_, __) => null,
-    );
-    final hasError = zeusAsync.hasError;
-    final bool displayNightly = _zeusInstalledIsNightly;
-    final String statusLabel = displayNightly ? 'Nightly' : 'Stable';
-    final Color statusColor = displayNightly ? Colors.orange : Colors.green;
-
-    String updateLabel = '';
-    Color updateColor = cs.onSurface.withOpacity(0.4);
-    bool hasUpdate = false;
-
-    if (latest != null) {
-      if (_zeusInstalledVersion == null) {
-        updateLabel = 'Installed version unknown — tap Download to update';
-        updateColor = cs.onSurface.withOpacity(0.4);
-        hasUpdate = true;
-      } else if (latest.version != _zeusInstalledVersion) {
-        updateLabel = 'Update available — ${latest.version}';
-        updateColor = Colors.orange;
-        hasUpdate = true;
-      } else {
-        updateLabel = 'Up to date';
-        updateColor = Colors.green;
-      }
-    } else if (hasError) {
-      updateLabel = 'Check failed';
-      updateColor = Colors.red;
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  cs.primaryContainer.withOpacity(0.25),
-                  cs.secondaryContainer.withOpacity(0.15),
-                ]
-              : [
-                  cs.primaryContainer.withOpacity(0.45),
-                  cs.secondaryContainer.withOpacity(0.3),
-                ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: cs.primary.withOpacity(isDark ? 0.2 : 0.15),
-          width: 0.9,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: cs.primary.withOpacity(0.2),
-                    width: 0.8,
-                  ),
-                ),
-                child: Icon(
-                  Icons.bolt_rounded,
-                  size: 22,
-                  color: cs.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'ZeusDL',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            statusLabel,
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              color: statusColor,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _zeusInstalledVersion != null
-                          ? 'v$_zeusInstalledVersion · Download engine'
-                          : 'Download engine',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: cs.onSurface.withOpacity(0.55),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          if (latest != null || hasError) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(
-                  hasUpdate
-                      ? Icons.upgrade_rounded
-                      : (hasError
-                          ? Icons.error_outline_rounded
-                          : Icons.check_circle_rounded),
-                  size: 13,
-                  color: updateColor,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  updateLabel,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: updateColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ],
-
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: isLoading
-                      ? null
-                      : (hasUpdate && latest != null
-                          ? () => _startZeusDownload(context, latest)
-                          : onCheckTap),
-                  icon: isLoading
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(
-                          hasUpdate
-                              ? Icons.download_rounded
-                              : (_zeusInstalledVersion == null
-                                  ? Icons.download_rounded
-                                  : Icons.refresh_rounded),
-                          size: 15,
-                        ),
-                  label: Text(
-                    isLoading
-                        ? '...'
-                        : (hasUpdate
-                            ? 'Mettre à jour ${latest?.version ?? ''}'
-                            : (_zeusInstalledVersion == null
-                                ? 'Télécharger'
-                                : 'Vérifier MàJ')),
-                    style: GoogleFonts.inter(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.outlined(
-                style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: cs.outline.withOpacity(0.3)),
-                  visualDensity: VisualDensity.compact,
-                ),
-                tooltip: 'Importer un binaire local',
-                onPressed: () => _importZeusDLBinary(context),
-                icon: const Icon(Icons.file_upload_outlined, size: 16),
-              ),
-              if (latest != null) ...[
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(color: cs.outline.withOpacity(0.3)),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  tooltip: 'Page de release',
-                  onPressed: () => _launchInBrowser(
-                    Uri.parse(
-                      latest.htmlUrl.isNotEmpty
-                          ? latest.htmlUrl
-                          : _zeusReleasesUrl,
-                    ),
-                  ),
-                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Social button
@@ -1285,7 +1024,7 @@ Future<void> _launchInBrowser(Uri url) async {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Binary download helpers (ZeusDL + Aria2)
+// Binary download helpers (Aria2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Detect the platform/arch identifier the binary asset name should contain
@@ -1329,101 +1068,7 @@ bool _isWrongPlatform(String name) {
   return false;
 }
 
-Future<void> _startZeusDownload(
-  BuildContext context,
-  ZeusRelease release,
-) async {
-  // Filter out .sha256 checksum files upfront
-  final allAssets = release.assets
-      .where((a) => !a.name.endsWith('.sha256'))
-      .toList();
 
-  if (allAssets.isEmpty) {
-    botToast('Aucun binaire disponible dans cette release');
-    return;
-  }
-
-  // ── Filter to current platform/arch only ─────────────────────────────────
-  final abiTokens = await _currentPlatformAbiTokens();
-  List<ZeusReleaseAsset> compatible = allAssets.where((a) {
-    if (_isWrongPlatform(a.name)) return false;
-    if (abiTokens.isEmpty) return true;
-    final n = a.name.toLowerCase();
-    return abiTokens.any((tok) => n.contains(tok));
-  }).toList();
-
-  if (compatible.isEmpty) compatible = allAssets;
-
-  ZeusReleaseAsset picked = compatible.first;
-
-  if (allAssets.length > 1 && context.mounted) {
-    final selected = await showModalBottomSheet<ZeusReleaseAsset>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (_) => _AssetPickerSheet(
-        compatible: compatible,
-        allAssets: allAssets,
-        initial: picked,
-      ),
-    );
-    if (selected != null) picked = selected;
-  }
-
-  if (!context.mounted) return;
-  await showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => _BinaryDownloadDialog(
-      title: 'Télécharger ZeusDL',
-      subtitle: picked.name,
-      url: picked.downloadUrl,
-      installer: (url, onProgress) =>
-          ZeusDlBinaryManager.instance.downloadFromUrl(url, onProgress: onProgress),
-    ),
-  );
-
-  try {
-    await ZeusDlBinaryManager.instance.resolveExecutable();
-  } catch (_) {}
-
-  _zeusInstalledVersion = release.version;
-  _zeusInstalledIsNightly = release.isNightly;
-}
-
-/// Lets the user pick a local binary file and installs it as the user
-/// override (Android external storage) so ZeusDL picks it up immediately.
-Future<void> _importZeusDLBinary(BuildContext context) async {
-  try {
-    final result = await FilePicker.pickFiles(
-      dialogTitle: 'Choisir un binaire ZeusDL',
-    );
-    if (result == null || result.files.isEmpty) return;
-    final source = result.files.single.path;
-    if (source == null) {
-      botToast('Fichier inaccessible');
-      return;
-    }
-    final overridePath =
-        await ZeusDlBinaryManager.instance.userOverrideDisplayPath();
-    final dest = File(overridePath);
-    await dest.parent.create(recursive: true);
-    if (await dest.exists()) await dest.delete();
-    await File(source).copy(overridePath);
-    if (!kIsWeb && (Platform.isAndroid || Platform.isLinux || Platform.isMacOS)) {
-      try {
-        await Process.run('chmod', ['+x', overridePath]);
-      } catch (_) {}
-    }
-    // Force re-resolve so install detection picks up the new file
-    try {
-      await ZeusDlBinaryManager.instance.resolveExecutable();
-    } catch (_) {}
-    botToast('Binaire importé : ${source.split('/').last}');
-  } catch (e) {
-    botToast('Import échoué : $e');
-  }
-}
 
 Future<void> _autoFetchAria2Download(BuildContext context) async {
   try {

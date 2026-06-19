@@ -7,10 +7,10 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   //
   // Structure Android:
   //   /storage/emulated/0/Watchtower/
-  //     ├── video/downloads/  + video/plugins/.cache/zeus/
-  //     ├── music/downloads/  + music/plugins/.cache/zeus/
-  //     ├── manga/downloads/  + manga/plugins/.cache/zeus/
-  //     └── novels/downloads/ + novels/plugins/.cache/zeus/
+  //     ├── video/downloads/
+  //     ├── music/downloads/
+  //     ├── manga/downloads/
+  //     └── novels/downloads/
   // ─────────────────────────────────────────────────────────────────────────────
 
   class WatchtowerFolderService {
@@ -25,7 +25,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     bool _initialized = false;
     String? _baseDir;
     final Map<String, String> _downloadDirs = {};
-    final Map<String, String> _zeusCacheDirs = {};
 
     String? get baseDir => _baseDir;
     bool get initialized => _initialized;
@@ -63,11 +62,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
         for (final media in mediaFolders) {
           final dlPath = '$base/$media/downloads';
-          final zeusPath = '$base/$media/plugins/.cache/zeus';
           await Directory(dlPath).create(recursive: true);
-          await Directory(zeusPath).create(recursive: true);
           _downloadDirs[media] = dlPath;
-          _zeusCacheDirs[media] = zeusPath;
         }
         _initialized = true;
       } catch (_) {
@@ -80,17 +76,11 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
       return _downloadDirs[mediaType.toLowerCase()];
     }
 
-    Future<String?> getZeusCacheDir(String mediaType) async {
-      if (!_initialized) await initialize();
-      return _zeusCacheDirs[mediaType.toLowerCase()];
-    }
-
     Future<List<WatchtowerFolderInfo>> getFolderInfoList() async {
       if (!_initialized) await initialize();
       final result = <WatchtowerFolderInfo>[];
       for (final media in mediaFolders) {
         final dlPath = _downloadDirs[media];
-        final zeusPath = _zeusCacheDirs[media];
         if (dlPath == null) continue;
         final dir = Directory(dlPath);
         int fileCount = 0;
@@ -106,7 +96,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
         result.add(WatchtowerFolderInfo(
           mediaType: media,
           downloadPath: dlPath,
-          zeusCachePath: zeusPath,
           fileCount: fileCount,
           sizeBytes: totalBytes,
           exists: await dir.exists(),
@@ -119,7 +108,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   class WatchtowerFolderInfo {
     final String mediaType;
     final String downloadPath;
-    final String? zeusCachePath;
     final int fileCount;
     final int sizeBytes;
     final bool exists;
@@ -127,7 +115,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     const WatchtowerFolderInfo({
       required this.mediaType,
       required this.downloadPath,
-      this.zeusCachePath,
       required this.fileCount,
       required this.sizeBytes,
       required this.exists,

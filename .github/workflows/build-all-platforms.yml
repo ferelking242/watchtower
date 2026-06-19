@@ -52,43 +52,6 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Bundle ZeusDL as Flutter asset
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Determine ZeusDL arch from matrix target
-          if [[ "${{ matrix.target }}" == *"arm64"* ]]; then
-            ZEUSDL_ARCH="arm64"
-          else
-            ZEUSDL_ARCH="x86_64"
-          fi
-          echo "=== Bundling ZeusDL ($ZEUSDL_ARCH) as Flutter asset ==="
-          # Ensure asset dir exists (Flutter requires every declared asset dir to be present)
-          mkdir -p assets/binaries
-          # Search the last 10 releases for the per-arch binary.
-          # "releases/latest" only returns a zip; per-arch ELFs live in standalone releases.
-          ASSET_NAME="zeusdl-android-${ZEUSDL_ARCH}"
-          ASSET_URL=$(curl -fsSL \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/ferelking242/zeusdl/releases?per_page=10" | \
-            jq -r --arg n "$ASSET_NAME" \
-            '[.[].assets[] | select(.name == $n)] | first | .browser_download_url // ""')
-          if [ -z "$ASSET_URL" ]; then
-            echo "ERROR: asset $ASSET_NAME not found in last 10 releases"; exit 1
-          fi
-          echo "Downloading: $ASSET_URL"
-          curl -fsSL "$ASSET_URL" -o assets/binaries/zeusdl
-          SIZE=$(wc -c < assets/binaries/zeusdl)
-          MAGIC=$(head -c 4 assets/binaries/zeusdl | xxd -p)
-          if [ "$MAGIC" != "7f454c46" ]; then
-            echo "ERROR: not ELF (magic=$MAGIC)"; exit 1
-          fi
-          echo "ZeusDL asset ($ZEUSDL_ARCH): $SIZE bytes, ELF OK"
-          echo "=== Done ==="
-
-
       - name: Flutter pub get
         run: flutter pub get
 
@@ -163,33 +126,6 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
-
-      - name: Bundle ZeusDL as Flutter asset (arm64)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          echo "=== Bundling ZeusDL (arm64) as Flutter asset for Universal APK ==="
-          # Ensure asset dir exists (Flutter requires every declared asset dir to be present)
-          mkdir -p assets/binaries
-          # Search the last 10 releases for the per-arch binary.
-          # "releases/latest" only returns a zip; per-arch ELFs live in standalone releases.
-          ASSET_URL=$(curl -fsSL \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/ferelking242/zeusdl/releases?per_page=10" | \
-            jq -r '[.[].assets[] | select(.name == "zeusdl-android-arm64")] | first | .browser_download_url // ""')
-          if [ -z "$ASSET_URL" ]; then
-            echo "ERROR: asset zeusdl-android-arm64 not found in last 10 releases"; exit 1
-          fi
-          echo "Downloading: $ASSET_URL"
-          curl -fsSL "$ASSET_URL" -o assets/binaries/zeusdl
-          SIZE=$(wc -c < assets/binaries/zeusdl)
-          MAGIC=$(head -c 4 assets/binaries/zeusdl | xxd -p)
-          if [ "$MAGIC" != "7f454c46" ]; then echo "ERROR: not ELF"; exit 1; fi
-          echo "ZeusDL asset: $SIZE bytes, ELF OK"
-          echo "=== Done ==="
-
 
       - name: Flutter pub get
         run: flutter pub get

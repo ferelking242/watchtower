@@ -1528,7 +1528,7 @@ class _DownloadCard extends ConsumerWidget {
         // A) HLS/direct with real byte data → succeeded & total are in KB
         //    (always > 1024 for a real video file). Show "14 MB / 58 MB".
         //
-        // B) ZeusDL / Aria2 → store raw percent (0-100). Show "50%".
+        // B) Aria2 → store raw percent (0-100). Show "50%".
         //    These engines don't produce byte info; total stays ≤ 100.
         //
         // Threshold: KB values for real videos are almost always > 500 KB
@@ -1541,7 +1541,7 @@ class _DownloadCard extends ConsumerWidget {
           }
           return '${_formatSize(succeeded)} / ${_formatSize(total)}';
         }
-        // ZeusDL / Aria2 percentage mode or early tick before bytes arrive.
+        // Aria2 percentage mode or early tick before bytes arrive.
         if (total > 1) {
           return '${succeeded.clamp(0, total)}%';
         }
@@ -1702,11 +1702,9 @@ class _EngineBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = engine == 'ZEUS' || engine == 'ZDL'
-        ? Colors.purple
-        : engine == 'ARES'
-            ? Colors.teal
-            : scheme.primary;
+    final color = engine == 'ARES'
+        ? Colors.teal
+        : scheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -1718,11 +1716,9 @@ class _EngineBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: engine == 'ZEUS' || engine == 'ZDL'
-              ? Colors.purple.shade300
-              : engine == 'ARES'
-                  ? Colors.teal.shade300
-                  : scheme.primary,
+          color: engine == 'ARES'
+              ? Colors.teal.shade300
+              : scheme.primary,
         ),
       ),
     );

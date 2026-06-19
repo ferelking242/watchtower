@@ -42,77 +42,6 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      # ── ZeusDL ──────────────────────────────────────────────────────────────
-      # Télécharge le binaire iOS arm64. Si introuvable ou format inconnu →
-      # on ne bundle RIEN (pas de stub) pour éviter que ldid plante.
-      - name: Bundle ZeusDL iOS arm64
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          mkdir -p assets/binaries
-          DOWNLOADED=false
-
-          RELEASE_JSON=$(curl -fsSL \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/ferelking242/zeusdl/releases/latest" 2>/dev/null || echo '{}')
-          ZEUSDL_VERSION=$(echo "$RELEASE_JSON" | python3 -c \
-            "import sys,json; print(json.load(sys.stdin).get('tag_name',''))" 2>/dev/null || echo '')
-
-          if [ -n "$ZEUSDL_VERSION" ]; then
-            for ASSET in "zeusdl-ios-arm64" "zeusdl-ios" "yt-dlp_ios"; do
-              URL="https://github.com/ferelking242/zeusdl/releases/download/${ZEUSDL_VERSION}/${ASSET}"
-              echo "Trying: $URL"
-              if curl -fsSL --max-time 60 "$URL" -o assets/binaries/zeusdl 2>/dev/null; then
-                MAGIC=$(xxd -p -l 4 assets/binaries/zeusdl 2>/dev/null || echo "")
-                if [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" || "$MAGIC" == "cafebabe" ]]; then
-                  echo "OK: $(wc -c < assets/binaries/zeusdl) bytes magic=$MAGIC"
-                  if [[ "$MAGIC" == "cafebabe" ]]; then
-                    lipo assets/binaries/zeusdl -thin arm64 -output assets/binaries/zeusdl.thin 2>/dev/null \
-                      && mv assets/binaries/zeusdl.thin assets/binaries/zeusdl \
-                      && echo "zeusdl thinned to arm64" \
-                      || rm -f assets/binaries/zeusdl
-                  fi
-                  DOWNLOADED=true; break
-                else
-                  rm -f assets/binaries/zeusdl
-                fi
-              fi
-            done
-          fi
-
-          # Fallback: yt-dlp officiel
-          if [ "$DOWNLOADED" = "false" ]; then
-            YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_ios"
-            if curl -fsSL --max-time 60 "$YTDLP_URL" -o assets/binaries/zeusdl 2>/dev/null; then
-              MAGIC=$(xxd -p -l 4 assets/binaries/zeusdl 2>/dev/null || echo "")
-              if [[ "$MAGIC" == "cffaedfe" || "$MAGIC" == "cefaedfe" || "$MAGIC" == "cafebabe" ]]; then
-                if [[ "$MAGIC" == "cafebabe" ]]; then
-                  lipo assets/binaries/zeusdl -thin arm64 -output assets/binaries/zeusdl.thin 2>/dev/null \
-                    && mv assets/binaries/zeusdl.thin assets/binaries/zeusdl \
-                    || rm -f assets/binaries/zeusdl
-                fi
-                DOWNLOADED=true
-                echo "yt-dlp iOS: $(wc -c < assets/binaries/zeusdl 2>/dev/null || echo 0) bytes"
-              else
-                rm -f assets/binaries/zeusdl
-              fi
-            fi
-          fi
-
-          if [ "$DOWNLOADED" = "false" ]; then
-            echo "WARN: zeusdl introuvable — assets/binaries/ restera vide"
-            ls -la assets/binaries/ || true
-          fi
-
-      - name: Patch pubspec.yaml pour assets/binaries/
-        run: |
-          if ! grep -q "assets/binaries/" pubspec.yaml; then
-            sed -i '' 's|    - assets/icons/|    - assets/icons/\n    - assets/binaries/|' pubspec.yaml
-          fi
-          grep "assets/" pubspec.yaml
-
       - name: Remove stale Podfile.lock
         run: rm -f ios/Podfile.lock
 
@@ -201,9 +130,6 @@ jobs:
           cp -r "$APP_SRC" build/ios/iphoneos/Runner.app
           echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
           echo "=== Frameworks count: $(ls build/ios/iphoneos/Runner.app/Frameworks/ | wc -l) ==="
-          ls build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
-            && echo "zeusdl présent" || echo "zeusdl absent (OK)"
-
       # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
       # TrollStore sur iPhone 7 utilise un vieux ldid qui :
       #   1. Ne comprend pas arm64e → thin FAT → arm64
@@ -253,21 +179,6 @@ jobs:
 
           echo "=== Résultat: $THINNED thinned | $ALREADY arm64 OK | $REMOVED removed | $SKIPPED skip ==="
 
-          # Zeusdl dans assets
-          ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
-          if [ -f "$ZEUSDL" ]; then
-            ZTYPE=$(file -b "$ZEUSDL")
-            echo "zeusdl type: $ZTYPE"
-            if echo "$ZTYPE" | grep -q "Mach-O.*universal"; then
-              lipo "$ZEUSDL" -thin arm64 -output "${ZEUSDL}.thin" 2>/dev/null \
-                && mv "${ZEUSDL}.thin" "$ZEUSDL" && echo "zeusdl thinned" \
-                || { rm -f "$ZEUSDL"; echo "zeusdl removed (lipo failed)"; }
-            elif ! echo "$ZTYPE" | grep -q "Mach-O"; then
-              rm -f "$ZEUSDL"
-              echo "zeusdl removed (not Mach-O: $ZTYPE)"
-            fi
-          fi
-
       # ── Signer ──────────────────────────────────────────────────────────────
       - name: Sign for TrollStore (ldid per-framework + codesign recursive)
         run: |
@@ -283,12 +194,6 @@ jobs:
               ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
             fi
           done
-
-          # Signer zeusdl si présent
-          ZEUSDL="$APP/flutter_assets/assets/binaries/zeusdl"
-          if [ -f "$ZEUSDL" ]; then
-            ldid -S "$ZEUSDL" 2>/dev/null && echo "ldid zeusdl OK" || { rm -f "$ZEUSDL"; echo "zeusdl removed (ldid failed)"; }
-          fi
 
           echo "=== ldid Runner avec entitlements ==="
           ldid -S"$ENT" "$APP/Runner" 2>/dev/null && echo "ldid Runner OK" || echo "WARN: ldid Runner failed (ok, codesign below handles it)"

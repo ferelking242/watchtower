@@ -7,9 +7,8 @@ import 'package:path_provider/path_provider.dart';
 /// Manga and novel always use the internal downloader.
 enum DownloadMode {
   internalDownloader, // 0 — internal HLS/M3U8 downloader
-  zeusDl,             // 1 — ZeusDL (yt-dlp based binary)
-  aria2,              // 2 — aria2c binary downloader
-  external,           // 3 — hand off to ADM/1DM/FDM/IDM via intent
+  aria2,              // 1 — aria2c binary downloader
+  external,           // 2 — hand off to ADM/1DM/FDM/IDM via intent
 }
 
 extension DownloadModeExt on DownloadMode {
@@ -17,8 +16,6 @@ extension DownloadModeExt on DownloadMode {
     switch (this) {
       case DownloadMode.internalDownloader:
         return 'Interne';
-      case DownloadMode.zeusDl:
-        return 'ZeusDL';
       case DownloadMode.aria2:
         return 'Aria2';
       case DownloadMode.external:
@@ -30,8 +27,6 @@ extension DownloadModeExt on DownloadMode {
     switch (this) {
       case DownloadMode.internalDownloader:
         return 'Téléchargeur HLS intégré à l\'application. Idéal pour la majorité des streams.';
-      case DownloadMode.zeusDl:
-        return 'Moteur ZeusDL (basé sur yt-dlp). Idéal pour les streams protégés.';
       case DownloadMode.aria2:
         return 'Moteur aria2c haute performance. Connexions multiples et reprise des téléchargements.';
       case DownloadMode.external:
@@ -141,10 +136,8 @@ class DownloadSettingsService {
   DownloadMode get animeDownloadMode {
     final raw = (_data['animeDownloadMode'] ?? _data['downloadMode']) as int?;
     if (raw == null) return DownloadMode.internalDownloader;
-    // Migrate old values: 1=internalFallback→internal, 3=auto→internal
-    if (raw == 1 || raw == 3) return DownloadMode.internalDownloader;
-    // Old 2=zeusDl → new 1=zeusDl
-    if (raw == 2) return DownloadMode.zeusDl;
+    // Migrate old values: any unknown/removed mode → internal
+    if (raw >= DownloadMode.values.length) return DownloadMode.internalDownloader;
     return DownloadMode.values[raw.clamp(0, DownloadMode.values.length - 1)];
   }
 

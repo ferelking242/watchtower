@@ -5424,7 +5424,7 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
   // Shows plugins from the Watchtower extensions registry in the Marketplace Plugin tab.
 
 
-  // ─── Engine card (binary engines: ZeusDL, Aria2) ──────────────────────────────
+  // ─── Engine card (binary engines: Aria2) ──────────────────────────────────────
   // Shown at the top of the Plugin tab in the marketplace.
 
   class _EngineCard extends ConsumerWidget {

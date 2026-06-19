@@ -3,7 +3,7 @@ import 'package:watchtower/services/download_manager/engines/download_engine.dar
 
 /// Global registry that maps a download ID (chapter.id) to its active engine.
 ///
-/// - ZeusDL downloads register a [DownloadEngine] instance.
+/// - External engine downloads (Aria2, etc.) register a [DownloadEngine] instance.
 /// - Internal HLS / file downloads register the task ID string so the isolate
 ///   pool can be cancelled on pause.
 ///
@@ -12,7 +12,7 @@ import 'package:watchtower/services/download_manager/engines/download_engine.dar
 class ActiveDownloadRegistry {
   ActiveDownloadRegistry._();
 
-  // ZeusDL and other engines that implement DownloadEngine
+  // External engines that implement DownloadEngine (e.g. Aria2)
   static final _engines = <int, DownloadEngine>{};
 
   // Internal pool task IDs for M3u8Downloader / MDownloader
@@ -39,8 +39,7 @@ class ActiveDownloadRegistry {
 
   /// Pause the download.
   ///
-  /// * ZeusDL: SIGSTOP — the process is left registered so [resume]
-  ///   can SIGCONT it back to life.
+  /// * External engine (e.g. Aria2): engine.pause() is called.
   /// * Internal (HLS/manga pool): cancel the current isolate task AND
   ///   unregister the chapter so [processDownloads] can re-pick it on
   ///   resume. Without unregistering, the chapter would still appear

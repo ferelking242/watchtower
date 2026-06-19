@@ -10,10 +10,6 @@ class EngineSelector {
     bool hasFailed = false,
     int retryCount = 0,
   }) {
-    if (mode == DownloadMode.zeusDl) {
-      return SelectedEngine.zeusDl;
-    }
-
     if (mode == DownloadMode.aria2) {
       return SelectedEngine.aria2;
     }
@@ -23,15 +19,13 @@ class EngineSelector {
   }
 }
 
-enum SelectedEngine { internal, zeusDl, aria2 }
+enum SelectedEngine { internal, aria2 }
 
 extension SelectedEngineExt on SelectedEngine {
   String get badgeLabel {
     switch (this) {
       case SelectedEngine.internal:
         return 'HYDRA';
-      case SelectedEngine.zeusDl:
-        return 'ZEUS';
       case SelectedEngine.aria2:
         return 'ARES';
     }
@@ -41,8 +35,6 @@ extension SelectedEngineExt on SelectedEngine {
     switch (this) {
       case SelectedEngine.internal:
         return 'Hydra Stream';
-      case SelectedEngine.zeusDl:
-        return 'Zeus Download';
       case SelectedEngine.aria2:
         return 'Ares Multi';
     }

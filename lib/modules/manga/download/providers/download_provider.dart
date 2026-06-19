@@ -34,7 +34,6 @@ import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/engine_selector.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
-import 'package:watchtower/services/download_manager/engines/zeus_dl_engine.dart';
 import 'package:watchtower/services/download_manager/stuck_watchdog.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
@@ -1213,56 +1212,6 @@ Future<void> downloadChapter(
             }
           }
         }
-      } else if (engine == SelectedEngine.zeusDl) {
-        // ── ZeusDL path ─────────────────────────────────────────────────
-        log('[downloadChapter][anime/ZeusDL] starting chapterId=${chapter.id}');
-        final zeusEngine = ZeusDlEngine(
-          url: videoUrl,
-          outputPath: m3u8Downloader!.fileName,
-          headers: m3u8Downloader!.headers ?? {},
-          itemType: itemType,
-          chapterId: '${chapter.id}',
-        );
-
-        if (chapter.id != null) {
-          ActiveDownloadRegistry.registerEngine(chapter.id!, zeusEngine);
-        }
-
-        bool zeusFailed = false;
-        try {
-          await zeusEngine.start((progress) => setProgress(progress));
-          log('[downloadChapter][anime/ZeusDL] completed chapterId=${chapter.id}');
-        } catch (e) {
-          zeusFailed = true;
-          log('[downloadChapter][anime/ZeusDL] FAILED chapterId=${chapter.id} error=$e');
-        } finally {
-          if (chapter.id != null) {
-            ActiveDownloadRegistry.unregister(chapter.id!);
-          }
-        }
-
-        // Fallback to internal HLS if ZeusDL failed and mode allows it
-        if (zeusFailed && downloadMode != DownloadMode.zeusDl) {
-          log('[downloadChapter][anime/ZeusDL→HLS] falling back to internal HLS chapterId=${chapter.id}');
-          if (chapter.id != null) {
-            ref
-                .read(downloadQueueStateProvider.notifier)
-                .setEngine(chapter.id!, 'HLS');
-          }
-          final taskId = 'm3u8_${chapter.id}';
-          if (chapter.id != null) {
-            ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
-          }
-          try {
-            await m3u8Downloader!.download(
-              (progress) => setProgress(progress),
-            );
-          } finally {
-            if (chapter.id != null) {
-              ActiveDownloadRegistry.unregister(chapter.id!);
-            }
-          }
-        }
       } else {
         // ── Internal HLS path ───────────────────────────────────────────
         log('[downloadChapter][anime/HLS] starting chapterId=${chapter.id}');
@@ -1279,7 +1228,7 @@ Future<void> downloadChapter(
           caughtError = e;
           log(
             '[downloadChapter][anime/HLS] FAILED chapterId=${chapter.id} '
-            'error=$e — will try ZeusDL fallback if mode allows',
+            'error=$e',
           );
         } finally {
           if (chapter.id != null) {
@@ -1287,70 +1236,16 @@ Future<void> downloadChapter(
           }
         }
 
-        // Fallback to ZeusDL on internal failure. The previous version
-        // had `if (caughtError != null && false)` which made this branch
-        // dead code — that's why HLS failures were never recovered. We
-        // re-enable the fallback unconditionally for `auto` mode (any
-        // mode other than the user explicitly choosing HLS-only).
         if (caughtError != null) {
-          if (downloadMode == DownloadMode.internalDownloader) {
-            // User pinned the internal HLS engine — surface the error
-            // so the chapter is marked failed and the user can retry.
-            log(
-              '[downloadChapter][anime/HLS→fail] mode=internalDownloader, '
-              'no fallback. chapterId=${chapter.id}',
-            );
-            // Mark the Isar record as failed so the UI can offer retry.
-            final dl = isar.downloads.getSync(chapter.id!);
-            if (dl != null) {
-              isar.writeTxnSync(() {
-                isar.downloads.putSync(dl..failed = 1);
-              });
-            }
-            throw caughtError;
+          // Mark the Isar record as failed so the UI can offer retry.
+          log('[downloadChapter][anime/HLS→fail] chapterId=${chapter.id}');
+          final dl = isar.downloads.getSync(chapter.id!);
+          if (dl != null) {
+            isar.writeTxnSync(() {
+              isar.downloads.putSync(dl..failed = 1);
+            });
           }
-          log(
-            '[downloadChapter][anime/HLS→ZeusDL] internal HLS failed, '
-            'falling back to ZeusDL chapterId=${chapter.id}',
-          );
-          if (chapter.id != null) {
-            ref
-                .read(downloadQueueStateProvider.notifier)
-                .setEngine(chapter.id!, 'ZDL');
-          }
-          final zeusEngine = ZeusDlEngine(
-            url: videoUrl,
-            outputPath: m3u8Downloader!.fileName,
-            headers: m3u8Downloader!.headers ?? {},
-            itemType: itemType,
-            chapterId: '${chapter.id}',
-          );
-          if (chapter.id != null) {
-            ActiveDownloadRegistry.registerEngine(chapter.id!, zeusEngine);
-          }
-          try {
-            await zeusEngine.start((progress) => setProgress(progress));
-            log(
-              '[downloadChapter][anime/HLS→ZeusDL] fallback succeeded '
-              'chapterId=${chapter.id}',
-            );
-          } catch (e) {
-            log(
-              '[downloadChapter][anime/HLS→ZeusDL] fallback ALSO failed '
-              'chapterId=${chapter.id} error=$e',
-            );
-            final dl = isar.downloads.getSync(chapter.id!);
-            if (dl != null) {
-              isar.writeTxnSync(() {
-                isar.downloads.putSync(dl..failed = 1);
-              });
-            }
-            rethrow;
-          } finally {
-            if (chapter.id != null) {
-              ActiveDownloadRegistry.unregister(chapter.id!);
-            }
-          }
+          throw caughtError;
         }
       }
     }

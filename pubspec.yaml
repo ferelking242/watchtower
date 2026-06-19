@@ -160,7 +160,6 @@ flutter:
     - assets/trackers_icons/
     - assets/app_icons/
     - assets/icons/
-    - assets/binaries/
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
