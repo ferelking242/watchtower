@@ -154,7 +154,7 @@ class ZeusDlBinaryManager {
         AppLogger.log('ZeusDL iOS: asset extrait (${bytes.length} bytes)',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         return destPath;
-      } on FlutterError {
+      } catch (_) {
         return null;
       }
     } catch (_) {
