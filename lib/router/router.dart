@@ -107,14 +107,10 @@ GoRouter router(Ref ref) {
 
   return GoRouter(
     observers: [BotToastNavigatorObserver()],
-    initialLocation: '/splash',
+    initialLocation: destination,
     debugLogDiagnostics: kDebugMode,
     refreshListenable: router,
     routes: [
-      GoRoute(
-        path: '/splash',
-        builder: (_, __) => WatchtowerSplashScreen(destination: destination),
-      ),
       ...router._routes,
     ],
     navigatorKey: navigatorKey,

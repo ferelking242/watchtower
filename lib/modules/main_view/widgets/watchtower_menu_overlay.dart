@@ -37,13 +37,13 @@ const kWtRouteInfo = <String, (String, IconData)>{
 };
 
 const kWtDefaultNavOrder = [
-  '/WatchtowerHome', '/AnimeLibrary', '/MangaLibrary', '/NovelLibrary',
-  '/MusicLibrary',   '/GameLibrary',  '/Library',      '/discover',
-  '/browse',         '/marketplace',  '/history',      '/updates',
-  '/trackerLibrary', '/more',
+  '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
+  '/NovelLibrary',   '/MusicLibrary',  '/GameLibrary',   '/Library',
+  '/marketplace',    '/history',       '/updates',
+  '/trackerLibrary', '/more',          '/WatchtowerHome',
 ];
 
-const kWtDefaultHideItems = ['/trackerLibrary', '/updates', '/history'];
+const kWtDefaultHideItems = ['/trackerLibrary', '/updates', '/history', '/WatchtowerHome'];
 
 const kWtStaticRoutes = [
   '/discover', '/browse', '/marketplace', '/schedule', '/updates', '/history', '/more',

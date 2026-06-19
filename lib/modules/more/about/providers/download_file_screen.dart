@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -206,11 +207,12 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   int _received = 0;
   String? _errorMsg;
   File? _completedFile;
+  String _currentVersion = '';
 
   @override
   void initState() {
     super.initState();
-    // Reconnect to a running background task (e.g. user re-opened the screen).
+    _loadCurrentVersion();
     final task = _AppDownloadTask.current;
     if (task != null &&
         task.version == widget.updateAvailable.$1 &&
@@ -224,9 +226,15 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     }
   }
 
+  Future<void> _loadCurrentVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _currentVersion = info.version);
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
-    // Detach UI callbacks — download continues independently.
     final task = _AppDownloadTask.current;
     if (task != null) {
       task.onProgress = null;
@@ -256,204 +264,240 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     final cs  = Theme.of(context).colorScheme;
     final mq  = MediaQuery.of(context);
 
+    final versionLabel = _currentVersion.isNotEmpty
+        ? 'v$_currentVersion  →  v${upd.$1}'
+        : 'v${upd.$1}';
+
     return Scaffold(
       backgroundColor: _kBg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top navigation bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 6, 16, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _isDownloading
-                          ? Icons.minimize_rounded
-                          : Icons.close_rounded,
-                      color: Colors.white.withValues(alpha: 0.65),
-                    ),
-                    tooltip: _isDownloading ? 'Continuer en fond' : 'Fermer',
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  if (!_isDownloading && _completedFile == null)
-                    TextButton(
-                      onPressed: () {
-                        skipAppUpdate(upd.$1);
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        'Ignorer',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.40),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
+      body: Column(
+        children: [
+          // ── Header (gradient band) ────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1A2340),
+                  cs.primary.withValues(alpha: 0.55),
                 ],
               ),
             ),
-
-            // Scrollable content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 16, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Update icon
+                    // Close / minimize row
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            _isDownloading
+                                ? Icons.minimize_rounded
+                                : Icons.close_rounded,
+                            color: Colors.white.withValues(alpha: 0.70),
+                          ),
+                          tooltip: _isDownloading ? 'Continuer en fond' : 'Fermer',
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const Spacer(),
+                        if (!_isDownloading && _completedFile == null)
+                          GestureDetector(
+                            onTap: () {
+                              skipAppUpdate(upd.$1);
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Ignorer',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.42),
+                                fontSize: 13,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Download icon
                     Container(
-                      width: 60, height: 60,
+                      width: 56, height: 56,
                       decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: cs.primary.withValues(alpha: 0.40),
-                          width: 1.5,
+                          color: Colors.white.withValues(alpha: 0.18),
+                          width: 1,
                         ),
                       ),
-                      child: Icon(Icons.system_update_alt_rounded,
-                          color: cs.primary, size: 30),
+                      child: const Icon(
+                        Icons.system_update_alt_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
-                    const SizedBox(height: 18),
-
+                    const SizedBox(height: 14),
                     // Title
                     const Text(
-                      'Mise à jour disponible !',
+                      'Update Available',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
+                        letterSpacing: -0.5,
                         height: 1.15,
                         decoration: TextDecoration.none,
                       ),
                     ),
                     const SizedBox(height: 10),
-
-                    // Version chip
+                    // Version pill
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 5),
+                          horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.14),
+                        color: cs.primary.withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(99),
                         border: Border.all(
-                            color: cs.primary.withValues(alpha: 0.28)),
+                            color: cs.primary.withValues(alpha: 0.45),
+                            width: 1),
                       ),
                       child: Text(
-                        'v${upd.$1}',
+                        versionLabel,
                         style: TextStyle(
-                          color: cs.primary,
+                          color: cs.primary.withValues(alpha: 0.95),
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
+                          letterSpacing: 0.1,
                           decoration: TextDecoration.none,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 28),
-
-                    // Release notes
-                    if (upd.$2.trim().isNotEmpty) ...[
-                      Text(
-                        'NOTES DE VERSION',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.38),
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: _kCard,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: _kBorder),
-                        ),
-                        child: Text(
-                          upd.$2.trim(),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.78),
-                            fontSize: 14,
-                            height: 1.65,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(upd.$3),
-                            mode: LaunchMode.externalApplication),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.open_in_new_rounded,
-                                size: 13,
-                                color: cs.primary.withValues(alpha: 0.65)),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Ouvrir sur GitHub',
-                              style: TextStyle(
-                                color: cs.primary.withValues(alpha: 0.65),
-                                fontSize: 13,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    // Progress indicator
-                    if (_isDownloading) ...[
-                      const SizedBox(height: 24),
-                      _buildProgress(cs),
-                    ],
-
-                    // Done indicator
-                    if (_completedFile != null) ...[
-                      const SizedBox(height: 24),
-                      _buildDoneCard(cs),
-                    ],
-
-                    // Error
-                    if (_errorMsg != null) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                              color: Colors.red.withValues(alpha: 0.22)),
-                        ),
-                        child: Text(
-                          'Erreur : $_errorMsg',
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 12.5,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    SizedBox(height: mq.padding.bottom + 8),
                   ],
                 ),
               ),
             ),
+          ),
 
-            // Fixed bottom action buttons
-            _buildActions(context, upd, cs, mq),
-          ],
-        ),
+          // ── Scrollable body ───────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // What's New section header
+                  if (upd.$2.trim().isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Text('⚙️',
+                            style: TextStyle(fontSize: 17,
+                                decoration: TextDecoration.none)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "What's New",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Changelog card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: _kCard,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: _kBorder),
+                      ),
+                      child: Text(
+                        upd.$2.trim(),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.80),
+                          fontSize: 13.5,
+                          height: 1.65,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => launchUrl(Uri.parse(upd.$3),
+                          mode: LaunchMode.externalApplication),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.open_in_new_rounded,
+                              size: 13,
+                              color: cs.primary.withValues(alpha: 0.65)),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Ouvrir sur GitHub',
+                            style: TextStyle(
+                              color: cs.primary.withValues(alpha: 0.65),
+                              fontSize: 13,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+
+                  // Progress indicator
+                  if (_isDownloading) ...[
+                    const SizedBox(height: 16),
+                    _buildProgress(cs),
+                  ],
+
+                  // Done indicator
+                  if (_completedFile != null) ...[
+                    const SizedBox(height: 16),
+                    _buildDoneCard(cs),
+                  ],
+
+                  // Error
+                  if (_errorMsg != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: Colors.red.withValues(alpha: 0.22)),
+                      ),
+                      child: Text(
+                        'Erreur : $_errorMsg',
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12.5,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  SizedBox(height: mq.padding.bottom + 4),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Fixed bottom buttons ──────────────────────────────────────────
+          _buildActions(context, upd, cs, mq),
+        ],
       ),
     );
   }

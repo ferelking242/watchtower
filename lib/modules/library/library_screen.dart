@@ -412,6 +412,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return TabBar(
       isScrollable: true,
       controller: tabBarController,
+      indicator: UnderlineTabIndicator(
+        borderSide: BorderSide(
+          width: 2.5,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        insets: const EdgeInsets.symmetric(horizontal: 12),
+      ),
+      indicatorSize: TabBarIndicatorSize.tab,
       tabs: [
         if (withoutCategory.isNotEmpty)
           Row(

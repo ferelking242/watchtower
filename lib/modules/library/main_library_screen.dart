@@ -67,6 +67,55 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
   ItemType get _currentType => _types[_controller.index];
 
+  PreferredSizeWidget _buildLibTabBar(
+      BuildContext context, ThemeData theme, dynamic l10n) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final tabW = screenWidth / 3;
+
+    Widget makeTab(IconData icon, String label) => SizedBox(
+          width: tabW,
+          child: Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16),
+                const SizedBox(width: 6),
+                Flexible(
+                    child: Text(label, overflow: TextOverflow.ellipsis)),
+              ],
+            ),
+          ),
+        );
+
+    return TabBar(
+      controller: _controller,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      padding: EdgeInsets.zero,
+      labelPadding: EdgeInsets.zero,
+      dividerColor: Colors.transparent,
+      labelColor: theme.colorScheme.primary,
+      unselectedLabelColor: theme.hintColor,
+      labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      unselectedLabelStyle:
+          const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+      indicator: UnderlineTabIndicator(
+        borderSide:
+            BorderSide(width: 2.5, color: theme.colorScheme.primary),
+        insets: const EdgeInsets.symmetric(horizontal: 20),
+      ),
+      indicatorSize: TabBarIndicatorSize.tab,
+      tabs: [
+        makeTab(Icons.live_tv_outlined, l10n.watch),
+        makeTab(Icons.auto_stories_outlined, l10n.manga),
+        makeTab(Icons.local_library_outlined, l10n.novel),
+        makeTab(Icons.music_note_outlined, 'Music'),
+        makeTab(Icons.sports_esports_outlined, 'Games'),
+      ],
+    );
+  }
+
   void _openFilterSheet(Settings settings) {
     final mangaAsync = ref.read(
       getAllMangaStreamProvider(categoryId: null, itemType: _currentType),
@@ -199,80 +248,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ],
         ],
-        bottom: TabBar(
-          controller: _controller,
-          indicatorSize: TabBarIndicatorSize.tab,
-          tabAlignment: TabAlignment.fill,
-          dividerColor: Colors.transparent,
-          labelColor: theme.colorScheme.primary,
-          unselectedLabelColor: theme.hintColor,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 13,
-          ),
-          isScrollable: true,
-          tabs: [
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.live_tv_outlined, size: 16),
-                  const SizedBox(width: 6),
-                  Text(l10n.watch),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.auto_stories_outlined, size: 16),
-                  const SizedBox(width: 6),
-                  Text(l10n.manga),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.local_library_outlined, size: 16),
-                  const SizedBox(width: 6),
-                  Text(l10n.novel),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.music_note_outlined, size: 16),
-                  const SizedBox(width: 6),
-                  const Text('Music'),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.sports_esports_outlined, size: 16),
-                  const SizedBox(width: 6),
-                  const Text('Games'),
-                ],
-              ),
-            ),
-          ],
-        ),
+        bottom: _buildLibTabBar(context, theme, l10n),
       ),
       body: TabBarView(
         controller: _controller,

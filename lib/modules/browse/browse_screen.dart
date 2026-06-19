@@ -378,7 +378,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     return TabBar(
       controller: _tabBarController,
-      indicatorSize: TabBarIndicatorSize.tab,
       isScrollable: true,
       tabAlignment: TabAlignment.start,
       padding: EdgeInsets.zero,
@@ -388,6 +387,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       unselectedLabelColor: theme.hintColor,
       labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
       unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+      indicator: UnderlineTabIndicator(
+        borderSide: BorderSide(
+          width: 2.5,
+          color: theme.colorScheme.primary,
+        ),
+        insets: const EdgeInsets.symmetric(horizontal: 20),
+      ),
+      indicatorSize: TabBarIndicatorSize.tab,
       tabs: [
         ..._types.map((t) => makeTab(
           _typeIcon(t),

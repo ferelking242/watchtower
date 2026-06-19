@@ -1530,6 +1530,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/trackerLibrary',
     '/marketplace',
     '/schedule',
+    '/discover',
   };
 
   @override
