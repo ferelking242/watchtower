@@ -138,14 +138,6 @@ jobs:
       - name: Remove stale Podfile.lock
         run: rm -f ios/Podfile.lock
 
-      # Flutter 3.27.x ships Dart 3.6.x — relax sdk: ^3.x -> >=3.6.0 <4.0.0
-      - name: Patch pubspec SDK for Dart 3.6.x
-        run: |
-          sed -i '' '/^  sdk:/s/.*/  sdk: ">=3.6.0 <4.0.0"/' pubspec.yaml
-          # Remove dev_deps requiring Dart ^3.7+ (code-gen tools, already done)
-          sed -i '' '/protoc_plugin/d' pubspec.yaml
-          sed -i '' '/flutter_lints/d' pubspec.yaml
-          echo '=== sdk check ===' && grep 'sdk:' pubspec.yaml | head -3 || true
       - name: Flutter pub get
         run: flutter pub get
 
