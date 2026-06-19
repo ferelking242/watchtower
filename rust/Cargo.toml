@@ -19,7 +19,7 @@
   # enables aws-lc-rs on every rustls crate in the graph.  aws-lc-rs runs FIPS
   # C self-tests at dylib load time (before Flutter/Dart).  On TrollStore those
   # tests call abort() → SIGABRT with 0 logs — instant silent crash on launch.
-  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls-no-provider", "stream", "multipart", "socks", "brotli", "gzip"] }
+  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "__rustls", "stream", "multipart", "socks", "brotli", "gzip"] }
   # ring is 100% Rust, zero C init, zero FIPS POST — safe on iOS/TrollStore.
   # It is installed as the process-default provider in client.rs before any TLS.
   rustls = { version = "0.23", default-features = false, features = ["ring"] }
