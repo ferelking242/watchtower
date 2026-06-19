@@ -66,6 +66,7 @@ class PythonPackageInfo {
   String? _cachedFilesDir;
   bool? _pipAvailable;
   bool _depsEnsured = false;
+  bool _pipBundleAttempted = false; // évite les logs dupliqués de _ensurePipFromBundle
   String? _cachedPythonHome;
 
   Future<String?> get _nativeDir async {
@@ -260,10 +261,11 @@ class PythonPackageInfo {
   /// Le wheel pip-*-py3-none-any.whl est pur Python, ~2 MB, valide sur toutes arches.
   Future<void> _ensurePipFromBundle() async {
     if (_pipAvailable == true) return;
+    if (_pipBundleAttempted) return; // déjà tenté — évite les logs dupliqués
     if (await isPipAvailable()) return;
+    _pipBundleAttempted = true;
 
-    AppLogger.log('LibPython: pip absent — bootstrap depuis assets/wheels/pip.whl',
-        tag: LogTag.zeus, logLevel: LogLevel.info);
+    AppLogger.log('LibPython: pip absent — tentative bootstrap depuis assets/wheels/pip.whl',
 
     const assetKey = 'assets/wheels/pip.whl';
     try {
@@ -309,8 +311,8 @@ class PythonPackageInfo {
             tag: LogTag.zeus, logLevel: LogLevel.warning);
       }
     } on FlutterError {
-      AppLogger.log('LibPython: assets/wheels/pip.whl absent du bundle — skip',
-          tag: LogTag.zeus, logLevel: LogLevel.debug);
+      AppLogger.log('LibPython: pip.whl absent du bundle APK — bootstrap réseau nécessaire',
+          tag: LogTag.zeus, logLevel: LogLevel.info);
     } catch (e) {
       AppLogger.log('LibPython: _ensurePipFromBundle erreur: $e',
           tag: LogTag.zeus, logLevel: LogLevel.warning);
@@ -371,6 +373,8 @@ class PythonPackageInfo {
       final installOut = '${installRes.stdout}\n${installRes.stderr}'.trim();
       if (installRes.exitCode == 0) {
         _pipAvailable = true;
+        AppLogger.log('LibPython: pip installé via get-pip.py ✓',
+            tag: LogTag.zeus, logLevel: LogLevel.info);
         return '✓ pip installé via get-pip.py\n$installOut';
       }
       return 'ERREUR installation pip:\n$installOut';
@@ -598,7 +602,9 @@ class PythonPackageInfo {
       if (!await isPipAvailable()) {
         results.add('${isOptional ? "⚠" : "✗"} $pkg (pip indisponible)');
         AppLogger.log(
-            'LibPython: pip absent — skip $pkg${isOptional ? " (optionnel)" : ""}',
+            isOptional
+                ? 'LibPython: $pkg ignoré (optionnel) — pyrogram utilise pyaes comme fallback ✓'
+                : 'LibPython: pip absent — impossible d\'installer $pkg (requis)',
             tag: LogTag.zeus, logLevel: LogLevel.warning);
         continue;
       }
