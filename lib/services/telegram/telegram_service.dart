@@ -22,7 +22,10 @@ class TelegramService {
 
   static const telegramRequiredPackages = [
     'pyrogram',
-    'tgcrypto',
+    'PySocks',   // socks module: obligatoire pour l'init TCP pyrogram
+    'aiofiles',  // async file I/O: session pyrogram
+    'pyaes',     // crypto fallback si tgcrypto absent
+    'tgcrypto',  // accélération C optionnelle
   ];
 
   Future<String> get _scriptFile async {
