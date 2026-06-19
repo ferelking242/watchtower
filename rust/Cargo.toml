@@ -11,11 +11,16 @@
   image = "0.25.10"
   chrono = "0.4.44"
   futures-util = "0.3.31"
-  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls", "stream", "multipart", "socks", "brotli", "gzip"] }
+  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls-ring", "stream", "multipart", "socks", "brotli", "gzip"] }
   # Direct rustls + webpki-roots so we can call use_preconfigured_tls() with a
-  # Mozilla CA bundle.  This bypasses rustls-platform-verifier entirely — it panics
-  # on Android without JNI initialisation and is not available on iOS/TrollStore.
-  rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
+  # Mozilla CA bundle.  This bypasses rustls-platform-verifier entirely.
+  #
+  # IMPORTANT: use "ring" (pure Rust) NOT "aws_lc_rs".
+  # aws-lc-rs is a fork of BoringSSL written in C.  It runs FIPS power-on
+  # self-tests at dylib load time (before any Dart/Flutter code runs).  On
+  # TrollStore those tests call abort() → SIGABRT with 0 logs, instant crash.
+  # ring has no C code and no startup initialisation — safe on iOS/TrollStore.
+  rustls = { version = "0.23", default-features = false, features = ["ring"] }
   webpki-roots = "0.26"
   tokio = { version = "1.50.0", features = ["full"] }
   tokio-util = "0.7.16"
