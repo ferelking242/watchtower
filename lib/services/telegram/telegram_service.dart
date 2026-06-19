@@ -57,12 +57,14 @@ class TelegramService {
         return {'status': 'error', 'error': 'libpython.so introuvable. Installez libpython via Parametres > Avance > LibPython.'};
       }
 
-      // 2. Installer les deps manquantes en arriere-plan (no-op si deja fait)
-      mgr.resolvePluginDeps(
+      // 2. Installer les deps manquantes — await obligatoire pour éviter la race condition
+      // pyrogram doit être dans site-packages AVANT que le script Python soit lancé.
+      // resolvePluginDeps retourne immédiatement si le marker est déjà présent.
+      await mgr.resolvePluginDeps(
         pluginId: 'telegram',
         pluginDeps: telegramRequiredPackages,
         markerKey: 'telegram_plugin',
-      ).catchError((_) {});
+      );
 
       final script = await _scriptFile;
       final env = await mgr.buildEnv();
