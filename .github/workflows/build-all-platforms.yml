@@ -52,7 +52,7 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Bundle Python wheels (tgcrypto + pyrogram)
+      - name: Bundle Python wheels (pip + tgcrypto + pyrogram)
         run: |
           set -euo pipefail
           mkdir -p assets/wheels /tmp/py_wheels
@@ -81,7 +81,19 @@ jobs:
             -d /tmp/py_wheels/
           PYROGRAM=$(ls /tmp/py_wheels/pyrogram*.whl | head -1)
           cp "$PYROGRAM" assets/wheels/pyrogram.whl
-          echo "  pyrogram: $(basename $PYROGRAM)"
+          echo "  pyrogram: $(basename $PYRO
+            echo "=== Downloading pip wheel (pure Python ~2MB, offline bootstrap) ==="
+            pip3 download "pip>=24.0" \
+              --only-binary :all: \
+              --no-deps \
+              -d /tmp/py_wheels/
+            PIP_WHL=$(ls /tmp/py_wheels/pip*.whl 2>/dev/null | head -1)
+            if [ -n "$PIP_WHL" ]; then
+              cp "$PIP_WHL" assets/wheels/pip.whl
+              echo "  pip: $(basename $PIP_WHL) ($(wc -c < assets/wheels/pip.whl) bytes)"
+            else
+              echo "WARN: pip wheel not found — pip bootstrap will use ensurepip/get-pip.py"
+            fi
 
       - name: Bundle ZeusDL as Flutter asset
         env:
