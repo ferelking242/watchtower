@@ -778,16 +778,13 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
 
     Map<String, List<String>> _parse(String raw) {
       // Remove installation instructions block (after ---)
-      final parts = raw.split(RegExp(r'
----+
-'));
+      final parts = raw.split('\n---+\n');
       final cleaned = parts.first.trim();
 
       final sections = <String, List<String>>{};
       String currentSection = 'change';
 
-      for (final line in cleaned.split('
-')) {
+      for (final line in cleaned.split('\n') {
         final trimmed = line.trim();
         if (trimmed.isEmpty) continue;
 
