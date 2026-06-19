@@ -658,77 +658,54 @@ class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
 
   Future<void> _install() async {
     if (_busy || widget.isInstalled) return;
-    setState(() => _busy = true);
 
-    try {
-      if (widget.plugin.requirements.isNotEmpty) {
-        final missing = <String>[];
-        for (final entry in widget.plugin.requirements.entries) {
-          final reqMap = entry.value as Map?;
-          final isOptional = reqMap?['optional'] == true;
-          if (isOptional) continue;
-          // Use binary managers to find the actual installed path
-          final String? binPath;
-          if (entry.key == 'aria2') {
-            binPath = await Aria2BinaryManager.instance.resolveExecutable();
-          } else if (entry.key == 'zeusdl') {
-            // Méthode B: ZeusDL = libpython.so + zeusdl/__main__.py
-            final zeusCtx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
-            binPath = zeusCtx?.executable;
-          } else {
-            binPath = null;
-          }
-          if (binPath == null) {
-            missing.add(entry.key);
-          }
-        }
-        if (missing.isNotEmpty && mounted) {
-          setState(() => _busy = false);
-          final proceed = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: _card,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              title: const Text('Dépendances manquantes',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${widget.plugin.name} nécessite :',
-                      style: const TextStyle(color: _grey, fontSize: 13)),
-                  const SizedBox(height: 10),
-                  ...missing.map((r) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(children: [
-                      const Icon(Icons.memory_rounded, size: 14, color: _teal),
-                      const SizedBox(width: 6),
-                      Text(r, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                    ]),
-                  )),
-                  const SizedBox(height: 10),
-                  const Text('Installez-les depuis Marketplace → Binaires.',
-                      style: TextStyle(color: _grey, fontSize: 12)),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Annuler', style: TextStyle(color: _grey)),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Installer quand même', style: TextStyle(color: _teal)),
-                ),
-              ],
-            ),
-          );
-          if (proceed != true) return;
-          setState(() => _busy = true);
-        }
+    // ── 1. Évaluer le statut de chaque dépendance ────────────────────────────
+    setState(() => _busy = true);
+    final depsStatus = <String, _DepStatus>{};
+
+    for (final entry in widget.plugin.requirements.entries) {
+      final reqMap = entry.value is Map ? entry.value as Map : null;
+      final isOptional = reqMap?['optional'] == true;
+      final version = (reqMap?['version'] ?? reqMap?['minVersion'] ?? '') as String? ?? '';
+      final reason  = (reqMap?['reason']  ?? '') as String? ?? '';
+
+      String? binPath;
+      if (entry.key == 'aria2') {
+        binPath = await Aria2BinaryManager.instance.resolveExecutable();
+      } else if (entry.key == 'zeusdl') {
+        final ctx = await ZeusDlBinaryManager.instance.resolveExecutionContext();
+        binPath = ctx?.executable;
       }
 
-      if (!mounted) return;
+      depsStatus[entry.key] = _DepStatus(
+        id:        entry.key,
+        version:   version,
+        reason:    reason,
+        optional:  isOptional,
+        installed: binPath != null,
+      );
+    }
+
+    if (!mounted) { setState(() => _busy = false); return; }
+    setState(() => _busy = false);
+
+    // ── 2. Afficher la sheet de dépendances (toujours si des deps existent) ──
+    if (depsStatus.isNotEmpty) {
+      final confirmed = await showModalBottomSheet<bool>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => _DepsBottomSheet(
+          plugin:     widget.plugin,
+          depsStatus: depsStatus,
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    // ── 3. Installation réelle ────────────────────────────────────────────────
+    setState(() => _busy = true);
+    try {
       await ref.read(installedPluginsProvider.notifier).install(widget.plugin);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -738,9 +715,30 @@ class _PluginActionButtonState extends ConsumerState<_PluginActionButton> {
           content: Row(children: [
             const Icon(Icons.check_circle_rounded, color: _teal, size: 16),
             const SizedBox(width: 8),
-            Text('${widget.plugin.name} installé', style: const TextStyle(color: Colors.white, fontSize: 13)),
+            Expanded(child: Text('${widget.plugin.name} installé',
+                style: const TextStyle(color: Colors.white, fontSize: 13))),
           ]),
           duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: const Color(0xFF2A1212),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Row(children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 16),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Échec : $e',
+                style: const TextStyle(color: Colors.white70, fontSize: 12))),
+          ]),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: _teal,
+            onPressed: () {},
+          ),
         ));
       }
     } finally {
@@ -864,6 +862,229 @@ class _PluginIcon extends StatelessWidget {
     }
   }
   
+// ─── Dep status model ────────────────────────────────────────────────────────
+
+class _DepStatus {
+  final String id;
+  final String version;
+  final String reason;
+  final bool optional;
+  final bool installed;
+
+  const _DepStatus({
+    required this.id,
+    required this.version,
+    required this.reason,
+    required this.optional,
+    required this.installed,
+  });
+
+  String get displayName {
+    switch (id) {
+      case 'zeusdl':    return 'ZeusDL';
+      case 'aria2':     return 'Aria2';
+      case 'ffmpeg':    return 'FFmpeg';
+      case 'libpython': return 'Python 3.11';
+      default:          return id;
+    }
+  }
+
+  String get statusLabel {
+    if (installed) return 'Installé';
+    if (optional)  return 'Optionnel';
+    return 'À installer';
+  }
+}
+
+// ─── Dependencies bottom sheet ────────────────────────────────────────────────
+
+class _DepsBottomSheet extends StatelessWidget {
+  final PluginEntry plugin;
+  final Map<String, _DepStatus> depsStatus;
+  const _DepsBottomSheet({required this.plugin, required this.depsStatus});
+
+  @override
+  Widget build(BuildContext context) {
+    final missingRequired = depsStatus.values.where((d) => !d.optional && !d.installed).length;
+    final toInstall       = depsStatus.values.where((d) => !d.installed).toList();
+    final allInstalled    = toInstall.isEmpty;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: _sheetBg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20, 12, 20, MediaQuery.of(context).padding.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A3A3A),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Plugin header
+          Row(children: [
+            _PluginIcon(url: plugin.iconUrl, size: 44, showBadge: false),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(plugin.name,
+                  style: GoogleFonts.inter(
+                    fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text('v${plugin.version} · ${plugin.author}',
+                  style: GoogleFonts.inter(fontSize: 12, color: _grey),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            )),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _teal.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _teal.withOpacity(0.3)),
+              ),
+              child: Text(plugin.category,
+                style: GoogleFonts.inter(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: _teal)),
+            ),
+          ]),
+          const SizedBox(height: 18),
+          Container(height: 1, color: _border),
+          const SizedBox(height: 16),
+          // Header text
+          Text(
+            'Cette extension demande ${depsStatus.length} '
+            'dépendance${depsStatus.length > 1 ? "s" : ""}',
+            style: GoogleFonts.inter(
+              fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            allInstalled
+                ? 'Tout est déjà installé ✓'
+                : toInstall.length == 1
+                    ? '1 dépendance sera ajoutée'
+                    : '${toInstall.length} dépendances seront ajoutées',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: allInstalled ? _teal : _grey,
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Dep rows
+          ...depsStatus.values.map((dep) => _DepRow(dep: dep)),
+          const SizedBox(height: 20),
+          // CTA button
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _teal,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: Text(
+                missingRequired > 0
+                    ? 'Installer  ($missingRequired manquante${missingRequired > 1 ? "s" : ""})'
+                    : 'Installer',
+                style: GoogleFonts.inter(
+                  fontSize: 15, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Single dep row ────────────────────────────────────────────────────────────
+
+class _DepRow extends StatelessWidget {
+  final _DepStatus dep;
+  const _DepRow({required this.dep});
+
+  @override
+  Widget build(BuildContext context) {
+    final isInstalled = dep.installed;
+    final isOptional  = dep.optional;
+
+    final statusColor = isInstalled
+        ? _teal
+        : isOptional ? _grey : const Color(0xFFFFB74D);
+    final statusIcon  = isInstalled
+        ? Icons.check_circle_rounded
+        : isOptional ? Icons.info_outline_rounded : Icons.download_rounded;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: _card2,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isInstalled
+              ? _teal.withOpacity(0.2)
+              : isOptional ? _border : const Color(0xFFFFB74D).withOpacity(0.2),
+        ),
+      ),
+      child: Row(children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.memory_rounded, size: 18, color: statusColor),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(dep.displayName,
+              style: GoogleFonts.inter(
+                fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+            if (dep.version.isNotEmpty)
+              Text(dep.version,
+                style: GoogleFonts.inter(fontSize: 11, color: _grey)),
+          ],
+        )),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: statusColor.withOpacity(0.3)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(statusIcon, size: 11, color: statusColor),
+            const SizedBox(width: 4),
+            Text(dep.statusLabel,
+              style: GoogleFonts.inter(
+                fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
 class _FallbackIcon extends StatelessWidget {
   final double size;
   const _FallbackIcon({required this.size});
