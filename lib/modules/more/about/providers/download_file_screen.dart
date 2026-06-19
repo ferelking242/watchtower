@@ -16,6 +16,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
     show skipAppUpdate;
+import 'package:watchtower/services/silent_installer_service.dart';
 
 // ── Static background download task ──────────────────────────────────────────
 // Survives widget disposal so download continues in the background.
@@ -245,18 +246,32 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   }
 
   void _attachCallbacks(_AppDownloadTask task) {
-    task.onProgress = (r, t) {
-      if (mounted) setState(() { _received = r; _total = t; });
-    };
-    task.onDone = (f) {
-      if (mounted) setState(() { _isDownloading = false; _completedFile = f; });
-    };
-    task.onError = (e) {
-      if (mounted) setState(() { _isDownloading = false; _errorMsg = e; });
-    };
-  }
+      task.onProgress = (r, t) {
+        if (mounted) setState(() { _received = r; _total = t; });
+      };
+      task.onDone = (f) {
+        if (mounted) setState(() { _isDownloading = false; _completedFile = f; });
+        _tryAutoInstall(f);
+      };
+      task.onError = (e) {
+        if (mounted) setState(() { _isDownloading = false; _errorMsg = e; });
+      };
+    }
 
-  // ── Build ────────────────────────────────────────────────────────────────────
+    Future<void> _tryAutoInstall(File file) async {
+      try {
+        final status = await SilentInstallerService.instance.checkStatus();
+        if (status == SilentInstallStatus.active) {
+          final ok = await SilentInstallerService.instance.installFile(file.path);
+          if (ok && mounted) {
+            _AppDownloadTask.clear();
+            Navigator.pop(context);
+          }
+        }
+      } catch (_) {}
+    }
+
+    // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -292,38 +307,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Close / minimize row
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            _isDownloading
-                                ? Icons.minimize_rounded
-                                : Icons.close_rounded,
-                            color: Colors.white.withValues(alpha: 0.70),
-                          ),
-                          tooltip: _isDownloading ? 'Continuer en fond' : 'Fermer',
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Spacer(),
-                        if (!_isDownloading && _completedFile == null)
-                          GestureDetector(
-                            onTap: () {
-                              skipAppUpdate(upd.$1);
-                              Navigator.pop(context);
-                            },
-                            child: Text(
-                              'Ignorer',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.42),
-                                fontSize: 13,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+                    
                     // Download icon
                     Container(
                       width: 56, height: 56,
@@ -390,71 +374,35 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // What's New section header
-                  if (upd.$2.trim().isNotEmpty) ...[
-                    Row(
-                      children: [
-                        const Text('⚙️',
-                            style: TextStyle(fontSize: 17,
-                                decoration: TextDecoration.none)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "What's New",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Changelog card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: _kCard,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: _kBorder),
-                      ),
-                      child: Text(
-                        upd.$2.trim(),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.80),
-                          fontSize: 13.5,
-                          height: 1.65,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () => launchUrl(Uri.parse(upd.$3),
-                          mode: LaunchMode.externalApplication),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.open_in_new_rounded,
-                              size: 13,
-                              color: cs.primary.withValues(alpha: 0.65)),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Ouvrir sur GitHub',
-                            style: TextStyle(
-                              color: cs.primary.withValues(alpha: 0.65),
-                              fontSize: 13,
-                              decoration: TextDecoration.none,
+                  // What's New — Mihon-style inline (no card)
+                    if (upd.$2.trim().isNotEmpty) ...[
+                      _ChangelogWidget(body: upd.$2, cs: cs),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(upd.$3),
+                            mode: LaunchMode.externalApplication),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.open_in_new_rounded,
+                                size: 13,
+                                color: cs.primary.withValues(alpha: 0.65)),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Ouvrir sur GitHub',
+                              style: TextStyle(
+                                color: cs.primary.withValues(alpha: 0.65),
+                                fontSize: 13,
+                                decoration: TextDecoration.none,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                      const SizedBox(height: 8),
+                    ],
 
-                  // Progress indicator
+                    // Progress indicator
                   if (_isDownloading) ...[
                     const SizedBox(height: 16),
                     _buildProgress(cs),
@@ -799,7 +747,156 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   }
 }
 
-// ── Button variants ───────────────────────────────────────────────────────────
+// ── Changelog widget (Mihon-style) ──────────────────────────────────────────
+
+  /// Renders a GitHub release body in Mihon-style sections without a card.
+  /// Strips installation instructions and maps commit-type headers to emoji sections.
+  class _ChangelogWidget extends StatelessWidget {
+    final String body;
+    final ColorScheme cs;
+    const _ChangelogWidget({required this.body, required this.cs});
+
+    static const _kSectionOrder = [
+      ('feat', '✨', 'New Features'),
+      ('change', '⚙️', 'Changes'),
+      ('improve', '🚀', 'Improvements'),
+      ('fix', '🐛', 'Fixes'),
+      ('remove', '🗑️', 'Removals'),
+    ];
+
+    Map<String, List<String>> _parse(String raw) {
+      // Remove installation instructions block (after ---)
+      final parts = raw.split(RegExp(r'
+---+
+'));
+      final cleaned = parts.first.trim();
+
+      final sections = <String, List<String>>{};
+      String currentSection = 'change';
+
+      for (final line in cleaned.split('
+')) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) continue;
+
+        // Markdown header → detect section type
+        if (trimmed.startsWith('#')) {
+          final lower = trimmed.toLowerCase();
+          if (lower.contains('feat') || lower.contains('new') || lower.contains('ajout')) {
+            currentSection = 'feat';
+          } else if (lower.contains('remov') || lower.contains('supprim')) {
+            currentSection = 'remove';
+          } else if (lower.contains('improv') || lower.contains('améliora') || lower.contains('perf')) {
+            currentSection = 'improve';
+          } else if (lower.contains('fix') || lower.contains('correct') || lower.contains('bug')) {
+            currentSection = 'fix';
+          } else {
+            currentSection = 'change';
+          }
+          continue;
+        }
+
+        // Bullet point
+        if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•')) {
+          final item = trimmed.substring(1).trim();
+          if (item.isNotEmpty) {
+            sections.putIfAbsent(currentSection, () => []).add(item);
+          }
+          continue;
+        }
+
+        // Commit-type prefix: "feat: desc" / "fix: desc" / etc.
+        for (final (type, _, _) in _kSectionOrder) {
+          if (trimmed.toLowerCase().startsWith('$type:')) {
+            final item = trimmed.substring(type.length + 1).trim();
+            if (item.isNotEmpty) sections.putIfAbsent(type, () => []).add(item);
+            break;
+          }
+        }
+      }
+      return sections;
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      final sections = _parse(body);
+      if (sections.isEmpty) {
+        // Fallback: show raw body without card
+        return Text(
+          body.trim(),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.80),
+            fontSize: 13.5,
+            height: 1.65,
+            decoration: TextDecoration.none,
+          ),
+        );
+      }
+
+      final widgets = <Widget>[];
+      for (final (key, emoji, label) in _kSectionOrder) {
+        final items = sections[key];
+        if (items == null || items.isEmpty) continue;
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(emoji, style: const TextStyle(fontSize: 17, decoration: TextDecoration.none)),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ...items.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('• ', style: TextStyle(
+                        color: cs.primary.withValues(alpha: 0.80),
+                        fontSize: 13.5,
+                        decoration: TextDecoration.none,
+                      )),
+                      Expanded(
+                        child: Text(
+                          item,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.80),
+                            fontSize: 13.5,
+                            height: 1.5,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+              ],
+            ),
+          ),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: widgets,
+      );
+    }
+  }
+
+  // ── Button variants ───────────────────────────────────────────────────────────
 
 enum _BtnStyle { filled, outlined, ghost }
 

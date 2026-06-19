@@ -20,11 +20,16 @@ import 'dart:developer' show log;
 
     static const _channel = MethodChannel('com.watchtower.app.silent_installer');
 
-    /// Returns the current setup status.
+      // Local flag: set to true once grantViaShizuku succeeds so that checkStatus()
+      // immediately returns active even before the OS propagates the permission.
+      static bool _grantedLocally = false;
+
+      /// Returns the current setup status.
     Future<SilentInstallStatus> checkStatus() async {
       try {
-        final hasPerm = await _channel.invokeMethod<bool>('hasInstallPackagesPermission') ?? false;
-        if (hasPerm) return SilentInstallStatus.active;
+          if (_grantedLocally) return SilentInstallStatus.active;
+          final hasPerm = await _channel.invokeMethod<bool>('hasInstallPackagesPermission') ?? false;
+          if (hasPerm) return SilentInstallStatus.active;
 
         final available = await _channel.invokeMethod<bool>('isShizukuAvailable') ?? false;
         if (!available) return SilentInstallStatus.shizukuNotRunning;
@@ -96,7 +101,8 @@ import 'dart:developer' show log;
         if (!permOk) return false;
 
         final granted = await _channel.invokeMethod<bool>('grantViaShizuku') ?? false;
-        if (granted && context.mounted) {
+          if (granted) _grantedLocally = true;
+          if (granted && context.mounted) {
           await showDialog<void>(
             context: context,
             builder: (_) => AlertDialog(
@@ -122,7 +128,18 @@ import 'dart:developer' show log;
       }
     }
 
-    /// Download [url] into cache and install silently.
+    /// Install an APK that has already been downloaded.
+      Future<bool> installFile(String path) async {
+        try {
+          final ok = await _channel.invokeMethod<bool>('installApkSilent', {'path': path}) ?? false;
+          return ok;
+        } catch (e) {
+          log('SilentInstaller.installFile error: $e');
+          return false;
+        }
+      }
+
+      /// Download [url] into cache and install silently.
     /// [onProgress] is called with 0.0–1.0 as download proceeds.
     Future<bool> downloadAndInstall(
       String url, {
