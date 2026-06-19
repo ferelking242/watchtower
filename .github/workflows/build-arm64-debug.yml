@@ -395,6 +395,41 @@ jobs:
             echo "  OK pyrogram: $(basename $PYROGRAM) ($(du -sh assets/wheels/pyrogram.whl | cut -f1))"
           fi
 
+
+          # ── PySocks (dep obligatoire pyrogram — import socks) ────────────
+          echo "=== PySocks ==="
+          pip3 download PySocks --only-binary :all: --no-deps -d /tmp/py_wheels/ 2>/dev/null || \
+            pip3 download PySocks --no-deps -d /tmp/py_wheels/ || true
+          PYSOCKS=$(find /tmp/py_wheels -iname 'pysocks*.whl' 2>/dev/null | head -1 || true)
+          if [ -n "$PYSOCKS" ]; then
+            cp "$PYSOCKS" assets/wheels/pysocks.whl
+            echo "  OK PySocks: $(basename $PYSOCKS) ($(du -sh assets/wheels/pysocks.whl | cut -f1))"
+          else
+            echo "  WARN: PySocks wheel introuvable"
+          fi
+
+          # ── aiofiles (dep pyrogram — session async I/O) ──────────────────
+          echo "=== aiofiles ==="
+          pip3 download aiofiles --no-deps -d /tmp/py_wheels/ || true
+          AIOFILES=$(find /tmp/py_wheels -iname 'aiofiles*.whl' 2>/dev/null | head -1 || true)
+          if [ -n "$AIOFILES" ]; then
+            cp "$AIOFILES" assets/wheels/aiofiles.whl
+            echo "  OK aiofiles: $(basename $AIOFILES) ($(du -sh assets/wheels/aiofiles.whl | cut -f1))"
+          else
+            echo "  WARN: aiofiles wheel introuvable"
+          fi
+
+          # ── pyaes (dep pyrogram — crypto fallback) ───────────────────────
+          echo "=== pyaes ==="
+          pip3 download pyaes --no-deps -d /tmp/py_wheels/ || true
+          PYAES=$(find /tmp/py_wheels -iname 'pyaes*.whl' 2>/dev/null | head -1 || true)
+          if [ -n "$PYAES" ]; then
+            cp "$PYAES" assets/wheels/pyaes.whl
+            echo "  OK pyaes: $(basename $PYAES) ($(du -sh assets/wheels/pyaes.whl | cut -f1))"
+          else
+            echo "  WARN: pyaes wheel introuvable"
+          fi
+
           # ── TgCrypto (optionnel — acceleration C si disponible) ───────────
           pip3 download TgCrypto \
             --platform manylinux_2_17_aarch64 \
