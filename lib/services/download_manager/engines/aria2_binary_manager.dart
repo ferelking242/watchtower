@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -11,14 +14,12 @@ const _binaryUtilsChannelAria2 = MethodChannel('com.watchtower.app.binary_utils'
 /// Manages the aria2c binary lifecycle.
 ///
 /// Resolution order:
-///   1. nativeLibraryDir/libaria2c.so — installed by PackageManager, always
-///      exec-capable on all Android versions (no SELinux restriction).
-///      Will exist once aria2c is packaged in jniLibs/ of the APK.
-///   2. Public folder /storage/emulated/0/watchtower/bin/aria2c (user override)
-///   3. User override at `Android/data/com.watchtower.app/files/aria2c`
-///   4. Cached path from this session
-///   5. Previously extracted binary in app support
-///   6. Extract bundled asset `assets/binaries/aria2c` (if present)
+///   1. Public folder /storage/emulated/0/watchtower/bin/aria2c (user override)
+///   2. User override at `Android/data/com.watchtower.app/files/aria2c`
+///   3. Cached path from this session
+///   4. Previously extracted binary in app support
+///   5. Extract bundled asset `assets/binaries/aria2c` (if present at build time)
+///   6. Auto-download from aria2/aria2 GitHub releases (silent, first use only)
 class Aria2BinaryManager {
   static Aria2BinaryManager? _instance;
   static Aria2BinaryManager get instance =>
@@ -31,29 +32,8 @@ class Aria2BinaryManager {
   static const String _binaryName = 'aria2c';
 
   Future<String?> resolveExecutable() async {
-    // 1. nativeLibraryDir — canonical exec-capable location used by
-    //    youtubedl-android, Seal, ytdlnis for all compiled ELF binaries.
-    if (Platform.isAndroid) {
-      try {
-        final nativeDir = await _binaryUtilsChannelAria2
-            .invokeMethod<String>('getNativeLibraryDir');
-        if (nativeDir != null && nativeDir.isNotEmpty) {
-          final nativeFile = File('$nativeDir/libaria2c.so');
-          if (await nativeFile.exists() && await nativeFile.length() > 0) {
-            _cachedPath = nativeFile.path;
-            AppLogger.log(
-              'aria2c: using nativeLibraryDir binary at ${nativeFile.path}',
-              logLevel: LogLevel.debug,
-              tag: LogTag.download,
-            );
-            return nativeFile.path;
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 2. Public folder /storage/emulated/0/watchtower/bin/aria2c
-    if (Platform.isAndroid) {
+    // 1. Public folder /storage/emulated/0/watchtower/bin/aria2c
+    if (!kIsWeb && Platform.isAndroid) {
       final publicFile = File('/storage/emulated/0/watchtower/bin/$_binaryName');
       if (await publicFile.exists() && await publicFile.length() > 0) {
         await _ensureExecutable(publicFile);
@@ -66,6 +46,7 @@ class Aria2BinaryManager {
       }
     }
 
+    // 2. User override at external storage
     final userOverride = await _userOverridePath();
     if (userOverride != null) {
       final file = File(userOverride);
@@ -79,6 +60,7 @@ class Aria2BinaryManager {
       }
     }
 
+    // 3. In-memory cache
     if (_cachedPath != null) {
       final cached = File(_cachedPath!);
       if (await cached.exists() && await cached.length() > 0) {
@@ -86,6 +68,7 @@ class Aria2BinaryManager {
       }
     }
 
+    // 4. Previously extracted binary in app support
     final internalPath = await _internalBinaryPath();
     final internalFile = File(internalPath);
     if (await internalFile.exists() && await internalFile.length() > 0) {
@@ -94,7 +77,12 @@ class Aria2BinaryManager {
       return internalPath;
     }
 
-    return await _extractFromAssets(internalPath);
+    // 5. Extract from bundled asset (present only when injected at CI build time)
+    final fromAsset = await _extractFromAssets(internalPath);
+    if (fromAsset != null) return fromAsset;
+
+    // 6. Auto-download from aria2/aria2 GitHub Releases (silent, first use)
+    return await _autoDownload(internalPath);
   }
 
   Future<String?> _extractFromAssets(String targetPath) async {
@@ -119,16 +107,108 @@ class Aria2BinaryManager {
         tag: LogTag.download,
       );
       return targetPath;
-    } catch (e, st) {
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Silent auto-download from the official aria2/aria2 GitHub releases.
+  /// Picks the best asset for the current device ABI.
+  /// Returns null (gracefully) if network is unavailable or no match found.
+  Future<String?> _autoDownload(String targetPath) async {
+    if (kIsWeb) return null;
+    if (!Platform.isAndroid && !Platform.isLinux && !Platform.isMacOS) {
+      return null;
+    }
+    try {
       AppLogger.log(
-        'Failed to extract aria2 from assets',
-        logLevel: LogLevel.error,
+        'aria2c not found locally — attempting auto-download',
         tag: LogTag.download,
-        error: e,
-        stackTrace: st,
+      );
+      final res = await http
+          .get(Uri.parse(
+              'https://api.github.com/repos/aria2/aria2/releases/latest'))
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return null;
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final rawAssets = (data['assets'] as List?) ?? const [];
+      final abiTokens = await _abiTokens();
+
+      // Look for a raw binary matching the current platform + ABI.
+      // Exclude archives (.tar, .bz2, .gz, .zip) — we cannot extract them here.
+      final candidates = rawAssets
+          .whereType<Map<String, dynamic>>()
+          .where((a) {
+            final name = (a['name'] ?? '').toString().toLowerCase();
+            if (name.endsWith('.sha256')) return false;
+            if (name.endsWith('.tar.bz2') ||
+                name.endsWith('.tar.gz') ||
+                name.endsWith('.zip')) return false;
+            if (!kIsWeb && Platform.isAndroid && !name.contains('android')) {
+              return false;
+            }
+            if (abiTokens.isEmpty) return true;
+            return abiTokens.any((tok) => name.contains(tok));
+          })
+          .toList();
+
+      if (candidates.isEmpty) {
+        AppLogger.log(
+          'aria2c auto-download: no raw binary asset found for this ABI',
+          logLevel: LogLevel.warning,
+          tag: LogTag.download,
+        );
+        return null;
+      }
+
+      final url =
+          (candidates.first['browser_download_url'] ?? '').toString();
+      if (url.isEmpty) return null;
+
+      AppLogger.log('aria2c auto-download → $url', tag: LogTag.download);
+      final ok = await downloadFromUrl(url);
+      if (!ok) return null;
+
+      _cachedPath = targetPath;
+      return targetPath;
+    } catch (e) {
+      AppLogger.log(
+        'aria2c auto-download failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
       );
       return null;
     }
+  }
+
+  /// Detect ABI tokens for the current device to pick the right release asset.
+  Future<List<String>> _abiTokens() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final info = await DeviceInfoPlugin().androidInfo;
+        final mapped = <String>[];
+        for (final abi in info.supportedAbis) {
+          final lower = abi.toLowerCase();
+          mapped.add(lower);
+          if (lower == 'arm64-v8a') {
+            mapped.addAll(['arm64', 'aarch64', 'android-arm64']);
+          } else if (lower == 'armeabi-v7a') {
+            mapped.addAll(['armv7', 'arm', 'android-arm']);
+          } else if (lower == 'x86_64') {
+            mapped.addAll(['amd64', 'android-x86_64']);
+          } else if (lower == 'x86') {
+            mapped.addAll(['i386', 'i686', 'android-x86']);
+          }
+        }
+        return mapped;
+      } catch (_) {
+        return ['arm64', 'aarch64'];
+      }
+    }
+    if (!kIsWeb && Platform.isLinux) return ['linux', 'x86_64', 'amd64'];
+    if (!kIsWeb && Platform.isMacOS) return ['darwin', 'macos'];
+    return const [];
   }
 
   Future<void> _ensureExecutable(File file) async {
