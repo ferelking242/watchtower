@@ -850,6 +850,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // Popular auto-scroll carousel ──────────────────────────────────
               _buildSectionHeader(ctx, title: 'Populaires', onSeeAll: () {
                 _mangaList.clear();
