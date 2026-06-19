@@ -397,23 +397,17 @@ var extention = new DefaultExtension();
   @override
   Future<String> getHtmlContent(String name, String url) async {
     await _initAsync();
-    final res = (await runtime.handlePromise(
-      await runtime.evaluateAsync(
-        'jsonStringify(() => extention.getHtmlContent(${jsonEncode(name)}, ${jsonEncode(url)}))',
-      ),
-    )).stringResult;
-    return res;
+    return await _pollJsPromise(
+          'jsonStringify(() => extention.getHtmlContent(${jsonEncode(name)}, ${jsonEncode(url)}))',
+        ) ?? '';
   }
 
   @override
   Future<String> cleanHtmlContent(String html) async {
     await _initAsync();
-    final res = (await runtime.handlePromise(
-      await runtime.evaluateAsync(
-        'jsonStringify(() => extention.cleanHtmlContent(${jsonEncode(html)}))',
-      ),
-    )).stringResult;
-    return res;
+    return await _pollJsPromise(
+          'jsonStringify(() => extention.cleanHtmlContent(${jsonEncode(html)}))',
+        ) ?? '';
   }
 
   @override
@@ -478,60 +472,110 @@ var extention = new DefaultExtension();
     }
   }
 
-  Future<T> _extensionCallAsync<T>(String call) async {
-      // Guard: if the service was disposed between the caller's await _initAsync()
-      // and this point (e.g. timeout or navigation), throw cleanly instead of
-      // accessing a freed runtime.
-      if (_isDisposing) {
-        throw StateError(
-          'JsExtensionService for "${source.name ?? source.id}" was disposed '
-          'before the JS call "$call" could run.',
-        );
-      }
-
-      // Evaluate the JS call. With quickjs-plus, evaluateAsync wraps the QJS
-      // Promise in a Dart Future<dynamic> (rawResult is Future). handlePromise
-      // detects this via type check and pumps the job queue via Timer.periodic
-      // until the Future resolves.
-      final evalResult =
-          await runtime.evaluateAsync('jsonStringify(() => extention.$call)');
-
-      // Diagnostic: log what quickjs-plus returned so we can confirm the fix.
-      AppLogger.log(
-        '$call → rawType=${evalResult.rawResult?.runtimeType} '
-        'str=${evalResult.stringResult.length > 80 ? evalResult.stringResult.substring(0, 80) + "…" : evalResult.stringResult}',
-        logLevel: LogLevel.info,
-        tag: LogTag.extension_,
+  /// Polls a QJS async expression using the JS-side querablePromise machinery,
+  /// pumping the job queue every 20 ms.  Returns the resolved string value.
+  ///
+  /// Why not use [handlePromise]?
+  /// quickjs-plus converts every QJS Promise to a Dart [Future] in _jsToDart
+  /// by registering a native .then() callback.  That callback fires from
+  /// inside JS_ExecutePendingJob (a C FFI call).  Calling Completer.complete
+  /// from a native FFI context schedules a Dart microtask, but that microtask
+  /// cannot be drained until the entire native call stack has unwound — by
+  /// then the Timer.periodic pump in handlePromise has already been cancelled,
+  /// so the awaiting Future never resumes and a 30-second timeout results.
+  ///
+  /// This helper keeps the Promise entirely inside QJS via
+  /// FLUTTER_NATIVEJS_REGISTER_PROMISE and reads getValue() once settled.
+  /// No Dart Future wrapping is involved, so there is no FFI-scheduling issue.
+  Future<String?> _pollJsPromise(String jsExpr) async {
+    if (_isDisposing) {
+      throw StateError(
+        'JsExtensionService for "${source.name ?? source.id}" was disposed '
+        'before the JS call could run.',
       );
+    }
 
-      final promised = await runtime.handlePromise(evalResult).timeout(
-        _kJsExecutionTimeout,
-        onTimeout: () => throw TimeoutException(
+    final regResult = runtime.evaluate(
+      'FLUTTER_NATIVEJS_REGISTER_PROMISE($jsExpr)',
+    );
+
+    if (regResult.isError) {
+      throw Exception('Extension JS error: ${regResult.stringResult}');
+    }
+
+    final idx = int.tryParse(regResult.stringResult ?? '');
+    if (idx == null) {
+      throw Exception(
+        'Failed to register Promise (unexpected: ${regResult.stringResult})',
+      );
+    }
+
+    final deadline = DateTime.now().add(_kJsExecutionTimeout);
+    while (true) {
+      runtime.executePendingJob();
+
+      if (runtime
+              .evaluate('FLUTTER_NATIVEJS_IS_PENDING_PROMISE($idx)')
+              .stringResult !=
+          'true') break;
+
+      if (DateTime.now().isAfter(deadline)) {
+        runtime.evaluate('FLUTTER_NATIVEJS_CLEAN_PROMISE($idx);');
+        throw TimeoutException(
           'Extension JS call "${source.name ?? source.id}" exceeded '
           '${_kJsExecutionTimeout.inSeconds}s timeout.',
-        ),
-      );
-
-      if (promised.isError) {
-        throw Exception(
-          'Extension JS error in "$call": ${promised.stringResult}',
         );
       }
 
-      final raw = promised.stringResult;
-      if (raw == null || raw.isEmpty) {
-        throw Exception('Extension returned empty result for "$call"');
-      }
-
-      try {
-        return jsonDecode(raw) as T;
-      } on FormatException catch (e) {
-        throw Exception(
-          'Extension result is not valid JSON for "$call" '
-          '(got: ${raw.length > 120 ? raw.substring(0, 120) : raw}): $e',
-        );
-      }
+      // Yield so Dart I/O callbacks (HTTP responses that resolve inner QJS
+      // Promises) can fire before we pump the job queue again.
+      await Future.delayed(const Duration(milliseconds: 20));
     }
+
+    final isFulfilled =
+        runtime
+            .evaluate('FLUTTER_NATIVEJS_IS_FULLFILLED_PROMISE($idx)')
+            .stringResult ==
+        'true';
+
+    // getValue() returns the JSON string from jsonStringify directly.
+    // Do NOT wrap in JSON.stringify() — that would double-encode it.
+    final valueResult = runtime.evaluate(
+      'FLUTTER_NATIVEJS_PENDING_PROMISES[$idx].getValue()',
+    );
+    runtime.evaluate('FLUTTER_NATIVEJS_CLEAN_PROMISE($idx);');
+
+    if (!isFulfilled) {
+      throw Exception('Extension JS rejected: ${valueResult.stringResult}');
+    }
+
+    return valueResult.stringResult;
+  }
+
+  Future<T> _extensionCallAsync<T>(String call) async {
+    final raw = await _pollJsPromise(
+      'jsonStringify(() => extention.$call)',
+    );
+
+    AppLogger.log(
+      '$call → ${raw == null ? "null" : "${raw.length} chars"}',
+      logLevel: LogLevel.info,
+      tag: LogTag.extension_,
+    );
+
+    if (raw == null || raw.isEmpty || raw == 'null') {
+      throw Exception('Extension returned empty result for "$call"');
+    }
+
+    try {
+      return jsonDecode(raw) as T;
+    } on FormatException catch (e) {
+      throw Exception(
+        'Extension result is not valid JSON for "$call" '
+        '(got: ${raw.length > 120 ? raw.substring(0, 120) : raw}): $e',
+      );
+    }
+  }
 
     /// Escapes literal line terminators inside regex literals so that QuickJS
   /// doesn't reject the source with "unterminated regular expression".
