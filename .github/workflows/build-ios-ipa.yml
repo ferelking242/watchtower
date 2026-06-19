@@ -144,13 +144,64 @@ jobs:
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
 
       # ── Build ────────────────────────────────────────────────────────────────
-      # flutter build ios --release --no-codesign est l'approche éprouvée :
-      #   - gère automatiquement les plugins, assets, Rust FFI
-      #   - produit build/ios/iphoneos/Runner.app sans nécessiter de certificat
-      #   - contrairement à xcodebuild direct, pas de risque de masquage d'erreurs via pipe
+      # flutter build ios --release --no-codesign échoue avec Xcode 16 (macos-15)
+      # même avec DEVELOPMENT_TEAM="" : flutter fait une vérification post-build
+      # et rejette le résultat si le team est absent.
+      # Solution : --config-only pour générer le glue Flutter/Xcode, puis
+      # xcodebuild direct avec CODE_SIGNING_ALLOWED=NO qui bypasse toute vérification.
+      # Bug cp -r corrigé : supprimer l'ancienne Runner.app avant la copie pour
+      # éviter que cp crée Runner.app/Runner.app/ (macOS cp -r comportement).
       - name: Build iOS (no codesign)
         run: |
-          flutter build ios --release --no-codesign
+          set -euo pipefail
+
+          # Phase 1: générer le glue Flutter (xcconfig, GeneratedPluginRegistrant, etc.)
+          # sans invoquer xcodebuild et sans vérification de signing.
+          flutter build ios --release --no-codesign --config-only 2>&1 | tail -20 || true
+
+          # Phase 2: xcodebuild avec signing totalement désactivé.
+          # On tee vers un fichier pour voir la sortie ET capturer l'exit code.
+          echo "=== xcodebuild start ==="
+          set +e
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ENABLE_BITCODE=NO \
+            -derivedDataPath build/ios/derived \
+            build 2>&1 | tee /tmp/xcode_build.log
+          XCODE_EXIT=${PIPESTATUS[0]}
+          set -e
+
+          # Afficher les dernières lignes pour le débogage
+          echo "--- xcodebuild exit: $XCODE_EXIT ---"
+          grep -E "^(\*\*|error:|Build)" /tmp/xcode_build.log | tail -30 || true
+
+          if [ "$XCODE_EXIT" -ne 0 ]; then
+            echo "ERROR: xcodebuild failed (exit $XCODE_EXIT)" >&2
+            exit "$XCODE_EXIT"
+          fi
+
+          # Phase 3: copier l'app au chemin attendu par les étapes suivantes.
+          # IMPORTANT: supprimer l'ancienne Runner.app (créée par --config-only)
+          # avant cp -r pour éviter le piège macOS : cp -r src dest_existant
+          # place src DANS dest → build/ios/iphoneos/Runner.app/Runner.app.
+          APP_SRC="build/ios/derived/Build/Products/Release-iphoneos/Runner.app"
+          if [ ! -d "$APP_SRC" ]; then
+            echo "ERROR: Runner.app introuvable à $APP_SRC" >&2
+            ls -la build/ios/derived/Build/Products/ 2>/dev/null || echo "Derived products dir absent"
+            exit 1
+          fi
+          rm -rf build/ios/iphoneos/Runner.app
+          mkdir -p build/ios/iphoneos
+          cp -r "$APP_SRC" build/ios/iphoneos/Runner.app
           echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
           echo "=== Frameworks count: $(ls build/ios/iphoneos/Runner.app/Frameworks/ | wc -l) ==="
           ls build/ios/iphoneos/Runner.app/flutter_assets/assets/binaries/ 2>/dev/null \
