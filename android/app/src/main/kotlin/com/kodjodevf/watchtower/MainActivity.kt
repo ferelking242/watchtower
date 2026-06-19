@@ -95,6 +95,7 @@ package com.watchtower.app
 
       // ── Shizuku permission callback ────────────────────────────────────────
       private var pendingShizukuResult: MethodChannel.Result? = null
+  private var _wakeLock: android.os.PowerManager.WakeLock? = null
       private val shizukuPermListener =
           Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
               if (requestCode == SHIZUKU_CODE) {
@@ -447,6 +448,43 @@ package com.watchtower.app
                   else -> result.notImplemented()
               }
           }
+
+
+
+        // ── 8b. Wake lock for background downloads ─────────────────────────────
+        // Keeps the CPU awake (partial wakelock) during APK downloads so that
+        // Android does not throttle the network stream when the app is backgrounded.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.watchtower.app.wakelock",
+            StandardMethodCodec.INSTANCE,
+            flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "acquire" -> {
+                    try {
+                        if (_wakeLock == null || !(_wakeLock!!.isHeld)) {
+                            @Suppress("DEPRECATION")
+                            _wakeLock = (getSystemService(POWER_SERVICE) as android.os.PowerManager)
+                                .newWakeLock(
+                                    android.os.PowerManager.PARTIAL_WAKE_LOCK,
+                                    "com.watchtower.app:download"
+                                )
+                            _wakeLock!!.acquire(30 * 60 * 1000L) // max 30 min
+                        }
+                        result.success(null)
+                    } catch (e: Exception) { result.error("WAKELOCK_ERR", e.message, null) }
+                }
+                "release" -> {
+                    try {
+                        if (_wakeLock?.isHeld == true) _wakeLock!!.release()
+                        _wakeLock = null
+                        result.success(null)
+                    } catch (e: Exception) { result.error("WAKELOCK_ERR", e.message, null) }
+                }
+                else -> result.notImplemented()
+            }
+        }
 
           // ── 9. Plugin executor (Flare eval bridge) ──────────────────────────
           // Python-based execution removed — plugins now use native binaries only.

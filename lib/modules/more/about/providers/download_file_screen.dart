@@ -25,6 +25,7 @@ class _AppDownloadTask {
   static _AppDownloadTask? _current;
   static _AppDownloadTask? get current => _current;
   static const int _notifId = 8001;
+    static const _kWakelockChannel = MethodChannel('com.watchtower.app.wakelock');
   static bool _channelCreated = false;
 
   final String version;
@@ -68,11 +69,16 @@ class _AppDownloadTask {
   }
 
   Future<void> run(String url, File destFile) async {
-    final notifs = FlutterLocalNotificationsPlugin();
-    await _ensureChannel(notifs);
+      final notifs = FlutterLocalNotificationsPlugin();
+      await _ensureChannel(notifs);
 
-    try {
-      final client = http.Client();
+      // Acquire wakelock so Android keeps the download alive when backgrounded.
+      if (!kIsWeb && Platform.isAndroid) {
+        try { await _kWakelockChannel.invokeMethod('acquire'); } catch (_) {}
+      }
+
+      try {
+        final client = http.Client();
       final request = http.Request('GET', Uri.parse(url));
       // Disable compression so Content-Length is accurate for progress.
       request.headers['Accept-Encoding'] = 'identity';
@@ -99,18 +105,24 @@ class _AppDownloadTask {
           }
         },
         onDone: () async {
-          await sink.close();
-          completedFile = destFile;
-          _done = true;
-          onDone?.call(destFile);
-          _showDoneNotif(notifs, version);
-        },
+            await sink.close();
+            completedFile = destFile;
+            _done = true;
+            if (!kIsWeb && Platform.isAndroid) {
+              try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
+            }
+            onDone?.call(destFile);
+            _showDoneNotif(notifs, version);
+          },
         onError: (Object e) async {
-          await sink.close();
-          errorMsg = e.toString();
-          onError?.call(errorMsg!);
-          _cancelNotif(notifs);
-        },
+            await sink.close();
+            errorMsg = e.toString();
+            if (!kIsWeb && Platform.isAndroid) {
+              try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
+            }
+            onError?.call(errorMsg!);
+            _cancelNotif(notifs);
+          },
         cancelOnError: true,
       );
     } catch (e) {
