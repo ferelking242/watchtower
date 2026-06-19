@@ -72,6 +72,8 @@ class LibPythonManager {
     return dir.path;
   }
 
+  Future<Map<String, String>> buildEnv() => _env;
+
   Future<Map<String, String>> get _env async {
     final nd = await _nativeDir ?? '';
     final ph = await pythonHome;
