@@ -1,26 +1,28 @@
 [package]
-name = "rust_lib_watchtower"
-version = "0.1.0"
-edition = "2021"
+  name = "rust_lib_watchtower"
+  version = "0.1.0"
+  edition = "2021"
 
-[lib]
-crate-type = ["cdylib", "staticlib"]
+  [lib]
+  crate-type = ["cdylib", "staticlib"]
 
-[dependencies]
-flutter_rust_bridge = { version = "=2.11.1", features = ["chrono"] }
-image = "0.25.10"
-chrono = "0.4.44"
-futures-util = "0.3.31"
-reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls", "stream", "multipart", "socks", "brotli", "gzip"] }
-tokio = { version = "1.50.0", features = ["full"] }
-tokio-util = "0.7.16"
-epub = "2.1.5"
-zip = "8.5.0"
+  [dependencies]
+  flutter_rust_bridge = { version = "=2.11.1", features = ["chrono"] }
+  image = "0.25.10"
+  chrono = "0.4.44"
+  futures-util = "0.3.31"
+  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls", "stream", "multipart", "socks", "brotli", "gzip"] }
+  tokio = { version = "1.50.0", features = ["full"] }
+  tokio-util = "0.7.16"
+  epub = "2.1.5"
+  zip = "8.5.0"
 
-# Android: initialize rustls-platform-verifier from our JNI_OnLoad hook so that
-# HTTPS requests via reqwest/rustls can verify server certificates using the
-# Android system trust store.  Without this, every attempt panics with
-# "Expect rustls-platform-verifier to be initialized".
-[target.'cfg(target_os = "android")'.dependencies]
-jni = { version = "0.21.1", default-features = false }
-rustls-platform-verifier = "0.6.2"
+  # Android: initialise rustls-platform-verifier from JNI_OnLoad so that HTTPS
+  # requests via reqwest/rustls can verify server certificates through the Android
+  # system trust-store.  ndk-context is used to obtain the Application context
+  # (Flutter sets it up before loading our library via RustLib.init()).
+  [target.'cfg(target_os = "android")'.dependencies]
+  jni = { version = "0.21.1", default-features = false }
+  rustls-platform-verifier = "0.6.2"
+  ndk-context = "0.1.1"
+  
