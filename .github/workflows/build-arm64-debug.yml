@@ -1,4 +1,4 @@
-name: Build Android ARMv8 Profile
+name: Build Android ARMv8 Release
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build ARMv8 Profile APK
+    name: Build ARMv8 Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -168,7 +168,7 @@ jobs:
       - name: Generate app icons (flutter_launcher_icons)
         run: dart run flutter_launcher_icons
 
-      - name: Build APK (ARMv8 profile)
+      - name: Build APK (ARMv8 release)
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
         run: |
