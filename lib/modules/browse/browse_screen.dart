@@ -13,7 +13,7 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
-import 'package:watchtower/modules/plugins/plugins_screen.dart' show PluginsScreen;
+import 'package:watchtower/modules/plugins/plugins_hub_screen.dart' show PluginsHubScreen;
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -458,7 +458,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         physics: const ClampingScrollPhysics(),
         children: [
           ..._types.map((t) => _BrowseTypeView(itemType: t)),
-          const PluginsScreen(),
+          const PluginsHubScreen(),
         ],
       ),
     );

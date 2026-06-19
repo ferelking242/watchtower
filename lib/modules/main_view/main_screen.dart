@@ -931,6 +931,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
     (route: '/globalSearch',   icon: Icons.search_outlined,             activeIcon: Icons.search,                     tooltip: 'Recherche'),
     (route: '/browse',         icon: Icons.explore_outlined,            activeIcon: Icons.explore,                    tooltip: 'Browse'),
     (route: '/marketplace',    icon: Icons.storefront_outlined,         activeIcon: Icons.storefront_rounded,         tooltip: 'Marketplace'),
+    (route: '/plugins',        icon: Icons.extension_outlined,             activeIcon: Icons.extension_rounded,          tooltip: 'Plugins'),
   ];
 
   static const _footerItems = [
