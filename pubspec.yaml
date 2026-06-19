@@ -162,6 +162,7 @@ flutter:
     - assets/zeusdl/
     - assets/icons/
     - assets/binaries/
+    - assets/wheels/
     - assets/telegram/
 flutter_launcher_icons:
   android: "launcher_icon"
