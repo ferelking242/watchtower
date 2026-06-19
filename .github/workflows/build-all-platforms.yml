@@ -52,6 +52,37 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
+      - name: Bundle Python wheels (tgcrypto + pyrogram)
+        run: |
+          set -euo pipefail
+          mkdir -p assets/wheels /tmp/py_wheels
+
+          # Arch-specific wheel for tgcrypto (C extension)
+          if [[ "${{ matrix.target }}" == *"arm64"* ]]; then
+            PLATFORM="manylinux_2_17_aarch64"
+          else
+            PLATFORM="manylinux_2_17_x86_64"
+          fi
+          echo "=== Downloading tgcrypto ($PLATFORM) ==="
+          pip3 download tgcrypto \
+            --platform "$PLATFORM" \
+            --python-version 311 \
+            --only-binary :all: \
+            --no-deps \
+            -d /tmp/py_wheels/
+          TGCRYPTO=$(ls /tmp/py_wheels/tgcrypto*.whl | head -1)
+          cp "$TGCRYPTO" assets/wheels/tgcrypto.whl
+          echo "  tgcrypto: $(basename $TGCRYPTO)"
+
+          echo "=== Downloading pyrogram wheel (pure Python) ==="
+          pip3 download pyrogram \
+            --only-binary :all: \
+            --no-deps \
+            -d /tmp/py_wheels/
+          PYROGRAM=$(ls /tmp/py_wheels/pyrogram*.whl | head -1)
+          cp "$PYROGRAM" assets/wheels/pyrogram.whl
+          echo "  pyrogram: $(basename $PYROGRAM)"
+
       - name: Bundle ZeusDL as Flutter asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
