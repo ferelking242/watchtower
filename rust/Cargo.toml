@@ -19,7 +19,7 @@
   # enables aws-lc-rs on every rustls crate in the graph.  aws-lc-rs runs FIPS
   # C self-tests at dylib load time (before Flutter/Dart).  On TrollStore those
   # tests call abort() → SIGABRT with 0 logs — instant silent crash on launch.
-  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "__rustls", "stream", "multipart", "socks", "brotli", "gzip"] }
+  reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls-no-provider", "stream", "multipart", "socks", "brotli", "gzip"] }
   # ring is 100% Rust, zero C init, zero FIPS POST — safe on iOS/TrollStore.
   # It is installed as the process-default provider in client.rs before any TLS.
   rustls = { version = "0.23", default-features = false, features = ["ring"] }
@@ -28,4 +28,11 @@
   tokio-util = "0.7.16"
   epub = "2.1.5"
   zip = "8.5.0"
+  
+  [patch.crates-io]
+  # Stub replacement: prevents aws-lc-rs C code from being compiled.
+  # reqwest 0.13.2 references rustls_platform_verifier in its __rustls code path
+  # but we always call use_preconfigured_tls() which bypasses that path at runtime.
+  # The stub satisfies the type checker with zero C dependencies.
+  rustls-platform-verifier = { path = "patches/rustls-platform-verifier" }
   
