@@ -984,7 +984,7 @@ class _DepsBottomSheet extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           // Dep rows
-          ...depsStatus.values.map((dep) => _DepRow(dep: dep)),
+          ...depsStatus.values.map<Widget>((dep) => _DepRowStatus(dep: dep)),
           const SizedBox(height: 20),
           // CTA button
           SizedBox(
@@ -1016,9 +1016,9 @@ class _DepsBottomSheet extends StatelessWidget {
 
 // ─── Single dep row ────────────────────────────────────────────────────────────
 
-class _DepRow extends StatelessWidget {
+class _DepRowStatus extends StatelessWidget {
   final _DepStatus dep;
-  const _DepRow({required this.dep});
+  const _DepRowStatus({required this.dep});
 
   @override
   Widget build(BuildContext context) {
@@ -1383,7 +1383,7 @@ class _PluginDetailPageState extends ConsumerState<PluginDetailPage> {
               icon: Icons.terminal_rounded,
               label: 'Dépendances',
               child: Column(
-                children: p.requirements.entries.map((e) {
+                children: p.requirements.entries.map<Widget>((e) {
                   final meta = e.value as Map? ?? {};
                   final isOptional = meta['optional'] == true;
                   return _DepRow(
