@@ -98,7 +98,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   List<TypeMangaSelector> _types(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     return [
-      TypeMangaSelector(Icons.home_rounded, l10n.popular),
+      TypeMangaSelector(Icons.home_rounded, 'Accueil'),
       TypeMangaSelector(Icons.new_releases_outlined, l10n.latest),
       TypeMangaSelector(Icons.filter_list_outlined, l10n.filter),
       ..._customLists.map(
@@ -541,7 +541,74 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 
   // ── Skeleton shimmer grid ──────────────────────────────────────────────────
 
+  Widget _buildSkeletonList() {
+    final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
+    final high = Theme.of(context).colorScheme.surface.withValues(alpha: 0.9);
+    Widget box(double w, double h, {double r = 6}) => Container(
+      width: w == double.infinity ? null : w, height: h,
+      decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(r)),
+    );
+    return Skeletonizer(
+      enabled: true,
+      effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(height: 12),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(width: 110, height: 160, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(10))),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(height: 16, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 6),
+              Container(width: 100, height: 12, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 12),
+              Container(height: 11, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 4),
+              Container(height: 11, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 4),
+              Container(width: 150, height: 11, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+            ])),
+          ]),
+          const SizedBox(height: 14),
+          Row(children: List.generate(4, (k) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Container(width: 60.0 + k * 12, height: 26, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(13))),
+          ))),
+          const SizedBox(height: 20),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Container(width: 140, height: 18, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+            Container(width: 18, height: 18, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+          ]),
+          const SizedBox(height: 14),
+          ...List.generate(5, (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(width: 72, height: 100, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8))),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(height: 15, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                const SizedBox(height: 6),
+                Container(width: 180, height: 13, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Container(width: 16, height: 16, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8))),
+                  const SizedBox(width: 6),
+                  Container(width: 60, height: 12, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                ]),
+              ])),
+            ]),
+          )),
+        ]),
+      ),
+    );
+  }
+
   Widget _buildSkeletonGrid() {
+    if (_selectedIndex == _kPopularIdx && _customLists.isNotEmpty) {
+      return _buildSkeletonList();
+    }
     return Skeletonizer(
       enabled: true,
       effect: ShimmerEffect(
@@ -598,7 +665,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   // ── Grid / list view ───────────────────────────────────────────────────────
 
   Widget _buildGrid(BuildContext context) {
-    final displayType = ref.watch(mangaHomeDisplayTypeStateProvider);
+    final displayType = (_selectedIndex == _kPopularIdx && _customLists.isNotEmpty)
+        ? DisplayType.list
+        : ref.watch(mangaHomeDisplayTypeStateProvider);
     final isListMode =
         displayType == DisplayType.list || displayType == DisplayType.wideList;
     final isComfortableGrid = displayType == DisplayType.comfortableGrid ||
@@ -890,7 +959,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             pinned: true,
             floating: false,
             snap: false,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            backgroundColor: innerBoxIsScrolled ? Theme.of(context).scaffoldBackgroundColor : Colors.transparent,
             surfaceTintColor: Colors.transparent,
             shadowColor: Colors.transparent,
             elevation: 0,
@@ -1089,6 +1158,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 selectedIndex: _selectedIndex,
                 filterList: filterList,
                 supportsLatest: supportsLatest,
+                hasCustomLists: _customLists.isNotEmpty,
                 onSelect: (index) async {
                   if (filters.isEmpty) filters = filterList;
                   if (index == _kFilterIdx) {
@@ -1162,6 +1232,7 @@ class _TabPillsRow extends StatelessWidget {
   final int selectedIndex;
   final List<dynamic> filterList;
   final bool supportsLatest;
+  final bool hasCustomLists;
   final void Function(int) onSelect;
 
   const _TabPillsRow({
@@ -1169,6 +1240,7 @@ class _TabPillsRow extends StatelessWidget {
     required this.selectedIndex,
     required this.filterList,
     required this.supportsLatest,
+    required this.hasCustomLists,
     required this.onSelect,
   });
 
@@ -1181,6 +1253,9 @@ class _TabPillsRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         itemCount: types.length,
         itemBuilder: (context, index) {
+          if (hasCustomLists && (index == 1 || index == 2)) {
+            return const SizedBox.shrink();
+          }
           if (filterList.isEmpty && index == 2) {
             return const SizedBox.shrink();
           }
