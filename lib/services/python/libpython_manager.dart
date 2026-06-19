@@ -569,7 +569,7 @@ class PythonPackageInfo {
     // pip is bootstrapped from assets/wheels/pip.whl at first launch by
     // ensureStdlib(), but we double-check here in case resolvePluginDeps
     // is called before ensureStdlib() completes.
-    const _bundledWheels   = <String>{'tgcrypto', 'pyrogram'};
+    const _bundledWheels   = <String>{'tgcrypto', 'pyrogram', 'pysocks', 'aiofiles', 'pyaes'};
     const _binaryOnlyPkgs  = <String>{'tgcrypto'};
     const _optionalPackages = <String>{'tgcrypto'};
 
