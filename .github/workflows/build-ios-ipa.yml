@@ -231,9 +231,6 @@ jobs:
           unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
           echo "=== Vérif wakelock_plus ==="
           unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent des Frameworks binaries) ✓"
-          echo "=== Vérif zeusdl ==="
-          unzip -l Watchtower-iOS.ipa | grep zeusdl || echo "zeusdl: absent ✓"
-
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:

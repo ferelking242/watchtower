@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
-// Method channel provided by MainActivity — same as ZeusDlBinaryManager.
+// Method channel provided by MainActivity for binary path resolution.
 const _binaryUtilsChannelAria2 = MethodChannel('com.watchtower.app.binary_utils');
 
 /// Manages the aria2c binary lifecycle.
