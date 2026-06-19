@@ -171,9 +171,20 @@ class _ApiKeysScreenState extends State<_ApiKeysScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _tgBg,
-      body: SafeArea(
+      return Scaffold(
+        backgroundColor: _tgBg,
+        appBar: AppBar(
+          backgroundColor: _tgBg,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _tgText),
+                  onPressed: () => Navigator.maybePop(context),
+                )
+              : null,
+        ),
+        body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
           child: Column(

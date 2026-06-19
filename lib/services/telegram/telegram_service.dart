@@ -23,7 +23,6 @@ class TelegramService {
   static const telegramRequiredPackages = [
     'pyrogram',
     'tgcrypto',
-    'cryptg',
   ];
 
   Future<String> get _scriptFile async {
