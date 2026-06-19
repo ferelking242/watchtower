@@ -20,12 +20,28 @@ class PythonPackageInfo {
     final bytes = File(zipPath).readAsBytesSync();
     final archive = ZipDecoder().decodeBytes(bytes);
     for (final f in archive.files) {
-      if (!f.isFile) continue;
-      var name = f.name;
+      if (f.isDirectory) continue;
+      final name = f.name;
       if (name.isEmpty) continue;
-      final outFile = File('$destDir/$name');
-      outFile.parent.createSync(recursive: true);
-      outFile.writeAsBytesSync(f.content as List<int>);
+      final outPath = '$destDir/$name';
+
+      // Detect Unix symlinks via mode bits (S_IFLNK = 0xA000).
+      // Python-for-Android ships versioned .so files as symlinks
+      // (e.g. libz.so.1 -> libz.so.1.2.11). Without this check they
+      // are written as plain text files (13 bytes = target path string)
+      // which makes dlopen fail with "too small to be an ELF executable".
+      final isSymlink = (f.mode & 0xF000) == 0xA000;
+      if (isSymlink) {
+        final target = utf8.decode(f.content as List<int>).trim();
+        final link = Link(outPath);
+        link.parent.createSync(recursive: true);
+        if (link.existsSync()) link.deleteSync();
+        link.createSync(target);
+      } else {
+        final outFile = File(outPath);
+        outFile.parent.createSync(recursive: true);
+        outFile.writeAsBytesSync(f.content as List<int>);
+      }
     }
   }
 
