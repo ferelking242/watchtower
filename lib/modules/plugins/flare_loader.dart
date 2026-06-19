@@ -54,7 +54,11 @@ import 'package:http/http.dart' as http;
       color:         j['color'] as String? ?? '#00D4AA',
       category:      j['category'] as String? ?? 'utility',
       ui:            FlareUiConfig.fromJson(_migrateUiField(j['ui'])),
-      requirements:  (j['requirements'] as Map<String, dynamic>?) ?? {},
+      requirements:  (j['requirements'] is Map)
+          ? (j['requirements'] as Map).cast<String, dynamic>()
+          : (j['requirements'] is List)
+              ? { for (final e in (j['requirements'] as List)) if (e is Map && (e as Map)['id'] != null) (e['id'] as String): Map<String, dynamic>.from(e as Map) }
+              : {},
       commandScopes: (j['commandScopes'] as List?)?.map((e) => e is Map ? (e['command'] as String? ?? '') : e.toString()).toList() ?? [],
       userConfig:    (j['userConfig'] as Map<String, dynamic>?) ?? {},
       featured:      j['featured'] as bool? ?? false,
