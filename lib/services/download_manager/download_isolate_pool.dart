@@ -634,19 +634,29 @@ Future<void> _downloadFile(
 ) async {
   try {
     if (itemType != ItemType.anime) {
-      final response = await _withRetry(
-        () => client.get(Uri.parse(pageUrl.url), headers: pageUrl.headers),
-        3,
-      );
-      if (response.statusCode != 200) {
-        throw DownloadPoolException(
-          'Failed to download file: ${pageUrl.fileName!}',
+        const imageTimeout = Duration(seconds: 30);
+        final response = await _withRetry(
+          () => client
+              .get(Uri.parse(pageUrl.url), headers: pageUrl.headers)
+              .timeout(
+                imageTimeout,
+                onTimeout: () => throw DownloadPoolException(
+                  'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
+                ),
+              ),
+          3,
         );
-      }
-
-      final file = File(pageUrl.fileName!);
-      await file.writeAsBytes(response.bodyBytes);
-    } else {
+        if (response.statusCode != 200) {
+          throw DownloadPoolException(
+            'HTTP ${response.statusCode} for ${pageUrl.url}',
+          );
+        }
+        final file = File(pageUrl.fileName!);
+        await file.writeAsBytes(response.bodyBytes);
+        if (kDebugMode) {
+          debugPrint('[DLPool] ${path.basename(pageUrl.fileName!)} ok (${response.bodyBytes.length}B)');
+        }
+      } else {
       // Streaming for videos — reports real byte progress ("14 MB / 58 MB").
       await _withRetry(() async {
         var request = Request('GET', Uri.parse(pageUrl.url));
