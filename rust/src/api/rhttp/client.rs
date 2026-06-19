@@ -145,7 +145,7 @@ use std::str::FromStr;
       }
 
       fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-          rustls::crypto::aws_lc_rs::default_provider()
+          rustls::crypto::ring::default_provider()
               .signature_verification_algorithms
               .supported_schemes()
       }
@@ -159,9 +159,11 @@ use std::str::FromStr;
   ///
   /// extra_certs: DER-encoded additional trusted certificates.
   fn build_tls_config(verify: bool, extra_certs: &[Vec<u8>]) -> rustls::ClientConfig {
-      // Install aws-lc-rs as the process-default crypto provider (the same one
-      // reqwest 0.13 uses internally).  If already installed this is a no-op.
-      let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+      // Install ring as the process-default crypto provider.
+      // ring is pure Rust — no C code, no FIPS self-tests at dylib load time.
+      // aws-lc-rs (the alternative) runs FIPS POSTs in C at library init which
+      // abort() on TrollStore before any Dart/Flutter code runs → silent crash.
+      let _ = rustls::crypto::ring::default_provider().install_default();
 
       if !verify {
           return rustls::ClientConfig::builder()
