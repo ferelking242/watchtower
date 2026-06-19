@@ -266,6 +266,7 @@ class PythonPackageInfo {
     _pipBundleAttempted = true;
 
     AppLogger.log('LibPython: pip absent — tentative bootstrap depuis assets/wheels/pip.whl',
+        tag: LogTag.zeus, logLevel: LogLevel.info);
 
     const assetKey = 'assets/wheels/pip.whl';
     try {
