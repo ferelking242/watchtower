@@ -351,6 +351,24 @@ jobs:
           echo "=== x86_64 jniLibs ==="
           ls -lh android/app/src/main/jniLibs/x86_64/
 
+      - name: Bundle pip wheel (offline pip bootstrap)
+        run: |
+          set -euo pipefail
+          mkdir -p assets/wheels /tmp/py_wheels_pip
+          # Bundler pip.whl permet au runtime Android de bootstrapper pip sans réseau
+          # (ensurepip échoue sur libpython stripped, get-pip.py nécessite internet)
+          pip3 download "pip>=24.0" \
+            --only-binary :all: \
+            --no-deps \
+            -d /tmp/py_wheels_pip/
+          PIP_WHL=$(find /tmp/py_wheels_pip -iname 'pip*.whl' 2>/dev/null | head -1 || true)
+          if [ -n "$PIP_WHL" ]; then
+            cp "$PIP_WHL" assets/wheels/pip.whl
+            echo "  OK pip: $(basename $PIP_WHL) ($(du -sh assets/wheels/pip.whl | cut -f1))"
+          else
+            echo "  WARN: pip wheel introuvable"
+          fi
+
       - name: Bundle Python wheels (pyrogram)
         run: |
           set -euo pipefail
