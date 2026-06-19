@@ -1,7 +1,7 @@
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 
 /// Unified interface for all download engines.
-/// MDownloader (internal/FK) and ZeusDL both implement this.
+/// MDownloader (internal/FK) and Aria2 both implement this.
 abstract class DownloadEngine {
   /// Engine identifier shown in UI badges
   String get engineId;

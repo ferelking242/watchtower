@@ -1033,7 +1033,7 @@ Future<List<String>> _currentPlatformAbiTokens() async {
   if (!kIsWeb && Platform.isAndroid) {
     try {
       final info = await DeviceInfoPlugin().androidInfo;
-      // Map android ABI to common asset name tokens used by zeusdl releases.
+      // Map android ABI to common asset name tokens used by binary releases.
       final mapped = <String>[];
       for (final abi in info.supportedAbis) {
         final lower = abi.toLowerCase();
@@ -1190,7 +1190,7 @@ Future<void> _importAria2Binary(BuildContext context) async {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Asset picker bottom sheet (shared by ZeusDL + Aria2)
+// Asset picker bottom sheet (shared by binary download helpers)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AssetPickerSheet extends StatefulWidget {

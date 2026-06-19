@@ -176,8 +176,6 @@ class _EngineCard extends StatelessWidget {
     switch (mode) {
       case DownloadMode.internalDownloader:
         return Icons.download_outlined;
-      case DownloadMode.zeusDl:
-        return Icons.bolt_outlined;
       case DownloadMode.aria2:
         return Icons.account_tree_outlined;
       case DownloadMode.external:

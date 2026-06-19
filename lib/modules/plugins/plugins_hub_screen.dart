@@ -21,20 +21,7 @@ import 'package:flutter/material.dart';
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
               sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _PluginCard(
-                    name: 'ZeusDL',
-                    description: 'Téléchargeur vidéo & audio universel',
-                    subtitle: 'YouTube, Twitter, TikTok et +1000 sites',
-                    icon: Icons.download_for_offline_rounded,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6C3CE1), Color(0xFF9B5DE5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    onTap: () => context.push('/plugins/zeusdl'),
-                  ),
-                ]),
+                delegate: SliverChildListDelegate(const []),
               ),
             ),
           ],

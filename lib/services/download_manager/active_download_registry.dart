@@ -64,7 +64,7 @@ class ActiveDownloadRegistry {
 
   /// Resume a paused download.
   ///
-  /// * ZeusDL: SIGCONT — engine resumes in place.
+  /// * External engine: engine.resume() is called.
   /// * Internal: the caller (UI) should re-invoke processDownloads after
   ///   removing the chapter from pausedIds. Because [pause] unregistered
   ///   the chapter, the scheduler will see it as idle and start a fresh
