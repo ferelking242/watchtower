@@ -1,6 +1,7 @@
 import 'dart:convert';
   import 'dart:io';
   import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
   import 'package:path_provider/path_provider.dart';
 
@@ -64,12 +65,36 @@ import 'package:http/http.dart' as http;
     /// Sans cette migration, les plugins installés AVANT la correction du manifest
     /// restent bloqués sur la vue JSON générique (cast silencieux → null → method:'json').
     static Map<String, dynamic> _migrateUiField(dynamic raw) {
-      if (raw is Map<String, dynamic>) return raw;
+      if (raw is Map<String, dynamic>) {
+        // Normalise la valeur de 'method' même quand c'est déjà un objet
+        final method = raw['method'] as String? ?? 'json';
+        final normalized = _normalizeUiMethod(method);
+        if (normalized == method) return raw;
+        return {...raw, 'method': normalized};
+      }
       if (raw is String) {
-        final method = (raw == 'flutter_eval' || raw == 'eval') ? 'eval' : 'json';
-        return {'method': method, 'evalSource': 'ui/main.dart'};
+        final method = _normalizeUiMethod(raw);
+        return {
+          'method': method,
+          if (method == 'eval') 'evalSource': 'ui/main.dart',
+          if (method == 'html') 'htmlFallback': 'ui/index.html',
+          if (method == 'json') 'schema': 'ui/schema.json',
+        };
       }
       return {};
+    }
+
+    static String _normalizeUiMethod(String raw) {
+      switch (raw) {
+        case 'flutter_eval':
+        case 'eval':
+          return 'eval';
+        case 'webview':
+        case 'html':
+          return 'html';
+        default:
+          return 'json';
+      }
     }
   }
 
@@ -163,8 +188,8 @@ import 'package:http/http.dart' as http;
           manifest: manifest,
         );
       } catch (e) {
-        // Log error
-        return null;
+        debugPrint('[FlareLoader:installFromFile] ERREUR: $e');
+        rethrow;
       }
     }
 
@@ -232,78 +257,128 @@ import 'package:http/http.dart' as http;
         final base = await _pluginsDir();
         final dir = Directory('${base.path}/$pluginId');
         final manifestFile = File('${dir.path}/manifest.json');
-        if (!await manifestFile.exists()) return null;
+        debugPrint('[FlareLoader:loadSingle] id=$pluginId dir=${dir.path}');
+        if (!await manifestFile.exists()) {
+          debugPrint('[FlareLoader:loadSingle] manifest.json ABSENT — dir=${dir.path}');
+          return null;
+        }
         final manifest = FlareManifest.fromJson(
           jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>,
         );
+        debugPrint('[FlareLoader:loadSingle] OK — method=${manifest.ui.method}');
         return InstalledFlarePlugin(
           id: manifest.id,
           version: manifest.version,
           installedDir: dir.path,
           manifest: manifest,
         );
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[FlareLoader:loadSingle] ERREUR id=$pluginId: $e');
         return null;
       }
     }
 
     // ── Installer un plugin depuis les URLs brutes GitHub (sans .flare ZIP) ──────
-    static Future<InstalledFlarePlugin?> installFromNetwork({
+    /// Lance une [Exception] explicite si le manifest ou le fichier UI requis
+    /// est absent — ne retourne jamais null.
+    static Future<InstalledFlarePlugin> installFromNetwork({
       required String pluginId,
       required String baseUrl,
     }) async {
-      try {
-        final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-        final pluginBase = '$base/$pluginId';
+      final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+      final pluginBase = '$base/$pluginId';
+      debugPrint('[FlareLoader:installFromNetwork] START id=$pluginId base=$pluginBase');
 
-        // Télécharger manifest.json
-        final manifestRes = await http.get(Uri.parse('$pluginBase/manifest.json'));
-        if (manifestRes.statusCode != 200) {
-          throw Exception('manifest.json introuvable (HTTP ${manifestRes.statusCode})');
-        }
-        final manifest = FlareManifest.fromJson(
-          jsonDecode(manifestRes.body) as Map<String, dynamic>,
+      // 1. Télécharger manifest.json — obligatoire
+      final manifestUrl = '$pluginBase/manifest.json';
+      final manifestRes = await http.get(Uri.parse(manifestUrl));
+      if (manifestRes.statusCode != 200) {
+        throw Exception(
+          '[FlareLoader] manifest.json introuvable — '
+          'HTTP ${manifestRes.statusCode} — URL: $manifestUrl',
         );
-
-        // Créer le répertoire local
-        final pluginsBase = await _pluginsDir();
-        final installDir = Directory('${pluginsBase.path}/$pluginId');
-        if (await installDir.exists()) await installDir.delete(recursive: true);
-        await installDir.create(recursive: true);
-
-        // Sauvegarder manifest.json
-        await File('${installDir.path}/manifest.json').writeAsString(manifestRes.body);
-
-        // Télécharger les fichiers UI selon la méthode déclarée
-        final uiDir = Directory('${installDir.path}/ui');
-        await uiDir.create(recursive: true);
-
-        final filesToFetch = <String>[
-          'ui/schema.json',
-          'ui/main.dart',
-          'ui/index.html',
-        ];
-
-        for (final relPath in filesToFetch) {
-          try {
-            final res = await http.get(Uri.parse('$pluginBase/$relPath'));
-            if (res.statusCode == 200) {
-              final f = File('${installDir.path}/$relPath');
-              await f.parent.create(recursive: true);
-              await f.writeAsBytes(res.bodyBytes);
-            }
-          } catch (_) {}
-        }
-
-        return InstalledFlarePlugin(
-          id: manifest.id,
-          version: manifest.version,
-          installedDir: installDir.path,
-          manifest: manifest,
-        );
-      } catch (e) {
-        return null;
       }
+      debugPrint('[FlareLoader:installFromNetwork] manifest.json OK (HTTP 200)');
+
+      final manifest = FlareManifest.fromJson(
+        jsonDecode(manifestRes.body) as Map<String, dynamic>,
+      );
+      debugPrint('[FlareLoader:installFromNetwork] manifest parsé — method=${manifest.ui.method}');
+
+      // 2. Créer le répertoire d'installation
+      final pluginsBase = await _pluginsDir();
+      final installDir = Directory('${pluginsBase.path}/$pluginId');
+      if (await installDir.exists()) await installDir.delete(recursive: true);
+      await installDir.create(recursive: true);
+
+      // 3. Sauvegarder manifest.json sur disque
+      await File('${installDir.path}/manifest.json').writeAsString(manifestRes.body);
+      debugPrint('[FlareLoader:installFromNetwork] manifest.json écrit — ${installDir.path}/manifest.json');
+
+      // 4. Télécharger les fichiers UI (on tente tous, on logue chaque résultat)
+      final uiDir = Directory('${installDir.path}/ui');
+      await uiDir.create(recursive: true);
+
+      final filesToFetch = <String>[
+        'ui/schema.json',
+        'ui/main.dart',
+        'ui/index.html',
+        'assets/icon.png',
+        'assets/icon.svg',
+      ];
+
+      final downloaded = <String>{};
+      final notFound   = <String>{};
+
+      for (final relPath in filesToFetch) {
+        final fileUrl = '$pluginBase/$relPath';
+        try {
+          final res = await http.get(Uri.parse(fileUrl));
+          if (res.statusCode == 200) {
+            final f = File('${installDir.path}/$relPath');
+            await f.parent.create(recursive: true);
+            await f.writeAsBytes(res.bodyBytes);
+            downloaded.add(relPath);
+            debugPrint('[FlareLoader:installFromNetwork] ✓ $relPath');
+          } else {
+            notFound.add(relPath);
+            debugPrint('[FlareLoader:installFromNetwork] ✗ $relPath (HTTP ${res.statusCode})');
+          }
+        } catch (e) {
+          notFound.add(relPath);
+          debugPrint('[FlareLoader:installFromNetwork] ✗ $relPath (erreur: $e)');
+        }
+      }
+
+      // 5. Vérifier que le fichier UI requis par la méthode déclarée est présent
+      final method = manifest.ui.method;
+      final requiredFile = switch (method) {
+        'eval' => manifest.ui.evalSourcePath ?? 'ui/main.dart',
+        'html' => manifest.ui.htmlPath ?? 'ui/index.html',
+        _      => manifest.ui.schemaPath ?? 'ui/schema.json',
+      };
+
+      if (!downloaded.contains(requiredFile)) {
+        // Nettoyer le répertoire partiel avant de lever l'exception
+        await installDir.delete(recursive: true);
+        throw Exception(
+          '[FlareLoader] Fichier UI requis manquant pour méthode "$method" — '
+          'fichier: $requiredFile — URL tentée: $pluginBase/$requiredFile. '
+          'Fichiers téléchargés: ${downloaded.join(", ")}',
+        );
+      }
+
+      debugPrint(
+        '[FlareLoader:installFromNetwork] SUCCÈS — id=${manifest.id} '
+        'dir=${installDir.path} method=$method fichier=$requiredFile',
+      );
+
+      return InstalledFlarePlugin(
+        id: manifest.id,
+        version: manifest.version,
+        installedDir: installDir.path,
+        manifest: manifest,
+      );
     }
   
 }

@@ -188,14 +188,20 @@ class InstalledPluginsNotifier extends AsyncNotifier<List<InstalledPlugin>> {
     final current = state.value ?? [];
     if (current.any((p) => p.id == plugin.id)) return;
 
-    // 1. Télécharger les fichiers Flare en premier — bloquant
-    //    Si ça échoue → exception propagée à l'appelant, rien n'est ajouté à installed
-    await FlareLoader.installFromNetwork(
+    // 1. Télécharger les fichiers Flare — BLOQUANT.
+    //    installFromNetwork lève une Exception explicite si quoi que ce soit échoue.
+    //    Ne retourne jamais null — le type de retour est InstalledFlarePlugin (non-nullable).
+    //    Si ça lève → exception propagée à l'appelant, RIEN n'est ajouté à installed.
+    final downloaded = await FlareLoader.installFromNetwork(
       pluginId: plugin.id,
       baseUrl: _kPluginsBaseUrl,
     );
+    // Vérification défensive — ne devrait jamais être atteinte après la correction
+    // de installFromNetwork qui lance une exception au lieu de retourner null.
+    assert(downloaded.id == plugin.id,
+        '[install] installFromNetwork a retourné un id inattendu: ${downloaded.id}');
 
-    // 2. Seulement si le download a réussi → persister dans installed_plugins.json
+    // 2. Seulement ici, après succès confirmé → persister dans installed_plugins.json
     final updated = [
       ...current,
       InstalledPlugin(
@@ -1564,18 +1570,26 @@ class _FlarePluginViewState extends State<_FlarePluginView> {
   }
 
   Future<void> _load() async {
+    final pluginId = widget.installed.id;
+    debugPrint('[Flare:launch] Chargement plugin id=$pluginId');
     try {
-      final fp = await FlareLoader.loadSingle(widget.installed.id);
+      final fp = await FlareLoader.loadSingle(pluginId);
       if (fp == null) {
+        // loadSingle a loggué la cause exacte via debugPrint — on la répercute dans l'UI
+        debugPrint('[Flare:launch] loadSingle=null — id=$pluginId');
         setState(() {
           _loading = false;
           _error = 'Fichiers du plugin introuvables.\n'
-              'Désinstallez et réinstallez le plugin.';
+              'ID: $pluginId\n'
+              'Désinstallez et réinstallez le plugin pour re-télécharger les fichiers.';
         });
         return;
       }
+      final method = fp.manifest.ui.method;
+      debugPrint('[Flare:launch] Plugin chargé — id=${fp.id} dir=${fp.installedDir} method=$method');
       setState(() { _flare = fp; _loading = false; });
     } catch (e) {
+      debugPrint('[Flare:launch] ERREUR id=$pluginId: $e');
       setState(() { _loading = false; _error = 'Erreur chargement plugin : $e'; });
     }
   }
@@ -1616,17 +1630,40 @@ class _FlarePluginViewState extends State<_FlarePluginView> {
     }
 
     final method = _flare!.manifest.ui.method;
+    debugPrint('[Flare:render] id=${_flare!.id} dir=${_flare!.installedDir} method=$method');
     return switch (method) {
       'eval' => FlareEvalRenderer(plugin: _flare!),
-      'html' => FlareHtmlRenderer(plugin: _flare!, onAction: (action, values) => debugPrint('[Flare] action=$action values=$values')),
-      _      => Scaffold(
+      'html' => FlareHtmlRenderer(
+          plugin: _flare!,
+          onAction: (action, values) =>
+              debugPrint('[Flare:action] action=$action values=$values'),
+        ),
+      _ => Scaffold(
           backgroundColor: const Color(0xFF0F0F0F),
           appBar: AppBar(backgroundColor: const Color(0xFF0F0F0F)),
           body: Center(
-            child: Text(
-              'Méthode UI inconnue : "$method"\nVérifiez le manifest.json du plugin.',
-              style: const TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.extension_off_rounded, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Méthode UI inconnue : "$method"\n'
+                  'ID: ${_flare!.id}\n'
+                  'Dir: ${_flare!.installedDir}\n'
+                  'Vérifiez le champ "ui.method" du manifest.json du plugin.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                TextButton(
+                  onPressed: () {
+                    setState(() { _loading = true; _error = null; _flare = null; });
+                    _load();
+                  },
+                  child: const Text('Réessayer', style: TextStyle(color: Color(0xFF00D4AA))),
+                ),
+              ]),
             ),
           ),
         ),
