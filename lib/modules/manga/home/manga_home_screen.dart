@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -931,15 +932,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       _getManga = ref.watch(getPopularProvider(source: source, page: 1));
     }
 
-    final displayType = ref.watch(mangaHomeDisplayTypeStateProvider);
-    final displayTypeIcon = switch (displayType) {
-      DisplayType.compactGrid => Icons.grid_view,
-      DisplayType.comfortableGrid => Icons.view_module,
-      DisplayType.coverOnlyGrid => Icons.image_outlined,
-      DisplayType.largeGrid => Icons.dashboard_outlined,
-      DisplayType.list => Icons.view_list,
-      DisplayType.wideList => Icons.view_agenda_outlined,
-    };
 
     if (_isSearch) {
       return _buildSearchScreen(context);
@@ -959,7 +951,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             pinned: true,
             floating: false,
             snap: false,
-            backgroundColor: innerBoxIsScrolled ? Theme.of(context).scaffoldBackgroundColor : Colors.transparent,
+            backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
             shadowColor: Colors.transparent,
             elevation: 0,
@@ -990,62 +982,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 splashRadius: 20,
                 onPressed: () => setState(() => _isSearch = true),
                 icon: Icon(Icons.search,
-                    color: Theme.of(context).hintColor),
-              ),
-              Builder(
-                builder: (actCtx) => CustomPopup(
-                  backgroundColor: Theme.of(actCtx)
-                      .colorScheme
-                      .surfaceContainerHigh,
-                  contentPadding: EdgeInsets.zero,
-                  content: Consumer(
-                    builder: (ctx2, ref2, _) {
-                      final dt =
-                          ref2.watch(mangaHomeDisplayTypeStateProvider);
-                      final notifier = ref2.read(
-                          mangaHomeDisplayTypeStateProvider.notifier);
-                      Widget tile(IconData icon, String label,
-                              DisplayType val) =>
-                          RadioListTile<DisplayType>(
-                            secondary: Icon(icon, size: 20),
-                            title: Text(label,
-                                style: const TextStyle(fontSize: 14)),
-                            value: val,
-                            groupValue: dt,
-                            dense: true,
-                            onChanged: (v) =>
-                                notifier.setMangaHomeDisplayType(v!),
-                          );
-                      return IntrinsicWidth(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            tile(Icons.grid_view,
-                                ctx2.l10n.compact_grid,
-                                DisplayType.compactGrid),
-                            tile(Icons.view_module,
-                                ctx2.l10n.comfortable_grid,
-                                DisplayType.comfortableGrid),
-                            tile(Icons.image_outlined,
-                                ctx2.l10n.cover_only_grid,
-                                DisplayType.coverOnlyGrid),
-                            tile(Icons.dashboard_outlined, 'Grille large',
-                                DisplayType.largeGrid),
-                            tile(Icons.view_list, ctx2.l10n.list,
-                                DisplayType.list),
-                            tile(Icons.view_agenda_outlined,
-                                'Liste étendue', DisplayType.wideList),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(displayTypeIcon,
-                        color: Theme.of(actCtx).hintColor),
-                  ),
-                ),
+                    color: context.primaryColor),
               ),
               if (!isLocal)
                 Builder(
@@ -1106,53 +1043,70 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             ],
             flexibleSpace: FlexibleSpaceBar(
               collapseMode: CollapseMode.pin,
-              background: SafeArea(
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 18, bottom: 10),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          sourceName,
-                          style: const TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Glassmorphism: blur + tint when scrolled
+                  if (innerBoxIsScrolled)
+                    ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: Container(
+                          color: Theme.of(context).scaffoldBackgroundColor
+                              .withValues(alpha: 0.88),
                         ),
-                        if (source.notes != null &&
-                            source.notes!.isNotEmpty)
-                          SizedBox(
-                            height: 18,
-                            child: Marquee(
-                              text:
-                                  l10n.extension_notes(source.notes!),
-                              style: const TextStyle(fontSize: 12),
-                              blankSpace: 40.0,
-                              velocity: 30.0,
-                              pauseAfterRound:
-                                  const Duration(seconds: 1),
-                              startPadding: 10.0,
-                            ),
+                      ),
+                    ),
+                  // Large title — fades out as scrolled
+                  SafeArea(
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: AnimatedOpacity(
+                        opacity: innerBoxIsScrolled ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 180),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 18, bottom: 12),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                sourceName,
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (source.notes != null && source.notes!.isNotEmpty)
+                                SizedBox(
+                                  height: 18,
+                                  child: Marquee(
+                                    text: l10n.extension_notes(source.notes!),
+                                    style: const TextStyle(fontSize: 12),
+                                    blankSpace: 40.0,
+                                    velocity: 30.0,
+                                    pauseAfterRound: const Duration(seconds: 1),
+                                    startPadding: 10.0,
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
-          ),
           // ── Tab pills (pinned below appbar) ──────────────────────────────
           SliverPersistentHeader(
             pinned: true,
             delegate: _TabPillsDelegate(
               color: Theme.of(context).scaffoldBackgroundColor,
-              dividerColor: context.primaryColor.withValues(alpha: 0.4),
+              dividerColor: Theme.of(context).dividerColor.withValues(alpha: 0.3),
               child: _TabPillsRow(
                 types: _types(context),
                 selectedIndex: _selectedIndex,

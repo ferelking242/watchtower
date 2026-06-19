@@ -20,21 +20,21 @@ import 'package:flutter/material.dart';
         onTap: onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
           decoration: BoxDecoration(
             color: selected
                 ? context.primaryColor
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(20),
+                : Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
             text,
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               color: selected
                   ? Colors.white
-                  : Theme.of(context).textTheme.bodyLarge!.color,
+                  : Theme.of(context).textTheme.bodyMedium!.color,
             ),
           ),
         ),
