@@ -6,5 +6,5 @@ part 'logs_state.g.dart';
 
 @riverpod
 bool logsState(Ref ref) {
-  return isar.settings.getSync(kSettingsId)?.enableLogs ?? false;
+  return isar.settings.getSync(kSettingsId)?.enableLogs ?? true;
 }

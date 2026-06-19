@@ -81,25 +81,41 @@ class _PluginsPageState extends State<PluginsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF090909) : cs.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Segment picker ────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: _SegmentPicker(
-                selected: _tab,
-                onChanged: (i) => setState(() => _tab = i),
-              ),
-            ),
-            // ── Tab body ──────────────────────────────────────────────────────
-            Expanded(
-              child: _tab == 0
-                  ? _InstalledTab(cs: cs, isDark: isDark)
-                  : _MarketplaceTab(cs: cs, isDark: isDark),
-            ),
-          ],
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => context.pop(),
         ),
+        title: Text(
+          'Plugins',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+            color: isDark ? Colors.white : cs.onSurface,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          // ── Segment picker ────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: _SegmentPicker(
+              selected: _tab,
+              onChanged: (i) => setState(() => _tab = i),
+            ),
+          ),
+          // ── Tab body ──────────────────────────────────────────────────────
+          Expanded(
+            child: _tab == 0
+                ? _InstalledTab(cs: cs, isDark: isDark)
+                : _MarketplaceTab(cs: cs, isDark: isDark),
+          ),
+        ],
       ),
     );
   }

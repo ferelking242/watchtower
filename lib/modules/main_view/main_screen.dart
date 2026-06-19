@@ -32,6 +32,8 @@ import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart' show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/log/log_overlay.dart';
+import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 
 
@@ -156,6 +158,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ),
           );
         }
+        // Auto-show the floating log overlay if logs are enabled by default.
+        final enableLogs = ref.read(logsStateProvider);
+        if (enableLogs) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => LogOverlayController.instance.show(),
+          );
+        }
       }
     });
   }
@@ -207,6 +216,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.listen<double>(navIconSizeProvider, (_, __) => _clearCache());
     ref.listen<double>(navItemSpacingProvider, (_, __) => _clearCache());
     ref.listen<String>(navDockStyleProvider, (_, __) => _clearCache());
+    // Reset dock visibility whenever the route changes so pages with little
+    // content (e.g. /plugins) never get stuck with a hidden dock.
+    ref.listen<String?>(routerCurrentLocationStateProvider, (prev, next) {
+      if (prev != next) {
+        ref.read(dockHiddenProvider.notifier).set(false);
+      }
+    });
 
     final l10n = context.l10n;
     final route = GoRouter.of(context);
@@ -1531,6 +1547,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/marketplace',
     '/schedule',
     '/discover',
+    '/plugins',
   };
 
   @override

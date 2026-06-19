@@ -195,8 +195,8 @@ class NavigationOrderState extends _$NavigationOrderState {
     '/MusicLibrary',
     '/GameLibrary',
     '/Library',
-    '/browse',
     '/marketplace',
+    '/browse',
     '/history',
     '/updates',
     '/trackerLibrary',
@@ -239,6 +239,7 @@ class HideItemsState extends _$HideItemsState {
           '/trackerLibrary',
           '/updates',
           '/history',
+          '/WatchtowerHome',
         ];
   }
 
