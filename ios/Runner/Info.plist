@@ -127,5 +127,7 @@
 			<string>Alternate</string>
 		</dict>
 	</array>
+	<key>FLTEnableImpeller</key>
+	<false/>
 </dict>
 </plist>
