@@ -454,48 +454,61 @@ var extention = new DefaultExtension();
   }
 
   Future<T> _extensionCallAsync<T>(String call) async {
-    // Guard: if the service was disposed between the caller's await _initAsync()
-    // and this point (e.g. timeout or navigation), throw cleanly instead of
-    // accessing a freed runtime.
-    if (_isDisposing) {
-      throw StateError(
-        'JsExtensionService for "${source.name ?? source.id}" was disposed '
-        'before the JS call "$call" could run.',
+      // Guard: if the service was disposed between the caller's await _initAsync()
+      // and this point (e.g. timeout or navigation), throw cleanly instead of
+      // accessing a freed runtime.
+      if (_isDisposing) {
+        throw StateError(
+          'JsExtensionService for "${source.name ?? source.id}" was disposed '
+          'before the JS call "$call" could run.',
+        );
+      }
+
+      // Evaluate the JS call. With quickjs-plus, evaluateAsync wraps the QJS
+      // Promise in a Dart Future<dynamic> (rawResult is Future). handlePromise
+      // detects this via type check and pumps the job queue via Timer.periodic
+      // until the Future resolves.
+      final evalResult =
+          await runtime.evaluateAsync('jsonStringify(() => extention.$call)');
+
+      // Diagnostic: log what quickjs-plus returned so we can confirm the fix.
+      AppLogger.log(
+        '$call → rawType=${evalResult.rawResult?.runtimeType} '
+        'str=${evalResult.stringResult.length > 80 ? evalResult.stringResult.substring(0, 80) + "…" : evalResult.stringResult}',
+        logLevel: LogLevel.debug,
+        tag: LogTag.extension_,
       );
-    }
 
-    final promised = await runtime.handlePromise(
-      await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),
-    ).timeout(
-      _kJsExecutionTimeout,
-      onTimeout: () => throw TimeoutException(
-        'Extension JS call "${source.name ?? source.id}" exceeded '
-        '${_kJsExecutionTimeout.inSeconds}s timeout.',
-      ),
-    );
-
-    if (promised.isError) {
-      throw Exception(
-        'Extension JS error in "$call": ${promised.stringResult}',
+      final promised = await runtime.handlePromise(evalResult).timeout(
+        _kJsExecutionTimeout,
+        onTimeout: () => throw TimeoutException(
+          'Extension JS call "${source.name ?? source.id}" exceeded '
+          '${_kJsExecutionTimeout.inSeconds}s timeout.',
+        ),
       );
+
+      if (promised.isError) {
+        throw Exception(
+          'Extension JS error in "$call": ${promised.stringResult}',
+        );
+      }
+
+      final raw = promised.stringResult;
+      if (raw == null || raw.isEmpty) {
+        throw Exception('Extension returned empty result for "$call"');
+      }
+
+      try {
+        return jsonDecode(raw) as T;
+      } on FormatException catch (e) {
+        throw Exception(
+          'Extension result is not valid JSON for "$call" '
+          '(got: ${raw.length > 120 ? raw.substring(0, 120) : raw}): $e',
+        );
+      }
     }
 
-    final raw = promised.stringResult;
-    if (raw == null || raw.isEmpty) {
-      throw Exception('Extension returned empty result for "$call"');
-    }
-
-    try {
-      return jsonDecode(raw) as T;
-    } on FormatException catch (e) {
-      throw Exception(
-        'Extension result is not valid JSON for "$call" '
-        '(got: ${raw.length > 120 ? raw.substring(0, 120) : raw}): $e',
-      );
-    }
-  }
-
-  /// Escapes literal line terminators inside regex literals so that QuickJS
+    /// Escapes literal line terminators inside regex literals so that QuickJS
   /// doesn't reject the source with "unterminated regular expression".
   static String _normalizeJsExtensionCode(String code) {
     final buf = StringBuffer();
