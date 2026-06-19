@@ -11,7 +11,7 @@ flutter_rust_bridge = { version = "=2.11.1", features = ["chrono"] }
 image = "0.25.10"
 chrono = "0.4.44"
 futures-util = "0.3.31"
-reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls", "stream", "multipart", "socks", "brotli", "gzip"] }
+reqwest = { version = "0.13.2", default-features = false, features = ["charset", "http2", "rustls-tls-webpki-roots", "stream", "multipart", "socks", "brotli", "gzip"] }
 tokio = { version = "1.50.0", features = ["full"] }
 tokio-util = "0.7.16"
 epub = "2.1.5"
