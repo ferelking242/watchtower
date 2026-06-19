@@ -1101,6 +1101,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 ],
               ),
             ),
+          ),
           // ── Tab pills (pinned below appbar) ──────────────────────────────
           SliverPersistentHeader(
             pinned: true,
