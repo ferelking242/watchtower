@@ -22,7 +22,7 @@ import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/mass_migration/mass_migration_source_selection_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
-import 'package:watchtower/modules/plugins/plugins_hub_screen.dart';
+import 'package:watchtower/modules/plugins/plugins_page.dart';
 import 'package:watchtower/modules/plugins/zeus_dl_screen.dart';
 import 'package:watchtower/modules/plugins/telegram_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
@@ -252,7 +252,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) =>
           AnilistBrowseScreen(filter: data.$1, title: data.$2),
     ),
-    _genericRoute(name: "plugins", child: const PluginsHubScreen()),
+    _genericRoute(name: "plugins", child: const PluginsPage()),
     _genericRoute(name: "zeusdl", child: const ZeusDlScreen()),
     _genericRoute(name: "telegram", child: const TelegramScreen()),
     _genericRoute(name: "about", child: const AboutScreen()),

@@ -33,6 +33,7 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/more':            ('More',       Icons.settings_rounded),
   '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
   '/marketplace':     ('Market',     Icons.storefront_rounded),
+  '/plugins':         ('Plugins',    Icons.extension_rounded),
   '_enableLibSwitch': ('Hub',        Icons.grid_view_rounded),
 };
 
@@ -46,7 +47,7 @@ const kWtDefaultNavOrder = [
 const kWtDefaultHideItems = ['/trackerLibrary', '/updates', '/history', '/WatchtowerHome'];
 
 const kWtStaticRoutes = [
-  '/discover', '/browse', '/marketplace', '/schedule', '/updates', '/history', '/more',
+  '/discover', '/browse', '/marketplace', '/plugins', '/schedule', '/updates', '/history', '/more',
 ];
 
 // French label overrides — used when device/app locale is 'fr'.

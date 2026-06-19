@@ -13,7 +13,6 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
-import 'package:watchtower/modules/plugins/plugins_hub_screen.dart' show PluginsHubScreen;
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -34,9 +33,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     List<ItemType> _types = [];
 
-    bool get _isPluginsTab => _tabBarController.index == _types.length;
-
-  ItemType get _activeType => _isPluginsTab ? _types.first : _types[_tabBarController.index];
+  ItemType get _activeType => _types[_tabBarController.index];
 
     bool _diagnosing = false;
     bool _bulkWorking = false;
@@ -59,7 +56,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     void _initTabController(List<ItemType> types, {int initialIndex = 0}) {
       _tabBarController = TabController(
-        length: types.length + 1,
+        length: types.length,
         initialIndex: initialIndex.clamp(0, types.length.clamp(0, 9999)),
         vsync: this,
       );
@@ -403,7 +400,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               ? SizedBox(width: 24, height: 18, child: _extensionUpdateBadge(ref, t))
               : null,
         )),
-        makeTab(Icons.extension_rounded, 'Plugins'),
       ],
     );
   }
@@ -465,7 +461,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         physics: const ClampingScrollPhysics(),
         children: [
           ..._types.map((t) => _BrowseTypeView(itemType: t)),
-          const PluginsHubScreen(),
         ],
       ),
     );
