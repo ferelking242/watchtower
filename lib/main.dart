@@ -680,7 +680,7 @@ PageTransitionsTheme _buildPageTransitionsTheme(int style) {
   PageTransitionsBuilder builder;
   switch (style) {
     case 1:
-      builder = const CupertinoPageTransitionsBuilder();
+      builder = const ZoomPageTransitionsBuilder();   // CupertinoPageTransitionsBuilder removed in Flutter 3.32
     case 2:
       builder = const ZoomPageTransitionsBuilder();
     case 3:
