@@ -213,7 +213,7 @@ import 'dart:async';
         } else {
           setState(() {
             _dlState = _DlState.error;
-            _errorText = 'Échec (code $exitCode). Vérifiez l'URL ou le format.';
+            _errorText = "Échec (code $exitCode). Vérifiez l'URL ou le format.";
             _history.insert(0, _HistoryItem(
               url: url,
               displayTitle: displayTitle,
@@ -308,7 +308,7 @@ import 'dart:async';
               ),
               const SizedBox(height: 10),
               Text(
-                'Le binaire ZeusDL n'a pas pu être chargé.\n'
+                "Le binaire ZeusDL n'a pas pu être chargé.\n"
                 'Vérifiez Paramètres > Avancé > ZeusDL.',
                 style: TextStyle(
                     fontSize: 14,
