@@ -150,8 +150,14 @@ class WatchtowerContext {
 
   Future<Widget> _interpret(String source) async {
     final interpreter = D4rt();
-    final full = _buildStub() + source;
-    // execute() retourne la derniere expression — FooPlugin() extends WPlugin extends StatelessWidget.
+    // d4rt.execute() retourne la DERNIERE EXPRESSION du source — pas un statement.
+    // Un ; final transforme le constructeur en statement void ->
+    //   SourceCodeException: A function body must be provided.
+    // On le retire pour garantir une bare expression a la fin.
+    final String src0 = source.trimRight();
+    final String trimmed = src0.endsWith(';') ? src0.substring(0, src0.length - 1) : src0;
+    final full = _buildStub() + trimmed;
+    debugPrint('[FlareEval] last line: ' + trimmed.split('\n').last.trim());
     final raw = interpreter.execute(source: full);
     final result = (raw is Future) ? await (raw as Future<dynamic>) : raw;
     if (result is Widget) return result as Widget;
