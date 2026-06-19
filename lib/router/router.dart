@@ -199,6 +199,7 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(name: "more", child: const MoreScreen()),
         _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
         _genericRoute(name: "discover", child: const WatchtowerDiscoverScreen()),
+        _genericRoute(name: "plugins", child: const PluginsPage()),
       ],
     ),
     _genericRoute<(Source?, bool)>(
@@ -252,7 +253,6 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) =>
           AnilistBrowseScreen(filter: data.$1, title: data.$2),
     ),
-    _genericRoute(name: "plugins", child: const PluginsPage()),
     _genericRoute(name: "zeusdl", child: const ZeusDlScreen()),
     _genericRoute(name: "telegram", child: const TelegramScreen()),
     _genericRoute(name: "about", child: const AboutScreen()),
