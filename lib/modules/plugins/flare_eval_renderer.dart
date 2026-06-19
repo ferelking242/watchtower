@@ -143,7 +143,7 @@ class WatchtowerNotif {
 
 class WatchtowerContext {
   static Map<String,dynamic> userConfig = {};
-  static String pluginId = '\$id';
+  static String pluginId = '${id}';
 }
 ''';
   }
