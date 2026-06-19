@@ -946,7 +946,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       body: NestedScrollView(
         controller: _scrollController,
         headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
-          // ── Collapsing iOS-style AppBar ──────────────────────────────────
+          // ── Collapsing iOS-style AppBar + tab pills ───────────────────────
           SliverAppBar(
             pinned: true,
             floating: false,
@@ -956,33 +956,21 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             shadowColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
-            expandedHeight: 96,
+            // expandedHeight = toolbar(~56) + large-title-area(~64) + pills(50)
+            expandedHeight: 170,
             automaticallyImplyLeading: false,
+            // No title: prop — we render the centered title inside flexibleSpace
+            // so it is truly centered regardless of leading/trailing widths.
             leading: IconButton(
               icon: Icon(Icons.chevron_left_rounded,
                   size: 28, color: context.primaryColor),
               onPressed: () => context.pop(),
             ),
-            centerTitle: true,
-            title: AnimatedOpacity(
-              opacity: innerBoxIsScrolled ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 180),
-              child: Text(
-                sourceName,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
             actions: [
               IconButton(
                 splashRadius: 20,
                 onPressed: () => setState(() => _isSearch = true),
-                icon: Icon(Icons.search,
-                    color: context.primaryColor),
+                icon: Icon(Icons.search, color: context.primaryColor),
               ),
               if (!isLocal)
                 Builder(
@@ -1041,73 +1029,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 ),
               const SizedBox(width: 4),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Glassmorphism: blur + tint when scrolled
-                  if (innerBoxIsScrolled)
-                    ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: Container(
-                          color: Theme.of(context).scaffoldBackgroundColor
-                              .withValues(alpha: 0.88),
-                        ),
-                      ),
-                    ),
-                  // Large title — fades out as scrolled
-                  SafeArea(
-                    child: Align(
-                      alignment: Alignment.bottomLeft,
-                      child: AnimatedOpacity(
-                        opacity: innerBoxIsScrolled ? 0.0 : 1.0,
-                        duration: const Duration(milliseconds: 180),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 18, bottom: 12),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                sourceName,
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.5,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (source.notes != null && source.notes!.isNotEmpty)
-                                SizedBox(
-                                  height: 18,
-                                  child: Marquee(
-                                    text: l10n.extension_notes(source.notes!),
-                                    style: const TextStyle(fontSize: 12),
-                                    blankSpace: 40.0,
-                                    velocity: 30.0,
-                                    pauseAfterRound: const Duration(seconds: 1),
-                                    startPadding: 10.0,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // ── Tab pills (pinned below appbar) ──────────────────────────────
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabPillsDelegate(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              dividerColor: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+            // Pills stick inside the SliverAppBar — part of the header, not a
+            // separate sliver. Transparent so the flexibleSpace blur shows through.
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(50),
               child: _TabPillsRow(
                 types: _types(context),
                 selectedIndex: _selectedIndex,
@@ -1133,6 +1058,95 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 },
               ),
             ),
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Glassmorphism: blur + tint when scrolled — covers the full
+                  // header including the pills row at the bottom.
+                  if (innerBoxIsScrolled)
+                    ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: Container(
+                          color: Theme.of(context).scaffoldBackgroundColor
+                              .withValues(alpha: 0.88),
+                        ),
+                      ),
+                    ),
+                  // Collapsed title — rendered absolutely in the center of the
+                  // toolbar row so it is always perfectly centered, independent
+                  // of how wide the leading / trailing buttons are.
+                  SafeArea(
+                    bottom: false,
+                    child: SizedBox(
+                      height: kToolbarHeight,
+                      child: Center(
+                        child: AnimatedOpacity(
+                          opacity: innerBoxIsScrolled ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 180),
+                          child: Text(
+                            sourceName,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Large title — sits just above the pills, fades out when scrolled.
+                  SafeArea(
+                    bottom: false,
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: AnimatedOpacity(
+                        opacity: innerBoxIsScrolled ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 180),
+                        child: Padding(
+                          // bottom: 50 = pills height, so title sits above pills
+                          padding: const EdgeInsets.only(left: 18, bottom: 58),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                sourceName,
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (source.notes != null &&
+                                  source.notes!.isNotEmpty)
+                                SizedBox(
+                                  height: 18,
+                                  child: Marquee(
+                                    text: l10n.extension_notes(source.notes!),
+                                    style: const TextStyle(fontSize: 12),
+                                    blankSpace: 40.0,
+                                    velocity: 30.0,
+                                    pauseAfterRound:
+                                        const Duration(seconds: 1),
+                                    startPadding: 10.0,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
         body: _buildBody(context),
@@ -1141,46 +1155,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   }
 }
 
-// ── Tab pills persistent header delegate ───────────────────────────────────
-
-class _TabPillsDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  final Color color;
-  final Color dividerColor;
-
-  const _TabPillsDelegate({
-    required this.child,
-    required this.color,
-    required this.dividerColor,
-  });
-
-  @override
-  double get minExtent => 52;
-  @override
-  double get maxExtent => 52;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return ColoredBox(
-      color: color,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Expanded(child: child),
-          Divider(
-              height: 1, thickness: 0.3, color: dividerColor),
-        ],
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(_TabPillsDelegate old) =>
-      old.child != child ||
-      old.color != color ||
-      old.dividerColor != old.dividerColor;
-}
+// ── Tab pills row ───────────────────────────────────────────────────────────
 
 class _TabPillsRow extends StatelessWidget {
   final List<TypeMangaSelector> types;
