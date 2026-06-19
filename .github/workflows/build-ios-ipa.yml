@@ -142,7 +142,8 @@ jobs:
       - name: Patch pubspec SDK for Dart 3.6.x
         run: |
           sed -i '' '/^  sdk:/s/.*/  sdk: ">=3.6.0 <4.0.0"/' pubspec.yaml
-          grep 'sdk:' pubspec.yaml | head -3
+          sed -i '' '/protoc_plugin/d' pubspec.yaml
+          echo '=== sdk check ===' && grep 'sdk:' pubspec.yaml | head -3 || true
       - name: Flutter pub get
         run: flutter pub get
 
