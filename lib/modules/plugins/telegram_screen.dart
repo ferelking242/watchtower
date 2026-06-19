@@ -136,8 +136,6 @@ class _ApiKeysScreenState extends State<_ApiKeysScreen> {
   final _hashCtrl = TextEditingController();
   bool _showHash  = false;
   String? _error;
-  bool _installing = false;
-  String _installLog = '';
 
   @override
   void dispose() {
@@ -157,16 +155,6 @@ class _ApiKeysScreenState extends State<_ApiKeysScreen> {
       return;
     }
     widget.onDone(id, hash);
-  }
-
-  Future<void> _installDeps() async {
-    setState(() { _installing = true; _installLog = 'Installation de pyrogram...'; });
-    final result = await TelegramService.instance.ensureDeps(
-      onProgress: (msg) {
-        if (mounted) setState(() => _installLog = msg);
-      },
-    );
-    if (mounted) setState(() { _installing = false; _installLog = result; });
   }
 
   @override
@@ -228,33 +216,6 @@ class _ApiKeysScreenState extends State<_ApiKeysScreen> {
               ],
               const SizedBox(height: 28),
               _TgButton(label: 'Continuer', onTap: _next),
-              const SizedBox(height: 16),
-              const Divider(color: Color(0xFF2B3A4A)),
-              const SizedBox(height: 12),
-              const Text('Dépendances Python (pyrogram)',
-                style: TextStyle(color: _tgHint, fontSize: 12)),
-              const SizedBox(height: 8),
-              _TgButton(
-                label: _installing ? 'Installation...' : 'Installer pyrogram',
-                loading: _installing,
-                onTap: _installing ? null : _installDeps,
-                outlined: true,
-              ),
-              if (_installLog.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D1117),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(_installLog,
-                    style: const TextStyle(color: Color(0xFFD4D4D4), fontSize: 11, fontFamily: 'monospace'),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 40),
             ],
           ),
         ),

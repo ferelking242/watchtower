@@ -41,14 +41,32 @@ class TelegramService {
   }
 
   Future<Map<String, dynamic>> _invoke(List<String> args) async {
-    final mgr = LibPythonManager.instance;
-    final exe = await mgr.pythonExe;
-    if (exe == null) {
-      return {'status': 'error', 'error': 'libpython.so introuvable. Installez Python via Paramètres → Avancé → LibPython.'};
-    }
-    final script = await _scriptFile;
-    final env = await mgr.buildEnv();
-    AppLogger.log('[Telegram] invoke: ${args.join(' ')}', tag: LogTag.zeus, logLevel: LogLevel.debug);
+      final mgr = LibPythonManager.instance;
+
+      // 1. Extraire la stdlib Python (libpython.zip.so -> PYTHONHOME)
+      final pythonHome = await mgr.ensureStdlib();
+      if (pythonHome == null) {
+        return {
+          'status': 'error',
+          'error': 'stdlib Python introuvable. Verifiez libpython via Parametres > Avance > LibPython.'
+        };
+      }
+
+      final exe = await mgr.pythonExe;
+      if (exe == null) {
+        return {'status': 'error', 'error': 'libpython.so introuvable. Installez libpython via Parametres > Avance > LibPython.'};
+      }
+
+      // 2. Installer les deps manquantes en arriere-plan (no-op si deja fait)
+      mgr.resolvePluginDeps(
+        pluginId: 'telegram',
+        pluginDeps: telegramRequiredPackages,
+        markerKey: 'telegram_plugin',
+      ).catchError((_) {});
+
+      final script = await _scriptFile;
+      final env = await mgr.buildEnv();
+      AppLogger.log('[Telegram] invoke: ${args.join(' ')}', tag: LogTag.zeus, logLevel: LogLevel.debug);
     try {
       final res = await Process.run(
         exe,

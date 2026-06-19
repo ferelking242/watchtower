@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -11,7 +13,23 @@ class PythonPackageInfo {
   const PythonPackageInfo({required this.name, required this.version});
 }
 
-class LibPythonManager {
+// Helper top-level pour compute() — extrait libpython.zip.so vers filesDir
+  Future<void> _libpythonExtractZip(List<String> args) async {
+    final zipPath = args[0];
+    final destDir = args[1];
+    final bytes = File(zipPath).readAsBytesSync();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    for (final f in archive.files) {
+      if (!f.isFile) continue;
+      var name = f.name;
+      if (name.isEmpty) continue;
+      final outFile = File('$destDir/$name');
+      outFile.parent.createSync(recursive: true);
+      outFile.writeAsBytesSync(f.content as List<int>);
+    }
+  }
+
+  class LibPythonManager {
   static LibPythonManager? _instance;
   static LibPythonManager get instance => _instance ??= LibPythonManager._();
   LibPythonManager._();
@@ -32,6 +50,7 @@ class LibPythonManager {
   String? _cachedFilesDir;
   bool? _pipAvailable;
   bool _depsEnsured = false;
+  String? _cachedPythonHome;
 
   Future<String?> get _nativeDir async {
     if (_cachedNativeDir != null) return _cachedNativeDir;
@@ -61,9 +80,74 @@ class LibPythonManager {
   }
 
   Future<String> get pythonHome async {
-    final fd = await _filesDir;
-    return '$fd/packages/python/usr';
-  }
+      final fd = await _filesDir;
+      return '$fd/packages/python/usr';
+    }
+
+    /// Extrait la stdlib Python (libpython.zip.so -> filesDir/packages/python/usr).
+    /// Doit etre appelee avant toute invocation de libpython.so.
+    /// Retourne PYTHONHOME ou null en cas d'echec.
+    Future<String?> ensureStdlib() async {
+      if (_cachedPythonHome != null) return _cachedPythonHome;
+
+      final nd = await _nativeDir;
+      if (nd == null) {
+        AppLogger.log('[Python] ensureStdlib: nativeDir introuvable',
+            logLevel: LogLevel.error, tag: LogTag.zeus);
+        return null;
+      }
+
+      final fd = await _filesDir;
+      final zipSo = File('$nd/libpython.zip.so');
+
+      if (!await zipSo.exists()) {
+        AppLogger.log('[Python] ensureStdlib: libpython.zip.so absent de $nd',
+            logLevel: LogLevel.error, tag: LogTag.zeus);
+        return null;
+      }
+
+      final zipSize = await zipSo.length();
+      final versionFile = File('$fd/packages/python3.11_v2_size.txt');
+      final currentSize = zipSize.toString();
+      final pythonDir = Directory('$fd/packages/python');
+
+      if (await pythonDir.exists() && await versionFile.exists()) {
+        final stored = (await versionFile.readAsString()).trim();
+        if (stored == currentSize) {
+          final ph = '$fd/packages/python/usr';
+          _cachedPythonHome = ph;
+          AppLogger.log('[Python] stdlib deja extrait -> PYTHONHOME=$ph',
+              logLevel: LogLevel.debug, tag: LogTag.zeus);
+          return ph;
+        }
+      }
+
+      AppLogger.log('[Python] extraction libpython.zip.so...',
+          logLevel: LogLevel.info, tag: LogTag.zeus);
+
+      try {
+        if (await pythonDir.exists()) {
+          await pythonDir.delete(recursive: true);
+        }
+        await pythonDir.create(recursive: true);
+
+        await compute<List<String>, void>(
+            _libpythonExtractZip, [zipSo.path, '$fd/packages/python']);
+
+        await versionFile.parent.create(recursive: true);
+        await versionFile.writeAsString(currentSize);
+
+        final ph = '$fd/packages/python/usr';
+        _cachedPythonHome = ph;
+        AppLogger.log('[Python] stdlib extrait avec succes -> PYTHONHOME=$ph',
+            logLevel: LogLevel.info, tag: LogTag.zeus);
+        return ph;
+      } catch (e, st) {
+        AppLogger.log('[Python] ensureStdlib erreur extraction',
+            logLevel: LogLevel.error, tag: LogTag.zeus, error: e, stackTrace: st);
+        return null;
+      }
+    }
 
   Future<String> get sitePackagesDir async {
     final fd = await _filesDir;
