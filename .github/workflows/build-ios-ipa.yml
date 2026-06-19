@@ -21,7 +21,7 @@ jobs:
           # Flutter 3.27.x = dernière version supportant iOS 15 (iPhone 7).
             # Flutter 3.29+ a relevé le minimum iOS à 16.0 → abort() au démarrage sur iOS 15.8.5.
             # pubspec sdk constraint patché pour Dart 3.6.x (ci-dessous, étape pubspec patch).
-            flutter-version: '3.27.x'
+          flutter-version: '3.27.x'
           channel: stable
           cache: true
 
