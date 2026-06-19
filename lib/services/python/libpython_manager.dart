@@ -495,15 +495,33 @@ class PythonPackageInfo {
     final env = await _env;
     final results = <String>[];
 
-    // Packages with C extensions — force binary-only (no C toolchain on device).
-      // Pre-built wheels for linux_aarch64 cover Android arm64 in the Python-for-Android runtime.
-      const _binaryOnlyPackages = <String>{'tgcrypto'};
-      // Optional packages: failure is non-blocking, dependents have pure-Python fallbacks.
-      const _optionalPackages = <String>{'tgcrypto'};
+    // ── Bundled-wheel install (Option A) ──────────────────────────────────────
+      // Wheels pre-compiled at CI build time and bundled in assets/wheels/.
+      // Installed directly from the bundle — no network, no compilation.
+      // Falls back to PyPI pip if the asset is absent.
+      const _bundledWheels    = <String>{'tgcrypto', 'pyrogram'};
+      const _binaryOnlyPkgs   = <String>{'tgcrypto'};
+      const _optionalPackages  = <String>{'tgcrypto'};
 
       for (final pkg in missing) {
         onProgress?.call('$pluginId — installation de $pkg...');
-        final binaryOnly = _binaryOnlyPackages.contains(pkg.toLowerCase());
+        bool installed = false;
+
+        // 1️⃣ Try bundled wheel (fast, offline)
+        if (_bundledWheels.contains(pkg.toLowerCase())) {
+          installed = await _installFromBundledWheel(pkg, sp, env, exe);
+          if (installed) {
+            results.add('✓ $pkg (bundle)');
+            AppLogger.log('LibPython: $pkg installé depuis le bundle ✓',
+                tag: LogTag.zeus, logLevel: LogLevel.info);
+            continue;
+          }
+          AppLogger.log('LibPython: wheel bundle absent pour $pkg — fallback PyPI',
+              tag: LogTag.zeus, logLevel: LogLevel.debug);
+        }
+
+        // 2️⃣ PyPI fallback
+        final binaryOnly = _binaryOnlyPkgs.contains(pkg.toLowerCase());
         try {
           final res = await Process.run(
             exe,
@@ -518,17 +536,15 @@ class PythonPackageInfo {
           ).timeout(const Duration(minutes: 3));
 
           if (res.exitCode == 0) {
-            results.add('✓ $pkg');
-            AppLogger.log('LibPython: $pkg installé ✓',
+            results.add('✓ $pkg (pip)');
+            AppLogger.log('LibPython: $pkg installé via pip ✓',
                 tag: LogTag.zeus, logLevel: LogLevel.info);
           } else {
             results.add('✗ $pkg');
             final errLines = (res.stderr as String)
-                .split('\n')
-                .where((l) => l.trim().isNotEmpty)
-                .toList();
-            final errMsg = errLines.isEmpty ? '(vide)' : errLines.last;
-            AppLogger.log('LibPython: $pkg ERREUR: $errMsg',
+                .split('\n').where((l) => l.trim().isNotEmpty).toList();
+            AppLogger.log(
+                'LibPython: $pkg ERREUR: ${errLines.isEmpty ? "(vide)" : errLines.last}',
                 tag: LogTag.zeus, logLevel: LogLevel.warning);
           }
         } catch (e) {
@@ -536,19 +552,60 @@ class PythonPackageInfo {
         }
       }
 
-      // Write marker if all *critical* packages succeeded.
-      // Optional packages (tgcrypto) do not block the marker — pyrogram has a
-      // built-in pure-Python crypto fallback when tgcrypto is absent.
+      // Marker: write even if optional packages (tgcrypto) failed.
       final criticalFailed = missing
-          .where((pkg) => !_optionalPackages.contains(pkg.toLowerCase()))
-          .any((pkg) => results.any((r) => r.startsWith('✗') && r.contains(pkg)));
-
+          .where((p) => !_optionalPackages.contains(p.toLowerCase()))
+          .any((p) => results.any((r) => r.startsWith('✗') && r.contains(p)));
       if (!criticalFailed) {
         await markerFile.parent.create(recursive: true);
         await markerFile.writeAsString(depsHash);
       }
-
       return results.join('\n');
+    }
+
+    /// Installs [packageName] from a pre-compiled wheel bundled in Flutter assets.
+    ///
+    /// Asset path: `assets/wheels/<packagename>.whl` (lower-case).
+    /// Returns true on success, false if the asset is absent or pip fails.
+    Future<bool> _installFromBundledWheel(
+      String packageName,
+      String sitePackagesDir,
+      Map<String, String> env,
+      String pythonExePath,
+    ) async {
+      final assetKey = 'assets/wheels/${packageName.toLowerCase()}.whl';
+      try {
+        final data = await rootBundle.load(assetKey);
+        final bytes = data.buffer.asUint8List();
+
+        final tmp = await getTemporaryDirectory();
+        final wheelFile = File('${tmp.path}/${packageName.toLowerCase()}.whl');
+        await wheelFile.writeAsBytes(bytes);
+
+        AppLogger.log(
+            'LibPython: install $packageName depuis bundle (${bytes.length} bytes)…',
+            tag: LogTag.zeus, logLevel: LogLevel.info);
+
+        final res = await Process.run(
+          pythonExePath,
+          [
+            '-m', 'pip', 'install', wheelFile.path,
+            '--target', sitePackagesDir,
+            '--no-deps',
+            '--no-warn-script-location',
+          ],
+          environment: env,
+        ).timeout(const Duration(minutes: 2));
+
+        await wheelFile.delete().catchError((_) {});
+        return res.exitCode == 0;
+      } on FlutterError {
+        return false; // Asset absent du bundle
+      } catch (e) {
+        AppLogger.log('LibPython: bundled wheel erreur ($packageName): $e',
+            tag: LogTag.zeus, logLevel: LogLevel.warning);
+        return false;
+      }
     }
 
 
