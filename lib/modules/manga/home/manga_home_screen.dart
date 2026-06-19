@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
@@ -12,7 +13,6 @@ import 'package:watchtower/modules/library/providers/library_state_provider.dart
 import 'package:watchtower/modules/manga/home/providers/state_provider.dart';
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/widgets/listview_widget.dart';
-import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_custom_lists.dart';
@@ -66,6 +66,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   int _fullDataLength = 50;
   int _page = 1;
   bool _hasNextPage = true;
+
   late int _selectedIndex = widget.isLatest
       ? 1
       : widget.isSearch
@@ -76,11 +77,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   late List<dynamic> filters = isLocal ? [] : getFilterList(source: source);
   final List<MManga> _mangaList = [];
 
-  // Extra browse tabs declared by the extension (e.g. Films, Séries TV …)
   late final List<Map<String, dynamic>> _customLists =
       isLocal ? [] : getCustomLists(source: source);
 
-  // Index 0=Popular 1=Latest 2=Filter 3+=custom lists
   static const _kPopularIdx = 0;
   static const _kLatestIdx = 1;
   static const _kFilterIdx = 2;
@@ -99,7 +98,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   List<TypeMangaSelector> _types(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     return [
-      TypeMangaSelector(Icons.favorite, l10n.popular),
+      TypeMangaSelector(Icons.home_rounded, l10n.popular),
       TypeMangaSelector(Icons.new_releases_outlined, l10n.latest),
       TypeMangaSelector(Icons.filter_list_outlined, l10n.filter),
       ..._customLists.map(
@@ -123,12 +122,15 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           mangaRes = await ref.watch(
             getPopularProvider(source: source, page: _page + 1).future,
           );
-        } else if (_selectedIndex == _kLatestIdx && !_isSearch && _query.isEmpty) {
+        } else if (_selectedIndex == _kLatestIdx &&
+            !_isSearch &&
+            _query.isEmpty) {
           mangaRes = await ref.watch(
             getLatestUpdatesProvider(source: source, page: _page + 1).future,
           );
         } else if (_selectedIndex == _kFilterIdx &&
-            (_isSearch && _query.isNotEmpty) || _isFiltering) {
+                (_isSearch && _query.isNotEmpty) ||
+            _isFiltering) {
           mangaRes = await ref.watch(
             searchProvider(
               source: source,
@@ -156,12 +158,40 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         }
       }
     }
-
     return mangaRes;
   }
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pixels = _scrollController.position.pixels;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (pixels >= maxExtent - 200) {
+      if (_mangaList.isNotEmpty &&
+          _hasNextPage &&
+          !_isLoading &&
+          !(_getManga?.isLoading ?? false)) {
+        setState(() => _isLoading = true);
+        _loadMore().then((value) {
+          if (mounted && value != null) {
+            setState(() {
+              _mangaList.addAll(value.list);
+              _isLoading = false;
+            });
+          }
+        });
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _textEditingController.dispose();
     super.dispose();
@@ -190,36 +220,648 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         ctx.push('/extensionDiagnostic', extra: source.itemType);
     }
   }
+
   AsyncValue<MPages?>? _getManga;
   int _length = 0;
   bool _isFiltering = false;
-  late final supportsLatest = isLocal
-      ? true
-      : ref.watch(supportsLatestProvider(source: source));
+  late final supportsLatest =
+      isLocal ? true : ref.watch(supportsLatestProvider(source: source));
   late final filterList = isLocal ? [] : getFilterList(source: source);
-  @override
-  Widget build(BuildContext context) {
-    final _activeId = _activeCustomListId;
-    if ((_selectedIndex == _kFilterIdx && (_isSearch && _query.isNotEmpty)) ||
-        _isFiltering) {
-      _getManga = ref.watch(
-        searchProvider(
-          source: source,
-          query: _query,
-          page: 1,
-          filterList: filters,
+
+  // ── Search screen ──────────────────────────────────────────────────────────
+
+  Widget _buildSearchScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Search bar + Annuler
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 10),
+                          Icon(Icons.search,
+                              size: 20,
+                              color: Theme.of(context).hintColor),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: TextField(
+                              autofocus: true,
+                              controller: _textEditingController,
+                              style: const TextStyle(fontSize: 16),
+                              decoration: InputDecoration(
+                                hintText: 'Recherche',
+                                hintStyle: TextStyle(
+                                    color: Theme.of(context).hintColor,
+                                    fontSize: 16),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              onSubmitted: (submit) {
+                                _mangaList.clear();
+                                setState(() {
+                                  if (submit.isNotEmpty) {
+                                    _selectedIndex = _kFilterIdx;
+                                    _query = submit;
+                                    _isFiltering = true;
+                                  } else {
+                                    _selectedIndex = _kPopularIdx;
+                                    _isFiltering = false;
+                                  }
+                                  _page = 1;
+                                });
+                              },
+                            ),
+                          ),
+                          if (_textEditingController.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _textEditingController.clear();
+                                _mangaList.clear();
+                                setState(() => _query = "");
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Icon(Icons.cancel,
+                                    size: 18,
+                                    color: Theme.of(context).hintColor),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      _textEditingController.clear();
+                      _mangaList.clear();
+                      setState(() {
+                        _isSearch = false;
+                        _isFiltering = false;
+                        _query = "";
+                        _selectedIndex = _kPopularIdx;
+                        _page = 1;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(60, 42)),
+                    child: Text(
+                      'Annuler',
+                      style: TextStyle(
+                        color: context.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Filter dropdown chips
+            if (filterList.isNotEmpty)
+              SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    _FilterChipBtn(
+                        label: 'Demographic',
+                        onTap: () => _openFilterSheet(context)),
+                    _FilterChipBtn(
+                        label: 'Content',
+                        onTap: () => _openFilterSheet(context)),
+                    _FilterChipBtn(
+                        label: 'Format',
+                        onTap: () => _openFilterSheet(context)),
+                    _FilterChipBtn(
+                        label: 'Theme',
+                        onTap: () => _openFilterSheet(context)),
+                    _FilterChipBtn(
+                        label: 'Sort',
+                        onTap: () => _openFilterSheet(context)),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: _getManga == null || _getManga!.isLoading
+                  ? _buildSkeletonGrid()
+                  : _getManga!.when(
+                      data: (data) {
+                        if (data == null || data.list.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'Aucun résultat',
+                              style: TextStyle(
+                                  color: Theme.of(context).hintColor),
+                            ),
+                          );
+                        }
+                        if (_mangaList.isEmpty) {
+                          _mangaList.addAll(data.list);
+                        }
+                        _length = _mangaList.length;
+                        return _buildGrid(context);
+                      },
+                      error: (e, _) => _buildError(context, e),
+                      loading: _buildSkeletonGrid,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── iOS-style filter bottom sheet ──────────────────────────────────────────
+
+  Future<void> _openFilterSheet(BuildContext context) async {
+    if (filters.isEmpty) filters = filterList;
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetCtx)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header: Annuler | Filtres | Appliquer
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetCtx),
+                      style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(60, 36)),
+                      child: Text(
+                        'Annuler',
+                        style: TextStyle(
+                          color: context.primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    const Expanded(
+                      child: Text(
+                        'Filtres',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetCtx, 'filter'),
+                      style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(60, 36)),
+                      child: Text(
+                        'Appliquer',
+                        style: TextStyle(
+                          color: context.primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Filter content
+              Flexible(
+                child: SingleChildScrollView(
+                  child: FilterWidget(
+                    filterList: filters,
+                    onChanged: (values) =>
+                        setSheetState(() => filters = values),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              // Footer: Réinitialiser | Enregistrer
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => setSheetState(
+                          () => filters = getFilterList(source: source),
+                        ),
+                        child: Text(
+                          'Réinitialiser',
+                          style: TextStyle(
+                              color: context.primaryColor, fontSize: 16),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(sheetCtx, 'filter'),
+                        child: Text(
+                          'Enregistrer',
+                          style: TextStyle(
+                              color: context.primaryColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == 'filter') {
+      _mangaList.clear();
+      if (mounted) {
+        setState(() {
+          _selectedIndex = _kFilterIdx;
+          _isFiltering = true;
+          _page = 1;
+          _isLoading = false;
+        });
+      }
+      ref.refresh(searchProvider(
+        source: source,
+        query: _query,
+        page: 1,
+        filterList: filters,
+      ));
+    }
+  }
+
+  // ── Skeleton shimmer grid ──────────────────────────────────────────────────
+
+  Widget _buildSkeletonGrid() {
+    return Skeletonizer(
+      enabled: true,
+      effect: ShimmerEffect(
+        baseColor: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.6),
+        highlightColor: Theme.of(context)
+            .colorScheme
+            .surface
+            .withValues(alpha: 0.9),
+        duration: const Duration(milliseconds: 1200),
+      ),
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 0.65,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+        ),
+        itemCount: 12,
+        itemBuilder: (_, __) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              height: 12,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Grid / list view ───────────────────────────────────────────────────────
+
+  Widget _buildGrid(BuildContext context) {
+    final displayType = ref.watch(mangaHomeDisplayTypeStateProvider);
+    final isListMode =
+        displayType == DisplayType.list || displayType == DisplayType.wideList;
+    final isComfortableGrid = displayType == DisplayType.comfortableGrid ||
+        displayType == DisplayType.largeGrid;
+    final childAspectRatio = switch (displayType) {
+      DisplayType.comfortableGrid => 0.642,
+      DisplayType.largeGrid => 0.6,
+      DisplayType.coverOnlyGrid => 0.85,
+      _ => 0.69,
+    };
+
+    Widget buildProgressIndicator() {
+      final data = _getManga?.value;
+      if (data == null ||
+          !(data.list.isNotEmpty && (data.hasNextPage || _hasNextPage))) {
+        return const SizedBox.shrink();
+      }
+      if (_isLoading) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.all(4),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(5)),
+          ),
+          onPressed: () {
+            if (!(_getManga?.isLoading ?? false)) {
+              setState(() => _isLoading = true);
+              _loadMore().then((value) {
+                if (mounted && value != null) {
+                  setState(() {
+                    _mangaList.addAll(value.list);
+                    _isLoading = false;
+                  });
+                }
+              });
+            }
+          },
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Charger plus',
+                  style: TextStyle(overflow: TextOverflow.ellipsis),
+                  maxLines: 2),
+              Icon(Icons.arrow_forward_outlined),
+            ],
+          ),
         ),
       );
-    } else if (_selectedIndex == _kLatestIdx && !_isSearch && _query.isEmpty) {
-      _getManga = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-    } else if (_activeId != null) {
-      _getManga = ref.watch(
-        getCustomListProvider(source: source, listId: _activeId, page: 1),
+    }
+
+    if (isListMode) {
+      return SuperListViewWidget(
+        controller: _scrollController,
+        itemCount: _length + 1,
+        itemBuilder: (context, index) {
+          if (index == _length) return buildProgressIndicator();
+          return MangaHomeImageCardListTile(
+            itemType: source.itemType,
+            manga: _mangaList[index],
+            source: source,
+          );
+        },
       );
+    }
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final gridSize = displayType == DisplayType.largeGrid
+            ? 2
+            : ref.watch(
+                libraryGridSizeStateProvider(itemType: source.itemType));
+        return GridViewWidget(
+          gridSize: gridSize,
+          controller: _scrollController,
+          itemCount: _length + 1,
+          childAspectRatio: childAspectRatio,
+          itemBuilder: (context, index) {
+            if (index == _length) return buildProgressIndicator();
+            return MangaHomeImageCard(
+              itemType: source.itemType,
+              manga: _mangaList[index],
+              source: source,
+              isComfortableGrid: isComfortableGrid,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ── Error view ─────────────────────────────────────────────────────────────
+
+  Widget _buildError(BuildContext context, Object error) {
+    void retry() {
+      if ((_selectedIndex == _kFilterIdx &&
+              (_isSearch && _query.isNotEmpty)) ||
+          _isFiltering) {
+        ref.invalidate(searchProvider(
+            source: source,
+            query: _query,
+            page: 1,
+            filterList: filters));
+      } else if (_selectedIndex == _kLatestIdx &&
+          !_isSearch &&
+          _query.isEmpty) {
+        ref.invalidate(
+            getLatestUpdatesProvider(source: source, page: 1));
+      } else {
+        ref.invalidate(getPopularProvider(source: source, page: 1));
+      }
+    }
+
+    if (isCloudflareError(error.toString())) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: CloudflareErrorWidget(
+            errorText: error.toString(),
+            url: source.baseUrl ?? '',
+            onRetry: retry,
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('(╥_╥)',
+                style: TextStyle(
+                    fontSize: 52,
+                    color:
+                        Theme.of(context).hintColor.withValues(alpha: 0.6))),
+            const SizedBox(height: 20),
+            SelectableText(
+              error.toString(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontFamilyFallback: const ['monospace'],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: retry,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Réessayer'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final baseUrl =
+                        ref.read(sourceBaseUrlProvider(source: source));
+                    context.push('/mangawebview', extra: {
+                      'url': baseUrl,
+                      'sourceId': source.id.toString(),
+                      'title': '',
+                      'hasCloudFlare': source.hasCloudflare ?? false,
+                    });
+                  },
+                  icon: Icon(Icons.public_rounded,
+                      size: 18, color: context.secondaryColor),
+                  label: const Text('Webview'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Body ───────────────────────────────────────────────────────────────────
+
+  Widget _buildBody(BuildContext context) {
+    if (_getManga == null) return const SizedBox.shrink();
+
+    if (_getManga!.isLoading && _mangaList.isEmpty) {
+      return _buildSkeletonGrid();
+    }
+
+    return _getManga!.when(
+      data: (data) {
+        if (data == null) return const SizedBox.shrink();
+
+        if (_mangaList.isEmpty && data.list.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _mangaList.addAll(data.list));
+          });
+          return _buildSkeletonGrid();
+        }
+
+        if (!_hasNextPage && data.hasNextPage) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) {
+            if (mounted) setState(() => _hasNextPage = true);
+          });
+        }
+
+        _length = source.isFullData!
+            ? _fullDataLength
+            : _mangaList.length;
+        _length = (_mangaList.length < _length
+            ? _mangaList.length
+            : _length);
+
+        if (data.list.isEmpty && _mangaList.isEmpty) {
+          return Center(child: Text(context.l10n.no_result));
+        }
+
+        return _buildGrid(context);
+      },
+      error: (error, _) => _buildError(context, error),
+      loading: () => _mangaList.isEmpty
+          ? _buildSkeletonGrid()
+          : _buildGrid(context),
+    );
+  }
+
+  // ── Main build ─────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    final activeId = _activeCustomListId;
+    if ((_selectedIndex == _kFilterIdx &&
+            (_isSearch && _query.isNotEmpty)) ||
+        _isFiltering) {
+      _getManga = ref.watch(searchProvider(
+        source: source,
+        query: _query,
+        page: 1,
+        filterList: filters,
+      ));
+    } else if (_selectedIndex == _kLatestIdx &&
+        !_isSearch &&
+        _query.isEmpty) {
+      _getManga =
+          ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+    } else if (activeId != null) {
+      _getManga = ref.watch(
+          getCustomListProvider(source: source, listId: activeId, page: 1));
     } else {
       _getManga = ref.watch(getPopularProvider(source: source, page: 1));
     }
-    final l10n = context.l10n;
+
     final displayType = ref.watch(mangaHomeDisplayTypeStateProvider);
     final displayTypeIcon = switch (displayType) {
       DisplayType.compactGrid => Icons.grid_view,
@@ -229,577 +871,394 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       DisplayType.list => Icons.view_list,
       DisplayType.wideList => Icons.view_agenda_outlined,
     };
+
+    if (_isSearch) {
+      return _buildSearchScreen(context);
+    }
+
+    final sourceName = !isLocal
+        ? (source.name ?? '')
+        : '${l10n.local_source} ${source.itemType.localized(l10n)}';
+
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: _isSearch
-            ? null
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    !isLocal
-                        ? "${source.name}"
-                        : "${context.l10n.local_source} ${source.itemType.localized(context.l10n)}",
-                  ),
-                  source.notes != null && source.notes!.isNotEmpty
-                      ? SizedBox(
-                          height: 20,
-                          child: Marquee(
-                            text: l10n.extension_notes(source.notes!),
-                            style: const TextStyle(fontSize: 12),
-                            blankSpace: 40.0,
-                            velocity: 30.0,
-                            pauseAfterRound: const Duration(seconds: 1),
-                            startPadding: 10.0,
-                          ),
-                        )
-                      : Container(),
-                ],
-              ),
-        leading: !_isSearch ? null : Container(),
-        actions: [
-          _isSearch
-              ? SeachFormTextField(
-                  onFieldSubmitted: (submit) {
-                    _mangaList.clear();
-                    setState(() {
-                      if (submit.isNotEmpty) {
-                        _selectedIndex = 2;
-
-                        _query = submit;
-                      } else {
-                        _selectedIndex = 0;
-                      }
-                      _page = 1;
-                    });
-                  },
-                  onChanged: (value) {},
-                  onSuffixPressed: () {
-                    _textEditingController.clear();
-                    _mangaList.clear();
-                    _query = "";
-                    setState(() {});
-                  },
-                  onPressed: () {
-                    setState(() {
-                      if (_textEditingController.text.isEmpty) {
-                        _isSearch = false;
-                        _query = "";
-                        _isFiltering = false;
-                        _selectedIndex = 0;
-                        _page = 1;
-                        _textEditingController.clear();
-                        _mangaList.clear();
-                      } else {
-                        Navigator.pop(context);
-                      }
-                    });
-                  },
-                  controller: _textEditingController,
-                )
-              : IconButton(
-                  splashRadius: 20,
-                  onPressed: () {
-                    setState(() {
-                      _isSearch = true;
-                    });
-                  },
-                  icon: Icon(Icons.search, color: Theme.of(context).hintColor),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: NestedScrollView(
+        controller: _scrollController,
+        headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
+          // ── Collapsing iOS-style AppBar ──────────────────────────────────
+          SliverAppBar(
+            pinned: true,
+            floating: false,
+            snap: false,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            expandedHeight: 96,
+            automaticallyImplyLeading: false,
+            leading: IconButton(
+              icon: Icon(Icons.chevron_left_rounded,
+                  size: 28, color: context.primaryColor),
+              onPressed: () => context.pop(),
+            ),
+            centerTitle: true,
+            title: AnimatedOpacity(
+              opacity: innerBoxIsScrolled ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 180),
+              child: Text(
+                sourceName,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
                 ),
-          Builder(
-            builder: (ctx) => CustomPopup(
-              backgroundColor:
-                  Theme.of(ctx).colorScheme.surfaceContainerHigh,
-              contentPadding: EdgeInsets.zero,
-              content: Consumer(
-                builder: (ctx2, ref2, _) {
-                  final displayType =
-                      ref2.watch(mangaHomeDisplayTypeStateProvider);
-                  final notifier = ref2
-                      .read(mangaHomeDisplayTypeStateProvider.notifier);
-                  Widget tile(
-                          IconData icon, String label, DisplayType val) =>
-                      RadioListTile<DisplayType>(
-                        secondary: Icon(icon, size: 20),
-                        title:
-                            Text(label, style: const TextStyle(fontSize: 14)),
-                        value: val,
-                        groupValue: displayType,
-                        dense: true,
-                        onChanged: (v) => notifier.setMangaHomeDisplayType(v!),
-                      );
-                  return IntrinsicWidth(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        tile(Icons.grid_view, ctx2.l10n.compact_grid,
-                            DisplayType.compactGrid),
-                        tile(Icons.view_module, ctx2.l10n.comfortable_grid,
-                            DisplayType.comfortableGrid),
-                        tile(Icons.image_outlined, ctx2.l10n.cover_only_grid,
-                            DisplayType.coverOnlyGrid),
-                        tile(Icons.dashboard_outlined, 'Grille large',
-                            DisplayType.largeGrid),
-                        tile(Icons.view_list, ctx2.l10n.list, DisplayType.list),
-                        tile(Icons.view_agenda_outlined, 'Liste étendue',
-                            DisplayType.wideList),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Icon(displayTypeIcon, color: Theme.of(ctx).hintColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-          const SizedBox(width: 2),
-          if (!isLocal)
-            Builder(
-              builder: (ctx) => ArrowPopupMenuButton<_HomeMenuAction>(
-                padding: const EdgeInsets.all(10),
-                icon: Icon(Icons.more_vert, color: Theme.of(ctx).hintColor),
-                onSelected: (action) => _handleHomeMenuAction(ctx, action),
-                itemBuilder: (menuCtx) => [
-                  PopupMenuItem(
-                    value: _HomeMenuAction.openBrowser,
-                    child: Row(children: [
-                      const Icon(Icons.open_in_browser_rounded, size: 20),
-                      const SizedBox(width: 12),
-                      Flexible(child: Text(menuCtx.l10n.open_in_browser,
-                          style: const TextStyle(fontSize: 14))),
-                    ]),
-                  ),
-                  PopupMenuItem(
-                    value: _HomeMenuAction.cookies,
-                    child: Row(children: [
-                      const Icon(Icons.cookie_outlined, size: 20),
-                      const SizedBox(width: 12),
-                      const Text('Cookies', style: TextStyle(fontSize: 14)),
-                    ]),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: _HomeMenuAction.settings,
-                    child: Row(children: [
-                      const Icon(Icons.settings_outlined, size: 20),
-                      const SizedBox(width: 12),
-                      Flexible(child: Text(menuCtx.l10n.settings,
-                          style: const TextStyle(fontSize: 14))),
-                    ]),
-                  ),
-                  PopupMenuItem(
-                    value: _HomeMenuAction.diagnostic,
-                    child: Row(children: [
-                      const Icon(Icons.bug_report_outlined, size: 20),
-                      const SizedBox(width: 12),
-                      const Text('Diagnostic',
-                          style: TextStyle(fontSize: 14)),
-                    ]),
-                  ),
-                ],
+            actions: [
+              IconButton(
+                splashRadius: 20,
+                onPressed: () => setState(() => _isSearch = true),
+                icon: Icon(Icons.search,
+                    color: Theme.of(context).hintColor),
               ),
-            ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(AppBar().preferredSize.height * 0.8),
-          child: ColoredBox(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            child: Column(
-              children: [
-              SizedBox(
-                width: context.width(1),
-                height: 45,
-                child: SuperListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  shrinkWrap: true,
-                  itemCount: 3 + _customLists.length,
-                  itemBuilder: (context, index) {
-                    if (filterList.isEmpty && index == _kFilterIdx) {
-                      return const SizedBox.shrink();
-                    }
-                    if (!supportsLatest && index == _kLatestIdx) {
-                      return const SizedBox.shrink();
-                    }
-                    return MangasCardSelector(
-                      icon: _types(context)[index].icon,
-                      selected: _selectedIndex == index,
-                      text: _types(context)[index].title,
-                      onPressed: () async {
-                        if (filters.isEmpty) {
-                          filters = filterList;
-                        }
-                        if (index == _kFilterIdx) {
-                          final result = await showModalBottomSheet(
-                            context: context,
-                            builder: (context) => StatefulBuilder(
-                              builder: (context, setState) {
-                                return Column(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Row(
-                                        children: [
-                                          TextButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                filters = getFilterList(
-                                                  source: source,
-                                                );
-                                              });
-                                            },
-                                            child: Text(l10n.reset),
-                                          ),
-                                          const Spacer(),
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  context.primaryColor,
-                                            ),
-                                            onPressed: () {
-                                              Navigator.pop(context, 'filter');
-                                            },
-                                            child: Text(
-                                              l10n.filter,
-                                              style: TextStyle(
-                                                color: Theme.of(
-                                                  context,
-                                                ).scaffoldBackgroundColor,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Divider(),
-                                    Expanded(
-                                      child: FilterWidget(
-                                        filterList: filters,
-                                        onChanged: (values) {
-                                          setState(() {
-                                            filters = values;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+              Builder(
+                builder: (actCtx) => CustomPopup(
+                  backgroundColor: Theme.of(actCtx)
+                      .colorScheme
+                      .surfaceContainerHigh,
+                  contentPadding: EdgeInsets.zero,
+                  content: Consumer(
+                    builder: (ctx2, ref2, _) {
+                      final dt =
+                          ref2.watch(mangaHomeDisplayTypeStateProvider);
+                      final notifier = ref2.read(
+                          mangaHomeDisplayTypeStateProvider.notifier);
+                      Widget tile(IconData icon, String label,
+                              DisplayType val) =>
+                          RadioListTile<DisplayType>(
+                            secondary: Icon(icon, size: 20),
+                            title: Text(label,
+                                style: const TextStyle(fontSize: 14)),
+                            value: val,
+                            groupValue: dt,
+                            dense: true,
+                            onChanged: (v) =>
+                                notifier.setMangaHomeDisplayType(v!),
                           );
-                          if (result == 'filter') {
-                            _mangaList.clear();
-                            if (mounted) {
-                              setState(() {
-                                _selectedIndex = 2;
-                                _isFiltering = true;
-                                _page = 1;
-                                _isLoading = false;
-                              });
-                            }
-
-                            _getManga = ref.refresh(
-                              searchProvider(
-                                source: source,
-                                query: _query,
-                                page: 1,
-                                filterList: filters,
-                              ),
-                            );
-                          }
-                        } else {
-                          _mangaList.clear();
-                          setState(() {
-                            _selectedIndex = index;
-                            _isFiltering = false;
-                            _isSearch = false;
-                            _query = "";
-                            _textEditingController.clear();
-                            _page = 1;
-                            _isLoading = false;
-                          });
-                        }
-                      },
-                    );
-                  },
-                ),
-              ),
-              Container(
-                color: context.primaryColor,
-                height: 0.3,
-                width: context.width(1),
-              ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      body: _getManga!.isLoading
-          ? const ProgressCenter()
-          : _getManga!.when(
-              data: (data) {
-                if (_hasNextPage) {
-                  if (!data!.hasNextPage) {
-                    if (mounted) {
-                      setState(() {
-                        _hasNextPage = false;
-                      });
-                    }
-                  }
-                }
-                if (_mangaList.isEmpty && data!.list.isNotEmpty) {
-                  _mangaList.addAll(data.list);
-                }
-                Widget buildProgressIndicator() {
-                  return !(data!.list.isNotEmpty &&
-                          (data.hasNextPage || _hasNextPage))
-                      ? Container()
-                      : _isLoading
-                      ? const Center(
-                          child: SizedBox(
-                            height: 100,
-                            width: 200,
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                            ),
-                            onPressed: () {
-                              if (!_getManga!.isLoading) {
-                                if (mounted) {
-                                  setState(() {
-                                    _isLoading = true;
-                                  });
-                                }
-                                _loadMore().then((value) {
-                                  if (mounted && value != null) {
-                                    setState(() {
-                                      _mangaList.addAll(value.list);
-                                      _isLoading = false;
-                                    });
-                                  }
-                                });
-                              }
-                            },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  l10n.load_more,
-                                  style: const TextStyle(
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  maxLines: 2,
-                                ),
-                                const Icon(Icons.arrow_forward_outlined),
-                              ],
-                            ),
-                          ),
-                        );
-                }
-
-                if (data!.list.isEmpty) {
-                  return Center(child: Text(l10n.no_result));
-                }
-                _scrollController.addListener(() {
-                  if (_scrollController.position.pixels ==
-                      _scrollController.position.maxScrollExtent) {
-                    if (_mangaList.isNotEmpty &&
-                        (_hasNextPage) &&
-                        !_isLoading &&
-                        !_getManga!.isLoading) {
-                      if (mounted) {
-                        setState(() {
-                          _isLoading = true;
-                        });
-                      }
-                      _loadMore().then((value) {
-                        if (mounted && value != null) {
-                          setState(() {
-                            _mangaList.addAll(value.list);
-                            _isLoading = false;
-                          });
-                        }
-                      });
-                    }
-                  }
-                });
-
-                _length = source.isFullData!
-                    ? _fullDataLength
-                    : _mangaList.length;
-                _length = (_mangaList.length < _length
-                    ? _mangaList.length
-                    : _length);
-                final isListMode = displayType == DisplayType.list || displayType == DisplayType.wideList;
-                final isComfortableGrid =
-                    displayType == DisplayType.comfortableGrid ||
-                    displayType == DisplayType.largeGrid;
-                final childAspectRatio = switch (displayType) {
-                  DisplayType.comfortableGrid => 0.642,
-                  DisplayType.largeGrid => 0.6,
-                  DisplayType.coverOnlyGrid => 0.85,
-                  _ => 0.69,
-                };
-                return Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Column(
-                    children: [
-                      Flexible(
-                        child: isListMode
-                            ? SuperListViewWidget(
-                                controller: _scrollController,
-                                itemCount: _length + 1,
-                                itemBuilder: (context, index) {
-                                  if (index == _length) {
-                                    return buildProgressIndicator();
-                                  }
-                                  return MangaHomeImageCardListTile(
-                                    itemType: source.itemType,
-                                    manga: _mangaList[index],
-                                    source: source,
-                                  );
-                                },
-                              )
-                            : Consumer(
-                                builder: (context, ref, child) {
-                                  final gridSize = displayType == DisplayType.largeGrid
-                                      ? 2
-                                      : ref.watch(
-                                          libraryGridSizeStateProvider(
-                                            itemType: source.itemType,
-                                          ),
-                                        );
-
-                                  return GridViewWidget(
-                                    gridSize: gridSize,
-                                    controller: _scrollController,
-                                    itemCount: _length + 1,
-                                    childAspectRatio: childAspectRatio,
-                                    itemBuilder: (context, index) {
-                                      if (index == _length) {
-                                        return buildProgressIndicator();
-                                      }
-                                      return MangaHomeImageCard(
-                                        itemType: source.itemType,
-                                        manga: _mangaList[index],
-                                        source: source,
-                                        isComfortableGrid: isComfortableGrid,
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              error: (error, stackTrace) {
-                  void _retry() {
-                    if ((_selectedIndex == 2 && (_isSearch && _query.isNotEmpty)) || _isFiltering) {
-                      ref.invalidate(searchProvider(source: source, query: _query, page: 1, filterList: filters));
-                    } else if (_selectedIndex == 1 && !_isSearch && _query.isEmpty) {
-                      ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
-                    } else {
-                      ref.invalidate(getPopularProvider(source: source, page: 1));
-                    }
-                  }
-                  if (isCloudflareError(error.toString())) {
-                    return Column(children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: CloudflareErrorWidget(
-                              errorText: error.toString(),
-                              url: source.baseUrl ?? '',
-                              onRetry: _retry,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ]);
-                  }
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '(╥_╥)',
-                                  style: TextStyle(
-                                    fontSize: 52,
-                                    color: Theme.of(context).hintColor.withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                SelectableText(
-                                  error.toString(),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    height: 1.4,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    fontFamilyFallback: const ['monospace'],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                      return IntrinsicWidth(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            OutlinedButton.icon(
-                              onPressed: _retry,
-                              icon: const Icon(Icons.refresh_rounded, size: 18),
-                              label: Text(l10n.refresh),
-                            ),
-                            const SizedBox(width: 12),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                final baseUrl = ref.read(sourceBaseUrlProvider(source: source));
-                                context.push('/mangawebview', extra: {
-                                  'url': baseUrl,
-                                  'sourceId': source.id.toString(),
-                                  'title': '',
-                                  'hasCloudFlare': source.hasCloudflare ?? false,
-                                });
-                              },
-                              icon: Icon(Icons.public_rounded, size: 18, color: context.secondaryColor),
-                              label: const Text('Webview'),
-                            ),
+                            tile(Icons.grid_view,
+                                ctx2.l10n.compact_grid,
+                                DisplayType.compactGrid),
+                            tile(Icons.view_module,
+                                ctx2.l10n.comfortable_grid,
+                                DisplayType.comfortableGrid),
+                            tile(Icons.image_outlined,
+                                ctx2.l10n.cover_only_grid,
+                                DisplayType.coverOnlyGrid),
+                            tile(Icons.dashboard_outlined, 'Grille large',
+                                DisplayType.largeGrid),
+                            tile(Icons.view_list, ctx2.l10n.list,
+                                DisplayType.list),
+                            tile(Icons.view_agenda_outlined,
+                                'Liste étendue', DisplayType.wideList),
                           ],
                         ),
+                      );
+                    },
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(displayTypeIcon,
+                        color: Theme.of(actCtx).hintColor),
+                  ),
+                ),
+              ),
+              if (!isLocal)
+                Builder(
+                  builder: (actCtx) =>
+                      ArrowPopupMenuButton<_HomeMenuAction>(
+                    padding: const EdgeInsets.all(10),
+                    icon: Icon(Icons.more_vert,
+                        color: Theme.of(actCtx).hintColor),
+                    onSelected: (action) =>
+                        _handleHomeMenuAction(actCtx, action),
+                    itemBuilder: (menuCtx) => [
+                      PopupMenuItem(
+                        value: _HomeMenuAction.openBrowser,
+                        child: Row(children: [
+                          const Icon(Icons.open_in_browser_rounded,
+                              size: 20),
+                          const SizedBox(width: 12),
+                          Flexible(
+                              child: Text(menuCtx.l10n.open_in_browser,
+                                  style:
+                                      const TextStyle(fontSize: 14))),
+                        ]),
+                      ),
+                      PopupMenuItem(
+                        value: _HomeMenuAction.cookies,
+                        child: Row(children: [
+                          const Icon(Icons.cookie_outlined, size: 20),
+                          const SizedBox(width: 12),
+                          const Text('Cookies',
+                              style: TextStyle(fontSize: 14)),
+                        ]),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: _HomeMenuAction.settings,
+                        child: Row(children: [
+                          const Icon(Icons.settings_outlined, size: 20),
+                          const SizedBox(width: 12),
+                          Flexible(
+                              child: Text(menuCtx.l10n.settings,
+                                  style:
+                                      const TextStyle(fontSize: 14))),
+                        ]),
+                      ),
+                      PopupMenuItem(
+                        value: _HomeMenuAction.diagnostic,
+                        child: Row(children: [
+                          const Icon(Icons.bug_report_outlined, size: 20),
+                          const SizedBox(width: 12),
+                          const Text('Diagnostic',
+                              style: TextStyle(fontSize: 14)),
+                        ]),
                       ),
                     ],
-                  );
-                },
-              loading: () => const Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              const SizedBox(width: 4),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 18, bottom: 10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          sourceName,
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (source.notes != null &&
+                            source.notes!.isNotEmpty)
+                          SizedBox(
+                            height: 18,
+                            child: Marquee(
+                              text:
+                                  l10n.extension_notes(source.notes!),
+                              style: const TextStyle(fontSize: 12),
+                              blankSpace: 40.0,
+                              velocity: 30.0,
+                              pauseAfterRound:
+                                  const Duration(seconds: 1),
+                              startPadding: 10.0,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
+          ),
+          // ── Tab pills (pinned below appbar) ──────────────────────────────
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _TabPillsDelegate(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              dividerColor: context.primaryColor.withValues(alpha: 0.4),
+              child: _TabPillsRow(
+                types: _types(context),
+                selectedIndex: _selectedIndex,
+                filterList: filterList,
+                supportsLatest: supportsLatest,
+                onSelect: (index) async {
+                  if (filters.isEmpty) filters = filterList;
+                  if (index == _kFilterIdx) {
+                    await _openFilterSheet(context);
+                  } else {
+                    _mangaList.clear();
+                    setState(() {
+                      _selectedIndex = index;
+                      _isFiltering = false;
+                      _isSearch = false;
+                      _query = "";
+                      _textEditingController.clear();
+                      _page = 1;
+                      _isLoading = false;
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+        body: _buildBody(context),
+      ),
     );
   }
 }
+
+// ── Tab pills persistent header delegate ───────────────────────────────────
+
+class _TabPillsDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final Color color;
+  final Color dividerColor;
+
+  const _TabPillsDelegate({
+    required this.child,
+    required this.color,
+    required this.dividerColor,
+  });
+
+  @override
+  double get minExtent => 52;
+  @override
+  double get maxExtent => 52;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return ColoredBox(
+      color: color,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Expanded(child: child),
+          Divider(
+              height: 1, thickness: 0.3, color: dividerColor),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_TabPillsDelegate old) =>
+      old.child != child ||
+      old.color != color ||
+      old.dividerColor != old.dividerColor;
+}
+
+class _TabPillsRow extends StatelessWidget {
+  final List<TypeMangaSelector> types;
+  final int selectedIndex;
+  final List<dynamic> filterList;
+  final bool supportsLatest;
+  final void Function(int) onSelect;
+
+  const _TabPillsRow({
+    required this.types,
+    required this.selectedIndex,
+    required this.filterList,
+    required this.supportsLatest,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        itemCount: types.length,
+        itemBuilder: (context, index) {
+          if (filterList.isEmpty && index == 2) {
+            return const SizedBox.shrink();
+          }
+          if (!supportsLatest && index == 1) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: MangasCardSelector(
+              icon: types[index].icon,
+              selected: selectedIndex == index,
+              text: types[index].title,
+              onPressed: () => onSelect(index),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Filter dropdown chip button ────────────────────────────────────────────
+
+class _FilterChipBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _FilterChipBtn({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.15),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color:
+                      Theme.of(context).textTheme.bodyMedium?.color,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: Theme.of(context).hintColor,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Card widgets (unchanged) ───────────────────────────────────────────────
 
 class MangaHomeImageCard extends ConsumerStatefulWidget {
   final MManga manga;
@@ -815,7 +1274,8 @@ class MangaHomeImageCard extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MangaHomeImageCard> createState() => _MangaHomeImageCardState();
+  ConsumerState<MangaHomeImageCard> createState() =>
+      _MangaHomeImageCardState();
 }
 
 class _MangaHomeImageCardState extends ConsumerState<MangaHomeImageCard>
@@ -823,7 +1283,6 @@ class _MangaHomeImageCardState extends ConsumerState<MangaHomeImageCard>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
     return MangaImageCardWidget(
       getMangaDetail: widget.manga,
       source: widget.source,
@@ -858,7 +1317,6 @@ class _MangaHomeImageCardListTileState
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
     return MangaImageCardListTileWidget(
       getMangaDetail: widget.manga,
       source: widget.source,
