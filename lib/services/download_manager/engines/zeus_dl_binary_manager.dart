@@ -29,8 +29,8 @@ class ZeusDlExecutionContext {
 
 /// Manages the ZeusDL native binary lifecycle.
 ///
-/// All platforms use the native ELF/Mach-O binary from `assets/binaries/zeusdl`.
-/// Android additionally checks jniLibs for `libzeusdl.so`.
+/// All platforms use the native ELF/Mach-O binary from `assets/binaries/zeusdl`
+/// (injected at CI build time) or downloaded on demand via [downloadFromUrl].
 class ZeusDlBinaryManager {
   static ZeusDlBinaryManager? _instance;
   static ZeusDlBinaryManager get instance =>
@@ -154,7 +154,7 @@ class ZeusDlBinaryManager {
         AppLogger.log('ZeusDL iOS: asset extrait (${bytes.length} bytes)',
             logLevel: LogLevel.info, tag: LogTag.zeus);
         return destPath;
-      } catch (_) {
+      } on FlutterError {
         return null;
       }
     } catch (_) {
@@ -165,20 +165,6 @@ class ZeusDlBinaryManager {
   // ── Universal binary resolution ───────────────────────────────────────────
 
   Future<String?> resolveExecutable() async {
-    if (Platform.isAndroid) {
-      try {
-        final nativeDir = await _binaryUtilsChannel
-            .invokeMethod<String>('getNativeLibraryDir');
-        if (nativeDir != null && nativeDir.isNotEmpty) {
-          final nativeFile = File('$nativeDir/libzeusdl.so');
-          if (await nativeFile.exists() && await nativeFile.length() > 0) {
-            _cachedPath = nativeFile.path;
-            return nativeFile.path;
-          }
-        }
-      } catch (_) {}
-    }
-
     final internalPath = await _internalBinaryPath();
 
     if (_cachedPath != null) {

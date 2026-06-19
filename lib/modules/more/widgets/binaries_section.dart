@@ -136,24 +136,9 @@ Future<String?> _getNativeLibDir() async {
   }
 }
 
-/// Returns the size label if the binary is bundled in jniLibs, else null.
+/// Returns null — no binaries are bundled in jniLibs anymore.
+/// All tools are resolved from assets/binaries/ (CI-injected) or on-demand download.
 Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
-  if (nativeDir == null || nativeDir.isEmpty) return null;
-  try {
-    if (name == 'zeusdl') {
-      final nativeLib = File('$nativeDir/libzeusdl.so');
-      if (await nativeLib.exists() && await nativeLib.length() > 0) {
-        return _fmtBytes(await nativeLib.length());
-      }
-      return null;
-    }
-    final libName = name == 'aria2c' ? 'libaria2c.so' : 'lib$name.so';
-    final f = File('$nativeDir/$libName');
-    if (await f.exists()) {
-      final len = await f.length();
-      if (len > 0) return _fmtBytes(len);
-    }
-  } catch (_) {}
   return null;
 }
 
