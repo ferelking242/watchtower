@@ -367,7 +367,9 @@ jobs:
             echo "  fallback: build from sdist"
             pip3 download pyrogram --no-deps -d /tmp/py_wheels/
           fi
-          PYROGRAM=$(ls /tmp/py_wheels/pyrogram*.whl 2>/dev/null | head -1)
+          # find -iname : insensible a la casse (PyPI retourne Pyrogram avec majuscule)
+          # find exit 0 meme si vide — safe avec set -euo pipefail
+          PYROGRAM=$(find /tmp/py_wheels -iname 'pyrogram*.whl' 2>/dev/null | head -1 || true)
           if [ -z "$PYROGRAM" ]; then
             echo "WARNING: pyrogram wheel introuvable"
           else
@@ -382,7 +384,7 @@ jobs:
             --only-binary :all: \
             --no-deps \
             -d /tmp/py_wheels/ 2>/dev/null || true
-          TGCRYPTO=$(ls /tmp/py_wheels/TgCrypto*.whl /tmp/py_wheels/tgcrypto*.whl 2>/dev/null | head -1)
+          TGCRYPTO=$(find /tmp/py_wheels -iname 'tgcrypto*.whl' 2>/dev/null | head -1 || true)
           if [ -n "$TGCRYPTO" ]; then
             cp "$TGCRYPTO" assets/wheels/tgcrypto.whl
             echo "  OK TgCrypto: $(basename $TGCRYPTO)"
