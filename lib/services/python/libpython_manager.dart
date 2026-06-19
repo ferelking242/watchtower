@@ -123,7 +123,7 @@ class PythonPackageInfo {
       }
 
       final zipSize = await zipSo.length();
-      final versionFile = File('$fd/packages/python3.11_v2_size.txt');
+      final versionFile = File('$fd/packages/python3.11_v3_size.txt');
       final currentSize = zipSize.toString();
       final pythonDir = Directory('$fd/packages/python');
 
