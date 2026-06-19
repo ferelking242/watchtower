@@ -208,7 +208,8 @@ jobs:
           APP="build/ios/iphoneos/Runner.app"
           mkdir -p build/ios/iphoneos/Payload
           cp -r "$APP" build/ios/iphoneos/Payload/
-          cd build/ios/iphoneos && zip -r ../../Runner.ipa Payload/
+          (cd build/ios/iphoneos && zip -r Runner.ipa Payload/)
+          mv build/ios/iphoneos/Runner.ipa build/Runner.ipa
           ls -lh build/Runner.ipa
 
       - name: Upload IPA artifact
