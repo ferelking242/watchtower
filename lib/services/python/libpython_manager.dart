@@ -100,7 +100,8 @@ class PythonPackageInfo {
       return '$fd/packages/python/usr';
     }
 
-    /// Extrait la stdlib Python (libpython.zip.so -> filesDir/packages/python/usr).
+    /// Extrait la stdlib Python (libpython.zip.so -> filesDir/packages/python/usr)
+    /// puis bootstrappe pip depuis le wheel bundlé assets/wheels/pip.whl.
     /// Doit etre appelee avant toute invocation de libpython.so.
     /// Retourne PYTHONHOME ou null en cas d'echec.
     Future<String?> ensureStdlib() async {
@@ -134,6 +135,8 @@ class PythonPackageInfo {
           _cachedPythonHome = ph;
           AppLogger.log('[Python] stdlib deja extrait -> PYTHONHOME=$ph',
               logLevel: LogLevel.debug, tag: LogTag.zeus);
+          // Ensure pip is bootstrapped even on cached stdlib
+          await _ensurePipFromBundle();
           return ph;
         }
       }
@@ -157,6 +160,9 @@ class PythonPackageInfo {
         _cachedPythonHome = ph;
         AppLogger.log('[Python] stdlib extrait avec succes -> PYTHONHOME=$ph',
             logLevel: LogLevel.info, tag: LogTag.zeus);
+
+        // Bootstrap pip from bundled wheel right after stdlib extraction
+        await _ensurePipFromBundle();
         return ph;
       } catch (e, st) {
         AppLogger.log('[Python] ensureStdlib erreur extraction',
@@ -247,10 +253,78 @@ class PythonPackageInfo {
     }
   }
 
+  /// Extrait pip depuis le wheel bundlé assets/wheels/pip.whl vers site-packages.
+  ///
+  /// Appelé automatiquement par ensureStdlib() — pip devient disponible
+  /// dès le premier démarrage, sans réseau, sans recompilation du Python embarqué.
+  /// Le wheel pip-*-py3-none-any.whl est pur Python, ~2 MB, valide sur toutes arches.
+  Future<void> _ensurePipFromBundle() async {
+    if (_pipAvailable == true) return;
+    if (await isPipAvailable()) return;
+
+    AppLogger.log('LibPython: pip absent — bootstrap depuis assets/wheels/pip.whl',
+        tag: LogTag.zeus, logLevel: LogLevel.info);
+
+    const assetKey = 'assets/wheels/pip.whl';
+    try {
+      final data = await rootBundle.load(assetKey);
+      final bytes = data.buffer.asUint8List();
+
+      final sp  = await sitePackagesDir;
+      final tmp = await getTemporaryDirectory();
+      final exe = await pythonExe;
+      if (exe == null) return;
+
+      final wheelFile  = File('${tmp.path}/pip_bundle.whl');
+      final scriptFile = File('${tmp.path}/pip_install.py');
+      await wheelFile.writeAsBytes(bytes);
+      await scriptFile.writeAsString(
+        'import zipfile, os\n'
+        'sp = r"""$sp"""\n'
+        'whl = r"""${wheelFile.path}"""\n'
+        'os.makedirs(sp, exist_ok=True)\n'
+        'with zipfile.ZipFile(whl, "r") as z:\n'
+        '    z.extractall(sp)\n'
+        'print("pip extracted OK")\n',
+      );
+
+      final env = await _env;
+      final res = await Process.run(exe, [scriptFile.path], environment: env)
+          .timeout(const Duration(minutes: 2));
+
+      await wheelFile.delete().catchError((_) {});
+      await scriptFile.delete().catchError((_) {});
+
+      if (res.exitCode == 0) {
+        _pipAvailable = null; // reset — let isPipAvailable() confirm
+        AppLogger.log('LibPython: pip bootstrapped depuis bundle ✓',
+            tag: LogTag.zeus, logLevel: LogLevel.info);
+        if (await isPipAvailable()) {
+          AppLogger.log('LibPython: pip -m pip --version OK ✓',
+              tag: LogTag.zeus, logLevel: LogLevel.info);
+        }
+      } else {
+        AppLogger.log(
+            'LibPython: pip bundle extract erreur: ${'${res.stderr}'.trim()}',
+            tag: LogTag.zeus, logLevel: LogLevel.warning);
+      }
+    } on FlutterError {
+      AppLogger.log('LibPython: assets/wheels/pip.whl absent du bundle — skip',
+          tag: LogTag.zeus, logLevel: LogLevel.debug);
+    } catch (e) {
+      AppLogger.log('LibPython: _ensurePipFromBundle erreur: $e',
+          tag: LogTag.zeus, logLevel: LogLevel.warning);
+    }
+  }
+
   Future<String> bootstrapPip() async {
     final exe = await pythonExe;
     if (exe == null) return 'ERREUR: libpython.so introuvable';
     _pipAvailable = null;
+
+    // 1st try: bundled wheel (offline, fastest)
+    await _ensurePipFromBundle();
+    if (await isPipAvailable()) return '✓ pip depuis bundle';
 
     try {
       final env = await _env;
@@ -316,6 +390,8 @@ class PythonPackageInfo {
 
     final sp = await sitePackagesDir;
     final env = await _env;
+
+    if (!await isPipAvailable()) await bootstrapPip();
 
     AppLogger.log('LibPython: pip install $packageName...',
         tag: LogTag.zeus, logLevel: LogLevel.info);
@@ -484,47 +560,45 @@ class PythonPackageInfo {
     final env = await _env;
     final results = <String>[];
 
-    // ── Bundled-wheel install (Option A) ──────────────────────────────────────
-    // Wheels pre-compiled at CI build time and bundled in assets/wheels/.
-    // Extracted directly via Python zipfile — no pip, no network.
-    // Falls back to pip (with ensurepip bootstrap) if the asset is absent.
+    // ── Ensure pip is ready before any install attempt ────────────────────────
+    // pip is bootstrapped from assets/wheels/pip.whl at first launch by
+    // ensureStdlib(), but we double-check here in case resolvePluginDeps
+    // is called before ensureStdlib() completes.
     const _bundledWheels   = <String>{'tgcrypto', 'pyrogram'};
     const _binaryOnlyPkgs  = <String>{'tgcrypto'};
     const _optionalPackages = <String>{'tgcrypto'};
 
+    if (!await isPipAvailable()) {
+      onProgress?.call('Bootstrap pip depuis bundle...');
+      await bootstrapPip();
+      _pipAvailable = null;
+    }
+
     for (final pkg in missing) {
       onProgress?.call('$pluginId — installation de $pkg...');
-      bool installed = false;
+      bool pkgInstalled = false;
 
-      // 1️⃣ Try bundled wheel (fast, offline, no pip needed)
+      // 1️⃣ Bundled wheel — fast, offline, no network (still useful for tgcrypto/pyrogram)
       if (_bundledWheels.contains(pkg.toLowerCase())) {
-        installed = await _installFromBundledWheel(pkg, sp, env, exe);
-        if (installed) {
+        pkgInstalled = await _installFromBundledWheel(pkg, sp, env, exe);
+        if (pkgInstalled) {
           results.add('✓ $pkg (bundle)');
           AppLogger.log('LibPython: $pkg installé depuis le bundle ✓',
               tag: LogTag.zeus, logLevel: LogLevel.info);
           continue;
         }
-        AppLogger.log('LibPython: wheel bundle absent pour $pkg — fallback PyPI',
+        AppLogger.log('LibPython: wheel bundle absent pour $pkg — fallback pip',
             tag: LogTag.zeus, logLevel: LogLevel.debug);
       }
 
-      // 2️⃣ PyPI fallback — bootstrap pip via ensurepip if absent, then install
+      // 2️⃣ pip install (pip is now always available via bootstrapped bundle)
       final binaryOnly = _binaryOnlyPkgs.contains(pkg.toLowerCase());
       final isOptional = _optionalPackages.contains(pkg.toLowerCase());
 
       if (!await isPipAvailable()) {
-        onProgress?.call('Bootstrap pip (ensurepip)...');
-        AppLogger.log('LibPython: pip absent — tentative ensurepip pour $pkg',
-            tag: LogTag.zeus, logLevel: LogLevel.warning);
-        await bootstrapPip();
-        _pipAvailable = null; // reset cache, re-check
-      }
-
-      if (!await isPipAvailable()) {
         results.add('${isOptional ? "⚠" : "✗"} $pkg (pip indisponible)');
         AppLogger.log(
-            'LibPython: pip toujours absent — skip $pkg${isOptional ? " (optionnel)" : ""}',
+            'LibPython: pip absent — skip $pkg${isOptional ? " (optionnel)" : ""}',
             tag: LogTag.zeus, logLevel: LogLevel.warning);
         continue;
       }
@@ -685,18 +759,13 @@ class PythonPackageInfo {
         logLevel: LogLevel.info);
     onProgress?.call('Installation: ${missing.join(", ")}...');
 
-    // Ensure pip is available before attempting any install.
+    // pip is bootstrapped from bundle by ensureStdlib(); double-check here.
     if (!await isPipAvailable()) {
-      onProgress?.call('Bootstrap pip...');
-      AppLogger.log('LibPython: pip absent — bootstrap en cours...',
-          tag: LogTag.zeus, logLevel: LogLevel.warning);
-      final br = await bootstrapPip();
-      AppLogger.log('LibPython: bootstrap résultat: $br',
-          tag: LogTag.zeus, logLevel: LogLevel.info);
-      // Reset cached flag so next isPipAvailable() re-checks.
+      onProgress?.call('Bootstrap pip depuis bundle...');
+      await bootstrapPip();
       _pipAvailable = null;
       if (!await isPipAvailable()) {
-        return 'ERREUR: pip non disponible après bootstrap.\n$br';
+        return 'ERREUR: pip non disponible après bootstrap.';
       }
     }
 
