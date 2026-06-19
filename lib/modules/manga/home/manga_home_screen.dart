@@ -809,23 +809,62 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       );
     }
 
-    Widget _buildSectionsView(BuildContext ctx) {
+    Widget _buildPopularCarousel(BuildContext ctx, List<MManga> mangas) {
+        if (mangas.isEmpty) return const SizedBox(height: 8);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: SizedBox(
+            height: 136,
+            child: _PopularCarousel(mangas: mangas.take(10).toList(), source: source),
+          ),
+        );
+      }
+
+      Widget _buildCarouselSkeleton(BuildContext ctx) {
+        final base = Theme.of(ctx)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.7);
+        final high =
+            Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Skeletonizer(
+            enabled: true,
+            effect: ShimmerEffect(
+                baseColor: base,
+                highlightColor: high,
+                duration: const Duration(milliseconds: 1200)),
+            child: Container(
+              height: 136,
+              decoration: BoxDecoration(
+                color: base,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        );
+      }
+
+      Widget _buildSectionsView(BuildContext ctx) {
       return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Popular section ────────────────────────────────────────────────
-            _buildSectionHeader(ctx, title: 'Populaires'),
-            Consumer(
-              builder: (c, ref, _) {
-                final pop = ref.watch(getPopularProvider(source: source, page: 1));
-                return pop.when(
-                  data: (d) => _buildHorizontalCoverRow(ctx, d?.list ?? []),
-                  loading: () => _buildHorizontalSkeleton(ctx),
-                  error: (_, __) => const SizedBox(height: 8),
-                );
-              },
-            ),
+            // Popular auto-scroll carousel ──────────────────────────────────
+              _buildSectionHeader(ctx, title: 'Populaires', onSeeAll: () {
+                _mangaList.clear();
+                setState(() { _selectedIndex = _kPopularIdx; _isFiltering = false; _page = 1; });
+              }),
+              Consumer(
+                builder: (c, ref, _) {
+                  final pop = ref.watch(getPopularProvider(source: source, page: 1));
+                  return pop.when(
+                    data: (d) => _buildPopularCarousel(ctx, d?.list ?? []),
+                    loading: () => _buildCarouselSkeleton(ctx),
+                    error: (_, __) => const SizedBox(height: 8),
+                  );
+                },
+              ),
 
             // Custom list sections ────────────────────────────────────────────
             ...List.generate(_customLists.length, (i) {
@@ -1192,12 +1231,25 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             shadowColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
-            // expandedHeight = toolbar(~56) + large-title-area(~64) + pills(50)
-            expandedHeight: 148,
-            automaticallyImplyLeading: false,
-            // No title: prop — we render the centered title inside flexibleSpace
-            // so it is truly centered regardless of leading/trailing widths.
-            leading: IconButton(
+            expandedHeight: 140,
+              automaticallyImplyLeading: false,
+              centerTitle: true,
+              title: ValueListenableBuilder<double>(
+                valueListenable: _scrollOffsetNotifier,
+                builder: (ctx2, offset, _) {
+                  final opacity = ((offset - 28.0) / 14.0).clamp(0.0, 1.0);
+                  return Opacity(
+                    opacity: opacity,
+                    child: Text(
+                      sourceName,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                },
+              ),
+              leading: IconButton(
               icon: Icon(Icons.chevron_left_rounded,
                   size: 28, color: context.primaryColor),
               onPressed: () => context.pop(),
@@ -1295,150 +1347,86 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
-                collapseMode: CollapseMode.pin,
-                background: ValueListenableBuilder<double>(
-                  valueListenable: _scrollOffsetNotifier,
-                  builder: (bCtx, scrollOffset, _) {
-                    final collapseRatio = (scrollOffset / 56.0).clamp(0.0, 1.0);
-                    final isCollapsed = scrollOffset > 50.0;
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (collapseRatio > 0.01)
-                          ClipRect(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                  collapseMode: CollapseMode.pin,
+                  background: ValueListenableBuilder<double>(
+                    valueListenable: _scrollOffsetNotifier,
+                    builder: (bCtx, scrollOffset, _) {
+                      // collapse distance ≈ expandedHeight(140) - toolbar(56) - pills(40) = 44
+                      final collapseRatio = (scrollOffset / 44.0).clamp(0.0, 1.0);
+                      final isCollapsed = scrollOffset > 40.0;
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Frosted glass — fades in progressively
+                          if (collapseRatio > 0.01)
+                            ClipRect(
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                                child: Container(
+                                  color: Theme.of(context).scaffoldBackgroundColor
+                                      .withValues(alpha: collapseRatio * 0.92),
+                                ),
+                              ),
+                            ),
+                          // Hard bottom separator when fully collapsed
+                          if (isCollapsed)
+                            Positioned(
+                              bottom: 0, left: 0, right: 0,
                               child: Container(
-                                color: Theme.of(context).scaffoldBackgroundColor
-                                    .withValues(alpha: collapseRatio * 0.92),
+                                height: 0.5,
+                                color: Theme.of(context).dividerColor
+                                    .withValues(alpha: 0.35),
                               ),
                             ),
-                          ),
-                        if (isCollapsed)
-                          Positioned(
-                            bottom: 0, left: 0, right: 0,
-                            child: Container(
-                              height: 0.5,
-                              color: Theme.of(context).dividerColor
-                                  .withValues(alpha: 0.35),
-                            ),
-                          ),
-                        SafeArea(
-                          bottom: false,
-                          child: SizedBox(
-                            height: kToolbarHeight,
-                            child: Center(
+                          // Large title — LEFT-ALIGNED, fades out quickly on scroll
+                          SafeArea(
+                            bottom: false,
+                            child: Align(
+                              alignment: Alignment.bottomLeft,
                               child: AnimatedOpacity(
-                                opacity: isCollapsed ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 160),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!isLocal &&
-                                        (source.iconUrl?.isNotEmpty ?? false)) ...[
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(5),
-                                        child: Image.network(
-                                          source.iconUrl!,
-                                          width: 20,
-                                          height: 20,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              const SizedBox.shrink(),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 7),
-                                    ],
-                                    Text(
-                                      sourceName,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SafeArea(
-                          bottom: false,
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: AnimatedOpacity(
-                              opacity: (1.0 - collapseRatio * 2.0)
-                                  .clamp(0.0, 1.0),
-                              duration: const Duration(milliseconds: 100),
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 46),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        if (!isLocal &&
-                                            (source.iconUrl?.isNotEmpty ??
-                                                false)) ...[
-                                          ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(9),
-                                            child: Image.network(
-                                              source.iconUrl!,
-                                              width: 30,
-                                              height: 30,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  const SizedBox.shrink(),
-                                            ),
+                                opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
+                                duration: const Duration(milliseconds: 100),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 16, bottom: 48),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      if (!isLocal &&
+                                          (source.iconUrl?.isNotEmpty ?? false)) ...[
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(7),
+                                          child: Image.network(
+                                            source.iconUrl!,
+                                            width: 26,
+                                            height: 26,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                const SizedBox.shrink(),
                                           ),
-                                          const SizedBox(width: 9),
-                                        ],
-                                        Text(
-                                          sourceName,
-                                          style: const TextStyle(
-                                            fontSize: 26,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: -0.5,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
+                                        const SizedBox(width: 8),
                                       ],
-                                    ),
-                                    if (source.notes != null &&
-                                        source.notes!.isNotEmpty)
-                                      SizedBox(
-                                        height: 15,
-                                        child: Marquee(
-                                          text: l10n
-                                              .extension_notes(source.notes!),
-                                          style:
-                                              const TextStyle(fontSize: 11),
-                                          blankSpace: 40.0,
-                                          velocity: 30.0,
-                                          pauseAfterRound:
-                                              const Duration(seconds: 1),
-                                          startPadding: 10.0,
+                                      Text(
+                                        sourceName,
+                                        style: const TextStyle(
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: -0.4,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                        ],
+                      );
+                    },
+                  ),
               ),
           ),
         ],
@@ -1625,3 +1613,169 @@ class _MangaHomeImageCardListTileState
   @override
   bool get wantKeepAlive => true;
 }
+
+
+  // ── Popular auto-scroll carousel ─────────────────────────────────────────────
+
+  class _PopularCarousel extends StatefulWidget {
+    final List<MManga> mangas;
+    final Source source;
+    const _PopularCarousel({required this.mangas, required this.source});
+
+    @override
+    State<_PopularCarousel> createState() => _PopularCarouselState();
+  }
+
+  class _PopularCarouselState extends State<_PopularCarousel> {
+    late final _ctrl = PageController();
+    Timer? _timer;
+    int _currentPage = 0;
+
+    @override
+    void initState() {
+      super.initState();
+      if (widget.mangas.length > 1) {
+        _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+          if (!mounted || !_ctrl.hasClients) return;
+          _currentPage = (_currentPage + 1) % widget.mangas.length;
+          _ctrl.animateToPage(
+            _currentPage,
+            duration: const Duration(milliseconds: 480),
+            curve: Curves.easeInOut,
+          );
+        });
+      }
+    }
+
+    @override
+    void dispose() {
+      _timer?.cancel();
+      _ctrl.dispose();
+      super.dispose();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return PageView.builder(
+        controller: _ctrl,
+        itemCount: widget.mangas.length,
+        onPageChanged: (p) => _currentPage = p,
+        itemBuilder: (_, i) =>
+            _PopularCard(manga: widget.mangas[i], source: widget.source),
+      );
+    }
+  }
+
+  class _PopularCard extends StatelessWidget {
+    final MManga manga;
+    final Source source;
+    const _PopularCard({required this.manga, required this.source});
+
+    @override
+    Widget build(BuildContext context) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Cover image
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
+              child: manga.imageUrl?.isNotEmpty == true
+                  ? Image.network(
+                      manga.imageUrl!,
+                      width: 88,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 88,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                      ),
+                    )
+                  : Container(
+                      width: 88,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                    ),
+            ),
+            // Info panel
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      manga.name ?? '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+                    if (manga.description?.isNotEmpty ?? false)
+                      Expanded(
+                        child: Text(
+                          manga.description!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).hintColor,
+                            height: 1.4,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    if (manga.genre?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 3,
+                        children: manga.genre!.take(3).map((g) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: Text(
+                              g,
+                              style: const TextStyle(
+                                  fontSize: 10, fontWeight: FontWeight.w500),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
