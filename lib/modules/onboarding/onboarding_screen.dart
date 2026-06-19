@@ -1,6 +1,4 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'dart:async';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,32 +18,13 @@ Future<File> _markerFile() async {
 Future<bool> onboardingIsComplete() async {
   if (kIsWeb) return true;
   try {
-    // Primary: Hive 'ui_prefs' key — lives in app-private storage, cleared on
-    // fresh install / 'Clear data'.  Avoids the file marker surviving sideload
-    // upgrades (old APK data is preserved across reinstalls on Android).
-    final box = Hive.box('ui_prefs');
-    if (box.containsKey('onboarding_done')) {
-      return box.get('onboarding_done') as bool;
-    }
-    // Legacy fallback: file marker written by earlier builds.
-    // If present, back-fill the Hive key so existing users keep their state.
-    final fileComplete = (await _markerFile()).existsSync();
-    if (fileComplete) {
-      unawaited(box.put('onboarding_done', true));
-    }
-    return fileComplete;
+    return (await _markerFile()).existsSync();
   } catch (_) {
     return false;
   }
 }
 
 Future<void> markOnboardingComplete() async {
-  // Write Hive key — primary persistence layer.
-  try {
-    final box = Hive.box('ui_prefs');
-    await box.put('onboarding_done', true);
-  } catch (_) {}
-  // Also write legacy file marker for forward compatibility.
   try {
     final f = await _markerFile();
     await f.create(recursive: true);
@@ -147,6 +126,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       }
       return;
     }
+    if (Platform.isIOS) {
+      // iOS: storage is always accessible via sandbox; install & overlay are N/A.
+      final n = await Permission.notification.status;
+      if (!mounted) return;
+      setState(() {
+        _storageGranted = true;
+        _notifGranted = n.isGranted;
+        _installGranted = true;
+        _overlayGranted = true;
+      });
+      return;
+    }
+    // Android
     final s = await Permission.manageExternalStorage.status;
     final n = await Permission.notification.status;
     final i = await Permission.requestInstallPackages.status;
@@ -854,6 +846,7 @@ class _PermissionsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIOS = !kIsWeb && Platform.isIOS;
     final all = storageGranted && notifGranted && installGranted;
 
     return SafeArea(
@@ -886,7 +879,9 @@ class _PermissionsPage extends StatelessWidget {
             _PermRow(
               icon: Icons.folder_open_rounded,
               title: 'Stockage',
-              subtitle: 'Sauvegarder telechargements, covers et bibliotheque.',
+              subtitle: isIOS
+                  ? 'Acces sandbox iOS — aucune action requise.'
+                  : 'Sauvegarder telechargements, covers et bibliotheque.',
               granted: storageGranted,
               busy: busyStorage,
               onTap: onStorage,
@@ -900,51 +895,56 @@ class _PermissionsPage extends StatelessWidget {
               busy: busyNotif,
               onTap: onNotif,
             ),
-            const SizedBox(height: 18),
-            _PermRow(
-              icon: Icons.system_update_alt_rounded,
-              title: "Installation d'apps",
-              subtitle: "Installer les mises a jour APK depuis l'application.",
-              granted: installGranted,
-              busy: busyInstall,
-              onTap: onInstall,
-            ),
 
-            const SizedBox(height: 40),
+            // ── Android-only: Install packages ───────────────────────────
+            if (!isIOS) ...[
+              const SizedBox(height: 18),
+              _PermRow(
+                icon: Icons.system_update_alt_rounded,
+                title: "Installation d'apps",
+                subtitle: "Installer les mises a jour APK depuis l'application.",
+                granted: installGranted,
+                busy: busyInstall,
+                onTap: onInstall,
+              ),
+            ],
 
-            // ── Optional section ─────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: Divider(color: Colors.white.withOpacity(0.12)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'OPTIONNEL',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.28),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
+            // ── Android-only: Optional overlay/PiP ──────────────────────
+            if (!isIOS) ...[
+              const SizedBox(height: 40),
+              Row(
+                children: [
+                  Expanded(
+                    child: Divider(color: Colors.white.withOpacity(0.12)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'OPTIONNEL',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.28),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Divider(color: Colors.white.withOpacity(0.12)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _PermRow(
-              icon: Icons.picture_in_picture_rounded,
-              title: 'Overlay / PiP',
-              subtitle: "Afficher la video en flottant par-dessus d'autres apps.",
-              granted: overlayGranted,
-              busy: busyOverlay,
-              onTap: onOverlay,
-              optional: true,
-            ),
+                  Expanded(
+                    child: Divider(color: Colors.white.withOpacity(0.12)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _PermRow(
+                icon: Icons.picture_in_picture_rounded,
+                title: 'Overlay / PiP',
+                subtitle: "Afficher la video en flottant par-dessus d'autres apps.",
+                granted: overlayGranted,
+                busy: busyOverlay,
+                onTap: onOverlay,
+                optional: true,
+              ),
+            ],
 
             const SizedBox(height: 52),
             _WhiteButton(

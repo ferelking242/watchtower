@@ -54,7 +54,10 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
           base = _androidBase;
         } else {
           final appDir = await getApplicationDocumentsDirectory();
-          base = '${appDir.path}/Watchtower';
+          // On iOS the documents dir IS the app root — appending /Watchtower
+          // would create a nested Documents/Watchtower/ that doesn't match
+          // StorageProvider.getDirectory() which returns the documents dir directly.
+          base = Platform.isIOS ? appDir.path : '${appDir.path}/Watchtower';
         }
         _baseDir = base;
 

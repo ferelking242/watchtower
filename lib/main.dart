@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'utils/io_stub.dart';
 import 'package:app_links/app_links.dart';
@@ -49,20 +48,18 @@ import 'package:watchtower/modules/more/settings/appearance/providers/theme_prov
 import 'package:watchtower/modules/library/providers/file_scanner.dart';
 import 'package:watchtower/modules/more/settings/security/providers/security_state_provider.dart';
 import 'package:watchtower/modules/more/settings/security/app_lock_screen.dart';
-import 'package:watchtower/modules/webview/mini_webview_dock.dart';
 import 'package:media_kit/media_kit.dart'
     if (dart.library.js_interop) 'utils/media_kit_stub.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:watchtower/modules/db_error_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
-import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/utils/dev_seed.dart'
     if (dart.library.js_interop) 'package:watchtower/utils/dev_seed_stub.dart';
 
@@ -102,7 +99,7 @@ void main(List<String> args) async {
           'PlatformDispatcher error: $msg\n$stack',
           logLevel: LogLevel.error,
         );
-        return true; // handled â prevent app termination
+        return true; // handled — prevent app termination
       };
 
       MediaKit.ensureInitialized();
@@ -150,7 +147,7 @@ void main(List<String> args) async {
               mangaExtensionsRepo: [
                 Repo(
                   jsonUrl: '$_wtBase/manga/index.json',
-                  name: 'Watchtower â Manga',
+                  name: 'Watchtower – Manga',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
                 ),
@@ -158,7 +155,7 @@ void main(List<String> args) async {
               animeExtensionsRepo: [
                 Repo(
                   jsonUrl: '$_wtBase/watch/index.json',
-                  name: 'Watchtower â Watch',
+                  name: 'Watchtower – Watch',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
                 ),
@@ -166,7 +163,7 @@ void main(List<String> args) async {
               novelExtensionsRepo: [
                 Repo(
                   jsonUrl: '$_wtBase/novel/index.json',
-                  name: 'Watchtower â Novels',
+                  name: 'Watchtower – Novels',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
                 ),
@@ -176,16 +173,7 @@ void main(List<String> args) async {
         seedMockWebData(_mockIsar);
         isar = _mockIsar;
       } else {
-        try {
-          isar = await storage.initDB(null, inspector: false);
-        } catch (e, stack) {
-          AppLogger.log(
-            'Ãchec critique initDB: $e\n$stack',
-            logLevel: LogLevel.error,
-          );
-          runApp(DbErrorScreen(error: e.toString()));
-          return;
-        }
+        isar = await storage.initDB(null, inspector: false);
       }
       // Start the background isolate AFTER the DB is open and isar is assigned.
       if (!kIsWeb) {
@@ -220,14 +208,9 @@ void main(List<String> args) async {
 }
 
 Future<void> _postLaunchInit(StorageProvider storage) async {
-  if (!kIsWeb && Platform.isAndroid) {
-    await [
-      Permission.storage,
-      Permission.manageExternalStorage,
-    ].request();
-  }
   await AppLogger.init();
   if (!kIsWeb) {
+    unawaited(DevSeed.seedGumball().catchError((_) {}));
   }
   if (!kIsWeb) {
     unawaited(MDownloader.initializeIsolatePool(poolSize: 6));
@@ -240,6 +223,16 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   }
   if (!kIsWeb) {
     await storage.deleteBtDirectory();
+    // iOS: pre-create the download directory tree at launch so the folders
+    // appear in the Files app without needing to trigger a download first.
+    if (Platform.isIOS) {
+      final baseDir = await storage.getDirectory();
+      if (baseDir != null) {
+        for (final sub in ['downloads/Watch', 'downloads/Manga', 'downloads/Novel']) {
+          await storage.createDirectorySafely('${baseDir.path}/$sub');
+        }
+      }
+    }
     await cfResolutionWebviewServer();
       // Only init notification service AFTER onboarding is complete.
       // During onboarding the user grants notification permission manually.
@@ -319,7 +312,7 @@ class _MyAppState extends ConsumerState<MyApp>
         return;
       }
       // Lock the app when going to background (if lock is enabled)
-      final lockEnabled = (isar.settings.getSync(kSettingsId) ?? Settings()).appLockEnabled ?? false;
+      final lockEnabled = isar.settings.getSync(227)!.appLockEnabled ?? false;
       if (lockEnabled) {
         ref.read(appUnlockedStateProvider.notifier).lock();
       }
@@ -361,12 +354,7 @@ class _MyAppState extends ConsumerState<MyApp>
         if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
           child = _MouseBackButtonHandler(router: router, child: child);
         }
-        return Stack(
-          children: [
-            child!,
-            const MiniWebViewTabGrouper(),
-          ],
-        );
+        return child;
       },
       routeInformationParser: router.routeInformationParser,
       routerDelegate: router.routerDelegate,
@@ -568,12 +556,12 @@ class _MyAppState extends ConsumerState<MyApp>
     if (kIsWeb) return;
     // Wait for storage permission before touching external storage.
     // On first launch (onboarding not yet complete) the permission is not
-    // granted yet â creating directories would throw Permission denied.
+    // granted yet — creating directories would throw Permission denied.
     if (!kIsWeb && Platform.isAndroid) {
       final hasPermission = await StorageProvider()
           .requestPermission(requestIfNeeded: false);
       if (!hasPermission) {
-        debugPrint('_setupMpvConfig: skipped â storage permission not granted yet');
+        debugPrint('_setupMpvConfig: skipped — storage permission not granted yet');
         return;
       }
     }
@@ -624,6 +612,10 @@ class _MyAppState extends ConsumerState<MyApp>
 
   Future<void> _startExtensionServerAndSync() async {
       await MExtensionServerPlatform(ref).startServer();
+      if (!kIsWeb && Platform.isAndroid) {
+        await Future.delayed(const Duration(seconds: 2));
+        unawaited(MihonAutoSync.run());
+      }
     }
 
       Future<void> _checkTrackerRefresh() async {
@@ -682,7 +674,7 @@ class AllowScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-// ââ Page transition theme helper âââââââââââââââââââââââââââââââââââââââââââââ
+// ── Page transition theme helper ─────────────────────────────────────────────
 
 PageTransitionsTheme _buildPageTransitionsTheme(int style) {
   PageTransitionsBuilder builder;
