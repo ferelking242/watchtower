@@ -351,48 +351,48 @@ jobs:
           echo "=== x86_64 jniLibs ==="
           ls -lh android/app/src/main/jniLibs/x86_64/
 
-      - name: Bundle Python wheels (tgcrypto arm64 + pyrogram)
+      - name: Bundle Python wheels (pyrogram)
         run: |
           set -euo pipefail
           mkdir -p assets/wheels /tmp/py_wheels
 
-          # ── tgcrypto : extension C → wheel ARM64 précompilé (manylinux) ────────
-          # On télécharge le wheel manylinux_2_17_aarch64 compatible Python 3.11.
-          # Le Dart code l'extrait via zipfile.ZipFile, sans pip, au premier lancement.
-          echo "=== tgcrypto (aarch64, cp311) ==="
-          pip3 download tgcrypto \
+          # NOTE: tgcrypto supprime de PyPI (fusionne dans pyrogram 2.x).
+          # pyrogram 2.x utilise pyaes (deja vendore dans zeusdl.zip) pour le chiffrement.
+
+          # ── pyrogram wheel ───────────────────────────────────────────────────
+          echo "=== pyrogram ==="
+          if pip3 download pyrogram --only-binary :all: --no-deps -d /tmp/py_wheels/ 2>&1; then
+            echo "  downloaded via --only-binary"
+          else
+            echo "  fallback: build from sdist"
+            pip3 download pyrogram --no-deps -d /tmp/py_wheels/
+          fi
+          PYROGRAM=$(ls /tmp/py_wheels/pyrogram*.whl 2>/dev/null | head -1)
+          if [ -z "$PYROGRAM" ]; then
+            echo "WARNING: pyrogram wheel introuvable"
+          else
+            cp "$PYROGRAM" assets/wheels/pyrogram.whl
+            echo "  OK pyrogram: $(basename $PYROGRAM) ($(du -sh assets/wheels/pyrogram.whl | cut -f1))"
+          fi
+
+          # ── TgCrypto (optionnel — acceleration C si disponible) ───────────
+          pip3 download TgCrypto \
             --platform manylinux_2_17_aarch64 \
             --python-version 311 \
             --only-binary :all: \
             --no-deps \
-            -d /tmp/py_wheels/
-          TGCRYPTO=$(ls /tmp/py_wheels/tgcrypto*.whl 2>/dev/null | head -1)
-          if [ -z "$TGCRYPTO" ]; then
-            echo "⚠️  tgcrypto wheel introuvable sur PyPI — skip (optionnel)"
-          else
+            -d /tmp/py_wheels/ 2>/dev/null || true
+          TGCRYPTO=$(ls /tmp/py_wheels/TgCrypto*.whl /tmp/py_wheels/tgcrypto*.whl 2>/dev/null | head -1)
+          if [ -n "$TGCRYPTO" ]; then
             cp "$TGCRYPTO" assets/wheels/tgcrypto.whl
-            echo "  ✅ tgcrypto: $(basename $TGCRYPTO) ($(du -sh assets/wheels/tgcrypto.whl | cut -f1))"
-          fi
-
-          # ── pyrogram : pure-Python → wheel universel ─────────────────────────
-          # pyaes / pysocks / async-lru déjà vendored dans zeusdl.zip (step précédent).
-          # On bundle uniquement pyrogram pour que _installFromBundledWheel() l'installe
-          # sans pip, via Python zipfile.
-          echo "=== pyrogram (pure-Python) ==="
-          pip3 download pyrogram \
-            --only-binary :all: \
-            --no-deps \
-            -d /tmp/py_wheels/
-          PYROGRAM=$(ls /tmp/py_wheels/pyrogram*.whl 2>/dev/null | head -1)
-          if [ -z "$PYROGRAM" ]; then
-            echo "⚠️  pyrogram wheel introuvable — skip"
+            echo "  OK TgCrypto: $(basename $TGCRYPTO)"
           else
-            cp "$PYROGRAM" assets/wheels/pyrogram.whl
-            echo "  ✅ pyrogram: $(basename $PYROGRAM) ($(du -sh assets/wheels/pyrogram.whl | cut -f1))"
+            echo "  INFO: TgCrypto absent — pyrogram utilisera pyaes (vendore)"
           fi
 
           echo "=== assets/wheels ==="
           ls -lh assets/wheels/
+
 
       - name: Install dependencies
         run: flutter pub get
