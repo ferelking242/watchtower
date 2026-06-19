@@ -138,6 +138,18 @@ jobs:
       - name: Remove stale Podfile.lock
         run: rm -f ios/Podfile.lock
 
+      # Flutter 3.27.x = Dart 3.6.x; relax sdk: ^3.x.x -> >=3.6.0 <4.0.0
+      - name: Patch pubspec SDK for Dart 3.6.x
+        run: |
+          python3 -c "
+import re
+with open('pubspec.yaml') as f: c=f.read()
+c=re.sub(r'sdk: \\^3\\.\\d+(\\.\\d+)?',\"sdk: '>=3.6.0 <4.0.0'\",c)
+with open('pubspec.yaml','w') as f: f.write(c)
+print('patched')
+          "
+          grep 'sdk:' pubspec.yaml | head -3
+
       - name: Flutter pub get
         run: flutter pub get
 
