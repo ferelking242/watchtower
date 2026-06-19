@@ -64,6 +64,7 @@ class TypeMangaSelector {
 class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   bool _isLoading = false;
   final ScrollController _scrollController = ScrollController();
+  final _scrollOffsetNotifier = ValueNotifier<double>(0.0);
   int _fullDataLength = 50;
   int _page = 1;
   bool _hasNextPage = true;
@@ -171,6 +172,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pixels = _scrollController.position.pixels;
+    _scrollOffsetNotifier.value = pixels;
     final maxExtent = _scrollController.position.maxScrollExtent;
     if (pixels >= maxExtent - 200) {
       if (_mangaList.isNotEmpty &&
@@ -195,6 +197,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _textEditingController.dispose();
+    _scrollOffsetNotifier.dispose();
     super.dispose();
   }
 
@@ -671,20 +674,20 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       VoidCallback? onSeeAll,
     }) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 22, 12, 8),
+        padding: const EdgeInsets.fromLTRB(16, 18, 12, 5),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.1),
             ),
             if (onSeeAll != null)
               GestureDetector(
                 onTap: onSeeAll,
                 child: Icon(
                   Icons.chevron_right_rounded,
-                  size: 28,
+                  size: 20,
                   color: ctx.primaryColor,
                 ),
               ),
@@ -697,13 +700,13 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       if (mangas.isEmpty) return const SizedBox(height: 4);
       final items = mangas.take(10).toList();
       return SizedBox(
-        height: 210,
+        height: 175,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemCount: items.length,
           itemBuilder: (c, i) => SizedBox(
-            width: 115,
+            width: 95,
             child: MangaHomeImageCard(
               manga: items[i],
               source: source,
@@ -726,7 +729,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           duration: const Duration(milliseconds: 1200),
         ),
         child: SizedBox(
-          height: 210,
+          height: 175,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -737,11 +740,11 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 110,
-                    height: 160,
+                    width: 90,
+                    height: 130,
                     decoration: BoxDecoration(
                       color: base,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -1190,7 +1193,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             // expandedHeight = toolbar(~56) + large-title-area(~64) + pills(50)
-            expandedHeight: 170,
+            expandedHeight: 148,
             automaticallyImplyLeading: false,
             // No title: prop — we render the centered title inside flexibleSpace
             // so it is truly centered regardless of leading/trailing widths.
@@ -1265,7 +1268,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             // Pills stick inside the SliverAppBar — part of the header, not a
             // separate sliver. Transparent so the flexibleSpace blur shows through.
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(50),
+              preferredSize: const Size.fromHeight(40),
               child: _TabPillsRow(
                 types: _types(context),
                 selectedIndex: _selectedIndex,
@@ -1292,129 +1295,151 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Glassmorphism: blur + tint when scrolled — covers the full
-                  // header including the pills row at the bottom.
-                  if (innerBoxIsScrolled)
-                    ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: Container(
-                          color: Theme.of(context).scaffoldBackgroundColor
-                              .withValues(alpha: 0.88),
-                        ),
-                      ),
-                    ),
-                  // Collapsed title — rendered absolutely in the center of the
-                  // toolbar row so it is always perfectly centered, independent
-                  // of how wide the leading / trailing buttons are.
-                  SafeArea(
-                    bottom: false,
-                    child: SizedBox(
-                      height: kToolbarHeight,
-                      child: Center(
-                        child: AnimatedOpacity(
-                            opacity: innerBoxIsScrolled ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 180),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(5),
-                                    child: Image.network(
-                                      source.iconUrl!,
-                                      width: 22,
-                                      height: 22,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                                    ),
-                                  ),
-                                if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
-                                  const SizedBox(width: 8),
-                                Text(
-                                  sourceName,
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                collapseMode: CollapseMode.pin,
+                background: ValueListenableBuilder<double>(
+                  valueListenable: _scrollOffsetNotifier,
+                  builder: (bCtx, scrollOffset, _) {
+                    final collapseRatio = (scrollOffset / 56.0).clamp(0.0, 1.0);
+                    final isCollapsed = scrollOffset > 50.0;
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (collapseRatio > 0.01)
+                          ClipRect(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                              child: Container(
+                                color: Theme.of(context).scaffoldBackgroundColor
+                                    .withValues(alpha: collapseRatio * 0.92),
+                              ),
                             ),
                           ),
-                      ),
-                    ),
-                  ),
-                  // Large title — sits just above the pills, fades out when scrolled.
-                    SafeArea(
-                      bottom: false,
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: AnimatedOpacity(
-                          opacity: innerBoxIsScrolled ? 0.0 : 1.0,
-                          duration: const Duration(milliseconds: 180),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 58),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
+                        if (isCollapsed)
+                          Positioned(
+                            bottom: 0, left: 0, right: 0,
+                            child: Container(
+                              height: 0.5,
+                              color: Theme.of(context).dividerColor
+                                  .withValues(alpha: 0.35),
+                            ),
+                          ),
+                        SafeArea(
+                          bottom: false,
+                          child: SizedBox(
+                            height: kToolbarHeight,
+                            child: Center(
+                              child: AnimatedOpacity(
+                                opacity: isCollapsed ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 160),
+                                child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
+                                    if (!isLocal &&
+                                        (source.iconUrl?.isNotEmpty ?? false)) ...[
                                       ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(5),
                                         child: Image.network(
                                           source.iconUrl!,
-                                          width: 36,
-                                          height: 36,
+                                          width: 20,
+                                          height: 20,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                          errorBuilder: (_, __, ___) =>
+                                              const SizedBox.shrink(),
                                         ),
                                       ),
-                                    if (!isLocal && (source.iconUrl?.isNotEmpty ?? false))
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 7),
+                                    ],
                                     Text(
                                       sourceName,
                                       style: const TextStyle(
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: -0.5,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ),
-                                if (source.notes != null && source.notes!.isNotEmpty)
-                                  SizedBox(
-                                    height: 18,
-                                    child: Marquee(
-                                      text: l10n.extension_notes(source.notes!),
-                                      style: const TextStyle(fontSize: 12),
-                                      blankSpace: 40.0,
-                                      velocity: 30.0,
-                                      pauseAfterRound: const Duration(seconds: 1),
-                                      startPadding: 10.0,
-                                    ),
-                                  ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                        SafeArea(
+                          bottom: false,
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: AnimatedOpacity(
+                              opacity: (1.0 - collapseRatio * 2.0)
+                                  .clamp(0.0, 1.0),
+                              duration: const Duration(milliseconds: 100),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 46),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        if (!isLocal &&
+                                            (source.iconUrl?.isNotEmpty ??
+                                                false)) ...[
+                                          ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(9),
+                                            child: Image.network(
+                                              source.iconUrl!,
+                                              width: 30,
+                                              height: 30,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const SizedBox.shrink(),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 9),
+                                        ],
+                                        Text(
+                                          sourceName,
+                                          style: const TextStyle(
+                                            fontSize: 26,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: -0.5,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                    if (source.notes != null &&
+                                        source.notes!.isNotEmpty)
+                                      SizedBox(
+                                        height: 15,
+                                        child: Marquee(
+                                          text: l10n
+                                              .extension_notes(source.notes!),
+                                          style:
+                                              const TextStyle(fontSize: 11),
+                                          blankSpace: 40.0,
+                                          velocity: 30.0,
+                                          pauseAfterRound:
+                                              const Duration(seconds: 1),
+                                          startPadding: 10.0,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
           ),
         ],
         body: _buildBody(context),
@@ -1445,10 +1470,10 @@ class _TabPillsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 50,
+      height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         itemCount: types.length,
         itemBuilder: (context, index) {
           if (hasCustomLists && (index == 1 || index == 2)) {
