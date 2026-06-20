@@ -13,6 +13,7 @@ import 'dart:async';
   class TunnelService {
     SSHClient? _client;
     SSHSession? _shellSession;
+    SSHSession? _anchorSession; // canal permanent pour garder la connexion SSH vivante
     Timer? _keepAliveTimer;
     bool _running = false;
     bool _urlReceived = false;
@@ -59,27 +60,26 @@ import 'dart:async';
           onError?.call('localhost.run : forwarding refuse');
           return;
         }
-        _log('Forwarding port 80 OK — ouverture session shell...');
+        _log('Forwarding port 80 OK — ouverture canal ancre...');
 
+        // Canal ancre : execute('cat') bloque indéfiniment sur stdin.
+        // Garder au moins un canal SSH ouvert empeche dartssh2 de fermer la socket TCP.
+        // Quand la shell se ferme (localhost.run EOF apres URL+QR), ce canal maintient la connexion.
+        _openAnchorChannel();
+
+        _log('Ouverture session shell...');
         final session = await _client!.shell();
         _shellSession = session;
         _log('Session ouverte — attente URL lhr.life...');
 
-        // Keepalive dual toutes les 15s :
-        // 1) stdin shell (pendant que le shell est vivant)
-        // 2) execute SSH leger (apres fermeture shell) — meme un reject CHANNEL_OPEN_FAILURE
-        //    envoie des paquets TCP qui reinitialisent les timers NAT/firewall
+        // Keepalive stdin : ecrit dans la shell (si vivante) et dans le canal ancre.
+        // Empeche le NAT de couper une connexion TCP idle.
         _keepAliveTimer?.cancel();
-        _keepAliveTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        _keepAliveTimer = Timer.periodic(const Duration(seconds: 20), (_) {
           if (!_running) return;
-          // Tentative stdin shell
-          try {
-            _shellSession?.stdin.add(Uint8List.fromList([10]));
-          } catch (_) {}
-          // Tentative SSH execute (keepalive TCP apres fermeture shell)
-          final c = _client;
-          if (c == null) return;
-          _sshKeepalive(c);
+          _log('Keepalive — canal ancre: ${_anchorSession != null}');
+          try { _shellSession?.stdin.add(Uint8List.fromList([10])); } catch (_) {}
+          try { _anchorSession?.stdin.add(Uint8List.fromList([10])); } catch (_) {}
         });
 
         // Collecte stdout + parsing temps reel
@@ -103,27 +103,24 @@ import 'dart:async';
               _parseLineRealtime(line);
             }, onError: (e) => _logErr('stderr err: $e'));
 
-        // Quand le shell ferme : localhost.run EOF le shell apres URL+QR.
-        // C'est NORMAL. La connexion SSH + le forwarding restent actifs.
-        // Le keepalive _sshKeepalive() maintient le TCP vivant.
+        // Shell fermee : normal — localhost.run EOF apres URL+QR.
+        // Le canal ancre garde la connexion SSH vivante.
         session.done.then((_) {
           final code = session.exitCode;
-          _log('Session shell fermee (exit=$code) — forwarding actif, keepalive SSH continue');
+          _log('Shell fermee (exit=$code) — ancre active: ${_anchorSession != null}');
           _parseFullBuffer();
           _shellSession = null;
         });
 
-        // Timeout 60s pour obtenir l'URL
+        // Timeout 60s
         Future.delayed(const Duration(seconds: 60), () {
           if (_running && !_urlReceived) {
             final buf = _outputBuffer.toString();
-            _logErr('Timeout 60s. Buffer recu:');
+            _logErr('Timeout 60s. Buffer:');
             for (var i = 0; i < buf.length; i += 200) {
-              _logErr(
-                  buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
+              _logErr(buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
             }
-            onError?.call(
-                "Timeout (60s) — localhost.run n'a pas envoye de lien.\nVerifiez Internet.");
+            onError?.call("Timeout (60s) — localhost.run n'a pas envoye de lien.\nVerifiez Internet.");
           }
         });
 
@@ -135,20 +132,28 @@ import 'dart:async';
       }
     }
 
-    // Keepalive SSH niveau connexion.
-    // SSHSession.close() retourne void (pas Future), donc pas d'await.
-    void _sshKeepalive(SSHClient c) {
+    // Canal ancre : execute('cat') bloque sur stdin — garde un canal SSH ouvert
+    // empeche dartssh2 de fermer la socket TCP quand la shell se ferme.
+    void _openAnchorChannel() {
       () async {
         try {
-          final s = await c.execute('echo k');
-          s.close(); // void — pas d'await
-        } catch (_) {
-          // Echec accepte — le TCP handshake du CHANNEL_OPEN a quand meme ete envoye
+          _anchorSession = await _client!.execute('cat');
+          _log('Canal ancre ouvert (cat)');
+          await _anchorSession!.done;
+          _log('Canal ancre ferme');
+          _anchorSession = null;
+          // Si le canal ancre se ferme et qu'on est toujours running, c'est la connexion qui est morte
+          if (_running) {
+            _logErr('Canal ancre ferme inattendu — connexion SSH perdue');
+          }
+        } catch (e) {
+          _logErr('Canal ancre echec: $e');
+          _anchorSession = null;
+          // localhost.run peut rejeter execute('cat') — le tunnel reste sur la shell
         }
       }();
     }
 
-    // Parsing temps reel : seulement *.lhr.life
     void _parseLineRealtime(String line) {
       if (line.trim().isEmpty) return;
       final match = RegExp(r'https?://[a-z0-9-]+\.lhr\.life').firstMatch(line);
@@ -162,7 +167,6 @@ import 'dart:async';
       }
     }
 
-    // Parsing post-fermeture buffer complet
     void _parseFullBuffer() {
       if (_urlReceived) return;
       final full = _outputBuffer.toString();
@@ -254,6 +258,7 @@ import 'dart:async';
       _urlReceived = false;
       _outputBuffer.clear();
       _shellSession = null;
+      _anchorSession = null;
       _client?.close();
       _client = null;
     }
