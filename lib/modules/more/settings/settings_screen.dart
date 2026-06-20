@@ -74,8 +74,7 @@ class SettingsScreen extends StatelessWidget {
               icon: Icons.tune_rounded,
               onTap: () => context.push('/advanced'),
             ),
-            if (!kIsWeb)
-              ListTileWidget(
+            ListTileWidget(
                 title: 'Mode Distant',
                 icon: Icons.wifi_tethering_rounded,
                 onTap: () => context.push('/remoteMode'),
