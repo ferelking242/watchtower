@@ -35,7 +35,6 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   // Active filter sets — empty set means "all levels / all tags".
   final Set<_LineType> _levelFilter = {};
   final Set<String> _tagFilter = {};
-  bool _filterBarOpen = true;
   // Collapsed session header indexes (use original line index)
   final Set<int> _collapsedSessions = {};
 
@@ -64,7 +63,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       // 1. Prefer per-session files written by AppLogger (logs_sessions/).
       if (dir != null) {
         final sessionsDir =
-            Directory(path.join(dir.path, 'logs_sessions'));
+            Directory(path.join(dir.path, 'log'));
         if (await sessionsDir.exists()) {
           final files = await sessionsDir
               .list()
@@ -417,76 +416,59 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             icon: const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _loadLogs,
           ),
-          // ── Floating live-log overlay toggle ───────────────────────────────
-          // Shows a draggable, always-on-top panel that streams every log line
-          // in real time on top of any screen — useful for diagnosing UI bugs
-          // without leaving the screen where the bug occurs.
-          ValueListenableBuilder<bool>(
-            valueListenable:
-                LogOverlayController.instance.visibleListenable,
-            builder: (_, visible, __) => IconButton(
-              tooltip: visible
-                  ? 'Cacher l\'overlay temps réel'
-                  : 'Afficher l\'overlay temps réel',
-              icon: Icon(
-                visible
-                    ? Icons.picture_in_picture_alt_rounded
-                    : Icons.picture_in_picture_outlined,
-                size: 20,
-                color: visible ? Colors.greenAccent : null,
-              ),
-              onPressed: () => LogOverlayController.instance.toggle(),
-            ),
-          ),
-          IconButton(
-            tooltip: _autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF',
-            icon: Icon(
-              _autoScroll
-                  ? Icons.vertical_align_bottom_rounded
-                  : Icons.vertical_align_center_rounded,
-              size: 20,
-              color: _autoScroll ? cs.primary : null,
-            ),
-            onPressed: () => setState(() => _autoScroll = !_autoScroll),
-          ),
-          const SizedBox(width: 4),
-        ],
-        bottom: PreferredSize(
-          preferredSize:
-              Size.fromHeight(_filterBarOpen ? 132.0 : 56.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_filterBarOpen) _buildFilterBar(cs, bgColor),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: _filterBarOpen
-                          ? 'Cacher filtres'
-                          : 'Afficher filtres',
-                      icon: Icon(
-                        _filterBarOpen
-                            ? Icons.filter_alt_rounded
-                            : Icons.filter_alt_outlined,
-                        size: 20,
-                        color: (_levelFilter.isNotEmpty ||
-                                _tagFilter.isNotEmpty)
-                            ? cs.primary
-                            : null,
-                      ),
-                      onPressed: () => setState(
-                          () => _filterBarOpen = !_filterBarOpen),
-                    ),
-                    Expanded(child: _buildSearchField(cs, bgColor)),
-                  ],
+          PopupMenuButton<String>(
+            tooltip: 'Options',
+            icon: const Icon(Icons.more_vert_rounded, size: 20),
+            onSelected: (v) {
+              if (v == 'refresh') _loadLogs();
+              if (v == 'overlay') LogOverlayController.instance.toggle();
+              if (v == 'scroll') setState(() => _autoScroll = !_autoScroll);
+              if (v == 'clear') setState(() {
+                AppLogger.clearRing();
+                _rawContent = '';
+                _lines = [];
+                _filtered = [];
+              });
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'refresh', child: ListTile(dense: true, leading: Icon(Icons.refresh_rounded, size: 18), title: Text('Rafraîchir'))),
+              PopupMenuItem(
+                value: 'overlay',
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: LogOverlayController.instance.visibleListenable,
+                  builder: (_, v, __) => ListTile(dense: true, leading: Icon(v ? Icons.picture_in_picture_alt_rounded : Icons.picture_in_picture_outlined, size: 18, color: v ? Colors.greenAccent : null), title: Text(v ? 'Cacher overlay' : 'Overlay live')),
                 ),
               ),
+              PopupMenuItem(
+                value: 'scroll',
+                child: ListTile(dense: true, leading: Icon(_autoScroll ? Icons.vertical_align_bottom_rounded : Icons.vertical_align_center_rounded, size: 18, color: _autoScroll ? cs.primary : null), title: Text(_autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF')),
+              ),
+              const PopupMenuItem(value: 'clear', child: ListTile(dense: true, leading: Icon(Icons.delete_sweep_rounded, size: 18, color: Colors.red), title: Text('Vider les logs'))),
             ],
           ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(52),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Filtres',
+                  icon: Icon(
+                    Icons.filter_list_rounded,
+                    size: 20,
+                    color: (_levelFilter.isNotEmpty || _tagFilter.isNotEmpty)
+                        ? cs.primary
+                        : null,
+                  ),
+                  onPressed: () => _showFiltersSheet(context, cs),
+                ),
+                Expanded(child: _buildSearchField(cs, bgColor)),
+              ],
+            ),
+          ),
         ),
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _filtered.isEmpty
@@ -586,6 +568,95 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showFiltersSheet(BuildContext ctx, ColorScheme cs) {
+    final tags = _availableTags.toList()..sort();
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (_, setSheetState) {
+          void toggleLevel(_LineType t) {
+            setSheetState(() {
+              _levelFilter.contains(t) ? _levelFilter.remove(t) : _levelFilter.add(t);
+            });
+            setState(_applyFilter);
+          }
+          void toggleTag(String tag) {
+            setSheetState(() {
+              _tagFilter.contains(tag) ? _tagFilter.remove(tag) : _tagFilter.add(tag);
+            });
+            setState(_applyFilter);
+          }
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(ctx).colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Text('Filtres', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                    const Spacer(),
+                    if (_levelFilter.isNotEmpty || _tagFilter.isNotEmpty)
+                      TextButton(
+                        onPressed: () { setSheetState(() { _levelFilter.clear(); _tagFilter.clear(); }); setState(_applyFilter); },
+                        child: const Text('Réinitialiser'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text('Niveau', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withOpacity(0.55))),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _LevelChip(type: _LineType.error, label: 'Errors', color: Colors.red, selected: _levelFilter.contains(_LineType.error), onTap: () => toggleLevel(_LineType.error)),
+                    _LevelChip(type: _LineType.warning, label: 'Warn', color: Colors.orange, selected: _levelFilter.contains(_LineType.warning), onTap: () => toggleLevel(_LineType.warning)),
+                    _LevelChip(type: _LineType.info, label: 'Info', color: Colors.green, selected: _levelFilter.contains(_LineType.info), onTap: () => toggleLevel(_LineType.info)),
+                    _LevelChip(type: _LineType.debug, label: 'Debug', color: Colors.grey, selected: _levelFilter.contains(_LineType.debug), onTap: () => toggleLevel(_LineType.debug)),
+                  ],
+                ),
+                if (tags.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text('Tags', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withOpacity(0.55))),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: tags.map((tag) => FilterChip(
+                      label: Text(tag, style: const TextStyle(fontSize: 11)),
+                      selected: _tagFilter.contains(tag),
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => toggleTag(tag),
+                    )).toList(),
+                  ),
+                ],
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

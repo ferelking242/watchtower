@@ -77,6 +77,16 @@ class _AnimePlayerViewState extends riv.ConsumerState<AnimePlayerView> {
   bool desktopFullScreenPlayer = false;
   @override
   void dispose() {
+    // Log watch session end with elapsed time
+    try {
+      final secs = _currentPosition.value.inSeconds;
+      final title = _firstVid.quality.isNotEmpty ? _firstVid.quality : (widget.episode.name ?? '?');
+      AppLogger.log(
+        'WATCH fin · ep="$title" · position=${secs}s',
+        tag: LogTag.watch,
+        logLevel: LogLevel.info,
+      );
+    } catch (_) {}
     if (_isDesktop) {
       setFullScreen(value: desktopFullScreenPlayer);
     }

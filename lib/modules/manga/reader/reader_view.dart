@@ -1,3 +1,4 @@
+import 'package:watchtower/utils/log/logger.dart';
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:extended_image/extended_image.dart';
@@ -80,6 +81,15 @@ class _MangaReaderViewState extends ConsumerState<MangaReaderView> {
       data: (data) {
         final chapter = data.chapter;
         final model = data.pages;
+        // ── Reader session log ──────────────────────────────────────
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final mangaName = chapter.manga.value?.name ?? 'inconnu';
+          final chapName = chapter.name ?? chapter.chapterNumber.toString();
+          AppLogger.log(
+            'Ouvre: "$mangaName" — ch. $chapName (${model.pageUrls.length} pages)',
+            tag: LogTag.reader,
+          );
+        });
 
         if (model.pageUrls.isEmpty &&
             !(chapter.manga.value?.isLocalArchive ?? false)) {
