@@ -46,18 +46,21 @@ class TunnelService {
       final session = await _client!.execute('-- --json');
 
       session.stdout
+          .cast<List<int>>()
           .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .listen(_parseUrlLine, onError: (_) {});
 
       // Fallback stderr
       session.stderr
+          .cast<List<int>>()
           .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .listen(_parseUrlLine, onError: (_) {});
 
-      session.exitCode.then((code) {
-        if (_running) onError?.call('Tunnel SSH fermé (code $code)');
+      // exitCode est int? (null tant que la session tourne), done est le Future
+      session.done.then((_) {
+        if (_running) onError?.call('Tunnel SSH fermé (code ${session.exitCode ?? -1})');
         _running = false;
       });
 
