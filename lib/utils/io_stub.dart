@@ -44,17 +44,19 @@ class Platform {
 }
 
 // ─── IOSink stub (dart:io.IOSink not available on Flutter web) ────────────────
-class IOSink implements StringSink {
+class IOSink implements StringSink, StreamConsumer<List<int>> {
   @override void write(Object? obj) {}
   @override void writeln([Object? obj = '']) {}
   @override void writeAll(Iterable objects, [String separator = '']) {}
   @override void writeCharCode(int charCode) {}
   void add(List<int> data) {}
   void addError(Object error, [StackTrace? stackTrace]) {}
-  Future<void> addStream(Stream<List<int>> stream) async {}
+  @override Future<void> addStream(Stream<List<int>> stream) async {}
   Future<void> flush() async {}
-  Future<void> close() async {}
+  @override Future<void> close() async {}
   Future<void> get done async {}
+  Encoding get encoding => utf8;
+  set encoding(Encoding _) {}
 }
 
 // ─── RandomAccessFile stub (dart:io.RandomAccessFile not available on web) ────
