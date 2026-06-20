@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 
 /// Tunnel public via localhost.run — SSH pur-Dart, aucun binaire à télécharger.
 /// Fonctionne sur Android sans problème de permission (partition noexec).
-/// Usage : ssh -R 80:localhost:4567 nokey@localhost.run
+/// Remplace cloudflared (30 Mo, Permission denied sur Android).
 class TunnelService {
   SSHClient? _client;
   bool _running = false;
@@ -35,17 +35,14 @@ class TunnelService {
       _client = SSHClient(
         socket,
         username: 'nokey',
-        // localhost.run est un service public connu — on accepte sa clé
-        onVerifyHostKey: (hostKey) => true,
+        // localhost.run est un service public — on désactive la vérification de clé hôte
+        disableHostkeyVerification: true,
       );
 
       await _client!.authenticated;
       _running = true;
 
-      // Demande de forwarding inverse : connexions internet → notre serveur local
-      final remoteForward = await _client!.forwardRemote();
-
-      // Exécution avec --json pour recevoir l'URL assignée en JSON sur stdout
+      // Exécution avec --json pour recevoir l'URL assignée sur stdout
       final session = await _client!.execute('-- --json');
 
       session.stdout
@@ -53,7 +50,7 @@ class TunnelService {
           .transform(const LineSplitter())
           .listen(_parseUrlLine, onError: (_) {});
 
-      // Fallback stderr (certaines versions de localhost.run y écrivent l'URL)
+      // Fallback stderr
       session.stderr
           .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
@@ -64,8 +61,15 @@ class TunnelService {
         _running = false;
       });
 
-      // Forward chaque connexion entrante → serveur HTTP local
-      _handleForwardedConnections(remoteForward);
+      // Forwarding inverse : connexions internet → serveur HTTP local
+      // Port 0 = localhost.run choisit le port et assigne un sous-domaine
+      final forward = await _client!.forwardRemote();
+      if (forward == null) {
+        onError?.call('Tunnel SSH : forwardRemote refusé par le serveur');
+        return;
+      }
+
+      _handleForwardedConnections(forward);
     } catch (e) {
       _running = false;
       onError?.call('Tunnel SSH indisponible : $e');
@@ -84,28 +88,27 @@ class TunnelService {
       }
     } catch (_) {}
     // Fallback regex : "https://abc123.lhr.life"
-    final match =
-        RegExp(r'https://[a-z0-9\-]+\.lhr\.life').firstMatch(line);
+    final match = RegExp(r'https://[a-z0-9\-]+\.lhr\.life').firstMatch(line);
     if (match != null) onUrlChanged?.call(match.group(0)!);
   }
 
   void _handleForwardedConnections(SSHRemoteForward forward) async {
     try {
-      await for (final channel in forward.stream) {
-        _proxyChannel(channel);
+      await for (final connection in forward.connections) {
+        _proxyConnection(connection);
       }
     } catch (_) {}
   }
 
-  void _proxyChannel(SSHForwardChannel channel) async {
+  void _proxyConnection(SSHForwardChannel connection) async {
     try {
       final local = await Socket.connect('127.0.0.1', _localPort);
       // Bidirectionnel : internet ↔ serveur local
-      channel.pipe(local);
-      local.pipe(channel.sink);
+      connection.stream.cast<List<int>>().pipe(local);
+      local.cast<List<int>>().pipe(connection.sink);
     } catch (_) {
       try {
-        channel.sink.close();
+        await connection.close();
       } catch (_) {}
     }
   }
