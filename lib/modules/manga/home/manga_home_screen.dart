@@ -1109,20 +1109,29 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
-                  onPressed: () {
-                    final baseUrl =
-                        ref.read(sourceBaseUrlProvider(source: source));
-                    context.push('/mangawebview', extra: {
-                      'url': baseUrl,
-                      'sourceId': source.id.toString(),
-                      'title': '',
-                      'hasCloudFlare': source.hasCloudflare ?? false,
-                    });
-                  },
-                  icon: Icon(Icons.public_rounded,
-                      size: 18, color: context.secondaryColor),
-                  label: const Text('Webview'),
-                ),
+                    onPressed: () async {
+                      final baseUrl =
+                          ref.read(sourceBaseUrlProvider(source: source));
+                      final resolved = await showModalBottomSheet<bool>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(20)),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.92,
+                            child: BypassWebViewSheet(url: baseUrl),
+                          ),
+                        ),
+                      );
+                      if (resolved == true && context.mounted) retry();
+                    },
+                    icon: Icon(Icons.public_rounded,
+                        size: 18, color: context.secondaryColor),
+                    label: const Text('Webview'),
+                  ),
               ],
             ),
           ],
