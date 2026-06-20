@@ -65,15 +65,28 @@ import 'dart:async';
         _shellSession = session;
         _log('Session ouverte — attente URL lhr.life...');
 
-        // Keepalive: envoie un octet nul au shell toutes les 25s pour
-        // garder la connexion TCP active (NAT/firewall timeout).
+        // Keepalive toutes les 15s :
+        // 1) stdin shell (pendant que le shell est vivant)
+        // 2) execute SSH léger (après fermeture du shell, garde le TCP vivant via le handshake)
+        //    => même un CHANNEL_OPEN_FAILURE envoie des paquets TCP qui réinitialisent les timers NAT
         _keepAliveTimer?.cancel();
-        _keepAliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-          if (_running) {
+        _keepAliveTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+          if (!_running) return;
+          // Tentative 1 : stdin shell
+          try {
+            _shellSession?.stdin.add(Uint8List.fromList([10]));
+          } catch (_) {}
+          // Tentative 2 : execute SSH pour maintenir la connexion TCP après fermeture du shell
+          final c = _client;
+          if (c == null) return;
+          () async {
             try {
-              _shellSession?.stdin.add(Uint8List.fromList([10]));
-            } catch (_) {}
-          }
+              final s = await c.execute('echo k');
+              await s.close();
+            } catch (_) {
+              // Echec normal si localhost.run refuse — le TCP handshake a quand meme ete envoye
+            }
+          }();
         });
 
         // Collecte stdout dans buffer + parsing temps reel
@@ -97,14 +110,17 @@ import 'dart:async';
               _parseLineRealtime(line);
             }, onError: (e) => _logErr('stderr err: $e'));
 
-        // Quand le shell ferme : parser le buffer complet
+        // Quand le shell ferme : localhost.run ferme le shell apres avoir imprime l'URL + QR.
+        // C'est NORMAL. La connexion SSH + le forwarding restent actifs tant que le TCP tient.
+        // Le keepalive execute() prend le relais pour maintenir le TCP vivant.
         session.done.then((_) {
           final code = session.exitCode;
-          _log('Session fermee (exit=$code) — parsing buffer complet...');
+          _log('Session shell fermee (exit=$code) — forwarding reste actif, keepalive SSH continue');
           _parseFullBuffer();
+          _shellSession = null;
         });
 
-        // Timeout 60s
+        // Timeout 60s pour obtenir l'URL
         Future.delayed(const Duration(seconds: 60), () {
           if (_running && !_urlReceived) {
             final buf = _outputBuffer.toString();
