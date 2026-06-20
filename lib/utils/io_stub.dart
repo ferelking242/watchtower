@@ -3,6 +3,7 @@
 // Goal: enough for the Flutter web UI to compile and render.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 // ─── Re-export stable dart:io classes that exist on Flutter web ───────────────
@@ -410,16 +411,55 @@ class ServerSocket {
   Future<void> close() async {}
 }
 
-class Socket {
+class Socket extends Stream<Uint8List> implements IOSink {
   InternetAddress get remoteAddress => InternetAddress.loopbackIPv4;
   int get remotePort => 0;
   InternetAddress get address => InternetAddress.loopbackIPv4;
   int get port => 0;
-  void write(Object? obj) {}
-  void add(List<int> data) {}
+
+  static Future<Socket> connect(
+    dynamic host,
+    int port, {
+    dynamic sourceAddress,
+    int sourcePort = 0,
+    Duration? timeout,
+  }) async => _SocketStub();
+
+  // IOSink
+  @override void write(Object? obj) {}
+  @override void writeAll(Iterable objects, [String separator = '']) {}
+  @override void writeln([Object? obj = '']) {}
+  @override void writeCharCode(int charCode) {}
+  @override void add(List<int> data) {}
+  @override void addError(Object error, [StackTrace? stackTrace]) {}
+  @override Future<void> addStream(Stream<List<int>> stream) async {}
+  @override Future<void> flush() async {}
+  @override Future<void> close() async {}
+  @override Future<void> get done async {}
+  @override Encoding get encoding => utf8;
+  @override set encoding(Encoding _) {}
+
   void destroy() {}
-  Future<void> close() async {}
-  Future<void> get done async {}
+
+  @override
+  StreamSubscription<Uint8List> listen(
+    void Function(Uint8List)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => Stream<Uint8List>.empty().listen(
+        onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+}
+
+class _SocketStub extends Socket {
+  @override
+  StreamSubscription<Uint8List> listen(
+    void Function(Uint8List)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => Stream<Uint8List>.empty().listen(
+        onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
 }
 
 class RawSocketEvent {
