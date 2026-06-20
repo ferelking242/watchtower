@@ -3,14 +3,11 @@ import 'dart:async';
   import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
   import 'package:dartssh2/dartssh2.dart';
   import 'package:flutter/foundation.dart';
+  import 'package:watchtower/utils/log/log.dart';
 
-  /// Tunnel public via localhost.run — SSH pur-Dart, aucun binaire.
-  ///
-  /// Comportement localhost.run :
-  ///   1. SSH connect → forwardRemote() → localhost.run assigne *.lhr.life
-  ///   2. shell()     → localhost.run ENVOIE L'URL puis FERME LA SESSION (normal !)
-  ///   3. Le tunnel forwardRemote reste ACTIF même après la fermeture du shell
-  ///   4. Chaque connexion entrante est relayée vers localhost:4567
+  void _log(String msg) => Logger.add(LoggerLevel.info, '[TUNNEL] $msg');
+  void _logErr(String msg) => Logger.add(LoggerLevel.error, '[TUNNEL] $msg');
+
   class TunnelService {
     SSHClient? _client;
     bool _running = false;
@@ -18,7 +15,7 @@ import 'dart:async';
 
     void Function(String url)? onUrlChanged;
     void Function(String error)? onError;
-    void Function(double progress)? onDownloadProgress; // gardé pour compatibilité
+    void Function(double progress)? onDownloadProgress;
 
     static const _sshHost = 'localhost.run';
     static const _sshPort = 22;
@@ -30,6 +27,7 @@ import 'dart:async';
       _urlReceived = false;
 
       try {
+        _log('Connexion SSH $_sshHost:$_sshPort...');
         final socket = await SSHSocket.connect(
           _sshHost, _sshPort,
           timeout: const Duration(seconds: 30),
@@ -41,58 +39,58 @@ import 'dart:async';
           disableHostkeyVerification: true,
         );
 
+        _log('Socket OK — authentification...');
         await _client!.authenticated;
+        _log('Authentifie ! Demande forwarding inverse...');
         _running = true;
 
-        // ── Étape 1 : forwarding inverse ────────────────────────────────────
-        // DOIT précéder l'ouverture de la session shell.
         final forward = await _client!.forwardRemote();
         if (forward == null) {
+          _logErr('Forwarding refuse par localhost.run');
           _running = false;
           _client?.close();
           _client = null;
-          onError?.call('localhost.run : forwarding refusé');
+          onError?.call('localhost.run : forwarding refuse');
           return;
         }
+        _log('Forwarding OK — ouverture session shell...');
 
-        // ── Étape 2 : session shell pour recevoir l'URL ──────────────────────
-        // localhost.run FERME la session shell après avoir envoyé l'URL (code -1).
-        // C'est un comportement NORMAL — ne pas interpréter comme une erreur.
-        // Le tunnel forwardRemote reste actif indépendamment de la session.
         final session = await _client!.shell();
+        _log('Session shell ouverte — attente URL...');
 
         session.stdout
             .cast<List<int>>()
             .transform(const Utf8Decoder(allowMalformed: true))
             .transform(const LineSplitter())
-            .listen(_parseUrlLine, onError: (_) {});
+            .listen((line) {
+              if (line.trim().isNotEmpty) _log('stdout: $line');
+              _parseUrlLine(line);
+            }, onError: (e) => _logErr('stdout err: $e'));
 
         session.stderr
             .cast<List<int>>()
             .transform(const Utf8Decoder(allowMalformed: true))
             .transform(const LineSplitter())
-            .listen(_parseUrlLine, onError: (_) {});
+            .listen((line) {
+              if (line.trim().isNotEmpty) _log('stderr: $line');
+              _parseUrlLine(line);
+            }, onError: (e) => _logErr('stderr err: $e'));
 
-        // session.done : fermeture normale du shell après envoi URL — ignorer.
         session.done.then((_) {
-          // localhost.run ferme le canal shell après avoir envoyé l'URL.
-          // Le tunnel forwardRemote reste actif. On ne fait rien ici.
+          final code = session.exitCode;
+          _log('Session fermee (exit=$code) — tunnel reste actif');
         });
 
-        // ── Timeout 45s si aucune URL reçue ─────────────────────────────────
         Future.delayed(const Duration(seconds: 45), () {
           if (_running && !_urlReceived) {
-            onError?.call(
-              'Timeout : localhost.run n\'a pas envoyé d\'URL (45s). '
-              'Vérifiez votre connexion Internet.',
-            );
+            _logErr('Timeout 45s : aucune URL recue');
+            onError?.call('Timeout (45s) — localhost.run n\'a pas envoye d\'URL.\nVerifiez Internet.');
           }
         });
 
-        // ── Étape 3 : proxy TCP + détection perte de connexion ───────────────
-        // La stream forward.connections se ferme quand le client SSH déconnecte.
         _handleForwardedConnections(forward);
       } catch (e) {
+        _logErr('Exception: $e');
         _running = false;
         onError?.call('Tunnel SSH : $e');
       }
@@ -100,44 +98,55 @@ import 'dart:async';
 
     void _parseUrlLine(String line) {
       if (line.trim().isEmpty) return;
-      // Tentative JSON (mode --json si supporté)
       try {
         final data = jsonDecode(line) as Map<String, dynamic>;
         final address = data['address'] as String?;
         if (address != null) {
           _urlReceived = true;
-          onUrlChanged?.call('https://$address');
+          final url = 'https://$address';
+          _log('URL (JSON) : $url');
+          onUrlChanged?.call(url);
           return;
         }
       } catch (_) {}
-      // Regex : *.lhr.life (format texte localhost.run)
-      final match = RegExp(r'https?://[a-z0-9\-]+\.lhr\.life').firstMatch(line);
+
+      final match = RegExp(r'https?://[a-z0-9-]+\.lhr\.life').firstMatch(line);
       if (match != null) {
+        final url = match.group(0)!;
         _urlReceived = true;
-        onUrlChanged?.call(match.group(0)!);
+        _log('URL (lhr.life) : $url');
+        onUrlChanged?.call(url);
         return;
       }
-      // Fallback : toute URL HTTPS dans la ligne
-      final fallback = RegExp(r'https://\S+').firstMatch(line);
+
+      final fallback = RegExp(r'https://[^\s,]+').firstMatch(line);
       if (fallback != null) {
-        final url = fallback.group(0)!.replaceAll(RegExp(r'[,\.\s]+$'), '');
+        final url = fallback.group(0)!;
         _urlReceived = true;
+        _log('URL (fallback) : $url');
         onUrlChanged?.call(url);
       }
     }
 
     void _handleForwardedConnections(SSHRemoteForward forward) async {
+      _log('En attente de connexions entrantes...');
       try {
         await for (final connection in forward.connections) {
+          final host = connection.remoteHost;
+          final port = connection.remotePort;
+          _log('Connexion : $host:$port');
           _proxyConnection(connection);
         }
-        // La stream est fermée = SSH client déconnecté = tunnel mort
         if (_running) {
-          onError?.call('Tunnel SSH : connexion perdue — réactivez le Mode Distant');
+          _logErr('Connexion SSH perdue');
+          onError?.call('Tunnel ferme — reactivez le Mode Distant');
         }
         _running = false;
       } catch (e) {
-        if (_running) onError?.call('Tunnel SSH : $e');
+        if (_running) {
+          _logErr('Erreur forward: $e');
+          onError?.call('Tunnel SSH : $e');
+        }
         _running = false;
       }
     }
@@ -153,6 +162,7 @@ import 'dart:async';
     }
 
     void stop() {
+      _log('Arret');
       _running = false;
       _urlReceived = false;
       _client?.close();
