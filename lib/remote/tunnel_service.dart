@@ -65,31 +65,24 @@ import 'dart:async';
         _shellSession = session;
         _log('Session ouverte — attente URL lhr.life...');
 
-        // Keepalive toutes les 15s :
+        // Keepalive dual toutes les 15s :
         // 1) stdin shell (pendant que le shell est vivant)
-        // 2) execute SSH léger (après fermeture du shell, garde le TCP vivant via le handshake)
-        //    => même un CHANNEL_OPEN_FAILURE envoie des paquets TCP qui réinitialisent les timers NAT
+        // 2) execute SSH leger (apres fermeture shell) — meme un reject CHANNEL_OPEN_FAILURE
+        //    envoie des paquets TCP qui reinitialisent les timers NAT/firewall
         _keepAliveTimer?.cancel();
         _keepAliveTimer = Timer.periodic(const Duration(seconds: 15), (_) {
           if (!_running) return;
-          // Tentative 1 : stdin shell
+          // Tentative stdin shell
           try {
             _shellSession?.stdin.add(Uint8List.fromList([10]));
           } catch (_) {}
-          // Tentative 2 : execute SSH pour maintenir la connexion TCP après fermeture du shell
+          // Tentative SSH execute (keepalive TCP apres fermeture shell)
           final c = _client;
           if (c == null) return;
-          () async {
-            try {
-              final s = await c.execute('echo k');
-              await s.close();
-            } catch (_) {
-              // Echec normal si localhost.run refuse — le TCP handshake a quand meme ete envoye
-            }
-          }();
+          _sshKeepalive(c);
         });
 
-        // Collecte stdout dans buffer + parsing temps reel
+        // Collecte stdout + parsing temps reel
         session.stdout
             .cast<List<int>>()
             .transform(const Utf8Decoder(allowMalformed: true))
@@ -110,12 +103,12 @@ import 'dart:async';
               _parseLineRealtime(line);
             }, onError: (e) => _logErr('stderr err: $e'));
 
-        // Quand le shell ferme : localhost.run ferme le shell apres avoir imprime l'URL + QR.
-        // C'est NORMAL. La connexion SSH + le forwarding restent actifs tant que le TCP tient.
-        // Le keepalive execute() prend le relais pour maintenir le TCP vivant.
+        // Quand le shell ferme : localhost.run EOF le shell apres URL+QR.
+        // C'est NORMAL. La connexion SSH + le forwarding restent actifs.
+        // Le keepalive _sshKeepalive() maintient le TCP vivant.
         session.done.then((_) {
           final code = session.exitCode;
-          _log('Session shell fermee (exit=$code) — forwarding reste actif, keepalive SSH continue');
+          _log('Session shell fermee (exit=$code) — forwarding actif, keepalive SSH continue');
           _parseFullBuffer();
           _shellSession = null;
         });
@@ -130,7 +123,7 @@ import 'dart:async';
                   buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
             }
             onError?.call(
-                'Timeout (60s) — localhost.run n\'a pas envoye de lien.\nVerifiez Internet.');
+                "Timeout (60s) — localhost.run n'a pas envoye de lien.\nVerifiez Internet.");
           }
         });
 
@@ -140,6 +133,19 @@ import 'dart:async';
         _running = false;
         onError?.call('Tunnel SSH : $e');
       }
+    }
+
+    // Keepalive SSH niveau connexion.
+    // SSHSession.close() retourne void (pas Future), donc pas d'await.
+    void _sshKeepalive(SSHClient c) {
+      () async {
+        try {
+          final s = await c.execute('echo k');
+          s.close(); // void — pas d'await
+        } catch (_) {
+          // Echec accepte — le TCP handshake du CHANNEL_OPEN a quand meme ete envoye
+        }
+      }();
     }
 
     // Parsing temps reel : seulement *.lhr.life
@@ -156,7 +162,7 @@ import 'dart:async';
       }
     }
 
-    // Parsing post-fermeture du buffer complet
+    // Parsing post-fermeture buffer complet
     void _parseFullBuffer() {
       if (_urlReceived) return;
       final full = _outputBuffer.toString();
@@ -220,7 +226,6 @@ import 'dart:async';
           try { connection.close(); } catch (_) {}
         }
 
-        // SSH channel -> local socket (requete HTTP)
         connection.stream.cast<List<int>>().listen(
           local.add,
           onDone: closeAll,
@@ -228,7 +233,6 @@ import 'dart:async';
           cancelOnError: true,
         );
 
-        // local socket -> SSH channel (reponse HTTP)
         local.listen(
           (data) => connection.sink.add(data),
           onDone: closeAll,
@@ -238,7 +242,7 @@ import 'dart:async';
       } catch (e) {
         _logErr('Proxy connexion 127.0.0.1:$_localPort echouee: $e');
         try { local?.destroy(); } catch (_) {}
-        try { await connection.close(); } catch (_) {}
+        try { connection.close(); } catch (_) {}
       }
     }
 
