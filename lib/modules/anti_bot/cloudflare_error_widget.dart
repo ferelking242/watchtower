@@ -6,15 +6,19 @@ import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/models/settings.dart';
 
 bool isCloudflareError(String? error) {
-  if (error == null) return false;
-  final l = error.toLowerCase();
-  return l.contains('cloudflare') ||
-      l.contains('cf_clearance') ||
-      l.contains('challenge') ||
-      l.contains('failed to bypass') ||
-      (l.contains('503') && l.contains('server')) ||
-      (l.contains('403') && l.contains('cloud'));
-}
+    if (error == null) return false;
+    final l = error.toLowerCase();
+    return l.contains('cloudflare') ||
+        l.contains('cf_clearance') ||
+        l.contains('challenge') ||
+        l.contains('failed to bypass') ||
+        l.contains('just a moment') ||
+        l.contains('attention required') ||
+        l.contains('cf-ray') ||
+        (l.contains('503') && l.contains('server')) ||
+        (l.contains('403') && l.contains('cloud')) ||
+        (l.contains('timeout') && l.contains('connection'));
+  }
 
 class CloudflareErrorWidget extends StatefulWidget {
   final String? errorText;
@@ -83,8 +87,10 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
         ),
       );
       if (resolved == true && mounted) {
-        widget.onRetry?.call();
-      }
+          // Grace period so cf_clearance cookie propagates to extension HTTP client
+          await Future.delayed(const Duration(milliseconds: 1200));
+          if (mounted) widget.onRetry?.call();
+        }
     }
 
   Future<void> _useRemote() async {

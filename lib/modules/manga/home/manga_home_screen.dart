@@ -66,6 +66,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   bool _isLoading = false;
   final ScrollController _scrollController = ScrollController();
   final _scrollOffsetNotifier = ValueNotifier<double>(0.0);
+  final _collapseRatioNotifier = ValueNotifier<double>(0.0);
   int _fullDataLength = 50;
   int _page = 1;
   bool _hasNextPage = true;
@@ -199,6 +200,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     _scrollController.dispose();
     _textEditingController.dispose();
     _scrollOffsetNotifier.dispose();
+    _collapseRatioNotifier.dispose();
     super.dispose();
   }
 
@@ -1126,7 +1128,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                           ),
                         ),
                       );
-                      if (resolved == true && context.mounted) retry();
+                      if (resolved == true && context.mounted) {
+                          await Future.delayed(const Duration(milliseconds: 800));
+                          if (context.mounted) retry();
+                        }
                     },
                     icon: Icon(Icons.public_rounded,
                         size: 18, color: context.secondaryColor),
@@ -1247,20 +1252,40 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               automaticallyImplyLeading: false,
               centerTitle: true,
               title: ValueListenableBuilder<double>(
-                valueListenable: _scrollOffsetNotifier,
-                builder: (ctx2, offset, _) {
-                  final opacity = ((offset - 28.0) / 14.0).clamp(0.0, 1.0);
-                  return Opacity(
-                    opacity: opacity,
-                    child: Text(
-                      sourceName,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                },
-              ),
+                  valueListenable: _collapseRatioNotifier,
+                  builder: (ctx2, ratio, _) {
+                    final opacity = ((ratio - 0.55) / 0.45).clamp(0.0, 1.0);
+                    return Opacity(
+                      opacity: opacity,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(5),
+                              child: Image.network(
+                                source.iconUrl!,
+                                width: 20,
+                                height: 20,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Flexible(
+                            child: Text(
+                              sourceName,
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               leading: IconButton(
               icon: Icon(Icons.chevron_left_rounded,
                   size: 28, color: context.primaryColor),
@@ -1330,91 +1355,93 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               const SizedBox(width: 4),
             ],
             // Pills stick inside the SliverAppBar — part of the header, not a
-            // separate sliver. Transparent so the flexibleSpace blur shows through.
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(40),
-              child: _TabPillsRow(
-                types: _types(context),
-                selectedIndex: _selectedIndex,
-                filterList: filterList,
-                supportsLatest: supportsLatest,
-                hasCustomLists: _customLists.isNotEmpty,
-                onSelect: (index) async {
-                  if (filters.isEmpty) filters = filterList;
-                  if (index == _kFilterIdx) {
-                    await _openFilterSheet(context);
-                  } else {
-                    _mangaList.clear();
-                    setState(() {
-                      _selectedIndex = index;
-                      _isFiltering = false;
-                      _isSearch = false;
-                      _query = "";
-                      _textEditingController.clear();
-                      _page = 1;
-                      _isLoading = false;
-                    });
-                  }
+            // separate sliver. Transparent so the flexibleSpac            flexibleSpace: LayoutBuilder(
+                builder: (lbCtx, constraints) {
+                  // expandedHeight=140, toolbar=56, pills=40 → minHeight=96, range=44
+                  const expandedH = 140.0;
+                  const minH = 96.0;
+                  final collapseRatio = ((expandedH - constraints.maxHeight) /
+                      (expandedH - minH)).clamp(0.0, 1.0);
+                  // Sync to AppBar title — safe to set ValueNotifier during LayoutBuilder
+                  _collapseRatioNotifier.value = collapseRatio;
+                  final isCollapsed = collapseRatio > 0.9;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Frosted glass — always rendered, driven by collapseRatio
+                      ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(
+                            sigmaX: 24 * collapseRatio,
+                            sigmaY: 24 * collapseRatio,
+                          ),
+                          child: Container(
+                            color: Theme.of(lbCtx).scaffoldBackgroundColor
+                                .withValues(alpha: collapseRatio * 0.92),
+                          ),
+                        ),
+                      ),
+                      // Hard bottom separator when fully collapsed
+                      if (isCollapsed)
+                        Positioned(
+                          bottom: 0, left: 0, right: 0,
+                          child: Container(
+                            height: 0.5,
+                            color: Theme.of(lbCtx).dividerColor
+                                .withValues(alpha: 0.35),
+                          ),
+                        ),
+                      // Large title — slides UP and fades out as header collapses
+                      SafeArea(
+                        bottom: false,
+                        child: Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Transform.translate(
+                            offset: Offset(0, -collapseRatio * 22),
+                            child: Opacity(
+                              opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 16, bottom: 48),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    if (!isLocal &&
+                                        (source.iconUrl?.isNotEmpty ?? false)) ...[
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(7),
+                                        child: Image.network(
+                                          source.iconUrl!,
+                                          width: 26,
+                                          height: 26,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Text(
+                                      sourceName,
+                                      style: const TextStyle(
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -0.4,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
                 },
-              ),
-            ),
-            flexibleSpace: LayoutBuilder(
-              builder: (lbCtx, constraints) {
-                // expandedHeight=140, toolbar=56, pills=40 → minHeight=96, range=44
-                const expandedH = 140.0;
-                const minH = 96.0;
-                final collapseRatio = ((expandedH - constraints.maxHeight) /
-                    (expandedH - minH)).clamp(0.0, 1.0);
-                final isCollapsed = collapseRatio > 0.9;
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Frosted glass — always rendered, driven by collapseRatio
-                    ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(
-                          sigmaX: 24 * collapseRatio,
-                          sigmaY: 24 * collapseRatio,
-                        ),
-                        child: Container(
-                          color: Theme.of(lbCtx).scaffoldBackgroundColor
-                              .withValues(alpha: collapseRatio * 0.92),
-                        ),
-                      ),
-                    ),
-                    // Hard bottom separator when fully collapsed
-                    if (isCollapsed)
-                      Positioned(
-                        bottom: 0, left: 0, right: 0,
-                        child: Container(
-                          height: 0.5,
-                          color: Theme.of(lbCtx).dividerColor
-                              .withValues(alpha: 0.35),
-                        ),
-                      ),
-                    // Large title — LEFT-ALIGNED, fades out quickly on scroll
-                    SafeArea(
-                      bottom: false,
-                      child: Align(
-                        alignment: Alignment.bottomLeft,
-                        child: AnimatedOpacity(
-                          opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
-                          duration: const Duration(milliseconds: 100),
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 16, bottom: 48),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                if (!isLocal &&
-                                    (source.iconUrl?.isNotEmpty ?? false)) ...[
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(7),
-                                    child: Image.network(
-                                      source.iconUrl!,
-                                      width: 26,
-                                      height: 26,
-                                      fit: BoxFit.cover,
+              )          fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) =>
                                           const SizedBox.shrink(),
                                     ),
