@@ -84,7 +84,7 @@ class _MangaReaderViewState extends ConsumerState<MangaReaderView> {
         // ── Reader session log ──────────────────────────────────────
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final mangaName = chapter.manga.value?.name ?? 'inconnu';
-          final chapName = chapter.name ?? chapter.chapterNumber.toString();
+          final chapName = chapter.name ?? 'inconnu';
           AppLogger.log(
             'Ouvre: "$mangaName" — ch. $chapName (${model.pageUrls.length} pages)',
             tag: LogTag.reader,

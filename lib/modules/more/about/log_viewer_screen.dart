@@ -469,6 +469,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             ),
           ),
         ),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _filtered.isEmpty

@@ -185,11 +185,11 @@ class AppLogger {
     }
     _sessionsDirPath = sessionsDir.path;
 
-    final     final now = DateTime.now();
+    final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final dateOnly = '${now.year}-${two(now.month)}-${two(now.day)}';
     _logFile = File(path.join(sessionsDir.path, '$dateOnly.log'));
-    wait _logFile.exists()) {
+    if (!await _logFile.exists()) {
       await _logFile.create(recursive: true);
     }
     _currentSessionPath = _logFile.path;
