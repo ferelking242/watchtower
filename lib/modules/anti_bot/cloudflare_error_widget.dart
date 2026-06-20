@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/models/settings.dart';
 
@@ -66,13 +67,25 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
     super.dispose();
   }
 
-  void _beatChallenge() {
-    if (widget.url == null) return;
-    context.push('/mangawebview', extra: {
-      'url': widget.url!,
-      'title': 'Résoudre le challenge',
-    });
-  }
+  Future<void> _beatChallenge() async {
+      if (widget.url == null) return;
+      final resolved = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.92,
+            child: BypassWebViewSheet(url: widget.url!),
+          ),
+        ),
+      );
+      if (resolved == true && mounted) {
+        widget.onRetry?.call();
+      }
+    }
 
   Future<void> _useRemote() async {
     if (widget.url == null) return;
