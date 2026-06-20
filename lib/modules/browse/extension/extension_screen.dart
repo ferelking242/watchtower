@@ -173,7 +173,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
             final Map<String, Source> _deduped = {};
             for (final src in rawFiltered) {
-              final key = '${src.name ?? ''}_${src.lang ?? ''}_${src.itemType.name}';
+              final key = '${(src.name ?? '').toLowerCase()}_${(src.lang ?? '').toLowerCase()}_${src.itemType.name}';
               final prev = _deduped[key];
               if (prev == null) {
                 _deduped[key] = src;
