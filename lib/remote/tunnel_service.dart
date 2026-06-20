@@ -13,7 +13,6 @@ import 'dart:async';
   class TunnelService {
     SSHClient? _client;
     SSHSession? _shellSession;
-    SSHSession? _anchorSession;
     Timer? _keepAliveTimer;
     bool _running = false;
     bool _urlReceived = false;
@@ -60,28 +59,48 @@ import 'dart:async';
           onError?.call('localhost.run : forwarding refuse');
           return;
         }
-        _log('Forwarding port 80 OK — ouverture canal ancre (shell)...');
+        _log('Forwarding port 80 OK — ouverture shell...');
 
-        // Canal ancre : deuxieme shell() pour garder au moins un canal SSH ouvert.
-        // localhost.run rejette execute() (Faa/Failed to execute) — seul shell() est accepte.
-        // Sans canal ouvert, dartssh2 laisse la connexion TCP idle → NAT la coupe → "no tunnel here".
-        _openAnchorChannel();
+        await _openShell();
 
-        _log('Ouverture session shell principale...');
-        final session = await _client!.shell();
-        _shellSession = session;
-        _log('Session ouverte — attente URL lhr.life...');
-
-        // Keepalive : ecrit dans les deux canaux toutes les 20s pour empecher NAT de couper TCP.
+        // Keepalive stdin toutes les 5s — ecrit AVANT la fermeture idle (~18s).
+        // localhost.run ferme le shell quand stdin est inactif.
+        // En ecrivant toutes les 5s, on empeche ce timeout.
+        // Si le shell ferme quand meme, _reopenShell() le rouvre immediatement.
         _keepAliveTimer?.cancel();
-        _keepAliveTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+        _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
           if (!_running) return;
-          _log('Keepalive — ancre: ${_anchorSession != null}');
+          _log('Keepalive stdin — shell actif: ${_shellSession != null}');
           try { _shellSession?.stdin.add(Uint8List.fromList([10])); } catch (_) {}
-          try { _anchorSession?.stdin.add(Uint8List.fromList([10])); } catch (_) {}
         });
 
-        // Collecte stdout + parsing temps reel
+        // Timeout 60s pour recevoir l'URL
+        Future.delayed(const Duration(seconds: 60), () {
+          if (_running && !_urlReceived) {
+            final buf = _outputBuffer.toString();
+            _logErr('Timeout 60s. Buffer:');
+            for (var i = 0; i < buf.length; i += 200) {
+              _logErr(buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
+            }
+            onError?.call("Timeout (60s) — localhost.run n'a pas envoye de lien.\nVerifiez Internet.");
+          }
+        });
+
+        _handleForwardedConnections(forward);
+      } catch (e) {
+        _logErr('Exception: $e');
+        _running = false;
+        onError?.call('Tunnel SSH : $e');
+      }
+    }
+
+    Future<void> _openShell() async {
+      if (_client == null || !_running) return;
+      try {
+        final session = await _client!.shell();
+        _shellSession = session;
+        _log('Shell ouverte — attente URL lhr.life...');
+
         session.stdout
             .cast<List<int>>()
             .transform(const Utf8Decoder(allowMalformed: true))
@@ -102,72 +121,29 @@ import 'dart:async';
               _parseLineRealtime(line);
             }, onError: (e) => _logErr('stderr err: $e'));
 
-        // Shell principale fermee (localhost.run envoie EOF apres URL+QR).
-        // Le canal ancre (deuxieme shell) garde la connexion TCP vivante.
         session.done.then((_) {
           final code = session.exitCode;
-          _log('Shell principale fermee (exit=$code) — ancre active: ${_anchorSession != null}');
+          _log('Shell fermee (exit=$code) — reouverture immediate...');
           _parseFullBuffer();
           _shellSession = null;
+          // Rouvrir immediatement : localhost.run deregistre le tunnel si plus de shell.
+          _reopenShell();
         });
-
-        // Timeout 60s
-        Future.delayed(const Duration(seconds: 60), () {
-          if (_running && !_urlReceived) {
-            final buf = _outputBuffer.toString();
-            _logErr('Timeout 60s. Buffer:');
-            for (var i = 0; i < buf.length; i += 200) {
-              _logErr(buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
-            }
-            onError?.call("Timeout (60s) — localhost.run n'a pas envoye de lien.\nVerifiez Internet.");
-          }
-        });
-
-        _handleForwardedConnections(forward);
       } catch (e) {
-        _logErr('Exception: $e');
-        _running = false;
-        onError?.call('Tunnel SSH : $e');
+        _logErr('Erreur ouverture shell: $e');
+        _shellSession = null;
+        _reopenShell();
       }
     }
 
-    // Canal ancre : shell() maintient un canal SSH ouvert apres fermeture de la shell principale.
-    // localhost.run ne supporte pas execute() — shell() est le seul type de canal accepte.
-    // stdout/stderr draine pour eviter saturation buffer.
-    // Reconnexion automatique si le canal se ferme et que le tunnel est toujours actif.
-    void _openAnchorChannel() {
-      () async {
-        try {
-          _anchorSession = await _client!.shell();
-          _log('Canal ancre ouvert (shell)');
-
-          // Drainer stdout/stderr de l'ancre (l'URL sera imprimee ici aussi — on l'ignore).
-          _anchorSession!.stdout.listen((_) {});
-          _anchorSession!.stderr.listen((_) {});
-
-          await _anchorSession!.done;
-          _log('Canal ancre ferme');
-          _anchorSession = null;
-
-          // Si le tunnel est toujours actif, tenter de rouvrir l'ancre.
-          if (_running && _client != null) {
-            _logErr('Canal ancre ferme — tentative de reouverture...');
-            await Future.delayed(const Duration(seconds: 2));
-            if (_running && _client != null) _openAnchorChannel();
-          }
-        } catch (e) {
-          _logErr('Canal ancre echec: $e');
-          _anchorSession = null;
-          // Retry apres delai si le tunnel est toujours actif.
-          if (_running && _client != null) {
-            await Future.delayed(const Duration(seconds: 3));
-            if (_running && _client != null) {
-              _log('Canal ancre : nouvelle tentative...');
-              _openAnchorChannel();
-            }
-          }
+    void _reopenShell() {
+      if (!_running || _client == null) return;
+      Future.delayed(const Duration(seconds: 1), () {
+        if (_running && _client != null) {
+          _log('Reouverture shell...');
+          _openShell();
         }
-      }();
+      });
     }
 
     void _parseLineRealtime(String line) {
@@ -177,7 +153,7 @@ import 'dart:async';
         final url = match.group(0)!;
         if (!_urlReceived) {
           _urlReceived = true;
-          _log('URL trouvee (realtime) : $url');
+          _log('URL trouvee : $url');
           onUrlChanged?.call(url);
         }
       }
@@ -190,7 +166,7 @@ import 'dart:async';
       final lhr = RegExp(r'https?://[a-z0-9-]+\.lhr\.life').firstMatch(full);
       if (lhr != null) {
         _urlReceived = true;
-        _log('URL trouvee (post-session lhr) : ${lhr.group(0)}');
+        _log('URL trouvee (buffer) : ${lhr.group(0)}');
         onUrlChanged?.call(lhr.group(0)!);
         return;
       }
@@ -200,7 +176,7 @@ import 'dart:async';
         final url = m.group(0)!;
         if (!url.contains('localhost.run')) {
           _urlReceived = true;
-          _log('URL trouvee (post-session fallback) : $url');
+          _log('URL trouvee (fallback) : $url');
           onUrlChanged?.call(url);
           return;
         }
@@ -274,7 +250,6 @@ import 'dart:async';
       _urlReceived = false;
       _outputBuffer.clear();
       _shellSession = null;
-      _anchorSession = null;
       _client?.close();
       _client = null;
     }
