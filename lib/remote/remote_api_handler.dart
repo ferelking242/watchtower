@@ -14,6 +14,7 @@ import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/get_detail.dart';
+import 'package:watchtower/utils/constant.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 Response _json(Object data, {int status = 200}) => Response(
@@ -104,7 +105,6 @@ class RemoteApiHandler {
       if (id == null) return _error('Invalid chapter id', status: 400);
       final chapter = isar.chapters.getSync(id);
       if (chapter == null) return _error('Chapter not found', status: 404);
-      // Return stored page URLs from settings if available
       final settings = isar.settings.getSync(kSettingsId);
       final stored = settings?.chapterPageUrlsList
           ?.where((e) => e.chapterId == id)
@@ -160,7 +160,6 @@ class RemoteApiHandler {
     } catch (e) { return _error(e.toString()); }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   Source? _findSource(String id) {
     final intId = int.tryParse(id);
     if (intId != null) return isar.sources.getSync(intId);
@@ -168,66 +167,38 @@ class RemoteApiHandler {
   }
 
   Map<String, dynamic> _sourceToMap(Source s) => {
-    'id': s.id,
-    'name': s.name,
-    'lang': s.lang,
-    'iconUrl': s.iconUrl,
-    'baseUrl': s.baseUrl,
-    'itemType': s.itemType.name,
-    'isNsfw': s.isNsfw,
-    'isPinned': s.isPinned,
+    'id': s.id, 'name': s.name, 'lang': s.lang, 'iconUrl': s.iconUrl,
+    'baseUrl': s.baseUrl, 'itemType': s.itemType.name,
+    'isNsfw': s.isNsfw, 'isPinned': s.isPinned,
   };
 
   List<Map<String, dynamic>> _pagesToList(MPages? pages) =>
       pages?.list?.map(_mMangaToMap).toList() ?? [];
 
   Map<String, dynamic> _mMangaToMap(MManga m) => {
-    'name': m.name,
-    'imageUrl': m.imageUrl,
-    'link': m.link,
-    'author': m.author,
-    'description': m.description,
-    'status': m.status?.name,
+    'name': m.name, 'imageUrl': m.imageUrl, 'link': m.link,
+    'author': m.author, 'description': m.description, 'status': m.status?.name,
   };
 
   Map<String, dynamic> _mangaToMap(MManga m) => {
-    'name': m.name,
-    'imageUrl': m.imageUrl,
-    'link': m.link,
-    'author': m.author,
-    'description': m.description,
-    'status': m.status?.name,
+    'name': m.name, 'imageUrl': m.imageUrl, 'link': m.link,
+    'author': m.author, 'description': m.description, 'status': m.status?.name,
     'genre': m.genre,
     'chapters': m.chapters?.map((c) => {
-      'name': c.name,
-      'url': c.url,
-      'scanlator': c.scanlator,
-      'dateUpload': c.dateUpload,
+      'name': c.name, 'url': c.url,
+      'scanlator': c.scanlator, 'dateUpload': c.dateUpload,
     }).toList(),
   };
 
   Map<String, dynamic> _chapterToMap(Chapter c) => {
-    'id': c.id,
-    'name': c.name,
-    'url': c.url,
-    'mangaId': c.mangaId,
-    'lastPageRead': c.lastPageRead,
-    'isRead': c.isRead,
-    'scanlator': c.scanlator,
-    'dateUpload': c.dateUpload,
-    'updatedAt': c.updatedAt,
+    'id': c.id, 'name': c.name, 'url': c.url, 'mangaId': c.mangaId,
+    'lastPageRead': c.lastPageRead, 'isRead': c.isRead,
+    'scanlator': c.scanlator, 'dateUpload': c.dateUpload, 'updatedAt': c.updatedAt,
   };
 
   Map<String, dynamic> _isarMangaToMap(Manga m) => {
-    'id': m.id,
-    'name': m.name,
-    'imageUrl': m.imageUrl,
-    'link': m.link,
-    'source': m.source,
-    'lang': m.lang,
-    'author': m.author,
-    'description': m.description,
-    'status': m.status?.name,
-    'itemType': m.itemType.name,
+    'id': m.id, 'name': m.name, 'imageUrl': m.imageUrl, 'link': m.link,
+    'source': m.source, 'lang': m.lang, 'author': m.author,
+    'description': m.description, 'status': m.status?.name, 'itemType': m.itemType.name,
   };
 }
