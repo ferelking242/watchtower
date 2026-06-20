@@ -38,6 +38,21 @@
 -keep class com.kodjodevf.watchtower.** { *; }
 -keep class com.watchtower.app.** { *; }
 
+# ── Flutter plugin classes referenced by GeneratedPluginRegistrant ────────────
+# R8 profile builds strip these if not kept explicitly
+-keep class com.aaassseee.screen_brightness_android.** { *; }
+-dontwarn com.aaassseee.**
+-keep class com.ryanheise.** { *; }
+-dontwarn com.ryanheise.**
+-keep class xyz.luan.** { *; }
+-dontwarn xyz.luan.**
+-keep class com.dexterous.** { *; }
+-dontwarn com.dexterous.**
+-keep class dev.fluttercommunity.** { *; }
+-dontwarn dev.fluttercommunity.**
+-keep class com.baseflow.** { *; }
+-dontwarn com.baseflow.**
+
 # ── Inline Dalvik bridge ─────────────────────────────────────────────────────
 # Keep NetworkHelper and cookie jar so extensions can find them via parent CL
 -keep class eu.kanade.tachiyomi.network.** { *; }
