@@ -7,6 +7,10 @@ import 'dart:async';
   import 'package:shelf_router/shelf_router.dart';
   import 'package:watchtower/remote/remote_api_handler.dart';
   import 'package:watchtower/remote/tunnel_service.dart';
+  import 'package:watchtower/utils/log/log.dart';
+
+  void _slog(String msg) => Logger.add(LoggerLevel.info, '[SERVER] $msg');
+  void _slogErr(String msg) => Logger.add(LoggerLevel.error, '[SERVER] $msg');
 
   class RemoteServerService {
     RemoteServerService._();
@@ -31,10 +35,131 @@ import 'dart:async';
     void removeListener(VoidCallback cb) => _listeners.remove(cb);
     void _notify() { for (final cb in _listeners) cb(); }
 
+    // Page HTML avec des placeholders remplacés dynamiquement (pas d'interpolation Dart dans triple-quote)
+    static const _htmlTemplate = '''<!DOCTYPE html>
+  <html lang="fr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Watchtower</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:system-ui,sans-serif;background:#0d0d1a;color:#e0e0ff;
+           display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+      .wrap{max-width:500px;width:100%}
+      .header{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+      .icon{width:42px;height:42px;background:#7c3aed;border-radius:50%;
+            display:flex;align-items:center;justify-content:center;font-size:1.4rem}
+      h1{font-size:1.5rem;color:#a78bfa}
+      .badge{font-size:.75rem;background:#16a34a22;color:#4ade80;
+             border:1px solid #16a34a44;border-radius:99px;padding:2px 10px;font-weight:600}
+      .card{border-radius:12px;padding:16px 18px;margin-bottom:12px;background:#161627;
+            border:1px solid #ffffff0f}
+      .card.green{background:#052e16;border-color:#16a34a}
+      .card.red{background:#2d0a0a;border-color:#dc2626}
+      .card.yellow{background:#1c1700;border-color:#ca8a04}
+      .label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#ffffff55;margin-bottom:6px}
+      .url-text{font-size:.95rem;color:#818cf8;word-break:break-all;text-decoration:none}
+      .url-text:hover{text-decoration:underline}
+      .lan{font-size:.95rem;color:#cbd5e1;word-break:break-all}
+      .hint{font-size:.78rem;color:#ffffff44;margin-top:4px}
+      .err{font-size:.82rem;color:#f87171;margin-top:4px;word-break:break-word}
+      .spinner{width:18px;height:18px;border:2px solid #ca8a0444;
+               border-top-color:#ca8a04;border-radius:50%;
+               animation:spin 1s linear infinite;margin-top:8px}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .steps{list-style:none;counter-reset:s}
+      .steps li{counter-increment:s;display:flex;align-items:flex-start;gap:10px;
+                padding:8px 0;border-bottom:1px solid #ffffff08;font-size:.88rem}
+      .steps li:last-child{border-bottom:none}
+      .steps li::before{content:counter(s);min-width:22px;height:22px;background:#7c3aed;
+                        border-radius:50%;display:flex;align-items:center;justify-content:center;
+                        font-size:.72rem;font-weight:700;flex-shrink:0;margin-top:1px}
+      .open-btn{display:block;background:#7c3aed;color:#fff;text-align:center;padding:11px;
+                border-radius:9px;text-decoration:none;font-weight:600;margin-top:12px;font-size:.9rem}
+      .open-btn:hover{background:#6d28d9}
+      .api a{color:#818cf8;text-decoration:none;margin-right:14px;font-size:.8rem}
+      .api a:hover{text-decoration:underline}
+    </style>
+  </head>
+  <body>
+  <div class="wrap">
+    <div class="header">
+      <div class="icon">&#128316;</div>
+      <div><h1>Watchtower</h1><span class="badge">Serveur actif</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Lien local (meme Wi-Fi)</div>
+      <div class="lan">{{LAN}}</div>
+      <div class="hint">Accessible uniquement depuis le meme reseau</div>
+    </div>
+
+    {{TUNNEL_SECTION}}
+
+    <div class="card">
+      <div class="label">Comment utiliser depuis n&apos;importe ou</div>
+      <ol class="steps">
+        <li>Attendez que le lien tunnel HTTPS apparaisse ci-dessus</li>
+        <li>Copiez ce lien HTTPS</li>
+        <li>Ouvrez l&apos;app web et collez-le dans le champ URL</li>
+      </ol>
+      <a class="open-btn" href="https://ferelking242.github.io/watchtower" target="_blank">
+        Ouvrir l&apos;app web Watchtower
+      </a>
+    </div>
+
+    <div class="card">
+      <div class="label">Test API</div>
+      <div class="api">
+        <a href="/api/ping">/api/ping</a>
+        <a href="/api/sources">/api/sources</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    if (!document.querySelector('.card.green')) setTimeout(() => location.reload(), 5000);
+  </script>
+  </body>
+  </html>''';
+
+    String _buildHomePage() {
+      final lan = _localUrl ?? '?';
+
+      final String tunnelSection;
+      if (_tunnelUrl != null) {
+        final url = _tunnelUrl!;
+        tunnelSection =
+            '<div class="card green">'
+            '<div class="label">Lien public (tunnel SSH)</div>'
+            '<a href="' + url + '" class="url-text">' + url + '</a>'
+            '<div class="hint">Utilisez ce lien depuis n&apos;importe ou</div>'
+            '</div>';
+      } else if (_tunnelError != null) {
+        tunnelSection =
+            '<div class="card red">'
+            '<div class="label">Tunnel indisponible</div>'
+            '<div class="err">' + (_tunnelError ?? '') + '</div>'
+            '</div>';
+      } else {
+        tunnelSection =
+            '<div class="card yellow">'
+            '<div class="label">Tunnel SSH</div>'
+            '<div class="hint">Demarrage en cours...</div>'
+            '<div class="spinner"></div>'
+            '</div>';
+      }
+
+      return _htmlTemplate
+          .replaceAll('{{LAN}}', lan)
+          .replaceAll('{{TUNNEL_SECTION}}', tunnelSection);
+    }
+
     Future<void> start(RemoteApiHandler handler) async {
       if (kIsWeb) return;
       if (_running) return;
 
+      _slog('Demarrage HTTP port 4567...');
       final router = Router();
 
       Response cors(Response r) => r.change(headers: {
@@ -42,74 +167,20 @@ import 'dart:async';
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       });
-
-      Response options(Request r) => Response.ok('', headers: {
+      Response optionsH(Request r) => Response.ok('', headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       });
 
-      // ── Page d'accueil — ouvrir http://[IP]:4567 dans un navigateur ──────
-      router.get('/', (Request req) async {
-        final lanUrl = _localUrl ?? 'http://${req.requestedUri.host}:4567';
-        final tunnelHtml = _tunnelUrl != null
-            ? '<p>🌐 <strong>Lien public (tunnel)</strong> : <a href="$_tunnelUrl">$_tunnelUrl</a></p>'
-            : '<p>⏳ Tunnel SSH en cours de démarrage…</p>';
-        final html = \'\'\'<!DOCTYPE html>
-  <html lang="fr">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Watchtower — Serveur actif</title>
-    <style>
-      body { font-family: sans-serif; max-width: 560px; margin: 48px auto; padding: 0 24px; background: #111; color: #eee; }
-      h1 { color: #7c6ef2; }
-      a { color: #a5b4fc; }
-      .box { background: #1e1e2e; border-radius: 12px; padding: 20px; margin: 20px 0; }
-      code { background: #2a2a3d; padding: 2px 6px; border-radius: 4px; }
-      .ok { color: #4ade80; }
-      .btn { display:inline-block; background:#7c6ef2; color:#fff; padding:10px 20px;
-             border-radius:8px; text-decoration:none; margin-top:12px; }
-    </style>
-  </head>
-  <body>
-    <h1>🗼 Watchtower</h1>
-    <p class="ok">✅ Serveur actif — port 4567</p>
+      router.get('/', (Request req) async =>
+          cors(Response.ok(_buildHomePage(),
+              headers: {'Content-Type': 'text/html; charset=utf-8'})));
 
-    <div class="box">
-      <p>📡 <strong>Lien local (même Wi-Fi)</strong> : <code>$lanUrl</code></p>
-      $tunnelHtml
-    </div>
-
-    <div class="box">
-      <strong>Comment utiliser depuis un navigateur :</strong>
-      <ol>
-        <li>Ouvrez <a href="https://ferelking242.github.io/watchtower" target="_blank">ferelking242.github.io/watchtower</a></li>
-        <li>Collez le <strong>lien public HTTPS</strong> (tunnel) dans le champ URL</li>
-        <li>Appuyez sur Connecter</li>
-      </ol>
-      <p>⚠️ Le lien local <code>http://</code> ne fonctionnera pas depuis le site
-      (page HTTPS → requêtes HTTP bloquées par le navigateur).</p>
-      <a class="btn" href="https://ferelking242.github.io/watchtower" target="_blank">Ouvrir l'app web</a>
-    </div>
-
-    <div class="box">
-      <strong>Test API :</strong>
-      <a href="/api/ping">/api/ping</a> —
-      <a href="/api/sources">/api/sources</a>
-    </div>
-  </body>
-  </html>\'\'\';
-        return cors(Response.ok(html,
-            headers: {'Content-Type': 'text/html; charset=utf-8'}));
-      });
-
-      // ── API routes ───────────────────────────────────────────────────────
       router.get('/api/ping', (_) async =>
           cors(Response.ok(jsonEncode({'ok': true, 'app': 'Watchtower'}),
               headers: {'Content-Type': 'application/json'})));
-      router.get('/api/sources', (Request req) async =>
-          cors(await handler.getSources(req)));
+      router.get('/api/sources', (Request req) async => cors(await handler.getSources(req)));
       router.get('/api/source/<sourceId>/popular', (Request req, String sourceId) async =>
           cors(await handler.getPopular(req, sourceId)));
       router.get('/api/source/<sourceId>/latest', (Request req, String sourceId) async =>
@@ -122,36 +193,35 @@ import 'dart:async';
           cors(await handler.getMangaChapters(req, sourceId, mangaId)));
       router.get('/api/chapter/<chapterId>/pages', (Request req, String chapterId) async =>
           cors(await handler.getChapterPages(req, chapterId)));
-      router.get('/api/library', (Request req) async =>
-          cors(await handler.getLibrary(req)));
-      router.get('/api/history', (Request req) async =>
-          cors(await handler.getHistory(req)));
-      router.get('/api/proxy', (Request req) async =>
-          cors(await handler.proxyImage(req)));
-      router.add('OPTIONS', '/<path|.*>', options);
+      router.get('/api/library', (Request req) async => cors(await handler.getLibrary(req)));
+      router.get('/api/history', (Request req) async => cors(await handler.getHistory(req)));
+      router.get('/api/proxy', (Request req) async => cors(await handler.proxyImage(req)));
+      router.add('OPTIONS', '/<path|.*>', optionsH);
 
       final pipeline = const Pipeline().addHandler(router.call);
-
       _server = await shelf_io.serve(pipeline, InternetAddress.anyIPv4, 4567);
-      _localUrl = 'http://${await _getLanIp()}:4567';
+      _localUrl = 'http://' + (await _getLanIp()) + ':4567';
       _running = true;
       _tunnelError = null;
       _downloadProgress = null;
+      _slog('Serveur actif sur $_localUrl');
       _notify();
 
       _tunnel = TunnelService();
       _tunnel!.onUrlChanged = (url) {
+        _slog('Tunnel URL : $url');
         _tunnelUrl = url;
         _downloadProgress = null;
         _notify();
       };
       _tunnel!.onError = (err) {
+        _slogErr('Tunnel erreur : $err');
         _tunnelError = err;
         _downloadProgress = null;
         _notify();
       };
-      _tunnel!.onDownloadProgress = (progress) {
-        _downloadProgress = progress;
+      _tunnel!.onDownloadProgress = (p) {
+        _downloadProgress = p;
         _notify();
       };
       await _tunnel!.start();
@@ -173,6 +243,7 @@ import 'dart:async';
     }
 
     Future<void> stop() async {
+      _slog('Arret serveur');
       _tunnel?.stop();
       _tunnel = null;
       if (_server != null) {
