@@ -115,7 +115,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _refresh() async {
-    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+    if (kIsWeb) {
+      return;
+    }
+    if (!Platform.isAndroid && !Platform.isIOS) {
       if (mounted) {
         setState(() {
           _storageGranted = true;
@@ -178,9 +181,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     setState(() => _busyNotif = true);
     bool granted = false;
     try {
-      final result = await Permission.notification.request();
-      granted = result.isGranted;
-    } catch (_) {}
+      if (kIsWeb) {
+        granted = true;
+      } else {
+        final result = await Permission.notification.request();
+        granted = result.isGranted;
+      }
+    } catch (_) {
+      granted = kIsWeb;
+    }
     if (!mounted) return;
     setState(() {
       _notifGranted = granted;
@@ -193,9 +202,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     setState(() => _busyInstall = true);
     bool granted = false;
     try {
-      final result = await Permission.requestInstallPackages.request();
-      granted = result.isGranted;
-    } catch (_) {}
+      if (kIsWeb) {
+        granted = true;
+      } else {
+        final result = await Permission.requestInstallPackages.request();
+        granted = result.isGranted;
+      }
+    } catch (_) {
+      granted = kIsWeb;
+    }
     if (!mounted) return;
     setState(() {
       _installGranted = granted;
