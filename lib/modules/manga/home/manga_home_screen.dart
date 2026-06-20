@@ -8,6 +8,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
+import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
@@ -1061,7 +1062,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       }
     }
 
-    if (isCloudflareError(error.toString())) {
+    if (isCloudflareError(error.toString()) ||
+        ((source.hasCloudflare ?? false) && error.toString().toLowerCase().contains('timeout'))) {
       return SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16),
