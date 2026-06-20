@@ -13,7 +13,15 @@ class RemoteModeState {
   final bool isRunning;
   final String? localUrl;
   final String? tunnelUrl;
-  const RemoteModeState({this.isRunning = false, this.localUrl, this.tunnelUrl});
+  final String? tunnelError;
+  final double? downloadProgress;
+  const RemoteModeState({
+    this.isRunning = false,
+    this.localUrl,
+    this.tunnelUrl,
+    this.tunnelError,
+    this.downloadProgress,
+  });
 }
 
 class RemoteModeNotifier extends AsyncNotifier<RemoteModeState> {
@@ -25,6 +33,8 @@ class RemoteModeNotifier extends AsyncNotifier<RemoteModeState> {
       isRunning: RemoteServerService.instance.isRunning,
       localUrl: RemoteServerService.instance.localUrl,
       tunnelUrl: RemoteServerService.instance.tunnelUrl,
+      tunnelError: RemoteServerService.instance.tunnelError,
+      downloadProgress: RemoteServerService.instance.downloadProgress,
     );
   }
 
@@ -33,6 +43,8 @@ class RemoteModeNotifier extends AsyncNotifier<RemoteModeState> {
       isRunning: RemoteServerService.instance.isRunning,
       localUrl: RemoteServerService.instance.localUrl,
       tunnelUrl: RemoteServerService.instance.tunnelUrl,
+      tunnelError: RemoteServerService.instance.tunnelError,
+      downloadProgress: RemoteServerService.instance.downloadProgress,
     ));
   }
 

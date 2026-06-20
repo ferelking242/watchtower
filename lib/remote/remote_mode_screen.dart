@@ -76,11 +76,12 @@ class _Body extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
 
-        // ── Tunnel URL ────────────────────────────────────────────────────
         if (state.isRunning) ...[
+          // ── Tunnel URL ────────────────────────────────────────────────────
           const Text('Lien public (tunnel Cloudflare)',
               style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
+
           if (state.tunnelUrl != null)
             _UrlCard(
               url: state.tunnelUrl!,
@@ -88,7 +89,59 @@ class _Body extends ConsumerWidget {
               icon: Icons.cloud_outlined,
               isPrimary: true,
             )
+          else if (state.tunnelError != null)
+            // Tunnel failed — show error (binary not found, download failed, etc.)
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: ListTile(
+                leading: Icon(Icons.warning_amber_rounded,
+                    color: Theme.of(context).colorScheme.onErrorContainer),
+                title: Text(
+                  'Tunnel indisponible',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onErrorContainer),
+                ),
+                subtitle: Text(
+                  state.tunnelError!,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                      fontSize: 12),
+                ),
+              ),
+            )
+          else if (state.downloadProgress != null)
+            // Downloading cloudflared binary
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: SizedBox(
+                        width: 24, height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      title: Text('Téléchargement de cloudflared...'),
+                      subtitle: Text('Première utilisation — environ 30 Mo'),
+                    ),
+                    LinearProgressIndicator(
+                      value: state.downloadProgress,
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${((state.downloadProgress ?? 0) * 100).toStringAsFixed(0)} %',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            )
           else
+            // Waiting for tunnel URL (cloudflared started, waiting for output)
             const Card(
               child: ListTile(
                 leading: CircularProgressIndicator(strokeWidth: 2),
@@ -96,6 +149,7 @@ class _Body extends ConsumerWidget {
                 subtitle: Text('Cela prend environ 10 secondes'),
               ),
             ),
+
           const SizedBox(height: 16),
 
           // ── Local URL ───────────────────────────────────────────────────

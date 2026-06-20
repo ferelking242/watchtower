@@ -359,6 +359,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (itemType) => LocalHowToScreen(itemType: itemType),
     ),
     _genericRoute(name: "remoteMode", child: const RemoteModeScreen()),
+    _genericRoute(name: "remoteSetup", child: const RemoteSetupScreen()),
   ];
 
   GoRoute _genericRoute<T>({

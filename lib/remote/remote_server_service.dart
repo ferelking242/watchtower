@@ -19,10 +19,14 @@ class RemoteServerService {
   bool _running = false;
   String? _localUrl;
   String? _tunnelUrl;
+  String? _tunnelError;
+  double? _downloadProgress;
 
   bool get isRunning => _running;
   String? get localUrl => _localUrl;
   String? get tunnelUrl => _tunnelUrl;
+  String? get tunnelError => _tunnelError;
+  double? get downloadProgress => _downloadProgress;
 
   final List<VoidCallback> _listeners = [];
   void addListener(VoidCallback cb) => _listeners.add(cb);
@@ -77,11 +81,23 @@ class RemoteServerService {
     _server = await shelf_io.serve(pipeline, InternetAddress.anyIPv4, 4567);
     _localUrl = 'http://localhost:4567';
     _running = true;
+    _tunnelError = null;
+    _downloadProgress = null;
     _notify();
 
     _tunnel = TunnelService();
     _tunnel!.onUrlChanged = (url) {
       _tunnelUrl = url;
+      _downloadProgress = null;
+      _notify();
+    };
+    _tunnel!.onError = (err) {
+      _tunnelError = err;
+      _downloadProgress = null;
+      _notify();
+    };
+    _tunnel!.onDownloadProgress = (progress) {
+      _downloadProgress = progress;
       _notify();
     };
     await _tunnel!.start();
@@ -91,13 +107,14 @@ class RemoteServerService {
     _tunnel?.stop();
     _tunnel = null;
     if (_server != null) {
-      // Dynamically close — type is dart:io HttpServer at runtime
       await (_server as dynamic).close(force: true);
     }
     _server = null;
     _running = false;
     _localUrl = null;
     _tunnelUrl = null;
+    _tunnelError = null;
+    _downloadProgress = null;
     _notify();
   }
 }

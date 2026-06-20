@@ -74,7 +74,16 @@ class SettingsScreen extends StatelessWidget {
               icon: Icons.tune_rounded,
               onTap: () => context.push('/advanced'),
             ),
-            ListTileWidget(
+            // Sur web : on est le CLIENT — on configure l'URL du serveur distant
+            // Sur mobile/desktop : on est le SERVEUR — on active le Mode Distant
+            if (kIsWeb)
+              ListTileWidget(
+                title: 'Connexion Distante',
+                icon: Icons.link_rounded,
+                onTap: () => context.push('/remoteSetup'),
+              )
+            else
+              ListTileWidget(
                 title: 'Mode Distant',
                 icon: Icons.wifi_tethering_rounded,
                 onTap: () => context.push('/remoteMode'),
