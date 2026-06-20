@@ -7,10 +7,10 @@ import 'dart:async';
   import 'package:shelf_router/shelf_router.dart';
   import 'package:watchtower/remote/remote_api_handler.dart';
   import 'package:watchtower/remote/tunnel_service.dart';
-  import 'package:watchtower/utils/log/log.dart';
+  import 'package:watchtower/utils/log/logger.dart';
 
-  void _slog(String msg) => Logger.add(LoggerLevel.info, '[SERVER] $msg');
-  void _slogErr(String msg) => Logger.add(LoggerLevel.error, '[SERVER] $msg');
+  void _slog(String msg) => AppLogger.log('[SERVER] $msg', tag: 'REMOTE');
+  void _slogErr(String msg) => AppLogger.log('[SERVER] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
 
   class RemoteServerService {
     RemoteServerService._();
