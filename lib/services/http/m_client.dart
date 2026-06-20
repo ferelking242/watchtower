@@ -214,7 +214,10 @@ class MCookieManager extends InterceptorContract {
   Future<BaseRequest> interceptRequest({required BaseRequest request}) async {
     final cookie = MClient.getCookiesPref(request.url.toString());
     if (cookie.isNotEmpty) {
-      final settings = await isar.settings.get(kSettingsId);
+      Settings? settings;
+      try {
+        settings = await isar.settings.get(kSettingsId);
+      } catch (_) {}
       final userAgent = settings?.userAgent ?? defaultUserAgent;
       if (request.headers[HttpHeaders.cookieHeader] == null) {
         request.headers.addAll(cookie);
