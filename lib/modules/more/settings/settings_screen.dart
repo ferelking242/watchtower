@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/widgets/list_tile_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/remote/remote_mode_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -72,6 +73,12 @@ class SettingsScreen extends StatelessWidget {
               title: "Avancé",
               icon: Icons.tune_rounded,
               onTap: () => context.push('/advanced'),
+            if (!kIsWeb)
+              ListTileWidget(
+                title: 'Mode Distant',
+                icon: Icons.wifi_tethering_rounded,
+                onTap: () => context.push('/remoteMode'),
+              ),
             ),
             ListTileWidget(
               title: l10n.about,

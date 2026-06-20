@@ -89,6 +89,8 @@ import 'package:watchtower/modules/browse/local_how_to_screen.dart';
 import 'package:watchtower/modules/search/watchtower_discover_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:watchtower/remote/remote_mode_screen.dart';
+import 'package:watchtower/remote/remote_setup_screen.dart';
 part 'router.g.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
