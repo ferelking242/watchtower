@@ -714,11 +714,6 @@ Future<void> downloadChapter(
           }
         },
       );
-            DownloadIsolatePool.instance.cancelTask('${chapter.id}');
-            DownloadIsolatePool.instance.cancelTask('m3u8_${chapter.id}');
-          }
-        },
-      );
     watchdogRef = stuckWatchdog;
     stuckWatchdog.start();
 
