@@ -18,6 +18,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/utils/mock_isar.dart';
 import 'package:watchtower/utils/mock_web_data.dart';
+import 'package:watchtower/remote/remote_web_sync.dart'
+    if (dart.library.io) 'package:watchtower/remote/remote_web_sync_stub.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/models/custom_button.dart';
 import 'package:watchtower/models/manga.dart';
@@ -171,6 +173,8 @@ void main(List<String> args) async {
             ),
           );
         seedMockWebData(_mockIsar);
+        // Sync real data from remote server (if configured)
+        await syncRemoteDataToMockIsar(_mockIsar);
         isar = _mockIsar;
       } else {
         isar = await storage.initDB(null, inspector: false);
