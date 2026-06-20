@@ -1,15 +1,17 @@
 import 'dart:async';
-  import 'dart:convert';
   import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
   import 'package:dartssh2/dartssh2.dart';
   import 'package:flutter/foundation.dart';
-  import 'package:watchtower/utils/log/log.dart';
+  import 'package:watchtower/utils/log/logger.dart';
 
-  void _log(String msg) => Logger.add(LoggerLevel.info, '[TUNNEL] $msg');
-  void _logErr(String msg) => Logger.add(LoggerLevel.error, '[TUNNEL] $msg');
+  void _log(String msg) => AppLogger.log('[TUNNEL] $msg', tag: 'REMOTE');
+  void _logErr(String msg) =>
+      AppLogger.log('[TUNNEL] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
 
   class TunnelService {
     SSHClient? _client;
+    SSHSession? _shellSession;
+    Timer? _keepAliveTimer;
     bool _running = false;
     bool _urlReceived = false;
     final StringBuffer _outputBuffer = StringBuffer();
@@ -58,9 +60,22 @@ import 'dart:async';
         _log('Forwarding port 80 OK — ouverture session shell...');
 
         final session = await _client!.shell();
+        _shellSession = session;
         _log('Session ouverte — attente URL lhr.life...');
 
-        // Collecte tout l output en buffer + parsing temps reel
+        // Keepalive: write newline to shell stdin every 25s to keep
+        // the TCP connection alive through NAT/firewalls and prevent
+        // localhost.run from dropping idle connections.
+        _keepAliveTimer?.cancel();
+        _keepAliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+          if (_running) {
+            try {
+              _shellSession?.stdin.add([10]); // newline — ignored by shell
+            } catch (_) {}
+          }
+        });
+
+        // Collect all output into buffer + real-time parsing
         session.stdout
             .cast<List<int>>()
             .transform(const Utf8Decoder(allowMalformed: true))
@@ -81,8 +96,7 @@ import 'dart:async';
               _parseLineRealtime(line);
             }, onError: (e) => _logErr('stderr err: $e'));
 
-        // Quand la session ferme : chercher l URL dans le buffer complet
-        // localhost.run ferme le shell apres envoi URL — c est NORMAL
+        // When shell closes: parse full buffer for URL
         session.done.then((_) {
           final code = session.exitCode;
           _log('Session fermee (exit=$code) — parsing buffer complet...');
@@ -94,11 +108,12 @@ import 'dart:async';
           if (_running && !_urlReceived) {
             final buf = _outputBuffer.toString();
             _logErr('Timeout 60s. Buffer recu:');
-            // Log le buffer par tranches de 200 chars
             for (var i = 0; i < buf.length; i += 200) {
-              _logErr(buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
+              _logErr(
+                  buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
             }
-            onError?.call('Timeout (60s) — localhost.run n\'a pas envoye de lien tunnel.\nVerifiez Internet.');
+            onError?.call(
+                'Timeout (60s) — localhost.run n\'a pas envoye de lien tunnel.\nVerifiez Internet.');
           }
         });
 
@@ -110,7 +125,7 @@ import 'dart:async';
       }
     }
 
-    // Parsing en temps reel : seulement *.lhr.life, JAMAIS localhost.run URLs
+    // Real-time parsing: only *.lhr.life URLs
     void _parseLineRealtime(String line) {
       if (line.trim().isEmpty) return;
       final match = RegExp(r'https?://[a-z0-9-]+\.lhr\.life').firstMatch(line);
@@ -124,12 +139,11 @@ import 'dart:async';
       }
     }
 
-    // Parsing du buffer complet apres fermeture session
+    // Post-session full-buffer parsing
     void _parseFullBuffer() {
       if (_urlReceived) return;
       final full = _outputBuffer.toString();
 
-      // Cherche d abord *.lhr.life
       final lhr = RegExp(r'https?://[a-z0-9-]+\.lhr\.life').firstMatch(full);
       if (lhr != null) {
         _urlReceived = true;
@@ -138,7 +152,6 @@ import 'dart:async';
         return;
       }
 
-      // Cherche toute URL HTTPS sauf localhost.run
       final all = RegExp(r'https://[^\s\n,]+').allMatches(full);
       for (final m in all) {
         final url = m.group(0)!;
@@ -163,7 +176,7 @@ import 'dart:async';
           _proxyConnection(connection);
         }
         if (_running) {
-          _logErr('Connexion SSH perdue');
+          _logErr('Connexion SSH perdue (forward.connections ferme)');
           onError?.call('Tunnel ferme — reactivez le Mode Distant');
         }
         _running = false;
@@ -177,20 +190,49 @@ import 'dart:async';
     }
 
     void _proxyConnection(SSHForwardChannel connection) async {
+      Socket? local;
       try {
-        final local = await Socket.connect('127.0.0.1', _localPort);
-        connection.stream.cast<List<int>>().pipe(local);
-        local.cast<List<int>>().pipe(connection.sink);
-      } catch (_) {
+        local = await Socket.connect('127.0.0.1', _localPort);
+        _log('Proxy: 127.0.0.1:$_localPort connecte');
+
+        var done = false;
+        void closeAll() {
+          if (done) return;
+          done = true;
+          try { local!.destroy(); } catch (_) {}
+          try { connection.close(); } catch (_) {}
+        }
+
+        // SSH channel → local socket (HTTP request)
+        connection.stream.cast<List<int>>().listen(
+          local.add,
+          onDone: closeAll,
+          onError: (e) { _logErr('Proxy SSH→local: $e'); closeAll(); },
+          cancelOnError: true,
+        );
+
+        // local socket → SSH channel (HTTP response)
+        local.listen(
+          (data) => connection.sink.add(data),
+          onDone: closeAll,
+          onError: (e) { _logErr('Proxy local→SSH: $e'); closeAll(); },
+          cancelOnError: true,
+        );
+      } catch (e) {
+        _logErr('Proxy connexion 127.0.0.1:$_localPort echouee: $e');
+        try { local?.destroy(); } catch (_) {}
         try { await connection.close(); } catch (_) {}
       }
     }
 
     void stop() {
-      _log('Arret');
+      _log('Arret tunnel');
+      _keepAliveTimer?.cancel();
+      _keepAliveTimer = null;
       _running = false;
       _urlReceived = false;
       _outputBuffer.clear();
+      _shellSession = null;
       _client?.close();
       _client = null;
     }
