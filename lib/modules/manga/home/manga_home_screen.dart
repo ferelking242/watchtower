@@ -1358,88 +1358,89 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 },
               ),
             ),
-            flexibleSpace: FlexibleSpaceBar(
-                  collapseMode: CollapseMode.pin,
-                  background: ValueListenableBuilder<double>(
-                    valueListenable: _scrollOffsetNotifier,
-                    builder: (bCtx, scrollOffset, _) {
-                      // collapse distance ≈ expandedHeight(140) - toolbar(56) - pills(40) = 44
-                      final collapseRatio = (scrollOffset / 44.0).clamp(0.0, 1.0);
-                      final isCollapsed = scrollOffset > 40.0;
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // Frosted glass — fades in progressively
-                          if (collapseRatio > 0.01)
-                            ClipRect(
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                                child: Container(
-                                  color: Theme.of(context).scaffoldBackgroundColor
-                                      .withValues(alpha: collapseRatio * 0.92),
-                                ),
-                              ),
-                            ),
-                          // Hard bottom separator when fully collapsed
-                          if (isCollapsed)
-                            Positioned(
-                              bottom: 0, left: 0, right: 0,
-                              child: Container(
-                                height: 0.5,
-                                color: Theme.of(context).dividerColor
-                                    .withValues(alpha: 0.35),
-                              ),
-                            ),
-                          // Large title — LEFT-ALIGNED, fades out quickly on scroll
-                          SafeArea(
-                            bottom: false,
-                            child: Align(
-                              alignment: Alignment.bottomLeft,
-                              child: AnimatedOpacity(
-                                opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
-                                duration: const Duration(milliseconds: 100),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 16, bottom: 48),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      if (!isLocal &&
-                                          (source.iconUrl?.isNotEmpty ?? false)) ...[
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(7),
-                                          child: Image.network(
-                                            source.iconUrl!,
-                                            width: 26,
-                                            height: 26,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const SizedBox.shrink(),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
-                                      Text(
-                                        sourceName,
-                                        style: const TextStyle(
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: -0.4,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
+            flexibleSpace: LayoutBuilder(
+              builder: (lbCtx, constraints) {
+                // expandedHeight=140, toolbar=56, pills=40 → minHeight=96, range=44
+                const expandedH = 140.0;
+                const minH = 96.0;
+                final collapseRatio = ((expandedH - constraints.maxHeight) /
+                    (expandedH - minH)).clamp(0.0, 1.0);
+                final isCollapsed = collapseRatio > 0.9;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Frosted glass — always rendered, driven by collapseRatio
+                    ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: 24 * collapseRatio,
+                          sigmaY: 24 * collapseRatio,
+                        ),
+                        child: Container(
+                          color: Theme.of(lbCtx).scaffoldBackgroundColor
+                              .withValues(alpha: collapseRatio * 0.92),
+                        ),
+                      ),
+                    ),
+                    // Hard bottom separator when fully collapsed
+                    if (isCollapsed)
+                      Positioned(
+                        bottom: 0, left: 0, right: 0,
+                        child: Container(
+                          height: 0.5,
+                          color: Theme.of(lbCtx).dividerColor
+                              .withValues(alpha: 0.35),
+                        ),
+                      ),
+                    // Large title — LEFT-ALIGNED, fades out quickly on scroll
+                    SafeArea(
+                      bottom: false,
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: AnimatedOpacity(
+                          opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
+                          duration: const Duration(milliseconds: 100),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 16, bottom: 48),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                if (!isLocal &&
+                                    (source.iconUrl?.isNotEmpty ?? false)) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(7),
+                                    child: Image.network(
+                                      source.iconUrl!,
+                                      width: 26,
+                                      height: 26,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const SizedBox.shrink(),
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Text(
+                                  sourceName,
+                                  style: const TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.4,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
+                              ],
                             ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
-              ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
         body: _buildBody(context),
