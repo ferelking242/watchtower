@@ -131,12 +131,12 @@ import 'dart:async';
     void _handleForwardedConnections(SSHRemoteForward forward) async {
       _log('En attente de connexions entrantes...');
       try {
-        await for (final connection in forward.connections) {
-          final host = connection.remoteHost;
-          final port = connection.remotePort;
-          _log('Connexion : $host:$port');
-          _proxyConnection(connection);
-        }
+              var connCount = 0;
+      await for (final connection in forward.connections) {
+        connCount++;
+        _log('Connexion entrante #$connCount');
+        _proxyConnection(connection);
+      }
         if (_running) {
           _logErr('Connexion SSH perdue');
           onError?.call('Tunnel ferme — reactivez le Mode Distant');
