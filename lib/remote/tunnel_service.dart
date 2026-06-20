@@ -2,137 +2,117 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 
-/// Manages a Cloudflare Quick Tunnel (cloudflared tunnel --url).
-/// No account or token required — Cloudflare provides free quick tunnels.
-/// On Android, downloads the cloudflared binary on first use if not present.
+/// Tunnel public via localhost.run — SSH pur-Dart, aucun binaire à télécharger.
+/// Fonctionne sur Android sans problème de permission (partition noexec).
+/// Usage : ssh -R 80:localhost:4567 nokey@localhost.run
 class TunnelService {
-  Process? _process;
-  StreamSubscription? _sub;
+  SSHClient? _client;
   bool _running = false;
 
-  /// Called whenever the public HTTPS URL is found.
   void Function(String url)? onUrlChanged;
-
-  /// Called when the tunnel cannot be started (binary unavailable, etc.).
   void Function(String error)? onError;
-
-  /// Called with download progress (0.0–1.0) while fetching the binary.
+  // Gardé pour compatibilité API — plus utilisé (plus de téléchargement)
   void Function(double progress)? onDownloadProgress;
 
-  static const _cloudflaredVersion = '2025.4.0';
-
-  Future<String?> _resolveCloudflaredBin() async {
-    if (!Platform.isAndroid) {
-      // On desktop platforms, expect cloudflared in PATH
-      return 'cloudflared';
-    }
-
-    // On Android, manage the binary ourselves in the app's files directory
-    final dir = await getApplicationDocumentsDirectory();
-    final bin = File('${dir.path}/cloudflared');
-
-    if (bin.existsSync() && bin.lengthSync() > 1024 * 1024) {
-      // Binary already downloaded
-      return bin.path;
-    }
-
-    // Determine ABI
-    final abi = await _getAndroidAbi();
-    final downloadUrl = 'https://github.com/cloudflare/cloudflared/releases/'
-        'download/$_cloudflaredVersion/cloudflared-linux-$abi';
-
-    try {
-      final client = http.Client();
-      final request = http.Request('GET', Uri.parse(downloadUrl));
-      final response = await client.send(request);
-
-      if (response.statusCode != 200) {
-        onError?.call('Téléchargement cloudflared échoué (HTTP ${response.statusCode})');
-        client.close();
-        return null;
-      }
-
-      final total = response.contentLength ?? 0;
-      var received = 0;
-      final sink = bin.openWrite();
-
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-        if (total > 0) {
-          onDownloadProgress?.call(received / total);
-        }
-      }
-
-      await sink.close();
-      client.close();
-
-      // Make executable
-      await Process.run('chmod', ['+x', bin.path]);
-      return bin.path;
-    } catch (e) {
-      onError?.call('Impossible de télécharger cloudflared : $e');
-      if (bin.existsSync()) bin.deleteSync();
-      return null;
-    }
-  }
-
-  Future<String> _getAndroidAbi() async {
-    try {
-      final result = await Process.run('getprop', ['ro.product.cpu.abi']);
-      final abi = result.stdout.toString().trim();
-      if (abi.contains('arm64')) return 'arm64';
-      if (abi.contains('x86_64')) return 'amd64';
-      if (abi.contains('x86')) return '386';
-      return 'arm64'; // default
-    } catch (_) {
-      return 'arm64';
-    }
-  }
+  static const _sshHost = 'localhost.run';
+  static const _sshPort = 22;
+  static const _localPort = 4567;
 
   Future<void> start() async {
     if (kIsWeb) return;
-    try {
-      final binPath = await _resolveCloudflaredBin();
-      if (binPath == null) return; // onError already called
+    if (_running) return;
 
-      _process = await Process.start(binPath, [
-        'tunnel', '--url', 'http://localhost:4567',
-        '--no-autoupdate',
-      ]);
+    try {
+      final socket = await SSHSocket.connect(
+        _sshHost,
+        _sshPort,
+        timeout: const Duration(seconds: 30),
+      );
+
+      _client = SSHClient(
+        socket,
+        username: 'nokey',
+        // localhost.run est un service public connu — on accepte sa clé
+        onVerifyHostKey: (hostKey) => true,
+      );
+
+      await _client!.authenticated;
       _running = true;
 
-      // cloudflared prints the tunnel URL to stderr
-      _sub = _process!.stderr
-          .transform(utf8.decoder)
+      // Demande de forwarding inverse : connexions internet → notre serveur local
+      final remoteForward = await _client!.forwardRemote();
+
+      // Exécution avec --json pour recevoir l'URL assignée en JSON sur stdout
+      final session = await _client!.execute('-- --json');
+
+      session.stdout
+          .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
-          .listen((line) {
-        final match = RegExp(r'https://[a-z0-9\-]+\.trycloudflare\.com').firstMatch(line);
-        if (match != null) {
-          onUrlChanged?.call(match.group(0)!);
-        }
+          .listen(_parseUrlLine, onError: (_) {});
+
+      // Fallback stderr (certaines versions de localhost.run y écrivent l'URL)
+      session.stderr
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .transform(const LineSplitter())
+          .listen(_parseUrlLine, onError: (_) {});
+
+      session.exitCode.then((code) {
+        if (_running) onError?.call('Tunnel SSH fermé (code $code)');
+        _running = false;
       });
 
-      // Also check if the process exited early with an error
-      _process!.exitCode.then((code) {
-        if (_running && code != 0) {
-          onError?.call('cloudflared s\'est arrêté (code $code)');
-        }
-      });
+      // Forward chaque connexion entrante → serveur HTTP local
+      _handleForwardedConnections(remoteForward);
     } catch (e) {
-      // cloudflared not available — tunnel URL stays null, local URL works on LAN
-      onError?.call('cloudflared indisponible : $e');
+      _running = false;
+      onError?.call('Tunnel SSH indisponible : $e');
+    }
+  }
+
+  void _parseUrlLine(String line) {
+    if (line.trim().isEmpty) return;
+    // Tentative JSON (mode --json)
+    try {
+      final data = jsonDecode(line) as Map<String, dynamic>;
+      final address = data['address'] as String?;
+      if (address != null) {
+        onUrlChanged?.call('https://$address');
+        return;
+      }
+    } catch (_) {}
+    // Fallback regex : "https://abc123.lhr.life"
+    final match =
+        RegExp(r'https://[a-z0-9\-]+\.lhr\.life').firstMatch(line);
+    if (match != null) onUrlChanged?.call(match.group(0)!);
+  }
+
+  void _handleForwardedConnections(SSHRemoteForward forward) async {
+    try {
+      await for (final channel in forward.stream) {
+        _proxyChannel(channel);
+      }
+    } catch (_) {}
+  }
+
+  void _proxyChannel(SSHForwardChannel channel) async {
+    try {
+      final local = await Socket.connect('127.0.0.1', _localPort);
+      // Bidirectionnel : internet ↔ serveur local
+      channel.pipe(local);
+      local.pipe(channel.sink);
+    } catch (_) {
+      try {
+        channel.sink.close();
+      } catch (_) {}
     }
   }
 
   void stop() {
     _running = false;
-    _sub?.cancel();
-    _process?.kill();
-    _process = null;
+    _client?.close();
+    _client = null;
   }
 }

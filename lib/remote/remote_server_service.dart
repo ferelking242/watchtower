@@ -79,7 +79,7 @@ class RemoteServerService {
     final pipeline = const Pipeline().addHandler(router.call);
 
     _server = await shelf_io.serve(pipeline, InternetAddress.anyIPv4, 4567);
-    _localUrl = 'http://localhost:4567';
+    _localUrl = 'http://${await _getLanIp()}:4567';
     _running = true;
     _tunnelError = null;
     _downloadProgress = null;
@@ -101,6 +101,23 @@ class RemoteServerService {
       _notify();
     };
     await _tunnel!.start();
+  }
+
+  /// Retourne l'IP locale (WiFi/LAN) de l'appareil.
+  /// Utilise NetworkInterface pour trouver une IPv4 non-loopback.
+  Future<String> _getLanIp() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        includeLoopback: false,
+        type: InternetAddressType.IPv4,
+      );
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (!addr.isLoopback) return addr.address;
+        }
+      }
+    } catch (_) {}
+    return 'localhost';
   }
 
   Future<void> stop() async {

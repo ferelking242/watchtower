@@ -117,6 +117,7 @@ dependencies:
 
   shelf: ^1.4.2
   shelf_router: ^1.1.4
+  dartssh2: ^4.0.0
 
 dependency_overrides:
   ffi: ^2.1.3

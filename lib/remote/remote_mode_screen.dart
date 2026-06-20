@@ -78,7 +78,7 @@ class _Body extends ConsumerWidget {
 
         if (state.isRunning) ...[
           // ── Tunnel URL ────────────────────────────────────────────────────
-          const Text('Lien public (tunnel Cloudflare)',
+          const Text('Lien public (tunnel SSH)',
               style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
 
@@ -90,7 +90,6 @@ class _Body extends ConsumerWidget {
               isPrimary: true,
             )
           else if (state.tunnelError != null)
-            // Tunnel failed — show error (binary not found, download failed, etc.)
             Card(
               color: Theme.of(context).colorScheme.errorContainer,
               child: ListTile(
@@ -109,44 +108,16 @@ class _Body extends ConsumerWidget {
                 ),
               ),
             )
-          else if (state.downloadProgress != null)
-            // Downloading cloudflared binary
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: SizedBox(
-                        width: 24, height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      title: Text('Téléchargement de cloudflared...'),
-                      subtitle: Text('Première utilisation — environ 30 Mo'),
-                    ),
-                    LinearProgressIndicator(
-                      value: state.downloadProgress,
-                      minHeight: 4,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${((state.downloadProgress ?? 0) * 100).toStringAsFixed(0)} %',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-            )
           else
-            // Waiting for tunnel URL (cloudflared started, waiting for output)
+            // Connexion SSH en cours (quelques secondes, aucun téléchargement)
             const Card(
               child: ListTile(
-                leading: CircularProgressIndicator(strokeWidth: 2),
+                leading: SizedBox(
+                  width: 24, height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
                 title: Text('Tunnel en cours de démarrage...'),
-                subtitle: Text('Cela prend environ 10 secondes'),
+                subtitle: Text('Connexion SSH — environ 5 secondes'),
               ),
             ),
 
@@ -208,8 +179,9 @@ class _Body extends ConsumerWidget {
                   const SizedBox(height: 8),
                   const Text(
                     'Quand le Mode Distant est actif, votre appareil devient un serveur. '
-                    'Un lien public est créé automatiquement via un tunnel Cloudflare — '
-                    'accessible depuis n\'importe où dans le monde, sans configuration réseau.\n\n'
+                    'Un lien public est créé automatiquement via un tunnel SSH '
+                    '(localhost.run) — accessible depuis n\'importe où dans le monde, '
+                    'sans téléchargement ni configuration réseau.\n\n'
                     'La version web de Watchtower peut ensuite se connecter à ce lien '
                     'pour utiliser toutes vos extensions et sources installées.',
                   ),
