@@ -1,4 +1,6 @@
 import 'dart:async';
+  import 'dart:convert';
+  import 'dart:typed_data';
   import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
   import 'package:dartssh2/dartssh2.dart';
   import 'package:flutter/foundation.dart';
@@ -63,19 +65,18 @@ import 'dart:async';
         _shellSession = session;
         _log('Session ouverte — attente URL lhr.life...');
 
-        // Keepalive: write newline to shell stdin every 25s to keep
-        // the TCP connection alive through NAT/firewalls and prevent
-        // localhost.run from dropping idle connections.
+        // Keepalive: envoie un octet nul au shell toutes les 25s pour
+        // garder la connexion TCP active (NAT/firewall timeout).
         _keepAliveTimer?.cancel();
         _keepAliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
           if (_running) {
             try {
-              _shellSession?.stdin.add([10]); // newline — ignored by shell
+              _shellSession?.stdin.add(Uint8List.fromList([10]));
             } catch (_) {}
           }
         });
 
-        // Collect all output into buffer + real-time parsing
+        // Collecte stdout dans buffer + parsing temps reel
         session.stdout
             .cast<List<int>>()
             .transform(const Utf8Decoder(allowMalformed: true))
@@ -96,7 +97,7 @@ import 'dart:async';
               _parseLineRealtime(line);
             }, onError: (e) => _logErr('stderr err: $e'));
 
-        // When shell closes: parse full buffer for URL
+        // Quand le shell ferme : parser le buffer complet
         session.done.then((_) {
           final code = session.exitCode;
           _log('Session fermee (exit=$code) — parsing buffer complet...');
@@ -113,7 +114,7 @@ import 'dart:async';
                   buf.substring(i, i + 200 > buf.length ? buf.length : i + 200));
             }
             onError?.call(
-                'Timeout (60s) — localhost.run n\'a pas envoye de lien tunnel.\nVerifiez Internet.');
+                'Timeout (60s) — localhost.run n\'a pas envoye de lien.\nVerifiez Internet.');
           }
         });
 
@@ -125,7 +126,7 @@ import 'dart:async';
       }
     }
 
-    // Real-time parsing: only *.lhr.life URLs
+    // Parsing temps reel : seulement *.lhr.life
     void _parseLineRealtime(String line) {
       if (line.trim().isEmpty) return;
       final match = RegExp(r'https?://[a-z0-9-]+\.lhr\.life').firstMatch(line);
@@ -139,7 +140,7 @@ import 'dart:async';
       }
     }
 
-    // Post-session full-buffer parsing
+    // Parsing post-fermeture du buffer complet
     void _parseFullBuffer() {
       if (_urlReceived) return;
       final full = _outputBuffer.toString();
@@ -163,7 +164,7 @@ import 'dart:async';
         }
       }
 
-      _log('Aucune URL lhr.life dans le buffer — tunnel peut etre actif sans URL');
+      _log('Aucune URL lhr.life dans le buffer');
     }
 
     void _handleForwardedConnections(SSHRemoteForward forward) async {
@@ -203,19 +204,19 @@ import 'dart:async';
           try { connection.close(); } catch (_) {}
         }
 
-        // SSH channel → local socket (HTTP request)
+        // SSH channel -> local socket (requete HTTP)
         connection.stream.cast<List<int>>().listen(
           local.add,
           onDone: closeAll,
-          onError: (e) { _logErr('Proxy SSH→local: $e'); closeAll(); },
+          onError: (e) { _logErr('Proxy SSH->local: $e'); closeAll(); },
           cancelOnError: true,
         );
 
-        // local socket → SSH channel (HTTP response)
+        // local socket -> SSH channel (reponse HTTP)
         local.listen(
           (data) => connection.sink.add(data),
           onDone: closeAll,
-          onError: (e) { _logErr('Proxy local→SSH: $e'); closeAll(); },
+          onError: (e) { _logErr('Proxy local->SSH: $e'); closeAll(); },
           cancelOnError: true,
         );
       } catch (e) {
