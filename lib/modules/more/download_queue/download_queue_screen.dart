@@ -1295,8 +1295,8 @@ class _DownloadCard extends ConsumerWidget {
                   ? onOpen
                   : onPauseResume,
       child: Container(
-        width: layout == DownloadCardLayout.full ? 40 : 36,
-        height: layout == DownloadCardLayout.full ? 40 : 36,
+        width: 28,
+        height: 28,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: actionColor.withValues(alpha: 0.15),
@@ -1311,7 +1311,7 @@ class _DownloadCard extends ConsumerWidget {
                       ? Icons.play_arrow_rounded
                       : Icons.download_rounded,
           color: actionColor,
-          size: layout == DownloadCardLayout.full ? 20 : 18,
+          size: 16,
         ),
       ),
     );
@@ -1319,7 +1319,7 @@ class _DownloadCard extends ConsumerWidget {
     // ── Compact layout ──────────────────────────────────────────────────────
     if (layout == DownloadCardLayout.compact) {
       return Container(
-        color: scheme.surface,
+        color: Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1371,7 +1371,7 @@ class _DownloadCard extends ConsumerWidget {
     // ── Full / Étendu layout ────────────────────────────────────────────────
     if (layout == DownloadCardLayout.full) {
       return Container(
-        color: scheme.surface,
+        color: Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1454,7 +1454,7 @@ class _DownloadCard extends ConsumerWidget {
 
     // ── Standard layout (default) ───────────────────────────────────────────
     return Container(
-      color: scheme.surface,
+      color: Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
@@ -1500,13 +1500,20 @@ class _DownloadCard extends ConsumerWidget {
                 ),
                 if (progressBar != null) ...[
                   const SizedBox(height: 5),
-                  progressBar,
+                  Row(
+                    children: [
+                      Expanded(child: progressBar),
+                      const SizedBox(width: 6),
+                      actionBtn,
+                    ],
+                  ),
+                ] else ...[
+                  const SizedBox(height: 4),
+                  Align(alignment: Alignment.centerRight, child: actionBtn),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          actionBtn,
         ],
       ),
     );

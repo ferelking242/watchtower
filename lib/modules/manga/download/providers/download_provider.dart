@@ -1072,6 +1072,7 @@ Future<void> downloadChapter(
               .read(downloadQueueStateProvider.notifier)
               .setEngine(chapter.id!, 'IMG');
         }
+        stuckWatchdog.markDownloading(); // pages fetched, switch to download phase
         log('[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}');
         try {
           await MDownloader(
