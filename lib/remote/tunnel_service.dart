@@ -7,12 +7,12 @@ import 'dart:async';
   /// Tunnel public via localhost.run — SSH pur-Dart, aucun binaire.
   ///
   /// Séquence correcte :
-  ///   1. forwardRemote(remotePort: 80)  → localhost.run assigne un sous-domaine
-  ///   2. shell()                         → localhost.run envoie l'URL dans cette session
-  ///   3. _handleForwardedConnections()   → proxy TCP vers le serveur HTTP local
+  ///   1. forwardRemote()  → localhost.run assigne un sous-domaine (*.lhr.life)
+  ///   2. shell()          → localhost.run envoie l'URL dans cette session
+  ///   3. _handleForwardedConnections() → proxy TCP vers le serveur HTTP local
   ///
-  /// IMPORTANT : ne pas utiliser execute() — localhost.run peut rejeter les
-  /// requêtes exec. La session shell suffit pour recevoir l'URL.
+  /// IMPORTANT : utiliser shell() et non execute() — localhost.run peut rejeter
+  /// les requêtes exec. L'URL arrive dans la session shell (stdout / stderr).
   class TunnelService {
     SSHClient? _client;
     bool _running = false;
@@ -49,10 +49,9 @@ import 'dart:async';
 
         // ── Étape 1 : demander le forwarding inverse ─────────────────────────
         // forwardRemote() envoie SSH_MSG_GLOBAL_REQUEST "tcpip-forward".
-        // localhost.run assigne un sous-domaine unique (*.lhr.life) et expose
-        // les connexions entrantes sur remotePort: 80.
+        // localhost.run assigne un sous-domaine unique (*.lhr.life).
         // DOIT être fait AVANT d'ouvrir la session shell.
-        final forward = await _client!.forwardRemote(remotePort: 80);
+        final forward = await _client!.forwardRemote();
         if (forward == null) {
           onError?.call('localhost.run : forwarding refusé par le serveur');
           _running = false;
@@ -63,7 +62,7 @@ import 'dart:async';
 
         // ── Étape 2 : ouvrir une session shell ───────────────────────────────
         // localhost.run envoie l'URL assignée dans cette session (stdout/stderr).
-        // On utilise shell() et non execute() pour éviter le rejet exec.
+        // shell() est plus compatible que execute() avec localhost.run.
         final session = await _client!.shell();
 
         session.stdout
@@ -103,7 +102,7 @@ import 'dart:async';
         onUrlChanged?.call(match.group(0)!);
         return;
       }
-      // Fallback : toute URL HTTPS dans la ligne (au cas où le format change)
+      // Fallback : toute URL HTTPS dans la ligne
       final fallback = RegExp(r'https://\S+').firstMatch(line);
       if (fallback != null) {
         onUrlChanged?.call(
