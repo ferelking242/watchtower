@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
@@ -34,7 +35,6 @@ import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/engine_selector.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
-import 'package:watchtower/services/download_manager/stuck_watchdog.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
@@ -617,13 +617,6 @@ Future<void> downloadChapter(
   VoidCallback? callback,
 }) async {
   final keepAlive = ref.keepAlive();
-  // Held outside the try so we can guarantee the periodic Timer is
-  // cancelled on success, on error AND on early-return — otherwise a
-  // failed segment download would leave the watchdog logging
-  // "STUCK | no progress for Ns" forever long after the chapter has
-  // already been marked failed.
-  DownloadStuckWatchdog? watchdogRef;
-
   try {
     bool onlyOnWifi = useWifi ?? ref.read(onlyOnWifiStateProvider);
     final connectivity = await Connectivity().checkConnectivity();
@@ -635,6 +628,13 @@ Future<void> downloadChapter(
       callback?.call();
       keepAlive.close();
       return;
+    }
+
+    // Register immediately so any concurrent processDownloads call sees this
+    // chapter as active and does not double-start it while the page-URL fetch
+    // is still in progress (was the root cause of the "0/1 page" stuck bug).
+    if (chapter.id != null) {
+      ActiveDownloadRegistry.registerInternal(chapter.id!, '${chapter.id}');
     }
 
     final http = MClient.init(
@@ -655,7 +655,6 @@ Future<void> downloadChapter(
       chapter,
     );
     List<Track>? subtitles;
-    bool isOk = false;
     final manga = chapter.manga.value ?? (throw StateError('chapter.manga not loaded'));
     final chapterName = chapter.name!.replaceForbiddenCharacters(' ');
     final itemType = manga.itemType;
@@ -706,33 +705,16 @@ Future<void> downloadChapter(
       }
     }
 
-    final stuckWatchdog = DownloadStuckWatchdog(
-        label: 'chapter=${chapter.id} (${itemType.name})',
-        onStuck: () {
-          if (chapter.id != null) {
-            ActiveDownloadRegistry.cancel(chapter.id!);
-          }
-        },
-      );
-    watchdogRef = stuckWatchdog;
-    stuckWatchdog.start();
-
     Future<void> setProgress(DownloadProgress progress) async {
-      if (progress.total > 0) {
+      if (progress.total > 0 && AppLogger.isExtremeMode) {
         final pct = (progress.completed / progress.total * 100).toInt();
-        stuckWatchdog.markDownloading();
-        stuckWatchdog.notifyProgress(pct);
-
-        if (AppLogger.isExtremeMode) {
-          AppLogger.log(
-            '[ch:${chapter.id}] page ${progress.completed}/${progress.total} ($pct%) '
-            '• type=${progress.itemType.name}',
-            logLevel: LogLevel.debug,
-            tag: LogTag.page,
-          );
-        }
+        AppLogger.log(
+          '[ch:${chapter.id}] page ${progress.completed}/${progress.total} ($pct%) '
+          '• type=${progress.itemType.name}',
+          logLevel: LogLevel.debug,
+          tag: LogTag.page,
+        );
       }
-      if (progress.isCompleted) stuckWatchdog.stop();
       if (progress.isCompleted && itemType == ItemType.manga) {
         await processConvert();
       }
@@ -833,31 +815,32 @@ Future<void> downloadChapter(
     String? fetchError;
 
     if (itemType == ItemType.manga) {
-      ref
-          .read(getChapterPagesProvider(chapter: chapter).future)
-          .then((value) {
-            if (value.pageUrls.isNotEmpty) {
-              pageUrls = value.pageUrls;
-              isOk = true;
-            } else {
-              fetchError = 'getChapterPages returned empty list';
-              isOk = true;
-            }
-          })
-          .catchError((e, st) {
-            fetchError = friendlyErrorMessage(e);
-            isOk = true;
-            log('[downloadChapter][manga] getChapterPages error: $e', error: e, stackTrace: st);
-          });
+      try {
+        final value = await ref
+            .read(getChapterPagesProvider(chapter: chapter).future)
+            .timeout(const Duration(seconds: 90));
+        if (value.pageUrls.isNotEmpty) {
+          pageUrls = value.pageUrls;
+        } else {
+          fetchError = 'getChapterPages returned empty list';
+        }
+      } on TimeoutException {
+        fetchError = 'Fetch timed out after 90s — source returned no data';
+        log('[downloadChapter] timeout after 90s for chapterId=${chapter.id}');
+      } catch (e, st) {
+        fetchError = friendlyErrorMessage(e);
+        log('[downloadChapter][manga] getChapterPages error: $e', error: e, stackTrace: st);
+      }
     } else if (itemType == ItemType.anime) {
-      ref.read(getVideoListProvider(episode: chapter).future).then((
-        value,
-      ) async {
+      try {
+        final value = await ref
+            .read(getVideoListProvider(episode: chapter).future)
+            .timeout(const Duration(seconds: 90));
         // Detect HLS streams smarter: not every HLS URL ends in .m3u8
         // (e.g. xnxx CDN URLs are tokenized). We also flag a URL as HLS
         // when its host or path hints at HLS, when its quality label
         // mentions HLS, or when the explicit .m3u8 extension is present.
-        bool _looksLikeHls(dynamic v) {
+        bool looksLikeHls(dynamic v) {
           final u = (v.originalUrl ?? '').toString().toLowerCase();
           if (u.endsWith('.m3u8') || u.endsWith('.m3u')) return true;
           if (u.contains('.m3u8') || u.contains('/hls/') ||
@@ -866,9 +849,9 @@ Future<void> downloadChapter(
           if (q.contains('hls') || q.contains('auto')) return true;
           return false;
         }
-        final m3u8Urls = value.$1.where(_looksLikeHls).toList();
+        final m3u8Urls = value.$1.where(looksLikeHls).toList();
         final nonM3u8Urls = value.$1
-            .where((element) => !_looksLikeHls(element) && element.originalUrl.isMediaVideo())
+            .where((element) => !looksLikeHls(element) && element.originalUrl.isMediaVideo())
             .toList();
         nonM3U8File = nonM3u8Urls.isNotEmpty;
         hasM3U8File = nonM3U8File ? false : m3u8Urls.isNotEmpty;
@@ -879,8 +862,7 @@ Future<void> downloadChapter(
         final preferredOriginal =
             chapter.id != null ? chapterPreferredOriginalUrl[chapter.id!] : null;
         if (preferredOriginal != null && videosUrls.isNotEmpty) {
-          final idx = videosUrls
-              .indexWhere((v) => v.originalUrl == preferredOriginal);
+          final idx = videosUrls.indexWhere((v) => v.originalUrl == preferredOriginal);
           if (idx > 0) {
             final picked = videosUrls.removeAt(idx);
             videosUrls = [picked, ...videosUrls];
@@ -890,12 +872,10 @@ Future<void> downloadChapter(
         }
         if (videosUrls.isNotEmpty) {
           subtitles = videosUrls.first.subtitles;
-
           final videoUri = Uri.tryParse(videosUrls.first.originalUrl);
           final referer = videoUri != null
               ? '${videoUri.scheme}://${videoUri.host}'
               : null;
-
           if (hasM3U8File) {
             m3u8Downloader = M3u8Downloader(
               m3u8Url: videosUrls.first.url,
@@ -911,16 +891,16 @@ Future<void> downloadChapter(
             pageUrls = [PageUrl(videosUrls.first.url)];
           }
           videoHeader.addAll(videosUrls.first.headers ?? {});
-          isOk = true;
         } else {
           fetchError = 'getVideoList returned no playable URLs';
-          isOk = true;
         }
-      }).catchError((e, st) {
+      } on TimeoutException {
+        fetchError = 'Fetch timed out after 90s — source returned no data';
+        log('[downloadChapter] timeout after 90s for chapterId=${chapter.id}');
+      } catch (e, st) {
         fetchError = friendlyErrorMessage(e);
-        isOk = true;
         log('[downloadChapter][anime] getVideoList error: $e', error: e, stackTrace: st);
-      });
+      }
     } else if (itemType == ItemType.novel && chapter.url != null) {
       final manga = chapter.manga.value!;
       final source = getSource(manga.lang!, manga.source!, manga.sourceId)!;
@@ -938,25 +918,7 @@ Future<void> downloadChapter(
       } else {
         novelPage = PageUrl(chapterUrl);
       }
-      isOk = true;
     }
-
-    // Wait for async fetch (manga/anime) with a hard 90-second timeout so
-    // downloads never hang at 0% indefinitely.
-    const maxWaitTicks = 90;
-    var waitTicks = 0;
-    await Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
-      if (isOk == true) return false;
-      waitTicks++;
-      if (waitTicks >= maxWaitTicks) {
-        fetchError = 'Fetch timed out after ${maxWaitTicks}s — source returned no data';
-        log('[downloadChapter] timeout after ${maxWaitTicks}s for chapterId=${chapter.id}');
-        isOk = true;
-        return false;
-      }
-      return true;
-    });
 
     // If the fetch failed (exception, empty result, or timeout), mark failed and abort.
     if (fetchError != null) {
@@ -974,7 +936,6 @@ Future<void> downloadChapter(
       // CRITICAL: release processDownloads slot so the next queued
       // download can start — without this, one extension failure blocks
       // the entire download queue forever ("en attente" bug).
-      watchdogRef?.stop();
       callback?.call();
       keepAlive.close();
       return;
@@ -1077,7 +1038,6 @@ Future<void> downloadChapter(
               .read(downloadQueueStateProvider.notifier)
               .setEngine(chapter.id!, 'IMG');
         }
-        stuckWatchdog.markDownloading(); // pages fetched, switch to download phase
         log('[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}');
         try {
           await MDownloader(
@@ -1264,9 +1224,11 @@ Future<void> downloadChapter(
     callback?.call();
     keepAlive.close();
   } finally {
-    // Cancel the periodic Timer no matter how we exit, so a failed
-    // download stops spamming "STUCK" warnings in the log viewer.
-    watchdogRef?.stop();
+    // Always clean up the registry entry so the chapter is no longer seen
+    // as "active" after this function exits (success, failure, or timeout).
+    if (chapter.id != null) {
+      ActiveDownloadRegistry.unregister(chapter.id!);
+    }
   }
 }
 
@@ -1281,10 +1243,9 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         .isStartDownloadEqualTo(true)
         .findAll();
 
-    // Skip chapters that are currently paused
+    // Skip chapters that are currently paused or already actively running.
     final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
-    // Also skip downloads already actively running to avoid double-start / flicker
-    final activeDownloads = ongoingDownloads
+    final toStart = ongoingDownloads
         .where(
           (d) =>
               d.chapter.value?.id == null ||
@@ -1293,77 +1254,113 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         )
         .toList();
 
-    log('[processDownloads] total=${ongoingDownloads.length} paused=${pausedIds.length} toStart=${activeDownloads.length}');
+    log('[processDownloads] total=${ongoingDownloads.length} paused=${pausedIds.length} toStart=${toStart.length}');
 
-    final maxConcurrentDownloads = ref.read(concurrentDownloadsStateProvider);
+    if (toStart.isEmpty) {
+      keepAlive.close();
+      return;
+    }
 
-    // ── Cross-source round-robin scheduling ─────────────────────────────────
-    // The previous implementation walked `activeDownloads` linearly which
-    // meant: queue 3 xnxx + 4 pornhub + 2 redtube → all 3 xnxx start, then
-    // pornhub, then redtube. We instead group by source name and pull one
-    // download from each non-empty source per pick — so different sites
-    // download in parallel from their first chapter, instead of one site
-    // hogging the global cap.
+    // ── Concurrency limits ───────────────────────────────────────────────────
+    // Global cap (legacy "simultaneous downloads" setting).
+    final globalMax = ref.read(concurrentDownloadsStateProvider);
+    // Per-type caps and per-(type,source) caps read from the dedicated providers.
+    final typeMax = <ItemType, int>{
+      ItemType.manga: ref.read(mangaSimultaneousStateProvider),
+      ItemType.anime: ref.read(watchSimultaneousStateProvider),
+      ItemType.novel: ref.read(novelSimultaneousStateProvider),
+    };
+    final typePerSrcMax = <ItemType, int>{
+      ItemType.manga: ref.read(mangaSimultaneousPerSourceStateProvider),
+      ItemType.anime: ref.read(watchSimultaneousPerSourceStateProvider),
+      ItemType.novel: ref.read(novelSimultaneousPerSourceStateProvider),
+    };
+
+    // ── Cross-source round-robin queues ──────────────────────────────────────
+    // Group by source so the scheduler interleaves sources fairly.
     final perSourceQueues = <String, List<Download>>{};
-    for (final d in activeDownloads) {
+    for (final d in toStart) {
       final src = d.chapter.value?.manga.value?.source ?? '_unknown';
       (perSourceQueues[src] ??= <Download>[]).add(d);
     }
     final sourceOrder = perSourceQueues.keys.toList();
     int rrIdx = 0;
-    Download? nextPick() {
-      if (sourceOrder.isEmpty) return null;
-      for (var attempts = 0; attempts < sourceOrder.length; attempts++) {
-        final src = sourceOrder[rrIdx % sourceOrder.length];
-        rrIdx++;
-        final queue = perSourceQueues[src];
-        if (queue != null && queue.isNotEmpty) {
-          return queue.removeAt(0);
-        }
-      }
-      return null;
-    }
 
-    int downloaded = 0;
-    int current = 0;
-    bool exhausted = false;
+    // Active-download counters — updated synchronously so each tick is
+    // consistent even when multiple downloads finish between ticks.
+    int current = 0; // global in-flight count
+    final activePerType = <ItemType, int>{}; // in-flight per ItemType
+    final activePerSrc = <String, int>{}; // in-flight per '${type}_$source'
+
+    int downloaded = 0; // completed (callback fired) count
+
+    bool allQueuesEmpty() =>
+        perSourceQueues.values.every((q) => q.isEmpty);
+
+    /// Round-robin pick that respects per-type and per-source limits.
+    /// Returns null when all remaining items are at their limit (not truly
+    /// exhausted — a slot will free when an in-flight download finishes).
+    Download? nextPick() {
+      if (allQueuesEmpty()) return null;
+      final n = sourceOrder.length;
+      for (var i = 0; i < n; i++) {
+        final src = sourceOrder[(rrIdx + i) % n];
+        final queue = perSourceQueues[src];
+        if (queue == null || queue.isEmpty) continue;
+        final d = queue.first;
+        final type = d.chapter.value?.manga.value?.itemType ?? ItemType.manga;
+        final tLimit = typeMax[type] ?? 1;
+        final sLimit = typePerSrcMax[type] ?? 1;
+        final curType = activePerType[type] ?? 0;
+        final curSrc = activePerSrc['${type.name}_$src'] ?? 0;
+        if (curType >= tLimit || curSrc >= sLimit) continue;
+        rrIdx = (rrIdx + i + 1) % n;
+        return queue.removeAt(0);
+      }
+      return null; // all remaining items are throttled — wait for a free slot
+    }
 
     await Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
-      if (activeDownloads.length == downloaded) {
-        return false;
-      }
-      if (current < maxConcurrentDownloads && !exhausted) {
-        current++;
+
+      // Done: all started downloads have completed.
+      if (toStart.length == downloaded) return false;
+
+      // Try to start as many downloads as possible within all caps.
+      while (current < globalMax) {
         final downloadItem = nextPick();
-        if (downloadItem == null) {
-          // Nothing left to enqueue; just wait for the in-flight ones.
-          exhausted = true;
-          current--;
-          return true;
-        }
+        if (downloadItem == null) break; // nothing to start right now
+
         final chapter = downloadItem.chapter.value!;
-        // Cancel any stale pool task without deleting the Isar record.
-        // Using ActiveDownloadRegistry.cancel() avoids the flicker caused by
-        // chapter.cancelDownloads() which deletes the record from Isar.
-        if (chapter.id != null) {
-          await ActiveDownloadRegistry.cancel(chapter.id!);
-        }
-        log('[processDownloads] starting chapterId=${chapter.id} "${chapter.name}"');
-        await Future.delayed(const Duration(milliseconds: 300));
+        final type = downloadItem.chapter.value?.manga.value?.itemType ?? ItemType.manga;
+        final src = downloadItem.chapter.value?.manga.value?.source ?? '_unknown';
+
+        // Update counters before starting so re-entrant ticks see the right state.
+        current++;
+        activePerType[type] = (activePerType[type] ?? 0) + 1;
+        activePerSrc['${type.name}_$src'] = (activePerSrc['${type.name}_$src'] ?? 0) + 1;
+
+        log('[processDownloads] starting chapterId=${chapter.id} "${chapter.name}" type=${type.name} src=$src');
+        await Future.delayed(const Duration(milliseconds: 200));
         ref.read(
           downloadChapterProvider(
             chapter: chapter,
             useWifi: useWifi,
             callback: () {
               downloaded++;
-              current--;
-              log('[processDownloads] done chapterId=${chapter.id} downloaded=$downloaded/${activeDownloads.length}');
+              current = (current - 1).clamp(0, 9999);
+              activePerType[type] = ((activePerType[type] ?? 1) - 1).clamp(0, 9999);
+              activePerSrc['${type.name}_$src'] = ((activePerSrc['${type.name}_$src'] ?? 1) - 1).clamp(0, 9999);
+              log('[processDownloads] done chapterId=${chapter.id} downloaded=$downloaded/${toStart.length}');
             },
           ),
         );
       }
-      return true;
+
+      // If everything is truly exhausted and nothing is in flight, stop.
+      if (allQueuesEmpty() && current == 0) return false;
+
+      return true; // keep polling
     });
     keepAlive.close();
   } catch (_) {
