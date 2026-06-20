@@ -1355,20 +1355,47 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               const SizedBox(width: 4),
             ],
             // Pills stick inside the SliverAppBar — part of the header, not a
-            // separate sliver. Transparent so the flexibleSpac            flexibleSpace: LayoutBuilder(
+            // separate sliver. Transparent so the flexibleSpace blur shows through.
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(40),
+              child: _TabPillsRow(
+                types: _types(context),
+                selectedIndex: _selectedIndex,
+                filterList: filterList,
+                supportsLatest: supportsLatest,
+                hasCustomLists: _customLists.isNotEmpty,
+                onSelect: (index) async {
+                  if (filters.isEmpty) filters = filterList;
+                  if (index == _kFilterIdx) {
+                    await _openFilterSheet(context);
+                  } else {
+                    _mangaList.clear();
+                    setState(() {
+                      _selectedIndex = index;
+                      _isFiltering = false;
+                      _isSearch = false;
+                      _query = "";
+                      _textEditingController.clear();
+                      _page = 1;
+                      _isLoading = false;
+                    });
+                  }
+                },
+              ),
+            ),
+            flexibleSpace: LayoutBuilder(
                 builder: (lbCtx, constraints) {
                   // expandedHeight=140, toolbar=56, pills=40 → minHeight=96, range=44
                   const expandedH = 140.0;
                   const minH = 96.0;
                   final collapseRatio = ((expandedH - constraints.maxHeight) /
                       (expandedH - minH)).clamp(0.0, 1.0);
-                  // Sync to AppBar title — safe to set ValueNotifier during LayoutBuilder
+                  // Sync to AppBar title (safe to set ValueNotifier during LayoutBuilder)
                   _collapseRatioNotifier.value = collapseRatio;
                   final isCollapsed = collapseRatio > 0.9;
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Frosted glass — always rendered, driven by collapseRatio
                       ClipRect(
                         child: BackdropFilter(
                           filter: ImageFilter.blur(
@@ -1381,7 +1408,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                           ),
                         ),
                       ),
-                      // Hard bottom separator when fully collapsed
                       if (isCollapsed)
                         Positioned(
                           bottom: 0, left: 0, right: 0,
@@ -1391,7 +1417,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                                 .withValues(alpha: 0.35),
                           ),
                         ),
-                      // Large title — slides UP and fades out as header collapses
                       SafeArea(
                         bottom: false,
                         child: Align(
@@ -1441,33 +1466,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                     ],
                   );
                 },
-              )          fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          const SizedBox.shrink(),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                Text(
-                                  sourceName,
-                                  style: const TextStyle(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: -0.4,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+              ),
           ),
         ],
         body: _buildBody(context),
