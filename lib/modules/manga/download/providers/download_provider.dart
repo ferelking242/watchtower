@@ -707,8 +707,15 @@ Future<void> downloadChapter(
     }
 
     final stuckWatchdog = DownloadStuckWatchdog(
-      label: 'chapter=${chapter.id} (${itemType.name})',
-    );
+        label: 'chapter=${chapter.id} (${itemType.name})',
+        onStuck: () {
+          if (chapter.id != null) {
+            ActiveDownloadRegistry.cancel(chapter.id!);
+            DownloadIsolatePool.instance.cancelTask('${chapter.id}');
+            DownloadIsolatePool.instance.cancelTask('m3u8_${chapter.id}');
+          }
+        },
+      );
     watchdogRef = stuckWatchdog;
     stuckWatchdog.start();
 
