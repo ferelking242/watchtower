@@ -142,7 +142,7 @@ import 'dart:async';
       final all = RegExp(r'https://[^\s\n,]+').allMatches(full);
       for (final m in all) {
         final url = m.group(0)!;
-        if (!url.contains('localhost.run') && !url.contains('lhr.life/') == false) {
+        if (!url.contains('localhost.run')) {
           _urlReceived = true;
           _log('URL trouvee (post-session fallback) : $url');
           onUrlChanged?.call(url);
