@@ -711,6 +711,9 @@ Future<void> downloadChapter(
         onStuck: () {
           if (chapter.id != null) {
             ActiveDownloadRegistry.cancel(chapter.id!);
+          }
+        },
+      );
             DownloadIsolatePool.instance.cancelTask('${chapter.id}');
             DownloadIsolatePool.instance.cancelTask('m3u8_${chapter.id}');
           }
