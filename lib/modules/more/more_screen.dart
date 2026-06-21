@@ -282,57 +282,134 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
 
   // ── Android layout ─────────────────────────────────────────────────────
 
-  Widget _buildAndroid(BuildContext context, dynamic l10n) {
-    final navItems = _buildNavItems(l10n);
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bottomPad = MediaQuery.of(context).padding.bottom;
+    Widget _buildAndroid(BuildContext context, dynamic l10n) {
+      final navItems = _buildNavItems(l10n);
+      final cs = Theme.of(context).colorScheme;
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final bottomPad = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _HeroHeader(),
-
-            // Toggles
-            const _TogglesSection(),
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.07)
-                  : Colors.black.withValues(alpha: 0.07),
+      return Scaffold(
+        body: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // ── Pinned gradient header (mêmes specs que la page About) ────────
+            SliverAppBar(
+              expandedHeight: 180,
+              floating: false,
+              pinned: true,
+              automaticallyImplyLeading: false,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              backgroundColor: cs.primary,
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.pin,
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        cs.primary,
+                        cs.tertiary.withValues(alpha: 0.85),
+                        cs.secondary.withValues(alpha: 0.65),
+                      ],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.asset(
+                              'assets/app_icons/icon.png',
+                              width: 66,
+                              height: 66,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ref.watch(getPackageInfoProvider).when(
+                              data: (data) => Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Watchtower',
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontSize: 23,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'v${data.version} · Beta',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              loading: () => const SizedBox.shrink(),
+                              error: (_, __) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
 
-            // Nav list
-            const _SectionLabel('Navigation'),
-            ...List.generate(navItems.length, (i) {
-              final isLast = i == navItems.length - 1;
-              return Column(
-                mainAxisSize: MainAxisSize.min,
+            // ── Contenu scrollable ────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _NavTile(item: navItems[i], l10n: l10n),
-                  if (!isLast)
-                    Divider(
-                      height: 0.5,
-                      thickness: 0.5,
-                      indent: 70,
-                      endIndent: 0,
-                      color: cs.outlineVariant.withValues(alpha: 0.5),
-                    ),
+                  const _TogglesSection(),
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.07)
+                        : Colors.black.withValues(alpha: 0.07),
+                  ),
+                  const _SectionLabel('Navigation'),
+                  ...List.generate(navItems.length, (i) {
+                    final isLast = i == navItems.length - 1;
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _NavTile(item: navItems[i], l10n: l10n),
+                        if (!isLast)
+                          Divider(
+                            height: 0.5,
+                            thickness: 0.5,
+                            indent: 70,
+                            endIndent: 0,
+                            color: cs.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                      ],
+                    );
+                  }),
+                  SizedBox(height: bottomPad + 96),
                 ],
-              );
-            }),
-
-            SizedBox(height: bottomPad + 96),
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  // ── Desktop / Tablet layout ────────────────────────────────────────────
+    // ── Desktop / Tablet layout ────────────────────────────────────────────
 
   Widget _buildDesktop(BuildContext context, dynamic l10n) {
     final navItems = _buildNavItems(l10n);
