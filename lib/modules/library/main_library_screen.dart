@@ -1,329 +1,301 @@
 import 'package:flutter/material.dart';
-  import 'package:flutter_riverpod/flutter_riverpod.dart';
-  import 'package:watchtower/models/manga.dart';
-  import 'package:watchtower/models/settings.dart';
-  import 'package:watchtower/modules/library/library_screen.dart';
-  import 'package:watchtower/modules/library/providers/isar_providers.dart';
-  import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
-  import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
-  import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
-  import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
-  import 'package:watchtower/providers/l10n_providers.dart';
-  import 'package:watchtower/services/library_updater.dart';
-  import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-  import 'package:watchtower/utils/global_style.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/settings.dart';
+import 'package:watchtower/modules/library/library_screen.dart';
+import 'package:watchtower/modules/library/providers/isar_providers.dart';
+import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
+import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
+import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
+import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/library_updater.dart';
+import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/utils/global_style.dart';
 
-  class MainLibraryScreen extends ConsumerStatefulWidget {
-    const MainLibraryScreen({super.key, this.presetInput, this.initialType});
+// ── Design tokens (Library page spec) ────────────────────────────────
+const _kBg            = Color(0xFF0A0A0A);
+const _kSurface       = Color(0xFF1A1A1A);
+const _kBorder        = Color(0xFF333333);
+const _kAccent        = Color(0xFFE91E63);
+const _kTextPrimary   = Color(0xFFFFFFFF);
+const _kTextSecondary = Color(0xFF999999);
 
-    final String? presetInput;
-    final ItemType? initialType;
+class MainLibraryScreen extends ConsumerStatefulWidget {
+  const MainLibraryScreen({super.key, this.presetInput, this.initialType});
 
-    @override
-    ConsumerState<MainLibraryScreen> createState() => _MainLibraryScreenState();
+  final String? presetInput;
+  final ItemType? initialType;
+
+  @override
+  ConsumerState<MainLibraryScreen> createState() => _MainLibraryScreenState();
+}
+
+class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
+    with TickerProviderStateMixin {
+  late TextEditingController _searchController;
+  bool _isSearch   = false;
+  bool _isListView = true;
+  late ItemType _currentType;
+
+  final List<String> _categories = ['All', 'Webto', 'Denger'];
+  int _selectedCategoryIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentType = widget.initialType ?? ItemType.anime;
+    _searchController = TextEditingController(text: widget.presetInput ?? '');
+    if (widget.presetInput != null && widget.presetInput!.isNotEmpty) {
+      _isSearch = true;
+    }
+    _searchController.addListener(() => setState(() {}));
   }
 
-  class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
-      with TickerProviderStateMixin {
-    late TextEditingController _searchController;
-    bool _isSearch = false;
-    late ItemType _currentType;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
-    static const _types = [
-      ItemType.anime,
-      ItemType.manga,
-      ItemType.novel,
-      ItemType.music,
-      ItemType.game,
-    ];
+  void _openFilterSheet(Settings settings) {
+    final mangaAsync = ref.read(
+      getAllMangaStreamProvider(categoryId: null, itemType: _currentType));
+    final entries = mangaAsync.when(
+      data: (v) => v, loading: () => <Manga>[], error: (_, __) => <Manga>[]);
+    showLibrarySettingsSheet(
+      context: context,
+      vsync: this,
+      settings: settings,
+      itemType: _currentType,
+      entries: entries,
+    );
+  }
 
-    @override
-    void initState() {
-      super.initState();
-      _currentType = widget.initialType ?? ItemType.anime;
-      _searchController = TextEditingController(text: widget.presetInput ?? '');
-      if (widget.presetInput != null && widget.presetInput!.isNotEmpty) {
-        _isSearch = true;
-      }
-      _searchController.addListener(() => setState(() {}));
-    }
-
-    @override
-    void dispose() {
-      _searchController.dispose();
-      super.dispose();
-    }
-
-    IconData _typeIcon(ItemType t) => switch (t) {
-      ItemType.anime  => Icons.live_tv_outlined,
-      ItemType.manga  => Icons.auto_stories_outlined,
-      ItemType.novel  => Icons.local_library_outlined,
-      ItemType.music  => Icons.music_note_outlined,
-      ItemType.game   => Icons.sports_esports_outlined,
-      _               => Icons.collections_bookmark_outlined,
-    };
-
-    String _typeLabel(ItemType t, dynamic l10n) => switch (t) {
-      ItemType.anime  => l10n.watch as String,
-      ItemType.manga  => l10n.manga as String,
-      ItemType.novel  => l10n.novel as String,
-      ItemType.music  => 'Music',
-      ItemType.game   => 'Games',
-      _               => l10n.library as String,
-    };
-
-    void _showTypePicker(BuildContext context, dynamic l10n, ColorScheme cs, bool isDark) {
-      showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => Container(
-          margin: EdgeInsets.fromLTRB(
-            12, 0, 12, 12 + MediaQuery.of(ctx).padding.bottom,
+  /// Square icon button — 44×44, borderRadius 12, per spec.
+  Widget _squareBtn({
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool active = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: active ? _kAccent : Colors.transparent,
+          border: Border.all(
+            color: active ? _kAccent : _kBorder,
+            width: 1,
           ),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.10)
-                  : Colors.black.withValues(alpha: 0.07),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-                blurRadius: 28, offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 10),
-                width: 36, height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurface.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ..._types.map((t) {
-                final sel = t == _currentType;
-                return InkWell(
-                  onTap: () { setState(() => _currentType = t); Navigator.pop(ctx); },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    child: Row(children: [
-                      Icon(_typeIcon(t), size: 22,
-                        color: sel ? cs.primary : cs.onSurface.withValues(alpha: 0.6)),
-                      const SizedBox(width: 16),
-                      Text(_typeLabel(t, l10n), style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel ? cs.primary : cs.onSurface.withValues(alpha: 0.85),
-                      )),
-                      if (sel) ...[
-                        const Spacer(),
-                        Icon(Icons.check_rounded, size: 18, color: cs.primary),
-                      ],
-                    ]),
-                  ),
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
-          ),
+          borderRadius: BorderRadius.circular(12),
         ),
-      );
-    }
+        child: Icon(icon, size: 20, color: _kTextPrimary),
+      ),
+    );
+  }
 
-    // ── Circular icon button matching screenshot style ──────────────────────────
-    Widget _circleBtn(BuildContext context, {
-      required IconData icon,
-      required VoidCallback? onTap,
-      bool active = false,
-      String? tooltip,
-    }) {
-      final cs = Theme.of(context).colorScheme;
-      return Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: Tooltip(
-          message: tooltip ?? '',
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(50),
-            child: Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: active
-                    ? cs.primary.withValues(alpha: 0.18)
-                    : cs.onSurface.withValues(alpha: 0.09),
-                border: Border.all(
-                  color: active
-                      ? cs.primary.withValues(alpha: 0.55)
-                      : cs.onSurface.withValues(alpha: 0.14),
-                  width: 1.3,
-                ),
-              ),
-              child: Icon(icon, size: 18,
-                color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.80)),
-            ),
-          ),
-        ),
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    final settingsStream = ref.watch(getSettingsStreamProvider);
+    return settingsStream.when(
+      data: (s) => _buildBody(s.first),
+      loading: () => const Scaffold(
+        backgroundColor: _kBg,
+        body: Center(child: CircularProgressIndicator(color: _kAccent)),
+      ),
+      error: (e, _) => Scaffold(
+        backgroundColor: _kBg,
+        body: Center(child: Text(e.toString(),
+          style: const TextStyle(color: _kTextPrimary))),
+      ),
+    );
+  }
 
-    void _openFilterSheet(Settings settings) {
-      final mangaAsync = ref.read(
-        getAllMangaStreamProvider(categoryId: null, itemType: _currentType));
-      final entries = mangaAsync.when(
-        data: (v) => v, loading: () => <Manga>[], error: (_, __) => <Manga>[]);
-      showLibrarySettingsSheet(
-        context: context, vsync: this,
-        settings: settings, itemType: _currentType, entries: entries);
-    }
+  Widget _buildBody(Settings settings) {
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-    @override
-    Widget build(BuildContext context) {
-      final settingsStream = ref.watch(getSettingsStreamProvider);
-      return settingsStream.when(
-        data: (s) => _buildBody(s.first),
-        loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (e, _) => Scaffold(body: Center(child: Text(e.toString()))),
-      );
-    }
-
-    Widget _buildBody(Settings settings) {
-      final l10n = context.l10n;
-      final theme = Theme.of(context);
-      final cs = theme.colorScheme;
-      final isDark = theme.brightness == Brightness.dark;
-
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: AppBar(
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            automaticallyImplyLeading: false,
-            titleSpacing: 16,
-            title: _isSearch
-                ? SeachFormTextField(
-                    onChanged: (_) => setState(() {}),
-                    onSuffixPressed: () {
-                      _searchController.clear();
-                      setState(() {});
-                    },
-                    onPressed: () {
-                      setState(() { _isSearch = false; _searchController.clear(); });
-                    },
-                    controller: _searchController,
-                  )
-                : GestureDetector(
-                    onTap: () => _showTypePicker(context, l10n, cs, isDark),
-                    behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _typeLabel(_currentType, l10n),
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
+            // ── Header: title + 4 square action buttons ──────────────────────
+            SizedBox(
+              height: 56,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // 'Library' — 32 px, bold, white
+                    const Expanded(
+                      child: Text(
+                        'Library',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: _kTextPrimary,
+                          height: 1,
+                          letterSpacing: -0.3,
                         ),
-                        const SizedBox(width: 2),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: Colors.white.withValues(alpha: 0.55),
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-            actions: _isSearch
-                ? []
-                : [
-                    _circleBtn(context,
-                      icon: Icons.search_rounded,
-                      tooltip: l10n.search,
-                      onTap: () => setState(() => _isSearch = true)),
-                    _circleBtn(context,
-                      icon: Icons.download_rounded,
-                      tooltip: l10n.update_library,
-                      onTap: () {
-                        ref.read(getAllMangaStreamProvider(
-                          categoryId: null, itemType: _currentType)).whenData((list) {
-                          updateLibrary(
-                            ref: ref, context: context,
-                            mangaList: list, itemType: _currentType);
-                        });
-                      }),
-                    _circleBtn(context,
-                      icon: Icons.filter_list_sharp,
-                      tooltip: 'Filtrer / Trier',
-                      onTap: () => _openFilterSheet(settings)),
-                    // 3-dot in circle
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: PopupMenuButton<int>(
-                        tooltip: '',
-                        offset: const Offset(0, 48),
-                        child: Container(
-                          width: 38, height: 38,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: cs.onSurface.withValues(alpha: 0.09),
-                            border: Border.all(
-                              color: cs.onSurface.withValues(alpha: 0.14),
-                              width: 1.3),
-                          ),
-                          child: Icon(Icons.more_vert_rounded, size: 18,
-                            color: cs.onSurface.withValues(alpha: 0.80)),
-                        ),
-                        itemBuilder: (ctx) => [
-                          PopupMenuItem<int>(value: 0, child: Text(l10n.update_library)),
-                          PopupMenuItem<int>(value: 1, child: Text(l10n.open_random_entry)),
-                          PopupMenuItem<int>(value: 2, child: Text(l10n.import)),
-                        ],
-                        onSelected: (value) {
-                          final mangaAsync = ref.read(getAllMangaStreamProvider(
-                            categoryId: null, itemType: _currentType));
-                          if (value == 0) {
-                            mangaAsync.whenData((list) => updateLibrary(
-                              ref: ref, context: context,
-                              mangaList: list, itemType: _currentType));
-                          } else if (value == 1) {
-                            mangaAsync.whenData((list) {
-                              if (list.isEmpty) return;
-                              final rng = (list..shuffle()).first;
-                              pushToMangaReaderDetail(
-                                ref: ref,
-                                archiveId: rng.isLocalArchive ?? false ? rng.id : null,
-                                context: context, lang: rng.lang!,
-                                mangaM: rng, source: rng.source!, sourceId: rng.sourceId);
-                            });
-                          } else if (value == 2) {
-                            showImportLocalDialog(context, _currentType);
-                          }
-                        },
                       ),
                     ),
+                    // Search
+                    _squareBtn(
+                      icon: Icons.search_rounded,
+                      onTap: () => setState(() {
+                        _isSearch = !_isSearch;
+                        if (!_isSearch) _searchController.clear();
+                      }),
+                    ),
+                    const SizedBox(width: 12),
+                    // Download / update
+                    _squareBtn(
+                      icon: Icons.download_outlined,
+                      onTap: () {
+                        ref.read(getAllMangaStreamProvider(
+                          categoryId: null,
+                          itemType: _currentType,
+                        )).whenData((list) => updateLibrary(
+                          ref: ref,
+                          context: context,
+                          mangaList: list,
+                          itemType: _currentType,
+                        ));
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    // List view (active by default)
+                    _squareBtn(
+                      icon: Icons.view_list_rounded,
+                      active: _isListView,
+                      onTap: () => setState(() => _isListView = true),
+                    ),
+                    const SizedBox(width: 12),
+                    // Grid view
+                    _squareBtn(
+                      icon: Icons.grid_view_rounded,
+                      active: !_isListView,
+                      onTap: () => setState(() => _isListView = false),
+                    ),
                   ],
-          ),
+                ),
+              ),
+            ),
+
+            // ── Inline search field (shown when _isSearch) ──────────────────
+            if (_isSearch) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: SeachFormTextField(
+                  onChanged: (_) => setState(() {}),
+                  onSuffixPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                  },
+                  onPressed: () => setState(() {
+                    _isSearch = false;
+                    _searchController.clear();
+                  }),
+                  controller: _searchController,
+                ),
+              ),
+            ],
+
+            // ── Filter bar: sliders + category pills ─────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _kSurface,
+                  border: Border.all(color: _kBorder, width: 1),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    // Sliders / tune icon — 32×32, radius 8
+                    GestureDetector(
+                      onTap: () => _openFilterSheet(settings),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          border: Border.all(color: _kBorder, width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.tune_rounded,
+                          size: 16,
+                          color: _kTextPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Category pills
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: List.generate(_categories.length, (i) {
+                            final isActive = i == _selectedCategoryIndex;
+                            return GestureDetector(
+                              onTap: () => setState(() => _selectedCategoryIndex = i),
+                              child: Container(
+                                height: 32,
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: isActive ? _kAccent : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _categories[i],
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isActive
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                      color: isActive
+                                          ? _kTextPrimary
+                                          : _kTextSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Library content ────────────────────────────────────────────
+            Expanded(
+              child: LibraryScreen(
+                itemType: _currentType,
+                presetInput: _isSearch && _searchController.text.isNotEmpty
+                    ? _searchController.text
+                    : null,
+                hideOwnAppBar: true,
+                externalSearchQuery:
+                    _isSearch ? _searchController.text : null,
+                key: ValueKey(_currentType.index * 100 + _selectedCategoryIndex),
+              ),
+            ),
+          ],
         ),
-        body: LibraryScreen(
-          itemType: _currentType,
-          presetInput: null,
-          hideOwnAppBar: true,
-          externalSearchQuery: _searchController.text,
-          key: ValueKey(_currentType.name),
-        ),
-      );
-    }
+      ),
+    );
   }
-  
+}
