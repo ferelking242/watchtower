@@ -20,19 +20,25 @@ import 'package:flutter/material.dart';
         onTap: onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: selected
                 ? context.primaryColor
-                : Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.6),
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(100),
+            border: selected
+                ? null
+                : Border.all(
+                    color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
           ),
           child: Text(
             text,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               color: selected
                   ? Colors.white
                   : Theme.of(context).textTheme.bodyMedium!.color,
@@ -42,4 +48,3 @@ import 'package:flutter/material.dart';
       );
     }
   }
-  
