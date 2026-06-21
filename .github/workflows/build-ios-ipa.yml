@@ -181,39 +181,34 @@ jobs:
 
           echo "=== Résultat: $THINNED thinned | $ALREADY arm64 OK | $REMOVED removed | $SKIPPED skip ==="
 
-# ── Signer ──────────────────────────────────────────────────────────────
-        # IMPORTANT: Utiliser UNIQUEMENT ldid. PAS codesign --sign -.
-        # codesign adhoc (certificat null) est ignoré par le hook Dopamine/TrollStore.
-        # Résultat: iOS 15 refuse le mmap(PROT_EXEC) de App.framework/App avec
-        # KERN_RESOURCE_SHORTAGE ("VM Fault memory shortage" dans le crash log) —
-        # ce n'est PAS un vrai manque de RAM, c'est un refus de code signing.
-      # ── Signer (ldid uniquement — SANS codesign adhoc) ─────────────────────────
-        # codesign --sign - (adhoc/null cert) écrase ldid et fait échouer le mmap
-        # PROT_EXEC de App.framework par iOS 15 → VM Fault "memory shortage".
-        # ldid génère un faux certificat DER reconnu par le hook Dopamine/TrollStore.
-        - name: Sign for TrollStore (ldid only — no codesign)
-          run: |
-            APP="build/ios/iphoneos/Runner.app"
-            ENT="ios/Runner/Runner.entitlements"
-            brew install ldid 2>/dev/null || true
+      # ── Signer (ldid uniquement — PAS codesign adhoc) ──────────────────────
+      # codesign --sign - (certificat null/adhoc) ecrase la signature ldid.
+      # iOS 15 refuse le mmap(PROT_EXEC) de App.framework → VM Fault memory shortage.
+      # ldid genere un faux certificat DER reconnu par le hook Dopamine/TrollStore.
+      - name: Sign for TrollStore (ldid only — no codesign)
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          ENT="ios/Runner/Runner.entitlements"
+          brew install ldid 2>/dev/null || true
 
-            echo "=== ldid frameworks + App.framework (snapshot Dart AOT) ==="
-            for fw in "$APP/Frameworks"/*.framework; do
-              NAME=$(basename "$fw" .framework)
-              BIN="$fw/$NAME"
-              if [ -f "$BIN" ]; then
-                ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
-              fi
-            done
+          echo "=== ldid frameworks + App.framework (snapshot Dart AOT) ==="
+          for fw in "$APP/Frameworks"/*.framework; do
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            if [ -f "$BIN" ]; then
+              ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
+            fi
+          done
 
-            echo "=== ldid Runner avec entitlements (platform-application + no-sandbox) ==="
-            ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK"
+          echo "=== ldid Runner avec entitlements (platform-application + no-sandbox) ==="
+          ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK"
 
-            echo "=== Vérification entitlements ==="
-            ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
+          echo "=== Vérification entitlements ==="
+          ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
 
-            echo "=== Frameworks signés ==="
-            ls "$APP/Frameworks/" | wc -l
+          echo "=== Frameworks signes ==="
+          ls "$APP/Frameworks/" | wc -l
+
       # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
       - name: Cleanup ldid residual files
         run: |
