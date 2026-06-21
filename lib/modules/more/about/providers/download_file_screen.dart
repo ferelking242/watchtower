@@ -16,29 +16,35 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
     show skipAppUpdate;
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 
 // ── Static background download task ──────────────────────────────────────────
-// Survives widget disposal so download continues in the background.
+// Survives widget disposal so the download continues when the screen is closed.
+// Features: 3-attempt retry loop, HTTP Range resume, connectivity pause/resume,
+// friendly French error messages, partial-file cleanup on final failure.
 
 class _AppDownloadTask {
   static _AppDownloadTask? _current;
   static _AppDownloadTask? get current => _current;
   static const int _notifId = 8001;
-    static const _kWakelockChannel = MethodChannel('com.watchtower.app.wakelock');
+  static const _kWakelockChannel = MethodChannel('com.watchtower.app.wakelock');
   static bool _channelCreated = false;
 
   final String version;
   int received = 0;
   int total = 0;
   bool _done = false;
+  bool _cancelled = false;
   bool get isDone => _done;
+  bool get isCancelled => _cancelled;
   File? completedFile;
   String? errorMsg;
 
   void Function(int r, int t)? onProgress;
   void Function(File f)? onDone;
   void Function(String e)? onError;
+  void Function(bool paused)? onPauseChanged;
 
   StreamSubscription<List<int>>? _sub;
 
@@ -53,7 +59,6 @@ class _AppDownloadTask {
 
   static void clear() => _current = null;
 
-  // Ensure the Android notification channel exists (idempotent).
   static Future<void> _ensureChannel(FlutterLocalNotificationsPlugin p) async {
     if (_channelCreated || kIsWeb) return;
     if (!Platform.isAndroid) { _channelCreated = true; return; }
@@ -68,34 +73,122 @@ class _AppDownloadTask {
     ));
   }
 
-  Future<void> run(String url, File destFile) async {
-      final notifs = FlutterLocalNotificationsPlugin();
-      await _ensureChannel(notifs);
+  // ── Main entry: retry loop + Range resume + connectivity pause ────────────
 
-      // Acquire wakelock so Android keeps the download alive when backgrounded.
-      if (!kIsWeb && Platform.isAndroid) {
-        try { await _kWakelockChannel.invokeMethod('acquire'); } catch (_) {}
+  Future<void> run(String url, File destFile) async {
+    final notifs = FlutterLocalNotificationsPlugin();
+    await _ensureChannel(notifs);
+
+    if (!kIsWeb && Platform.isAndroid) {
+      try { await _kWakelockChannel.invokeMethod('acquire'); } catch (_) {}
+    }
+
+    const maxAttempts = 3;
+    int attempt = 0;
+    String lastError = '';
+
+    while (attempt < maxAttempts && !_cancelled && !_done) {
+      attempt++;
+
+      // Pause until network is available.
+      if (!kIsWeb) {
+        final conn = await Connectivity().checkConnectivity();
+        final hasNet = conn.any((r) => r != ConnectivityResult.none);
+        if (!hasNet) {
+          onPauseChanged?.call(true);
+          await _waitForConnectivity();
+          if (_cancelled) break;
+          onPauseChanged?.call(false);
+        }
       }
 
+      if (_cancelled) break;
+
       try {
-        final client = http.Client();
-      final request = http.Request('GET', Uri.parse(url));
-      // Disable compression so Content-Length is accurate for progress.
-      request.headers['Accept-Encoding'] = 'identity';
-      final response = await client.send(request);
-      total = response.contentLength ?? 0;
+        // Resume from how many bytes are already on disk.
+        int resumeFrom = 0;
+        if (attempt > 1 && await destFile.exists()) {
+          resumeFrom = await destFile.length();
+          if (resumeFrom > 0) {
+            received = resumeFrom;
+            onProgress?.call(received, total);
+          }
+        }
 
-      _showProgressNotif(notifs, 0, total, version);
+        await _runAttempt(url, destFile, notifs, resumeFrom: resumeFrom);
+        break; // success
+      } catch (e) {
+        if (_cancelled) break;
+        lastError = e.toString();
+        log('[DOWNLOAD] Attempt $attempt/$maxAttempts failed: $lastError');
+        if (attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+      }
+    }
 
-      final sink = destFile.openWrite();
-      int lastNotifAt = 0;
+    if (!_done && !_cancelled) {
+      // All retries exhausted — remove partial file so next launch re-downloads.
+      try { if (await destFile.exists()) await destFile.delete(); } catch (_) {}
+      if (!kIsWeb && Platform.isAndroid) {
+        try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
+      }
+      errorMsg = _friendlyError(lastError);
+      onError?.call(errorMsg!);
+      _cancelNotif(notifs);
+    }
+  }
+
+  // ── Single HTTP attempt (supports Range resume) ───────────────────────────
+
+  Future<void> _runAttempt(
+    String url,
+    File destFile,
+    FlutterLocalNotificationsPlugin notifs, {
+    int resumeFrom = 0,
+  }) async {
+    final client = http.Client();
+    try {
+      final req = http.Request('GET', Uri.parse(url));
+      req.headers['Accept-Encoding'] = 'identity';
+      if (resumeFrom > 0) req.headers['Range'] = 'bytes=$resumeFrom-';
+
+      final response = await client.send(req).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode >= 400) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+
+      if (response.statusCode == 206) {
+        // 206 Partial Content — parse total from Content-Range header.
+        final cr = response.headers['content-range'];
+        if (cr != null && total == 0) {
+          final m = RegExp(r'/(\d+)$').firstMatch(cr);
+          if (m != null) total = int.parse(m.group(1)!);
+        }
+      } else {
+        // 200 OK — server ignored Range; restart from zero.
+        if (resumeFrom > 0) {
+          received = 0;
+          try { await destFile.delete(); } catch (_) {}
+        }
+        total = response.contentLength ?? 0;
+      }
+
+      _showProgressNotif(notifs, received, total, version);
+
+      final sink = (resumeFrom > 0 && response.statusCode == 206)
+          ? destFile.openWrite(mode: FileMode.append)
+          : destFile.openWrite();
+
+      int lastNotifAt = received;
+      final completer = Completer<void>();
 
       _sub = response.stream.listen(
         (chunk) {
           sink.add(chunk);
           received += chunk.length;
           onProgress?.call(received, total);
-          // Throttle notifications: update every ~5% or min 2 MB.
           final threshold = total > 0
               ? (total * 0.05).clamp(2097152, 10485760).toInt()
               : 4194304;
@@ -105,34 +198,66 @@ class _AppDownloadTask {
           }
         },
         onDone: () async {
-            await sink.close();
-            completedFile = destFile;
-            _done = true;
-            if (!kIsWeb && Platform.isAndroid) {
-              try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
-            }
-            onDone?.call(destFile);
-            _showDoneNotif(notifs, version);
-          },
+          await sink.close();
+          completedFile = destFile;
+          _done = true;
+          if (!kIsWeb && Platform.isAndroid) {
+            try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
+          }
+          onDone?.call(destFile);
+          _showDoneNotif(notifs, version);
+          completer.complete();
+        },
         onError: (Object e) async {
-            await sink.close();
-            errorMsg = e.toString();
-            if (!kIsWeb && Platform.isAndroid) {
-              try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
-            }
-            onError?.call(errorMsg!);
-            _cancelNotif(notifs);
-          },
+          await sink.close();
+          completer.completeError(e);
+        },
         cancelOnError: true,
       );
-    } catch (e) {
-      errorMsg = e.toString();
-      onError?.call(errorMsg!);
-      _cancelNotif(notifs);
+
+      await completer.future;
+    } finally {
+      client.close();
     }
   }
 
+  // ── Connectivity helpers ──────────────────────────────────────────────────
+
+  static Future<void> _waitForConnectivity() async {
+    final completer = Completer<void>();
+    late StreamSubscription<List<ConnectivityResult>> sub;
+    sub = Connectivity().onConnectivityChanged.listen((results) {
+      if (results.any((r) => r != ConnectivityResult.none)) {
+        sub.cancel();
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+    await completer.future;
+  }
+
+  // ── Friendly French error messages ────────────────────────────────────────
+
+  static String _friendlyError(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('connection closed') ||
+        lower.contains('socketexception') ||
+        lower.contains('connection refused') ||
+        lower.contains('clientexception')) {
+      return 'Connexion interrompue après 3 tentatives. '
+          'Vérifiez votre réseau puis réessayez.';
+    }
+    if (lower.contains('403') || lower.contains('forbidden')) {
+      return 'Lien de téléchargement expiré. '
+          'Fermez et rouvrez cet écran pour en obtenir un nouveau.';
+    }
+    if (lower.contains('timeout') || lower.contains('timedout')) {
+      return 'Délai dépassé. Vérifiez votre connexion et réessayez.';
+    }
+    return raw;
+  }
+
   void cancel() {
+    _cancelled = true;
     _sub?.cancel();
     _sub = null;
   }
@@ -216,6 +341,7 @@ class DownloadFileScreen extends ConsumerStatefulWidget {
 
 class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   bool _isDownloading = false;
+  bool _isPausedForConnectivity = false;
   int _total = 0;
   int _received = 0;
   String? _errorMsg;
@@ -227,15 +353,19 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     super.initState();
     _loadCurrentVersion();
     final task = _AppDownloadTask.current;
-    if (task != null &&
-        task.version == widget.updateAvailable.$1 &&
-        !task.isDone) {
-      _isDownloading = true;
-      _total = task.total;
-      _received = task.received;
-      _attachCallbacks(task);
-    } else if (task != null && task.isDone && task.completedFile != null) {
-      _completedFile = task.completedFile;
+    if (task != null && task.version == widget.updateAvailable.$1) {
+      if (task.isDone && task.completedFile != null) {
+        _completedFile = task.completedFile;
+      } else if (task.errorMsg != null) {
+        // Previous attempt errored — show error so user can retry.
+        _errorMsg = task.errorMsg;
+      } else if (!task.isDone && !task.isCancelled) {
+        // Still in progress — reconnect callbacks and show progress.
+        _isDownloading = true;
+        _total = task.total;
+        _received = task.received;
+        _attachCallbacks(task);
+      }
     }
   }
 
@@ -253,22 +383,34 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       task.onProgress = null;
       task.onDone = null;
       task.onError = null;
+      task.onPauseChanged = null;
     }
     super.dispose();
   }
 
   void _attachCallbacks(_AppDownloadTask task) {
-      task.onProgress = (r, t) {
-        if (mounted) setState(() { _received = r; _total = t; });
-      };
-      task.onDone = (f) {
-        if (mounted) setState(() { _isDownloading = false; _completedFile = f; });
-        _tryAutoInstall(f);
-      };
-      task.onError = (e) {
-        if (mounted) setState(() { _isDownloading = false; _errorMsg = e; });
-      };
-    }
+    task.onProgress = (r, t) {
+      if (mounted) setState(() { _received = r; _total = t; });
+    };
+    task.onDone = (f) {
+      if (mounted) setState(() {
+        _isDownloading = false;
+        _isPausedForConnectivity = false;
+        _completedFile = f;
+      });
+      _tryAutoInstall(f);
+    };
+    task.onError = (e) {
+      if (mounted) setState(() {
+        _isDownloading = false;
+        _isPausedForConnectivity = false;
+        _errorMsg = e;
+      });
+    };
+    task.onPauseChanged = (paused) {
+      if (mounted) setState(() => _isPausedForConnectivity = paused);
+    };
+  }
 
     Future<void> _tryAutoInstall(File file) async {
       try {
@@ -472,42 +614,75 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Téléchargement en cours',
-              style: TextStyle(
-                color: cs.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
-              ),
+        if (_isPausedForConnectivity) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.30)),
             ),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.45),
-                fontSize: 12,
-                decoration: TextDecoration.none,
-              ),
+            child: Row(
+              children: [
+                const Icon(Icons.wifi_off_rounded, color: Colors.orange, size: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Connexion perdue — reprise automatique dès le retour du réseau',
+                    style: TextStyle(
+                      color: Colors.orange.shade300,
+                      fontSize: 12.5,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
+          ),
+          const SizedBox(height: 10),
+        ] else ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Téléchargement en cours',
+                style: TextStyle(
+                  color: cs.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 12,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
-            value: pct,
+            value: _isPausedForConnectivity ? pct : pct,
             minHeight: 6,
             backgroundColor: cs.primary.withValues(alpha: 0.12),
-            valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              _isPausedForConnectivity ? Colors.orange : cs.primary,
+            ),
           ),
         ),
         if (pct != null) ...[
           const SizedBox(height: 6),
           Text(
-            '${(pct * 100).toStringAsFixed(0)} %',
+            _isPausedForConnectivity
+                ? '${(pct * 100).toStringAsFixed(0)} % — En pause'
+                : '${(pct * 100).toStringAsFixed(0)} %',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.30),
               fontSize: 11,
@@ -776,9 +951,26 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       ('remove', '🗑️', 'Removals'),
     ];
 
+    /// Capitalise the first letter and strip trailing period/space.
+    static String _cleanItem(String raw) {
+      if (raw.isEmpty) return raw;
+      final s = raw.trim();
+      return s[0].toUpperCase() + s.substring(1);
+    }
+
+    /// Returns true for lines that are just dashes/separators or too short to
+    /// be meaningful (avoids "--", "---", "-", single chars leaking in).
+    static bool _isSeparator(String s) {
+      final t = s.trim();
+      return t.isEmpty ||
+          RegExp(r'^-{1,}$').hasMatch(t) ||
+          RegExp(r'^\*{1,}$').hasMatch(t) ||
+          t.length <= 2;
+    }
+
     Map<String, List<String>> _parse(String raw) {
       // Remove installation instructions block (after ---)
-      final parts = raw.split('\n---+\n');
+      final parts = raw.split(RegExp(r'\n---+\n'));
       final cleaned = parts.first.trim();
 
       final sections = <String, List<String>>{};
@@ -808,8 +1000,8 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
         // Bullet point
         if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•')) {
           final item = trimmed.substring(1).trim();
-          if (item.isNotEmpty) {
-            sections.putIfAbsent(currentSection, () => []).add(item);
+          if (item.isNotEmpty && !_isSeparator(item)) {
+            sections.putIfAbsent(currentSection, () => []).add(_cleanItem(item));
           }
           continue;
         }
@@ -818,9 +1010,20 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
         for (final (type, _, _) in _kSectionOrder) {
           if (trimmed.toLowerCase().startsWith('$type:')) {
             final item = trimmed.substring(type.length + 1).trim();
-            if (item.isNotEmpty) sections.putIfAbsent(type, () => []).add(item);
+            if (item.isNotEmpty && !_isSeparator(item)) {
+              sections.putIfAbsent(type, () => []).add(_cleanItem(item));
+            }
             break;
           }
+        }
+
+        // Plain text line (not a header, bullet, or commit prefix) — add to
+        // current section if it looks like prose (≥ 8 chars, no leading dashes).
+        if (!trimmed.startsWith('-') && !trimmed.startsWith('#') &&
+            trimmed.length >= 8 && !_isSeparator(trimmed)) {
+          // Only add if not already covered by the bullet/prefix branches above.
+          // (This branch only runs when no `continue` was hit above.)
+          // We intentionally do NOT add plain text here to keep output clean.
         }
       }
       return sections;
