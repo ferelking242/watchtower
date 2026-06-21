@@ -20,13 +20,12 @@ import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/global_style.dart';
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
-const _kBg         = Color(0xFF0A0A0A);
-const _kBorder     = Color(0xFF333333);
-const _kAccent     = Color(0xFFE91E63);
+const _kBg            = Color(0xFF0A0A0A);
+const _kBorder        = Color(0xFF333333);
+const _kAccent        = Color(0xFFE91E63);
 const _kTextPrimary   = Color(0xFFFFFFFF);
 const _kTextSecondary = Color(0xFF999999);
 const _kSurfaceMedium = Color(0xFF2D2D2D);
-const _kSurface    = Color(0xFF1A1A1A);
 
 // ─── Type order ─────────────────────────────────────────────────────────────
 const _kTypes = <ItemType>[
@@ -134,8 +133,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   Widget _chevronBtn(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 80),
+      child: Container(
         width: 30,
         height: 30,
         decoration: BoxDecoration(
@@ -143,28 +141,45 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           borderRadius: BorderRadius.circular(9),
           border: Border.all(color: const Color(0xFF2E2E2E), width: 1),
         ),
-        child: Icon(icon, color: Colors.white45, size: 17),
+        child: Icon(icon, color: Colors.white54, size: 17),
       ),
+    );
+  }
+
+  // ── Open random manga ──────────────────────────────────────────────────────
+  void _openRandom(List<Manga> mangaList) {
+    if (mangaList.isEmpty) return;
+    final randomManga = (List.of(mangaList)..shuffle()).first;
+    pushToMangaReaderDetail(
+      ref: ref,
+      archiveId: randomManga.isLocalArchive ?? false ? randomManga.id : null,
+      context: context,
+      lang: randomManga.lang!,
+      mangaM: randomManga,
+      source: randomManga.source!,
+      sourceId: randomManga.sourceId,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
+
     final settingsAsync = ref.watch(getSettingsStreamProvider);
-    final mangaAsync   = ref.watch(
+    final mangaAsync    = ref.watch(
       getAllMangaStreamProvider(categoryId: null, itemType: _currentType),
     );
     final catsAsync = ref.watch(
       getMangaCategorieStreamProvider(itemType: _currentType),
     );
 
-    // Cache settings for popup menu callbacks (avoids rebuilds)
-    final settings = settingsAsync.valueOrNull?.firstOrNull;
+    // Safe settings access compatible with all Riverpod 2.x versions
+    final settingsList = settingsAsync.asData?.value ?? <Settings>[];
+    final settings     = settingsList.isNotEmpty ? settingsList.first : null;
     if (settings != null) _cachedSettings = settings;
 
-    final mangaList = mangaAsync.valueOrNull ?? <Manga>[];
-    final cats = catsAsync.maybeWhen(data: (c) => c, orElse: () => <Category>[]);
+    final mangaList = mangaAsync.asData?.value ?? <Manga>[];
+    final cats      = catsAsync.maybeWhen(data: (c) => c, orElse: () => <Category>[]);
 
     final int? selectedCatId = _selectedCatIndex == 0
         ? null
@@ -195,25 +210,17 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _chevronBtn(Icons.chevron_left_rounded, () => _changeType(-1)),
+                          _chevronBtn(
+                            Icons.chevron_left_rounded,
+                            () => _changeType(-1),
+                          ),
                           const SizedBox(width: 10),
                           // Animated icon + label
                           Flexible(
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 180),
-                              transitionBuilder: (child, anim) => FadeTransition(
-                                opacity: anim,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0.06, 0),
-                                    end: Offset.zero,
-                                  ).animate(CurvedAnimation(
-                                    parent: anim,
-                                    curve: Curves.easeOut,
-                                  )),
-                                  child: child,
-                                ),
-                              ),
+                              transitionBuilder: (child, anim) =>
+                                  FadeTransition(opacity: anim, child: child),
                               child: Row(
                                 key: ValueKey(_typeIndex),
                                 mainAxisSize: MainAxisSize.min,
@@ -227,7 +234,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Icon(
-                                      _kTypeIcons[_currentType] ?? Icons.library_books_rounded,
+                                      _kTypeIcons[_currentType] ??
+                                          Icons.library_books_rounded,
                                       color: _kAccent,
                                       size: 18,
                                     ),
@@ -247,7 +255,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             ),
                           ),
                           const SizedBox(width: 10),
-                          _chevronBtn(Icons.chevron_right_rounded, () => _changeType(1)),
+                          _chevronBtn(
+                            Icons.chevron_right_rounded,
+                            () => _changeType(1),
+                          ),
                         ],
                       ),
                     ),
@@ -255,7 +266,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
                   const SizedBox(width: 10),
 
-                  // ── Action buttons row ─────────────────────────────────────
+                  // ── Action buttons ─────────────────────────────────────────
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -273,12 +284,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                       ),
                       const SizedBox(width: 8),
                       // ── Horizontal 3-dot popup ─────────────────────────────
-                      _ThreeDotsButton(
-                        itemType: _currentType,
-                        settings: _cachedSettings,
-                        entries: mangaList,
-                        vsync: this,
-                      ),
+                      _buildThreeDotsBtn(context, l10n, mangaList),
                       const SizedBox(width: 8),
                       // ── Notification bell → Updates ────────────────────────
                       _circleBtn(
@@ -315,7 +321,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                           child: TextField(
                             controller: _searchController,
                             autofocus: _showSearch,
-                            style: const TextStyle(color: Colors.white, fontSize: 15),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                            ),
                             decoration: const InputDecoration(
                               hintText: 'Search library',
                               hintStyle: TextStyle(color: Colors.grey),
@@ -335,7 +344,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             },
                             child: const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: Icon(Icons.close, color: Colors.grey, size: 18),
+                              child: Icon(
+                                Icons.close,
+                                color: Colors.grey,
+                                size: 18,
+                              ),
                             ),
                           ),
                         ),
@@ -372,6 +385,105 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 
+  // ── Build 3-dot horizontal popup ─────────────────────────────────────────
+  Widget _buildThreeDotsBtn(
+    BuildContext context,
+    dynamic l10n,
+    List<Manga> mangaList,
+  ) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: _kBorder, width: 1.5),
+      ),
+      child: ClipOval(
+        child: ArrowPopupMenuButton<int>(
+          icon: const Icon(Icons.more_horiz, color: Colors.white70, size: 20),
+          padding: EdgeInsets.zero,
+          menuWidth: 230,
+          itemBuilder: (_) => [
+            PopupMenuItem<int>(
+              value: 0,
+              child: Row(children: [
+                const Icon(Icons.filter_list_sharp, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.filter),
+              ]),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem<int>(
+              value: 1,
+              child: Row(children: [
+                const Icon(Icons.refresh_rounded, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.update_library),
+              ]),
+            ),
+            PopupMenuItem<int>(
+              value: 2,
+              child: Row(children: [
+                const Icon(Icons.shuffle_rounded, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.open_random_entry),
+              ]),
+            ),
+            PopupMenuItem<int>(
+              value: 3,
+              child: Row(children: [
+                const Icon(Icons.archive_outlined, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.import),
+              ]),
+            ),
+            if (_currentType == ItemType.anime)
+              PopupMenuItem<int>(
+                value: 4,
+                child: Row(children: [
+                  const Icon(Icons.stream_rounded, size: 18),
+                  const SizedBox(width: 12),
+                  Text(l10n.torrent_stream),
+                ]),
+              ),
+          ],
+          onSelected: (v) {
+            switch (v) {
+              case 0:
+                if (_cachedSettings != null) {
+                  showLibrarySettingsSheet(
+                    context: context,
+                    vsync: this,
+                    settings: _cachedSettings!,
+                    itemType: _currentType,
+                    entries: mangaList,
+                  );
+                }
+                break;
+              case 1:
+                updateLibrary(
+                  ref: ref,
+                  context: context,
+                  mangaList: mangaList,
+                  itemType: _currentType,
+                );
+                break;
+              case 2:
+                _openRandom(mangaList);
+                break;
+              case 3:
+                showImportLocalDialog(context, _currentType);
+                break;
+              case 4:
+                addTorrent(context);
+                break;
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilterBar(BuildContext context, List<Category> cats) {
     return Container(
       height: 48,
@@ -382,18 +494,19 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       ),
       child: Row(
         children: [
-          // Wrench button → Manage Categories
           GestureDetector(
             onTap: () => _showManageCategories(context, cats),
             child: const SizedBox(
               width: 46,
               height: 46,
-              child: Icon(Icons.handyman_outlined, color: Colors.white70, size: 20),
+              child: Icon(
+                Icons.handyman_outlined,
+                color: Colors.white70,
+                size: 20,
+              ),
             ),
           ),
-          // Vertical divider
           Container(width: 1, height: 26, color: _kBorder),
-          // Category pills
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -457,148 +570,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   }
 }
 
-// ─── 3-dot horizontal popup menu button ──────────────────────────────────────
-class _ThreeDotsButton extends ConsumerWidget {
-  final ItemType itemType;
-  final Settings? settings;
-  final List<Manga> entries;
-  final TickerProvider vsync;
-
-  const _ThreeDotsButton({
-    required this.itemType,
-    required this.settings,
-    required this.entries,
-    required this.vsync,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = l10nLocalizations(context)!;
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF333333), width: 1.5),
-      ),
-      child: ClipOval(
-        child: ArrowPopupMenuButton<int>(
-          icon: const Icon(Icons.more_horiz, color: Colors.white70, size: 20),
-          padding: EdgeInsets.zero,
-          menuWidth: 230,
-          itemBuilder: (_) => [
-            // Filter / Sort / Display
-            PopupMenuItem<int>(
-              value: 0,
-              child: Row(children: [
-                const Icon(Icons.filter_list_sharp, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.filter),
-              ]),
-            ),
-            const PopupMenuDivider(),
-            // Update Library
-            PopupMenuItem<int>(
-              value: 1,
-              child: Row(children: [
-                const Icon(Icons.refresh_rounded, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.update_library),
-              ]),
-            ),
-            // Open Random Entry
-            PopupMenuItem<int>(
-              value: 2,
-              child: Row(children: [
-                const Icon(Icons.shuffle_rounded, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.open_random_entry),
-              ]),
-            ),
-            // Import
-            PopupMenuItem<int>(
-              value: 3,
-              child: Row(children: [
-                const Icon(Icons.archive_outlined, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.import),
-              ]),
-            ),
-            // Torrent Stream (anime only)
-            if (itemType == ItemType.anime)
-              PopupMenuItem<int>(
-                value: 4,
-                child: Row(children: [
-                  const Icon(Icons.stream_rounded, size: 18),
-                  const SizedBox(width: 12),
-                  Text(l10n.torrent_stream),
-                ]),
-              ),
-          ],
-          onSelected: (v) {
-            switch (v) {
-              case 0:
-                // Filter / Sort / Display sheet
-                if (settings != null) {
-                  showLibrarySettingsSheet(
-                    context: context,
-                    vsync: vsync,
-                    settings: settings!,
-                    itemType: itemType,
-                    entries: entries,
-                  );
-                }
-                break;
-              case 1:
-                // Update library
-                final mangaStream = ref.read(
-                  getAllMangaStreamProvider(categoryId: null, itemType: itemType),
-                );
-                mangaStream.whenData((mangaList) {
-                  updateLibrary(
-                    ref: ref,
-                    context: context,
-                    mangaList: mangaList,
-                    itemType: itemType,
-                  );
-                });
-                break;
-              case 2:
-                // Open random entry
-                final mangaStream = ref.read(
-                  getAllMangaStreamProvider(categoryId: null, itemType: itemType),
-                );
-                mangaStream.whenData((mangaList) {
-                  if (mangaList.isNotEmpty) {
-                    final randomManga = (List.of(mangaList)..shuffle()).first;
-                    pushToMangaReaderDetail(
-                      ref: ref,
-                      archiveId: randomManga.isLocalArchive ?? false
-                          ? randomManga.id
-                          : null,
-                      context: context,
-                      lang: randomManga.lang!,
-                      mangaM: randomManga,
-                      source: randomManga.source!,
-                      sourceId: randomManga.sourceId,
-                    );
-                  }
-                });
-                break;
-              case 3:
-                showImportLocalDialog(context, itemType);
-                break;
-              case 4:
-                addTorrent(context);
-                break;
-            }
-          },
-        ),
-      ),
-    );
-  }
-}
-
 // ─── Manage Categories Sheet ──────────────────────────────────────────────────
 class _ManageCategoriesSheet extends ConsumerStatefulWidget {
   final ItemType itemType;
@@ -639,9 +610,8 @@ class _ManageCategoriesSheetState
 
   @override
   Widget build(BuildContext context) {
-    final catsAsync = ref.watch(
-      getMangaCategorieStreamProvider(itemType: widget.itemType),
-    );
+    final catsAsync =
+        ref.watch(getMangaCategorieStreamProvider(itemType: widget.itemType));
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.4,
@@ -653,7 +623,6 @@ class _ManageCategoriesSheetState
         ),
         child: Column(
           children: [
-            // Handle
             Container(
               margin: const EdgeInsets.only(top: 10),
               width: 36,
@@ -663,7 +632,6 @@ class _ManageCategoriesSheetState
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Row(
@@ -672,12 +640,12 @@ class _ManageCategoriesSheetState
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE91E63).withValues(alpha: 0.2),
+                      color: _kAccent.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.label_rounded,
-                      color: Color(0xFFE91E63),
+                      color: _kAccent,
                       size: 24,
                     ),
                   ),
@@ -722,7 +690,6 @@ class _ManageCategoriesSheetState
               ),
             ),
             const Divider(color: Color(0xFF2D2D2D), height: 20),
-            // List
             Expanded(
               child: catsAsync.when(
                 data: (cats) => ListView(
@@ -736,7 +703,6 @@ class _ManageCategoriesSheetState
                         onDelete: () => _delete(cat),
                       ),
                     const SizedBox(height: 16),
-                    // Add field
                     Row(
                       children: [
                         Expanded(
@@ -745,7 +711,8 @@ class _ManageCategoriesSheetState
                             decoration: BoxDecoration(
                               color: const Color(0xFF252525),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF3D3D3D)),
+                              border:
+                                  Border.all(color: const Color(0xFF3D3D3D)),
                             ),
                             child: TextField(
                               controller: _ctrl,
@@ -785,7 +752,6 @@ class _ManageCategoriesSheetState
                       ],
                     ),
                     const SizedBox(height: 20),
-                    // Done
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -841,7 +807,9 @@ class _CatRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final count = ref
-        .watch(getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType))
+        .watch(
+          getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType),
+        )
         .maybeWhen(data: (l) => l.length, orElse: () => 0);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -878,12 +846,12 @@ class _CatRow extends ConsumerWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFE91E63).withValues(alpha: 0.2),
+                color: _kAccent.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.delete_outline_rounded,
-                color: Color(0xFFE91E63),
+                color: _kAccent,
                 size: 20,
               ),
             ),
