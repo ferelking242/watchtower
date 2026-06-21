@@ -13,6 +13,7 @@ import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
+import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
