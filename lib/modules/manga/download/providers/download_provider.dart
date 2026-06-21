@@ -967,10 +967,30 @@ Future<void> downloadChapter(
       bool htmlFileExist = await File(
         p.join(mangaMainDirectory.path, "$chapterName.html"),
       ).exists();
+      AppLogger.log(
+        '[ch:${chapter.id}] cbzExists=$cbzFileExist mp4Exists=$mp4FileExist '
+        'htmlExists=$htmlFileExist dir=${mangaMainDirectory.path}',
+        logLevel: LogLevel.debug,
+        tag: LogTag.download,
+      );
       if (!cbzFileExist && itemType == ItemType.manga ||
           !mp4FileExist && itemType == ItemType.anime ||
           !htmlFileExist && itemType == ItemType.novel) {
-        final mainDirectory = (await storageProvider.getDirectory())!;
+        final mainDirectoryRaw = await storageProvider.getDirectory();
+        if (mainDirectoryRaw == null) {
+          AppLogger.log(
+            '[ch:${chapter.id}] ERROR: getDirectory() returned null — check storage permission',
+            logLevel: LogLevel.error,
+            tag: LogTag.download,
+          );
+          throw StateError('getDirectory() returned null for chapterId=${chapter.id}');
+        }
+        final mainDirectory = mainDirectoryRaw;
+        AppLogger.log(
+          '[ch:${chapter.id}] storage dir: ${mainDirectory.path}',
+          logLevel: LogLevel.debug,
+          tag: LogTag.download,
+        );
         storageProvider.createDirectorySafely(mainDirectory.path);
         for (var index = 0; index < pageUrls.length; index++) {
           if (!kIsWeb && Platform.isAndroid) {
@@ -998,7 +1018,9 @@ Future<void> downloadChapter(
             headers.addAll(cookie);
             headers[HttpHeaders.userAgentHeader] = userAgent;
           }
-          Map<String, String> pageHeaders = headers;
+          // Copy headers so each page gets its own map (avoids mutating
+          // the shared `headers` reference across loop iterations).
+          final Map<String, String> pageHeaders = Map<String, String>.from(headers);
           pageHeaders.addAll(page.headers ?? {});
 
           if (itemType == ItemType.manga) {
@@ -1034,7 +1056,18 @@ Future<void> downloadChapter(
         }
       }
 
+      AppLogger.log(
+        '[ch:${chapter.id}] pages to dl: ${pages.length}/${pageUrls.length} '
+        '(${pageUrls.length - pages.length} already on disk)',
+        logLevel: LogLevel.info,
+        tag: LogTag.download,
+      );
       if (pages.isEmpty && pageUrls.isNotEmpty) {
+        AppLogger.log(
+          '[ch:${chapter.id}] all pages already on disk → marking complete',
+          logLevel: LogLevel.info,
+          tag: LogTag.download,
+        );
         await processConvert();
         savePageUrls();
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
@@ -1249,9 +1282,28 @@ Future<void> downloadChapter(
 
     callback?.call();
     keepAlive.close();
-  } catch (_) {
+  } catch (e, st) {
     // Always fire the callback even on error so processDownloads can unblock
     // its slot counter and exit cleanly instead of looping forever.
+    log('[downloadChapter] UNCAUGHT ERROR chapterId=${chapter.id}: $e\n$st');
+    AppLogger.log(
+      '[ch:${chapter.id}] CRASH: $e',
+      logLevel: LogLevel.error,
+      tag: LogTag.download,
+    );
+    // Mark as failed so processDownloads does NOT re-queue endlessly.
+    // Without this, any uncaught exception leaves the chapter as
+    // isDownload=false + isStartDownload=true in Isar → infinite retry loop.
+    if (chapter.id != null) {
+      try {
+        final dl = isar.downloads.getSync(chapter.id!);
+        if (dl != null) {
+          isar.writeTxnSync(() {
+            isar.downloads.putSync(dl..failed = 1..isDownload = false);
+          });
+        }
+      } catch (_) {}
+    }
     callback?.call();
     keepAlive.close();
   } finally {
