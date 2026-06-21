@@ -9,39 +9,34 @@ import 'dart:async';
     void _tlogErr(String msg) =>
         AppLogger.log('[RELAY] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
 
-    /// WebSocket relay client — remplace le tunnel SSH dartssh2.
-    ///
-    /// Le téléphone se connecte en WebSocket au serveur relay Replit.
-    /// Le relay transfère les requêtes HTTP du client web (GitHub Pages) vers le
-    /// téléphone via WebSocket. Le téléphone appelle son serveur shelf local
-    /// (port 4567) et renvoie la réponse au relay.
-    ///
-    /// URL publique affichée à l'utilisateur : [relayBaseUrl]
-    /// L'utilisateur colle cette URL dans l'app web Watchtower.
     class TunnelService {
-      /// URL de base du relay Replit (domaine dev — valide pour cette session Replit).
-      /// Pour une URL stable permanente, déployer le serveur Replit.
       static const String relayBaseUrl =
           'https://ced0c0ed-46b7-489b-a53b-771860cc38d5-00-33j0djr3c6949.spock.replit.dev/api/relay';
 
       static const int _localPort = 4567;
-      static const Duration _reconnectDelay = Duration(seconds: 5);
       static const Duration _requestTimeout = Duration(seconds: 30);
 
       void Function(String url)? onUrlChanged;
       void Function(String error)? onError;
-
-      // Kept for API compatibility with RemoteServerService
       // ignore: unused_field
       void Function(double progress)? onDownloadProgress;
 
       WebSocket? _ws;
       bool _running = false;
       Timer? _reconnectTimer;
+      int _reconnectAttempts = 0;
+
+      /// Backoff: 5s for first 2 failures, 15s up to 5, then 30s.
+      Duration get _reconnectDelay {
+        if (_reconnectAttempts <= 2) return const Duration(seconds: 5);
+        if (_reconnectAttempts <= 5) return const Duration(seconds: 15);
+        return const Duration(seconds: 30);
+      }
 
       Future<void> start() async {
         if (kIsWeb) return;
         _running = true;
+        _reconnectAttempts = 0;
         _connect();
       }
 
@@ -56,8 +51,9 @@ import 'dart:async';
 
       void _scheduleReconnect() {
         if (!_running) return;
-        _tlog('Reconnexion dans ${_reconnectDelay.inSeconds}s...');
-        _reconnectTimer = Timer(_reconnectDelay, _connect);
+        final delay = _reconnectDelay;
+        _tlog('Reconnexion dans ${delay.inSeconds}s... (tentative $_reconnectAttempts)');
+        _reconnectTimer = Timer(delay, _connect);
       }
 
       Future<void> _connect() async {
@@ -73,10 +69,16 @@ import 'dart:async';
         _tlog('Connexion relay : $wsUrl');
 
         try {
+          // Pre-resolve DNS — catches Android DNS failures before WebSocket.connect
+          final host = Uri.parse(relayBaseUrl).host;
+          await InternetAddress.lookup(host);
+
           final ws = await WebSocket.connect(wsUrl).timeout(
             const Duration(seconds: 15),
             onTimeout: () => throw TimeoutException('Connexion timeout'),
           );
+
+          _reconnectAttempts = 0;
           _ws = ws;
           _tlog('Connecté — URL publique : $relayBaseUrl');
           onUrlChanged?.call(relayBaseUrl);
@@ -86,15 +88,23 @@ import 'dart:async';
             if (raw is! String) continue;
             try {
               final Map<String, dynamic> msg = jsonDecode(raw);
+              // Ignore server heartbeat pings (type=ping)
+              if (msg['type'] == 'ping') continue;
               _handleRequest(msg);
             } catch (e) {
               _tlogErr('Message invalide : $e');
             }
           }
+        } on SocketException catch (e) {
+          _reconnectAttempts++;
+          _tlogErr('Erreur socket/DNS : $e');
+          if (_running) onError?.call('Relay DNS/socket : ${e.message}');
         } on TimeoutException catch (e) {
+          _reconnectAttempts++;
           _tlogErr('Timeout connexion : $e');
           if (_running) onError?.call('Relay timeout : $e');
         } catch (e) {
+          _reconnectAttempts++;
           _tlogErr('Erreur WebSocket : $e');
           if (_running) onError?.call('Relay déconnecté : $e');
         } finally {
