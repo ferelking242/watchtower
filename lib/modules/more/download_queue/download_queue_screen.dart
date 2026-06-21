@@ -383,7 +383,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
 
   Widget _chipTab(int index, IconData icon, String label, int count) {
     return Builder(builder: (context) {
-      final selected = _tabController.index == index;
+      final anim = _tabController.animation;
+      final selected = anim != null
+          ? anim.value.round() == index
+          : _tabController.index == index;
       final scheme = Theme.of(context).colorScheme;
       return GestureDetector(
         onTap: () => setState(() => _tabController.animateTo(index)),
@@ -826,55 +829,45 @@ class _SimultaneousRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: scheme.outlineVariant, width: 1),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: iconColor),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
-                ),
-              ),
-            ],
+          Icon(icon, size: 14, color: iconColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurface,
+            ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _CounterField(
-                  label: 'Total',
-                  value: total,
-                  min: 1,
-                  max: maxTotal,
-                  onChanged: onTotalChanged,
-                  scheme: scheme,
-                  accentColor: iconColor,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _CounterField(
-                  label: 'Par source',
-                  value: perSource,
-                  min: 1,
-                  max: maxPerSource,
-                  onChanged: onPerSourceChanged,
-                  scheme: scheme,
-                  accentColor: iconColor,
-                ),
-              ),
-            ],
+          const Spacer(),
+          _CounterField(
+            label: 'Total',
+            value: total,
+            min: 1,
+            max: maxTotal,
+            onChanged: onTotalChanged,
+            scheme: scheme,
+            accentColor: iconColor,
+            compact: true,
+          ),
+          const SizedBox(width: 8),
+          _CounterField(
+            label: 'Src',
+            value: perSource,
+            min: 1,
+            max: maxPerSource,
+            onChanged: onPerSourceChanged,
+            scheme: scheme,
+            accentColor: iconColor,
+            compact: true,
           ),
         ],
       ),
@@ -883,48 +876,51 @@ class _SimultaneousRow extends StatelessWidget {
 }
 
 class _CounterField extends StatelessWidget {
-  final String label;
-  final int value;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
-  final ColorScheme scheme;
-  final Color accentColor;
+    final String label;
+    final int value;
+    final int min;
+    final int max;
+    final ValueChanged<int> onChanged;
+    final ColorScheme scheme;
+    final Color accentColor;
+    final bool compact;
 
-  const _CounterField({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-    required this.scheme,
-    required this.accentColor,
-  });
+    const _CounterField({
+      required this.label,
+      required this.value,
+      required this.min,
+      required this.max,
+      required this.onChanged,
+      required this.scheme,
+      required this.accentColor,
+      this.compact = false,
+    });
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 6),
-        Row(
+    @override
+    Widget build(BuildContext context) {
+      if (compact) {
+        // Compact inline layout: label + [-] value [+]
+        return Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(width: 4),
             _CircleBtn(
               icon: Icons.remove,
               enabled: value > min,
               color: accentColor,
               onTap: value > min ? () => onChanged(value - 1) : null,
             ),
-            Expanded(
+            SizedBox(
+              width: 22,
               child: Center(
                 child: Text(
                   '$value',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: scheme.onSurface,
                   ),
@@ -938,11 +934,48 @@ class _CounterField extends StatelessWidget {
               onTap: value < max ? () => onChanged(value + 1) : null,
             ),
           ],
-        ),
-      ],
-    );
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _CircleBtn(
+                icon: Icons.remove,
+                enabled: value > min,
+                color: accentColor,
+                onTap: value > min ? () => onChanged(value - 1) : null,
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '$value',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+              _CircleBtn(
+                icon: Icons.add,
+                enabled: value < max,
+                color: accentColor,
+                onTap: value < max ? () => onChanged(value + 1) : null,
+              ),
+            ],
+          ),
+        ],
+      );
+    }
   }
-}
 
 class _CircleBtn extends StatelessWidget {
   final IconData icon;
@@ -1147,12 +1180,49 @@ class _DownloadTabList extends StatelessWidget {
         final retryCount =
             queueState.retryCounts[element.id ?? -1] ?? 0;
 
-        return _ProgressiveSwipeable(
-          isPaused: isPaused,
-          onPauseResume: () => onPauseResume(element),
-          onCancel: () => onCancel(element),
-          onDelete: () => onDelete(element),
-          onOpen: () => onOpen(element),
+        return Dismissible(
+          key: ValueKey('dl_' + (element.id ?? 0).toString()),
+          direction: DismissDirection.horizontal,
+          dismissThresholds: const {
+            DismissDirection.startToEnd: 0.30,
+            DismissDirection.endToStart: 0.30,
+          },
+          background: Container(
+            color: Colors.red.shade700,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.only(left: 28),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.delete_outline_rounded, color: Colors.white, size: 30),
+                SizedBox(height: 4),
+                Text('Supprimer', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          secondaryBackground: Builder(
+            builder: (ctx) => Container(
+              color: Colors.orange.shade700,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 28),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded, color: Colors.white, size: 30),
+                  const SizedBox(height: 4),
+                  Text(isPaused ? 'Reprendre' : 'Pause', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+          confirmDismiss: (direction) async {
+            if (direction == DismissDirection.endToStart) {
+              onPauseResume(element);
+              return false;
+            }
+            onDelete(element);
+            return true;
+          },
           child: _DownloadCard(
             download: element,
             isPaused: isPaused,
