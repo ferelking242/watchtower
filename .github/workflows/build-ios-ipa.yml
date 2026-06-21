@@ -185,14 +185,17 @@ jobs:
         # Résultat: iOS 15 refuse le mmap(PROT_EXEC) de App.framework/App avec
         # KERN_RESOURCE_SHORTAGE ("VM Fault memory shortage" dans le crash log) —
         # ce n'est PAS un vrai manque de RAM, c'est un refus de code signing.
-        # ldid génère un faux certificat DER que le kernel patché par Dopamine accepte.
+      # ── Signer (ldid uniquement — SANS codesign adhoc) ─────────────────────────
+        # codesign --sign - (adhoc/null cert) écrase ldid et fait échouer le mmap
+        # PROT_EXEC de App.framework par iOS 15 → VM Fault "memory shortage".
+        # ldid génère un faux certificat DER reconnu par le hook Dopamine/TrollStore.
         - name: Sign for TrollStore (ldid only — no codesign)
           run: |
             APP="build/ios/iphoneos/Runner.app"
             ENT="ios/Runner/Runner.entitlements"
             brew install ldid 2>/dev/null || true
 
-            echo "=== ldid par framework (inclus App.framework = snapshot Dart AOT) ==="
+            echo "=== ldid frameworks + App.framework (snapshot Dart AOT) ==="
             for fw in "$APP/Frameworks"/*.framework; do
               NAME=$(basename "$fw" .framework)
               BIN="$fw/$NAME"
@@ -204,40 +207,11 @@ jobs:
             echo "=== ldid Runner avec entitlements (platform-application + no-sandbox) ==="
             ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK"
 
-            echo "=== Vérification entitlements Runner ==="
+            echo "=== Vérification entitlements ==="
             ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
 
             echo "=== Frameworks signés ==="
             ls "$APP/Frameworks/" | wc -l
-        run: |
-          APP="build/ios/iphoneos/Runner.app"
-          ENT="ios/Runner/Runner.entitlements"
-          brew install ldid 2>/dev/null || true
-
-          echo "=== ldid par framework ==="
-          for fw in "$APP/Frameworks"/*.framework; do
-            NAME=$(basename "$fw" .framework)
-            BIN="$fw/$NAME"
-            if [ -f "$BIN" ]; then
-              ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
-            fi
-          done
-
-          echo "=== ldid Runner avec entitlements ==="
-          ldid -S"$ENT" "$APP/Runner" 2>/dev/null && echo "ldid Runner OK" || echo "WARN: ldid Runner failed (ok, codesign below handles it)"
-
-          echo "=== codesign récursif ad-hoc ==="
-          /usr/bin/codesign --force --deep --sign - \
-            --entitlements "$ENT" --timestamp=none "$APP" \
-            && echo "codesign OK" || echo "WARN: codesign failed"
-
-          echo "=== Vérification entitlements ==="
-          codesign -d --entitlements :- "$APP" 2>/dev/null | head -20 || true
-
-          echo "=== Frameworks présents ==="
-          ls "$APP/Frameworks/" | wc -l
-          echo "wakelock_plus binary: $([ -f "$APP/Frameworks/wakelock_plus.framework/wakelock_plus" ] && echo PRESENT || echo absent-static-OK)"
-
       # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
       - name: Cleanup ldid residual files
         run: |
