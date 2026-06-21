@@ -13,7 +13,7 @@ import 'package:watchtower/services/library_updater.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
 
-// ── Design tokens (Library page spec) ────────────────────────────────
+// Design tokens
 const _kBg            = Color(0xFF0A0A0A);
 const _kSurface       = Color(0xFF1A1A1A);
 const _kBorder        = Color(0xFF333333);
@@ -23,10 +23,8 @@ const _kTextSecondary = Color(0xFF999999);
 
 class MainLibraryScreen extends ConsumerStatefulWidget {
   const MainLibraryScreen({super.key, this.presetInput, this.initialType});
-
   final String? presetInput;
   final ItemType? initialType;
-
   @override
   ConsumerState<MainLibraryScreen> createState() => _MainLibraryScreenState();
 }
@@ -37,7 +35,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   bool _isSearch   = false;
   bool _isListView = true;
   late ItemType _currentType;
-
   final List<String> _categories = ['All', 'Webto', 'Denger'];
   int _selectedCategoryIndex = 0;
 
@@ -46,9 +43,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     super.initState();
     _currentType = widget.initialType ?? ItemType.anime;
     _searchController = TextEditingController(text: widget.presetInput ?? '');
-    if (widget.presetInput != null && widget.presetInput!.isNotEmpty) {
-      _isSearch = true;
-    }
+    if (widget.presetInput != null && widget.presetInput!.isNotEmpty) _isSearch = true;
     _searchController.addListener(() => setState(() {}));
   }
 
@@ -59,25 +54,30 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   }
 
   void _openFilterSheet(Settings settings) {
-    final mangaAsync = ref.read(
-      getAllMangaStreamProvider(categoryId: null, itemType: _currentType));
-    final entries = mangaAsync.when(
-      data: (v) => v, loading: () => <Manga>[], error: (_, __) => <Manga>[]);
-    showLibrarySettingsSheet(
-      context: context,
-      vsync: this,
-      settings: settings,
-      itemType: _currentType,
-      entries: entries,
+    final mangaAsync = ref.read(getAllMangaStreamProvider(categoryId: null, itemType: _currentType));
+    final entries = mangaAsync.when(data: (v) => v, loading: () => <Manga>[], error: (_, __) => <Manga>[]);
+    showLibrarySettingsSheet(context: context, vsync: this, settings: settings, itemType: _currentType, entries: entries);
+  }
+
+  // Circle button — transparent bg, circle border. No fill. Identique screenshot.
+  Widget _circleBtn({required IconData icon, required VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          shape: BoxShape.circle,
+          border: Border.all(color: _kBorder, width: 1.5),
+        ),
+        child: Icon(icon, size: 20, color: _kTextPrimary),
+      ),
     );
   }
 
-  /// Square icon button — 44×44, borderRadius 12, per spec.
-  Widget _squareBtn({
-    required IconData icon,
-    required VoidCallback? onTap,
-    bool active = false,
-  }) {
+  // Toggle button inside the grouped view-picker pill
+  Widget _toggleBtn({required IconData icon, required bool active, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -85,11 +85,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         height: 44,
         decoration: BoxDecoration(
           color: active ? _kAccent : Colors.transparent,
-          border: Border.all(
-            color: active ? _kAccent : _kBorder,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(12),
+          shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 20, color: _kTextPrimary),
       ),
@@ -101,15 +97,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     final settingsStream = ref.watch(getSettingsStreamProvider);
     return settingsStream.when(
       data: (s) => _buildBody(s.first),
-      loading: () => const Scaffold(
-        backgroundColor: _kBg,
-        body: Center(child: CircularProgressIndicator(color: _kAccent)),
-      ),
-      error: (e, _) => Scaffold(
-        backgroundColor: _kBg,
-        body: Center(child: Text(e.toString(),
-          style: const TextStyle(color: _kTextPrimary))),
-      ),
+      loading: () => const Scaffold(backgroundColor: _kBg, body: Center(child: CircularProgressIndicator(color: _kAccent))),
+      error: (e, _) => Scaffold(backgroundColor: _kBg, body: Center(child: Text(e.toString(), style: const TextStyle(color: _kTextPrimary)))),
     );
   }
 
@@ -122,7 +111,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // ── Header: title + 4 square action buttons ──────────────────────
+            // Header — 56px
             SizedBox(
               height: 56,
               child: Padding(
@@ -130,7 +119,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // 'Library' — 32 px, bold, white
+                    // Title 'Library' — 32px bold
                     const Expanded(
                       child: Text(
                         'Library',
@@ -143,8 +132,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                         ),
                       ),
                     ),
-                    // Search
-                    _squareBtn(
+                    // Bouton 1: Search — cercle, transparent, border
+                    _circleBtn(
                       icon: Icons.search_rounded,
                       onTap: () => setState(() {
                         _isSearch = !_isSearch;
@@ -152,60 +141,59 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                       }),
                     ),
                     const SizedBox(width: 12),
-                    // Download / update
-                    _squareBtn(
+                    // Bouton 2: Download — cercle, transparent, border
+                    _circleBtn(
                       icon: Icons.download_outlined,
                       onTap: () {
-                        ref.read(getAllMangaStreamProvider(
-                          categoryId: null,
-                          itemType: _currentType,
-                        )).whenData((list) => updateLibrary(
-                          ref: ref,
-                          context: context,
-                          mangaList: list,
-                          itemType: _currentType,
-                        ));
+                        ref.read(getAllMangaStreamProvider(categoryId: null, itemType: _currentType))
+                          .whenData((list) => updateLibrary(ref: ref, context: context, mangaList: list, itemType: _currentType));
                       },
                     ),
                     const SizedBox(width: 12),
-                    // List view (active by default)
-                    _squareBtn(
-                      icon: Icons.view_list_rounded,
-                      active: _isListView,
-                      onTap: () => setState(() => _isListView = true),
-                    ),
-                    const SizedBox(width: 12),
-                    // Grid view
-                    _squareBtn(
-                      icon: Icons.grid_view_rounded,
-                      active: !_isListView,
-                      onTap: () => setState(() => _isListView = false),
+                    // Boutons 3+4: List & Grid — COLLES dans la meme box (pill)
+                    Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _kSurface,
+                        border: Border.all(color: _kBorder, width: 1.5),
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _toggleBtn(
+                            icon: Icons.view_list_rounded,
+                            active: _isListView,
+                            onTap: () => setState(() => _isListView = true),
+                          ),
+                          _toggleBtn(
+                            icon: Icons.grid_view_rounded,
+                            active: !_isListView,
+                            onTap: () => setState(() => _isListView = false),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
 
-            // ── Inline search field (shown when _isSearch) ──────────────────
+            // Inline search (quand _isSearch)
             if (_isSearch) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: SeachFormTextField(
                   onChanged: (_) => setState(() {}),
-                  onSuffixPressed: () {
-                    _searchController.clear();
-                    setState(() {});
-                  },
-                  onPressed: () => setState(() {
-                    _isSearch = false;
-                    _searchController.clear();
-                  }),
+                  onSuffixPressed: () { _searchController.clear(); setState(() {}); },
+                  onPressed: () => setState(() { _isSearch = false; _searchController.clear(); }),
                   controller: _searchController,
                 ),
               ),
             ],
 
-            // ── Filter bar: sliders + category pills ─────────────────────
+            // Filter bar — height 48, bg surface, border, radius 24
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
               child: Container(
@@ -217,8 +205,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 ),
                 child: Row(
                   children: [
-                    const SizedBox(width: 12),
-                    // Sliders / tune icon — 32×32, radius 8
+                    const SizedBox(width: 8),
+                    // Icone outils (tournevis + cle) — cercle, transparent, border
                     GestureDetector(
                       onTap: () => _openFilterSheet(settings),
                       child: Container(
@@ -226,18 +214,20 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                         height: 32,
                         decoration: BoxDecoration(
                           color: Colors.transparent,
+                          shape: BoxShape.circle,
                           border: Border.all(color: _kBorder, width: 1),
-                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
-                          Icons.tune_rounded,
-                          size: 16,
-                          color: _kTextPrimary,
-                        ),
+                        child: const Icon(Icons.handyman_outlined, size: 16, color: _kTextPrimary),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // Category pills
+                    // Separateur visuel
+                    Container(
+                      width: 1,
+                      height: 24,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      color: _kBorder,
+                    ),
+                    // Pills categories — scrollables
                     Expanded(
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
@@ -259,12 +249,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                     _categories[i],
                                     style: TextStyle(
                                       fontSize: 14,
-                                      fontWeight: isActive
-                                          ? FontWeight.w600
-                                          : FontWeight.w400,
-                                      color: isActive
-                                          ? _kTextPrimary
-                                          : _kTextSecondary,
+                                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                                      color: isActive ? _kTextPrimary : _kTextSecondary,
                                     ),
                                   ),
                                 ),
@@ -274,22 +260,19 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                   ],
                 ),
               ),
             ),
 
-            // ── Library content ────────────────────────────────────────────
+            // Contenu bibliotheque
             Expanded(
               child: LibraryScreen(
                 itemType: _currentType,
-                presetInput: _isSearch && _searchController.text.isNotEmpty
-                    ? _searchController.text
-                    : null,
+                presetInput: _isSearch && _searchController.text.isNotEmpty ? _searchController.text : null,
                 hideOwnAppBar: true,
-                externalSearchQuery:
-                    _isSearch ? _searchController.text : null,
+                externalSearchQuery: _isSearch ? _searchController.text : null,
                 key: ValueKey(_currentType.index * 100 + _selectedCategoryIndex),
               ),
             ),
