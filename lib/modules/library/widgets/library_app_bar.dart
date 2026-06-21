@@ -94,7 +94,7 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       title: isSearch
           ? null
           : Row(
