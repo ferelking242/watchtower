@@ -36,6 +36,8 @@ import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:marquee/marquee.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:flutter_popup/flutter_popup.dart';
+import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
+import 'package:watchtower/utils/headers.dart';
 
 enum _HomeMenuAction { openBrowser, cookies, settings, diagnostic }
 
@@ -1723,13 +1725,23 @@ class _MangaHomeImageCardListTileState
     }
   }
 
-  class _PopularCard extends StatelessWidget {
+  class _PopularCard extends ConsumerWidget {
     final MManga manga;
     final Source source;
     const _PopularCard({required this.manga, required this.source});
 
     @override
-    Widget build(BuildContext context) {
+    Widget build(BuildContext context, WidgetRef ref) {
+      final headers = ref.watch(headersProvider(
+        source: source.name!,
+        lang: source.lang!,
+        sourceId: source.id,
+      ));
+      final imgUrl = toImgUrl(manga.imageUrl ?? '');
+      final ImageProvider<Object> coverImage = imgUrl.isNotEmpty
+          ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
+          : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
+
       return Container(
         decoration: BoxDecoration(
           color: Theme.of(context)
@@ -1751,23 +1763,37 @@ class _MangaHomeImageCardListTileState
                 topLeft: Radius.circular(12),
                 bottomLeft: Radius.circular(12),
               ),
-              child: manga.imageUrl?.isNotEmpty == true
-                  ? Image.network(
-                      manga.imageUrl!,
+              child: imgUrl.isNotEmpty
+                  ? Image(
+                      image: coverImage,
                       width: 88,
                       fit: BoxFit.cover,
+                      frameBuilder: (ctx, child, frame, loaded) {
+                        if (frame == null) {
+                          return Skeletonizer(
+                            enabled: true,
+                            effect: ShimmerEffect(
+                              baseColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                              highlightColor: Theme.of(ctx).colorScheme.surface,
+                              duration: const Duration(milliseconds: 1000),
+                            ),
+                            child: Container(width: 88, color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+                          );
+                        }
+                        return AnimatedOpacity(
+                          opacity: loaded ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: child,
+                        );
+                      },
                       errorBuilder: (_, __, ___) => Container(
                         width: 88,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       ),
                     )
                   : Container(
                       width: 88,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
             ),
             // Info panel
