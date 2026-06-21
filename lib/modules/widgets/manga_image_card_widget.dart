@@ -334,14 +334,14 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
                           Row(
                             children: [
                               Icon(Icons.access_time, size: 12,
-                                  color: context.hintColor),
+                                  color: Theme.of(context).hintColor),
                               const SizedBox(width: 4),
                               Text(
                                 _relativeTime(
                                     getMangaDetail!.chapters![0].dateUpload),
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: context.hintColor,
+                                  color: Theme.of(context).hintColor,
                                 ),
                               ),
                             ],
