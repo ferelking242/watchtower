@@ -1356,14 +1356,15 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
 
     // ── Concurrency limits ───────────────────────────────────────────────────
     // Global cap (legacy "simultaneous downloads" setting).
-    final globalMax = ref.read(concurrentDownloadsStateProvider);
+    // NOTE: declared as var so they can be refreshed each tick inside doWhile.
+    var globalMax = ref.read(concurrentDownloadsStateProvider);
     // Per-type caps and per-(type,source) caps read from the dedicated providers.
-    final typeMax = <ItemType, int>{
+    var typeMax = <ItemType, int>{
       ItemType.manga: ref.read(mangaSimultaneousStateProvider),
       ItemType.anime: ref.read(watchSimultaneousStateProvider),
       ItemType.novel: ref.read(novelSimultaneousStateProvider),
     };
-    final typePerSrcMax = <ItemType, int>{
+    var typePerSrcMax = <ItemType, int>{
       ItemType.manga: ref.read(mangaSimultaneousPerSourceStateProvider),
       ItemType.anime: ref.read(watchSimultaneousPerSourceStateProvider),
       ItemType.novel: ref.read(novelSimultaneousPerSourceStateProvider),
@@ -1418,6 +1419,21 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
 
       // Done: all started downloads have completed.
       if (toStart.length == downloaded) return false;
+
+      // Refresh limits each tick so settings changes take effect immediately.
+      // Since globalMax/typeMax/typePerSrcMax are var (not final) and captured
+      // by the nextPick() closure by reference, the closure sees updated values.
+      globalMax = ref.read(concurrentDownloadsStateProvider);
+      typeMax = <ItemType, int>{
+        ItemType.manga: ref.read(mangaSimultaneousStateProvider),
+        ItemType.anime: ref.read(watchSimultaneousStateProvider),
+        ItemType.novel: ref.read(novelSimultaneousStateProvider),
+      };
+      typePerSrcMax = <ItemType, int>{
+        ItemType.manga: ref.read(mangaSimultaneousPerSourceStateProvider),
+        ItemType.anime: ref.read(watchSimultaneousPerSourceStateProvider),
+        ItemType.novel: ref.read(novelSimultaneousPerSourceStateProvider),
+      };
 
       // Try to start as many downloads as possible within all caps.
       while (current < globalMax) {

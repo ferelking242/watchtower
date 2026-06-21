@@ -126,6 +126,34 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               ),
             ),
             actions: [
+              // ── Gérer button ───────────────────────────────────────────
+              GestureDetector(
+                onTap: () => _showGererSheet(context, entries, ref),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: scheme.secondaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: scheme.outlineVariant, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.construction, color: scheme.onSecondaryContainer, size: 15),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Gérer',
+                        style: TextStyle(
+                          color: scheme.onSecondaryContainer,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               GestureDetector(
                 onTap: () => context.push('/transfer'),
                 child: Container(
@@ -158,14 +186,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton(
-            heroTag: 'dlq_manage',
-            onPressed: () => _showGererSheet(context, entries, ref),
-            backgroundColor: scheme.primaryContainer,
-            foregroundColor: scheme.onPrimaryContainer,
-            elevation: 3,
-            child: const Icon(Icons.tune_rounded, size: 22),
-          ),
+
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -533,13 +554,13 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                 children: [
 
                   // ── Actions rapides ──────────────────────────────────────
-                  _SheetSection(label: 'Actions rapides', scheme: scheme),
-                  const SizedBox(height: 8),
+                  _SheetSection(label: 'Actions rapides', scheme: scheme, icon: Icons.bolt_rounded, helpText: 'Agir sur toute la file d\'attente'),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       _ActionBtn(
                         icon: Icons.play_arrow_rounded,
-                        label: 'Démarrer\ntout',
+                        label: 'Lancer',
                         color: scheme.primary,
                         onTap: () {
                           Navigator.pop(context);
@@ -550,7 +571,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                       const SizedBox(width: 8),
                       _ActionBtn(
                         icon: Icons.pause_rounded,
-                        label: 'Pause\ntout',
+                        label: 'Pause',
                         color: Colors.orange,
                         onTap: () {
                           Navigator.pop(context);
@@ -561,7 +582,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                       const SizedBox(width: 8),
                       _ActionBtn(
                         icon: Icons.stop_rounded,
-                        label: 'Arrêter\ntout',
+                        label: 'Arrêter',
                         color: Colors.redAccent,
                         onTap: () {
                           Navigator.pop(context);
@@ -573,7 +594,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                       const SizedBox(width: 8),
                       _ActionBtn(
                         icon: Icons.replay_rounded,
-                        label: 'Réessayer\néchecs',
+                        label: 'Réessayer',
                         color: scheme.secondary,
                         onTap: () {
                           Navigator.pop(context);
@@ -591,7 +612,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 20),
 
                   // ── Simultanés par type ──────────────────────────────────
-                  _SheetSection(label: 'Téléchargements simultanés', scheme: scheme),
+                  _SheetSection(label: 'Simultanés', scheme: scheme, icon: Icons.download_for_offline_outlined, helpText: 'Nombre de téléchargements parallèles par type et par source'),
                   const SizedBox(height: 10),
 
                   _SimultaneousRow(
@@ -636,7 +657,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 20),
 
                   // ── Disposition des cartes ───────────────────────────────
-                  _SheetSection(label: 'Disposition des cartes', scheme: scheme),
+                  _SheetSection(label: 'Disposition', scheme: scheme, icon: Icons.view_list_outlined, helpText: 'Densité d\'affichage des éléments de la file'),
                   const SizedBox(height: 10),
                   Row(
                     children: DownloadCardLayout.values.map((l) {
@@ -688,8 +709,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 20),
 
                   // ── Options ─────────────────────────────────────────────
-                  _SheetSection(label: 'Options', scheme: scheme),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   _OptionTile(
                     icon: Icons.cloud_sync_outlined,
                     label: 'Arrière-plan',
@@ -732,23 +752,41 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 class _SheetSection extends StatelessWidget {
   final String label;
   final ColorScheme scheme;
-  const _SheetSection({required this.label, required this.scheme});
+  final IconData? icon;
+  final String? helpText;
+  const _SheetSection({
+    required this.label,
+    required this.scheme,
+    this.icon,
+    this.helpText,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        if (icon != null) ...[
+          Icon(icon, size: 13, color: scheme.primary),
+          const SizedBox(width: 5),
+        ],
         Text(
           label.toUpperCase(),
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: scheme.onSurfaceVariant,
-            letterSpacing: 0.8,
+            color: scheme.primary,
+            letterSpacing: 0.9,
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(child: Divider(color: scheme.outlineVariant, height: 1)),
+        if (helpText != null) ...[
+          const SizedBox(width: 5),
+          Tooltip(
+            message: helpText!,
+            triggerMode: TooltipTriggerMode.tap,
+            child: Icon(Icons.help_outline_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+          ),
+        ],
       ],
     );
   }
@@ -772,25 +810,27 @@ class _ActionBtn extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+            color: color.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.28), width: 1),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 22),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -1333,24 +1373,21 @@ class _DownloadCard extends ConsumerWidget {
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
+    // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
+    // on each Isar stream rebuild (the regression bug). Direct value is correct.
     final progressBar = progress > 0 && !isComplete
-        ? TweenAnimationBuilder<double>(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOut,
-            tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
-            builder: (_, val, __) => ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: val,
-                minHeight: layout == DownloadCardLayout.compact ? 2 : 3,
-                backgroundColor: scheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  hasFailed
-                      ? Colors.redAccent
-                      : isPaused
-                          ? Colors.orange
-                          : scheme.primary,
-                ),
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: layout == DownloadCardLayout.compact ? 2 : 4,
+              backgroundColor: scheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                hasFailed
+                    ? Colors.redAccent
+                    : isPaused
+                        ? Colors.orange
+                        : scheme.primary,
               ),
             ),
           )
