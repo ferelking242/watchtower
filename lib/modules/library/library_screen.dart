@@ -43,11 +43,15 @@ class LibraryScreen extends ConsumerStatefulWidget {
   /// Live search query driven from a parent AppBar.  When non-null this
   /// overrides the internal text-field value and keeps the content filtered.
   final String? externalSearchQuery;
+  /// When set with hideOwnAppBar=true, skips category tabs and renders
+  /// the given category directly. Use -1 for "All" (null categoryId).
+  final int? externalCategoryId;
   const LibraryScreen({
     required this.itemType,
     required this.presetInput,
     this.hideOwnAppBar = false,
     this.externalSearchQuery,
+    this.externalCategoryId,
     super.key,
   });
 
@@ -231,6 +235,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         downloadedOnly: downloadedOnly,
         searchQuery: searchQuery,
         ignoreFiltersOnSearch: _ignoreFiltersOnSearch,
+      );
+    }
+
+    // Early-exit: parent controls category (hideOwnAppBar + externalCategoryId set)
+    if (widget.hideOwnAppBar && widget.externalCategoryId != null) {
+      final int? catId = widget.externalCategoryId == -1 ? null : widget.externalCategoryId;
+      return Scaffold(
+        body: bodyForCategory(categoryId: catId),
+        bottomNavigationBar: _buildBottomBar(),
       );
     }
 
