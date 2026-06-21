@@ -557,3 +557,40 @@ class TlsException implements Exception {
   const TlsException([this.message = '']);
   @override String toString() => 'TlsException: $message';
 }
+
+  // ─── WebSocket stub (dart:io.WebSocket not available on Flutter web) ──────────
+  // The real WebSocket is only used on mobile/desktop, guarded by kIsWeb checks.
+  // This stub lets dart2js compile files that use dart:io WebSocket.
+  class WebSocket extends Stream<dynamic> {
+    static const int connecting = 0;
+    static const int open       = 1;
+    static const int closing    = 2;
+    static const int closed     = 3;
+
+    int get readyState => closed;
+    String? get closeReason => null;
+    int? get closeCode => null;
+
+    void add(dynamic data) {}
+    void addError(Object error, [StackTrace? stackTrace]) {}
+    Future<void> addStream(Stream<dynamic> stream) async {}
+    Future<void> close([int? code, String? reason]) async {}
+
+    @override
+    StreamSubscription<dynamic> listen(
+      void Function(dynamic)? onData, {
+      Function? onError,
+      void Function()? onDone,
+      bool? cancelOnError,
+    }) =>
+        const Stream<dynamic>.empty().listen(onData,
+            onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+
+    static Future<WebSocket> connect(
+      String url, {
+      Iterable<String>? protocols,
+      Map<String, dynamic>? headers,
+    }) async =>
+        WebSocket();
+  }
+  
