@@ -54,6 +54,40 @@ jobs:
       - name: Install CocoaPods
         run: cd ios && pod install --repo-update && cd ..
 
+        # ── Patch media_kit XCFramework minos → iOS 13.0 ────────────────────────
+        # Les XCFrameworks pré-compilés de media_kit_libs_ios_video ont minos=16.0
+        # gravé dans leur Mach-O. iOS 15.8.x dyld les charge mais Flutter init
+        # appelle abort() → EXC_CRASH SIGABRT avant tout affichage UI.
+        - name: Patch media_kit XCFrameworks minos → iOS 13.0 (fix crash iOS 15)
+          run: |
+            set +e
+            PATCHED=0; SKIPPED=0
+            echo "=== Scan media_kit binaries ==="
+            # Patch les .framework binaries
+            while IFS= read -r FW; do
+              NAME=$(basename "$FW" .framework)
+              BIN="$FW/$NAME"
+              [ -f "$BIN" ] || continue
+              BEFORE=$(vtool -show-build "$BIN" 2>/dev/null | grep minos | head -1 || echo "?")
+              vtool -set-build-version ios 13.0 16.0 -replace -output "$BIN" "$BIN" 2>/dev/null
+              if [ $? -eq 0 ]; then
+                AFTER=$(vtool -show-build "$BIN" 2>/dev/null | grep minos | head -1 || echo "?")
+                echo "PATCHED: $NAME | $BEFORE → $AFTER"
+                PATCHED=$((PATCHED+1))
+              else
+                echo "SKIP: $NAME"
+                SKIPPED=$((SKIPPED+1))
+              fi
+            done < <(find ios/Pods -path "*media_kit*" -name "*.framework" 2>/dev/null)
+            # Patch les .a static libs
+            while IFS= read -r -d '' LIB; do
+              vtool -set-build-version ios 13.0 16.0 -replace -output "$LIB" "$LIB" 2>/dev/null \
+                && { echo "PATCHED .a: $(basename $LIB)"; PATCHED=$((PATCHED+1)); } \
+                || { echo "SKIP .a: $(basename $LIB)"; SKIPPED=$((SKIPPED+1)); }
+            done < <(find ios/Pods -path "*media_kit*" -name "*.a" -print0 2>/dev/null)
+            echo "=== vtool résultat: $PATCHED patched | $SKIPPED skipped ==="
+            set -e
+  
       # ── Patch Xcode ─────────────────────────────────────────────────────────
       # CODE_SIGN_STYLE=Automatic sans DEVELOPMENT_TEAM fait échouer le build.
       # On passe en Manual + identité vide → --no-codesign fonctionne.
