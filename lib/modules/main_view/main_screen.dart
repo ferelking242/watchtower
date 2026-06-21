@@ -327,6 +327,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 }
               }
 
+              // ── Browse always in dock, Marketplace always in menu ─────────
+              {
+                final _mktI = dest.indexOf('/marketplace');
+                final _brwI = dest.indexOf('/browse');
+                if (_mktI >= 0 && _mktI < 4) {
+                  dest = List<String>.from(dest)..removeAt(_mktI)..add('/marketplace');
+                }
+                final _brwI2 = dest.indexOf('/browse');
+                if (_brwI2 >= 4) {
+                  dest = List<String>.from(dest)..removeAt(_brwI2)..insert(3, '/browse');
+                }
+              }
+
               // ── 5-item dock cap ───────────────────────────────────────────
               // Classic dock gets a capped dest (4 user items); overflow goes
               // to the menu overlay.  Floating dock caps internally in _buildItems.
