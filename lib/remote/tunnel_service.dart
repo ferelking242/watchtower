@@ -10,9 +10,9 @@ import 'dart:async';
   void _logErr(String msg) =>
       AppLogger.log('[TUNNEL] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
 
-  // localhost.run (anonyme) ferme la connexion SSH ~10s apres l'URL.
-  // Comportement volontaire de leur serveur — aucun keepalive ne peut l'eviter.
-  // Solution : reconnexion automatique. L'URL change, le tunnel reste actif.
+  // localhost.run : quand le shell ferme, le forward est desactive cote serveur.
+  // La connexion SSH reste ouverte, donc forward.connections ne se ferme pas.
+  // La reconnexion doit se faire dans session.done, pas dans _watchForward.
 
   class TunnelService {
     SSHClient? _client;
@@ -37,7 +37,6 @@ import 'dart:async';
       _running = true;
       _urlReceived = false;
       _outputBuffer.clear();
-
       await _connect();
     }
 
@@ -67,8 +66,9 @@ import 'dart:async';
 
         final forward = await _client!.forwardRemote(port: 80);
         if (forward == null) {
-          _logErr('Forwarding refuse par localhost.run');
-          _scheduleReconnect();
+          _logErr('Forwarding refuse — reconnexion dans 5s...');
+          _cleanupClient();
+          _scheduleReconnect(delay: const Duration(seconds: 5));
           return;
         }
         _log('Forwarding OK — ouverture shell...');
@@ -77,10 +77,10 @@ import 'dart:async';
         _shellSession = session;
         _log('Shell ouverte — attente URL lhr.life...');
 
-        // Keepalive stdin toutes les 5s pour empecher idle timeout shell.
+        // Keepalive stdin toutes les 5s pour retarder la fermeture idle du shell.
         _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
           if (!_running) return;
-          try { _shellSession?.stdin.add(Uint8List.fromList([10])); } catch (_) {}
+          try { _shellSession?.stdin.add(const [10]); } catch (_) {}
         });
 
         session.stdout
@@ -103,29 +103,36 @@ import 'dart:async';
               _parseLineRealtime(line);
             }, onError: (e) => _logErr('stderr err: $e'));
 
+        // Quand le shell ferme, localhost.run desactive le forward.
+        // La connexion SSH reste ouverte mais personne ne forwardera plus.
+        // → On reconnecte entierement pour avoir un nouveau shell actif.
         session.done.then((_) {
-          _log('Shell fermee (localhost.run ferme apres URL) — keepalive toujours actif');
+          _log('Shell fermee — forward desactive. Reconnexion dans 2s...');
           _shellSession = null;
+          _keepAliveTimer?.cancel();
+          _keepAliveTimer = null;
+          _cleanupClient();
+          _scheduleReconnect(delay: const Duration(seconds: 2));
         });
 
-        // Timeout 60s pour l URL
+        // Timeout 60s pour recevoir l URL
         Future.delayed(const Duration(seconds: 60), () {
           if (_running && !_urlReceived) {
-            _logErr('Timeout 60s — pas d URL recue');
-            onError?.call("Timeout (60s) — localhost.run n'a pas envoye de lien.");
+            _logErr('Timeout 60s — pas d URL reçue');
+            onError?.call("Timeout (60s) — localhost.run n'a pas envoyé de lien.");
           }
         });
 
-        // Surveille la connexion SSH : quand localhost.run ferme (~10s apres URL),
-        // forward.connections se ferme → on reconnecte automatiquement.
-        _watchForward(forward);
+        // Surveille aussi les connexions entrantes (pendant que le shell est actif).
+        _handleForwardedConnections(forward);
       } catch (e) {
         _logErr('Exception connexion: $e');
-        _scheduleReconnect();
+        _cleanupClient();
+        _scheduleReconnect(delay: const Duration(seconds: 5));
       }
     }
 
-    void _watchForward(SSHRemoteForward forward) async {
+    void _handleForwardedConnections(SSHRemoteForward forward) async {
       _log('En attente de connexions entrantes...');
       try {
         var connCount = 0;
@@ -135,16 +142,11 @@ import 'dart:async';
           _proxyConnection(connection);
         }
       } catch (e) {
-        if (_running) _logErr('Forward ferme: $e');
+        if (_running) _logErr('Forward erreur: $e');
       }
-
-      // localhost.run a ferme la connexion SSH (comportement normal ~10s apres URL).
-      // On reconnecte immediatement pour garder le tunnel actif avec une nouvelle URL.
-      if (_running) {
-        _log('SSH ferme par localhost.run — reconnexion dans 2s...');
-        _cleanupClient();
-        _scheduleReconnect(delay: const Duration(seconds: 2));
-      }
+      // Si forward.connections se ferme (cas rare — disconnect total),
+      // session.done aura deja planifie la reconnexion.
+      _log('Forward stream ferme');
     }
 
     void _scheduleReconnect({Duration delay = const Duration(seconds: 5)}) {
