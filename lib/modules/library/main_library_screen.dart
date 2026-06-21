@@ -26,7 +26,7 @@ import 'package:flutter/material.dart';
 
   class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       with TickerProviderStateMixin {
-    final TextEditingController _searchController = TextEditingController();
+    late TextEditingController _searchController;
     bool _isSearch = false;
 
     static const _types = [
