@@ -299,7 +299,10 @@ import 'dart:async';
             )
             .timeout(const Duration(seconds: 15));
 
-        final releases = jsonDecode(res.body) as List<dynamic>;
+        if (res.statusCode != 200) return;
+        final decoded = jsonDecode(res.body);
+        if (decoded is! List) return;
+        final releases = decoded as List<dynamic>;
         if (releases.isEmpty) return;
 
         final latest = releases.first as Map<String, dynamic>;

@@ -1243,14 +1243,24 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         .isStartDownloadEqualTo(true)
         .findAll();
 
+    // Isar links are lazy — load chapter and manga before accessing .value.
+    for (final dl in ongoingDownloads) {
+      await dl.chapter.load();
+      final ch = dl.chapter.value;
+      if (ch != null) await ch.manga.load();
+    }
+
     // Skip chapters that are currently paused or already actively running.
+    // Also skip downloads whose chapter link failed to load (orphaned record).
     final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
     final toStart = ongoingDownloads
         .where(
-          (d) =>
-              d.chapter.value?.id == null ||
-              (!pausedIds.contains(d.chapter.value!.id) &&
-                  !ActiveDownloadRegistry.isActive(d.chapter.value!.id!)),
+          (d) {
+            final chId = d.chapter.value?.id;
+            if (chId == null) return false; // orphaned — skip
+            return !pausedIds.contains(chId) &&
+                !ActiveDownloadRegistry.isActive(chId);
+          },
         )
         .toList();
 
