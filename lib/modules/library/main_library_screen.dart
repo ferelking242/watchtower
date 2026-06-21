@@ -2,21 +2,31 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/category.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
+import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
+import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
+import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/library_updater.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/utils/global_style.dart';
 
-// ─── Design tokens ─────────────────────────────────────────────────────────
-const _kBg = Color(0xFF0A0A0A);
-const _kBorder = Color(0xFF333333);
-const _kAccent = Color(0xFFE91E63);
-const _kTextPrimary = Color(0xFFFFFFFF);
+// ─── Design tokens ──────────────────────────────────────────────────────────
+const _kBg         = Color(0xFF0A0A0A);
+const _kBorder     = Color(0xFF333333);
+const _kAccent     = Color(0xFFE91E63);
+const _kTextPrimary   = Color(0xFFFFFFFF);
 const _kTextSecondary = Color(0xFF999999);
 const _kSurfaceMedium = Color(0xFF2D2D2D);
+const _kSurface    = Color(0xFF1A1A1A);
 
 // ─── Type order ─────────────────────────────────────────────────────────────
 const _kTypes = <ItemType>[
@@ -26,6 +36,15 @@ const _kTypes = <ItemType>[
   ItemType.music,
   ItemType.game,
 ];
+
+// ─── Type icons ─────────────────────────────────────────────────────────────
+const _kTypeIcons = <ItemType, IconData>{
+  ItemType.anime: Icons.tv_rounded,
+  ItemType.manga: Icons.menu_book_rounded,
+  ItemType.novel: Icons.article_rounded,
+  ItemType.music: Icons.music_note_rounded,
+  ItemType.game:  Icons.sports_esports_rounded,
+};
 
 String _typeLabel(ItemType type) {
   switch (type) {
@@ -42,15 +61,18 @@ String _typeLabel(ItemType type) {
 class MainLibraryScreen extends ConsumerStatefulWidget {
   final String? presetInput;
   const MainLibraryScreen({super.key, this.presetInput});
+
   @override
   ConsumerState<MainLibraryScreen> createState() => _MainLibraryScreenState();
 }
 
-class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
+class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
+    with TickerProviderStateMixin {
   int _typeIndex = 0;
   bool _showSearch = false;
   final TextEditingController _searchController = TextEditingController();
-  int _selectedCatIndex = 0; // 0 = All
+  int _selectedCatIndex = 0;
+  Settings? _cachedSettings;
 
   @override
   void initState() {
@@ -83,6 +105,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
     });
   }
 
+  // ── Circular icon button ───────────────────────────────────────────────────
   Widget _circleBtn({
     required IconData icon,
     required VoidCallback onTap,
@@ -107,18 +130,45 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
     );
   }
 
+  // ── Pro chevron button with subtle card background ─────────────────────────
+  Widget _chevronBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1C),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: const Color(0xFF2E2E2E), width: 1),
+        ),
+        child: Icon(icon, color: Colors.white45, size: 17),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    final settingsAsync = ref.watch(getSettingsStreamProvider);
+    final mangaAsync   = ref.watch(
+      getAllMangaStreamProvider(categoryId: null, itemType: _currentType),
+    );
     final catsAsync = ref.watch(
       getMangaCategorieStreamProvider(itemType: _currentType),
     );
+
+    // Cache settings for popup menu callbacks (avoids rebuilds)
+    final settings = settingsAsync.valueOrNull?.firstOrNull;
+    if (settings != null) _cachedSettings = settings;
+
+    final mangaList = mangaAsync.valueOrNull ?? <Manga>[];
     final cats = catsAsync.maybeWhen(data: (c) => c, orElse: () => <Category>[]);
 
-    // Determine effective category id (null = All)
     final int? selectedCatId = _selectedCatIndex == 0
         ? null
         : (cats.length >= _selectedCatIndex ? cats[_selectedCatIndex - 1].id : null);
-    // Sentinel -1 means All for LibraryScreen
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
     return Scaffold(
@@ -128,12 +178,12 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ────────────────────────────────────────────────
+            // ── Header ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Row(
                 children: [
-                  // Type selector with swipe + arrows
+                  // Type selector with swipe support
                   Expanded(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
@@ -145,56 +195,95 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          GestureDetector(
-                            onTap: () => _changeType(-1),
-                            child: const Icon(
-                              Icons.chevron_left_rounded,
-                              color: Colors.white38,
-                              size: 30,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            transitionBuilder: (child, anim) {
-                              return FadeTransition(opacity: anim, child: child);
-                            },
-                            child: Text(
-                              _typeLabel(_currentType),
-                              key: ValueKey(_typeIndex),
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: _kTextPrimary,
-                                letterSpacing: -0.5,
+                          _chevronBtn(Icons.chevron_left_rounded, () => _changeType(-1)),
+                          const SizedBox(width: 10),
+                          // Animated icon + label
+                          Flexible(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              transitionBuilder: (child, anim) => FadeTransition(
+                                opacity: anim,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0.06, 0),
+                                    end: Offset.zero,
+                                  ).animate(CurvedAnimation(
+                                    parent: anim,
+                                    curve: Curves.easeOut,
+                                  )),
+                                  child: child,
+                                ),
+                              ),
+                              child: Row(
+                                key: ValueKey(_typeIndex),
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Type icon badge
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: _kAccent.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      _kTypeIcons[_currentType] ?? Icons.library_books_rounded,
+                                      color: _kAccent,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    _typeLabel(_currentType),
+                                    style: const TextStyle(
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.w800,
+                                      color: _kTextPrimary,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(width: 2),
-                          GestureDetector(
-                            onTap: () => _changeType(1),
-                            child: const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.white38,
-                              size: 30,
-                            ),
-                          ),
+                          const SizedBox(width: 10),
+                          _chevronBtn(Icons.chevron_right_rounded, () => _changeType(1)),
                         ],
                       ),
                     ),
                   ),
-                  // Action buttons
+
+                  const SizedBox(width: 10),
+
+                  // ── Action buttons row ─────────────────────────────────────
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Search
                       _circleBtn(
                         icon: Icons.search,
                         onTap: _toggleSearch,
                         active: _showSearch,
                       ),
                       const SizedBox(width: 8),
+                      // Download queue
                       _circleBtn(
                         icon: Icons.download_outlined,
                         onTap: () {},
+                      ),
+                      const SizedBox(width: 8),
+                      // ── Horizontal 3-dot popup ─────────────────────────────
+                      _ThreeDotsButton(
+                        itemType: _currentType,
+                        settings: _cachedSettings,
+                        entries: mangaList,
+                        vsync: this,
+                      ),
+                      const SizedBox(width: 8),
+                      // ── Notification bell → Updates ────────────────────────
+                      _circleBtn(
+                        icon: Icons.notifications_outlined,
+                        onTap: () => context.push('/updates'),
                       ),
                     ],
                   ),
@@ -202,61 +291,63 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
               ),
             ),
 
-            // ── Animated search bar ───────────────────────────────────
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              child: _showSearch
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: _kSurfaceMedium,
-                          borderRadius: BorderRadius.circular(23),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 14),
-                            const Icon(Icons.search, color: Colors.grey, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                autofocus: true,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: 'Search library',
-                                  hintStyle: TextStyle(color: Colors.grey),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
+            // ── Search bar — fast, smooth, no jank ──────────────────────────
+            ClipRect(
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 120),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                heightFactor: _showSearch ? 1.0 : 0.0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: _kSurfaceMedium,
+                      borderRadius: BorderRadius.circular(23),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 14),
+                        const Icon(Icons.search, color: Colors.grey, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            autofocus: _showSearch,
+                            style: const TextStyle(color: Colors.white, fontSize: 15),
+                            decoration: const InputDecoration(
+                              hintText: 'Search library',
+                              hintStyle: TextStyle(color: Colors.grey),
+                              border: InputBorder.none,
+                              isDense: true,
                             ),
-                            if (_searchController.text.isNotEmpty)
-                              GestureDetector(
-                                onTap: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 12),
-                                  child: Icon(Icons.close, color: Colors.grey, size: 18),
-                                ),
-                              ),
-                            const SizedBox(width: 8),
-                          ],
+                            onChanged: (_) => setState(() {}),
+                          ),
                         ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 100),
+                          opacity: _searchController.text.isNotEmpty ? 1.0 : 0.0,
+                          child: GestureDetector(
+                            onTap: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Icon(Icons.close, color: Colors.grey, size: 18),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
 
-            // ── Filter bar ────────────────────────────────────────────
+            // ── Filter / category bar ────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
               child: _buildFilterBar(context, cats),
@@ -264,10 +355,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
 
             const SizedBox(height: 8),
 
-            // ── Library content (scrolls under filter bar) ─────────────
+            // ── Library content ──────────────────────────────────────────────
             Expanded(
               child: LibraryScreen(
-                key: ValueKey('lib_' + _typeIndex.toString() + '_' + extCatId.toString()),
+                key: ValueKey('lib_${_typeIndex}_$extCatId'),
                 itemType: _currentType,
                 presetInput: null,
                 hideOwnAppBar: true,
@@ -297,11 +388,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
             child: const SizedBox(
               width: 46,
               height: 46,
-              child: Icon(
-                Icons.handyman_outlined,
-                color: Colors.white70,
-                size: 20,
-              ),
+              child: Icon(Icons.handyman_outlined, color: Colors.white70, size: 20),
             ),
           ),
           // Vertical divider
@@ -313,8 +400,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(
                 children: [
-                  _pill(label: 'All', selected: _selectedCatIndex == 0,
-                      onTap: () => setState(() => _selectedCatIndex = 0)),
+                  _pill(
+                    label: 'All',
+                    selected: _selectedCatIndex == 0,
+                    onTap: () => setState(() => _selectedCatIndex = 0),
+                  ),
                   for (int i = 0; i < cats.length; i++)
                     _pill(
                       label: cats[i].name ?? '',
@@ -338,7 +428,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 160),
         margin: const EdgeInsets.symmetric(horizontal: 3),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         decoration: BoxDecoration(
@@ -367,19 +457,167 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
   }
 }
 
-// ─── Manage Categories Sheet ─────────────────────────────────────────────────
+// ─── 3-dot horizontal popup menu button ──────────────────────────────────────
+class _ThreeDotsButton extends ConsumerWidget {
+  final ItemType itemType;
+  final Settings? settings;
+  final List<Manga> entries;
+  final TickerProvider vsync;
+
+  const _ThreeDotsButton({
+    required this.itemType,
+    required this.settings,
+    required this.entries,
+    required this.vsync,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nLocalizations(context)!;
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF333333), width: 1.5),
+      ),
+      child: ClipOval(
+        child: ArrowPopupMenuButton<int>(
+          icon: const Icon(Icons.more_horiz, color: Colors.white70, size: 20),
+          padding: EdgeInsets.zero,
+          menuWidth: 230,
+          itemBuilder: (_) => [
+            // Filter / Sort / Display
+            PopupMenuItem<int>(
+              value: 0,
+              child: Row(children: [
+                const Icon(Icons.filter_list_sharp, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.filter),
+              ]),
+            ),
+            const PopupMenuDivider(),
+            // Update Library
+            PopupMenuItem<int>(
+              value: 1,
+              child: Row(children: [
+                const Icon(Icons.refresh_rounded, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.update_library),
+              ]),
+            ),
+            // Open Random Entry
+            PopupMenuItem<int>(
+              value: 2,
+              child: Row(children: [
+                const Icon(Icons.shuffle_rounded, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.open_random_entry),
+              ]),
+            ),
+            // Import
+            PopupMenuItem<int>(
+              value: 3,
+              child: Row(children: [
+                const Icon(Icons.archive_outlined, size: 18),
+                const SizedBox(width: 12),
+                Text(l10n.import),
+              ]),
+            ),
+            // Torrent Stream (anime only)
+            if (itemType == ItemType.anime)
+              PopupMenuItem<int>(
+                value: 4,
+                child: Row(children: [
+                  const Icon(Icons.stream_rounded, size: 18),
+                  const SizedBox(width: 12),
+                  Text(l10n.torrent_stream),
+                ]),
+              ),
+          ],
+          onSelected: (v) {
+            switch (v) {
+              case 0:
+                // Filter / Sort / Display sheet
+                if (settings != null) {
+                  showLibrarySettingsSheet(
+                    context: context,
+                    vsync: vsync,
+                    settings: settings!,
+                    itemType: itemType,
+                    entries: entries,
+                  );
+                }
+                break;
+              case 1:
+                // Update library
+                final mangaStream = ref.read(
+                  getAllMangaStreamProvider(categoryId: null, itemType: itemType),
+                );
+                mangaStream.whenData((mangaList) {
+                  updateLibrary(
+                    ref: ref,
+                    context: context,
+                    mangaList: mangaList,
+                    itemType: itemType,
+                  );
+                });
+                break;
+              case 2:
+                // Open random entry
+                final mangaStream = ref.read(
+                  getAllMangaStreamProvider(categoryId: null, itemType: itemType),
+                );
+                mangaStream.whenData((mangaList) {
+                  if (mangaList.isNotEmpty) {
+                    final randomManga = (List.of(mangaList)..shuffle()).first;
+                    pushToMangaReaderDetail(
+                      ref: ref,
+                      archiveId: randomManga.isLocalArchive ?? false
+                          ? randomManga.id
+                          : null,
+                      context: context,
+                      lang: randomManga.lang!,
+                      mangaM: randomManga,
+                      source: randomManga.source!,
+                      sourceId: randomManga.sourceId,
+                    );
+                  }
+                });
+                break;
+              case 3:
+                showImportLocalDialog(context, itemType);
+                break;
+              case 4:
+                addTorrent(context);
+                break;
+            }
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Manage Categories Sheet ──────────────────────────────────────────────────
 class _ManageCategoriesSheet extends ConsumerStatefulWidget {
   final ItemType itemType;
   const _ManageCategoriesSheet({required this.itemType});
+
   @override
-  ConsumerState<_ManageCategoriesSheet> createState() => _ManageCategoriesSheetState();
+  ConsumerState<_ManageCategoriesSheet> createState() =>
+      _ManageCategoriesSheetState();
 }
 
-class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> {
+class _ManageCategoriesSheetState
+    extends ConsumerState<_ManageCategoriesSheet> {
   final TextEditingController _ctrl = TextEditingController();
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _delete(Category cat) async {
     if (cat.id == null) return;
@@ -418,7 +656,8 @@ class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> 
             // Handle
             Container(
               margin: const EdgeInsets.only(top: 10),
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.white24,
                 borderRadius: BorderRadius.circular(2),
@@ -430,35 +669,53 @@ class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> 
               child: Row(
                 children: [
                   Container(
-                    width: 48, height: 48,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: _kAccent.withValues(alpha: 0.2),
+                      color: const Color(0xFFE91E63).withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.label_rounded, color: _kAccent, size: 24),
+                    child: const Icon(
+                      Icons.label_rounded,
+                      color: Color(0xFFE91E63),
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Manage Categories',
-                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                        Text(
+                          'Manage Categories',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         SizedBox(height: 3),
-                        Text('Remove tabs you no longer need.\nTitles stay in your library.',
-                            style: TextStyle(color: Colors.grey, fontSize: 12.5)),
+                        Text(
+                          'Remove tabs you no longer need.\nTitles stay in your library.',
+                          style: TextStyle(color: Colors.grey, fontSize: 12.5),
+                        ),
                       ],
                     ),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 32, height: 32,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: Colors.white12,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.close, color: Colors.white70, size: 18),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
@@ -473,7 +730,11 @@ class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> 
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
                     for (final cat in cats)
-                      _CatRow(cat: cat, itemType: widget.itemType, onDelete: () => _delete(cat)),
+                      _CatRow(
+                        cat: cat,
+                        itemType: widget.itemType,
+                        onDelete: () => _delete(cat),
+                      ),
                     const SizedBox(height: 16),
                     // Add field
                     Row(
@@ -488,12 +749,18 @@ class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> 
                             ),
                             child: TextField(
                               controller: _ctrl,
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
                               decoration: const InputDecoration(
                                 hintText: 'New category name',
                                 hintStyle: TextStyle(color: Colors.grey),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -502,12 +769,17 @@ class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> 
                         GestureDetector(
                           onTap: () => _add(cats),
                           child: Container(
-                            width: 46, height: 46,
+                            width: 46,
+                            height: 46,
                             decoration: BoxDecoration(
                               color: const Color(0xFF3D3D3D),
                               borderRadius: BorderRadius.circular(23),
                             ),
-                            child: const Icon(Icons.add, color: Colors.white, size: 22),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 22,
+                            ),
                           ),
                         ),
                       ],
@@ -515,7 +787,8 @@ class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> 
                     const SizedBox(height: 20),
                     // Done
                     SizedBox(
-                      width: double.infinity, height: 50,
+                      width: double.infinity,
+                      height: 50,
                       child: TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
@@ -524,16 +797,26 @@ class _ManageCategoriesSheetState extends ConsumerState<_ManageCategoriesSheet> 
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text('Done',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Done',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),
                   ],
                 ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e',
-                    style: const TextStyle(color: Colors.red))),
+                error: (e, _) => Center(
+                  child: Text(
+                    'Error: $e',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
               ),
             ),
           ],
@@ -548,7 +831,12 @@ class _CatRow extends ConsumerWidget {
   final Category cat;
   final ItemType itemType;
   final VoidCallback onDelete;
-  const _CatRow({required this.cat, required this.itemType, required this.onDelete});
+
+  const _CatRow({
+    required this.cat,
+    required this.itemType,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -568,23 +856,36 @@ class _CatRow extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(cat.name ?? '',
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(
+                  cat.name ?? '',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text('$count titles',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12.5)),
+                Text(
+                  '$count titles',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12.5),
+                ),
               ],
             ),
           ),
           GestureDetector(
             onTap: onDelete,
             child: Container(
-              width: 40, height: 40,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: _kAccent.withValues(alpha: 0.2),
+                color: const Color(0xFFE91E63).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.delete_outline_rounded, color: _kAccent, size: 20),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFE91E63),
+                size: 20,
+              ),
             ),
           ),
         ],

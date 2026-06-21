@@ -158,18 +158,30 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ],
           ),
+        // ── Horizontal 3-dot popup (was vertical more_vert) ──────────────
         ArrowPopupMenuButton(
           popUpAnimationStyle: popupAnimationStyle,
+          // Use horizontal ellipsis for a cleaner, Aidoku-style look
+          icon: const Icon(Icons.more_horiz),
           itemBuilder: (context) {
             return [
               PopupMenuItem<int>(
                 value: 0,
                 child: Text(context.l10n.update_library),
               ),
-              PopupMenuItem<int>(value: 1, child: Text(l10n.open_random_entry)),
-              PopupMenuItem<int>(value: 2, child: Text(l10n.import)),
+              PopupMenuItem<int>(
+                value: 1,
+                child: Text(l10n.open_random_entry),
+              ),
+              PopupMenuItem<int>(
+                value: 2,
+                child: Text(l10n.import),
+              ),
               if (itemType == ItemType.anime)
-                PopupMenuItem<int>(value: 3, child: Text(l10n.torrent_stream)),
+                PopupMenuItem<int>(
+                  value: 3,
+                  child: Text(l10n.torrent_stream),
+                ),
             ];
           },
           onSelected: (value) {
@@ -241,42 +253,40 @@ class _SelectionAppBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isLongPressed = ref.watch(isLongPressedStateProvider);
     return AppBar(
-        title: Text(mangaIdsList.length.toString()),
-        backgroundColor: context.primaryColor.withValues(alpha: 0.2),
-        leading: IconButton(
+      title: Text(mangaIdsList.length.toString()),
+      backgroundColor: context.primaryColor.withValues(alpha: 0.2),
+      leading: IconButton(
+        onPressed: () {
+          ref.read(mangasListStateProvider.notifier).clear();
+          ref.read(isLongPressedStateProvider.notifier).update(!isLongPressed);
+        },
+        icon: const Icon(Icons.clear),
+      ),
+      actions: [
+        IconButton(
           onPressed: () {
-            ref.read(mangasListStateProvider.notifier).clear();
-            ref
-                .read(isLongPressedStateProvider.notifier)
-                .update(!isLongPressed);
+            for (var manga in data) {
+              ref.read(mangasListStateProvider.notifier).selectAll(manga);
+            }
           },
-          icon: const Icon(Icons.clear),
+          icon: const Icon(Icons.select_all),
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
+        IconButton(
+          onPressed: () {
+            if (data.length == mangaIdsList.length) {
               for (var manga in data) {
-                ref.read(mangasListStateProvider.notifier).selectAll(manga);
+                ref.read(mangasListStateProvider.notifier).selectSome(manga);
               }
-            },
-            icon: const Icon(Icons.select_all),
-          ),
-          IconButton(
-            onPressed: () {
-              if (data.length == mangaIdsList.length) {
-                for (var manga in data) {
-                  ref.read(mangasListStateProvider.notifier).selectSome(manga);
-                }
-                ref.read(isLongPressedStateProvider.notifier).update(false);
-              } else {
-                for (var manga in data) {
-                  ref.read(mangasListStateProvider.notifier).selectSome(manga);
-                }
+              ref.read(isLongPressedStateProvider.notifier).update(false);
+            } else {
+              for (var manga in data) {
+                ref.read(mangasListStateProvider.notifier).selectSome(manga);
               }
-            },
-            icon: const Icon(Icons.flip_to_back_rounded),
-          ),
-        ],
+            }
+          },
+          icon: const Icon(Icons.flip_to_back_rounded),
+        ),
+      ],
     );
   }
 }
