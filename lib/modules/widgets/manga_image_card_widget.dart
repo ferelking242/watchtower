@@ -264,40 +264,90 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
                 );
               },
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Stack(
                       children: [
                         Material(
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: BorderRadius.circular(6),
                           color: Colors.transparent,
                           clipBehavior: Clip.antiAliasWithSaveLayer,
                           child: Image(
-                            height: 55,
-                            width: 40,
+                            height: 90,
+                            width: 62,
                             fit: BoxFit.cover,
                             image: image,
                           ),
                         ),
                         Container(
-                          height: 55,
-                          width: 40,
-                          color: hasData && mangaList.first.favorite!
-                              ? Colors.black.withValues(alpha: 0.5)
-                              : null,
+                          height: 90,
+                          width: 62,
+                          decoration: BoxDecoration(
+                            color: hasData && mangaList.first.favorite!
+                                ? Colors.black.withValues(alpha: 0.5)
+                                : null,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Expanded(
-                    child: Text(
-                      getMangaDetail!.name!,
-                      maxLines: 2,
-                      style: TextStyle(
-                        overflow: TextOverflow.ellipsis,
-                        color: context.textColor,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          getMangaDetail!.name ?? '',
+                          maxLines: 2,
+                          style: TextStyle(
+                            overflow: TextOverflow.ellipsis,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: context.textColor,
+                          ),
+                        ),
+                        if (getMangaDetail!.chapters?.isNotEmpty == true) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.book_outlined, size: 12,
+                                  color: context.primaryColor),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  getMangaDetail!.chapters![0].name ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.primaryColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time, size: 12,
+                                  color: context.hintColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                _relativeTime(
+                                    getMangaDetail!.chapters![0].dateUpload),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: context.hintColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   if (hasData && mangaList.first.favorite!)
@@ -326,6 +376,20 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
       },
     );
   }
+}
+
+String _relativeTime(String? dateUploadMs) {
+  if (dateUploadMs == null || dateUploadMs.isEmpty) return '';
+  final ts = int.tryParse(dateUploadMs);
+  if (ts == null || ts == 0) return '';
+  final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+  final diff = DateTime.now().difference(dt);
+  if (diff.inMinutes < 1) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  if (diff.inDays < 30) return '${diff.inDays ~/ 7}w ago';
+  return '${diff.inDays ~/ 30}mo ago';
 }
 
 Future<void> pushToMangaReaderDetail({
