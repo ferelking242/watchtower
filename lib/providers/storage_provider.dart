@@ -282,7 +282,33 @@ class StorageProvider {
         }
       }
 
-      Isar isar;
+      // ── Version-gated DB protection ─────────────────────────────────────
+        // isar_get_offsets crashes with SIGBUS (uncatchable in Dart) when the
+        // on-disk DB was created with a different schema (stale build data).
+        // We store a tiny version file next to the DB and wipe the DB files
+        // before opening if the version doesn't match — guaranteeing a clean slate.
+        const kCurrentDbVersion = '9';
+        final versionFile = File('${dir!.path}/watchtowerDb.schema_version');
+        try {
+          final storedVersion = await versionFile.exists()
+              ? await versionFile.readAsString()
+              : null;
+          if (storedVersion != kCurrentDbVersion) {
+            debugPrint('[initDB] DB version mismatch ($storedVersion→$kCurrentDbVersion) — wiping stale files');
+            for (final suffix in ['.isar', '.isar.lock', '.isar.tmp']) {
+              try {
+                final f = File('${dir!.path}/watchtowerDb$suffix');
+                if (await f.exists()) await f.delete();
+              } catch (_) {}
+            }
+            await versionFile.writeAsString(kCurrentDbVersion);
+          }
+        } catch (e) {
+          debugPrint('[initDB] version-check error (non-fatal): $e');
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
+        Isar isar;
       try {
         isar = await Isar.open(
           schemas,
