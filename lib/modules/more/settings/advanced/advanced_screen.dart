@@ -30,6 +30,7 @@ const _kDetailedReportsKey = 'detailed_reports';
 const _kOldDecoderKey = 'old_decoder';
 const _kNonAsciiKey = 'no_non_ascii';
 const _kBitmapThresholdKey = 'bitmap_threshold';
+const _kUiScaleKey        = 'ui_scale';
 
 Future<Box> _openBox() => Hive.openBox(_kBoxName);
 
@@ -68,6 +69,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   bool _oldDecoder = false;
   bool _noNonAscii = false;
   int _bitmapThreshold = 4096;
+  double _uiScale = 1.0;
 
   // ── Icon cache ───────────────────────────────────────────────────────────────
   String _iconCacheSizeStr = '…';
@@ -278,6 +280,10 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         _logTagMaint = results[18] as bool;
         _loading = false;
       });
+      // Load UI scale separately
+      final _advBox2 = await _openBox();
+      final _loadedScale = (_advBox2.get(_kUiScaleKey, defaultValue: 1.0) as num).toDouble();
+      if (mounted) setState(() => _uiScale = _loadedScale);
     }
   }
 
@@ -1043,7 +1049,76 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           ),
 
           // ── Section : Logs avancés ──────────────────────────────────────
-          _sectionHeader("Logs avancés"),
+          // ── Section : Affichage / DPI ────────────────────────────────────
+            _sectionHeader("Affichage"),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Échelle de l'interface",
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        '${(_uiScale * 100).round()}%',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Adapte la taille de l'interface (texte + espacements). "
+                    "Utile pour les petits écrans comme l'iPhone 7.",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Slider(
+                    value: _uiScale,
+                    min: 0.75,
+                    max: 1.50,
+                    divisions: 15,
+                    label: '${(_uiScale * 100).round()}%',
+                    onChanged: (v) async {
+                      setState(() => _uiScale = v);
+                      final box = await _openBox();
+                      await box.put(_kUiScaleKey, v);
+                    },
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('75%', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      Text('100% (défaut)', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      Text('150%', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Réinitialiser', style: TextStyle(fontSize: 13)),
+                      onPressed: () async {
+                        setState(() => _uiScale = 1.0);
+                        final box = await _openBox();
+                        await box.put(_kUiScaleKey, 1.0);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+                      _sectionHeader("Logs avancés"),
           _LogAdvancedSection(
             logMode: _logMode,
             logSuppressImages: _logSuppressImages,
