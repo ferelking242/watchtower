@@ -55,48 +55,48 @@ jobs:
         run: cd ios && pod install --repo-update && cd ..
 
 
-        # ── Stub Libmtorrentserver (fixes SIGURG crash iOS 15) ──────────────────
-        # Le runtime Go est statiquement linké dans Runner et démarre ses goroutines
-        # via SIGURG AVANT que la Dart VM de Flutter s'initialise.
-        # Les deux runtimes utilisent SIGURG → conflit → abort() avant tout rendu.
-        # Fix : remplacer le binaire Go par un stub vide en CI. Le runtime Go
-        # ne sera pas linké dans Runner → Flutter a toute la mémoire disponible.
-        # (Le torrent server n'était de toute façon pas fonctionnel sur iOS —
-        #  AppDelegate.swift tente dlopen vers PrivateLibraries/ qui n'existe pas.)
-        - name: Stub Libmtorrentserver — remove Go runtime from Runner (fix SIGURG crash iOS 15)
-          run: |
-            set -euo pipefail
-            SDK_PATH=$(xcrun -sdk iphoneos --show-sdk-path)
-            XCFW="ios/Frameworks/Libmtorrentserver.xcframework"
+      # ── Stub Libmtorrentserver (fixes SIGURG crash iOS 15) ──────────────────
+      # Le runtime Go est statiquement linké dans Runner et démarre ses goroutines
+      # via SIGURG AVANT que la Dart VM de Flutter s'initialise.
+      # Les deux runtimes utilisent SIGURG → conflit → abort() avant tout rendu.
+      # Fix : remplacer le binaire Go par un stub vide en CI. Le runtime Go
+      # ne sera pas linké dans Runner → Flutter a toute la mémoire disponible.
+      # (Le torrent server n'était de toute façon pas fonctionnel sur iOS —
+      #  AppDelegate.swift tente dlopen vers PrivateLibraries/ qui n'existe pas.)
+      - name: Stub Libmtorrentserver — remove Go runtime from Runner (fix SIGURG crash iOS 15)
+        run: |
+          set -euo pipefail
+          SDK_PATH=$(xcrun -sdk iphoneos --show-sdk-path)
+          XCFW="ios/Frameworks/Libmtorrentserver.xcframework"
 
-            # Créer un stub C vide (pas de code Go, pas de runtime, pas de SIGURG)
-            echo "// Stub vide — runtime Go lazy-loaded via dlopen après init Flutter" > /tmp/stub.c
+          # Créer un stub C vide (pas de code Go, pas de runtime, pas de SIGURG)
+          echo "// Stub vide — runtime Go lazy-loaded via dlopen après init Flutter" > /tmp/stub.c
 
-            # Compiler l'objet pour arm64 iOS
-            clang -arch arm64 -isysroot "$SDK_PATH" -miphoneos-version-min=13.0 \
-              -c /tmp/stub.c -o /tmp/stub.o
+          # Compiler l'objet pour arm64 iOS
+          clang -arch arm64 -isysroot "$SDK_PATH" -miphoneos-version-min=13.0 \
+            -c /tmp/stub.c -o /tmp/stub.o
 
-            # Créer l'archive statique vide
-            ar rcs /tmp/Libmtorrentserver_stub.a /tmp/stub.o
+          # Créer l'archive statique vide
+          ar rcs /tmp/Libmtorrentserver_stub.a /tmp/stub.o
 
-            # Remplacer le binaire Go dans toutes les slices de l'xcframework
-            REPLACED=0
-            for BIN in "$XCFW"/ios-arm64*/Libmtorrentserver.framework/Libmtorrentserver; do
-              [ -f "$BIN" ] || continue
-              echo "  Avant: $(file -b "$BIN" | head -c 100)"
-              cp /tmp/Libmtorrentserver_stub.a "$BIN"
-              echo "  Après: $(file -b "$BIN" | head -c 100)"
-              REPLACED=$((REPLACED+1))
-            done
+          # Remplacer le binaire Go dans toutes les slices de l'xcframework
+          REPLACED=0
+          for BIN in "$XCFW"/ios-arm64*/Libmtorrentserver.framework/Libmtorrentserver; do
+            [ -f "$BIN" ] || continue
+            echo "  Avant: $(file -b "$BIN" | head -c 100)"
+            cp /tmp/Libmtorrentserver_stub.a "$BIN"
+            echo "  Après: $(file -b "$BIN" | head -c 100)"
+            REPLACED=$((REPLACED+1))
+          done
 
-            # Corriger Info.plist MinimumOSVersion=100.0 → 13.0 dans le xcframework source
-            for PLIST in "$XCFW"/ios-arm64*/Libmtorrentserver.framework/Info.plist; do
-              [ -f "$PLIST" ] || continue
-              /usr/libexec/PlistBuddy -c "Set MinimumOSVersion 13.0" "$PLIST" 2>/dev/null || true
-              echo "  Info.plist patched: $(dirname $PLIST | xargs basename)"
-            done
+          # Corriger Info.plist MinimumOSVersion=100.0 → 13.0 dans le xcframework source
+          for PLIST in "$XCFW"/ios-arm64*/Libmtorrentserver.framework/Info.plist; do
+            [ -f "$PLIST" ] || continue
+            /usr/libexec/PlistBuddy -c "Set MinimumOSVersion 13.0" "$PLIST" 2>/dev/null || true
+            echo "  Info.plist patched: $(dirname $PLIST | xargs basename)"
+          done
 
-            echo "=== $REPLACED slice(s) stubbed — Go runtime absent de Runner ==="
+          echo "=== $REPLACED slice(s) stubbed — Go runtime absent de Runner ==="
 
         # ── Patch Xcode ─────────────────────────────────────────────────────────
       # CODE_SIGN_STYLE=Automatic sans DEVELOPMENT_TEAM fait échouer le build.
