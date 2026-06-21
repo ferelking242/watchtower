@@ -62,8 +62,7 @@ import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
-import 'package:watchtower/utils/dev_seed.dart'
-    if (dart.library.js_interop) 'package:watchtower/utils/dev_seed_stub.dart';
+
 
 late Isar isar;
 DiscordRPC? discordRpc;
@@ -214,9 +213,6 @@ void main(List<String> args) async {
 Future<void> _postLaunchInit(StorageProvider storage) async {
   await AppLogger.init();
   if (!kIsWeb) {
-    unawaited(DevSeed.seedGumball().catchError((_) {}));
-  }
-  if (!kIsWeb) {
     unawaited(MDownloader.initializeIsolatePool(poolSize: 6));
   }
   // Hive is already initialized + nav_display opened in main() before runApp.
@@ -358,8 +354,21 @@ class _MyAppState extends ConsumerState<MyApp>
         if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
           child = _MouseBackButtonHandler(router: router, child: child);
         }
-        return child;
-      },
+        // Apply UI scale from Advanced Settings
+          if (Hive.isBoxOpen('advanced_settings')) {
+            final box = Hive.box('advanced_settings');
+            final uiScale = (box.get('ui_scale', defaultValue: 1.0) as num).toDouble();
+            if (uiScale != 1.0) {
+              child = MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(uiScale),
+                ),
+                child: child!,
+              );
+            }
+          }
+          return child;
+        },
       routeInformationParser: router.routeInformationParser,
       routerDelegate: router.routerDelegate,
       routeInformationProvider: router.routeInformationProvider,
