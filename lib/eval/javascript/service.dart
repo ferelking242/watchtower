@@ -307,7 +307,7 @@ async function jsonStringify(fn) {
       await _extensionCallAsync('getDetail(${jsonEncode(url)})'),
     );
     _extInfo(
-      '$_id · getDetail → title="${result.title}"  chapters=${result.chapters?.length ?? 0}',
+      '$_id · getDetail → name="${result.name}"  chapters=${result.chapters?.length ?? 0}',
     );
     return result;
   }
