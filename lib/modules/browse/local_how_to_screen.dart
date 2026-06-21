@@ -1,3 +1,5 @@
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
@@ -16,7 +18,13 @@ class LocalHowToScreen extends StatelessWidget {
         ItemType.game => 'Game',
       };
 
-  String get _defaultPath => 'Watchtower/Local/$_typeName';
+  String get _defaultPath {
+      if (!kIsWeb && Platform.isIOS) {
+        // iOS sandbox: Fichiers > Sur mon iPhone > Watchtower > Local/TypeName
+        return 'Sur mon iPhone → Watchtower → Local/$_typeName';
+      }
+      return 'Watchtower/Local/$_typeName';
+    }
 
   List<String> get _supportedFormats => switch (itemType) {
         ItemType.manga => ['CBZ', 'ZIP'],
@@ -105,7 +113,12 @@ class LocalHowToScreen extends StatelessWidget {
               children: [
                 _PathRow(label: 'Par défaut', path: _defaultPath),
                 const SizedBox(height: 8),
-                _PathRow(label: 'Alternatif', path: 'Download/$_typeName'),
+                _PathRow(
+                    label: 'Alternatif',
+                    path: !kIsWeb && Platform.isIOS
+                        ? 'Sur mon iPhone → Watchtower → $_typeName'
+                        : 'Download/$_typeName',
+                  ),
                 const SizedBox(height: 12),
                 Text(
                   'Watchtower scannera ce dossier automatiquement à l\'ouverture de la source locale.',
