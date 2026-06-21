@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
         onTap: onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
             color: selected
                 ? context.primaryColor
@@ -29,9 +29,10 @@ import 'package:flutter/material.dart';
           ),
           child: Text(
             text,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
               color: selected
                   ? Colors.white
                   : Theme.of(context).textTheme.bodyMedium!.color,

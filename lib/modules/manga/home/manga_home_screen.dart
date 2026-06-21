@@ -105,12 +105,11 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       TypeMangaSelector(Icons.home_rounded, 'Accueil'),
       TypeMangaSelector(Icons.new_releases_outlined, l10n.latest),
       TypeMangaSelector(Icons.filter_list_outlined, l10n.filter),
-      ..._customLists.map(
-        (cl) => TypeMangaSelector(
-          Icons.category_outlined,
-          cl['name'] as String? ?? cl['id'] as String,
-        ),
-      ),
+      ..._customLists.map((cl) {
+        String name = cl['name'] as String? ?? cl['id'] as String;
+        if (name.toLowerCase() == 'new titles') name = 'Popular';
+        return TypeMangaSelector(Icons.category_outlined, name);
+      }),
     ];
   }
 
@@ -683,7 +682,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.1),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.1),
             ),
             if (onSeeAll != null)
               GestureDetector(
@@ -817,7 +816,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: SizedBox(
-            height: 136,
+            height: 180,
             child: _PopularCarousel(mangas: mangas.take(10).toList(), source: source),
           ),
         );
@@ -839,7 +838,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 highlightColor: high,
                 duration: const Duration(milliseconds: 1200)),
             child: Container(
-              height: 136,
+              height: 180,
               decoration: BoxDecoration(
                 color: base,
                 borderRadius: BorderRadius.circular(12),
@@ -855,7 +854,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Popular auto-scroll carousel ──────────────────────────────────
-              _buildSectionHeader(ctx, title: 'Populaires', onSeeAll: () {
+              _buildSectionHeader(ctx, title: 'Popular New Titles', onSeeAll: () {
                 _mangaList.clear();
                 setState(() { _selectedIndex = _kPopularIdx; _isFiltering = false; _page = 1; });
               }),
@@ -874,7 +873,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             ...List.generate(_customLists.length, (i) {
               final cl = _customLists[i];
               final listId = cl['id'] as String;
-              final listName = cl['name'] as String? ?? listId;
+              String listName = cl['name'] as String? ?? listId;
+              if (listName.toLowerCase() == 'new titles') listName = 'Popular';
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -911,7 +911,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             // Latest Updates section ─────────────────────────────────────────
             _buildSectionHeader(
               ctx,
-              title: 'Dernières mises à jour',
+              title: 'Latest Updates',
               onSeeAll: () {
                 _mangaList.clear();
                 setState(() {
@@ -1250,6 +1250,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             scrolledUnderElevation: 0,
             expandedHeight: 140,
               automaticallyImplyLeading: false,
+              leadingWidth: 90,
               centerTitle: true,
               title: ValueListenableBuilder<double>(
                   valueListenable: _collapseRatioNotifier,
@@ -1286,10 +1287,27 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                     );
                   },
                 ),
-              leading: IconButton(
-              icon: Icon(Icons.chevron_left_rounded,
-                  size: 28, color: context.primaryColor),
-              onPressed: () => context.pop(),
+              leading: GestureDetector(
+              onTap: () => context.pop(),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chevron_left_rounded, size: 28, color: context.primaryColor),
+                    Text(
+                      'Browse',
+                      style: TextStyle(
+                        fontSize: 17,
+                        color: context.primaryColor,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             actions: [
               IconButton(
@@ -1763,7 +1781,7 @@ class _MangaHomeImageCardListTileState
                       manga.name ?? '',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 17,
                         height: 1.3,
                       ),
                       maxLines: 2,
