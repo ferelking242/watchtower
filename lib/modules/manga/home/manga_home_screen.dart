@@ -38,6 +38,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/utils/constant.dart';
 
 enum _HomeMenuAction { openBrowser, cookies, settings, diagnostic }
 
