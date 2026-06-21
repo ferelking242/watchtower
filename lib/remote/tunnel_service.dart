@@ -10,10 +10,13 @@ import 'dart:async';
     void _logErr(String msg) =>
         AppLogger.log('[TUNNEL] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
 
+    // localhost.run ferme le shell ~15s apres le dernier keepalive SSH.
+    // Le keepalive STDIN (newline) causait ECONNABORTED car le shell interprète les newlines.
+    // → On utilise keepAliveInterval natif dartssh2 (keepalive@openssh.com, RFC 4254).
+
     class TunnelService {
       SSHClient? _client;
       SSHSession? _shellSession;
-      Timer? _keepAliveTimer;
       Timer? _reconnectTimer;
       bool _running = false;
       bool _urlReceived = false;
@@ -39,8 +42,6 @@ import 'dart:async';
       Future<void> _connect() async {
         if (!_running) return;
 
-        _keepAliveTimer?.cancel();
-        _keepAliveTimer = null;
         _shellSession = null;
 
         try {
@@ -50,12 +51,14 @@ import 'dart:async';
             timeout: const Duration(seconds: 30),
           );
 
-          // printDebug expose les traces internes : canal recu, matching forward, rejet.
-          // Permet de diagnostiquer pourquoi "Connexion entrante" n'est jamais loggee.
+          // keepAliveInterval envoie keepalive@openssh.com (SSH global request)
+          // toutes les 5s — propre, ne touche pas stdin du shell.
+          // printDebug garde la visibilite sur le matching forwarded-tcpip.
           _client = SSHClient(
             socket,
             username: 'nokey',
             disableHostkeyVerification: true,
+            keepAliveInterval: const Duration(seconds: 5),
             printDebug: (msg) => _log('SSH: $msg'),
           );
 
@@ -75,11 +78,6 @@ import 'dart:async';
           final session = await _client!.shell();
           _shellSession = session;
           _log('Shell ouverte — attente URL lhr.life...');
-
-          _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-            if (!_running) return;
-            try { _shellSession?.stdin.add(Uint8List.fromList([10])); } catch (_) {}
-          });
 
           session.stdout
               .cast<List<int>>()
@@ -104,8 +102,6 @@ import 'dart:async';
           session.done.then((_) {
             _log('Shell fermee — reconnexion dans 2s...');
             _shellSession = null;
-            _keepAliveTimer?.cancel();
-            _keepAliveTimer = null;
             _cleanupClient();
             _scheduleReconnect(delay: const Duration(seconds: 2));
           });
@@ -149,8 +145,6 @@ import 'dart:async';
       }
 
       void _cleanupClient() {
-        _keepAliveTimer?.cancel();
-        _keepAliveTimer = null;
         _shellSession = null;
         try { _client?.close(); } catch (_) {}
         _client = null;
