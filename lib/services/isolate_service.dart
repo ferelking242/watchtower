@@ -11,6 +11,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/log.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/models/settings.dart';
 
@@ -57,17 +58,34 @@ class GetIsolateService {
         completer.complete(message);
       }
       if (message is String) {
-        if (message.startsWith('LoggerLevel.warning:')) {
-          Logger.add(
-            LoggerLevel.warning,
-            message.replaceFirst('LoggerLevel.warning:', ''),
-          );
-        } else {
-          Logger.add(LoggerLevel.info, message);
+        // ── Route structured extension logs from the isolate to AppLogger ──
+        // The JS extension service uses print('[EXT][LEVEL] …') inside the
+        // isolate Zone. We parse the prefix here and forward to AppLogger so
+        // those entries appear in the in-app log viewer and log file.
+        LogLevel lvl = LogLevel.info;
+        String body = message;
+
+        if (message.startsWith('[EXT][DEBUG] ')) {
+          lvl = LogLevel.debug;
+          body = message.substring('[EXT][DEBUG] '.length);
+        } else if (message.startsWith('[EXT][INFO] ')) {
+          lvl = LogLevel.info;
+          body = message.substring('[EXT][INFO] '.length);
+        } else if (message.startsWith('[EXT][WARN] ')) {
+          lvl = LogLevel.warning;
+          body = message.substring('[EXT][WARN] '.length);
+        } else if (message.startsWith('[EXT][ERROR] ')) {
+          lvl = LogLevel.error;
+          body = message.substring('[EXT][ERROR] '.length);
+        } else if (message.startsWith('LoggerLevel.warning:')) {
+          // Legacy path kept for backward compatibility
+          lvl = LogLevel.warning;
+          body = message.replaceFirst('LoggerLevel.warning:', '');
         }
-        if (kDebugMode) {
-          if (kDebugMode) print(message.replaceFirst('LoggerLevel.warning:', ''));
-        }
+
+        AppLogger.log(body, logLevel: lvl, tag: LogTag.extension_);
+
+        if (kDebugMode) debugPrint(body);
       }
     });
 
@@ -96,15 +114,18 @@ class GetIsolateService {
     // provider crashes with LateInitializationError at startup.
     //
     // The one caller that reads `isar` inside this isolate (MihonService
-    // .getCookie → (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent) is now guarded with
-    // a try-catch and falls back to an empty user-agent when isar is not
-    // available in this isolate's memory space.
+    // .getCookie → (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent)
+    // is guarded with a try-catch and falls back to an empty user-agent when
+    // isar is not available in this isolate's memory space.
 
     final receivePort = ReceivePort();
     Zone.current
         .fork(
           specification: ZoneSpecification(
             print: (self, parent, zone, line) {
+              // Forward all print() output (including structured [EXT][LEVEL]
+              // lines from JsExtensionService) to the main isolate's listener,
+              // which routes them to AppLogger.
               isolateData.sendPort.send(line);
             },
           ),
@@ -114,19 +135,26 @@ class GetIsolateService {
           receivePort.listen((message) async {
             if (message is Map<String, dynamic>) {
               final responsePort = message['responsePort'] as SendPort;
+              final serviceType = message['serviceType'] as String?;
+              final source = message['source'] as Source?;
+              final url = message['url'] as String?;
+              final page = message['page'] as int?;
+              final query = message['query'] as String?;
+              final filterList = message['filterList'] as List?;
+              final proxyServer = message['proxyServer'] as String?;
+              final useLoggerValue = message['useLogger'] as bool?;
+              cfPort = message['cfPort'] as int;
+              if (useLoggerValue != null) {
+                useLogger = useLoggerValue;
+              }
+
+              final srcId = '${source?.name ?? source?.id ?? "?"}[${source?.lang ?? "?"}]';
+
+              // ── Timing + entry log ──
+              final sw = Stopwatch()..start();
+              print('[EXT][INFO] ▶ $serviceType [$srcId] url=${url ?? page?.toString() ?? query ?? "n/a"}');
+
               try {
-                final url = message['url'] as String?;
-                final page = message['page'] as int?;
-                final query = message['query'] as String?;
-                final filterList = message['filterList'] as List?;
-                final source = message['source'] as Source?;
-                final proxyServer = message['proxyServer'] as String?;
-                final serviceType = message['serviceType'] as String?;
-                final useLoggerValue = message['useLogger'] as bool?;
-                cfPort = message['cfPort'] as int;
-                if (useLoggerValue != null) {
-                  useLogger = useLoggerValue;
-                }
                 final result = await withExtensionService(
                   source!,
                   proxyServer ?? '',
@@ -153,9 +181,42 @@ class GetIsolateService {
                     }
                   },
                 );
+                sw.stop();
+
+                // ── Result summary log ──
+                String resultSummary;
+                if (result is List) {
+                  resultSummary = '${result.length} item(s)';
+                } else if (result is MPages) {
+                  resultSummary = '${(result as MPages).list?.length ?? 0} items';
+                } else {
+                  resultSummary = result.runtimeType.toString();
+                }
+                print('[EXT][INFO] ◀ $serviceType [$srcId] OK ${sw.elapsedMilliseconds}ms → $resultSummary');
+
                 responsePort.send({'success': true, 'data': result});
-              } catch (e) {
-                responsePort.send({'success': false, 'error': e.toString()});
+              } catch (e, st) {
+                sw.stop();
+                // Classify error origin so the user can immediately tell
+                // whether it is an extension bug or an app/network bug.
+                final errStr = e.toString();
+                final String blame;
+                if (errStr.contains('JS CRASH') || errStr.contains('JS error') || errStr.contains('failed to initialise')) {
+                  blame = '← BUG IN EXTENSION JS';
+                } else if (errStr.contains('SocketException') || errStr.contains('HttpException') || errStr.contains('Connection refused') || errStr.contains('CORS')) {
+                  blame = '← NETWORK ERROR (check URL / connectivity)';
+                } else if (errStr.contains('JSON') || errStr.contains('FormatException')) {
+                  blame = '← EXTENSION returned malformed data';
+                } else if (errStr.contains('Timeout') || errStr.contains('timeout')) {
+                  blame = '← TIMEOUT (slow server or extension infinite loop)';
+                } else {
+                  blame = '← APP ERROR (check Dart stack trace)';
+                }
+                print('[EXT][ERROR] ✗ $serviceType [$srcId] FAILED ${sw.elapsedMilliseconds}ms $blame: $errStr');
+                // Log first 8 stack-trace lines
+                final stLines = st.toString().split('\n').take(8).join('\n  ');
+                print('[EXT][DEBUG] Stack:\n  $stLines');
+                responsePort.send({'success': false, 'error': errStr});
               } finally {
                 useLogger = false;
               }
@@ -174,15 +235,9 @@ class GetIsolateService {
   //
   //  1. For local / mock sources (sourceCode is empty): return sensible
   //     empty-but-valid data so the UI renders without crashing.
-  //     For `getVideoList`, the chapter URL is already a direct media link
-  //     (seeded in mock_web_data.dart), so we wrap it as a Video directly.
-  //
   //  2. For real extension sources: run withExtensionService directly on
   //     the main thread.  This avoids the "Isolate not running" crash but
-  //     real JS extensions will still fail with CORS errors on web (browser
-  //     blocks cross-origin XHR from extension JS).  The error message will
-  //     be the actual JS/CORS error, which is more useful than the generic
-  //     "Isolate not running" message.
+  //     real JS extensions will still fail with CORS errors on web.
 
   static T _webLocalFallback<T>({String? url, String? serviceType}) {
     switch (serviceType) {
@@ -277,6 +332,11 @@ class GetIsolateService {
     // ── Native path ───────────────────────────────────────────────────────
 
     if (_sendPort == null) {
+      AppLogger.log(
+        'Isolate not running — cannot execute $serviceType for ${source?.name}',
+        logLevel: LogLevel.error,
+        tag: LogTag.extension_,
+      );
       throw Exception('Isolate not running');
     }
 
@@ -284,22 +344,54 @@ class GetIsolateService {
     final completer = Completer<T>();
     late final StreamSubscription sub;
 
-    // Timeout safeguard
+    final srcLabel = '${source?.name ?? "?"}[${source?.lang ?? "?"}]';
+    AppLogger.log(
+      '→ $serviceType [$srcLabel] url=${url ?? page?.toString() ?? query ?? "n/a"}',
+      logLevel: LogLevel.debug,
+      tag: LogTag.extension_,
+    );
+    final sw = Stopwatch()..start();
+
+    // Timeout safeguard — log the timeout clearly
     final timer = Timer(const Duration(seconds: 40), () {
       if (!completer.isCompleted) {
+        sw.stop();
+        AppLogger.log(
+          '✗ $serviceType [$srcLabel] TIMEOUT after ${sw.elapsedMilliseconds}ms '
+          '← extension or server took too long',
+          logLevel: LogLevel.error,
+          tag: LogTag.extension_,
+        );
         sub.cancel();
         responsePort.close();
         completer.completeError('Isolate response timeout');
       }
     });
+
     sub = responsePort.listen((response) {
       timer.cancel();
       sub.cancel();
       responsePort.close();
       if (response is Map<String, dynamic>) {
         if (response['success'] == true) {
+          sw.stop();
+          // Success is already logged by the isolate entry point;
+          // we just log the round-trip time here at DEBUG level.
+          AppLogger.log(
+            '← $serviceType [$srcLabel] OK ${sw.elapsedMilliseconds}ms (round-trip)',
+            logLevel: LogLevel.debug,
+            tag: LogTag.extension_,
+          );
           completer.complete(response['data'] as T);
         } else {
+          sw.stop();
+          // Error detail already logged in the isolate; echo at ERROR level here
+          // so it's visible even in Normal log mode.
+          AppLogger.log(
+            '✗ $serviceType [$srcLabel] ERROR after ${sw.elapsedMilliseconds}ms: ${response['error']}',
+            logLevel: LogLevel.error,
+            tag: LogTag.extension_,
+          );
           completer.completeError(response['error']);
         }
       } else {

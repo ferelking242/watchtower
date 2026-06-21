@@ -15,6 +15,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'get_chapter_pages.g.dart';
@@ -40,6 +41,18 @@ Future<GetChapterPagesModel> getChapterPages(
   required Chapter chapter,
 }) async {
   final keepAlive = ref.keepAlive();
+
+  final chManga = chapter.manga.value;
+  final srcLabel =
+      '${chManga?.source ?? "?"}[${chManga?.lang ?? "?"}]';
+  final chLabel = 'ch:${chapter.id}';
+
+  AppLogger.log(
+    '[$chLabel] getChapterPages START  source=$srcLabel  url=${chapter.url ?? "n/a"}',
+    logLevel: LogLevel.info,
+    tag: LogTag.page,
+  );
+
   try {
     List<UChapDataPreload> uChapDataPreloadp = [];
     Directory? path;
@@ -61,16 +74,24 @@ Future<GetChapterPagesModel> getChapterPages(
 
     List<Uint8List?> archiveImages = [];
     final isLocalArchive = (chapter.archivePath ?? '').isNotEmpty;
-    final chManga = chapter.manga.value;
+
     if (!(chManga?.isLocalArchive ?? false)) {
       final source = getSource(
         chManga?.lang ?? '',
         chManga?.source ?? '',
         chManga?.sourceId,
       )!;
+
+      // ── Cache hit? ──────────────────────────────────────────────────────
       if ((isarPageUrls?.urls?.isNotEmpty ?? false) &&
           (isarPageUrls?.chapterUrl ?? chapter.url) == chapter.url) {
-        for (var i = 0; i < isarPageUrls!.urls!.length; i++) {
+        AppLogger.log(
+          '[$chLabel] getChapterPages CACHE HIT  '
+          '${isarPageUrls!.urls!.length} URLs from Isar (no extension call needed)',
+          logLevel: LogLevel.debug,
+          tag: LogTag.page,
+        );
+        for (var i = 0; i < isarPageUrls.urls!.length; i++) {
           Map<String, String>? headers;
           if (isarPageUrls.headers?.isNotEmpty ?? false) {
             headers = (jsonDecode(isarPageUrls.headers![i]) as Map?)
@@ -79,13 +100,45 @@ Future<GetChapterPagesModel> getChapterPages(
           pageUrls.add(PageUrl(isarPageUrls.urls![i], headers: headers));
         }
       } else {
+        // ── Cache miss → call extension ─────────────────────────────────
+        AppLogger.log(
+          '[$chLabel] getChapterPages CACHE MISS  '
+          'calling extension getPageList  source=$srcLabel  url=${chapter.url}',
+          logLevel: LogLevel.info,
+          tag: LogTag.page,
+        );
+        final sw = Stopwatch()..start();
         pageUrls = await getIsolateService.get<List<PageUrl>>(
           url: chapter.url!,
           source: source,
           serviceType: 'getPageList',
           proxyServer: ref.read(androidProxyServerStateProvider),
         );
+        sw.stop();
+
+        if (pageUrls.isEmpty) {
+          AppLogger.log(
+            '[$chLabel] getChapterPages WARNING: extension returned 0 pages '
+            'in ${sw.elapsedMilliseconds}ms ← check extension JS or chapter URL',
+            logLevel: LogLevel.warning,
+            tag: LogTag.page,
+          );
+        } else {
+          AppLogger.log(
+            '[$chLabel] getChapterPages extension returned ${pageUrls.length} pages '
+            'in ${sw.elapsedMilliseconds}ms  '
+            'url[0]=${pageUrls.first.url.length > 90 ? pageUrls.first.url.substring(0, 90) : pageUrls.first.url}',
+            logLevel: LogLevel.info,
+            tag: LogTag.page,
+          );
+        }
       }
+    } else {
+      AppLogger.log(
+        '[$chLabel] getChapterPages local archive — skipping extension call',
+        logLevel: LogLevel.debug,
+        tag: LogTag.page,
+      );
     }
 
     if (pageUrls.isNotEmpty || isLocalArchive) {
@@ -96,6 +149,11 @@ Future<GetChapterPagesModel> getChapterPages(
         final path = isLocalArchive
             ? chapter.archivePath
             : p.join(mangaDirectory.path, "${chapter.name}.cbz");
+        AppLogger.log(
+          '[$chLabel] getChapterPages reading archive: $path',
+          logLevel: LogLevel.debug,
+          tag: LogTag.page,
+        );
         final local = await ref.read(
           getArchiveDataFromFileProvider(path!).future,
         );
@@ -104,14 +162,24 @@ Future<GetChapterPagesModel> getChapterPages(
           isLocaleList.add(true);
         }
       } else {
+        int localCount = 0;
+        int remoteCount = 0;
         for (var i = 0; i < pageUrls.length; i++) {
           archiveImages.add(null);
           if (await File(p.join(path!.path, '${padIndex(i)}.jpg')).exists()) {
             isLocaleList.add(true);
+            localCount++;
           } else {
             isLocaleList.add(false);
+            remoteCount++;
           }
         }
+        AppLogger.log(
+          '[$chLabel] getChapterPages disk check: $localCount already on disk, '
+          '$remoteCount to fetch',
+          logLevel: LogLevel.debug,
+          tag: LogTag.page,
+        );
       }
       if (isLocalArchive) {
         for (var i = 0; i < archiveImages.length; i++) {
@@ -166,6 +234,14 @@ Future<GetChapterPagesModel> getChapterPages(
         );
       }
     }
+
+    AppLogger.log(
+      '[$chLabel] getChapterPages DONE  pages=${pageUrls.length}  '
+      'localArchive=$isLocalArchive',
+      logLevel: LogLevel.info,
+      tag: LogTag.page,
+    );
+
     keepAlive.close();
     return GetChapterPagesModel(
       path: path,
@@ -174,8 +250,15 @@ Future<GetChapterPagesModel> getChapterPages(
       archiveImages: archiveImages,
       uChapDataPreload: uChapDataPreloadp,
     );
-  } catch (e) {
+  } catch (e, st) {
     keepAlive.close();
+    AppLogger.log(
+      '[$chLabel] getChapterPages FAILED  source=$srcLabel: $e',
+      logLevel: LogLevel.error,
+      tag: LogTag.page,
+      error: e,
+      stackTrace: st,
+    );
     rethrow;
   }
 }

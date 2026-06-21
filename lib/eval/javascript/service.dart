@@ -17,6 +17,34 @@ import 'package:watchtower/models/video.dart';
 
 import '../interface.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Structured log helpers for JS extension code.
+//
+// JsExtensionService runs inside a Dart isolate (native) where AppLogger
+// cannot be called directly.  Instead we use print(), which is captured by
+// the Zone in _getIsolateServiceEntryPoint and forwarded to the main isolate
+// where it is routed to AppLogger via the structured prefix:
+//
+//   [EXT][DEBUG]  → LogLevel.debug   tag=EXT
+//   [EXT][INFO]   → LogLevel.info    tag=EXT
+//   [EXT][WARN]   → LogLevel.warning tag=EXT
+//   [EXT][ERROR]  → LogLevel.error   tag=EXT
+//
+// On Flutter-web (main thread, no isolate) the same print() calls go to the
+// debug console; AppLogger is called directly on the service entry points
+// (getChapterPages / getVideoList) so the in-app log viewer still captures
+// the most important entries.
+// ─────────────────────────────────────────────────────────────────────────────
+void _extLog(String level, String msg) => print('[EXT][$level] $msg');
+void _extDebug(String msg) => _extLog('DEBUG', msg);
+void _extInfo(String msg) => _extLog('INFO', msg);
+void _extWarn(String msg) => _extLog('WARN', msg);
+void _extError(String msg) => _extLog('ERROR', msg);
+
+/// Truncate long strings for log readability.
+String _t(String s, [int max = 100]) =>
+    s.length <= max ? s : '${s.substring(0, max)}…';
+
 class JsExtensionService implements ExtensionService {
   late JavascriptRuntime runtime;
   @override
@@ -26,8 +54,12 @@ class JsExtensionService implements ExtensionService {
 
   JsExtensionService(this.source);
 
+  /// Human-readable identifier used in every log line: "ZinManga[fr]".
+  String get _id => '${source.name ?? source.id}[${source.lang ?? "?"}]';
+
   void _init() {
     if (_isInitialized) return;
+    _extInfo('$_id · init START');
     runtime = getJavascriptRuntime();
     JsHttpClient(runtime).init();
     _jsDomSelector = JsDomSelector(runtime)..init();
@@ -89,10 +121,6 @@ async function jsonStringify(fn) {
 }
 ''');
     String _normalizeJsExtensionCode(String code) {
-      // Some published extensions (e.g. FlixGaze) ship a regex literal that
-      // contains a *literal* newline — JavaScript treats that as an unterminated
-      // regex and the whole extension fails to install. We escape line
-      // terminators inside `/.../flags` regex literals before evaluation.
       final buf = StringBuffer();
       bool inSingle = false, inDouble = false, inBack = false;
       bool inLineComment = false, inBlockComment = false, inRegex = false;
@@ -150,7 +178,6 @@ async function jsonStringify(fn) {
             inRegex = false;
             buf.write(ch);
           } else if (ch == '\n' || ch == '\r' || ch.codeUnitAt(0) == 0x2028 || ch.codeUnitAt(0) == 0x2029) {
-            // Escape literal line terminators inside regex literal
             buf.write('\\n');
           } else {
             buf.write(ch);
@@ -172,8 +199,6 @@ async function jsonStringify(fn) {
             inBack = true;
             buf.write(ch);
           } else if (ch == '/') {
-            // Heuristic: treat as regex if previous non-whitespace token
-            // cannot end an expression (operators / keywords / punctuation).
             final p = prev ?? '';
             const continuators = {
               '', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}',
@@ -192,15 +217,19 @@ async function jsonStringify(fn) {
       }
       return buf.toString();
     }
-    final _initResult = runtime.evaluate('''${_normalizeJsExtensionCode(source.sourceCode ?? '')}
-var extention = new DefaultExtension();
-''');
+    final _initResult = runtime.evaluate(
+      '${_normalizeJsExtensionCode(source.sourceCode ?? '')}\nvar extention = new DefaultExtension();',
+    );
     if (_initResult.isError) {
+      _extError(
+        '$_id · init FAILED ← JS CRASH (bug in extension code): ${_initResult.stringResult}',
+      );
       throw Exception(
-        'Extension "${source.name ?? source.id}" failed to initialise: ${_initResult.stringResult}',
+        'Extension "$_id" failed to initialise: ${_initResult.stringResult}',
       );
     }
     _isInitialized = true;
+    _extInfo('$_id · init OK');
   }
 
   @override
@@ -208,6 +237,7 @@ var extention = new DefaultExtension();
     if (!_isInitialized) return;
     _jsDomSelector.dispose();
     _isInitialized = false;
+    _extDebug('$_id · disposed');
   }
 
   @override
@@ -228,36 +258,63 @@ var extention = new DefaultExtension();
     return source.baseUrl!;
   }
 
+  // ── Browse operations ────────────────────────────────────────────────────
+
   @override
   Future<MPages> getPopular(int page) async {
-    return MPages.fromJson(await _extensionCallAsync('getPopular($page)'));
+    _extInfo('$_id · getPopular page=$page');
+    final result = MPages.fromJson(
+      await _extensionCallAsync('getPopular($page)'),
+    );
+    _extInfo(
+      '$_id · getPopular page=$page → ${result.list?.length ?? 0} items  hasNext=${result.hasNextPage}',
+    );
+    return result;
   }
 
   @override
   Future<MPages> getLatestUpdates(int page) async {
-    return MPages.fromJson(
+    _extInfo('$_id · getLatestUpdates page=$page');
+    final result = MPages.fromJson(
       await _extensionCallAsync('getLatestUpdates($page)'),
     );
+    _extInfo(
+      '$_id · getLatestUpdates page=$page → ${result.list?.length ?? 0} items  hasNext=${result.hasNextPage}',
+    );
+    return result;
   }
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
-    return MPages.fromJson(
+    _extInfo('$_id · search q="${_t(query, 60)}" page=$page filters=${filters.length}');
+    final result = MPages.fromJson(
       await _extensionCallAsync(
         'search(${jsonEncode(query)},$page,${jsonEncode(filterValuesListToJson(filters))})',
       ),
     );
+    _extInfo(
+      '$_id · search q="${_t(query, 60)}" → ${result.list?.length ?? 0} items  hasNext=${result.hasNextPage}',
+    );
+    return result;
   }
+
+  // ── Detail & content operations ──────────────────────────────────────────
 
   @override
   Future<MManga> getDetail(String url) async {
-    return MManga.fromJson(
+    _extInfo('$_id · getDetail url=${_t(url)}');
+    final result = MManga.fromJson(
       await _extensionCallAsync('getDetail(${jsonEncode(url)})'),
     );
+    _extInfo(
+      '$_id · getDetail → title="${result.title}"  chapters=${result.chapters?.length ?? 0}',
+    );
+    return result;
   }
 
   @override
   Future<List<PageUrl>> getPageList(String url) async {
+    _extInfo('$_id · getPageList url=${_t(url)}');
     final pages = LinkedHashSet<PageUrl>(
       equals: (a, b) => a.url == b.url,
       hashCode: (p) => p.url.hashCode,
@@ -274,11 +331,24 @@ var extention = new DefaultExtension();
       }
     }
 
-    return pages.toList();
+    final result = pages.toList();
+    if (result.isEmpty) {
+      _extWarn(
+        '$_id · getPageList → 0 pages ← extension returned empty list; '
+        'check JS getPageList() or the chapter URL passed to it',
+      );
+    } else {
+      _extInfo('$_id · getPageList → ${result.length} pages  url[0]=${_t(result.first.url, 90)}');
+      if (result.length > 1) {
+        _extDebug('$_id · getPageList  url[last]=${_t(result.last.url, 90)}');
+      }
+    }
+    return result;
   }
 
   @override
   Future<List<Video>> getVideoList(String url) async {
+    _extInfo('$_id · getVideoList url=${_t(url)}');
     final videos = LinkedHashSet<Video>(
       equals: (a, b) => a.url == b.url && a.originalUrl == b.originalUrl,
       hashCode: (v) => Object.hash(v.url, v.originalUrl),
@@ -291,41 +361,69 @@ var extention = new DefaultExtension();
         videos.add(Video.fromJson(element));
       }
     }
-    return videos.toList();
+
+    final result = videos.toList();
+    if (result.isEmpty) {
+      _extWarn(
+        '$_id · getVideoList → 0 videos ← extension returned empty list; '
+        'check JS getVideoList() or the episode URL',
+      );
+    } else {
+      _extInfo('$_id · getVideoList → ${result.length} video(s)');
+      for (var i = 0; i < result.length && i < 5; i++) {
+        _extDebug(
+          '$_id · getVideoList  [${i + 1}] quality="${result[i].quality}"  '
+          'url=${_t(result[i].originalUrl, 90)}',
+        );
+      }
+      if (result.length > 5) {
+        _extDebug(
+          '$_id · getVideoList  … +${result.length - 5} more entries '
+          '(switch to Extreme log mode to see all)',
+        );
+      }
+    }
+    return result;
   }
+
+  // ── LN / HTML content operations ─────────────────────────────────────────
 
   @override
   Future<String> getHtmlContent(String name, String url) async {
+    _extDebug('$_id · getHtmlContent name="$name" url=${_t(url)}');
     _init();
     final res = (await runtime.handlePromise(
       await runtime.evaluateAsync(
         'jsonStringify(() => extention.getHtmlContent(${jsonEncode(name)}, ${jsonEncode(url)}))',
       ),
     )).stringResult;
+    _extDebug('$_id · getHtmlContent → ${res.length} chars');
     return res;
   }
 
   @override
   Future<String> cleanHtmlContent(String html) async {
+    _extDebug('$_id · cleanHtmlContent input=${html.length} chars');
     _init();
     final res = (await runtime.handlePromise(
       await runtime.evaluateAsync(
         'jsonStringify(() => extention.cleanHtmlContent(${jsonEncode(html)}))',
       ),
     )).stringResult;
+    _extDebug('$_id · cleanHtmlContent → ${res.length} chars');
     return res;
   }
+
+  // ── Filter / preference / custom-list operations ─────────────────────────
 
   @override
   FilterList getFilterList() {
     List<dynamic> list;
-
     try {
       list = fromJsonFilterValuesToList(_extensionCall('getFilterList()', []));
     } catch (_) {
       list = [];
     }
-
     return FilterList(list);
   }
 
@@ -352,37 +450,53 @@ var extention = new DefaultExtension();
 
   @override
   Future<MPages> getCustomList(String id, int page) async {
-    return MPages.fromJson(
-      await _extensionCallAsync(
-        'getCustomList(${jsonEncode(id)},$page)',
-      ),
+    _extInfo('$_id · getCustomList id="$id" page=$page');
+    final result = MPages.fromJson(
+      await _extensionCallAsync('getCustomList(${jsonEncode(id)},$page)'),
     );
+    _extInfo(
+      '$_id · getCustomList id="$id" → ${result.list?.length ?? 0} items',
+    );
+    return result;
   }
+
+  // ── Low-level runtime helpers ─────────────────────────────────────────────
 
   T _extensionCall<T>(String call, T def) {
     _init();
-
     try {
       final res = runtime.evaluate('JSON.stringify(extention.$call)');
-
       return jsonDecode(res.stringResult) as T;
     } catch (_) {
-      if (def != null) {
-        return def;
-      }
-
+      if (def != null) return def;
       rethrow;
     }
   }
 
+  /// Invokes an async JS method, measures wall-clock time, and emits
+  /// structured log lines that clearly identify WHERE a failure occurred:
+  ///
+  ///   "JS CRASH"          → bug is in the extension JS code
+  ///   "JSON parse FAILED" → extension returned malformed data (JS bug)
+  ///   "empty result"      → extension JS returned undefined/null (JS bug)
+  ///
+  /// Any SocketException / HttpException that surfaces here comes from the
+  /// HTTP layer (JsHttpClient) and is a network error, not a JS logic bug.
   Future<T> _extensionCallAsync<T>(String call) async {
     _init();
+    final sw = Stopwatch()..start();
+    final method = call.contains('(') ? call.substring(0, call.indexOf('(')) : call;
 
     final promised = await runtime.handlePromise(
       await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),
     );
+    sw.stop();
 
     if (promised.isError) {
+      _extError(
+        '$_id · $method FAILED ${sw.elapsedMilliseconds}ms '
+        '← JS CRASH (bug in extension): ${promised.stringResult}',
+      );
       throw Exception(
         'Extension JS error in "$call": ${promised.stringResult}',
       );
@@ -390,12 +504,25 @@ var extention = new DefaultExtension();
 
     final raw = promised.stringResult;
     if (raw == null || raw.isEmpty) {
+      _extError(
+        '$_id · $method returned empty/null after ${sw.elapsedMilliseconds}ms '
+        '← extension JS returned undefined or null',
+      );
       throw Exception('Extension returned empty result for "$call"');
     }
 
     try {
-      return jsonDecode(raw) as T;
+      final decoded = jsonDecode(raw) as T;
+      _extDebug(
+        '$_id · $method OK ${sw.elapsedMilliseconds}ms  (${raw.length} bytes JSON)',
+      );
+      return decoded;
     } on FormatException catch (e) {
+      _extError(
+        '$_id · $method JSON parse FAILED ${sw.elapsedMilliseconds}ms '
+        '← extension returned invalid JSON: $e  '
+        'raw[0..120]=${raw.length > 120 ? raw.substring(0, 120) : raw}',
+      );
       throw Exception(
         'Extension result is not valid JSON for "$call" '
         '(got: ${raw.length > 120 ? raw.substring(0, 120) : raw}): $e',
