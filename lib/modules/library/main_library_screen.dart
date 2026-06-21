@@ -40,7 +40,8 @@ String _typeLabel(ItemType type) {
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 class MainLibraryScreen extends ConsumerStatefulWidget {
-  const MainLibraryScreen({super.key});
+  final String? presetInput;
+  const MainLibraryScreen({super.key, this.presetInput});
   @override
   ConsumerState<MainLibraryScreen> createState() => _MainLibraryScreenState();
 }
@@ -50,6 +51,15 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen> {
   bool _showSearch = false;
   final TextEditingController _searchController = TextEditingController();
   int _selectedCatIndex = 0; // 0 = All
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.presetInput != null && widget.presetInput!.isNotEmpty) {
+      _showSearch = true;
+      _searchController.text = widget.presetInput!;
+    }
+  }
 
   @override
   void dispose() {
