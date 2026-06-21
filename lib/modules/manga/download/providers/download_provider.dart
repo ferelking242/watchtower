@@ -821,6 +821,12 @@ Future<void> downloadChapter(
             .timeout(const Duration(seconds: 90));
         if (value.pageUrls.isNotEmpty) {
           pageUrls = value.pageUrls;
+          AppLogger.log(
+            '[ch:' + (chapter.id?.toString() ?? '?') + '] ${pageUrls.length} pages fetched'
+            ' • url[0]=' + (pageUrls.isNotEmpty ? pageUrls.first.url.substring(0, pageUrls.first.url.length.clamp(0, 80)) : 'none'),
+            logLevel: LogLevel.info,
+            tag: LogTag.download,
+          );
         } else {
           fetchError = 'getChapterPages returned empty list';
         }
@@ -922,6 +928,11 @@ Future<void> downloadChapter(
 
     // If the fetch failed (exception, empty result, or timeout), mark failed and abort.
     if (fetchError != null) {
+      AppLogger.log(
+        '[ch:' + (chapter.id?.toString() ?? '?') + '] FETCH ERROR: $fetchError',
+        logLevel: LogLevel.error,
+        tag: LogTag.download,
+      );
       log('[downloadChapter] aborting — fetch error: $fetchError');
       await isar.writeTxn(() async {
         final dl = isar.downloads.getSync(chapter.id!);
@@ -1038,6 +1049,21 @@ Future<void> downloadChapter(
               .read(downloadQueueStateProvider.notifier)
               .setEngine(chapter.id!, 'IMG');
         }
+        AppLogger.log(
+          '[ch:' + (chapter.id?.toString() ?? '?') + '] START ${pages.length} imgs → ' + itemType.name,
+          logLevel: LogLevel.info,
+          tag: LogTag.download,
+        );
+        // Log up to 3 page URLs so user can verify they are images not HTML
+        for (var _li = 0; _li < pages.length && _li < 3; _li++) {
+          final _u = pages[_li].url;
+          AppLogger.log(
+            '[ch:' + (chapter.id?.toString() ?? '?') + '] url[$_li] '
+            + (_u.length > 90 ? _u.substring(0, 90) + '…' : _u),
+            logLevel: LogLevel.debug,
+            tag: LogTag.download,
+          );
+        }
         log('[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}');
         try {
           await MDownloader(
@@ -1049,6 +1075,11 @@ Future<void> downloadChapter(
           ).download((progress) {
             setProgress(progress);
           });
+          AppLogger.log(
+            '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',
+            logLevel: LogLevel.info,
+            tag: LogTag.download,
+          );
           log('[downloadChapter][manga] completed chapterId=${chapter.id}');
         } catch (e) {
           log('[downloadChapter][manga] FAILED chapterId=${chapter.id} error=$e');
@@ -1350,6 +1381,13 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         activePerType[type] = (activePerType[type] ?? 0) + 1;
         activePerSrc['${type.name}_$src'] = (activePerSrc['${type.name}_$src'] ?? 0) + 1;
 
+        AppLogger.log(
+          'Queue → [ch:' + (chapter.id?.toString() ?? '?') + '] '
+          '"' + ((chapter.name ?? '').length > 35 ? chapter.name!.substring(0, 35) + '…' : (chapter.name ?? '')) + '" '
+          'type=' + type.name,
+          logLevel: LogLevel.info,
+          tag: LogTag.download,
+        );
         log('[processDownloads] starting chapterId=${chapter.id} "${chapter.name}" type=${type.name} src=$src');
         await Future.delayed(const Duration(milliseconds: 200));
         ref.read(
