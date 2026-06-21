@@ -58,33 +58,6 @@ jobs:
       # XCFrameworks pré-compilés media_kit_libs_ios_video: minos=16.0 gravé
       # dans le Mach-O. iOS 15.8.x dyld les charge mais Flutter abort() à init
       # → EXC_CRASH SIGABRT avant tout affichage (fix: patch binaires post-pod).
-      - name: Patch media_kit XCFrameworks minos → iOS 13.0 (fix crash iOS 15)
-        run: |
-          set +e
-          PATCHED=0; SKIPPED=0
-          echo "=== Scan media_kit frameworks ==="
-          while IFS= read -r FW; do
-            NAME=$(basename "$FW" .framework)
-            BIN="$FW/$NAME"
-            [ -f "$BIN" ] || continue
-            BEFORE=$(vtool -show-build "$BIN" 2>/dev/null | grep minos | head -1 || echo "?")
-            vtool -set-build-version ios 13.0 16.0 -replace -output "$BIN" "$BIN" 2>/dev/null
-            if [ $? -eq 0 ]; then
-              AFTER=$(vtool -show-build "$BIN" 2>/dev/null | grep minos | head -1 || echo "?")
-              echo "PATCHED: $NAME | $BEFORE -> $AFTER"
-              PATCHED=$((PATCHED+1))
-            else
-              echo "SKIP: $NAME"
-              SKIPPED=$((SKIPPED+1))
-            fi
-          done < <(find ios/Pods -path "*media_kit*" -name "*.framework" 2>/dev/null)
-          find ios/Pods -path "*media_kit*" -name "*.a" -print0 2>/dev/null | while IFS= read -r -d "" LIB; do
-            vtool -set-build-version ios 13.0 16.0 -replace -output "$LIB" "$LIB" 2>/dev/null \
-              && { echo "PATCHED .a: $(basename $LIB)"; PATCHED=$((PATCHED+1)); } \
-              || { echo "SKIP .a: $(basename $LIB)"; SKIPPED=$((SKIPPED+1)); }
-          done
-          echo "=== vtool: $PATCHED patched | $SKIPPED skipped ==="
-          set -e
                   # ── Patch Xcode ─────────────────────────────────────────────────────────
       # CODE_SIGN_STYLE=Automatic sans DEVELOPMENT_TEAM fait échouer le build.
       # On passe en Manual + identité vide → --no-codesign fonctionne.
@@ -161,6 +134,35 @@ jobs:
           cp -r "$APP_SRC" build/ios/iphoneos/Runner.app
           echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
           echo "=== Frameworks count: $(ls build/ios/iphoneos/Runner.app/Frameworks/ | wc -l) ==="
+          # Afficher le minos de chaque framework pour diagnostic
+          echo "=== minos diagnostics ==="
+          for fw in build/ios/iphoneos/Runner.app/Frameworks/*.framework; do
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            [ -f "$BIN" ] || continue
+            MINOS=$(vtool -show-build "$BIN" 2>/dev/null | grep minos | head -1 || echo "?")
+            echo "  $NAME: $MINOS"
+          done
+          # Patch minos -> 13.0 sur TOUS les frameworks de l'app bundle
+          # (media_kit, isar, objective_c... tous ceux compiles pour iOS > 13)
+          echo "=== vtool patch ALL frameworks minos -> 13.0 ==="
+          PATCHED=0; SKIPPED=0
+          for fw in build/ios/iphoneos/Runner.app/Frameworks/*.framework; do
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            [ -f "$BIN" ] || { SKIPPED=$((SKIPPED+1)); continue; }
+            file -b "$BIN" | grep -q "Mach-O" || { echo "SKIP (non-Mach-O): $NAME"; SKIPPED=$((SKIPPED+1)); continue; }
+            BEFORE=$(vtool -show-build "$BIN" 2>/dev/null | grep minos | head -1 || echo "?")
+            if vtool -set-build-version ios 13.0 16.0 -replace -output "$BIN" "$BIN" 2>/dev/null; then
+              AFTER=$(vtool -show-build "$BIN" 2>/dev/null | grep minos | head -1 || echo "?")
+              echo "PATCHED: $NAME | $BEFORE -> $AFTER"
+              PATCHED=$((PATCHED+1))
+            else
+              echo "SKIP vtool: $NAME ($BEFORE)"
+              SKIPPED=$((SKIPPED+1))
+            fi
+          done
+          echo "=== vtool: $PATCHED patched | $SKIPPED skipped ==="
       # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
       # TrollStore sur iPhone 7 utilise un vieux ldid qui :
       #   1. Ne comprend pas arm64e → thin FAT → arm64
