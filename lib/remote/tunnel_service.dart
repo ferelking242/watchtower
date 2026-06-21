@@ -80,7 +80,7 @@ import 'dart:async';
         // Keepalive stdin toutes les 5s pour retarder la fermeture idle du shell.
         _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
           if (!_running) return;
-          try { _shellSession?.stdin.add(const [10]); } catch (_) {}
+          try { _shellSession?.stdin.add(Uint8List.fromList([10])); } catch (_) {}
         });
 
         session.stdout
