@@ -100,7 +100,7 @@ import 'dart:async';
     <div class="card">
       <div class="label">Comment utiliser depuis n&apos;importe ou</div>
       <ol class="steps">
-        <li>Attendez que le lien tunnel HTTPS apparaisse ci-dessus</li>
+        <li>Attendez que le lien relay HTTPS apparaisse ci-dessus</li>
         <li>Copiez ce lien HTTPS</li>
         <li>Ouvrez l&apos;app web et collez-le dans le champ URL</li>
       </ol>
@@ -131,7 +131,7 @@ import 'dart:async';
         final url = _tunnelUrl!;
         tunnelSection =
             '<div class="card green">'
-            '<div class="label">Lien public (tunnel SSH)</div>'
+            '<div class="label">Lien public (relay Replit)</div>'
             '<a href="' + url + '" class="url-text">' + url + '</a>'
             '<div class="hint">Utilisez ce lien depuis n&apos;importe ou</div>'
             '</div>';
@@ -144,7 +144,7 @@ import 'dart:async';
       } else {
         tunnelSection =
             '<div class="card yellow">'
-            '<div class="label">Tunnel SSH</div>'
+            '<div class="label">Relay Replit</div>'
             '<div class="hint">Demarrage en cours...</div>'
             '<div class="spinner"></div>'
             '</div>';
