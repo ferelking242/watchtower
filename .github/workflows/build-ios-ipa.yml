@@ -18,6 +18,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.x'
           channel: stable
           cache: true
 
@@ -208,6 +209,10 @@ jobs:
 
           echo "=== Frameworks signes ==="
           ls "$APP/Frameworks/" | wc -l
+
+          echo "=== Ad-hoc codesign (requis TrollStore) ==="
+          codesign --force --sign - --deep "$APP" 2>/dev/null || true
+          codesign -dvvv "$APP" 2>&1 | head -8 || true
 
       # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
       - name: Cleanup ldid residual files
