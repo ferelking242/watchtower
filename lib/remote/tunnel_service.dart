@@ -1,208 +1,164 @@
 import 'dart:async';
-    import 'dart:convert';
-    import 'dart:typed_data';
-    import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-    import 'package:dartssh2/dartssh2.dart';
-    import 'package:flutter/foundation.dart';
-    import 'package:watchtower/utils/log/logger.dart';
+  import 'dart:convert';
+  import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+  import 'package:flutter/foundation.dart';
+  import 'package:http/http.dart' as http;
+  import 'package:watchtower/utils/log/logger.dart';
 
-    void _log(String msg) => AppLogger.log('[TUNNEL] $msg', tag: 'REMOTE');
-    void _logErr(String msg) =>
-        AppLogger.log('[TUNNEL] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
+  void _tlog(String msg) => AppLogger.log('[RELAY] $msg', tag: 'REMOTE');
+  void _tlogErr(String msg) =>
+      AppLogger.log('[RELAY] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
 
-    // localhost.run ferme le shell ~15s apres le dernier keepalive SSH.
-    // Le keepalive STDIN (newline) causait ECONNABORTED car le shell interprète les newlines.
-    // → On utilise keepAliveInterval natif dartssh2 (keepalive@openssh.com, RFC 4254).
+  /// WebSocket relay client — remplace le tunnel SSH dartssh2.
+  ///
+  /// Le téléphone se connecte en WebSocket au serveur relay Replit.
+  /// Le relay transfère les requêtes HTTP du client web (GitHub Pages) vers le
+  /// téléphone via WebSocket. Le téléphone appelle son serveur shelf local
+  /// (port 4567) et renvoie la réponse au relay.
+  ///
+  /// URL publique affichée à l'utilisateur : [relayBaseUrl]
+  /// L'utilisateur colle cette URL dans l'app web Watchtower.
+  class TunnelService {
+    /// URL de base du relay Replit. Mettre à jour avec le domaine déployé.
+    /// Dev : basé sur REPLIT_DEV_DOMAIN (change à chaque session).
+    /// Prod : domaine stable après déploiement Replit (ex: watchtower.replit.app).
+    static const String relayBaseUrl =
+        'https://ee588303-0ccb-4143-aefc-635c8ab177b2-00-1w6f6j2vuvwk8.riker.replit.dev/api/relay';
 
-    class TunnelService {
-      SSHClient? _client;
-      SSHSession? _shellSession;
-      Timer? _reconnectTimer;
-      bool _running = false;
-      bool _urlReceived = false;
-      final StringBuffer _outputBuffer = StringBuffer();
+    static const int _localPort = 4567;
+    static const Duration _reconnectDelay = Duration(seconds: 5);
+    static const Duration _requestTimeout = Duration(seconds: 30);
 
-      void Function(String url)? onUrlChanged;
-      void Function(String error)? onError;
-      void Function(double progress)? onDownloadProgress;
+    void Function(String url)? onUrlChanged;
+    void Function(String error)? onError;
 
-      static const _sshHost = 'localhost.run';
-      static const _sshPort = 22;
-      static const _localPort = 4567;
+    // Kept for API compatibility with RemoteServerService
+    // ignore: unused_field
+    void Function(double progress)? onDownloadProgress;
 
-      Future<void> start() async {
-        if (kIsWeb) return;
-        if (_running) return;
-        _running = true;
-        _urlReceived = false;
-        _outputBuffer.clear();
-        await _connect();
-      }
+    WebSocket? _ws;
+    bool _running = false;
+    Timer? _reconnectTimer;
 
-      Future<void> _connect() async {
-        if (!_running) return;
+    Future<void> start() async {
+      if (kIsWeb) return;
+      _running = true;
+      _connect();
+    }
 
-        _shellSession = null;
+    void stop() {
+      _running = false;
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+      _ws?.close();
+      _ws = null;
+      _tlog('Arreté');
+    }
 
-        try {
-          _log('Connexion SSH $_sshHost:$_sshPort...');
-          final socket = await SSHSocket.connect(
-            _sshHost, _sshPort,
-            timeout: const Duration(seconds: 30),
-          );
+    void _scheduleReconnect() {
+      if (!_running) return;
+      _tlog('Reconnexion dans ${_reconnectDelay.inSeconds}s...');
+      _reconnectTimer = Timer(_reconnectDelay, _connect);
+    }
 
-          // keepAliveInterval envoie keepalive@openssh.com (SSH global request)
-          // toutes les 5s — propre, ne touche pas stdin du shell.
-          // printDebug garde la visibilite sur le matching forwarded-tcpip.
-          _client = SSHClient(
-            socket,
-            username: 'nokey',
-            disableHostkeyVerification: true,
-            keepAliveInterval: const Duration(seconds: 5),
-            printDebug: (msg) => _log('SSH: $msg'),
-          );
+    Future<void> _connect() async {
+      if (!_running) return;
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
 
-          _log('Socket OK — authentification...');
-          await _client!.authenticated;
-          _log('Authentifie ! Demande forwarding port 80...');
+      final wsUrl = relayBaseUrl
+              .replaceFirst('https://', 'wss://')
+              .replaceFirst('http://', 'ws://') +
+          '/device';
 
-          final forward = await _client!.forwardRemote(port: 80);
-          if (forward == null) {
-            _logErr('Forwarding refuse — reconnexion dans 5s...');
-            _cleanupClient();
-            _scheduleReconnect(delay: const Duration(seconds: 5));
-            return;
+      _tlog('Connexion relay : $wsUrl');
+
+      try {
+        final ws = await WebSocket.connect(wsUrl).timeout(
+          const Duration(seconds: 15),
+          onTimeout: () => throw TimeoutException('Connexion timeout'),
+        );
+        _ws = ws;
+        _tlog('Connecté — URL publique : $relayBaseUrl');
+        onUrlChanged?.call(relayBaseUrl);
+
+        await for (final raw in ws) {
+          if (!_running) break;
+          if (raw is! String) continue;
+          try {
+            final Map<String, dynamic> msg = jsonDecode(raw);
+            _handleRequest(msg);
+          } catch (e) {
+            _tlogErr('Message invalide : $e');
           }
-          _log('Forwarding OK — ouverture shell...');
-
-          final session = await _client!.shell();
-          _shellSession = session;
-          _log('Shell ouverte — attente URL lhr.life...');
-
-          session.stdout
-              .cast<List<int>>()
-              .transform(const Utf8Decoder(allowMalformed: true))
-              .transform(const LineSplitter())
-              .listen((line) {
-                _outputBuffer.writeln(line);
-                if (line.trim().isNotEmpty) _log('out: $line');
-                _parseLineRealtime(line);
-              }, onError: (e) => _logErr('stdout err: $e'));
-
-          session.stderr
-              .cast<List<int>>()
-              .transform(const Utf8Decoder(allowMalformed: true))
-              .transform(const LineSplitter())
-              .listen((line) {
-                _outputBuffer.writeln(line);
-                if (line.trim().isNotEmpty) _log('err: $line');
-                _parseLineRealtime(line);
-              }, onError: (e) => _logErr('stderr err: $e'));
-
-          session.done.then((_) {
-            _log('Shell fermee — reconnexion dans 2s...');
-            _shellSession = null;
-            _cleanupClient();
-            _scheduleReconnect(delay: const Duration(seconds: 2));
-          });
-
-          Future.delayed(const Duration(seconds: 60), () {
-            if (_running && !_urlReceived) {
-              _logErr('Timeout 60s — pas d URL recue');
-              onError?.call("Timeout (60s) — localhost.run n'a pas envoye de lien.");
-            }
-          });
-
-          _handleForwardedConnections(forward);
-        } catch (e) {
-          _logErr('Exception connexion: $e');
-          _cleanupClient();
-          _scheduleReconnect(delay: const Duration(seconds: 5));
         }
+      } on TimeoutException catch (e) {
+        _tlogErr('Timeout connexion : $e');
+        if (_running) onError?.call('Relay timeout : $e');
+      } catch (e) {
+        _tlogErr('Erreur WebSocket : $e');
+        if (_running) onError?.call('Relay déconnecté : $e');
+      } finally {
+        _ws = null;
       }
 
-      void _handleForwardedConnections(SSHRemoteForward forward) async {
-        _log('En attente de connexions entrantes...');
-        try {
-          var connCount = 0;
-          await for (final connection in forward.connections) {
-            connCount++;
-            _log('Connexion entrante #$connCount');
-            _proxyConnection(connection);
-          }
-        } catch (e) {
-          if (_running) _logErr('Forward erreur: $e');
+      _scheduleReconnect();
+    }
+
+    Future<void> _handleRequest(Map<String, dynamic> msg) async {
+      final String id = msg['id'] as String? ?? '';
+      final String method = (msg['method'] as String? ?? 'GET').toUpperCase();
+      final String path = msg['path'] as String? ?? '/';
+      final String query = msg['query'] as String? ?? '';
+      final String? bodyStr = msg['body'] as String?;
+
+      final fullPath = query.isNotEmpty ? '$path?$query' : path;
+      final uri = Uri.parse('http://127.0.0.1:$_localPort$fullPath');
+
+      _tlog('Forward $method $fullPath');
+
+      try {
+        final reqHeaders = <String, String>{
+          'Content-Type': 'application/json',
+        };
+
+        http.Response response;
+        switch (method) {
+          case 'POST':
+            response = await http
+                .post(uri, headers: reqHeaders, body: bodyStr ?? '')
+                .timeout(_requestTimeout);
+          case 'PUT':
+            response = await http
+                .put(uri, headers: reqHeaders, body: bodyStr ?? '')
+                .timeout(_requestTimeout);
+          case 'DELETE':
+            response = await http
+                .delete(uri, headers: reqHeaders)
+                .timeout(_requestTimeout);
+          default:
+            response =
+                await http.get(uri, headers: reqHeaders).timeout(_requestTimeout);
         }
-        _log('Forward stream ferme');
-      }
 
-      void _scheduleReconnect({Duration delay = const Duration(seconds: 5)}) {
-        if (!_running) return;
-        _reconnectTimer?.cancel();
-        _reconnectTimer = Timer(delay, () {
-          if (_running) _connect();
-        });
-      }
-
-      void _cleanupClient() {
-        _shellSession = null;
-        try { _client?.close(); } catch (_) {}
-        _client = null;
-      }
-
-      void _parseLineRealtime(String line) {
-        if (line.trim().isEmpty) return;
-        final match = RegExp(r'https?://[a-z0-9-]+\.lhr\.life').firstMatch(line);
-        if (match != null) {
-          final url = match.group(0)!;
-          _log('URL trouvee : $url');
-          _urlReceived = true;
-          onUrlChanged?.call(url);
-        }
-      }
-
-      void _proxyConnection(SSHForwardChannel connection) async {
-        Socket? local;
-        try {
-          local = await Socket.connect('127.0.0.1', _localPort);
-          _log('Proxy: 127.0.0.1:$_localPort connecte');
-
-          var done = false;
-          void closeAll() {
-            if (done) return;
-            done = true;
-            try { local!.destroy(); } catch (_) {}
-            try { connection.close(); } catch (_) {}
-          }
-
-          connection.stream.cast<List<int>>().listen(
-            local.add,
-            onDone: closeAll,
-            onError: (e) { _logErr('Proxy SSH->local: $e'); closeAll(); },
-            cancelOnError: true,
-          );
-
-          local.listen(
-            (data) => connection.sink.add(data),
-            onDone: closeAll,
-            onError: (e) { _logErr('Proxy local->SSH: $e'); closeAll(); },
-            cancelOnError: true,
-          );
-        } catch (e) {
-          _logErr('Proxy 127.0.0.1:$_localPort echoue: $e');
-          try { local?.destroy(); } catch (_) {}
-          try { connection.close(); } catch (_) {}
-        }
-      }
-
-      void stop() {
-        _log('Arret tunnel');
-        _running = false;
-        _urlReceived = false;
-        _outputBuffer.clear();
-        _reconnectTimer?.cancel();
-        _reconnectTimer = null;
-        _cleanupClient();
+        final ct = response.headers['content-type'] ?? 'application/json';
+        _sendReply(id, response.statusCode, ct, response.body);
+      } catch (e) {
+        _tlogErr('Erreur requête $path : $e');
+        _sendReply(
+            id, 500, 'application/json', jsonEncode({'error': e.toString()}));
       }
     }
+
+    void _sendReply(String id, int status, String contentType, String body) {
+      final ws = _ws;
+      if (ws == null || ws.readyState != WebSocket.open) return;
+      ws.add(jsonEncode({
+        'id': id,
+        'status': status,
+        'headers': {'content-type': contentType},
+        'body': body,
+      }));
+    }
+  }
   
