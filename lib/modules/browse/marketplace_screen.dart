@@ -1818,7 +1818,7 @@ class _HomeTab extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: () => state._loadAll(bypassCache: true),
-      child: CustomScrollView(
+    return CustomScrollView(
         slivers: [
           // ── Dépôts ───────────────────────────────────────────────────────
           SliverToBoxAdapter(child: _RepoCarousel(state: state)),
@@ -2116,13 +2116,14 @@ class _TypeTabState extends State<_TypeTab> {
     final cs = Theme.of(context).colorScheme;
     final state = widget.state;
     final tab = widget.tab;
+    final entries = state._forTab(tab);
     if (state._loading) return _MarketplaceSkeleton(cs: cs);
     final updatableEntries = entries
         .where((e) =>
             state._installed.contains(e.id) &&
             state._hasUpdate(e.id, e.version))
         .toList();
-      child: CustomScrollView(
+    return CustomScrollView(
         slivers: [
           if (entries.isEmpty)
             SliverFillRemaining(
