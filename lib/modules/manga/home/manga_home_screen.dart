@@ -1859,7 +1859,21 @@ class _MangaHomeImageCardListTileState
           ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
           : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
-      return Container(
+      return GestureDetector(
+        onTap: () {
+          if (manga.link != null) {
+            pushToMangaReaderDetail(
+              ref: ref,
+              context: context,
+              getManga: manga,
+              lang: source.lang!,
+              source: source.name!,
+              itemType: source.itemType,
+              sourceId: source.id,
+            );
+          }
+        },
+        child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context)
               .colorScheme
@@ -1976,7 +1990,8 @@ class _MangaHomeImageCardListTileState
             ),
           ],
         ),
-      );
+      ),
+    );
     }
   }
 
@@ -2008,9 +2023,16 @@ class _MangaHomeImageCardListTileState
         padding: const EdgeInsets.only(right: 10),
         child: GestureDetector(
           onTap: () {
-            final m = manga;
-            if (m.link != null) {
-              context.push('/mangaDetail', extra: (m, source));
+            if (manga.link != null) {
+              pushToMangaReaderDetail(
+                ref: ref,
+                context: context,
+                getManga: manga,
+                lang: source.lang!,
+                source: source.name!,
+                itemType: source.itemType,
+                sourceId: source.id,
+              );
             }
           },
           child: SizedBox(
