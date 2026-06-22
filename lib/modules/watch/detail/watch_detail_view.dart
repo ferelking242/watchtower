@@ -1584,6 +1584,92 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     final isMovie = _isMovie(chapters);
 
+    // ── Build structured info rows ─────────────────────────────────────────
+    final infoRows = <_DetailInfoRow>[];
+    // Année (uniquement si c'est vraiment une année numérique)
+    if (year.isNotEmpty && RegExp(r'^\d{4}$').hasMatch(year)) {
+      infoRows.add(_DetailInfoRow(label: 'Année', value: year));
+    }
+    // Nb épisodes / type
+    if (chapters.isNotEmpty) {
+      infoRows.add(_DetailInfoRow(
+        label: isMovie ? 'Type' : 'Épisodes',
+        value: isMovie ? 'Film' : '${chapters.length}',
+        accent: true,
+        accentColor: _accent,
+      ));
+    }
+    // Statut
+    if (statusLabel.isNotEmpty) {
+      infoRows.add(_DetailInfoRow(
+        label: 'Statut',
+        value: statusLabel,
+        accent: true,
+        accentColor: statusColor,
+      ));
+    }
+    // Langue
+    if (manga.lang?.isNotEmpty ?? false) {
+      infoRows.add(_DetailInfoRow(label: 'Langue', value: manga.lang!.toUpperCase()));
+    }
+    // Format
+    if (typeTag != null) {
+      infoRows.add(_DetailInfoRow(label: 'Format', value: typeTag));
+    }
+    // Source
+    if (manga.source?.isNotEmpty ?? false) {
+      infoRows.add(_DetailInfoRow(label: 'Source', value: manga.source!));
+    }
+    // Réalisateur (si contient des lettres, pas juste une année numérique)
+    if (year.isNotEmpty && RegExp(r'[a-zA-ZÀ-ÿ]').hasMatch(year)) {
+      infoRows.add(_DetailInfoRow(label: 'Réalisateur', value: year));
+    }
+
+    // ── Check if truly empty ───────────────────────────────────────────────
+    final hasAnyContent = description.isNotEmpty ||
+        galleryUrls.isNotEmpty ||
+        infoRows.isNotEmpty ||
+        genres.isNotEmpty ||
+        castNames.isNotEmpty;
+
+    if (!hasAnyContent) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: _card,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _faint, width: 1.5),
+                ),
+                child: Icon(Icons.info_outline_rounded, size: 30, color: _grey),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun détail disponible',
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Les informations apparaîtront\nlorsqu'elles seront disponibles.",
+                style: TextStyle(color: _grey, fontSize: 13, height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 52),
       child: Column(
@@ -1672,40 +1758,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             const SizedBox(height: 26),
           ],
 
-          // ── Informations ──────────────────────────────────────────────────
-          _sectionLabel('Informations'),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (year.isNotEmpty)
-                _infoChip(
-                    Icons.calendar_today_outlined, year, _card, _grey),
-              if (chapters.isNotEmpty)
-                _infoChip(
-                  Icons.play_circle_outline_rounded,
-                  isMovie
-                      ? 'Film'
-                      : '${chapters.length} épisode${chapters.length > 1 ? 's' : ''}',
-                  _accent.withValues(alpha: 0.10),
-                  _accent,
-                ),
-              if (statusLabel.isNotEmpty)
-                _infoChip(Icons.circle, statusLabel,
-                    statusColor.withValues(alpha: 0.10), statusColor),
-              if ((manga.lang?.isNotEmpty ?? false))
-                _infoChip(Icons.language_rounded,
-                    manga.lang!.toUpperCase(), _card, _grey),
-              if (typeTag != null)
-                _infoChip(
-                    Icons.videocam_outlined, typeTag, _card, _grey),
-              if ((manga.source?.isNotEmpty ?? false))
-                _infoChip(Icons.storage_outlined, manga.source!, _card,
-                    _grey),
-            ],
-          ),
-          const SizedBox(height: 26),
+          // ── Informations — grid 2 colonnes ────────────────────────────────
+          if (infoRows.isNotEmpty) ...[
+            _sectionLabel('Informations'),
+            const SizedBox(height: 12),
+            _buildInfoGrid(infoRows),
+            const SizedBox(height: 26),
+          ],
 
           // ── Genres ────────────────────────────────────────────────────────
           if (genres.isNotEmpty) ...[
@@ -1735,14 +1794,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   ),
               ],
             ),
-            const SizedBox(height: 26),
-          ],
-
-          // ── Réalisateur (uniquement si ce n'est pas juste une année) ───────
-          if (year.isNotEmpty && RegExp(r'[a-zA-ZÀ-ÿ]').hasMatch(year)) ...[
-            _sectionLabel('Réalisateur'),
-            const SizedBox(height: 8),
-            _detailRow(Icons.person_outline_rounded, year),
             const SizedBox(height: 26),
           ],
 
@@ -1812,6 +1863,90 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       ),
     );
   }
+
+  // ── Info grid 2 colonnes ───────────────────────────────────────────────────
+
+  Widget _buildInfoGrid(List<_DetailInfoRow> rows) {
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        const cols = 2;
+        const hGap = 10.0;
+        const vGap = 10.0;
+        const cellH = 62.0;
+        final cellW = (constraints.maxWidth - hGap * (cols - 1)) / cols;
+        final rowCount = (rows.length / cols).ceil();
+
+        return Column(
+          children: List.generate(rowCount, (r) {
+            final items = rows.skip(r * cols).take(cols).toList();
+            // Si dernière ligne avec 1 seul élément → full width
+            final isSingleLast = items.length == 1;
+            return Padding(
+              padding: EdgeInsets.only(bottom: r < rowCount - 1 ? vGap : 0),
+              child: Row(
+                children: isSingleLast
+                    ? [_infoCell(items[0], double.infinity, cellH)]
+                    : [
+                        _infoCell(items[0], cellW, cellH),
+                        const SizedBox(width: hGap),
+                        _infoCell(items[1], cellW, cellH),
+                      ],
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  Widget _infoCell(_DetailInfoRow row, double w, double h) {
+    final bg = row.accent
+        ? row.accentColor!.withValues(alpha: 0.09)
+        : _card;
+    final borderColor = row.accent
+        ? row.accentColor!.withValues(alpha: 0.30)
+        : _faint.withValues(alpha: 0.45);
+    final valueColor = row.accent ? row.accentColor! : _textPrimary;
+    final cell = Container(
+      width: w == double.infinity ? double.infinity : w,
+      height: h,
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            row.label,
+            style: TextStyle(
+              color: _grey,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            row.value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              height: 1.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+    if (w == double.infinity) return Expanded(child: cell);
+    return cell;
+  }
+
 
   Color _castColor(int index) {
     const colors = [
@@ -3436,4 +3571,21 @@ class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
       }),
     );
   }
+
+// ── Data class for detail info grid rows ─────────────────────────────────────
+
+class _DetailInfoRow {
+  final String label;
+  final String value;
+  final bool accent;
+  final Color? accentColor;
+
+  const _DetailInfoRow({
+    required this.label,
+    required this.value,
+    this.accent = false,
+    this.accentColor,
+  });
+}
+
 }
