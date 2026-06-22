@@ -14,6 +14,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/manga/home/providers/state_provider.dart';
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
+import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
