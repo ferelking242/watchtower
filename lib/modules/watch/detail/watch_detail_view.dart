@@ -3572,6 +3572,7 @@ class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
     );
   }
 
+}
 // ── Data class for detail info grid rows ─────────────────────────────────────
 
 class _DetailInfoRow {
@@ -3586,6 +3587,4 @@ class _DetailInfoRow {
     this.accent = false,
     this.accentColor,
   });
-}
-
 }
