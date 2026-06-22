@@ -910,10 +910,12 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       }
 
       Widget _buildSectionsView(BuildContext ctx) {
-      return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      return CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // Popular auto-scroll carousel ──────────────────────────────────
               _buildSectionHeader(ctx, title: 'Popular', onSeeAll: () {
                 Navigator.of(ctx).push(MaterialPageRoute(
@@ -1002,8 +1004,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             ),
 
             const SizedBox(height: 32),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       );
     }
 
