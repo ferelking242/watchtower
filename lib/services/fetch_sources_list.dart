@@ -486,7 +486,8 @@ Future<void> _updateSource(
         ? jsonEncode(preferenceList.map((e) => e.toJson()).toList())
         : null
     ..isAdded = true
-    ..isActive = true
+    ..isActive = source.isActive ?? true
+    ..isPinned = source.isPinned ?? false
     ..sourceCode = sourceCode
     ..sourceCodeUrl = source.sourceCodeUrl
     ..id = source.id

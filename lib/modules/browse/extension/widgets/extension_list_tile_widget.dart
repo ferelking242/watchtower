@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
@@ -34,6 +35,7 @@ class _ExtensionListTileWidgetState
   bool _isLoading = false;
   late final bool _updateAvailable;
   late final bool _sourceNotEmpty;
+  String? _lastError;
 
   @override
   void initState() {
@@ -46,7 +48,7 @@ class _ExtensionListTileWidgetState
   }
 
   Future<void> _handleSourceFetch() async {
-    setState(() => _isLoading = true);
+    setState(() { _isLoading = true; _lastError = null; });
     AppLogger.log(
       '${_updateAvailable ? "Update" : "Install"} requested: "${widget.source.name}" v${widget.source.version}',
       tag: LogTag.extension_,
@@ -71,6 +73,7 @@ class _ExtensionListTileWidgetState
         error: e,
         stackTrace: st,
       );
+      if (mounted) setState(() => _lastError = e.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -539,16 +542,48 @@ class _ExtensionListTileWidgetState
       trailing: _buildTrailingButton(context, buttonLabel),
     );
 
-    return _SwipeTile(
-      sourceNotEmpty: _sourceNotEmpty,
-      isPinned: widget.source.isPinned ?? false,
-      onUninstall: _sourceNotEmpty ? () => _uninstall(context) : null,
-      onPin: _togglePin,
-      onSettings: _sourceNotEmpty
-          ? () => context.push('/extension_detail', extra: widget.source)
-          : null,
-      child: tile,
-    );
+    final errorBar = _lastError == null
+          ? null
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 8, 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      _lastError!,
+                      style: const TextStyle(fontSize: 10, color: Colors.red),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => Clipboard.setData(ClipboardData(text: _lastError!)),
+                    child: const Icon(Icons.copy_rounded, size: 13, color: Colors.red),
+                  ),
+                ],
+              ),
+            );
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SwipeTile(
+            sourceNotEmpty: _sourceNotEmpty,
+            isPinned: widget.source.isPinned ?? false,
+            onUninstall: _sourceNotEmpty ? () => _uninstall(context) : null,
+            onPin: _togglePin,
+            onSettings: _sourceNotEmpty
+                ? () => context.push('/extension_detail', extra: widget.source)
+                : null,
+            child: tile,
+          ),
+          if (errorBar != null) errorBar,
+        ],
+      );
   }
 }
 

@@ -8,7 +8,9 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/language.dart';
 
-class SourcesFilterScreen extends ConsumerStatefulWidget {
+enum _NsfwFilter { all, nsfwOnly, sfw }
+
+  class SourcesFilterScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
   const SourcesFilterScreen({required this.itemType, super.key});
 
@@ -19,15 +21,28 @@ class SourcesFilterScreen extends ConsumerStatefulWidget {
 
 class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
   final Map<String, bool> _collapsed = {};
+  _NsfwFilter _nsfwFilter = _NsfwFilter.all;
+  bool _showOnlyActive = false;
 
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.sources)),
-      body: Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: StreamBuilder(
+      body: Column(
+        children: [
+          // ── Filter chips ──
+          _FilterBar(
+            nsfwFilter: _nsfwFilter,
+            showOnlyActive: _showOnlyActive,
+            onNsfwChanged: (v) => setState(() => _nsfwFilter = v),
+            onActiveChanged: (v) => setState(() => _showOnlyActive = v),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: StreamBuilder(
           stream: isar.sources
               .filter()
               .idIsNotNull()
@@ -43,7 +58,14 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
 
             final rawEntries = snapshot.data!;
 
-            // Deduplicate: keep one entry per (name, lang) pair — prefer isActive=true
+              // Apply filters
+              bool Function(Source) nsfwTest = switch (_nsfwFilter) {
+                _NsfwFilter.all      => (_) => true,
+                _NsfwFilter.nsfwOnly => (s) => s.isNsfw ?? false,
+                _NsfwFilter.sfw      => (s) => !(s.isNsfw ?? false),
+              };
+
+              // Deduplicate: keep one entry per (name, lang) pair — prefer isActive=true
             final Map<String, Source> deduped = {};
             for (final src in rawEntries) {
               final key = '${src.name ?? ''}_${src.lang?.toLowerCase() ?? ''}';
@@ -57,7 +79,10 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
                 }
               }
             }
-            final entries = deduped.values.toList();
+            final entries = deduped.values
+                  .where(nsfwTest)
+                  .where((s) => !_showOnlyActive || (s.isActive ?? false))
+                  .toList();
 
             // Group by language code
             final Map<String, List<Source>> grouped = {};
@@ -262,3 +287,90 @@ class _CountBadge extends StatelessWidget {
     );
   }
 }
+
+  class _FilterBar extends StatelessWidget {
+    final _NsfwFilter nsfwFilter;
+    final bool showOnlyActive;
+    final void Function(_NsfwFilter) onNsfwChanged;
+    final void Function(bool) onActiveChanged;
+
+    const _FilterBar({
+      required this.nsfwFilter,
+      required this.showOnlyActive,
+      required this.onNsfwChanged,
+      required this.onActiveChanged,
+    });
+
+    @override
+    Widget build(BuildContext context) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.filter_list_rounded, size: 14),
+                const SizedBox(width: 6),
+                const Text('Contenu', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 10),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    _FChip(label: 'Tout',      selected: nsfwFilter == _NsfwFilter.all,      onTap: () => onNsfwChanged(_NsfwFilter.all)),
+                    _FChip(label: 'Non-NSFW',  selected: nsfwFilter == _NsfwFilter.sfw,      onTap: () => onNsfwChanged(_NsfwFilter.sfw)),
+                    _FChip(label: 'NSFW',      selected: nsfwFilter == _NsfwFilter.nsfwOnly, onTap: () => onNsfwChanged(_NsfwFilter.nsfwOnly), color: Colors.red.shade400),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.toggle_on_rounded, size: 14),
+                const SizedBox(width: 6),
+                const Text('État', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 10),
+                _FChip(label: 'Actives seulement', selected: showOnlyActive, onTap: () => onActiveChanged(!showOnlyActive), color: Colors.green.shade400),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  class _FChip extends StatelessWidget {
+    final String label;
+    final bool selected;
+    final VoidCallback onTap;
+    final Color? color;
+
+    const _FChip({required this.label, required this.selected, required this.onTap, this.color});
+
+    @override
+    Widget build(BuildContext context) {
+      final accent = color ?? Theme.of(context).colorScheme.primary;
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: 0.18) : Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: selected ? accent : Colors.transparent, width: 1.2),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: selected ? accent : Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+  

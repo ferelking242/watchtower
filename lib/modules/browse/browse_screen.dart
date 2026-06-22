@@ -305,6 +305,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         onSelected: (action) => _handleSrcMenuAction(context, type, action),
         itemBuilder: (ctx) => [
           PopupMenuItem(
+            value: _SrcMenuAction.market,
+            child: _MenuRow(
+              icon: Icons.storefront_rounded,
+              label: 'Marketplace',
+            ),
+          ),
+          const PopupMenuDivider(),
+          PopupMenuItem(
             value: _SrcMenuAction.howTo,
             child: _MenuRow(
               icon: Icons.help_outline_rounded,
@@ -342,6 +350,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   void _handleSrcMenuAction(
       BuildContext context, ItemType type, _SrcMenuAction action) {
     switch (action) {
+      case _SrcMenuAction.market:
+        context.push('/marketplace');
       case _SrcMenuAction.howTo:
         _openHowTo(context, type);
       case _SrcMenuAction.openRandomSource:
@@ -472,6 +482,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _SrcMenuAction {
+  market,
   howTo,
   openRandomSource,
   diagnostic,
