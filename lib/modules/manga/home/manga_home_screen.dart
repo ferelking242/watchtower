@@ -40,7 +40,7 @@ import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 
-enum _HomeMenuAction { openBrowser, cookies, settings, diagnostic }
+enum _HomeMenuAction { openBrowser, settings, diagnostic }
 
 class MangaHomeScreen extends ConsumerStatefulWidget {
   final Source source;
@@ -220,8 +220,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           'sourceId': source.id.toString(),
           'title': '',
         });
-      case _HomeMenuAction.cookies:
-        ctx.push('/extension-cookies');
       case _HomeMenuAction.settings:
         final res = await ctx.push('/extension_detail', extra: source);
         if (res != null && mounted) setState(() => source = res as Source);
@@ -343,7 +341,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 ],
               ),
             ),
-            // Filter dropdown chips
+            // Ligne 2 : bouton filtre + chips dynamiques dérivés du vrai filterList
             if (filterList.isNotEmpty)
               SizedBox(
                 height: 38,
@@ -351,21 +349,13 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   children: [
-                    _FilterChipBtn(
-                        label: 'Demographic',
-                        onTap: () => _openFilterSheet(context)),
-                    _FilterChipBtn(
-                        label: 'Content',
-                        onTap: () => _openFilterSheet(context)),
-                    _FilterChipBtn(
-                        label: 'Format',
-                        onTap: () => _openFilterSheet(context)),
-                    _FilterChipBtn(
-                        label: 'Theme',
-                        onTap: () => _openFilterSheet(context)),
-                    _FilterChipBtn(
-                        label: 'Sort',
-                        onTap: () => _openFilterSheet(context)),
+                    _FilterIconBtn(
+                      activeCount: _countActiveFilters(
+                          filters.isEmpty ? filterList : filters),
+                      onTap: () => _openFilterSheet(context),
+                    ),
+                    ..._buildFilterChips(
+                        context, filters.isEmpty ? filterList : filters),
                   ],
                 ),
               ),
@@ -400,6 +390,43 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     );
   }
 
+  // ── Filter chip helpers ─────────────────────────────────────────────────────
+
+  /// Count filters that differ from their default (unchecked / index 0).
+  int _countActiveFilters(List<dynamic> fl) {
+    int count = 0;
+    for (final f in fl) {
+      if (f is CheckBoxFilter && f.state) count++;
+      else if (f is TriStateFilter && f.state != 0) count++;
+      else if (f is SelectFilter && f.state != 0) count++;
+      else if (f is GroupFilter) {
+        for (final inner in f.state) {
+          if (inner is CheckBoxFilter && inner.state) count++;
+          else if (inner is TriStateFilter && inner.state != 0) count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  /// Build one chip per visible filter group (SelectFilter, SortFilter, GroupFilter).
+  List<Widget> _buildFilterChips(BuildContext ctx, List<dynamic> fl) {
+    return fl.where((f) => f is SelectFilter || f is SortFilter || f is GroupFilter).map<Widget>((f) {
+      String label;
+      if (f is SortFilter) {
+        final val = f.values.isNotEmpty ? (f.values[f.state.index] as dynamic).name as String : f.name;
+        label = '${f.name}: $val';
+      } else if (f is SelectFilter) {
+        label = f.name;
+      } else if (f is GroupFilter) {
+        label = f.name;
+      } else {
+        label = '';
+      }
+      return _FilterChipBtn(label: label, onTap: () => _openFilterSheet(ctx));
+    }).toList();
+  }
+
   // ── iOS-style filter bottom sheet ──────────────────────────────────────────
 
   Future<void> _openFilterSheet(BuildContext context) async {
@@ -408,13 +435,26 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (sheetCtx) => StatefulBuilder(
         builder: (sheetCtx, setSheetState) {
-          return Column(
+          final _isDark =
+              Theme.of(sheetCtx).brightness == Brightness.dark;
+          return ClipRRect(
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetCtx)
+                      .colorScheme
+                      .surface
+                      .withValues(alpha: _isDark ? 0.80 : 0.88),
+                  borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20)),
+                ),
+                child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Drag handle
@@ -524,7 +564,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 ),
               ),
             ],
-          );
+          ), // Column
+              ), // Container
+            ), // BackdropFilter
+          ); // ClipRRect
         },
       ),
     );
@@ -1341,15 +1384,14 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                         ]),
                       ),
                       PopupMenuItem(
-                        value: _HomeMenuAction.cookies,
+                        value: _HomeMenuAction.diagnostic,
                         child: Row(children: [
-                          const Icon(Icons.cookie_outlined, size: 20),
+                          const Icon(Icons.bug_report_outlined, size: 20),
                           const SizedBox(width: 12),
-                          const Text('Cookies',
+                          const Text('Diagnostic',
                               style: TextStyle(fontSize: 14)),
                         ]),
                       ),
-                      const PopupMenuDivider(),
                       PopupMenuItem(
                         value: _HomeMenuAction.settings,
                         child: Row(children: [
@@ -1359,15 +1401,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                               child: Text(menuCtx.l10n.settings,
                                   style:
                                       const TextStyle(fontSize: 14))),
-                        ]),
-                      ),
-                      PopupMenuItem(
-                        value: _HomeMenuAction.diagnostic,
-                        child: Row(children: [
-                          const Icon(Icons.bug_report_outlined, size: 20),
-                          const SizedBox(width: 12),
-                          const Text('Diagnostic',
-                              style: TextStyle(fontSize: 14)),
                         ]),
                       ),
                     ],
@@ -1596,6 +1629,62 @@ class _FilterChipBtn extends StatelessWidget {
                 size: 16,
                 color: Theme.of(context).hintColor,
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Filter icon button (≡ with active badge) ─────────────────────────────
+
+class _FilterIconBtn extends StatelessWidget {
+  final int activeCount;
+  final VoidCallback onTap;
+  const _FilterIconBtn({required this.activeCount, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: cs.onSurface.withValues(alpha: 0.15),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.tune_rounded, size: 16,
+                  color: Theme.of(context).hintColor),
+              if (activeCount > 0) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$activeCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
