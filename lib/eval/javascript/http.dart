@@ -166,6 +166,27 @@ Future<String> _toHttpResponse(Client client, String method, List args) async {
       logLevel: resp.statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
       tag: LogTag.network,
     );
+    // In Extreme log mode, log a body snippet so scraping failures are obvious.
+    if (AppLogger.isExtremeMode && resp.body.isNotEmpty) {
+      final snippet = resp.body.length > 400
+          ? resp.body.substring(0, 400) + '…'
+          : resp.body;
+      AppLogger.log(
+        '$method $url · body[0..400]: $snippet',
+        logLevel: LogLevel.debug,
+        tag: LogTag.network,
+      );
+    } else if (resp.statusCode >= 400 && resp.body.isNotEmpty) {
+      // Always log error body regardless of mode (essential for debugging).
+      final snippet = resp.body.length > 400
+          ? resp.body.substring(0, 400) + '…'
+          : resp.body;
+      AppLogger.log(
+        '$method $url · error body: $snippet',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
     return jsonEncode(resp.toJson());
   } catch (e, st) {
     AppLogger.log(
@@ -254,6 +275,21 @@ Future<String> _toHttpResponseViaProxy(
       logLevel: statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
       tag: LogTag.network,
     );
+    if (AppLogger.isExtremeMode && respBody.isNotEmpty) {
+      final snippet = respBody.length > 400 ? respBody.substring(0, 400) + '…' : respBody;
+      AppLogger.log(
+        'WEB-PROXY $method $url · body[0..400]: $snippet',
+        logLevel: LogLevel.debug,
+        tag: LogTag.network,
+      );
+    } else if (statusCode >= 400 && respBody.isNotEmpty) {
+      final snippet = respBody.length > 400 ? respBody.substring(0, 400) + '…' : respBody;
+      AppLogger.log(
+        'WEB-PROXY $method $url · error body: $snippet',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
 
     // Reconstruit la réponse au même format JSON que _toHttpResponse natif
     return jsonEncode({

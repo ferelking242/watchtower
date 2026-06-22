@@ -15,6 +15,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/cryptoaes/js_unpacker.dart';
 import 'package:watchtower/utils/log/log.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 class JsUtils {
   late JavascriptRuntime runtime;
@@ -25,13 +26,24 @@ class JsUtils {
       return MClient.init();
     }
 
+    // ── console.log / console.warn / console.error from extension JS ──────────
+    // Routed into AppLogger so they appear in the in-app overlay and session
+    // log file, not just the legacy Logger in-memory list.
+    // Message format: args = [level_string, message_string]
+    //   level_string: "log" | "debug" | "info" | "warn" | "error"
     runtime.onMessage('log', (dynamic args) {
-      if (kDebugMode || useLogger) {
-        // ignore: avoid_print
-        if (kDebugMode) print("LoggerLevel.warning:${args[0]}");
-        Logger.add(LoggerLevel.warning, "${args[0]}");
-      }
-
+      final level  = args.length >= 2 ? args[0] as String : 'log';
+      final msg    = args.length >= 2 ? args[1] as String : (args[0] as String);
+      final lvl = switch (level) {
+        'error' => LogLevel.error,
+        'warn'  => LogLevel.warning,
+        'info'  => LogLevel.info,
+        _       => LogLevel.debug,
+      };
+      AppLogger.log('[console.$level] $msg', logLevel: lvl, tag: LogTag.extension_);
+      if (kDebugMode) debugPrint('[EXT][console.$level] $msg');
+      // Keep legacy Logger alive for any UI that still reads it.
+      Logger.add(LoggerLevel.warning, '$msg');
       return null;
     });
     runtime.onMessage('cryptoHandler', (dynamic args) {
@@ -83,23 +95,25 @@ class JsUtils {
     });
 
     runtime.evaluate('''
-console.log = function (message) {
-    if (typeof message === "object") {
-         message = JSON.stringify(message);
-      }
-    sendMessage("log", JSON.stringify([message.toString()]));
+function _consoleFormat(args) {
+    return Array.from(args).map(function(a) {
+        return (a !== null && typeof a === "object") ? JSON.stringify(a) : String(a);
+    }).join(" ");
+}
+console.log = function () {
+    sendMessage("log", JSON.stringify(["log", _consoleFormat(arguments)]));
 };
-console.warn = function (message) {
-    if (typeof message === "object") {
-         message = JSON.stringify(message);
-      }
-    sendMessage("log", JSON.stringify([message.toString()]));
+console.debug = function () {
+    sendMessage("log", JSON.stringify(["debug", _consoleFormat(arguments)]));
 };
-console.error = function (message) {
-    if (typeof message === "object") {
-         message = JSON.stringify(message);
-      }
-    sendMessage("log", JSON.stringify([message.toString()]));
+console.info = function () {
+    sendMessage("log", JSON.stringify(["info", _consoleFormat(arguments)]));
+};
+console.warn = function () {
+    sendMessage("log", JSON.stringify(["warn", _consoleFormat(arguments)]));
+};
+console.error = function () {
+    sendMessage("log", JSON.stringify(["error", _consoleFormat(arguments)]));
 };
 String.prototype.substringAfter = function(pattern) {
     const startIndex = this.indexOf(pattern);

@@ -14,31 +14,33 @@ import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 import '../interface.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Structured log helpers for JS extension code.
+// Structured log helpers — routes directly into AppLogger so that every
+// extension method call (getPopular, getDetail, getVideoList …) is visible
+// in the in-app log overlay and written to the session log file.
 //
-// JsExtensionService runs inside a Dart isolate (native) where AppLogger
-// cannot be called directly.  Instead we use print(), which is captured by
-// the Zone in _getIsolateServiceEntryPoint and forwarded to the main isolate
-// where it is routed to AppLogger via the structured prefix:
-//
-//   [EXT][DEBUG]  → LogLevel.debug   tag=EXT
-//   [EXT][INFO]   → LogLevel.info    tag=EXT
-//   [EXT][WARN]   → LogLevel.warning tag=EXT
-//   [EXT][ERROR]  → LogLevel.error   tag=EXT
-//
-// On Flutter-web (main thread, no isolate) the same print() calls go to the
-// debug console; AppLogger is called directly on the service entry points
-// (getChapterPages / getVideoList) so the in-app log viewer still captures
-// the most important entries.
+// All four helpers are free functions so they can be called from the
+// top-level helpers below without a class instance.
 // ─────────────────────────────────────────────────────────────────────────────
-void _extLog(String level, String msg) => print('[EXT][$level] $msg');
+void _extLog(String level, String msg) {
+  final lvl = switch (level) {
+    'ERROR' => LogLevel.error,
+    'WARN'  => LogLevel.warning,
+    'INFO'  => LogLevel.info,
+    _       => LogLevel.debug,
+  };
+  AppLogger.log(msg, logLevel: lvl, tag: LogTag.extension_);
+  // Also echo to debug console in debug builds for IDE visibility.
+  if (kDebugMode) debugPrint('[EXT][$level] $msg');
+}
+
 void _extDebug(String msg) => _extLog('DEBUG', msg);
-void _extInfo(String msg) => _extLog('INFO', msg);
-void _extWarn(String msg) => _extLog('WARN', msg);
+void _extInfo(String msg)  => _extLog('INFO',  msg);
+void _extWarn(String msg)  => _extLog('WARN',  msg);
 void _extError(String msg) => _extLog('ERROR', msg);
 
 /// Truncate long strings for log readability.

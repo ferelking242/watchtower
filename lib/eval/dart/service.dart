@@ -8,6 +8,7 @@ import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 import '../interface.dart';
 
@@ -35,12 +36,26 @@ class MProvider {
 }
 ''';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Structured log helpers — mirrors JsExtensionService._extLog so Dart-based
+// extensions produce identical log lines in the in-app overlay.
+// ─────────────────────────────────────────────────────────────────────────────
+void _dLog(LogLevel lvl, String msg) =>
+    AppLogger.log(msg, logLevel: lvl, tag: LogTag.extension_);
+
+String _dt(String s, [int max = 120]) =>
+    s.length <= max ? s : '${s.substring(0, max)}…';
+
 class DartExtensionService implements ExtensionService {
   @override
   late Source source;
   D4rt? _interpreter;
 
+  /// Human-readable identifier used in every log line: "ZinManga[fr]".
+  String get _id => '${source.name ?? source.id}[${source.lang ?? "?"}]';
+
   DartExtensionService(this.source) {
+    _dLog(LogLevel.info, '$_id · init START (Dart extension)');
     _interpreter = D4rt();
     RegistrerBridge.registerBridge(_interpreter!);
 
@@ -49,6 +64,7 @@ class DartExtensionService implements ExtensionService {
       source: _injectMProvider(code),
       positionalArgs: [source.toMSource()],
     );
+    _dLog(LogLevel.info, '$_id · init OK');
   }
 
   /// Normalizes extension source code so it runs correctly inside d4rt:
@@ -146,6 +162,7 @@ class DartExtensionService implements ExtensionService {
 
   @override
   void dispose() {
+    _dLog(LogLevel.debug, '$_id · disposed (Dart extension)');
     _interpreter = null;
   }
 
@@ -184,47 +201,149 @@ class DartExtensionService implements ExtensionService {
   }
 
   @override
-  Future<MPages> getPopular(int page) async =>
-      await _interpreter!.invoke('getPopular', [page]) as MPages;
+  Future<MPages> getPopular(int page) async {
+    _dLog(LogLevel.info, '$_id · getPopular page=$page');
+    final sw = Stopwatch()..start();
+    try {
+      final result = await _interpreter!.invoke('getPopular', [page]) as MPages;
+      sw.stop();
+      _dLog(LogLevel.info,
+        '$_id · getPopular page=$page → ${result.list?.length ?? 0} items  '
+        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms');
+      return result;
+    } catch (e) {
+      sw.stop();
+      _dLog(LogLevel.error, '$_id · getPopular FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      rethrow;
+    }
+  }
 
   @override
-  Future<MPages> getLatestUpdates(int page) async =>
-      await _interpreter!.invoke('getLatestUpdates', [page]) as MPages;
+  Future<MPages> getLatestUpdates(int page) async {
+    _dLog(LogLevel.info, '$_id · getLatestUpdates page=$page');
+    final sw = Stopwatch()..start();
+    try {
+      final result = await _interpreter!.invoke('getLatestUpdates', [page]) as MPages;
+      sw.stop();
+      _dLog(LogLevel.info,
+        '$_id · getLatestUpdates page=$page → ${result.list?.length ?? 0} items  '
+        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms');
+      return result;
+    } catch (e) {
+      sw.stop();
+      _dLog(LogLevel.error, '$_id · getLatestUpdates FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      rethrow;
+    }
+  }
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
-    return await _interpreter!.invoke('search', [
-          query,
-          page,
-          FilterList(filters),
-        ])
-        as MPages;
+    _dLog(LogLevel.info,
+      '$_id · search q="${_dt(query, 60)}" page=$page filters=${filters.length}');
+    final sw = Stopwatch()..start();
+    try {
+      final result = await _interpreter!.invoke('search', [
+            query,
+            page,
+            FilterList(filters),
+          ]) as MPages;
+      sw.stop();
+      _dLog(LogLevel.info,
+        '$_id · search q="${_dt(query, 60)}" → ${result.list?.length ?? 0} items  '
+        '${sw.elapsedMilliseconds}ms');
+      return result;
+    } catch (e) {
+      sw.stop();
+      _dLog(LogLevel.error, '$_id · search FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      rethrow;
+    }
   }
 
   @override
-  Future<MManga> getDetail(String url) async =>
-      await _interpreter!.invoke('getDetail', [url]) as MManga;
+  Future<MManga> getDetail(String url) async {
+    _dLog(LogLevel.info, '$_id · getDetail url=${_dt(url)}');
+    final sw = Stopwatch()..start();
+    try {
+      final result = await _interpreter!.invoke('getDetail', [url]) as MManga;
+      sw.stop();
+      _dLog(LogLevel.info,
+        '$_id · getDetail → name="${result.name}"  '
+        'chapters=${result.chapters?.length ?? 0}  ${sw.elapsedMilliseconds}ms');
+      return result;
+    } catch (e) {
+      sw.stop();
+      _dLog(LogLevel.error, '$_id · getDetail FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      rethrow;
+    }
+  }
 
   @override
   Future<List<PageUrl>> getPageList(String url) async {
-    final result = await _interpreter!.invoke('getPageList', [url]) as List;
-    return result.map((e) {
-      if (e is String) return PageUrl(e.trim());
-      return PageUrl.fromJson((e as Map).toMapStringDynamic!);
-    }).toList();
+    _dLog(LogLevel.info, '$_id · getPageList url=${_dt(url)}');
+    final sw = Stopwatch()..start();
+    try {
+      final result = await _interpreter!.invoke('getPageList', [url]) as List;
+      final pages = result.map((e) {
+        if (e is String) return PageUrl(e.trim());
+        return PageUrl.fromJson((e as Map).toMapStringDynamic!);
+      }).toList();
+      sw.stop();
+      if (pages.isEmpty) {
+        _dLog(LogLevel.warning,
+          '$_id · getPageList → 0 pages  ${sw.elapsedMilliseconds}ms '
+          '← check getPageList() or the chapter URL');
+      } else {
+        _dLog(LogLevel.info,
+          '$_id · getPageList → ${pages.length} pages  ${sw.elapsedMilliseconds}ms');
+      }
+      return pages;
+    } catch (e) {
+      sw.stop();
+      _dLog(LogLevel.error, '$_id · getPageList FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      rethrow;
+    }
   }
 
   @override
-  Future<List<Video>> getVideoList(String url) async =>
-      (await _interpreter!.invoke('getVideoList', [url]) as List).cast<Video>();
+  Future<List<Video>> getVideoList(String url) async {
+    _dLog(LogLevel.info, '$_id · getVideoList url=${_dt(url)}');
+    final sw = Stopwatch()..start();
+    try {
+      final result =
+          (await _interpreter!.invoke('getVideoList', [url]) as List).cast<Video>();
+      sw.stop();
+      if (result.isEmpty) {
+        _dLog(LogLevel.warning,
+          '$_id · getVideoList → 0 videos  ${sw.elapsedMilliseconds}ms '
+          '← extension returned empty list; check getVideoList() or the episode URL');
+      } else {
+        _dLog(LogLevel.info,
+          '$_id · getVideoList → ${result.length} video(s)  ${sw.elapsedMilliseconds}ms');
+        for (var i = 0; i < result.length && i < 5; i++) {
+          _dLog(LogLevel.debug,
+            '$_id · getVideoList  [${i + 1}] quality="${result[i].quality}"  '
+            'url=${_dt(result[i].originalUrl, 90)}');
+        }
+      }
+      return result;
+    } catch (e) {
+      sw.stop();
+      _dLog(LogLevel.error, '$_id · getVideoList FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      rethrow;
+    }
+  }
 
   @override
-  Future<String> getHtmlContent(String url, String? referer) async =>
-      await _interpreter!.invoke('getHtmlContent', [url, referer]) as String;
+  Future<String> getHtmlContent(String url, String? referer) async {
+    _dLog(LogLevel.debug, '$_id · getHtmlContent url=${_dt(url)}');
+    return await _interpreter!.invoke('getHtmlContent', [url, referer]) as String;
+  }
 
   @override
-  Future<String> cleanHtmlContent(String html) async =>
-      await _interpreter!.invoke('cleanHtmlContent', [html]) as String;
+  Future<String> cleanHtmlContent(String html) async {
+    _dLog(LogLevel.debug, '$_id · cleanHtmlContent input=${html.length} chars');
+    return await _interpreter!.invoke('cleanHtmlContent', [html]) as String;
+  }
 
   @override
   FilterList getFilterList() {
@@ -285,6 +404,22 @@ class DartExtensionService implements ExtensionService {
   }
 
   @override
-  Future<MPages> getCustomList(String id, int page) async =>
-      await _interpreter!.invoke('getCustomList', [id, page]) as MPages;
+  Future<MPages> getCustomList(String id, int page) async {
+    _dLog(LogLevel.info, '$_id · getCustomList id="$id" page=$page');
+    final sw = Stopwatch()..start();
+    try {
+      final result =
+          await _interpreter!.invoke('getCustomList', [id, page]) as MPages;
+      sw.stop();
+      _dLog(LogLevel.info,
+        '$_id · getCustomList id="$id" → ${result.list?.length ?? 0} items  '
+        '${sw.elapsedMilliseconds}ms');
+      return result;
+    } catch (e) {
+      sw.stop();
+      _dLog(LogLevel.error,
+        '$_id · getCustomList id="$id" FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      rethrow;
+    }
+  }
 }
