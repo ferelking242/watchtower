@@ -471,7 +471,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         slivers: [
           // ── Hero app bar ──────────────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 230,
+            expandedHeight: 270,
             pinned: true,
             backgroundColor: cs.surface,
             leading: BackButton(onPressed: () => Navigator.pop(context, source)),
@@ -496,6 +496,22 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              titlePadding: const EdgeInsetsDirectional.only(
+                start: 72,
+                end: 72,
+                bottom: 14,
+              ),
+              title: Text(
+                source.name ?? '',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -508,55 +524,43 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   ),
                 ),
                 child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 16),
-                      Container(
-                        width: 88,
-                        height: 88,
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.shadow.withValues(alpha: 0.15),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 52),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 16),
+                        Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: [
+                              BoxShadow(
+                                color: cs.shadow.withValues(alpha: 0.15),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: source.iconUrl?.isNotEmpty == true
+                                ? cachedNetworkImage(
+                                    imageUrl: source.iconUrl!,
+                                    fit: BoxFit.contain,
+                                    width: 96,
+                                    height: 96,
+                                    errorWidget: Icon(typeIcon,
+                                        size: 48, color: cs.primary),
+                                    headers: {},
+                                  )
+                                : Icon(typeIcon, size: 48, color: cs.primary),
+                          ),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: source.iconUrl?.isNotEmpty == true
-                              ? cachedNetworkImage(
-                                  imageUrl: source.iconUrl!,
-                                  fit: BoxFit.contain,
-                                  width: 88,
-                                  height: 88,
-                                  errorWidget: Icon(typeIcon,
-                                      size: 44, color: cs.primary),
-                                  headers: {},
-                                )
-                              : Icon(typeIcon, size: 44, color: cs.primary),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          source.name ?? '',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
+                        const SizedBox(height: 12),
+                        Wrap(
                         alignment: WrapAlignment.center,
                         spacing: 6,
                         children: [
@@ -586,7 +590,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                             ),
                         ],
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
