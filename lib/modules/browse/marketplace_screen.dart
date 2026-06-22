@@ -13,7 +13,6 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/modules/plugins/plugins_screen.dart' show pluginsListProvider, installedPluginsProvider, PluginEntry, PluginDetailPage, PluginDetailSheet;
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
 
@@ -195,10 +194,9 @@ const _kTabAnime   = 2;
 const _kTabNovel   = 3;
 const _kTabGames   = 4;
 const _kTabMusic   = 5;
-const _kTabPlugin  = 6;
-const _kTabBinary  = 7;
-const _kTabMihon   = 8;
-const _kTabAniyomi = 9;
+const _kTabBinary  = 6;
+const _kTabMihon   = 7;
+const _kTabAniyomi = 8;
 
 // Mihon / Aniyomi community APK repo index URLs
 const _kMihonMangaRepos = [
@@ -242,7 +240,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     _kTabNovel: _CompatF.all,
     _kTabGames: _CompatF.all,
     _kTabMusic: _CompatF.all,
-    _kTabPlugin: _CompatF.all,
     _kTabBinary: _CompatF.all,
     _kTabMihon: _CompatF.all,
     _kTabAniyomi: _CompatF.all,
@@ -295,7 +292,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 10, vsync: this);
+    _tabCtrl = TabController(length: 9, vsync: this);
     if (_cachedAll != null && _cacheTime != null &&
         DateTime.now().difference(_cacheTime!) < const Duration(seconds: 30)) {
       _all = _cachedAll!;
@@ -597,7 +594,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       case _kTabNovel:   return _all.where((e) => e.contentType == ItemType.novel).toList();
       case _kTabGames:   return _all.where((e) => e.contentType == ItemType.game).toList();
       case _kTabMusic:   return _all.where((e) => e.contentType == ItemType.music).toList();
-      case _kTabPlugin:  return [];
       case _kTabBinary:  return [];
       case _kTabMihon:   return _mihonEntries;
       case _kTabAniyomi: return _aniyomiEntries;
@@ -616,7 +612,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _kTabNovel,   // 5 Novel
       _kTabGames,   // 6 Game
       _kTabMusic,   // 7 Music
-      _kTabPlugin,  // 8 Plugin
       _kTabBinary,  // 9 Binary
     ];
     return visual < m.length ? m[visual] : _kTabHome;
@@ -627,8 +622,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     const m = {
       _kTabHome: 0,    _kTabAnime: 1,   _kTabManga: 2,
       _kTabMihon: 3,   _kTabAniyomi: 4, _kTabNovel: 5,
-      _kTabGames: 6,   _kTabMusic: 7,   _kTabPlugin: 8,
-      _kTabBinary: 9,
+      _kTabGames: 6,   _kTabMusic: 7,
+      _kTabBinary: 8,
     };
     return m[tabConst] ?? 0;
   }
@@ -767,7 +762,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       final cs = Theme.of(context).colorScheme;
       final theme = Theme.of(context);
       _showNsfw = ref.watch(showNSFWStateProvider);
-      final _pluginCount = ref.watch(pluginsListProvider).value?.length ?? 0;
 
       return Scaffold(
         backgroundColor: Colors.transparent,
@@ -780,7 +774,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 children: [
                   _buildLogoRow(cs, theme),
                   _buildPersistentSearch(cs, theme),
-                  _buildTabBarRow(cs, theme, pluginCount: _pluginCount),
+                  _buildTabBarRow(cs, theme),
                   _buildFilterRows(cs, theme),
                   Expanded(
                     child: TabBarView(
@@ -794,7 +788,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         _TypeTab(state: this, tab: _kTabNovel),   // 5 Novel
                         _TypeTab(state: this, tab: _kTabGames),   // 6 Game
                         _TypeTab(state: this, tab: _kTabMusic),   // 7 Music
-                        _TypeTab(state: this, tab: _kTabPlugin),  // 8 Plugin
                         const _BinaryTab(),                       // 9 Binary
                       ],
                     ),
@@ -948,9 +941,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
 
-  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme, {int pluginCount = 0}) {
+  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
     // Row 1: Tout | Watch | Manga | Mihon | Aniyomi
-    // Row 2: Novel | Game | Music | Plugin | Binary
+    // Row 2: Novel | Game | Music | Binary
     const labels = [
       'Tout', 'Watch', 'Manga', 'Mihon', 'Aniyomi',
       'Novel', 'Game', 'Music', 'Plugin', 'Binary',
@@ -2124,29 +2117,11 @@ class _TypeTabState extends State<_TypeTab> {
     final state = widget.state;
     final tab = widget.tab;
     if (state._loading) return _MarketplaceSkeleton(cs: cs);
-    // Plugin tab has its own sliver fed by pluginsListProvider — bypass the
-    // normal _forTab() path which returns [] for _kTabPlugin.
-    if (tab == _kTabPlugin) {
-      return RefreshIndicator(
-        onRefresh: () => state._loadAll(bypassCache: true),
-        child: CustomScrollView(slivers: [
-          _PluginsTabSliver(cs: cs),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ]),
-      );
-    }
-    final entries = state._forTab(tab);
-
-    final updatableEntries = tab != _kTabPlugin
-        ? entries
-            .where((e) =>
-                state._installed.contains(e.id) &&
-                state._hasUpdate(e.id, e.version))
-            .toList()
-        : <_ExtEntry>[];
-
-    return RefreshIndicator(
-      onRefresh: () => state._loadAll(bypassCache: true),
+    final updatableEntries = entries
+        .where((e) =>
+            state._installed.contains(e.id) &&
+            state._hasUpdate(e.id, e.version))
+        .toList();
       child: CustomScrollView(
         slivers: [
           if (entries.isEmpty)
@@ -2219,9 +2194,6 @@ class _TypeTabState extends State<_TypeTab> {
                 ),
               ),
 
-            if (tab == _kTabPlugin)
-              _PluginsTabSliver(cs: cs)
-            else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => _PlayStoreCard(
@@ -5547,180 +5519,6 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
     }
   }
 
-    class _PluginCard extends ConsumerWidget {
-    final PluginEntry plugin;
-    const _PluginCard({required this.plugin});
-
-    void _openDetail(BuildContext context) {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => PluginDetailPage(plugin: plugin),
-      ));
-    }
-
-    @override
-    Widget build(BuildContext context, WidgetRef ref) {
-      final cs = Theme.of(context).colorScheme;
-      final installedList = ref.watch(installedPluginsProvider).value ?? [];
-      final isInstalled = installedList.any((p) => p.id == plugin.id);
-
-      return GestureDetector(
-        onTap: () => _openDetail(context),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Icon
-                  Container(
-                    width: 48, height: 48,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: plugin.iconUrl.isNotEmpty
-                        ? Image.network(plugin.iconUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                Icon(Icons.extension_rounded, size: 26, color: cs.primary))
-                        : Icon(Icons.extension_rounded, size: 26, color: cs.primary),
-                  ),
-                  const SizedBox(width: 12),
-                  // Title + author
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(plugin.name,
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: cs.onSurface),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 2),
-                        Text(plugin.author.isNotEmpty ? plugin.author : plugin.category,
-                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.65)),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Action button
-                  GestureDetector(
-                    onTap: isInstalled ? null : () async {
-                      await ref.read(installedPluginsProvider.notifier).install(plugin);
-                    },
-                    child: Container(
-                      width: 36, height: 36, alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isInstalled
-                            ? cs.primaryContainer.withValues(alpha: 0.5)
-                            : cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        isInstalled ? Icons.check_rounded : Icons.download_rounded,
-                        size: 20,
-                        color: isInstalled ? cs.primary : cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                plugin.description,
-                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.45),
-                maxLines: 2, overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6, runSpacing: 4,
-                children: [
-                  _TagChip(label: 'v${plugin.version}', cs: cs),
-                  _TagChip(label: plugin.category, cs: cs),
-                  if (plugin.requirements.isNotEmpty)
-                    _TagChip(label: plugin.requirements.keys.first, cs: cs),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-}
-
-class _PluginsTabSliver extends ConsumerWidget {
-    final ColorScheme cs;
-    const _PluginsTabSliver({required this.cs});
-
-    @override
-    Widget build(BuildContext context, WidgetRef ref) {
-      final asyncPlugins = ref.watch(pluginsListProvider);
-      return asyncPlugins.when(
-        loading: () => const SliverFillRemaining(
-          child: Center(child: CircularProgressIndicator()),
-        ),
-        error: (e, _) => SliverFillRemaining(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.error_outline_rounded, size: 48,
-                    color: cs.error.withValues(alpha: 0.6)),
-                const SizedBox(height: 12),
-                Text('Erreur de chargement',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: cs.error)),
-                const SizedBox(height: 6),
-                Text('$e',
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                    textAlign: TextAlign.center),
-              ]),
-            ),
-          ),
-        ),
-        data: (plugins) {
-          if (plugins.isEmpty) {
-            return SliverFillRemaining(
-              child: Center(child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.extension_off_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
-                  const SizedBox(height: 10),
-                  Text('Aucun plugin disponible', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
-                ]),
-              )),
-            );
-          }
-          final _totalItems = 1 + plugins.length;
-          return SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (ctx, idx) {
-                if (idx == 0) return Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Row(children: [
-                    Icon(Icons.extension_rounded, size: 13, color: cs.primary),
-                    const SizedBox(width: 6),
-                    Text('Plugins (${plugins.length})', style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w700, color: cs.primary, letterSpacing: 0.5)),
-                  ]),
-                );
-                final pluginIdx = idx - 1;
-                if (pluginIdx >= 0 && pluginIdx < plugins.length) return _PluginCard(plugin: plugins[pluginIdx]);
-                return null;
-              },
-              childCount: _totalItems,
-            ),
-          );
-        },
-      );
-    }
-  }
 
 // ─── Binary tab ────────────────────────────────────────────────────────────────
 // Shown as the 8th tab in the marketplace — displays downloadable binary engines
