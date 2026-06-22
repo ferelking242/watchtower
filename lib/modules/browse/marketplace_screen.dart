@@ -1818,7 +1818,7 @@ class _HomeTab extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: () => state._loadAll(bypassCache: true),
-    return CustomScrollView(
+      child: CustomScrollView(
         slivers: [
           // ── Dépôts ───────────────────────────────────────────────────────
           SliverToBoxAdapter(child: _RepoCarousel(state: state)),
@@ -2123,7 +2123,9 @@ class _TypeTabState extends State<_TypeTab> {
             state._installed.contains(e.id) &&
             state._hasUpdate(e.id, e.version))
         .toList();
-    return CustomScrollView(
+    return RefreshIndicator(
+      onRefresh: () => state._loadAll(bypassCache: true),
+      child: CustomScrollView(
         slivers: [
           if (entries.isEmpty)
             SliverFillRemaining(
