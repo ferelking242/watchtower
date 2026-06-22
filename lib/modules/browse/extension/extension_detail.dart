@@ -323,6 +323,109 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     );
   }
 
+  Future<void> _changeUserAgent() async {
+    final current = source.customUserAgent ?? '';
+    final controller = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.device_hub_rounded, size: 20),
+            SizedBox(width: 8),
+            Text('User-Agent'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Laissez vide pour utiliser le User-Agent par défaut.',
+              style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'User-Agent',
+                hintText: 'Mozilla/5.0 ...',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.device_hub_rounded),
+              ),
+              maxLines: 3,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ''),
+            child: const Text('Réinitialiser'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == null || !mounted) return;
+    isar.writeTxnSync(() {
+      isar.sources.putSync(source..customUserAgent = result.isEmpty ? null : result);
+    });
+    setState(() { source = isar.sources.getSync(source.id!)!; });
+    botToast(result.isEmpty ? 'User-Agent réinitialisé.' : 'User-Agent mis à jour !');
+  }
+
+  Future<void> _clearData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Effacer les données ?'),
+        content: const Text(
+          'Cela supprimera toutes les préférences, cookies et données '
+          'associés à cette extension.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Effacer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final url = source.baseUrl ?? '';
+    if (url.isNotEmpty) await MClient.deleteAllCookies(url);
+    final prefsIds = isar.sourcePreferences
+        .filter()
+        .sourceIdEqualTo(source.id!)
+        .findAllSync()
+        .map((e) => e.id!)
+        .toList();
+    final prefsStrIds = isar.sourcePreferenceStringValues
+        .filter()
+        .sourceIdEqualTo(source.id!)
+        .findAllSync()
+        .map((e) => e.id)
+        .toList();
+    isar.writeTxnSync(() {
+      isar.sourcePreferences.deleteAllSync(prefsIds);
+      isar.sourcePreferenceStringValues.deleteAllSync(prefsStrIds);
+    });
+    setState(() { sourcePreference = _loadPreferences(); });
+    botToast('Données effacées !');
+  }
+
   Future<void> _clearCache() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -459,13 +562,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = l10nLocalizations(context)!;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final langCode = source.lang ?? 'unknown';
     final langName = completeLanguageName(langCode);
-    final hasWebsite = source.repo?.website != null;
     final baseUrl = source.baseUrl ?? '';
     final isObsolete = source.isObsolete ?? false;
     final isAdded = source.isAdded ?? false;
@@ -504,23 +605,83 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                 : null,
             leading: BackButton(onPressed: () => Navigator.pop(context, source)),
             actions: [
-              if (hasWebsite)
-                IconButton(
-                  tooltip: 'Ouvrir le site de l\'extension',
-                  icon: const Icon(Icons.open_in_browser_rounded),
-                  onPressed: () =>
-                      _launchInBrowser(Uri.parse(source.repo!.website!)),
+              // Tap = WebView, long press = navigateur externe
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  final url = baseUrl.isNotEmpty
+                      ? baseUrl
+                      : (source.repo?.website ?? '');
+                  if (url.isNotEmpty) {
+                    context.push('/mangawebview', extra: {
+                      'url': url,
+                      'sourceId': source.id.toString(),
+                      'title': source.name ?? '',
+                    });
+                  }
+                },
+                onLongPress: () {
+                  final url = baseUrl.isNotEmpty
+                      ? baseUrl
+                      : (source.repo?.website ?? '');
+                  if (url.isNotEmpty) {
+                    _launchInBrowser(Uri.parse(url));
+                  }
+                },
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Icon(Icons.language_rounded, color: cs.onSurface),
                 ),
-              if (baseUrl.isNotEmpty)
-                IconButton(
-                  tooltip: 'Copier l\'URL de base',
-                  icon: const Icon(Icons.copy_rounded),
-                  onPressed: _copyBaseUrl,
-                ),
+              ),
+              // Supprimer l'extension
               IconButton(
-                tooltip: 'Modifier l\'URL de base',
-                icon: const Icon(Icons.edit_rounded),
-                onPressed: _editBaseUrl,
+                tooltip: 'Désinstaller l\'extension',
+                icon: Icon(Icons.delete_outline_rounded, color: cs.error),
+                onPressed: _confirmUninstall,
+              ),
+              // Menu 3 points — actions avancées
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: cs.onSurface),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                onSelected: (value) async {
+                  switch (value) {
+                    case 'import_cookie':
+                      await _importCookies();
+                    case 'clear_cookies':
+                      if (baseUrl.isNotEmpty) {
+                        await MClient.deleteAllCookies(baseUrl);
+                        botToast('Cookies supprimés !');
+                      }
+                    case 'clear_cache':
+                      await _clearCache();
+                    case 'clear_data':
+                      await _clearData();
+                    case 'edit_url':
+                      await _editBaseUrl();
+                    case 'view_headers':
+                      await _viewHeaders();
+                    case 'user_agent':
+                      await _changeUserAgent();
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  _popItem('import_cookie', Icons.cookie_rounded,
+                      'Importer cookie'),
+                  _popItem('clear_cookies', Icons.cookie_outlined,
+                      'Effacer cookies'),
+                  _popItem('clear_cache', Icons.cleaning_services_rounded,
+                      'Effacer le cache'),
+                  _popItem('clear_data', Icons.delete_sweep_rounded,
+                      'Effacer les données'),
+                  const PopupMenuDivider(),
+                  _popItem('edit_url', Icons.link_rounded, 'Modifier l\'URL'),
+                  _popItem('view_headers', Icons.http_rounded,
+                      'Voir les en-têtes'),
+                  _popItem('user_agent', Icons.device_hub_rounded,
+                      'Modifier User-Agent'),
+                ],
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -668,133 +829,6 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
-
-                  // ── Primary actions ─────────────────────────────────────
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.code_rounded,
-                          label: l10n.edit_code,
-                          isPrimary: true,
-                          onTap: () async {
-                            final res = await context.push(
-                              '/codeEditor',
-                              extra: source.id,
-                            );
-                            if (res != null && mounted) {
-                              setState(() {
-                                source = res as Source;
-                                sourcePreference = _loadPreferences();
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      if (hasWebsite) ...[
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _ActionButton(
-                            icon: Icons.open_in_browser_rounded,
-                            label: 'Site web',
-                            onTap: () =>
-                                _launchInBrowser(Uri.parse(source.repo!.website!)),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // ── Cookie actions ──────────────────────────────────────
-                  _SectionHeader(label: 'Cookies', icon: Icons.cookie_rounded),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.download_rounded,
-                          label: 'Importer',
-                          onTap: _importCookies,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.upload_rounded,
-                          label: 'Exporter',
-                          onTap: _exportCookies,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.visibility_outlined,
-                          label: 'Voir',
-                          onTap: _viewCurrentCookies,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.cookie_outlined,
-                          label: 'Effacer',
-                          onTap: () async {
-                            if (baseUrl.isNotEmpty) {
-                              await MClient.deleteAllCookies(baseUrl);
-                              botToast('Cookies supprimés !');
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // ── Advanced actions ────────────────────────────────────
-                  _SectionHeader(label: 'Avancé', icon: Icons.settings_rounded),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.link_rounded,
-                          label: 'Modifier URL',
-                          onTap: _editBaseUrl,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.http_rounded,
-                          label: 'En-têtes',
-                          onTap: _viewHeaders,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.cleaning_services_rounded,
-                          label: 'Cache',
-                          onTap: _clearCache,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // ── Danger zone ─────────────────────────────────────────
-                  _ActionButton(
-                    icon: Icons.delete_outline_rounded,
-                    label: l10n.uninstall,
-                    isDestructive: true,
-                    onTap: _confirmUninstall,
-                  ),
-
                   // ── Source preferences ──────────────────────────────────
                   if (sourcePreference != null && sourcePreference!.isNotEmpty) ...[
                     const SizedBox(height: 24),
@@ -817,6 +851,16 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     );
   }
 }
+
+PopupMenuItem<String> _popItem(String value, IconData icon, String label) =>
+    PopupMenuItem(
+      value: value,
+      child: Row(children: [
+        Icon(icon, size: 18),
+        const SizedBox(width: 12),
+        Text(label),
+      ]),
+    );
 
 // ── Supporting widgets ────────────────────────────────────────────────────────
 
