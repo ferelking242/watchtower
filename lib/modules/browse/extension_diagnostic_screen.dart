@@ -1997,66 +1997,28 @@ class _PagePreviewState extends State<_PagePreview> {
                       child: CircularProgressIndicator(
                         value: progress.expectedTotalBytes != null
                             ? progress.cumulativeBytesLoaded /
-        ],
-
-        // Player area
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              color: Colors.black,
-              child: _playing && _controller != null
-                  ? Video(controller: _controller!, fit: BoxFit.contain)
-                  : _error != null
-                      ? Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.error_outline_rounded,
-                                  color: cs.error, size: 32),
-                              const SizedBox(height: 8),
-                              Text(_error!,
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 11),
-                                  textAlign: TextAlign.center),
-                            ],
-                          ),
-                        )
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_loading)
-                                const CircularProgressIndicator(
-                                    color: Colors.white)
-                              else
-                                GestureDetector(
-                                  onTap: () => _play(0),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.15),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                        Icons.play_arrow_rounded,
-                                        color: Colors.white, size: 40),
-                                  ),
-                                ),
-                              if (!_loading) ...[
-                                const SizedBox(height: 10),
-                                Text(
-                                  '${widget.urls[0].quality.isNotEmpty ? widget.urls[0].quality : "Source 1"}'
-                                  ' — Toucher pour lire',
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 11),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                                progress.expectedTotalBytes!
+                            : null,
+                        color: cs.primary,
+                        strokeWidth: 2,
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.broken_image_rounded,
+                            size: 40, color: cs.outlineVariant),
+                        const SizedBox(height: 8),
+                        Text('Image inaccessible',
+                            style: TextStyle(
+                                color: cs.onSurfaceVariant, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
