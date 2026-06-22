@@ -2,12 +2,12 @@ const watchtowerSources = [{
     "name": "Zoro / Aniwatch",
     "langs": ["en"],
     "ids": { "en": 613418059 },
-    "baseUrl": "https://aniwatch.to",
-    "apiUrl": "https://aniwatch.to",
+    "baseUrl": "https://hianime.to",
+    "apiUrl": "https://hianime.to",
     "iconUrl": "https://raw.githubusercontent.com/ferelking242/watchtower/main/extensions/anime/icon/en.zoro.png",
     "typeSource": "single",
     "itemType": 1,
-    "version": "0.1.2",
+    "version": "0.1.3",
     "pkgPath": "anime/src/en/zoro.js"
 }];
 
