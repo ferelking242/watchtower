@@ -342,8 +342,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 ],
               ),
             ),
-            // Ligne 2 : bouton filtre + chips dynamiques dérivés du vrai filterList
-            if (filterList.isNotEmpty)
+            // Ligne 2 : bouton filtre toujours visible + chips dynamiques
+            if (!isLocal)
               SizedBox(
                 height: 38,
                 child: ListView(
@@ -355,8 +355,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                           filters.isEmpty ? filterList : filters),
                       onTap: () => _openFilterSheet(context),
                     ),
-                    ..._buildFilterChips(
-                        context, filters.isEmpty ? filterList : filters),
+                    if (filterList.isNotEmpty)
+                      ..._buildFilterChips(
+                          context, filters.isEmpty ? filterList : filters),
                   ],
                 ),
               ),
@@ -436,6 +437,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) => StatefulBuilder(
         builder: (sheetCtx, setSheetState) {
