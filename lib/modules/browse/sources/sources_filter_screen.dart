@@ -129,6 +129,9 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
           },
         ),
       ),
+      ),
+    ],
+  ),
     );
   }
 }
