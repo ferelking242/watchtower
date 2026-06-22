@@ -618,7 +618,7 @@ class _FullscreenControlsOverlayState
       // ── Volume ───────────────────────────────────────────────────────────
       final next = (_volume - dy / size.height * 2.5).clamp(0.0, 1.0);
       _volume = next;
-      try { VolumeController.instance.setVolume(next, showSystemUI: false); } catch (_) {}
+      try { VolumeController.instance.setVolume(next); } catch (_) {}
       widget.player.setVolume(next * 100);
       _hudTimer?.cancel();
       setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
