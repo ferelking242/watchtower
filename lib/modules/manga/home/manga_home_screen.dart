@@ -597,7 +597,12 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
       decoration: BoxDecoration(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(22),
+          topRight: Radius.circular(22),
+          bottomLeft: Radius.circular(14),
+          bottomRight: Radius.circular(14),
+        ),
         border: Border.all(
           color: cs.onSurface.withValues(alpha: 0.12),
           width: 0.8,
@@ -942,7 +947,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       final items = mangas.take(12).toList();
       final isWatch = source.itemType == ItemType.anime;
       return SizedBox(
-        height: isWatch ? 152 : 185,
+        height: isWatch ? 168 : 212,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -950,7 +955,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           itemBuilder: (c, i) => isWatch
               ? _WatchCard(manga: items[i], source: source)
               : SizedBox(
-                  width: 100,
+                  width: 128,
                   child: MangaHomeImageCard(
                     manga: items[i],
                     source: source,
@@ -1058,7 +1063,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: SizedBox(
-            height: 180,
+            height: 220,
             child: _PopularCarousel(mangas: mangas.take(10).toList(), source: source),
           ),
         );
@@ -1080,7 +1085,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 highlightColor: high,
                 duration: const Duration(milliseconds: 1200)),
             child: Container(
-              height: 180,
+              height: 220,
               decoration: BoxDecoration(
                 color: base,
                 borderRadius: BorderRadius.circular(12),
@@ -1098,11 +1103,11 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             // Popular auto-scroll carousel ──────────────────────────────────
-              _buildSectionHeader(ctx, title: 'Popular', onSeeAll: () {
+              _buildSectionHeader(ctx, title: 'Popular New Title', onSeeAll: () {
                 Navigator.of(ctx).push(MaterialPageRoute(
                   builder: (_) => _ExtensionSectionPage(
                     source: source,
-                    title: 'Popular',
+                    title: 'Popular New Title',
                     type: _SectionType.popular,
                   ),
                 ));
@@ -1509,7 +1514,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               title: ValueListenableBuilder<double>(
                   valueListenable: _collapseRatioNotifier,
                   builder: (ctx2, ratio, _) {
-                    final opacity = ((ratio - 0.55) / 0.45).clamp(0.0, 1.0);
+                    final opacity = ((ratio - 0.38) / 0.62).clamp(0.0, 1.0);
                     return Opacity(
                       opacity: opacity,
                       child: Row(
@@ -1679,41 +1684,45 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                                 .withValues(alpha: 0.35),
                           ),
                         ),
-                      Align(
-                        alignment: Alignment.center,
-                        child: Opacity(
-                          opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 40),
+                      Positioned(
+                        top: kToolbarHeight,
+                        bottom: 40,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Opacity(
+                            opacity: (1.0 - collapseRatio * 2.2).clamp(0.0, 1.0),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                    if (!isLocal &&
-                                        (source.iconUrl?.isNotEmpty ?? false)) ...[
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(7),
-                                        child: Image.network(
-                                          source.iconUrl!,
-                                          width: 26,
-                                          height: 26,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              const SizedBox.shrink(),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    Text(
-                                      sourceName,
-                                      style: const TextStyle(
-                                        fontSize: 26,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: -0.4,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                if (!isLocal &&
+                                    (source.iconUrl?.isNotEmpty ?? false)) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(7),
+                                    child: Image.network(
+                                      source.iconUrl!,
+                                      width: 26,
+                                      height: 26,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const SizedBox.shrink(),
                                     ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    sourceName,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: -0.4,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
