@@ -33,6 +33,24 @@ class ExtensionDetail extends ConsumerStatefulWidget {
 class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   late Source source = isar.sources.getSync(widget.source.id!)!;
   late List<SourcePreference>? sourcePreference = _loadPreferences();
+  late final ScrollController _scrollController = ScrollController();
+  bool _isCollapsed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      final collapsed = _scrollController.hasClients &&
+          _scrollController.offset > (270 - kToolbarHeight - 16);
+      if (collapsed != _isCollapsed) setState(() => _isCollapsed = collapsed);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   List<SourcePreference>? _loadPreferences() {
     try {
@@ -468,12 +486,22 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     return Scaffold(
       backgroundColor: cs.surface,
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           // ── Hero app bar ──────────────────────────────────────────────────
           SliverAppBar(
             expandedHeight: 270,
             pinned: true,
             backgroundColor: cs.surface,
+            centerTitle: true,
+            title: _isCollapsed
+                ? Text(
+                    source.name ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : null,
             leading: BackButton(onPressed: () => Navigator.pop(context, source)),
             actions: [
               if (hasWebsite)
@@ -496,22 +524,6 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              centerTitle: true,
-              titlePadding: const EdgeInsetsDirectional.only(
-                start: 72,
-                end: 72,
-                bottom: 14,
-              ),
-              title: Text(
-                source.name ?? '',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -560,6 +572,20 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            source.name ?? '',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Wrap(
                         alignment: WrapAlignment.center,
                         spacing: 6,
