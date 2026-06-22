@@ -63,6 +63,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   String? _selectedLanguage;
   String? _selectedServer;
   bool _isDescriptionExpanded = false;
+  final _headerTitleOpacity = ValueNotifier<double>(0.0);
+  final _nestedScrollCtrl = ScrollController();
 
   // ── Theme helpers ────────────────────────────────────────────────────────────
   Color get _accent     => context.primaryColor;
@@ -80,10 +82,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _player = WatchInlinePlayer();
+    _nestedScrollCtrl.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_nestedScrollCtrl.hasClients) return;
+    final pixels = _nestedScrollCtrl.position.pixels;
+    _headerTitleOpacity.value = (pixels / 80.0).clamp(0.0, 1.0);
   }
 
   @override
   void dispose() {
+    _nestedScrollCtrl.removeListener(_onScroll);
+    _nestedScrollCtrl.dispose();
+    _headerTitleOpacity.dispose();
     _tabController.dispose();
     _player.dispose();
     super.dispose();
@@ -195,7 +207,25 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
-                    const Spacer(),
+                    Expanded(
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _headerTitleOpacity,
+                        builder: (_, opacity, __) => Opacity(
+                          opacity: opacity,
+                          child: Text(
+                            widget.manga.name ?? '',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
                     _AideButton(
                         onTap: () =>
                             _showOptionsSheet(context, chapters)),
@@ -209,6 +239,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         // ── Contenu scrollable ────────────────────────────────────────────────
         Expanded(
           child: NestedScrollView(
+            controller: _nestedScrollCtrl,
             headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
               SliverToBoxAdapter(child: _buildMetadataBlock(chapters)),
               SliverPersistentHeader(
