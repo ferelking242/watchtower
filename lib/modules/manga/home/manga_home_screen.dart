@@ -947,7 +947,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       final items = mangas.take(12).toList();
       final isWatch = source.itemType == ItemType.anime;
       return SizedBox(
-        height: isWatch ? 168 : 212,
+        height: isWatch ? 188 : 226,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -955,7 +955,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           itemBuilder: (c, i) => isWatch
               ? _WatchCard(manga: items[i], source: source)
               : SizedBox(
-                  width: 128,
+                  width: 138,
                   child: MangaHomeImageCard(
                     manga: items[i],
                     source: source,
@@ -2226,7 +2226,7 @@ class _MangaHomeImageCardListTileState
             }
           },
           child: SizedBox(
-            width: 180,
+            width: 200,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
