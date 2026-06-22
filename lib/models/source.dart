@@ -79,6 +79,8 @@ class Source {
 
   String? notes;
 
+  String? customUserAgent;
+
   Repo? repo;
 
   int? updatedAt;
@@ -124,6 +126,7 @@ class Source {
     this.isLocal = false,
     this.isObsolete = false,
     this.notes = '',
+    this.customUserAgent,
     this.repo,
     this.updatedAt = 0,
     this.subCategories,
@@ -173,6 +176,7 @@ class Source {
     sourceCodeLanguage =
         SourceCodeLanguage.values[json['sourceCodeLanguage'] ?? 0];
     notes = json['notes'] ?? "";
+    customUserAgent = json['customUserAgent'] as String?;
     repo = json['repo'] != null ? Repo.fromJson(json['repo']) : null;
     updatedAt = json['updatedAt'];
     subCategories = (json['subCategories'] as List<dynamic>?)?.cast<String>();
@@ -217,6 +221,7 @@ class Source {
     'isObsolete': isObsolete,
     'isLocal': isLocal,
     'notes': notes,
+    'customUserAgent': customUserAgent,
     'repo': repo?.toJson(),
     'updatedAt': updatedAt ?? 0,
     'subCategories': subCategories,
