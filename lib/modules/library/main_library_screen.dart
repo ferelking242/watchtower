@@ -21,12 +21,11 @@ import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/global_style.dart';
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
-const _kBg            = Color(0xFF0A0A0A);
+// NOTE: _kBg removed — background now inherits from the app theme so the
+// screen blends with the surrounding interface instead of forcing a hard black.
 const _kBorder        = Color(0xFF333333);
 const _kAccent        = Color(0xFFE91E63);
-const _kTextPrimary   = Color(0xFFFFFFFF);
 const _kTextSecondary = Color(0xFF999999);
-const _kSurfaceMedium = Color(0xFF2D2D2D);
 
 // ─── Type order ─────────────────────────────────────────────────────────────
 const _kTypes = <ItemType>[
@@ -105,8 +104,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     });
   }
 
-  // ── Circular icon button ───────────────────────────────────────────────────
-  Widget _circleBtn({
+  // ── Ghost icon button — smaller, no heavy border ───────────────────────────
+  Widget _iconBtn({
     required IconData icon,
     required VoidCallback onTap,
     bool active = false,
@@ -114,35 +113,35 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: active ? _kAccent : Colors.transparent,
-          border: active ? null : Border.all(color: _kBorder, width: 1.5),
+          color: active
+              ? _kAccent.withValues(alpha: 0.90)
+              : Colors.white.withValues(alpha: 0.07),
         ),
         child: Icon(
           icon,
-          color: active ? Colors.white : Colors.white70,
-          size: 20,
+          color: active ? Colors.white : Colors.white60,
+          size: 16,
         ),
       ),
     );
   }
 
-  // ── Pro chevron button with subtle card background ─────────────────────────
+  // ── Compact chevron button ─────────────────────────────────────────────────
   Widget _chevronBtn(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 30,
-        height: 30,
+        width: 24,
+        height: 24,
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1C),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: const Color(0xFF2E2E2E), width: 1),
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(7),
         ),
-        child: Icon(icon, color: Colors.white54, size: 17),
+        child: Icon(icon, color: Colors.white38, size: 14),
       ),
     );
   }
@@ -165,6 +164,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
+    final cs   = Theme.of(context).colorScheme;
 
     final settingsAsync = ref.watch(getSettingsStreamProvider);
     final mangaAsync    = ref.watch(
@@ -174,7 +174,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       getMangaCategorieStreamProvider(itemType: _currentType),
     );
 
-    // Safe settings access compatible with all Riverpod 2.x versions
     final settingsList = settingsAsync.asData?.value ?? <Settings>[];
     final settings     = settingsList.isNotEmpty ? settingsList.first : null;
     if (settings != null) _cachedSettings = settings;
@@ -188,18 +187,19 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
     return Scaffold(
-      backgroundColor: _kBg,
+      // No explicit backgroundColor — inherits the theme's scaffoldBackgroundColor
+      // so the screen blends with the rest of the interface.
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ──────────────────────────────────────────────────────
+            // ── Row 1 : type selector + action icons ─────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
               child: Row(
                 children: [
-                  // Type selector with swipe support
+                  // ── Left : type selector with swipe ─────────────────────────
                   Expanded(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
@@ -215,8 +215,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             Icons.chevron_left_rounded,
                             () => _changeType(-1),
                           ),
-                          const SizedBox(width: 10),
-                          // Animated icon + label
+                          const SizedBox(width: 8),
                           Flexible(
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 180),
@@ -226,36 +225,41 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                 key: ValueKey(_typeIndex),
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Type icon badge
+                                  // Type icon badge — smaller
                                   Container(
-                                    width: 36,
-                                    height: 36,
+                                    width: 28,
+                                    height: 28,
                                     decoration: BoxDecoration(
-                                      color: _kAccent.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(10),
+                                      color: _kAccent.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Icon(
                                       _kTypeIcons[_currentType] ??
                                           Icons.library_books_rounded,
                                       color: _kAccent,
-                                      size: 18,
+                                      size: 15,
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    _typeLabel(_currentType),
-                                    style: const TextStyle(
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.w800,
-                                      color: _kTextPrimary,
-                                      letterSpacing: -0.5,
+                                  const SizedBox(width: 8),
+                                  // Type label — more compact
+                                  Flexible(
+                                    child: Text(
+                                      _typeLabel(_currentType),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        color: cs.onSurface,
+                                        letterSpacing: -0.4,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           _chevronBtn(
                             Icons.chevron_right_rounded,
                             () => _changeType(1),
@@ -265,30 +269,26 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     ),
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
 
-                  // ── Action buttons ─────────────────────────────────────────
+                  // ── Right : action icons — smaller, lighter ─────────────────
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Search
-                      _circleBtn(
+                      _iconBtn(
                         icon: Icons.search,
                         onTap: _toggleSearch,
                         active: _showSearch,
                       ),
-                      const SizedBox(width: 8),
-                      // Download queue
-                      _circleBtn(
+                      const SizedBox(width: 5),
+                      _iconBtn(
                         icon: Icons.download_outlined,
                         onTap: () {},
                       ),
-                      const SizedBox(width: 8),
-                      // ── Horizontal 3-dot popup ─────────────────────────────
+                      const SizedBox(width: 5),
                       _buildThreeDotsBtn(context, l10n, mangaList),
-                      const SizedBox(width: 8),
-                      // ── Notification bell → Updates ────────────────────────
-                      _circleBtn(
+                      const SizedBox(width: 5),
+                      _iconBtn(
                         icon: Icons.notifications_outlined,
                         onTap: () => context.push('/updates'),
                       ),
@@ -298,7 +298,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               ),
             ),
 
-            // ── Search bar — fast, smooth, no jank ──────────────────────────
+            // ── Search bar ───────────────────────────────────────────────────
             ClipRect(
               child: AnimatedAlign(
                 duration: const Duration(milliseconds: 120),
@@ -306,29 +306,29 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 alignment: Alignment.topCenter,
                 heightFactor: _showSearch ? 1.0 : 0.0,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
                   child: Container(
-                    height: 46,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: _kSurfaceMedium,
-                      borderRadius: BorderRadius.circular(23),
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(21),
                     ),
                     child: Row(
                       children: [
-                        const SizedBox(width: 14),
-                        const Icon(Icons.search, color: Colors.grey, size: 18),
+                        const SizedBox(width: 12),
+                        Icon(Icons.search, color: cs.onSurfaceVariant, size: 17),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: _searchController,
                             autofocus: _showSearch,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
+                            style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 14,
                             ),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Search library',
-                              hintStyle: TextStyle(color: Colors.grey),
+                              hintStyle: TextStyle(color: cs.onSurfaceVariant),
                               border: InputBorder.none,
                               isDense: true,
                             ),
@@ -343,12 +343,12 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                               _searchController.clear();
                               setState(() {});
                             },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
                               child: Icon(
                                 Icons.close,
-                                color: Colors.grey,
-                                size: 18,
+                                color: cs.onSurfaceVariant,
+                                size: 16,
                               ),
                             ),
                           ),
@@ -361,9 +361,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               ),
             ),
 
-            // ── Filter / category bar ────────────────────────────────────────
+            // ── Row 2 : filter / category bar ────────────────────────────────
+            // "Manage" is its own separate pill bubble — distinct from "All".
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
               child: _buildFilterBar(context, cats),
             ),
 
@@ -386,151 +387,179 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 
-  // ── Build 3-dot horizontal popup ─────────────────────────────────────────
+  // ── 3-dot popup — same size as other icon buttons ─────────────────────────
   Widget _buildThreeDotsBtn(
     BuildContext context,
     dynamic l10n,
     List<Manga> mangaList,
   ) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: _kBorder, width: 1.5),
-      ),
-      child: ClipOval(
-        child: ArrowPopupMenuButton<int>(
-          icon: const Icon(Icons.more_horiz, color: Colors.white70, size: 20),
-          padding: EdgeInsets.zero,
-          menuWidth: 230,
-          itemBuilder: (_) => [
-            PopupMenuItem<int>(
-              value: 0,
-              child: Row(children: [
-                const Icon(Icons.filter_list_sharp, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.filter),
-              ]),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem<int>(
-              value: 1,
-              child: Row(children: [
-                const Icon(Icons.refresh_rounded, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.update_library),
-              ]),
-            ),
-            PopupMenuItem<int>(
-              value: 2,
-              child: Row(children: [
-                const Icon(Icons.shuffle_rounded, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.open_random_entry),
-              ]),
-            ),
-            PopupMenuItem<int>(
-              value: 3,
-              child: Row(children: [
-                const Icon(Icons.archive_outlined, size: 18),
-                const SizedBox(width: 12),
-                Text(l10n.import),
-              ]),
-            ),
-            if (_currentType == ItemType.anime)
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.07),
+        ),
+        child: ClipOval(
+          child: ArrowPopupMenuButton<int>(
+            icon: const Icon(Icons.more_horiz, color: Colors.white60, size: 16),
+            padding: EdgeInsets.zero,
+            menuWidth: 230,
+            itemBuilder: (_) => [
               PopupMenuItem<int>(
-                value: 4,
+                value: 0,
                 child: Row(children: [
-                  const Icon(Icons.stream_rounded, size: 18),
+                  const Icon(Icons.filter_list_sharp, size: 18),
                   const SizedBox(width: 12),
-                  Text(l10n.torrent_stream),
+                  Text(l10n.filter),
                 ]),
               ),
-          ],
-          onSelected: (v) {
-            switch (v) {
-              case 0:
-                if (_cachedSettings != null) {
-                  showLibrarySettingsSheet(
+              const PopupMenuDivider(),
+              PopupMenuItem<int>(
+                value: 1,
+                child: Row(children: [
+                  const Icon(Icons.refresh_rounded, size: 18),
+                  const SizedBox(width: 12),
+                  Text(l10n.update_library),
+                ]),
+              ),
+              PopupMenuItem<int>(
+                value: 2,
+                child: Row(children: [
+                  const Icon(Icons.shuffle_rounded, size: 18),
+                  const SizedBox(width: 12),
+                  Text(l10n.open_random_entry),
+                ]),
+              ),
+              PopupMenuItem<int>(
+                value: 3,
+                child: Row(children: [
+                  const Icon(Icons.archive_outlined, size: 18),
+                  const SizedBox(width: 12),
+                  Text(l10n.import),
+                ]),
+              ),
+              if (_currentType == ItemType.anime)
+                PopupMenuItem<int>(
+                  value: 4,
+                  child: Row(children: [
+                    const Icon(Icons.stream_rounded, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.torrent_stream),
+                  ]),
+                ),
+            ],
+            onSelected: (v) {
+              switch (v) {
+                case 0:
+                  if (_cachedSettings != null) {
+                    showLibrarySettingsSheet(
+                      context: context,
+                      vsync: this,
+                      settings: _cachedSettings!,
+                      itemType: _currentType,
+                      entries: mangaList,
+                    );
+                  }
+                  break;
+                case 1:
+                  updateLibrary(
+                    ref: ref,
                     context: context,
-                    vsync: this,
-                    settings: _cachedSettings!,
+                    mangaList: mangaList,
                     itemType: _currentType,
-                    entries: mangaList,
                   );
-                }
-                break;
-              case 1:
-                updateLibrary(
-                  ref: ref,
-                  context: context,
-                  mangaList: mangaList,
-                  itemType: _currentType,
-                );
-                break;
-              case 2:
-                _openRandom(mangaList);
-                break;
-              case 3:
-                showImportLocalDialog(context, _currentType);
-                break;
-              case 4:
-                addTorrent(context);
-                break;
-            }
-          },
+                  break;
+                case 2:
+                  _openRandom(mangaList);
+                  break;
+                case 3:
+                  showImportLocalDialog(context, _currentType);
+                  break;
+                case 4:
+                  addTorrent(context);
+                  break;
+              }
+            },
+          ),
         ),
       ),
     );
   }
 
+  // ── Filter bar : 2 distinct pill bubbles ─────────────────────────────────
+  //
+  //  [ ⚙ ]   [ All  Cat1  Cat2 … ]
+  //   └─ manage bubble (separate)   └─ categories scrollable bubble
+  //
   Widget _buildFilterBar(BuildContext context, List<Category> cats) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        border: Border.all(color: _kBorder, width: 1.2),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => _showManageCategories(context, cats),
-            child: const SizedBox(
-              width: 46,
-              height: 46,
-              child: Icon(
-                Icons.handyman_outlined,
-                color: Colors.white70,
-                size: 20,
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        // ── Bubble 1 : "Manage" — standalone, left ───────────────────────────
+        GestureDetector(
+          onTap: () => _showManageCategories(context, cats),
+          child: Container(
+            height: 36,
+            width: 36,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
+                width: 1,
               ),
             ),
+            child: const Icon(
+              Icons.tune_rounded,
+              color: Colors.white54,
+              size: 17,
+            ),
           ),
-          Container(width: 1, height: 26, color: _kBorder),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Row(
-                children: [
-                  _pill(
-                    label: 'All',
-                    selected: _selectedCatIndex == 0,
-                    onTap: () => setState(() => _selectedCatIndex = 0),
-                  ),
-                  for (int i = 0; i < cats.length; i++)
+        ),
+
+        const SizedBox(width: 8),
+
+        // ── Bubble 2 : "All" + categories — scrollable pill row ──────────────
+        Expanded(
+          child: Container(
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.09),
+                width: 1,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  children: [
                     _pill(
-                      label: cats[i].name ?? '',
-                      selected: _selectedCatIndex == i + 1,
-                      onTap: () => setState(() => _selectedCatIndex = i + 1),
+                      label: 'All',
+                      selected: _selectedCatIndex == 0,
+                      onTap: () => setState(() => _selectedCatIndex = 0),
+                      cs: cs,
                     ),
-                ],
+                    for (int i = 0; i < cats.length; i++)
+                      _pill(
+                        label: cats[i].name ?? '',
+                        selected: _selectedCatIndex == i + 1,
+                        onTap: () => setState(() => _selectedCatIndex = i + 1),
+                        cs: cs,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -538,23 +567,24 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     required String label,
     required bool selected,
     required VoidCallback onTap,
+    required ColorScheme cs,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: selected ? _kAccent : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: selected ? Colors.white : _kTextSecondary,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 13.5,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            fontSize: 13,
           ),
         ),
       ),
