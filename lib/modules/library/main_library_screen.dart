@@ -187,8 +187,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
     return Scaffold(
-      // No explicit backgroundColor — inherits the theme's scaffoldBackgroundColor
-      // so the screen blends with the rest of the interface.
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: Column(
