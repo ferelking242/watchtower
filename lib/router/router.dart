@@ -22,7 +22,6 @@ import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/mass_migration/mass_migration_source_selection_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
-import 'package:watchtower/modules/plugins/plugins_page.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
@@ -198,7 +197,6 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(name: "more", child: const MoreScreen()),
         _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
         _genericRoute(name: "discover", child: const WatchtowerDiscoverScreen()),
-        _genericRoute(name: "plugins", child: const PluginsPage()),
       ],
     ),
     _genericRoute<(Source?, bool)>(

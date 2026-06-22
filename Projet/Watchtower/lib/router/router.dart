@@ -21,9 +21,6 @@ import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/mass_migration/mass_migration_source_selection_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
-import 'package:watchtower/modules/plugins/plugins_screen.dart';
-import 'package:watchtower/modules/plugins/plugin_launcher_screen.dart';
-import 'package:watchtower/modules/plugins/plugin_detail_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
@@ -244,39 +241,6 @@ class RouterNotifier extends ChangeNotifier {
       name: "anilistBrowse",
       builder: (data) =>
           AnilistBrowseScreen(filter: data.$1, title: data.$2),
-    ),
-    _genericRoute(name: "plugins", child: const PluginsScreen()),
-    GoRoute(
-      path: '/pluginLauncher',
-      pageBuilder: (context, state) {
-        final data = state.extra as (InstalledPlugin, PluginEntry);
-        return CustomTransitionPage(
-          child: PluginLauncherScreen(installed: data.$1, meta: data.$2),
-          transitionsBuilder: (ctx, animation, _, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-            child: child,
-          ),
-        );
-      },
-    ),
-    GoRoute(
-      path: '/pluginDetail',
-      pageBuilder: (context, state) {
-        final plugin = state.extra as PluginEntry;
-        return CustomTransitionPage(
-          child: PluginDetailScreen(plugin: plugin),
-          transitionsBuilder: (ctx, animation, _, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-            child: child,
-          ),
-        );
-      },
     ),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),
