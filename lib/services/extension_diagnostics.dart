@@ -15,6 +15,17 @@ import 'package:watchtower/utils/log/logger.dart';
 
 enum DiagStep { popular, latest, detail, media }
 
+// ─── Media preview URL ────────────────────────────────────────────────────────
+
+class DiagMediaUrl {
+  final String url;
+  final Map<String, String>? headers;
+  final String quality;
+  const DiagMediaUrl({required this.url, this.headers, this.quality = ''});
+}
+
+// ─── Step result ──────────────────────────────────────────────────────────────
+
 class DiagStepResult {
   final bool ok;
   final String? error;
@@ -28,18 +39,24 @@ class DiagStepResult {
   });
 }
 
+// ─── Extension result ─────────────────────────────────────────────────────────
+
 class ExtDiagResult {
   final Source source;
   final Map<DiagStep, DiagStepResult> steps;
   final int totalMs;
+  final List<DiagMediaUrl> previewUrls;
+
   bool get allOk => steps.values.every((s) => s.ok);
   bool get anyFailed => steps.values.any((s) => !s.ok);
   int get okCount => steps.values.where((s) => s.ok).length;
   int get failCount => steps.values.where((s) => !s.ok).length;
+
   const ExtDiagResult({
     required this.source,
     required this.steps,
     this.totalMs = 0,
+    this.previewUrls = const [],
   });
 }
 
@@ -131,12 +148,7 @@ Future<List<ExtDiagResult>> runExtensionDiagnosticsFull(
   return results;
 }
 
-// ─── Scoped runner — parallel with pool of 4 (QuickJS+) ─────────────────────
-//
-// QuickJS+ supporte plusieurs contextes JS simultanément.
-// On limite à 4 diagnostics en parallèle pour éviter de saturer le réseau.
-// Chaque extension est diagnostiquée indépendamment (Popular → Latest →
-// Detail → Media). Les logs sont thread-safe via un mutex sur la liste.
+// ─── Scoped runner with pool + logs ──────────────────────────────────────────
 
 Future<List<ExtDiagResult>> runDiagnosticsForSources(
   List<Source> sources,
@@ -151,7 +163,6 @@ Future<List<ExtDiagResult>> runDiagnosticsForSources(
   final results = <ExtDiagResult>[];
   final sem = _Semaphore(concurrency.clamp(1, 8));
 
-  // Thread-safe log: serialize writes via a Completer chain
   var _logChain = Future<void>.value();
   void safeLog(String line) {
     _logChain = _logChain.then((_) async {
@@ -214,7 +225,7 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
 ) async {
   final totalSw = Stopwatch()..start();
   final steps = <DiagStep, DiagStepResult>{};
-  final prefix = '${src.name ?? "?"}';
+  final prefix = src.name ?? '?';
 
   // ── Step 1 : Popular ──────────────────────────────────────────────────────
   List<String> probeUrls = [];
@@ -281,8 +292,6 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
   }
 
   // ── Step 3 : Detail ───────────────────────────────────────────────────────
-  // Probe up to 3 popular items; pick the one with the most chapters/episodes.
-  // Stop early once we find a true series (> 1 episode).
   String? firstEpisodeUrl;
   if (probeUrls.isNotEmpty) {
     final sw = Stopwatch()..start();
@@ -304,7 +313,7 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
       } catch (e) {
         lastError = _trimError(e.toString());
         onLog?.call(
-          '${_nowTime()}  │   [$prefix] DET probe $probeIndex/${ probeUrls.length} ✗ $lastError',
+          '${_nowTime()}  │   [$prefix] DET probe $probeIndex/${probeUrls.length} ✗ $lastError',
         );
       }
     }
@@ -347,6 +356,8 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
   }
 
   // ── Step 4 : Media (getVideoList / getPageList) ───────────────────────────
+  final previewUrls = <DiagMediaUrl>[];
+
   if (firstEpisodeUrl != null) {
     final sw = Stopwatch()..start();
     final svcType =
@@ -373,54 +384,56 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
         ' ${count > 0 ? "$count sources" : "vide"} · ${_formatDuration(sw.elapsedMilliseconds)}',
       );
 
-      // Verify first URL accessibility
-      if (count > 0 && !kIsWeb) {
-        String rawUrl = '';
-        Map<String, String>? hdrs;
+      // Capture preview URLs (up to 5)
+      for (final item in list.take(5)) {
         try {
-          rawUrl = (list.first as dynamic).url?.toString() ?? '';
-          final h = (list.first as dynamic).headers;
+          final rawUrl = (item as dynamic).url?.toString() ?? '';
+          if (rawUrl.isEmpty) continue;
+          final h = (item as dynamic).headers;
+          final q = (() {
+            try { return (item as dynamic).quality?.toString() ?? ''; } catch (_) { return ''; }
+          })();
+          Map<String, String>? hdrs;
           if (h is Map) hdrs = Map<String, String>.from(h);
+          previewUrls.add(DiagMediaUrl(url: rawUrl, headers: hdrs, quality: q));
         } catch (_) {}
+      }
 
-        if (rawUrl.isNotEmpty) {
-          final truncated = rawUrl.length > 80
-              ? '${rawUrl.substring(0, 77)}…'
-              : rawUrl;
-          onLog?.call('${_nowTime()}  │   [$prefix] URL $truncated');
+      // Verify first URL accessibility (non-web only)
+      if (count > 0 && !kIsWeb && previewUrls.isNotEmpty) {
+        final firstPreview = previewUrls.first;
+        try {
+          final uri = Uri.parse(firstPreview.url);
+          http.Response httpResp;
           try {
-            final uri = Uri.parse(rawUrl);
-            http.Response httpResp;
-            try {
-              httpResp = await http
-                  .head(uri, headers: hdrs)
-                  .timeout(const Duration(seconds: 12));
-            } catch (_) {
-              final req = http.Request('GET', uri);
-              req.headers['Range'] = 'bytes=0-1023';
-              if (hdrs != null) req.headers.addAll(hdrs);
-              final stream = await http.Client()
-                  .send(req)
-                  .timeout(const Duration(seconds: 12));
-              httpResp = await http.Response.fromStream(stream);
-            }
-            final statusOk = httpResp.statusCode < 400;
-            onLog?.call(
-              '${_nowTime()}  │   [$prefix] HTTP ${httpResp.statusCode}'
-              ' ${statusOk ? "✓ accessible" : "✗ inaccessible"}',
-            );
-            if (!statusOk) {
-              steps[DiagStep.media] = DiagStepResult(
-                ok: false,
-                count: count,
-                ms: sw.elapsedMilliseconds,
-                error: 'HTTP ${httpResp.statusCode} — URL inaccessible',
-              );
-            }
-          } catch (httpErr) {
-            onLog?.call(
-                '${_nowTime()}  │   [$prefix] HTTP ⚠ vérification impossible: ${_trimError(httpErr.toString())}');
+            httpResp = await http
+                .head(uri, headers: firstPreview.headers)
+                .timeout(const Duration(seconds: 12));
+          } catch (_) {
+            final req = http.Request('GET', uri);
+            req.headers['Range'] = 'bytes=0-1023';
+            if (firstPreview.headers != null) req.headers.addAll(firstPreview.headers!);
+            final stream = await http.Client()
+                .send(req)
+                .timeout(const Duration(seconds: 12));
+            httpResp = await http.Response.fromStream(stream);
           }
+          final statusOk = httpResp.statusCode < 400;
+          onLog?.call(
+            '${_nowTime()}  │   [$prefix] HTTP ${httpResp.statusCode}'
+            ' ${statusOk ? "✓ accessible" : "✗ inaccessible"}',
+          );
+          if (!statusOk) {
+            steps[DiagStep.media] = DiagStepResult(
+              ok: false,
+              count: count,
+              ms: sw.elapsedMilliseconds,
+              error: 'HTTP ${httpResp.statusCode} — URL inaccessible',
+            );
+          }
+        } catch (httpErr) {
+          onLog?.call(
+              '${_nowTime()}  │   [$prefix] HTTP ⚠ vérification impossible: ${_trimError(httpErr.toString())}');
         }
       }
     } catch (e) {
@@ -445,11 +458,11 @@ Future<ExtDiagResult> _diagnoseSourceWithLog(
     source: src,
     steps: steps,
     totalMs: totalSw.elapsedMilliseconds,
+    previewUrls: previewUrls,
   );
 }
 
 String _trimError(String raw) {
-  // Keep only the first meaningful line, strip stack traces
   final line = raw.split('\n').first.trim();
   return line.length > 160 ? '${line.substring(0, 157)}…' : line;
 }
@@ -491,7 +504,6 @@ String generateMarkdownReport({
   buf.writeln('| **Durée totale** | ${_formatDuration(totalMs)} |');
   buf.writeln();
 
-  // Step breakdown
   final stepTotals = <DiagStep, int>{};
   final stepOk = <DiagStep, int>{};
   for (final step in DiagStep.values) {
@@ -519,7 +531,6 @@ String generateMarkdownReport({
   buf.writeln('---');
   buf.writeln();
 
-  // Failed extensions first, then OK
   final sorted = [
     ...results.where((r) => r.anyFailed),
     ...results.where((r) => r.allOk),
@@ -580,7 +591,6 @@ String generateMarkdownReport({
 }
 
 /// Saves the report to [Watchtower/dev/Diagnostic_nNNN.md].
-/// Returns the file path on success, null on failure.
 Future<String?> saveDiagnosticReport({
   required List<ExtDiagResult> results,
   required ItemType itemType,
