@@ -1867,48 +1867,49 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ── Info grid 2 colonnes ───────────────────────────────────────────────────
 
   Widget _buildInfoGrid(List<_DetailInfoRow> rows) {
-    return LayoutBuilder(
-      builder: (ctx, constraints) {
-        const cols = 2;
-        const hGap = 10.0;
-        const vGap = 10.0;
-        const cellH = 62.0;
-        final cellW = (constraints.maxWidth - hGap * (cols - 1)) / cols;
-        final rowCount = (rows.length / cols).ceil();
+    const hGap = 10.0;
+    const vGap = 10.0;
+    const cellH = 62.0;
 
-        return Column(
-          children: List.generate(rowCount, (r) {
-            final items = rows.skip(r * cols).take(cols).toList();
-            // Si dernière ligne avec 1 seul élément → full width
-            final isSingleLast = items.length == 1;
-            return Padding(
-              padding: EdgeInsets.only(bottom: r < rowCount - 1 ? vGap : 0),
-              child: Row(
-                children: isSingleLast
-                    ? [_infoCell(items[0], double.infinity, cellH)]
-                    : [
-                        _infoCell(items[0], cellW, cellH),
-                        const SizedBox(width: hGap),
-                        _infoCell(items[1], cellW, cellH),
-                      ],
-              ),
-            );
-          }),
-        );
-      },
+    final rowWidgets = <Widget>[];
+    for (int i = 0; i < rows.length; i += 2) {
+      final left = rows[i];
+      final hasRight = i + 1 < rows.length;
+      final right = hasRight ? rows[i + 1] : null;
+
+      rowWidgets.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _infoCell(left, cellH)),
+            if (hasRight && right != null) ...[
+              const SizedBox(width: hGap),
+              Expanded(child: _infoCell(right, cellH)),
+            ],
+          ],
+        ),
+      );
+
+      if (i + 2 < rows.length) {
+        rowWidgets.add(const SizedBox(height: vGap));
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rowWidgets,
     );
   }
 
-  Widget _infoCell(_DetailInfoRow row, double w, double h) {
-    final bg = row.accent
+  Widget _infoCell(_DetailInfoRow row, double h) {
+    final Color bg = row.accent
         ? row.accentColor!.withValues(alpha: 0.09)
         : _card;
-    final borderColor = row.accent
+    final Color borderColor = row.accent
         ? row.accentColor!.withValues(alpha: 0.30)
         : _faint.withValues(alpha: 0.45);
-    final valueColor = row.accent ? row.accentColor! : _textPrimary;
-    final cell = Container(
-      width: w == double.infinity ? double.infinity : w,
+    final Color valueColor = row.accent ? row.accentColor! : _textPrimary;
+    return Container(
       height: h,
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
@@ -1943,10 +1944,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ],
       ),
     );
-    if (w == double.infinity) return Expanded(child: cell);
-    return cell;
   }
-
 
   Color _castColor(int index) {
     const colors = [
