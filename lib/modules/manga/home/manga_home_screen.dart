@@ -80,6 +80,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       : widget.isSearch
       ? 2
       : 0;
+  String? _expandedChipName;
   late Source source = widget.source;
   late bool isLocal = source.name == "local" && source.lang == "";
   late List<dynamic> filters = isLocal ? [] : getFilterList(source: source);
@@ -361,6 +362,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                   ],
                 ),
               ),
+            // Panneau d'expansion inline pour la bulle sélectionnée
+            if (!isLocal && _expandedChipName != null)
+              _buildChipExpansionPanel(
+                  context, filters.isEmpty ? filterList : filters),
             const SizedBox(height: 4),
             Expanded(
               child: _getManga == null || _getManga!.isLoading
@@ -415,18 +420,194 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   List<Widget> _buildFilterChips(BuildContext ctx, List<dynamic> fl) {
     return fl.where((f) => f is SelectFilter || f is SortFilter || f is GroupFilter).map<Widget>((f) {
       String label;
+      String filterName;
       if (f is SortFilter) {
         final val = f.values.isNotEmpty ? (f.values[f.state.index] as dynamic).name as String : f.name;
         label = '${f.name}: $val';
+        filterName = f.name;
       } else if (f is SelectFilter) {
         label = f.name;
+        filterName = f.name;
       } else if (f is GroupFilter) {
         label = f.name;
+        filterName = f.name;
       } else {
         label = '';
+        filterName = '';
       }
-      return _FilterChipBtn(label: label, onTap: () => _openFilterSheet(ctx));
+      final isExpanded = _expandedChipName == filterName;
+      return _FilterChipBtn(
+        label: label,
+        isExpanded: isExpanded,
+        onTap: () => setState(() {
+          _expandedChipName = isExpanded ? null : filterName;
+        }),
+      );
     }).toList();
+  }
+
+  // ── Inline chip expansion panel ────────────────────────────────────────────
+
+  void _updateFilterInList(dynamic expandedFilter, dynamic newFilter) {
+    if (filters.isEmpty) filters = List<dynamic>.from(filterList);
+    final idx = filters.indexWhere((f) {
+      if (f is SelectFilter && expandedFilter is SelectFilter) return f.name == expandedFilter.name;
+      if (f is GroupFilter && expandedFilter is GroupFilter) return f.name == expandedFilter.name;
+      if (f is SortFilter && expandedFilter is SortFilter) return f.name == expandedFilter.name;
+      return false;
+    });
+    if (idx != -1) filters[idx] = newFilter;
+  }
+
+  Widget _buildChipExpansionPanel(BuildContext ctx, List<dynamic> fl) {
+    if (_expandedChipName == null) return const SizedBox.shrink();
+    dynamic expandedFilter;
+    for (final f in fl) {
+      if (f is SelectFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
+      if (f is SortFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
+      if (f is GroupFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
+    }
+    if (expandedFilter == null) return const SizedBox.shrink();
+
+    final cs = Theme.of(ctx).colorScheme;
+    List<Widget> options = [];
+
+    if (expandedFilter is SelectFilter) {
+      options = expandedFilter.values.asMap().entries.map<Widget>((entry) {
+        final idx = entry.key;
+        final opt = entry.value;
+        final optName = opt is SelectFilterOption ? opt.name : opt.toString();
+        final isSelected = expandedFilter.state == idx;
+        return InkWell(
+          onTap: () => setState(() {
+            _updateFilterInList(
+              expandedFilter,
+              SelectFilter(expandedFilter.type, expandedFilter.name, idx, expandedFilter.values, expandedFilter.typeName),
+            );
+            _expandedChipName = null;
+          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  size: 18,
+                  color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  optName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList();
+    } else if (expandedFilter is GroupFilter) {
+      options = expandedFilter.state.asMap().entries.map<Widget>((entry) {
+        final itemIdx = entry.key;
+        final item = entry.value;
+        if (item is CheckBoxFilter) {
+          return InkWell(
+            onTap: () => setState(() {
+              final newState = List<dynamic>.from(expandedFilter.state);
+              newState[itemIdx] = CheckBoxFilter(
+                item.type, item.name, item.value, item.typeName, state: !item.state,
+              );
+              _updateFilterInList(
+                expandedFilter,
+                GroupFilter(expandedFilter.type, expandedFilter.name, newState, expandedFilter.typeName),
+              );
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    item.state ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                    size: 18,
+                    color: item.state ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(item.name, style: TextStyle(fontSize: 14, color: cs.onSurface)),
+                ],
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      }).toList();
+    } else if (expandedFilter is SortFilter) {
+      options = expandedFilter.values.asMap().entries.map<Widget>((entry) {
+        final idx = entry.key;
+        final val = entry.value;
+        final valName = (val as dynamic).name as String;
+        final isSelected = expandedFilter.state.index == idx;
+        return InkWell(
+          onTap: () => setState(() {
+            final newAscending = isSelected ? !expandedFilter.state.ascending : expandedFilter.state.ascending;
+            _updateFilterInList(
+              expandedFilter,
+              SortFilter(
+                expandedFilter.type,
+                expandedFilter.name,
+                SortState(idx, newAscending, expandedFilter.state.typeName),
+                expandedFilter.values,
+                expandedFilter.typeName,
+              ),
+            );
+            _expandedChipName = null;
+          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  isSelected
+                      ? (expandedFilter.state.ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded)
+                      : Icons.remove_rounded,
+                  size: 18,
+                  color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  valName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList();
+    }
+
+    if (options.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: cs.onSurface.withValues(alpha: 0.12),
+          width: 0.8,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: options,
+      ),
+    );
   }
 
   // ── iOS-style filter bottom sheet ──────────────────────────────────────────
@@ -1498,20 +1679,16 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                                 .withValues(alpha: 0.35),
                           ),
                         ),
-                      SafeArea(
-                        bottom: false,
-                        child: Align(
-                          alignment: Alignment.bottomLeft,
-                          child: Transform.translate(
-                            offset: Offset(0, -collapseRatio * 22),
-                            child: Opacity(
-                              opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 16, bottom: 48),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
+                      Align(
+                        alignment: Alignment.center,
+                        child: Opacity(
+                          opacity: (1.0 - collapseRatio * 2.5).clamp(0.0, 1.0),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 40),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
                                     if (!isLocal &&
                                         (source.iconUrl?.isNotEmpty ?? false)) ...[
                                       ClipRRect(
@@ -1537,9 +1714,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                  ],
-                                ),
-                              ),
+                              ],
                             ),
                           ),
                         ),
@@ -1613,7 +1788,8 @@ class _TabPillsRow extends StatelessWidget {
 class _FilterChipBtn extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
-  const _FilterChipBtn({required this.label, required this.onTap});
+  final bool isExpanded;
+  const _FilterChipBtn({required this.label, required this.onTap, this.isExpanded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1625,10 +1801,7 @@ class _FilterChipBtn extends StatelessWidget {
           padding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .surfaceContainerHighest
-                .withValues(alpha: 0.8),
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: Theme.of(context)
@@ -1652,7 +1825,9 @@ class _FilterChipBtn extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Icon(
-                Icons.keyboard_arrow_down_rounded,
+                isExpanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
                 size: 16,
                 color: Theme.of(context).hintColor,
               ),
