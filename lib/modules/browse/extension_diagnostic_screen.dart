@@ -1,16 +1,14 @@
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/browse/diag_video_preview.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/utils/language.dart';
 
@@ -1571,7 +1569,8 @@ class _ExtDetailView extends StatelessWidget {
               result.previewUrls.isNotEmpty) ...[
             const SizedBox(height: 16),
             _MediaPreviewSection(
-              result: result,
+              previewUrls: result.previewUrls,
+              mediaCount: result.steps[DiagStep.media]?.count ?? 0,
               itemType: itemType,
               cs: cs,
             ),
@@ -1807,12 +1806,14 @@ class _ErrorRow extends StatelessWidget {
 // ─── Media preview section ────────────────────────────────────────────────────
 
 class _MediaPreviewSection extends StatefulWidget {
-  final ExtDiagResult result;
+  final List<DiagMediaUrl> previewUrls;
+  final int mediaCount;
   final ItemType itemType;
   final ColorScheme cs;
 
   const _MediaPreviewSection({
-    required this.result,
+    required this.previewUrls,
+    required this.mediaCount,
     required this.itemType,
     required this.cs,
   });
@@ -1828,8 +1829,8 @@ class _MediaPreviewSectionState extends State<_MediaPreviewSection> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isAnime = widget.itemType == ItemType.anime;
-    final urls = widget.result.previewUrls;
-    final count = widget.result.steps[DiagStep.media]?.count ?? 0;
+    final urls = widget.previewUrls;
+    final count = widget.mediaCount;
 
     return Container(
       decoration: BoxDecoration(
@@ -1840,7 +1841,6 @@ class _MediaPreviewSectionState extends State<_MediaPreviewSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
@@ -1861,8 +1861,7 @@ class _MediaPreviewSectionState extends State<_MediaPreviewSection> {
                       color: cs.onSurface)),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
                     borderRadius: BorderRadius.circular(6),
@@ -1889,13 +1888,11 @@ class _MediaPreviewSectionState extends State<_MediaPreviewSection> {
               ]),
             ),
           ),
-
-          // Content
           if (_expanded)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: isAnime
-                  ? _VideoPreview(urls: urls, cs: cs)
+                  ? DiagVideoPreview(urls: urls, cs: cs)
                   : _PagePreview(urls: urls, cs: cs),
             ),
         ],
@@ -1904,108 +1901,101 @@ class _MediaPreviewSectionState extends State<_MediaPreviewSection> {
   }
 }
 
-// ─── Video preview ────────────────────────────────────────────────────────────
+// ─── Page preview (manga) — placeholder to keep file compiling ────────────────
 
-class _VideoPreview extends StatefulWidget {
+class _FakeVideoPreviewPlaceholder {
+  // _VideoPreview removed — now handled by DiagVideoPreview (conditional import)
+  // See diag_video_preview.dart / diag_video_preview_io.dart / diag_video_preview_web.dart
+}
+
+// ─── Page preview (manga) ─────────────────────────────────────────────────────
+
+class _PagePreview extends StatefulWidget {
   final List<DiagMediaUrl> urls;
   final ColorScheme cs;
 
-  const _VideoPreview({required this.urls, required this.cs});
+  const _PagePreview({required this.urls, required this.cs});
 
   @override
-  State<_VideoPreview> createState() => _VideoPreviewState();
+  State<_PagePreview> createState() => _PagePreviewState();
 }
 
-class _VideoPreviewState extends State<_VideoPreview> {
-  Player? _player;
-  VideoController? _controller;
-  bool _loading = false;
-  bool _playing = false;
-  String? _error;
-  int _selectedIdx = 0;
+class _PagePreviewState extends State<_PagePreview> {
+  final PageController _pageCtrl = PageController();
+  int _currentPage = 0;
 
   @override
   void dispose() {
-    _player?.dispose();
+    _pageCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _play(int idx) async {
-    if (kIsWeb) {
-      setState(() => _error = 'Prévisualisation vidéo non disponible sur web.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-      _selectedIdx = idx;
-    });
-    try {
-      _player?.dispose();
-      _player = Player();
-      _controller = VideoController(_player!);
-      final url = widget.urls[idx];
-      await _player!.open(
-        Media(url.url, httpHeaders: url.headers ?? {}),
-      );
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _playing = true;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = e.toString();
-        });
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
+    final urls = widget.urls;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Quality selector
-        if (widget.urls.length > 1) ...[
-          SizedBox(
-            height: 28,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: widget.urls.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 6),
-              itemBuilder: (_, i) {
-                final u = widget.urls[i];
-                final sel = _selectedIdx == i && _playing;
-                return GestureDetector(
-                  onTap: () => _play(i),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: sel ? cs.primaryContainer : cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                          color: sel ? cs.primary : cs.outlineVariant),
-                    ),
-                    child: Text(
-                      u.quality.isNotEmpty ? u.quality : 'Source ${i + 1}',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: sel ? cs.primary : cs.onSurfaceVariant),
-                    ),
-                  ),
-                );
-              },
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded),
+              onPressed: _currentPage > 0
+                  ? () {
+                      _pageCtrl.previousPage(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut);
+                    }
+                  : null,
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
-          ),
-          const SizedBox(height: 8),
+            Text(
+              'Page ${_currentPage + 1} / ${urls.length}',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded),
+              onPressed: _currentPage < urls.length - 1
+                  ? () {
+                      _pageCtrl.nextPage(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut);
+                    }
+                  : null,
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 300,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: PageView.builder(
+              controller: _pageCtrl,
+              itemCount: urls.length,
+              onPageChanged: (i) => setState(() => _currentPage = i),
+              itemBuilder: (_, i) {
+                final url = urls[i];
+                return Image.network(
+                  url.url,
+                  headers: url.headers,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (_, child, progress) {
+                    if (progress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: progress.expectedTotalBytes != null
+                            ? progress.cumulativeBytesLoaded /
         ],
 
         // Player area
@@ -2066,127 +2056,6 @@ class _VideoPreviewState extends State<_VideoPreview> {
                             ],
                           ),
                         ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Page preview (manga) ─────────────────────────────────────────────────────
-
-class _PagePreview extends StatefulWidget {
-  final List<DiagMediaUrl> urls;
-  final ColorScheme cs;
-
-  const _PagePreview({required this.urls, required this.cs});
-
-  @override
-  State<_PagePreview> createState() => _PagePreviewState();
-}
-
-class _PagePreviewState extends State<_PagePreview> {
-  final PageController _pageCtrl = PageController();
-  int _currentPage = 0;
-
-  @override
-  void dispose() {
-    _pageCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final urls = widget.urls;
-
-    return Column(
-      children: [
-        // Page counter
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left_rounded),
-              onPressed: _currentPage > 0
-                  ? () {
-                      _pageCtrl.previousPage(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut);
-                    }
-                  : null,
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            Text(
-              'Page ${_currentPage + 1} / ${urls.length}',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurface),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right_rounded),
-              onPressed: _currentPage < urls.length - 1
-                  ? () {
-                      _pageCtrl.nextPage(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut);
-                    }
-                  : null,
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Page viewer
-        SizedBox(
-          height: 300,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: PageView.builder(
-              controller: _pageCtrl,
-              itemCount: urls.length,
-              onPageChanged: (i) => setState(() => _currentPage = i),
-              itemBuilder: (_, i) {
-                final url = urls[i];
-                return Image.network(
-                  url.url,
-                  headers: url.headers,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (_, child, progress) {
-                    if (progress == null) return child;
-                    return Center(
-                      child: CircularProgressIndicator(
-                        value: progress.expectedTotalBytes != null
-                            ? progress.cumulativeBytesLoaded /
-                                progress.expectedTotalBytes!
-                            : null,
-                        color: cs.primary,
-                        strokeWidth: 2,
-                      ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) => Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.broken_image_rounded,
-                            size: 40, color: cs.outlineVariant),
-                        const SizedBox(height: 8),
-                        Text('Image inaccessible',
-                            style: TextStyle(
-                                color: cs.onSurfaceVariant, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         ),
