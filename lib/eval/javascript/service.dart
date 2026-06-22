@@ -121,7 +121,19 @@ class MProvider {
 async function jsonStringify(fn) {
     return JSON.stringify(await fn());
 }
+// extLog(level, msg) — extension JS code can call this to emit structured
+// logs into the in-app overlay at the correct level (info/warn/error/debug).
+function extLog(level, msg) {
+    sendMessage("ext_log", JSON.stringify([String(level), String(msg)]));
+}
 ''');
+    // Bridge: JS extLog(level, msg) → Dart _extLog → AppLogger
+    runtime.onMessage('ext_log', (dynamic args) {
+      if (args is List && args.length >= 2) {
+        _extLog((args[0] as String?)?.toUpperCase() ?? 'DEBUG', args[1]?.toString() ?? '');
+      }
+      return null;
+    });
     String _normalizeJsExtensionCode(String code) {
       final buf = StringBuffer();
       bool inSingle = false, inDouble = false, inBack = false;
@@ -268,9 +280,12 @@ async function jsonStringify(fn) {
     final result = MPages.fromJson(
       await _extensionCallAsync('getPopular($page)'),
     );
-    _extInfo(
-      '$_id · getPopular page=$page → ${result.list?.length ?? 0} items  hasNext=${result.hasNextPage}',
-    );
+    final popCount = result.list?.length ?? 0;
+    if (popCount == 0) {
+      _extWarn('$_id · getPopular page=$page → 0 items ← extension returned empty list');
+    } else {
+      _extInfo('$_id · getPopular page=$page → $popCount items  hasNext=${result.hasNextPage}');
+    }
     return result;
   }
 
@@ -280,9 +295,12 @@ async function jsonStringify(fn) {
     final result = MPages.fromJson(
       await _extensionCallAsync('getLatestUpdates($page)'),
     );
-    _extInfo(
-      '$_id · getLatestUpdates page=$page → ${result.list?.length ?? 0} items  hasNext=${result.hasNextPage}',
-    );
+    final latCount = result.list?.length ?? 0;
+    if (latCount == 0) {
+      _extWarn('$_id · getLatestUpdates page=$page → 0 items ← extension returned empty list');
+    } else {
+      _extInfo('$_id · getLatestUpdates page=$page → $latCount items  hasNext=${result.hasNextPage}');
+    }
     return result;
   }
 
@@ -294,9 +312,12 @@ async function jsonStringify(fn) {
         'search(${jsonEncode(query)},$page,${jsonEncode(filterValuesListToJson(filters))})',
       ),
     );
-    _extInfo(
-      '$_id · search q="${_t(query, 60)}" → ${result.list?.length ?? 0} items  hasNext=${result.hasNextPage}',
-    );
+    final srchCount = result.list?.length ?? 0;
+    if (srchCount == 0) {
+      _extWarn('$_id · search q="${_t(query, 60)}" → 0 items ← extension returned empty list');
+    } else {
+      _extInfo('$_id · search q="${_t(query, 60)}" → $srchCount items  hasNext=${result.hasNextPage}');
+    }
     return result;
   }
 
@@ -308,9 +329,12 @@ async function jsonStringify(fn) {
     final result = MManga.fromJson(
       await _extensionCallAsync('getDetail(${jsonEncode(url)})'),
     );
-    _extInfo(
-      '$_id · getDetail → name="${result.name}"  chapters=${result.chapters?.length ?? 0}',
-    );
+    final chapCount = result.chapters?.length ?? 0;
+    if (chapCount == 0) {
+      _extWarn('$_id · getDetail → name="${result.name}"  chapters=0 ← no chapters returned; check JS getDetail()');
+    } else {
+      _extInfo('$_id · getDetail → name="${result.name}"  chapters=$chapCount');
+    }
     return result;
   }
 
@@ -356,32 +380,39 @@ async function jsonStringify(fn) {
       hashCode: (v) => Object.hash(v.url, v.originalUrl),
     );
 
+    int _vidSkipped = 0;
     for (final element in await _extensionCallAsync<List>(
       'getVideoList(${jsonEncode(url)})',
     )) {
       if (element['url'] != null && element['originalUrl'] != null) {
         videos.add(Video.fromJson(element));
+      } else {
+        _vidSkipped++;
+        _extWarn(
+          '$_id · getVideoList  skipped entry missing url/originalUrl: '
+          '${element.toString().length > 120 ? element.toString().substring(0, 120) + "…" : element}',
+        );
       }
     }
 
     final result = videos.toList();
-    if (result.isEmpty) {
-      _extWarn(
+    if (_vidSkipped > 0 && result.isEmpty) {
+      _extError(
+        '$_id · getVideoList → 0 usable videos ($_vidSkipped entries had null url/originalUrl) '
+        '← check JS getVideoList() — this causes infinite-loading',
+      );
+    } else if (result.isEmpty) {
+      _extError(
         '$_id · getVideoList → 0 videos ← extension returned empty list; '
-        'check JS getVideoList() or the episode URL',
+        'check JS getVideoList() or the episode URL — this causes infinite-loading',
       );
     } else {
-      _extInfo('$_id · getVideoList → ${result.length} video(s)');
-      for (var i = 0; i < result.length && i < 5; i++) {
+      _extInfo('$_id · getVideoList → ${result.length} video(s)'
+          '${_vidSkipped > 0 ? "  ($_vidSkipped skipped — null url)" : ""}');
+      for (var i = 0; i < result.length; i++) {
         _extDebug(
           '$_id · getVideoList  [${i + 1}] quality="${result[i].quality}"  '
           'url=${_t(result[i].originalUrl, 90)}',
-        );
-      }
-      if (result.length > 5) {
-        _extDebug(
-          '$_id · getVideoList  … +${result.length - 5} more entries '
-          '(switch to Extreme log mode to see all)',
         );
       }
     }
@@ -423,7 +454,8 @@ async function jsonStringify(fn) {
     List<dynamic> list;
     try {
       list = fromJsonFilterValuesToList(_extensionCall('getFilterList()', []));
-    } catch (_) {
+    } catch (e) {
+      _extWarn('$_id · getFilterList FAILED ← $e');
       list = [];
     }
     return FilterList(list);
@@ -431,10 +463,15 @@ async function jsonStringify(fn) {
 
   @override
   List<SourcePreference> getSourcePreferences() {
-    return _extensionCall(
-      'getSourcePreferences()',
-      [],
-    ).map((e) => SourcePreference.fromJson(e)..sourceId = source.id).toList();
+    try {
+      return _extensionCall(
+        'getSourcePreferences()',
+        [],
+      ).map((e) => SourcePreference.fromJson(e)..sourceId = source.id).toList();
+    } catch (e) {
+      _extWarn('$_id · getSourcePreferences FAILED ← $e');
+      return [];
+    }
   }
 
   @override
@@ -445,7 +482,8 @@ async function jsonStringify(fn) {
           .whereType<Map>()
           .map((e) => e.cast<String, dynamic>())
           .toList();
-    } catch (_) {
+    } catch (e) {
+      _extWarn('$_id · getCustomLists FAILED ← $e');
       return [];
     }
   }
@@ -456,9 +494,12 @@ async function jsonStringify(fn) {
     final result = MPages.fromJson(
       await _extensionCallAsync('getCustomList(${jsonEncode(id)},$page)'),
     );
-    _extInfo(
-      '$_id · getCustomList id="$id" → ${result.list?.length ?? 0} items',
-    );
+    final clCount = result.list?.length ?? 0;
+    if (clCount == 0) {
+      _extWarn('$_id · getCustomList id="$id" → 0 items ← extension returned empty list');
+    } else {
+      _extInfo('$_id · getCustomList id="$id" → $clCount items');
+    }
     return result;
   }
 
@@ -517,6 +558,11 @@ async function jsonStringify(fn) {
       final decoded = jsonDecode(raw) as T;
       _extDebug(
         '$_id · $method OK ${sw.elapsedMilliseconds}ms  (${raw.length} bytes JSON)',
+      );
+      // Always log a raw JSON snippet at DEBUG level so silent empty-list
+      // returns ("Aucun résultat retourné") are diagnosable without Extreme mode.
+      _extDebug(
+        '$_id · $method  raw[0..200]=${raw.length > 200 ? "${raw.substring(0, 200)}…" : raw}',
       );
       return decoded;
     } on FormatException catch (e) {

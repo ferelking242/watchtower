@@ -166,24 +166,19 @@ Future<String> _toHttpResponse(Client client, String method, List args) async {
       logLevel: resp.statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
       tag: LogTag.network,
     );
-    // In Extreme log mode, log a body snippet so scraping failures are obvious.
-    if (AppLogger.isExtremeMode && resp.body.isNotEmpty) {
-      final snippet = resp.body.length > 400
-          ? resp.body.substring(0, 400) + '…'
+    // Always log a body snippet so scraping failures are diagnosable:
+    //  - 4xx/5xx → LogLevel.warning  (visible in all modes)
+    //  - 200      → LogLevel.debug    (visible in Verbose/Debug/Extreme only;
+    //               NET tag is disabled in Normal mode so there is zero noise)
+    if (resp.body.isNotEmpty) {
+      final snippet = resp.body.length > 300
+          ? '${resp.body.substring(0, 300)}…'
           : resp.body;
       AppLogger.log(
-        '$method $url · body[0..400]: $snippet',
-        logLevel: LogLevel.debug,
-        tag: LogTag.network,
-      );
-    } else if (resp.statusCode >= 400 && resp.body.isNotEmpty) {
-      // Always log error body regardless of mode (essential for debugging).
-      final snippet = resp.body.length > 400
-          ? resp.body.substring(0, 400) + '…'
-          : resp.body;
-      AppLogger.log(
-        '$method $url · error body: $snippet',
-        logLevel: LogLevel.warning,
+        resp.statusCode >= 400
+            ? '$method $url · error body: $snippet'
+            : '$method $url · body[0..300]: $snippet',
+        logLevel: resp.statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
         tag: LogTag.network,
       );
     }
@@ -275,18 +270,13 @@ Future<String> _toHttpResponseViaProxy(
       logLevel: statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
       tag: LogTag.network,
     );
-    if (AppLogger.isExtremeMode && respBody.isNotEmpty) {
-      final snippet = respBody.length > 400 ? respBody.substring(0, 400) + '…' : respBody;
+    if (respBody.isNotEmpty) {
+      final snippet = respBody.length > 300 ? '${respBody.substring(0, 300)}…' : respBody;
       AppLogger.log(
-        'WEB-PROXY $method $url · body[0..400]: $snippet',
-        logLevel: LogLevel.debug,
-        tag: LogTag.network,
-      );
-    } else if (statusCode >= 400 && respBody.isNotEmpty) {
-      final snippet = respBody.length > 400 ? respBody.substring(0, 400) + '…' : respBody;
-      AppLogger.log(
-        'WEB-PROXY $method $url · error body: $snippet',
-        logLevel: LogLevel.warning,
+        statusCode >= 400
+            ? 'WEB-PROXY $method $url · error body: $snippet'
+            : 'WEB-PROXY $method $url · body[0..300]: $snippet',
+        logLevel: statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
         tag: LogTag.network,
       );
     }
