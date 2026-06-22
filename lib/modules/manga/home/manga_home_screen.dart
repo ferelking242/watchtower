@@ -18,6 +18,7 @@ import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
+import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/get_custom_lists.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -1520,7 +1521,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               title: ValueListenableBuilder<double>(
                   valueListenable: _collapseRatioNotifier,
                   builder: (ctx2, ratio, _) {
-                    final opacity = ((ratio - 0.38) / 0.62).clamp(0.0, 1.0);
+                    final opacity = ((ratio - 0.55) / 0.45).clamp(0.0, 1.0);
                     return Opacity(
                       opacity: opacity,
                       child: Row(
@@ -1695,41 +1696,44 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                         bottom: 40,
                         left: 0,
                         right: 0,
-                        child: Center(
-                          child: Opacity(
-                            opacity: (1.0 - collapseRatio * 2.2).clamp(0.0, 1.0),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (!isLocal &&
-                                    (source.iconUrl?.isNotEmpty ?? false)) ...[
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(7),
-                                    child: Image.network(
-                                      source.iconUrl!,
-                                      width: 26,
-                                      height: 26,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          const SizedBox.shrink(),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 20),
+                            child: Opacity(
+                              opacity: (1.0 - collapseRatio / 0.35).clamp(0.0, 1.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (!isLocal &&
+                                      (source.iconUrl?.isNotEmpty ?? false)) ...[
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(9),
+                                      child: Image.network(
+                                        source.iconUrl!,
+                                        width: 36,
+                                        height: 36,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            const SizedBox.shrink(),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      sourceName,
+                                      style: const TextStyle(
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -0.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                 ],
-                                Flexible(
-                                  child: Text(
-                                    sourceName,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: -0.4,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -1983,23 +1987,28 @@ class _MangaHomeImageCardListTileState
 
   // ── Popular auto-scroll carousel ─────────────────────────────────────────────
 
-  class _PopularCarousel extends StatefulWidget {
+  class _PopularCarousel extends ConsumerStatefulWidget {
     final List<MManga> mangas;
     final Source source;
     const _PopularCarousel({required this.mangas, required this.source});
 
     @override
-    State<_PopularCarousel> createState() => _PopularCarouselState();
+    ConsumerState<_PopularCarousel> createState() => _PopularCarouselState();
   }
 
-  class _PopularCarouselState extends State<_PopularCarousel> {
+  class _PopularCarouselState extends ConsumerState<_PopularCarousel> {
     late final _ctrl = PageController();
     Timer? _timer;
     int _currentPage = 0;
+    final Map<int, MManga> _detailCache = {};
 
     @override
     void initState() {
       super.initState();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _prefetch(0);
+        _prefetch(1);
+      });
       if (widget.mangas.length > 1) {
         _timer = Timer.periodic(const Duration(seconds: 4), (_) {
           if (!mounted || !_ctrl.hasClients) return;
@@ -2011,6 +2020,17 @@ class _MangaHomeImageCardListTileState
           );
         });
       }
+    }
+
+    void _prefetch(int index) {
+      if (index < 0 || index >= widget.mangas.length) return;
+      final manga = widget.mangas[index];
+      if (manga.link == null || _detailCache.containsKey(index)) return;
+      ref
+          .read(getDetailProvider(url: manga.link!, source: widget.source).future)
+          .then((detail) {
+        if (mounted) setState(() => _detailCache[index] = detail);
+      }).catchError((_) {});
     }
 
     @override
@@ -2025,17 +2045,24 @@ class _MangaHomeImageCardListTileState
       return PageView.builder(
         controller: _ctrl,
         itemCount: widget.mangas.length,
-        onPageChanged: (p) => _currentPage = p,
-        itemBuilder: (_, i) =>
-            _PopularCard(manga: widget.mangas[i], source: widget.source),
+        onPageChanged: (p) {
+          _currentPage = p;
+          _prefetch(p + 1);
+        },
+        itemBuilder: (_, i) => _PopularCard(
+          manga: widget.mangas[i],
+          detail: _detailCache[i],
+          source: widget.source,
+        ),
       );
     }
   }
 
   class _PopularCard extends ConsumerWidget {
     final MManga manga;
+    final MManga? detail;
     final Source source;
-    const _PopularCard({required this.manga, required this.source});
+    const _PopularCard({required this.manga, this.detail, required this.source});
 
     @override
     Widget build(BuildContext context, WidgetRef ref) {
@@ -2087,7 +2114,7 @@ class _MangaHomeImageCardListTileState
               child: imgUrl.isNotEmpty
                   ? Image(
                       image: coverImage,
-                      width: 88,
+                      width: 120,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
                       frameBuilder: (ctx, child, frame, loaded) {
@@ -2099,7 +2126,7 @@ class _MangaHomeImageCardListTileState
                               highlightColor: Theme.of(ctx).colorScheme.surface,
                               duration: const Duration(milliseconds: 1000),
                             ),
-                            child: Container(width: 88, color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+                            child: Container(width: 120, color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
                           );
                         }
                         return AnimatedOpacity(
@@ -2109,12 +2136,12 @@ class _MangaHomeImageCardListTileState
                         );
                       },
                       errorBuilder: (_, __, ___) => Container(
-                        width: 88,
+                        width: 120,
                         color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       ),
                     )
                   : Container(
-                      width: 88,
+                      width: 120,
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
             ),
@@ -2136,10 +2163,10 @@ class _MangaHomeImageCardListTileState
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 5),
-                    if (manga.description?.isNotEmpty ?? false)
+                    if (((detail?.description ?? manga.description)?.isNotEmpty ?? false))
                       Expanded(
                         child: Text(
-                          manga.description!,
+                          detail?.description ?? manga.description!,
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).hintColor,
@@ -2151,12 +2178,12 @@ class _MangaHomeImageCardListTileState
                       )
                     else
                       const Spacer(),
-                    if (manga.genre?.isNotEmpty ?? false) ...[
+                    if (((detail?.genre ?? manga.genre)?.isNotEmpty ?? false)) ...[
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 4,
                         runSpacing: 3,
-                        children: manga.genre!.take(3).map((g) {
+                        children: (detail?.genre ?? manga.genre)!.take(4).map((g) {
                           return Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 7, vertical: 2),
@@ -2173,6 +2200,40 @@ class _MangaHomeImageCardListTileState
                             ),
                           );
                         }).toList(),
+                      ),
+                    ],
+                    if (detail?.chapters?.isNotEmpty == true) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.menu_book_rounded, size: 12,
+                              color: Theme.of(context).hintColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${detail!.chapters!.length} ch.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).hintColor,
+                            ),
+                          ),
+                          if (detail!.author?.isNotEmpty == true) ...[
+                            const SizedBox(width: 10),
+                            Icon(Icons.person_outline_rounded, size: 12,
+                                color: Theme.of(context).hintColor),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                detail!.author!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context).hintColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ],
