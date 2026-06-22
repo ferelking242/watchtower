@@ -4,6 +4,10 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/services/http/m_client.dart';
 
+// Replaced AniBrain (anibrain.ai — closed) with AniList GraphQL API
+// AniList: 100% free, no account required, no rate limit for light use
+// Docs: https://anilist.gitbook.io/anilist-apiv2-docs
+
 Future<List<RecommendationResult>?> getRecommendations(
   String name,
   ItemType itemType,
@@ -12,12 +16,8 @@ Future<List<RecommendationResult>?> getRecommendations(
   final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
   try {
     final mediaId = await _getSuggest(http, name, itemType);
-    return _getRecommendation(
-      http,
-      mediaId ?? name,
-      itemType,
-      algorithmWeights,
-    );
+    if (mediaId == null) return null;
+    return _getRecommendation(http, int.parse(mediaId), itemType);
   } catch (_) {
     return null;
   }
@@ -25,37 +25,54 @@ Future<List<RecommendationResult>?> getRecommendations(
 
 Future<List<RecommendationResult>?> _getRecommendation(
   InterceptedClient http,
-  String mediaId,
+  int mediaId,
   ItemType itemType,
-  AlgorithmWeights algorithmWeights,
 ) async {
-  final url =
-      "https://anibrain.ai/api/-/recommender/recs/${itemType != ItemType.anime ? "manga" : "anime"}";
-  final res = await http.get(
+  const url = "https://graphql.anilist.co";
+  const query = r'''
+query ($id: Int, $page: Int, $type: MediaType) {
+  Media(id: $id, type: $type) {
+    recommendations(page: $page, perPage: 20, sort: RATING_DESC) {
+      nodes {
+        mediaRecommendation {
+          id
+          idMal
+          title { romaji english native }
+          description(asHtml: false)
+          coverImage { large }
+          genres
+          averageScore
+        }
+      }
+    }
+  }
+}
+''';
+  final res = await http.post(
     Uri.parse(url),
     headers: {
-      "priority": "u=1, i",
-      "Referer": "https://anibrain.ai/",
-      "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+      "Content-Type": "application/json",
+      "Accept": "application/json",
     },
-    params: {
-      "filterCountry": '[]',
-      "filterFormat": '${_fillerType(itemType).map((e) => '"$e"').toList()}',
-      "filterGenre": '{}',
-      "filterTag": '{"max":{},"min":{}}',
-      "filterRelease": '[1930,${DateTime.now().year}]',
-      "filterScore": 0,
-      "algorithmWeights": _algorithmWeights(algorithmWeights),
-      "mediaId": mediaId,
-      "mediaType": _mediaType(itemType),
-      "adult": false,
-      "page": 1,
-    },
+    body: json.encode({
+      "query": query,
+      "variables": {
+        "id": mediaId,
+        "page": 1,
+        "type": _mediaType(itemType),
+      },
+    }),
   );
   final data = json.decode(res.body) as Map<String, dynamic>;
-  return (data["data"] as List?)
-      ?.map((e) => RecommendationResult.fromJson(e))
+  final nodes =
+      data["data"]?["Media"]?["recommendations"]?["nodes"] as List?;
+  if (nodes == null) return null;
+  return nodes
+      .map((n) => n["mediaRecommendation"])
+      .where((m) => m != null)
+      .map<RecommendationResult>(
+        (m) => RecommendationResult.fromAniList(m as Map<String, dynamic>),
+      )
       .toList();
 }
 
@@ -64,47 +81,40 @@ Future<String?> _getSuggest(
   String name,
   ItemType itemType,
 ) async {
-  final url =
-      "https://anibrain.ai/api/-/recommender/autosuggest?searchValue=$name&mediaType=${_mediaType(itemType)}&adult=false";
-  final res = await http.get(
+  const url = "https://graphql.anilist.co";
+  const query = r'''
+query ($search: String, $type: MediaType) {
+  Media(search: $search, type: $type) {
+    id
+  }
+}
+''';
+  final res = await http.post(
     Uri.parse(url),
     headers: {
-      "priority": "u=1, i",
-      "Referer": "https://anibrain.ai/recommender/manga",
-      "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+      "Content-Type": "application/json",
+      "Accept": "application/json",
     },
+    body: json.encode({
+      "query": query,
+      "variables": {
+        "search": name,
+        "type": _mediaType(itemType),
+      },
+    }),
   );
   final data = json.decode(res.body) as Map<String, dynamic>;
-  final list = (data["data"] as List?)?.map((e) => e["id"]);
-  return list?.firstOrNull;
-}
-
-String _algorithmWeights(AlgorithmWeights algorithmWeights) {
-  final genre = ((algorithmWeights.genre ?? 30) / 100).toStringAsFixed(2);
-  final setting = ((algorithmWeights.setting ?? 15) / 100).toStringAsFixed(2);
-  final synopsis = ((algorithmWeights.synopsis ?? 40) / 100).toStringAsFixed(2);
-  final theme = ((algorithmWeights.theme ?? 20) / 100).toStringAsFixed(2);
-  return '{"genre":$genre,"setting":$setting,"synopsis":$synopsis,"theme":$theme}';
+  final id = data["data"]?["Media"]?["id"];
+  return id?.toString();
 }
 
 String _mediaType(ItemType itemType) {
   return switch (itemType) {
     ItemType.manga => "MANGA",
     ItemType.anime => "ANIME",
-    ItemType.novel => "NOVEL",
+    ItemType.novel => "MANGA",
     ItemType.music => "MANGA",
     ItemType.game => "MANGA",
-  };
-}
-
-List<String> _fillerType(ItemType itemType) {
-  return switch (itemType) {
-    ItemType.manga => ["MANGA"],
-    ItemType.anime => ["movie", "ona", "tv"],
-    ItemType.novel => ["NOVEL"],
-    ItemType.music => ["MANGA"],
-    ItemType.game => ["MANGA"],
   };
 }
 
@@ -133,12 +143,29 @@ class RecommendationResult {
     required this.genres,
   });
 
+  factory RecommendationResult.fromAniList(Map<String, dynamic> json) {
+    final id = json["id"] as int;
+    final coverImg = json["coverImage"]?["large"] as String?;
+    return RecommendationResult(
+      id: id.toString(),
+      anilistId: id,
+      myanimelistId: json["idMal"] as int?,
+      score: (json["averageScore"] as int?) ?? 0,
+      titleRomaji: json["title"]?["romaji"] as String?,
+      titleEnglish: json["title"]?["english"] as String?,
+      titleNative: json["title"]?["native"] as String?,
+      description: json["description"] as String?,
+      imgURLs: coverImg != null ? [coverImg] : [],
+      genres: (json["genres"] as List?)?.cast<String>() ?? [],
+    );
+  }
+
   factory RecommendationResult.fromJson(Map<String, dynamic> json) {
     return RecommendationResult(
       id: json["id"],
       anilistId: json["anilistId"],
       myanimelistId: json["myanimelistId"],
-      score: json["score"],
+      score: json["score"] ?? 0,
       titleRomaji: json["titleRomaji"],
       titleEnglish: json["titleEnglish"],
       titleNative: json["titleNative"],
