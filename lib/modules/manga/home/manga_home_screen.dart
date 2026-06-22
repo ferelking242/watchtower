@@ -2089,6 +2089,7 @@ class _MangaHomeImageCardListTileState
                       image: coverImage,
                       width: 88,
                       fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
                       frameBuilder: (ctx, child, frame, loaded) {
                         if (frame == null) {
                           return Skeletonizer(
@@ -2242,6 +2243,7 @@ class _MangaHomeImageCardListTileState
                             ? Image(
                                 image: cover,
                                 fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
                                 errorBuilder: (_, __, ___) => Container(
                                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                   child: const Icon(Icons.play_circle_outline_rounded, size: 32),

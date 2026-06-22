@@ -310,8 +310,8 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         return home.animeMovies.where(ok).toList();
       case _HomeTab.serie:
         return [
-          ...home.trendingAnimes.where(ok).take(6),
-          ...home.popularAnimes.where(ok).take(4),
+          ...home.trendingAnimes.where((m) => ok(m) && m.format != 'MOVIE').take(6),
+          ...home.popularAnimes.where((m) => ok(m) && m.format != 'MOVIE').take(4),
         ]..shuffle();
       case _HomeTab.anime:
         return [
@@ -661,7 +661,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       _MixedRow(title: 'Séries en tendance',
           icon: Icons.local_fire_department_rounded,
           color: const Color(0xFFE74C3C),
-          items: home.trendingAnimes,
+          items: home.trendingAnimes.where((m) => m.format != 'MOVIE').toList(),
           onTap: (m) => _openDetail(ctx, m)),
       if (sagas.isNotEmpty)
         _SagaRow(
@@ -674,13 +674,13 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       _RankedRow(title: 'Top populaires',
           icon: Icons.star_rounded,
           color: const Color(0xFFF39C12),
-          items: home.popularAnimes.take(10).toList(),
+          items: home.popularAnimes.where((m) => m.format != 'MOVIE').take(10).toList(),
           onTap: (m) => _openDetail(ctx, m),
           trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
       _RankedRow(title: 'Mieux notées',
           icon: Icons.workspace_premium_rounded,
           color: const Color(0xFF8E44AD),
-          items: home.topRatedAnimes.take(10).toList(),
+          items: home.topRatedAnimes.where((m) => m.format != 'MOVIE').take(10).toList(),
           onTap: (m) => _openDetail(ctx, m)),
     ];
   }
