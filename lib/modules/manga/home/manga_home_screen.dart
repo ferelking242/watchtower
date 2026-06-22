@@ -736,10 +736,19 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             if (onSeeAll != null)
               GestureDetector(
                 onTap: onSeeAll,
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: ctx.primaryColor,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Voir plus',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: ctx.primaryColor,
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, size: 17, color: ctx.primaryColor),
+                  ],
                 ),
               ),
           ],
@@ -749,22 +758,25 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 
     Widget _buildHorizontalCoverRow(BuildContext ctx, List<MManga> mangas) {
       if (mangas.isEmpty) return const SizedBox(height: 4);
-      final items = mangas.take(10).toList();
+      final items = mangas.take(12).toList();
+      final isWatch = source.itemType == ItemType.anime;
       return SizedBox(
-        height: 175,
+        height: isWatch ? 152 : 185,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemCount: items.length,
-          itemBuilder: (c, i) => SizedBox(
-            width: 95,
-            child: MangaHomeImageCard(
-              manga: items[i],
-              source: source,
-              itemType: source.itemType,
-              isComfortableGrid: false,
-            ),
-          ),
+          itemBuilder: (c, i) => isWatch
+              ? _WatchCard(manga: items[i], source: source)
+              : SizedBox(
+                  width: 100,
+                  child: MangaHomeImageCard(
+                    manga: items[i],
+                    source: source,
+                    itemType: source.itemType,
+                    isComfortableGrid: false,
+                  ),
+                ),
         ),
       );
     }
@@ -903,9 +915,14 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Popular auto-scroll carousel ──────────────────────────────────
-              _buildSectionHeader(ctx, title: 'Popular New Titles', onSeeAll: () {
-                _mangaList.clear();
-                setState(() { _selectedIndex = _kPopularIdx; _isFiltering = false; _page = 1; });
+              _buildSectionHeader(ctx, title: 'Popular', onSeeAll: () {
+                Navigator.of(ctx).push(MaterialPageRoute(
+                  builder: (_) => _ExtensionSectionPage(
+                    source: source,
+                    title: 'Popular',
+                    type: _SectionType.popular,
+                  ),
+                ));
               }),
               Consumer(
                 builder: (c, ref, _) {
@@ -931,12 +948,14 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                     ctx,
                     title: listName,
                     onSeeAll: () {
-                      _mangaList.clear();
-                      setState(() {
-                        _selectedIndex = _kCustomBase + i;
-                        _isFiltering = false;
-                        _page = 1;
-                      });
+                      Navigator.of(ctx).push(MaterialPageRoute(
+                        builder: (_) => _ExtensionSectionPage(
+                          source: source,
+                          title: listName,
+                          type: _SectionType.custom,
+                          customListId: listId,
+                        ),
+                      ));
                     },
                   ),
                   Consumer(
@@ -962,12 +981,13 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               ctx,
               title: 'Latest Updates',
               onSeeAll: () {
-                _mangaList.clear();
-                setState(() {
-                  _selectedIndex = _kLatestIdx;
-                  _isFiltering = false;
-                  _page = 1;
-                });
+                Navigator.of(ctx).push(MaterialPageRoute(
+                  builder: (_) => _ExtensionSectionPage(
+                    source: source,
+                    title: 'Latest Updates',
+                    type: _SectionType.latest,
+                  ),
+                ));
               },
             ),
             Consumer(
@@ -1955,3 +1975,311 @@ class _MangaHomeImageCardListTileState
       );
     }
   }
+
+
+  // ── Section type enum ─────────────────────────────────────────────────────────
+
+  enum _SectionType { popular, latest, custom }
+
+  // ── Watch landscape card (anime, 16:9) ─────────────────────────────────────────
+
+  class _WatchCard extends ConsumerWidget {
+    final MManga manga;
+    final Source source;
+    const _WatchCard({required this.manga, required this.source, super.key});
+
+    @override
+    Widget build(BuildContext context, WidgetRef ref) {
+      final headers = ref.watch(headersProvider(
+        source: source.name!,
+        lang: source.lang!,
+        sourceId: source.id,
+      ));
+      final imgUrl = toImgUrl(manga.imageUrl ?? '');
+      final ImageProvider<Object> cover = imgUrl.isNotEmpty
+          ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
+          : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
+
+      return Padding(
+        padding: const EdgeInsets.only(right: 10),
+        child: GestureDetector(
+          onTap: () {
+            final m = manga;
+            if (m.link != null) {
+              context.push('/mangaDetail', extra: (m, source));
+            }
+          },
+          child: SizedBox(
+            width: 180,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 16:9 thumbnail
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        imgUrl.isNotEmpty
+                            ? Image(
+                                image: cover,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  child: const Icon(Icons.play_circle_outline_rounded, size: 32),
+                                ),
+                              )
+                            : Container(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                child: const Icon(Icons.play_circle_outline_rounded, size: 32),
+                              ),
+                        // gradient overlay
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.55),
+                                ],
+                                stops: const [0.5, 1.0],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // play icon badge
+                        Positioned(
+                          bottom: 6,
+                          right: 8,
+                          child: Icon(
+                            Icons.play_circle_fill_rounded,
+                            size: 26,
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                // Title
+                Text(
+                  manga.name ?? '',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, height: 1.25),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ── Full-page section list (opened by "Voir plus") ────────────────────────────
+
+  class _ExtensionSectionPage extends ConsumerStatefulWidget {
+    final Source source;
+    final String title;
+    final _SectionType type;
+    final String? customListId;
+
+    const _ExtensionSectionPage({
+      required this.source,
+      required this.title,
+      required this.type,
+      this.customListId,
+    });
+
+    @override
+    ConsumerState<_ExtensionSectionPage> createState() =>
+        _ExtensionSectionPageState();
+  }
+
+  class _ExtensionSectionPageState
+      extends ConsumerState<_ExtensionSectionPage> {
+    int _page = 1;
+    bool _hasNextPage = true;
+    bool _isLoadingMore = false;
+    final List<MManga> _items = [];
+    final ScrollController _scrollCtrl = ScrollController();
+
+    @override
+    void initState() {
+      super.initState();
+      _scrollCtrl.addListener(_onScroll);
+    }
+
+    @override
+    void dispose() {
+      _scrollCtrl.removeListener(_onScroll);
+      _scrollCtrl.dispose();
+      super.dispose();
+    }
+
+    void _onScroll() {
+      if (!_scrollCtrl.hasClients) return;
+      final pos = _scrollCtrl.position;
+      if (pos.pixels >= pos.maxScrollExtent - 200 &&
+          _hasNextPage &&
+          !_isLoadingMore) {
+        _loadMore();
+      }
+    }
+
+    Future<void> _loadMore() async {
+      if (_isLoadingMore || !_hasNextPage) return;
+      setState(() => _isLoadingMore = true);
+      try {
+        MPages? result;
+        final nextPage = _page + 1;
+        switch (widget.type) {
+          case _SectionType.popular:
+            result = await ref.read(
+                getPopularProvider(source: widget.source, page: nextPage).future);
+          case _SectionType.latest:
+            result = await ref.read(getLatestUpdatesProvider(
+                source: widget.source, page: nextPage).future);
+          case _SectionType.custom:
+            if (widget.customListId != null) {
+              result = await ref.read(getCustomListProvider(
+                source: widget.source,
+                listId: widget.customListId!,
+                page: nextPage,
+              ).future);
+            }
+        }
+        if (mounted && result != null && result.list.isNotEmpty) {
+          setState(() {
+            _page = nextPage;
+            _hasNextPage = result!.hasNextPage;
+            _items.addAll(result.list);
+          });
+        } else if (mounted) {
+          setState(() => _hasNextPage = false);
+        }
+      } finally {
+        if (mounted) setState(() => _isLoadingMore = false);
+      }
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      // Watch page 1 via provider — seeded into _items on first data
+      AsyncValue<MPages?> asyncData;
+      switch (widget.type) {
+        case _SectionType.popular:
+          asyncData = ref.watch(getPopularProvider(source: widget.source, page: 1));
+        case _SectionType.latest:
+          asyncData = ref.watch(getLatestUpdatesProvider(source: widget.source, page: 1));
+        case _SectionType.custom:
+          asyncData = widget.customListId != null
+              ? ref.watch(getCustomListProvider(
+                  source: widget.source,
+                  listId: widget.customListId!,
+                  page: 1,
+                ))
+              : const AsyncValue.data(null);
+      }
+
+      asyncData.whenData((data) {
+        if (data != null && _items.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _items.isEmpty) {
+              setState(() {
+                _items.addAll(data.list);
+                _hasNextPage = data.hasNextPage;
+              });
+            }
+          });
+        }
+      });
+
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.chevron_left_rounded, size: 28,
+                      color: Theme.of(context).colorScheme.primary),
+                  Text(
+                    'Retour',
+                    style: TextStyle(
+                      fontSize: 17,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          leadingWidth: 90,
+          title: Text(
+            widget.title,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          ),
+          centerTitle: true,
+        ),
+        body: asyncData.when(
+          loading: () => _items.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : _buildGrid(context),
+          error: (e, _) => _items.isEmpty
+              ? Center(
+                  child: Text('Erreur: $e',
+                      style: TextStyle(color: Theme.of(context).hintColor)))
+              : _buildGrid(context),
+          data: (_) => _buildGrid(context),
+        ),
+      );
+    }
+
+    Widget _buildGrid(BuildContext context) {
+      if (_items.isEmpty) {
+        return Center(
+          child: Text('Aucun résultat',
+              style: TextStyle(color: Theme.of(context).hintColor)),
+        );
+      }
+      return GridView.builder(
+        controller: _scrollCtrl,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 0.65,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+        ),
+        itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+        itemBuilder: (ctx, i) {
+          if (i >= _items.length) {
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+          }
+          return MangaHomeImageCard(
+            manga: _items[i],
+            source: widget.source,
+            itemType: widget.source.itemType,
+            isComfortableGrid: false,
+          );
+        },
+      );
+    }
+  }
+  
