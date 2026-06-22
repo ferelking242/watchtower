@@ -847,7 +847,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   }
 
   Widget _buildSkeletonGrid() {
-    if (_selectedIndex == _kPopularIdx && _customLists.isNotEmpty) {
+    if (_selectedIndex == _kPopularIdx && !isLocal) {
       return _buildSkeletonList();
     }
     return Skeletonizer(
@@ -1115,9 +1115,14 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               Consumer(
                 builder: (c, ref, _) {
                   final pop = ref.watch(getPopularProvider(source: source, page: 1));
+                  final isWatch = source.itemType == ItemType.anime;
                   return pop.when(
-                    data: (d) => _buildPopularCarousel(ctx, d?.list ?? []),
-                    loading: () => _buildCarouselSkeleton(ctx),
+                    data: (d) => isWatch
+                        ? _buildHorizontalCoverRow(ctx, d?.list ?? [])
+                        : _buildPopularCarousel(ctx, d?.list ?? []),
+                    loading: () => isWatch
+                        ? _buildHorizontalSkeleton(ctx)
+                        : _buildCarouselSkeleton(ctx),
                     error: (_, __) => const SizedBox(height: 8),
                   );
                 },
@@ -1407,7 +1412,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   // ── Body ───────────────────────────────────────────────────────────────────
 
   Widget _buildBody(BuildContext context) {
-    if (_selectedIndex == _kPopularIdx && _customLists.isNotEmpty) {
+    if (_selectedIndex == _kPopularIdx && !isLocal) {
       return _buildSectionsView(context);
     }
 
@@ -1502,6 +1507,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             pinned: true,
             floating: false,
             snap: false,
+            forceElevated: innerBoxIsScrolled,
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
             shadowColor: Colors.transparent,
