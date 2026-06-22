@@ -346,6 +346,27 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
                               ),
                             ],
                           ),
+                          if (getMangaDetail!.chapters![0].scanlator?.isNotEmpty == true) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(Icons.group_outlined, size: 12,
+                                    color: Theme.of(context).hintColor),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    getMangaDetail!.chapters![0].scanlator!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).hintColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ],
                     ),
