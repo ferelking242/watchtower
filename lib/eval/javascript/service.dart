@@ -61,7 +61,7 @@ class JsExtensionService implements ExtensionService {
 
   void _init() {
     if (_isInitialized) return;
-    _extInfo('$_id · init START');
+    _extDebug('$_id · init START');
     runtime = getJavascriptRuntime();
     JsHttpClient(runtime).init();
     _jsDomSelector = JsDomSelector(runtime)..init();
@@ -243,7 +243,7 @@ function extLog(level, msg) {
       );
     }
     _isInitialized = true;
-    _extInfo('$_id · init OK');
+    _extDebug('$_id · init OK');
   }
 
   @override
