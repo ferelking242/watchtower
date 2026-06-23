@@ -20,7 +20,6 @@ import 'package:watchtower/services/get_source_baseurl.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/supports_latest.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
@@ -659,58 +658,97 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   Widget _buildSearchScreen(BuildContext ctx) {
     return Scaffold(
       backgroundColor: Theme.of(ctx).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: GestureDetector(
-          onTap: () {
-            setState(() {
-              _isSearching = false;
-              _query = '';
-              _searchCtrl.clear();
-              _mangaList.clear();
-              _page = 1;
-              _hasNextPage = true;
-            });
-          },
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.chevron_left_rounded,
-                    size: 28, color: ctx.primaryColor),
-                Text(
-                  'Back',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: ctx.primaryColor,
-                    fontWeight: FontWeight.w400,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Theme.of(ctx)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 10),
+                          Icon(Icons.search,
+                              size: 20, color: Theme.of(ctx).hintColor),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: TextField(
+                              autofocus: true,
+                              controller: _searchCtrl,
+                              style: const TextStyle(fontSize: 16),
+                              decoration: InputDecoration(
+                                hintText: 'Search',
+                                hintStyle: TextStyle(
+                                    color: Theme.of(ctx).hintColor,
+                                    fontSize: 16),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              onChanged: (v) {
+                                setState(() {
+                                  _query = v;
+                                  _mangaList.clear();
+                                  _page = 1;
+                                  _hasNextPage = true;
+                                });
+                              },
+                            ),
+                          ),
+                          if (_searchCtrl.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                _mangaList.clear();
+                                setState(() => _query = '');
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Icon(Icons.cancel,
+                                    size: 18,
+                                    color: Theme.of(ctx).hintColor),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() {
+                        _isSearching = false;
+                        _query = '';
+                        _mangaList.clear();
+                        _page = 1;
+                        _hasNextPage = true;
+                      });
+                    },
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: ctx.primaryColor,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-        leadingWidth: 80,
-        title: SearchTextFormField(
-          controller: _searchCtrl,
-          autofocus: true,
-          onChanged: (v) {
-            setState(() {
-              _query = v;
-              _mangaList.clear();
-              _page = 1;
-              _hasNextPage = true;
-            });
-          },
-          onFieldSubmitted: (_) {},
+            Expanded(child: _buildListView(ctx)),
+          ],
         ),
       ),
-      body: _buildListView(ctx),
     );
   }
 
