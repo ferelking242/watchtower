@@ -76,78 +76,77 @@ class WatchInlinePlayer {
       }
 
       for (var i = 0; i < videos.length; i++) {
-        final v = videos[i];
-        final u = v.url.length > 120 ? '${v.url.substring(0, 120)}…' : v.url;
+        final v    = videos[i];
+        final vUrl = v.url.length > 120 ? '${v.url.substring(0, 120)}…' : v.url;
         AppLogger.log(
-          '[PLAYER] candidat[$i]  qualité="${v.quality}"  url=$u',
-          logLevel: LogLevel.debug,
-          tag: LogTag.watch,
-        );
-      }
-
-      final v    = videos.first;
-      final vUrl = v.url.length > 120 ? '${v.url.substring(0, 120)}…' : v.url;
-      AppLogger.log(
-        '[PLAYER] _player.open → qualité="${v.quality}"  url=$vUrl',
-        logLevel: LogLevel.info,
-        tag: LogTag.watch,
-      );
-
-      // ── Completer: load() blocks until the video plays OR fails/times out ──
-      // This ensures the caller's setState() sees the correct loadFailed /      
-      // hasVideoUrl state — fixing the infinite-spinner when media_kit hangs.   
-      final completer = Completer<void>();
-      StreamSubscription<Duration>? durSub;
-      StreamSubscription<String>?   errSub;
-
-      final watchdog = Timer(const Duration(seconds: 30), () {
-        if (completer.isCompleted) return;
-        loadFailed = true;
-        AppLogger.log(
-          '[PLAYER] WATCHDOG 30s — aucun signal durée reçu.'
-          '  ep="$epName"  url=$vUrl'
-          '  ← Causes: codec non supporté, DRM, URL expirée, serveur silencieux.',
-          logLevel: LogLevel.error,
-          tag: LogTag.watch,
-        );
-        durSub?.cancel();
-        errSub?.cancel();
-        completer.complete();
-      });
-
-      durSub = _player.stream.duration.listen((dur) {
-        if (completer.isCompleted || dur <= Duration.zero) return;
-        watchdog.cancel();
-        errSub?.cancel();
-        hasVideoUrl = true;
-        AppLogger.log(
-          '[PLAYER] EN LECTURE ✓  durée=${dur.inSeconds}s  ep="$epName"',
+          '[PLAYER] essai [${i+1}/${videos.length}]  qualité="${v.quality}"  url=$vUrl',
           logLevel: LogLevel.info,
           tag: LogTag.watch,
         );
-        completer.complete();
-      });
 
-      errSub = _player.stream.error.listen((err) {
-        if (completer.isCompleted) return;
-        watchdog.cancel();
-        durSub?.cancel();
-        loadFailed = true;
-        AppLogger.log(
-          '[PLAYER] ERREUR media_kit: $err  ep="$epName"  url=$vUrl',
-          logLevel: LogLevel.error,
-          tag: LogTag.watch,
-        );
-        completer.complete();
-      });
+        // Completer: blocks until the video plays OR errors OR watchdog fires
+        final completer = Completer<bool>(); // true=success false=fail
+        StreamSubscription<Duration>? durSub;
+        StreamSubscription<String>?   errSub;
 
-      await _player.open(
-        Media(v.url, httpHeaders: v.headers),
-        play: true,
+        final watchdog = Timer(const Duration(seconds: 30), () {
+          if (completer.isCompleted) return;
+          durSub?.cancel();
+          errSub?.cancel();
+          AppLogger.log(
+            '[PLAYER] WATCHDOG 30s  qualité="${v.quality}"  url=$vUrl'
+            '  ← Causes: codec, DRM, URL expirée, serveur silencieux',
+            logLevel: LogLevel.error,
+            tag: LogTag.watch,
+          );
+          completer.complete(false);
+        });
+
+        durSub = _player.stream.duration.listen((dur) {
+          if (completer.isCompleted || dur <= Duration.zero) return;
+          watchdog.cancel();
+          errSub?.cancel();
+          hasVideoUrl = true;
+          AppLogger.log(
+            '[PLAYER] EN LECTURE ✓  qualité="${v.quality}"  durée=${dur.inSeconds}s  ep="$epName"',
+            logLevel: LogLevel.info,
+            tag: LogTag.watch,
+          );
+          completer.complete(true);
+        });
+
+        errSub = _player.stream.error.listen((err) {
+          if (completer.isCompleted) return;
+          watchdog.cancel();
+          durSub?.cancel();
+          AppLogger.log(
+            '[PLAYER] ERREUR qualité="${v.quality}": $err',
+            logLevel: LogLevel.error,
+            tag: LogTag.watch,
+          );
+          completer.complete(false);
+        });
+
+        await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
+        final success = await completer.future;
+        if (success) return;
+
+        if (i < videos.length - 1) {
+          AppLogger.log(
+            '[PLAYER] qualité="${v.quality}" échouée → essai qualité "${videos[i+1].quality}"',
+            logLevel: LogLevel.warning,
+            tag: LogTag.watch,
+          );
+        }
+      }
+
+      // All qualities failed
+      loadFailed = true;
+      AppLogger.log(
+        '[PLAYER] FAILED — toutes les qualités ont échoué (${videos.length} tentatives)  ep="$epName"',
+        logLevel: LogLevel.error,
+        tag: LogTag.watch,
       );
-
-      // Block until video plays, errors, or watchdog fires (max 30s)
-      await completer.future;
 
     } catch (e, st) {
       loadFailed = true;
