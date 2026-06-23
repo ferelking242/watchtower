@@ -64,6 +64,7 @@ import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
+import 'package:watchtower/modules/watch/home/watch_home_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/modules/more/about/about_screen.dart';
 import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
@@ -202,6 +203,10 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<(Source?, bool)>(
       name: "mangaHome",
       builder: (id) => MangaHomeScreen(source: id.$1!, isLatest: id.$2),
+    ),
+    _genericRoute<(Source?, bool)>(
+      name: "watchHome",
+      builder: (id) => WatchHomeScreen(source: id.$1!, isLatest: id.$2),
     ),
     _genericRoute<int>(
       path: "/manga-reader/detail",
