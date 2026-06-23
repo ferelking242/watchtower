@@ -127,41 +127,49 @@ class WatchInlinePlayer {
           completer.complete(false);
         });
 
-        // Inject headers directly into libmpv (Media.httpHeaders unreliable on Android)
-          if (v.headers != null && v.headers!.isNotEmpty) {
+        // ── MPV headers + Dart HTTP probe (captures real CDN status code) ────────
+            final _ua      = v.headers?['User-Agent'] ?? v.headers?['user-agent'] ?? '';
+            final _referer = v.headers?['Referer']    ?? v.headers?['referer']    ?? '';
+
+            // Dart HttpClient probe: log real HTTP status BEFORE libmpv tries
             try {
-              final _ua      = v.headers!['User-Agent'] ?? v.headers!['user-agent'] ?? '';
-              final _referer = v.headers!['Referer']    ?? v.headers!['referer']    ?? '';
-              final _plat    = _player.platform as dynamic;
-              if (_ua.isNotEmpty) {
-                await _plat.setProperty('user-agent', _ua);
-              }
-              final _hdrs = <String>[];
-              if (_referer.isNotEmpty) _hdrs.add('Referer: $_referer');
-              for (final _e in v.headers!.entries) {
-                final _k = _e.key.toLowerCase();
-                if (_k != 'user-agent' && _k != 'referer' && _e.value.isNotEmpty) {
-                  _hdrs.add('${_e.key}: ${_e.value}');
-                }
-              }
-              if (_hdrs.isNotEmpty) {
-                await _plat.setProperty('http-header-fields', _hdrs.join(','));
-              }
+              final _cli = HttpClient();
+              _cli.connectionTimeout = const Duration(seconds: 8);
+              final _req = await _cli.headUrl(Uri.parse(v.url));
+              if (_ua.isNotEmpty)      _req.headers.set('User-Agent', _ua);
+              if (_referer.isNotEmpty) _req.headers.set('Referer', _referer);
+              _req.headers.set('Accept', '*/*');
+              final _resp = await _req.close();
               AppLogger.log(
-                '[PLAYER] MPV headers  ua="${_ua.isEmpty ? "default" : _ua.substring(0, _ua.length.clamp(0, 40))}"'
-                '  referer="${_referer.isEmpty ? "none" : _referer}"',
-                logLevel: LogLevel.debug,
+                '[PLAYER] HTTP probe  status=${_resp.statusCode}'
+                '  url=${v.url.substring(0, v.url.length.clamp(0, 80))}…',
+                logLevel: _resp.statusCode == 200 || _resp.statusCode == 206
+                    ? LogLevel.info : LogLevel.error,
                 tag: LogTag.watch,
               );
-            } catch (_setErr) {
-              AppLogger.log(
-                '[PLAYER] setProperty indispo (web?): $_setErr',
-                logLevel: LogLevel.warning,
-                tag: LogTag.watch,
-              );
+              _cli.close(force: true);
+            } catch (_probeErr) {
+              AppLogger.log('[PLAYER] HTTP probe exc: $_probeErr',
+                  logLevel: LogLevel.warning, tag: LogTag.watch);
             }
-          }
-          await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
+
+            // Set MPV props: 'referrer' (dedicated mpv property, more reliable than http-header-fields)
+            if (v.headers != null && v.headers!.isNotEmpty) {
+              try {
+                final _plat = _player.platform as dynamic;
+                if (_ua.isNotEmpty)      await _plat.setProperty('user-agent', _ua);
+                if (_referer.isNotEmpty) await _plat.setProperty('referrer', _referer);
+                AppLogger.log(
+                  '[PLAYER] MPV headers  ua="${_ua.isEmpty ? "default" : _ua.substring(0, _ua.length.clamp(0, 40))}"'
+                  '  referer="${_referer.isEmpty ? "none" : _referer}"',
+                  logLevel: LogLevel.debug, tag: LogTag.watch,
+                );
+              } catch (_setErr) {
+                AppLogger.log('[PLAYER] setProperty indispo: $_setErr',
+                    logLevel: LogLevel.warning, tag: LogTag.watch);
+              }
+            }
+                      await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
         final success = await completer.future;
         if (success) return;
 
