@@ -127,7 +127,41 @@ class WatchInlinePlayer {
           completer.complete(false);
         });
 
-        await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
+        // Inject headers directly into libmpv (Media.httpHeaders unreliable on Android)
+          if (v.headers != null && v.headers!.isNotEmpty) {
+            try {
+              final _ua      = v.headers!['User-Agent'] ?? v.headers!['user-agent'] ?? '';
+              final _referer = v.headers!['Referer']    ?? v.headers!['referer']    ?? '';
+              final _plat    = _player.platform as dynamic;
+              if (_ua.isNotEmpty) {
+                await _plat.setProperty('user-agent', _ua);
+              }
+              final _hdrs = <String>[];
+              if (_referer.isNotEmpty) _hdrs.add('Referer: $_referer');
+              for (final _e in v.headers!.entries) {
+                final _k = _e.key.toLowerCase();
+                if (_k != 'user-agent' && _k != 'referer' && _e.value.isNotEmpty) {
+                  _hdrs.add('${_e.key}: ${_e.value}');
+                }
+              }
+              if (_hdrs.isNotEmpty) {
+                await _plat.setProperty('http-header-fields', _hdrs.join(','));
+              }
+              AppLogger.log(
+                '[PLAYER] MPV headers  ua="${_ua.isEmpty ? "default" : _ua.substring(0, _ua.length.clamp(0, 40))}"'
+                '  referer="${_referer.isEmpty ? "none" : _referer}"',
+                logLevel: LogLevel.debug,
+                tag: LogTag.watch,
+              );
+            } catch (_setErr) {
+              AppLogger.log(
+                '[PLAYER] setProperty indispo (web?): $_setErr',
+                logLevel: LogLevel.warning,
+                tag: LogTag.watch,
+              );
+            }
+          }
+          await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
         final success = await completer.future;
         if (success) return;
 
