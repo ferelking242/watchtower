@@ -66,10 +66,10 @@ class SourceListTile extends StatelessWidget {
             ).secondaryHeaderColor.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(5),
           ),
-          child: source.iconUrl!.isEmpty
+          child: (source.iconUrl?.isEmpty ?? true)
               ? const Icon(Icons.extension_rounded)
               : cachedNetworkImage(
-                  imageUrl: source.iconUrl!,
+                  imageUrl: source.iconUrl ?? '',
                   fit: BoxFit.contain,
                   width: 37,
                   height: 37,
@@ -84,7 +84,7 @@ class SourceListTile extends StatelessWidget {
         subtitle: Row(
           children: [
             Text(
-              completeLanguageName(source.lang!.toLowerCase()),
+              completeLanguageName((source.lang ?? '').toLowerCase()),
               style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 12),
             ),
             if (source.isNsfw ?? false)
@@ -157,7 +157,7 @@ class SourceListTile extends StatelessWidget {
         ),
         title: Text(
           !isLocal
-              ? source.name!
+              ? (source.name ?? '')
               : "${context.l10n.local_source} ${source.itemType.localized(context.l10n)}",
         ),
         trailing: !isLocal
@@ -167,14 +167,14 @@ class SourceListTile extends StatelessWidget {
                   isar.writeTxnSync(
                     () => isar.sources.putSync(
                       source
-                        ..isPinned = !source.isPinned!
+                        ..isPinned = !(source.isPinned ?? false)
                         ..updatedAt = DateTime.now().millisecondsSinceEpoch,
                     ),
                   );
                 },
                 icon: Icon(
-                  source.isPinned! ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-                  color: source.isPinned! ? context.primaryColor : null,
+                  (source.isPinned ?? false) ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                  color: (source.isPinned ?? false) ? context.primaryColor : null,
                 ),
               )
             : null,

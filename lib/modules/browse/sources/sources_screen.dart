@@ -84,20 +84,20 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
                 // Grouped view
                 final lastUsedEntries =
-                    sources.where((e) => e.lastUsed!).toList();
+                    sources.where((e) => e.lastUsed == true).toList();
                 final isPinnedEntries =
-                    sources.where((e) => e.isPinned!).toList();
+                    sources.where((e) => e.isPinned == true).toList();
                 final allEntriesWithoutPinned =
-                    sources.where((e) => !e.isPinned!).toList();
+                    sources.where((e) => !(e.isPinned ?? false)).toList();
 
                 final Map<String, List<Source>> grouped = {};
                 for (final src in allEntriesWithoutPinned) {
                   final lang =
-                      completeLanguageName(src.lang!.toLowerCase());
+                      completeLanguageName((src.lang ?? '').toLowerCase());
                   grouped.putIfAbsent(lang, () => []).add(src);
                 }
                 for (final list in grouped.values) {
-                  list.sort((a, b) => a.name!.compareTo(b.name!));
+                  list.sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
                 }
                 final sortedLangs = grouped.keys.toList()..sort();
 
