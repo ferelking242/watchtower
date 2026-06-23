@@ -17,6 +17,7 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/widgets/watchtower_loader.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 // ─── Public API ────────────────────────────────────────────────────────────────
 
@@ -46,28 +47,119 @@ class WatchInlinePlayer {
   }
 
   Future<void> load({
-    required WidgetRef ref,
-    required Chapter chapter,
-  }) async {
-    loadFailed = false;
-    try {
-      final data =
-          await ref.read(getVideoListProvider(episode: chapter).future);
-      final (videos, _, __, ___) = data;
-      if (videos.isNotEmpty) {
+      required WidgetRef ref,
+      required Chapter chapter,
+    }) async {
+      loadFailed = false;
+      final epName = chapter.name ?? 'ep#${chapter.id}';
+      final epUrl  = chapter.url  ?? '';
+      AppLogger.log(
+        '[PLAYER] load START  ep="$epName"  url=$epUrl',
+        logLevel: LogLevel.info,
+        tag: LogTag.watch,
+      );
+      try {
+        final data =
+            await ref.read(getVideoListProvider(episode: chapter).future);
+        final (videos, _, __, ___) = data;
+        if (videos.isEmpty) {
+          loadFailed = true;
+          AppLogger.log(
+            '[PLAYER] FAILED — 0 vidéos pour ep="$epName"  url=$epUrl'
+            '  ← cause du chargement infini: getVideoList a retourné 0 URLs',
+            logLevel: LogLevel.error,
+            tag: LogTag.watch,
+          );
+          return;
+        }
+
+        for (var i = 0; i < videos.length; i++) {
+          final v = videos[i];
+          final u = v.url.length > 120 ? '${v.url.substring(0, 120)}…' : v.url;
+          AppLogger.log(
+            '[PLAYER] candidat[$i]  qualité="${v.quality}"  url=$u',
+            logLevel: LogLevel.debug,
+            tag: LogTag.watch,
+          );
+        }
+
         final v = videos.first;
+        final vUrl = v.url.length > 120 ? '${v.url.substring(0, 120)}…' : v.url;
+        AppLogger.log(
+          '[PLAYER] _player.open → qualité="${v.quality}"  url=$vUrl',
+          logLevel: LogLevel.info,
+          tag: LogTag.watch,
+        );
+
+        bool _resolved = false;
+        Timer? _watchdog;
+        StreamSubscription<Duration>? _durSub;
+        StreamSubscription<String>? _errSub;
+
+        _watchdog = Timer(const Duration(seconds: 30), () {
+          if (!_resolved) {
+            _resolved = true;
+            loadFailed = true;
+            AppLogger.log(
+              '[PLAYER] WATCHDOG 30s — aucun événement durée reçu.'
+              '  ep="$epName"  url=$vUrl'
+              '  ← Causes possibles: codec, DRM, auth expirée, serveur fermé silencieusement.',
+              logLevel: LogLevel.error,
+              tag: LogTag.watch,
+            );
+          }
+        });
+
+        _durSub = _player.stream.duration.listen((dur) {
+          if (!_resolved && dur > Duration.zero) {
+            _resolved = true;
+            _watchdog?.cancel();
+            _durSub?.cancel();
+            _errSub?.cancel();
+            AppLogger.log(
+              '[PLAYER] EN LECTURE ✓  durée=${dur.inSeconds}s  ep="$epName"',
+              logLevel: LogLevel.info,
+              tag: LogTag.watch,
+            );
+          }
+        });
+
+        _errSub = _player.stream.error.listen((err) {
+          if (!_resolved) {
+            _resolved = true;
+            _watchdog?.cancel();
+            _durSub?.cancel();
+            _errSub?.cancel();
+            loadFailed = true;
+            AppLogger.log(
+              '[PLAYER] ERREUR media_kit: $err  ep="$epName"  url=$vUrl',
+              logLevel: LogLevel.error,
+              tag: LogTag.watch,
+            );
+          }
+        });
+
         await _player.open(
           Media(v.url, httpHeaders: v.headers),
           play: true,
         );
         hasVideoUrl = true;
-      } else {
+        AppLogger.log(
+          '[PLAYER] _player.open() envoyé (buffering…)  ep="$epName"',
+          logLevel: LogLevel.debug,
+          tag: LogTag.watch,
+        );
+      } catch (e, st) {
         loadFailed = true;
+        AppLogger.log(
+          '[PLAYER] EXCEPTION: $e',
+          logLevel: LogLevel.error,
+          tag: LogTag.watch,
+          error: e,
+          stackTrace: st,
+        );
       }
-    } catch (_) {
-      loadFailed = true;
     }
-  }
 
   // Banner overlay for portrait inline view
   Widget buildBannerOverlay({required BuildContext context}) {
