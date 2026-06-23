@@ -118,6 +118,9 @@ class AppLogger {
   /// downloaded in `download_provider.dart`).
   static bool get isExtremeMode => _currentMode == LogMode.extreme;
 
+  /// Public getter so interceptors can read the image-suppression flag.
+  static bool get suppressImages => _suppressImages;
+
   // ── Live broadcast + ring buffer for the in-app overlay viewer ───────────
   // The broadcast stream re-emits every formatted log line so any UI (the
   // Logs screen or the floating Log Overlay) can subscribe and render in
