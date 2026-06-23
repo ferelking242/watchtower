@@ -982,70 +982,120 @@ class _LogLineWidget extends StatelessWidget {
     caseSensitive: false,
   );
 
-  @override
-  Widget build(BuildContext context) {
-    final text = line.raw;
-    final color = _textColor();
+  // ── Tag → colour mapping ──────────────────────────────────────────────────
+    static const Map<String, Color> _tagColors = {
+      'EXT':     Color(0xFF6366F1),
+      'NET':     Color(0xFF06B6D4),
+      'WATCH':   Color(0xFF10B981),
+      'DL':      Color(0xFFF59E0B),
+      'MANGA':   Color(0xFFEC4899),
+      'HLS':     Color(0xFF8B5CF6),
+      'INSTALL': Color(0xFF14B8A6),
+      'READER':  Color(0xFFF97316),
+      'UI':      Color(0xFF64748B),
+      'MAINT':   Color(0xFF94A3B8),
+      'SRCH':    Color(0xFF22D3EE),
+      'PAGE':    Color(0xFF78716C),
+      'REPO':    Color(0xFF6366F1),
+    };
 
-    Widget child;
-    if (searchQuery.isNotEmpty) {
-      child = _HighlightedText(
-        text: text,
-        query: searchQuery,
-        baseColor: color,
-      );
-    } else if (_urlRegex.hasMatch(text)) {
-      final spans = <InlineSpan>[];
-      int last = 0;
-      for (final m in _urlRegex.allMatches(text)) {
-        if (m.start > last) {
-          spans.add(TextSpan(text: text.substring(last, m.start)));
+    // Matches "ExtName[lang]" from _extLog output: "… ExtName[fr] · …"
+    static final _extNameRx = RegExp(r'\b([A-Za-z0-9_\-]+\[[a-z?]+\])\b');
+
+    @override
+    Widget build(BuildContext context) {
+      final text = line.raw;
+      final color = _textColor();
+      final tagColor = line.tag != null ? (_tagColors[line.tag!] ?? Colors.blueGrey) : null;
+      final extMatch = (line.tag == 'EXT') ? _extNameRx.firstMatch(text) : null;
+      final extName = extMatch?.group(1);
+
+      Widget textChild;
+      if (searchQuery.isNotEmpty) {
+        textChild = _HighlightedText(text: text, query: searchQuery, baseColor: color);
+      } else if (_urlRegex.hasMatch(text)) {
+        final spans = <InlineSpan>[];
+        int last = 0;
+        for (final m in _urlRegex.allMatches(text)) {
+          if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start)));
+          final url = text.substring(m.start, m.end);
+          spans.add(TextSpan(
+            text: url,
+            style: TextStyle(color: Colors.blue.shade400, decoration: TextDecoration.underline),
+            recognizer: TapGestureRecognizer()..onTap = () => _openUrl(context, url),
+          ));
+          last = m.end;
         }
-        final url = text.substring(m.start, m.end);
-        spans.add(TextSpan(
-          text: url,
-          style: TextStyle(
-            color: Colors.blue.shade400,
-            decoration: TextDecoration.underline,
-          ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () => _openUrl(context, url),
-        ));
-        last = m.end;
+        if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+        textChild = Text.rich(
+          TextSpan(children: spans),
+          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: color, height: 1.5),
+        );
+      } else {
+        textChild = Text(
+          text,
+          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: color, height: 1.5),
+        );
       }
-      if (last < text.length) {
-        spans.add(TextSpan(text: text.substring(last)));
-      }
-      child = Text.rich(
-        TextSpan(children: spans),
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 11,
-          color: color,
-          height: 1.5,
-        ),
-      );
-    } else {
-      child = Text(
-        text,
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 11,
-          color: color,
-          height: 1.5,
+
+      return Container(
+        color: _bgColor(),
+        margin: line.type == _LineType.session ? const EdgeInsets.symmetric(vertical: 2) : null,
+        padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (tagColor != null && line.tag != null) ...[
+              // Tag pill (EXT / NET / WATCH …)
+              Container(
+                margin: const EdgeInsets.only(top: 2, right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: tagColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: tagColor.withOpacity(0.55), width: 0.7),
+                ),
+                child: Text(
+                  line.tag!,
+                  style: TextStyle(
+                    fontSize: 8, fontWeight: FontWeight.w800,
+                    color: tagColor, letterSpacing: 0.5, fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+              // Extension name pill — only for EXT tag lines that carry a name
+              if (extName != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 2, right: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.35), width: 0.7),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.extension_rounded, size: 8, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 2),
+                      Text(
+                        extName,
+                        style: const TextStyle(
+                          fontSize: 8, fontWeight: FontWeight.w700,
+                          color: Color(0xFF6366F1), letterSpacing: 0.3, fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            Expanded(child: textChild),
+          ],
         ),
       );
     }
 
-    return Container(
-      color: _bgColor(),
-      margin: line.type == _LineType.session
-          ? const EdgeInsets.symmetric(vertical: 2)
-          : null,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: child,
-    );
-  }
-
-  void _openUrl(BuildContext context, String url) {
+    void _openUrl(BuildContext context, String url) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => _LogUrlWebView(url: url)),
     );
