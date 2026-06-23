@@ -1097,7 +1097,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (title.isNotEmpty) ..[
+          if (title.isNotEmpty) ...[
             Text(
               title,
               maxLines: 2,
