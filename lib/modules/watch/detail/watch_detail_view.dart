@@ -943,15 +943,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   items: seasons.isNotEmpty ? seasons : ['Saison 1'],
                   onSelect: (v) => setState(() => _selectedSeason = v),
                 ),
-                const SizedBox(width: 8),
+                if (languages.isNotEmpty) const SizedBox(width: 8),
               ],
-              _buildDropdownPill(
-                label: languages.isNotEmpty
-                    ? (_selectedLanguage ?? languages.first)
-                    : 'Langue',
-                items: languages.isNotEmpty ? languages : ['Langue'],
-                onSelect: (v) => setState(() => _selectedLanguage = v),
-              ),
+              if (languages.isNotEmpty)
+                _buildDropdownPill(
+                  label: _selectedLanguage ?? languages.first,
+                  items: languages,
+                  onSelect: (v) => setState(() => _selectedLanguage = v),
+                ),
             ],
           ),
         ),
@@ -1075,36 +1074,60 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── MOVIE BOX — small rectangle, title only ─────────────────────────────────
 
   Widget _buildMovieBox(Chapter chapter) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
+    final title = widget.manga.name ?? '';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _accent.withValues(alpha: 0.80),
+            _accent.withValues(alpha: 0.40),
+            _bg.withValues(alpha: 0.90),
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ),
         borderRadius: BorderRadius.circular(10),
-        onTap: () => chapter.pushToReaderView(context, ignoreIsRead: true),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: _accent.withValues(alpha: 0.28), width: 0.8),
-          ),
-          child: Row(
+        border: Border.all(
+            color: _accent.withValues(alpha: 0.28), width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (title.isNotEmpty) ..[
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.play_arrow_rounded, color: _accent, size: 20),
-              const SizedBox(width: 6),
-              Text(
+              const Icon(Icons.play_circle_outline_rounded,
+                  color: Colors.white, size: 22),
+              const SizedBox(width: 8),
+              const Text(
                 'Regarder',
                 style: TextStyle(
-                  color: _accent,
+                  color: Colors.white,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
