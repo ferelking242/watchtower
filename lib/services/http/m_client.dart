@@ -257,60 +257,94 @@ class LoggerInterceptor extends InterceptorContract {
   LoggerInterceptor(this.showCloudFlareError);
   bool showCloudFlareError;
 
+  // Per-request start time keyed by "METHOD url"
+  final Map<String, DateTime> _pending = {};
+
+  static bool _isImage(String url) {
+    final p = url.toLowerCase().split('?').first;
+    return p.endsWith('.jpg')  || p.endsWith('.jpeg') || p.endsWith('.png') ||
+           p.endsWith('.webp') || p.endsWith('.gif')  || p.endsWith('.avif') ||
+           p.endsWith('.svg')  || p.endsWith('.ico');
+  }
+
+  static String _sz(int b) {
+    if (b < 1024)    return '${b}B';
+    if (b < 1048576) return '${(b / 1024).toStringAsFixed(1)}KB';
+    return '${(b / 1048576).toStringAsFixed(1)}MB';
+  }
+
+  static String _short(String raw) {
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return raw.length > 90 ? '${raw.substring(0, 90)}…' : raw;
+    var p = uri.path;
+    if (p.length > 55) p = '…${p.substring(p.length - 52)}';
+    return '${uri.host}$p${uri.hasQuery ? "?…" : ""}';
+  }
+
   @override
   Future<BaseRequest> interceptRequest({required BaseRequest request}) async {
-    final method = request.method;
-    final url = request.url.toString();
-    final content = "$method $url\nheaders: ${request.headers}";
+    final url  = request.url.toString();
+    final meth = request.method;
 
-    if (kDebugMode || useLogger) {
-      print(content); // ignore: avoid_print
-      Logger.add(LoggerLevel.info, content);
+    if (AppLogger.suppressImages && _isImage(url)) return request;
+
+    _pending['$meth $url'] = DateTime.now();
+
+    var msg = '→ $meth  ${_short(url)}';
+    if (request is Request && request.bodyBytes.isNotEmpty) {
+      msg += '  body:${_sz(request.bodyBytes.length)}';
     }
-    AppLogger.log(
-      '$method $url',
-      logLevel: LogLevel.debug,
-      tag: LogTag.network,
-    );
+    AppLogger.log(msg, logLevel: LogLevel.debug, tag: LogTag.network);
+
+    if (AppLogger.isExtremeMode) {
+      final hdrs = request.headers.entries
+          .where((e) {
+            final k = e.key.toLowerCase();
+            return k != 'cookie' && k != 'authorization';
+          })
+          .map((e) => '    ${e.key}: ${e.value}')
+          .join('\n');
+      if (hdrs.isNotEmpty) {
+        AppLogger.log('  headers:\n$hdrs', logLevel: LogLevel.debug, tag: LogTag.network);
+      }
+    }
     return request;
   }
 
   @override
-  Future<BaseResponse> interceptResponse({
-    required BaseResponse response,
-  }) async {
-    final method = response.request?.method ?? '?';
-    final url = response.request?.url.toString() ?? '?';
+  Future<BaseResponse> interceptResponse({required BaseResponse response}) async {
+    final url    = response.request?.url.toString() ?? '?';
+    final meth   = response.request?.method ?? '?';
     final status = response.statusCode;
-    final cloudflare = showCloudFlareError && isCloudflare(response);
-    final suffix = cloudflare ? ' ⚠ Cloudflare' : '';
-    final content = "$method $url → $status$suffix";
 
-    if (kDebugMode || useLogger) {
-      print(content); // ignore: avoid_print
-      Logger.add(LoggerLevel.info, content);
-    }
-    AppLogger.log(
-      content,
-      logLevel: status >= 500
-          ? LogLevel.error
-          : status >= 400
-              ? LogLevel.warning
-              : LogLevel.debug,
-      tag: LogTag.network,
-    );
+    if (AppLogger.suppressImages && _isImage(url)) return response;
+
+    final start = _pending.remove('$meth $url');
+    final ms    = start != null ? DateTime.now().difference(start).inMilliseconds : null;
+    final size  = (response is Response) ? response.bodyBytes.length : null;
+    final cloudflare = showCloudFlareError && isCloudflare(response);
+
+    final timePart = ms   != null ? '  ${ms}ms'      : '';
+    final sizePart = size != null ? '  ${_sz(size)}' : '';
+    final cfPart   = cloudflare   ? '  ⚠ Cloudflare' : '';
+
+    final msg = '← $status$timePart$sizePart  ${_short(url)}$cfPart';
+
+    final level = (cloudflare || status >= 500)
+        ? LogLevel.error
+        : status >= 400 ? LogLevel.warning : LogLevel.debug;
+
+    AppLogger.log(msg, logLevel: level, tag: LogTag.network);
 
     if (cloudflare) {
       BypassNotificationService.instance
           .notifyChallengeDetected(url: url)
           .ignore();
-      // Toast 1 — detection (the retry policy will show toasts 2 & 3)
       try {
         final host = Uri.tryParse(url)?.host ?? url;
         botToast('🛡 $host bloqué par Cloudflare', second: 4);
       } catch (_) {}
     }
-
     return response;
   }
 }
