@@ -1237,6 +1237,33 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     static const int    _kMaxVisibleEps = 5;
   static const double _kEpThumbW      = 108.0;
 
+  List<Chapter> _sortedEpisodes(List<Chapter> chapters) {
+    final indexed = chapters.asMap().entries.toList();
+    indexed.sort((a, b) {
+      final na = _epNum(a.value.name, a.key);
+      final nb = _epNum(b.value.name, b.key);
+      return na.compareTo(nb); // ascending — ep 1 first
+    });
+    return indexed.map((e) => e.value).toList();
+  }
+
+  int _epNum(String? name, int fallback) {
+    if (name == null || name.isEmpty) return fallback;
+    // Try "Ep. N" / "Ep N" / "Episode N" pattern first
+    final epMatch = RegExp(r'(?:Ep\.?|Episode)\s*(\d+)', caseSensitive: false)
+        .firstMatch(name);
+    if (epMatch != null) return int.tryParse(epMatch.group(1)!) ?? fallback;
+    // Fall back to the LAST number in the name (avoids matching season number first)
+    final all = RegExp(r'\d+').allMatches(name);
+    if (all.isEmpty) return fallback;
+    return int.tryParse(all.last.group(0)!) ?? fallback;
+  }
+
+  // ─── EPISODE LIST (card style with cover + shimmer) ─────────────────────────
+
+  static const int    _kMaxVisibleEps = 5;
+  static const double _kEpThumbW      = 108.0;
+
   Widget _buildEpisodeList(List<Chapter> chapters, List<Chapter> allChapters) {
       if (chapters.isEmpty) return const SizedBox.shrink();
       const int maxVisible = 14;
