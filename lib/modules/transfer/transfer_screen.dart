@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:math';
 
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/services/transfer/transfer_models.dart';
 import 'package:watchtower/services/transfer/transfer_notifier.dart';
 import 'package:watchtower/services/transfer/transfer_server.dart';
@@ -26,48 +29,77 @@ const _textSecondary = Color(0xFF9E9E9E);
 const _textDim = Color(0xFF555555);
 
 // ──────────────────────────────────────────────
-// File scanner
+// Library entry for the picker
 // ──────────────────────────────────────────────
-Future<List<TransferFile>> _scanDownloads() async {
+class _LibraryEntry {
+  final Manga manga;
+  final List<Chapter> downloadedChapters;
+  _LibraryEntry({required this.manga, required this.downloadedChapters});
+}
+
+Future<List<_LibraryEntry>> _loadLibraryDownloads() async {
   if (kIsWeb) return [];
-  Directory base;
-  if (Platform.isAndroid) {
-    base = Directory('/storage/emulated/0/Watchtower');
-  } else {
-    final docs = await getApplicationDocumentsDirectory();
-    base = Directory(p.join(docs.path, 'Watchtower'));
-  }
-  if (!await base.exists()) return [];
-
-  const _allowed = {
-    'cbz', 'cbr', 'zip',
-    'mp4', 'mkv', 'avi', 'webm', 'm4v',
-    'epub', 'fb2', 'mobi',
-    'pdf',
-  };
-
-  final results = <TransferFile>[];
-  final rng = Random();
-
   try {
-    await for (final entity in base.list(recursive: true, followLinks: false)) {
-      if (entity is! File) continue;
-      final ext = p.extension(entity.path).replaceFirst('.', '').toLowerCase();
-      if (!_allowed.contains(ext)) continue;
-      final stat = await entity.stat();
-      if (stat.size == 0) continue;
-      results.add(TransferFile(
-        id: List.generate(12, (_) => rng.nextInt(16).toRadixString(16)).join(),
-        name: p.basename(entity.path),
-        size: stat.size,
-        type: TransferFile.typeFromExtension(entity.path),
-        localPath: entity.path,
-      ));
-    }
-  } catch (_) {}
+    final downloads =
+        await isar.downloads.filter().isDownloadEqualTo(true).findAll();
+    if (downloads.isEmpty) return [];
 
-  results.sort((a, b) => a.name.compareTo(b.name));
-  return results;
+    await Future.wait(downloads.map((d) => d.chapter.load()));
+
+    final Map<int, List<Chapter>> byManga = {};
+    for (final d in downloads) {
+      final ch = d.chapter.value;
+      if (ch == null || ch.mangaId == null) continue;
+      final path = ch.archivePath;
+      if (path == null || path.isEmpty) continue;
+      if (!File(path).existsSync()) continue;
+      byManga.putIfAbsent(ch.mangaId!, () => []).add(ch);
+    }
+    if (byManga.isEmpty) return [];
+
+    final mangaIds = byManga.keys.toList();
+    final mangas = await isar.mangas.getAll(mangaIds);
+
+    final entries = <_LibraryEntry>[];
+    for (int i = 0; i < mangaIds.length; i++) {
+      final manga = mangas[i];
+      if (manga == null) continue;
+      final chapters = byManga[mangaIds[i]]!
+        ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+      entries.add(_LibraryEntry(manga: manga, downloadedChapters: chapters));
+    }
+    entries.sort(
+        (a, b) => (a.manga.name ?? '').compareTo(b.manga.name ?? ''));
+    return entries;
+  } catch (_) {
+    return [];
+  }
+}
+
+TransferFile _chapterToTransferFile(Chapter ch, ItemType itemType) {
+  final path = ch.archivePath!;
+  final rng = Random();
+  final TransferItemType type;
+  if (itemType == ItemType.anime) {
+    type = TransferItemType.anime;
+  } else if (itemType == ItemType.novel) {
+    type = TransferItemType.novel;
+  } else {
+    final ext = p.extension(path).replaceFirst('.', '').toLowerCase();
+    if ({'mp4', 'mkv', 'avi', 'webm', 'm4v', 'mov'}.contains(ext)) {
+      type = TransferItemType.anime;
+    } else {
+      type = TransferItemType.manga;
+    }
+  }
+  final stat = File(path).statSync();
+  return TransferFile(
+    id: List.generate(12, (_) => rng.nextInt(16).toRadixString(16)).join(),
+    name: p.basename(path),
+    size: stat.size,
+    type: type,
+    localPath: path,
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -420,7 +452,7 @@ class _SendTabState extends ConsumerState<_SendTab> {
       backgroundColor: _card,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => _FilePickerSheet(peer: peer),
+      builder: (_) => _LibraryPickerSheet(peer: peer),
     );
 
     if (files == null || files.isEmpty) return;
@@ -793,21 +825,23 @@ class _SessionCard extends StatelessWidget {
 }
 
 // ──────────────────────────────────────────────
-// File picker bottom sheet
+// Library picker bottom sheet (2 levels)
+// Level 1 : list of manga/anime/shows with downloads
+// Level 2 : downloaded chapters of selected entry
 // ──────────────────────────────────────────────
-class _FilePickerSheet extends StatefulWidget {
+class _LibraryPickerSheet extends StatefulWidget {
   final PeerDevice peer;
-  const _FilePickerSheet({required this.peer});
+  const _LibraryPickerSheet({required this.peer});
 
   @override
-  State<_FilePickerSheet> createState() => _FilePickerSheetState();
+  State<_LibraryPickerSheet> createState() => _LibraryPickerSheetState();
 }
 
-class _FilePickerSheetState extends State<_FilePickerSheet> {
+class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
   bool _loading = true;
-  List<TransferFile> _allFiles = [];
-  final Set<String> _selected = {};
-  TransferItemType? _filter;
+  List<_LibraryEntry> _entries = [];
+  _LibraryEntry? _selected; // null = Level 1 (manga list)
+  final Set<String> _pickedChapterIds = {};
 
   @override
   void initState() {
@@ -816,69 +850,89 @@ class _FilePickerSheetState extends State<_FilePickerSheet> {
   }
 
   Future<void> _load() async {
-    final files = await _scanDownloads();
-    if (mounted) setState(() { _allFiles = files; _loading = false; });
+    final entries = await _loadLibraryDownloads();
+    if (mounted) setState(() { _entries = entries; _loading = false; });
   }
 
-  List<TransferFile> get _filtered {
-    if (_filter == null) return _allFiles;
-    return _allFiles.where((f) => f.type == _filter).toList();
+  // ── helpers ──────────────────────────────────
+  List<TransferFile> get _selectedFiles {
+    if (_selected == null) return [];
+    return _selected!.downloadedChapters
+        .where((ch) => _pickedChapterIds.contains(ch.id?.toString()))
+        .map((ch) => _chapterToTransferFile(ch, _selected!.manga.itemType))
+        .toList();
   }
-
-  List<TransferFile> get _selectedFiles =>
-      _allFiles.where((f) => _selected.contains(f.id)).toList();
 
   int get _selectedSize =>
       _selectedFiles.fold(0, (s, f) => s + f.size);
 
   void _toggleAll() {
-    final ids = _filtered.map((f) => f.id).toSet();
-    if (ids.every(_selected.contains)) {
-      setState(() => _selected.removeAll(ids));
+    if (_selected == null) return;
+    final ids =
+        _selected!.downloadedChapters.map((c) => c.id?.toString() ?? '').toSet();
+    if (ids.every(_pickedChapterIds.contains)) {
+      setState(() => _pickedChapterIds.removeAll(ids));
     } else {
-      setState(() => _selected.addAll(ids));
+      setState(() => _pickedChapterIds.addAll(ids));
     }
   }
 
+  void _back() => setState(() { _selected = null; _pickedChapterIds.clear(); });
+
+  // ── build ─────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final maxH = MediaQuery.of(context).size.height * 0.85;
+    final maxH = MediaQuery.of(context).size.height * 0.88;
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxH),
       child: Column(
         children: [
-          // Handle
+          // Drag handle
           Container(
             width: 40, height: 4,
-            margin: const EdgeInsets.only(top: 10, bottom: 8),
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
             decoration: BoxDecoration(
                 color: Colors.grey[700],
                 borderRadius: BorderRadius.circular(2)),
           ),
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
             child: Row(
               children: [
+                if (_selected != null)
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                        color: _textPrimary, size: 18),
+                    onPressed: _back,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                if (_selected != null) const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Envoyer à ${widget.peer.name}',
-                          style: const TextStyle(
-                              color: _textPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
-                      if (_selected.isNotEmpty)
+                      Text(
+                        _selected == null
+                            ? 'Envoyer à ${widget.peer.name}'
+                            : _selected!.manga.name ?? '',
+                        style: const TextStyle(
+                            color: _textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (_pickedChapterIds.isNotEmpty)
                         Text(
-                          '${_selected.length} sélectionné(s) · ${_fmtSize(_selectedSize)}',
+                          '${_pickedChapterIds.length} sélectionné(s) · ${_fmtSize(_selectedSize)}',
                           style: const TextStyle(
                               color: _textSecondary, fontSize: 12),
                         ),
                     ],
                   ),
                 ),
-                if (!_loading && _filtered.isNotEmpty)
+                if (_selected != null)
                   TextButton(
                     onPressed: _toggleAll,
                     child: const Text('Tout',
@@ -887,99 +941,133 @@ class _FilePickerSheetState extends State<_FilePickerSheet> {
               ],
             ),
           ),
-          // Type filter chips
-          if (!_loading && _allFiles.isNotEmpty)
-            _TypeFilterRow(
-              current: _filter,
-              onChanged: (t) => setState(() => _filter = t),
-            ),
           const Divider(color: _border, height: 1),
-          // File list
+          // Body
           Expanded(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(color: _teal))
-                : _filtered.isEmpty
-                    ? const _EmptyHint(
-                        icon: Icons.folder_open_outlined,
-                        text: 'Aucun fichier téléchargé trouvé')
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _filtered.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(color: _border, height: 1),
-                        itemBuilder: (_, i) {
-                          final f = _filtered[i];
-                          final sel = _selected.contains(f.id);
-                          return ListTile(
-                            tileColor: sel
-                                ? _teal.withValues(alpha: 0.08)
-                                : null,
-                            leading: _TypeIcon(type: f.type),
-                            title: Text(f.name,
-                                style: const TextStyle(
-                                    color: _textPrimary, fontSize: 13),
-                                overflow: TextOverflow.ellipsis),
-                            subtitle: Text(f.sizeLabel,
-                                style: const TextStyle(
-                                    color: _textSecondary, fontSize: 11)),
-                            trailing: Checkbox(
-                              value: sel,
-                              activeColor: _teal,
-                              checkColor: Colors.black,
-                              side: const BorderSide(color: _textSecondary),
-                              onChanged: (_) => setState(() {
-                                if (sel) {
-                                  _selected.remove(f.id);
-                                } else {
-                                  _selected.add(f.id);
-                                }
-                              }),
-                            ),
-                            onTap: () => setState(() {
-                              if (sel) {
-                                _selected.remove(f.id);
-                              } else {
-                                _selected.add(f.id);
-                              }
-                            }),
-                          );
-                        },
-                      ),
+                ? const Center(child: CircularProgressIndicator(color: _teal))
+                : _selected == null
+                    ? _buildMangaList()
+                    : _buildChapterList(),
           ),
-          // Bottom action
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _selected.isEmpty
-                      ? null
-                      : () => Navigator.of(context).pop(_selectedFiles),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _teal,
-                    disabledBackgroundColor: _border,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: const Icon(Icons.send_rounded, size: 18),
-                  label: Text(
-                    _selected.isEmpty
-                        ? 'Sélectionner des fichiers'
-                        : 'Envoyer ${_selected.length} fichier${_selected.length > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15),
+          // Send button (only on Level 2)
+          if (_selected != null)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _pickedChapterIds.isEmpty
+                        ? null
+                        : () => Navigator.of(context).pop(_selectedFiles),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _teal,
+                      disabledBackgroundColor: _border,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: Text(
+                      _pickedChapterIds.isEmpty
+                          ? 'Sélectionner des épisodes'
+                          : 'Envoyer ${_pickedChapterIds.length} épisode${_pickedChapterIds.length > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
+  }
+
+  // ── Level 1 : manga list ──────────────────────
+  Widget _buildMangaList() {
+    if (_entries.isEmpty) {
+      return const _EmptyHint(
+        icon: Icons.download_done_rounded,
+        text:
+            'Aucun contenu téléchargé dans votre bibliothèque.\nTéléchargez des chapitres/épisodes pour les partager.',
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: _entries.length,
+      separatorBuilder: (_, __) => const Divider(color: _border, height: 1),
+      itemBuilder: (_, i) => _MangaEntryTile(
+        entry: _entries[i],
+        onTap: () => setState(() {
+          _selected = _entries[i];
+          _pickedChapterIds.clear();
+        }),
+      ),
+    );
+  }
+
+  // ── Level 2 : chapter list ────────────────────
+  Widget _buildChapterList() {
+    final chapters = _selected!.downloadedChapters;
+    if (chapters.isEmpty) {
+      return const _EmptyHint(
+        icon: Icons.folder_open_outlined,
+        text: 'Aucun chapitre/épisode téléchargé',
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: chapters.length,
+      separatorBuilder: (_, __) => const Divider(color: _border, height: 1),
+      itemBuilder: (_, i) {
+        final ch = chapters[i];
+        final key = ch.id?.toString() ?? '';
+        final sel = _pickedChapterIds.contains(key);
+        final sizeStr = ch.downloadSize != null && ch.downloadSize!.isNotEmpty
+            ? ch.downloadSize!
+            : (ch.archivePath != null
+                ? _fmtSize(File(ch.archivePath!).statSync().size)
+                : '—');
+        return ListTile(
+          tileColor: sel ? _teal.withValues(alpha: 0.08) : null,
+          leading: _TypeIcon(
+            type: _selected!.manga.itemType == ItemType.anime
+                ? TransferItemType.anime
+                : _selected!.manga.itemType == ItemType.novel
+                    ? TransferItemType.novel
+                    : TransferItemType.manga,
+          ),
+          title: Text(ch.name ?? '—',
+              style: const TextStyle(color: _textPrimary, fontSize: 13),
+              overflow: TextOverflow.ellipsis),
+          subtitle: Text(sizeStr,
+              style:
+                  const TextStyle(color: _textSecondary, fontSize: 11)),
+          trailing: Checkbox(
+            value: sel,
+            activeColor: _teal,
+            checkColor: Colors.black,
+            side: const BorderSide(color: _textSecondary),
+            onChanged: (_) => _toggle(key),
+          ),
+          onTap: () => _toggle(key),
+        );
+      },
+    );
+  }
+
+  void _toggle(String key) {
+    if (key.isEmpty) return;
+    setState(() {
+      if (_pickedChapterIds.contains(key)) {
+        _pickedChapterIds.remove(key);
+      } else {
+        _pickedChapterIds.add(key);
+      }
+    });
   }
 
   static String _fmtSize(int bytes) {
@@ -988,6 +1076,106 @@ class _FilePickerSheetState extends State<_FilePickerSheet> {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+}
+
+// Manga/anime entry tile for Level 1
+class _MangaEntryTile extends StatelessWidget {
+  final _LibraryEntry entry;
+  final VoidCallback onTap;
+  const _MangaEntryTile({required this.entry, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final manga = entry.manga;
+    final count = entry.downloadedChapters.length;
+    final typeLabel = switch (manga.itemType) {
+      ItemType.anime => 'Anime',
+      ItemType.novel => 'Roman',
+      ItemType.music => 'Musique',
+      _ => 'Manga',
+    };
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            // Cover
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: 46,
+                height: 62,
+                child: manga.imageUrl != null && manga.imageUrl!.isNotEmpty
+                    ? ExtendedImage.network(
+                        manga.imageUrl!,
+                        fit: BoxFit.cover,
+                        cache: true,
+                        loadStateChanged: (s) {
+                          if (s.extendedImageLoadState ==
+                              LoadState.loading) {
+                            return Container(color: _card);
+                          }
+                          if (s.extendedImageLoadState ==
+                              LoadState.failed) {
+                            return Container(
+                                color: _card,
+                                child: const Icon(Icons.broken_image,
+                                    color: _textDim, size: 20));
+                          }
+                          return null;
+                        },
+                      )
+                    : Container(
+                        color: _card,
+                        child: const Icon(Icons.book_rounded,
+                            color: _textDim, size: 20)),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(manga.name ?? '—',
+                      style: const TextStyle(
+                          color: _textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _teal.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(typeLabel,
+                            style: const TextStyle(
+                                color: _teal, fontSize: 10)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$count épisode${count > 1 ? 's' : ''} téléchargé${count > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                            color: _textSecondary, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: _textDim, size: 20),
+          ],
+        ),
+      ),
+    );
   }
 }
 
