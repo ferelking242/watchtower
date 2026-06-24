@@ -35,7 +35,8 @@ Map<String, String> headers(
       service.dispose();
     }
     if (mSource.sourceCodeLanguage == SourceCodeLanguage.mihon) {
-      headers['user-agent'] = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent!;
+      final ua = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent;
+      if (ua != null && ua.isNotEmpty) headers['user-agent'] = ua;
     }
   }
 
