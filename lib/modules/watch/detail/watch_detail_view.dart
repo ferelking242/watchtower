@@ -504,697 +504,464 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // Fixed bottom sheet — no drag handle, never overlaps player (230 px)
 
   void _showInfoSheet(BuildContext ctx) {
-    final manga = widget.manga;
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      barrierColor: Colors.transparent,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (sheetCtx) {
-        final screen  = MediaQuery.of(ctx).size.height;
-        final statusH = MediaQuery.of(ctx).padding.top;
-        final maxH    = screen - 230 - statusH; // never cover player
+      final manga = widget.manga;
+      showModalBottomSheet(
+        context: ctx,
+        isScrollControlled: true,
+        barrierColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        builder: (sheetCtx) {
+          final screen  = MediaQuery.of(ctx).size.height;
+          final statusH = MediaQuery.of(ctx).padding.top;
+          final maxH    = screen - 230 - statusH;
 
-        return Container(
-          height: maxH,
-          decoration: BoxDecoration(
-            color: _surface,
-          ),
-          child: Column(
-            children: [
-              // ── Header ──
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
-                child: Row(
-                  children: [
-                    Text(
-                      'Plus de détails',
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: Icon(Icons.close, color: _grey, size: 20),
-                      onPressed: () => Navigator.pop(sheetCtx),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 12),
-              // ── Scrollable content ──
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  children: [
-                    // Poster + title + meta
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: cachedNetworkImage(
-                            imageUrl: toImgUrl(
-                                manga.customCoverFromTracker ??
-                                    manga.imageUrl ?? ''),
-                            width: 80,
-                            height: 115,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                manga.name ?? '',
-                                style: TextStyle(
-                                  color: _textPrimary,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              // meta pills: lang, status, source
-                              Wrap(
-                                spacing: 5,
-                                runSpacing: 5,
-                                children: [
-                                  _infoPill(Icons.language,
-                                      (manga.lang ?? '').toUpperCase()),
-                                  _infoPill(
-                                      Icons.circle, _statusLabel(manga.status)),
-                                  if ((manga.source ?? '').isNotEmpty)
-                                    _infoPill(
-                                        Icons.storage_outlined, manga.source!),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-                    // Description
-                    if ((manga.description ?? '').isNotEmpty) ...[
-                      _sheetSectionLabel('Info'),
-                      const SizedBox(height: 8),
-                      StatefulBuilder(
-                        builder: (c, setSt) => GestureDetector(
-                          onTap: () => setSt(
-                              () => _isDescriptionExpanded =
-                                  !_isDescriptionExpanded),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                manga.description ?? '',
-                                maxLines: _isDescriptionExpanded ? null : 4,
-                                overflow: _isDescriptionExpanded
-                                    ? TextOverflow.visible
-                                    : TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    color: _grey,
-                                    fontSize: 13,
-                                    height: 1.55),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _isDescriptionExpanded
-                                    ? 'Voir moins'
-                                    : 'Voir plus',
-                                style:
-                                    TextStyle(color: _accent, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                    // Genres
-                    if ((manga.genre?.isNotEmpty ?? false)) ...[
-                      _sheetSectionLabel('Genres'),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final g in (manga.genre ?? []))
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 13, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _accent.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                    color: _accent.withValues(alpha: 0.30),
-                                    width: 0.8),
-                              ),
-                              child: Text(
-                                g,
-                                style: TextStyle(
-                                    color: _onSurface.withValues(alpha: 0.75),
-                                    fontSize: 12),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+          final desc = (manga.description ?? '').trim();
+          final genres = (manga.genre ?? []);
+          final author = (manga.author ?? '').trim();
+          final artist = (manga.artist ?? '').trim();
+          final lang   = (manga.lang ?? '').toUpperCase();
 
-  Widget _infoPill(IconData icon, String label) {
-    if (label.trim().isEmpty) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: _grey),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: _grey, fontSize: 11)),
-        ],
-      ),
-    );
-  }
-
-  Widget _sheetSectionLabel(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-          color: _textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w700),
-    );
-  }
-
-  String _statusLabel(dynamic status) {
-    switch (status?.toString()) {
-      case '0': return 'En cours';
-      case '1': return 'Terminé';
-      case '2': return 'Licencié';
-      case '3': return 'Annulé';
-      case '4': return 'En pause';
-      default:  return 'Inconnu';
-    }
-  }
-
-  // ─── ACTION BUTTONS ─────────────────────────────────────────────────────────
-
-  Widget _buildActionButtons(List<Chapter> chapters) {
-    final isFav = widget.manga.favorite ?? false;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _chip(
-            icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
-            label: isFav ? 'Dans la library' : 'Ajouter à la library',
-            onTap: _toggleFavorite,
-            active: isFav,
-          ),
-          const SizedBox(width: 8),
-          _chip(
-              icon: Icons.drive_file_move_outlined,
-              label: 'Migrer',
-              onTap: () => context.pushNamed('migrate', extra: widget.manga)),
-          const SizedBox(width: 8),
-          _chip(
-              icon: Icons.share_outlined,
-              label: 'Partager',
-              onTap: () => _share(context)),
-          const SizedBox(width: 8),
-          _chip(
-              icon: Icons.download_outlined,
-              label: 'Télécharger',
-              onTap: () => _showDownloadSheet(context, chapters)),
-          const SizedBox(width: 8),
-          _chip(
-              icon: Icons.language_outlined,
-              label: 'WebView',
-              onTap: _openInBrowser),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool active = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? _accent.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-              color: active ? _accent : _faint.withValues(alpha: 0.45),
-              width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 17,
-                color: active ? _accent : _onSurface.withValues(alpha: 0.55)),
-            const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    color:
-                        active ? _accent : _onSurface.withValues(alpha: 0.55),
-                    fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── MOVIE / SERIES DETECTION ───────────────────────────────────────────────
-
-  bool _isMovie(List<Chapter> chapters) {
-    if (widget.isLoading) return false;
-    if (chapters.isEmpty) return false;
-    // 1 episode → movie/single; 2+ → series
-    return chapters.length == 1;
-  }
-
-  List<String> _detectSeasons(List<Chapter> chapters) {
-    final seasonRegex = RegExp(
-        r'(?:Saison|Season|Partie|Part)\s*(\d+)|S(\d{1,2})(?:E\d+)?',
-        caseSensitive: false);
-    final seen = <String>{};
-    for (final ch in chapters) {
-      final m = seasonRegex.firstMatch(ch.name ?? '');
-      if (m != null) {
-        final num = m.group(1) ?? m.group(2) ?? '1';
-        seen.add('Saison $num');
-      }
-    }
-    if (seen.isEmpty) return [];
-    return seen.toList()
-      ..sort((a, b) {
-        final na =
-            int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
-        final nb =
-            int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
-        return na.compareTo(nb);
-      });
-  }
-
-  List<String> _detectLanguages(List<Chapter> chapters) {
-    final langRx = RegExp(
-        r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA)\b',
-        caseSensitive: false);
-    final seen = <String>{};
-    for (final ch in chapters) {
-      for (final m
-          in langRx.allMatches('${ch.scanlator ?? ''} ${ch.name ?? ''}')) {
-        seen.add(m.group(0)!.toUpperCase());
-      }
-    }
-    return seen.toList();
-  }
-
-  List<Chapter> _filterChapters(List<Chapter> all) {
-    List<Chapter> result = all;
-    final season = _selectedSeason;
-    if (season != null) {
-      final num = RegExp(r'\d+').firstMatch(season)?.group(0) ?? '';
-      final rx = RegExp(
-          r'(?:Saison|Season|Partie|Part)\s*' +
-              num +
-              r'|S' +
-              num.padLeft(2, '0'),
-          caseSensitive: false);
-      final filtered =
-          result.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
-      if (filtered.isNotEmpty) result = filtered;
-    }
-    final lang = _selectedLanguage;
-    if (lang != null) {
-      final filtered = result
-          .where((ch) =>
-              (ch.scanlator ?? '').toUpperCase().contains(lang) ||
-              (ch.name ?? '').toUpperCase().contains(lang))
-          .toList();
-      if (filtered.isNotEmpty) result = filtered;
-    }
-    return result;
-  }
-
-  // ─── RESSOURCES SECTION ─────────────────────────────────────────────────────
-
-  Widget _buildRessourcesSection(List<Chapter> chapters) {
-    final isMovie  = _isMovie(chapters);
-    final seasons  = isMovie ? <String>[] : _detectSeasons(chapters);
-    // Auto-select first season when user hasn't picked one yet
-    if (!isMovie && seasons.isNotEmpty && _selectedSeason == null) {
-      _selectedSeason = seasons.first;
-    }
-    final languages = _detectLanguages(chapters);
-    final filtered  = _filterChapters(chapters);
-
-    final source = getSource(
-        widget.manga.lang ?? '',
-        widget.manga.source ?? '',
-        widget.manga.sourceId);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Header: [icon] Ressources ······ [ext_icon] [ext_name] [⋮] ─────────
-        Row(
-          children: [
-            Icon(Icons.video_library_outlined,
-                size: 16, color: _textPrimary),
-            const SizedBox(width: 6),
-            Text(
-              'Ressources',
-              style: TextStyle(
-                  color: _textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600),
-            ),
-            const Spacer(),
-            if (source != null) ...[
-              // Extension icon (extreme right, before options btn)
-              if ((source.iconUrl ?? '').isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: cachedNetworkImage(
-                    imageUrl: source.iconUrl!,
-                    width: 16,
-                    height: 16,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              const SizedBox(width: 4),
-              Text(
-                source.name ?? '',
-                style: TextStyle(
-                    color: _grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(width: 8),
-            ],
-            GestureDetector(
-              onTap: () => _showOptionsSheet(context, chapters),
-              child: Icon(Icons.more_vert_rounded, size: 20, color: _grey),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // ── 2 boxes : Saison (série) · Langue ────────────────────────────
-        // Note: no background video-list fetch here — avoids Cloudflare triggers
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              if (!isMovie) ...[
-                _buildDropdownPill(
-                  label: seasons.isNotEmpty
-                      ? (_selectedSeason ?? seasons.first)
-                      : 'Saison 1',
-                  items: seasons.isNotEmpty ? seasons : ['Saison 1'],
-                  onSelect: (v) => setState(() => _selectedSeason = v),
-                ),
-                if (languages.isNotEmpty) const SizedBox(width: 8),
-              ],
-              if (languages.isNotEmpty)
-                _buildDropdownPill(
-                  label: _selectedLanguage ?? languages.first,
-                  items: languages,
-                  onSelect: (v) => setState(() => _selectedLanguage = v),
-                ),
-              if (_player.loadedVideos.length > 1) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _showQualityBottomSheet,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _faint, width: 0.8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _player.selectedQuality ?? 'Qualite',
-                          style: TextStyle(
-                              color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // ── Content ───────────────────────────────────────────────────────────
-        if (chapters.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+          return Container(
+            height: maxH,
+            decoration: BoxDecoration(color: _surface),
             child: Column(
               children: [
-                Icon(Icons.video_library_outlined, color: _grey, size: 40),
-                const SizedBox(height: 8),
-                Text('Aucun épisode disponible',
-                    style: TextStyle(color: _grey)),
-              ],
-            ),
-          )
-        else if (isMovie)
-          _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
-        else
-          _buildEpisodeList(
-            _sortedEpisodes(filtered),
-            _sortedEpisodes(chapters),
-          ),
-      ],
-    );
-  }
-
-  // ── Dropdown pill (MovieBox style: "French dub ▼") ───────────────────────────
-  Widget _buildDropdownPill({
-    required String label,
-    required List<String> items,
-    required void Function(String) onSelect,
-  }) {
-    return GestureDetector(
-      onTap: () => _showDropdownSheet(items, onSelect),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: _faint, width: 0.8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                  color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
-            ),
-            const SizedBox(width: 6),
-            Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showQualityBottomSheet() {
-      if (_player.loadedVideos.isEmpty) return;
-      showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.transparent,
-        builder: (ctx) {
-          return Container(
-            decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(top: BorderSide(color: _faint, width: 0.8)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36, height: 4,
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _faint,
-                        borderRadius: BorderRadius.circular(2),
+                // ── Close button only (no title, no handle) ──────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+                  child: Row(
+                    children: [
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(sheetCtx),
+                        child: Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(
+                              color: _card, shape: BoxShape.circle),
+                          child: Icon(Icons.close, size: 16, color: _grey),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Text('Qualite',
-                        style: TextStyle(
-                            color: _textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                  StatefulBuilder(
-                    builder: (_, setSt) => Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (final v in _player.loadedVideos)
-                          GestureDetector(
-                            onTap: () {
-                              _player.switchQuality(v).then((_) {
-                                if (mounted) setState(() {});
-                              });
-                              setState(() {});
-                              Navigator.pop(ctx);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                gradient: _player.selectedQuality == v.quality
-                                    ? LinearGradient(
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                        colors: [
-                                          _accent.withValues(alpha: 0.30),
-                                          _accent.withValues(alpha: 0.10),
-                                        ],
-                                      )
-                                    : null,
-                                color: _player.selectedQuality == v.quality ? null : _card,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _player.selectedQuality == v.quality
-                                      ? _accent.withValues(alpha: 0.55)
-                                      : Colors.transparent,
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                v.quality,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _player.selectedQuality == v.quality
-                                      ? _accent
-                                      : _textPrimary,
-                                  fontSize: 14,
-                                  fontWeight: _player.selectedQuality == v.quality
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                ),
-                              ),
+                ),
+                // ── Scrollable IMDB-style content ─────────────────────────────
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                    children: [
+                      // ── Hero: cover + title + badges ─────────────────────
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Poster
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: cachedNetworkImage(
+                              imageUrl: toImgUrl(
+                                  manga.customCoverFromTracker ??
+                                      manga.imageUrl ?? ''),
+                              width: 96,
+                              height: 140,
+                              fit: BoxFit.cover,
                             ),
                           ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Title
+                                Text(
+                                  manga.name ?? '',
+                                  style: TextStyle(
+                                    color: _textPrimary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                // Status badge
+                                if ((manga.status?.toString() ?? '').isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _accent.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                          color: _accent.withValues(alpha: 0.35),
+                                          width: 0.7),
+                                    ),
+                                    child: Text(
+                                      _statusLabel(manga.status),
+                                      style: TextStyle(
+                                          color: _accent,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                const SizedBox(height: 8),
+                                // Language + source pills
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    if (lang.isNotEmpty)
+                                      _infoPill(Icons.language, lang),
+                                    if ((manga.source ?? '').isNotEmpty)
+                                      _infoPill(Icons.storage_outlined,
+                                          manga.source!),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // ── Synopsis ─────────────────────────────────────────
+                      if (desc.isNotEmpty) ...[
+                        _sheetSectionLabel('Synopsis'),
+                        const SizedBox(height: 8),
+                        StatefulBuilder(
+                          builder: (c, setSt) => GestureDetector(
+                            onTap: () => setSt(() =>
+                                _isDescriptionExpanded =
+                                    !_isDescriptionExpanded),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  desc,
+                                  maxLines:
+                                      _isDescriptionExpanded ? null : 5,
+                                  overflow: _isDescriptionExpanded
+                                      ? TextOverflow.visible
+                                      : TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: _grey,
+                                      fontSize: 13,
+                                      height: 1.6),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _isDescriptionExpanded
+                                      ? 'Voir moins'
+                                      : 'Voir plus',
+                                  style: TextStyle(
+                                      color: _accent, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
                       ],
-                    ),
+
+                      // ── Genres ───────────────────────────────────────────
+                      if (genres.isNotEmpty) ...[
+                        _sheetSectionLabel('Genres'),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final g in genres)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _card,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: _faint, width: 0.7),
+                                ),
+                                child: Text(g,
+                                    style: TextStyle(
+                                        color: _textPrimary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500)),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                      ],
+
+                      // ── Cast / Crew ───────────────────────────────────────
+                      if (author.isNotEmpty || artist.isNotEmpty) ...[
+                        _sheetSectionLabel('Equipe'),
+                        const SizedBox(height: 12),
+                        if (author.isNotEmpty)
+                          _castRow(Icons.movie_creation_outlined,
+                              'Realisateur', author),
+                        if (author.isNotEmpty && artist.isNotEmpty)
+                          const SizedBox(height: 10),
+                        if (artist.isNotEmpty)
+                          _castRow(Icons.brush_outlined, 'Artiste', artist),
+                        const SizedBox(height: 22),
+                      ],
+
+                      // ── Info table ───────────────────────────────────────
+                      _sheetSectionLabel('Details'),
+                      const SizedBox(height: 12),
+                      _infoRow('Langue', lang.isNotEmpty ? lang : '—'),
+                      _infoRow('Statut', _statusLabel(manga.status)),
+                      if ((manga.source ?? '').isNotEmpty)
+                        _infoRow('Source', manga.source!),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
       );
     }
 
-    void _showDropdownSheet(List<String> items, void Function(String) onSelect) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          decoration: BoxDecoration(
-            color: _surface,
+    Widget _castRow(IconData icon, String role, String name) {
+      return Row(
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(icon, size: 18, color: _accent),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36, height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _faint,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ...items.map((item) {
-                final isSel = item == _selectedLanguage || item == _selectedSeason;
-                return InkWell(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onSelect(item);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 15),
-                    child: Row(
-                      children: [
-                        Text(
-                          item,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                Text(role,
+                    style: TextStyle(color: _grey, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget _infoRow(String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          children: [
+            Text(label,
+                style: TextStyle(
+                    color: _grey, fontSize: 13, fontWeight: FontWeight.w500)),
+            const Spacer(),
+            Text(value,
+                style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
+    }
+
+    void _showQualityBottomSheet() {
+      if (_player.loadedVideos.isEmpty) return;
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        builder: (ctx) {
+          final screen  = MediaQuery.of(context).size.height;
+          final statusH = MediaQuery.of(context).padding.top;
+          final maxH    = screen - 230 - statusH;
+          return Container(
+            height: maxH,
+            decoration: BoxDecoration(color: _surface),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                  child: Row(
+                    children: [
+                      Text('Qualite',
                           style: TextStyle(
-                            color: isSel ? _accent : _textPrimary,
-                            fontSize: 15,
-                            fontWeight: isSel
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                              color: _textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                              color: _card, shape: BoxShape.circle),
+                          child: Icon(Icons.close, size: 16, color: _grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: _faint),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children: [
+                      for (final v in _player.loadedVideos)
+                        GestureDetector(
+                          onTap: () {
+                            _player.switchQuality(v).then((_) {
+                              if (mounted) setState(() {});
+                            });
+                            setState(() {});
+                            Navigator.pop(ctx);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: _player.selectedQuality == v.quality
+                                  ? LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        _accent.withValues(alpha: 0.30),
+                                        _accent.withValues(alpha: 0.10),
+                                      ],
+                                    )
+                                  : null,
+                              color: _player.selectedQuality == v.quality
+                                  ? null
+                                  : _card,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _player.selectedQuality == v.quality
+                                    ? _accent.withValues(alpha: 0.55)
+                                    : Colors.transparent,
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              v.quality,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _player.selectedQuality == v.quality
+                                    ? _accent
+                                    : _textPrimary,
+                                fontSize: 14,
+                                fontWeight:
+                                    _player.selectedQuality == v.quality
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                              ),
+                            ),
                           ),
                         ),
-                        const Spacer(),
-                        if (isSel)
-                          Icon(Icons.check_rounded, color: _accent, size: 18),
-                      ],
-                    ),
+                    ],
                   ),
-                );
-              }),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    void _showDropdownSheet(
+        String label, List<String> items, void Function(String) onSelect) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        barrierColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        builder: (ctx) {
+          final screen  = MediaQuery.of(context).size.height;
+          final statusH = MediaQuery.of(context).padding.top;
+          final maxH    = screen - 230 - statusH;
+          return Container(
+            height: maxH,
+            decoration: BoxDecoration(color: _surface),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                  child: Row(
+                    children: [
+                      Text(label,
+                          style: TextStyle(
+                              color: _textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                              color: _card, shape: BoxShape.circle),
+                          child: Icon(Icons.close, size: 16, color: _grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: _faint),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: items.map((item) {
+                      final isSel =
+                          item == _selectedLanguage || item == _selectedSeason;
+                      return InkWell(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          onSelect(item);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 16),
+                          child: Row(
+                            children: [
+                              Text(
+                                item,
+                                style: TextStyle(
+                                  color: isSel ? _accent : _textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: isSel
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                              const Spacer(),
+                              if (isSel)
+                                Icon(Icons.check_rounded,
+                                    color: _accent, size: 18),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
 
   // _buildSelectorRow replaced by _buildDropdownPill + _showDropdownSheet above
 
@@ -1276,11 +1043,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             GestureDetector(
               onTap: () => _showAllEpisodesSheet(context, allChapters),
               child: Container(
-                width: 62, height: 62,
+                width: 48, height: 48,
                 margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
                   color: _card,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: _faint, width: 0.6),
                 ),
                 child: Center(
@@ -1301,10 +1068,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               GestureDetector(
                 onTap: () => _showAllEpisodesSheet(context, allChapters),
                 child: Container(
-                  width: 62, height: 62,
+                  width: 48, height: 48,
                   decoration: BoxDecoration(
                     color: _card,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Center(
                     child: Text('+$remaining',
@@ -1327,7 +1094,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         onTap: () => _loadEpisodeInBanner(chapter),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 62, height: 62,
+          width: 48, height: 48,
           decoration: BoxDecoration(
             gradient: isPlaying
                 ? LinearGradient(
@@ -1340,7 +1107,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   )
                 : null,
             color: isPlaying ? null : _card,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             border: isPlaying
                 ? Border.all(color: _accent.withValues(alpha: 0.55), width: 0.8)
                 : null,
@@ -1785,7 +1552,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 itemCount: galleryUrls.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (_, i) => ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   child: cachedNetworkImage(
                     imageUrl: toImgUrl(galleryUrls[i]),
                     width: 230,
@@ -2810,7 +2577,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                 height: 34,
                 decoration: BoxDecoration(
                   color: _accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(Icons.download_rounded, color: _accent, size: 18),
               ),
@@ -3268,7 +3035,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: sel ? _accent.withValues(alpha: 0.10) : _card,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: sel ? _accent.withValues(alpha: 0.55) : Colors.transparent,
             width: 0.9,
