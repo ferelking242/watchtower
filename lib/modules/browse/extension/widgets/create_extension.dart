@@ -32,7 +32,6 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
   static const _langOptions = [
     (lang: SourceCodeLanguage.dart,       label: 'Dart',          subtitle: 'Native · Recommandé', emoji: '🎯', color: Color(0xFF54C5F8)),
     (lang: SourceCodeLanguage.javascript, label: 'JavaScript',    subtitle: 'JS universel',         emoji: '𝐉𝐒', color: Color(0xFFF7DF1E)),
-    (lang: SourceCodeLanguage.lnreader,   label: 'LNReader JS',   subtitle: 'Compiled JS',          emoji: '📖', color: Color(0xFFFF7043)),
   ];
 
   static const _commonFlags = {

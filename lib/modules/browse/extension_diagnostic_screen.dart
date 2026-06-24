@@ -819,8 +819,6 @@ class _FilterPanel extends StatelessWidget {
                   onTap: () => onType(filterType == SourceCodeLanguage.javascript ? null : SourceCodeLanguage.javascript)),
               _MiniChip(label: 'Mihon', selected: filterType == SourceCodeLanguage.mihon, cs: cs,
                   onTap: () => onType(filterType == SourceCodeLanguage.mihon ? null : SourceCodeLanguage.mihon)),
-              _MiniChip(label: 'LNReader', selected: filterType == SourceCodeLanguage.lnreader, cs: cs,
-                  onTap: () => onType(filterType == SourceCodeLanguage.lnreader ? null : SourceCodeLanguage.lnreader)),
             ],
           ),
           const SizedBox(height: 8),

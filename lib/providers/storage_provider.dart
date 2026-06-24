@@ -428,7 +428,7 @@ class StorageProvider {
               changed = true;
             }
           }
-          // C — LNReader: broken v2/index.json → remove (dead URL)
+          // C — dead URL guard (reserved)
         if (r.jsonUrl?.contains('LNReader/lnreader-sources') == true) {
           r.jsonUrl = null; // will be filtered below
           changed = true;

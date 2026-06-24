@@ -243,9 +243,9 @@ Future<void> fetchSourcesList({
             ..lang = _convertLang(e)
             ..baseUrl = e['site']
             ..sourceCodeUrl = e['url']
-            ..sourceCodeLanguage = SourceCodeLanguage.lnreader
+            ..sourceCodeLanguage = SourceCodeLanguage.javascript
             ..itemType = ItemType.novel
-            ..notes = "Performance might be poor due to limited engine";
+            ..notes = "";
           src.id = 'lnreader-plugin-"${src.name}"."${src.lang}"'.hashCode;
           yield src;
         } else {

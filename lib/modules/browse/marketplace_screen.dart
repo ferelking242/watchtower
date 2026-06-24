@@ -115,22 +115,9 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'isNsfw': (e['nsfw'] as int? ?? 0) == 1,
         'repoUrl': url,
       });
-    } else if (e['id'] is String && e['site'] != null && e['url'] != null) {
-      final lang = _mktConvertLang(e);
-      results.add({
-        'id': 'lnreader-plugin-"${e['name']}"."$lang"'.hashCode,
-        'name': (e['name'] ?? '?') as String,
-        'iconUrl': e['iconUrl'] as String?,
-        'lang': lang,
-        'version': e['version']?.toString() ?? '?',
-        'contentType': 2,
-        'compat': 3,
-        'isNsfw': false,
-        'repoUrl': url,
-      });
     } else if (e['id'] != null && e['name'] != null) {
       final itemTypeIdx = (e['itemType'] as int? ?? 0).clamp(0, 4);
-      final compatIdx = (e['sourceCodeLanguage'] as int? ?? 1).clamp(0, 3);
+      final compatIdx = (e['sourceCodeLanguage'] as int? ?? 1).clamp(0, 2);
       results.add({
         'id': (e['id'] as num).toInt(),
         'name': (e['name'] ?? '?') as String,
@@ -710,14 +697,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   static String _compatLabel(SourceCodeLanguage c) => switch (c) {
     SourceCodeLanguage.mihon => 'APK',
-    SourceCodeLanguage.lnreader => 'Plugin',
     SourceCodeLanguage.javascript => 'JS',
     SourceCodeLanguage.dart => 'Dart',
   };
 
   static Color _compatColor(SourceCodeLanguage c, ColorScheme cs) => switch (c) {
     SourceCodeLanguage.mihon => const Color(0xFF2196F3),
-    SourceCodeLanguage.lnreader => const Color(0xFF4CAF50),
     SourceCodeLanguage.javascript => const Color(0xFFF5A623),
     SourceCodeLanguage.dart => const Color(0xFF00B4D8),
   };

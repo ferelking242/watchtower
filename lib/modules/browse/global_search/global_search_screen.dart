@@ -257,8 +257,6 @@ class _FilterRow extends StatelessWidget {
         return 'Dart';
       case SourceCodeLanguage.mihon:
         return 'Mihon';
-      case SourceCodeLanguage.lnreader:
-        return 'LN Reader';
     }
   }
 
