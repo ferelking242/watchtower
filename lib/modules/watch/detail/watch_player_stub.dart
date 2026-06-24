@@ -7,12 +7,15 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/chapter.dart';
+  import 'package:watchtower/models/video.dart';
 
 class WatchInlinePlayer {
   bool hasVideoUrl = false;
   bool loadFailed = false;
   int? loadedChapterId;
   String title = '';
+  List<Video> loadedVideos = [];
+  String? selectedQuality;
 
   String? _videoUrl;
   String? _viewType;
@@ -21,6 +24,11 @@ class WatchInlinePlayer {
   void dispose() {
     _videoUrl = null;
     _viewType = null;
+  }
+
+  /// No-op on web — quality switching is not supported in the HTML5 stub.
+  Future<void> switchQuality(Video targetVideo) async {
+    selectedQuality = targetVideo.quality;
   }
 
   void reset() {
