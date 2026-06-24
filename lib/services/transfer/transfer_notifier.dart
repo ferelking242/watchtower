@@ -8,6 +8,10 @@ import 'transfer_models.dart';
 import 'transfer_sender.dart';
 import 'transfer_server.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+
 class TransferState {
   final TransferMode mode;
   final List<PeerDevice> peers;
@@ -47,10 +51,11 @@ class TransferState {
       );
 }
 
-class TransferNotifier extends StateNotifier<TransferState> {
-  final String fingerprint;
-  final String deviceName;
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifier
+// ─────────────────────────────────────────────────────────────────────────────
 
+class TransferNotifier extends Notifier<TransferState> {
   TransferDiscovery? _discovery;
   TransferServer? _server;
   TransferSender? _sender;
@@ -58,91 +63,120 @@ class TransferNotifier extends StateNotifier<TransferState> {
   StreamSubscription<List<PeerDevice>>? _peersSub;
   StreamSubscription<IncomingOffer>? _offerSub;
 
-  TransferNotifier({required this.fingerprint, required this.deviceName})
-      : super(const TransferState());
+  bool _disposed = false;
+
+  late final String _fingerprint;
+  late final String _deviceName;
+
+  @override
+  TransferState build() {
+    _fingerprint = _genId();
+    _deviceName = _resolveDeviceName();
+
+    ref.onDispose(() {
+      _disposed = true;
+      _stopInternals();
+    });
+
+    return const TransferState();
+  }
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  static String _genId() =>
+      List.generate(16, (_) => Random().nextInt(16).toRadixString(16)).join();
+
+  static String _resolveDeviceName() {
+    if (kIsWeb) return 'Watchtower';
+    try {
+      return Platform.localHostname;
+    } catch (_) {
+      return 'Watchtower';
+    }
+  }
+
+  void _safeSet(TransferState Function(TransferState) updater) {
+    if (_disposed) return;
+    state = updater(state);
+  }
+
+  // ── public API ────────────────────────────────────────────────────────────
 
   Future<void> startReceiving() async {
     if (state.mode == TransferMode.receiving) return;
     await _stopInternals();
+    if (_disposed) return;
 
     _server = TransferServer(
-      deviceName: deviceName,
-      fingerprint: fingerprint,
+      deviceName: _deviceName,
+      fingerprint: _fingerprint,
       onProgress: _onProgress,
       onFileDone: _onFileDone,
     );
     final port = await _server!.start();
 
     _offerSub = _server!.offerStream.listen((incoming) {
-      if (!mounted) return;
-      state = state.copyWith(
-        pendingOffers: [...state.pendingOffers, incoming],
-      );
+      _safeSet((s) => s.copyWith(
+            pendingOffers: [...s.pendingOffers, incoming],
+          ));
     });
 
     _discovery = TransferDiscovery(
-      fingerprint: fingerprint,
-      deviceName: deviceName,
+      fingerprint: _fingerprint,
+      deviceName: _deviceName,
       httpPort: port,
     );
     final localIp = await _discovery!.getLocalIp();
     await _discovery!.start();
 
     _peersSub = _discovery!.peersStream.listen((peers) {
-      if (!mounted) return;
-      state = state.copyWith(peers: peers);
+      _safeSet((s) => s.copyWith(peers: peers));
     });
 
-    if (mounted) {
-      state = state.copyWith(
-        mode: TransferMode.receiving,
-        serverPort: port,
-        localIp: localIp,
-        error: null,
-      );
-    }
+    _safeSet((_) => TransferState(
+          mode: TransferMode.receiving,
+          serverPort: port,
+          localIp: localIp,
+        ));
   }
 
   Future<void> startSending() async {
     if (state.mode == TransferMode.sending) return;
     if (state.mode == TransferMode.receiving) {
-      state = state.copyWith(mode: TransferMode.sending);
+      _safeSet((s) => s.copyWith(mode: TransferMode.sending));
       return;
     }
     await _stopInternals();
+    if (_disposed) return;
 
     _discovery = TransferDiscovery(
-      fingerprint: fingerprint,
-      deviceName: deviceName,
+      fingerprint: _fingerprint,
+      deviceName: _deviceName,
       httpPort: 0,
     );
     final localIp = await _discovery!.getLocalIp();
     await _discovery!.start();
 
     _peersSub = _discovery!.peersStream.listen((peers) {
-      if (!mounted) return;
-      state = state.copyWith(peers: peers);
+      _safeSet((s) => s.copyWith(peers: peers));
     });
 
     _sender = TransferSender(
-      fingerprint: fingerprint,
-      deviceName: deviceName,
+      fingerprint: _fingerprint,
+      deviceName: _deviceName,
       onProgress: _onProgress,
     );
 
-    if (mounted) {
-      state = state.copyWith(
-        mode: TransferMode.sending,
-        localIp: localIp,
-        error: null,
-      );
-    }
+    _safeSet((_) => TransferState(
+          mode: TransferMode.sending,
+          localIp: localIp,
+        ));
   }
 
   Future<void> sendFiles(PeerDevice peer, List<TransferFile> files) async {
     _sender ??= TransferSender(
-      fingerprint: fingerprint,
-      deviceName: deviceName,
+      fingerprint: _fingerprint,
+      deviceName: _deviceName,
       onProgress: _onProgress,
     );
 
@@ -154,8 +188,7 @@ class TransferNotifier extends StateNotifier<TransferState> {
       isSender: true,
     );
 
-    if (!mounted) return;
-    state = state.copyWith(sessions: [...state.sessions, session]);
+    _safeSet((s) => s.copyWith(sessions: [...s.sessions, session]));
 
     final result = await _sender!.sendOffer(
       peer: peer,
@@ -163,14 +196,14 @@ class TransferNotifier extends StateNotifier<TransferState> {
       sessionId: sessionId,
     );
 
-    if (!mounted) return;
+    if (_disposed) return;
 
     if (!result.accepted) {
-      _setSessionStatus(sessionId, TransferStatus.rejected);
+      _setStatus(sessionId, TransferStatus.rejected);
       return;
     }
 
-    _setSessionStatus(sessionId, TransferStatus.inProgress);
+    _setStatus(sessionId, TransferStatus.inProgress);
 
     final ok = await _sender!.sendAll(
       peer: peer,
@@ -178,8 +211,8 @@ class TransferNotifier extends StateNotifier<TransferState> {
       files: files,
     );
 
-    if (!mounted) return;
-    _setSessionStatus(
+    if (_disposed) return;
+    _setStatus(
       sessionId,
       ok ? TransferStatus.done : TransferStatus.failed,
       done: ok,
@@ -195,57 +228,53 @@ class TransferNotifier extends StateNotifier<TransferState> {
       isSender: false,
       status: TransferStatus.inProgress,
     );
-    if (!mounted) return;
-    state = state.copyWith(
-      pendingOffers:
-          state.pendingOffers.where((o) => o != incoming).toList(),
-      sessions: [...state.sessions, session],
-    );
+    _safeSet((s) => s.copyWith(
+          pendingOffers: s.pendingOffers.where((o) => o != incoming).toList(),
+          sessions: [...s.sessions, session],
+        ));
   }
 
   void rejectOffer(IncomingOffer incoming) {
     incoming.response.complete(false);
-    if (!mounted) return;
-    state = state.copyWith(
-      pendingOffers:
-          state.pendingOffers.where((o) => o != incoming).toList(),
-    );
+    _safeSet((s) => s.copyWith(
+          pendingOffers: s.pendingOffers.where((o) => o != incoming).toList(),
+        ));
   }
 
   Future<void> stopAll() async {
     await _stopInternals();
-    if (mounted) state = const TransferState();
+    _safeSet((_) => const TransferState());
   }
 
+  // ── callbacks ──────────────────────────────────────────────────────────────
+
   void _onProgress(double progress, String sessionId, String fileId) {
-    if (!mounted) return;
+    if (_disposed) return;
     final sessions = state.sessions.map((s) {
       if (s.id != sessionId) return s;
       s.fileProgress[fileId] = progress;
       return s;
     }).toList();
-    state = state.copyWith(sessions: sessions);
+    _safeSet((s) => s.copyWith(sessions: sessions));
   }
 
   void _onFileDone(String sessionId, String fileId) {
-    if (!mounted) return;
+    if (_disposed) return;
     final sessions = state.sessions.map((s) {
       if (s.id != sessionId) return s;
       s.fileProgress[fileId] = 1.0;
-      final allDone = s.files.every((f) => (s.fileProgress[f.id] ?? 0) >= 1.0);
+      final allDone =
+          s.files.every((f) => (s.fileProgress[f.id] ?? 0) >= 1.0);
       if (allDone) {
-        return s.copyWith(status: TransferStatus.done, completedAt: DateTime.now());
+        return s.copyWith(
+            status: TransferStatus.done, completedAt: DateTime.now());
       }
       return s;
     }).toList();
-    state = state.copyWith(sessions: sessions);
+    _safeSet((s) => s.copyWith(sessions: sessions));
   }
 
-  void _setSessionStatus(
-    String id,
-    TransferStatus status, {
-    bool done = false,
-  }) {
+  void _setStatus(String id, TransferStatus status, {bool done = false}) {
     final sessions = state.sessions.map((s) {
       if (s.id != id) return s;
       return s.copyWith(
@@ -253,7 +282,7 @@ class TransferNotifier extends StateNotifier<TransferState> {
         completedAt: done ? DateTime.now() : null,
       );
     }).toList();
-    if (mounted) state = state.copyWith(sessions: sessions);
+    _safeSet((s) => s.copyWith(sessions: sessions));
   }
 
   Future<void> _stopInternals() async {
@@ -269,27 +298,11 @@ class TransferNotifier extends StateNotifier<TransferState> {
     _server = null;
     _sender = null;
   }
-
-  static String _genId() =>
-      List.generate(16, (_) => Random().nextInt(16).toRadixString(16)).join();
-
-  @override
-  void dispose() {
-    _stopInternals();
-    super.dispose();
-  }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider
+// ─────────────────────────────────────────────────────────────────────────────
+
 final transferProvider =
-    StateNotifierProvider<TransferNotifier, TransferState>((ref) {
-  final rng = Random();
-  final fp =
-      List.generate(16, (_) => rng.nextInt(16).toRadixString(16)).join();
-  String name = 'Watchtower';
-  if (!kIsWeb) {
-    try {
-      name = Platform.localHostname;
-    } catch (_) {}
-  }
-  return TransferNotifier(fingerprint: fp, deviceName: name);
-});
+    NotifierProvider<TransferNotifier, TransferState>(TransferNotifier.new);
