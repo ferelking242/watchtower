@@ -163,8 +163,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     bool granted = false;
     try {
       if (!kIsWeb && Platform.isAndroid) {
-        final result = await Permission.manageExternalStorage.request();
-        granted = result.isGranted;
+        final status = await Permission.manageExternalStorage.status;
+        if (status.isPermanentlyDenied) {
+          // User tapped "Ne plus demander" — send them to system settings.
+          await openAppSettings();
+          final updated = await Permission.manageExternalStorage.status;
+          granted = updated.isGranted;
+        } else {
+          final result = await Permission.manageExternalStorage.request();
+          granted = result.isGranted;
+        }
       } else {
         granted = await StorageProvider().requestPermission();
       }
@@ -184,8 +192,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       if (kIsWeb) {
         granted = true;
       } else {
-        final result = await Permission.notification.request();
-        granted = result.isGranted;
+        final status = await Permission.notification.status;
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+          final updated = await Permission.notification.status;
+          granted = updated.isGranted;
+        } else {
+          final result = await Permission.notification.request();
+          granted = result.isGranted;
+        }
       }
     } catch (_) {
       granted = kIsWeb;
@@ -204,9 +219,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     try {
       if (kIsWeb) {
         granted = true;
+      } else if (!kIsWeb && Platform.isAndroid) {
+        final status = await Permission.requestInstallPackages.status;
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+          final updated = await Permission.requestInstallPackages.status;
+          granted = updated.isGranted;
+        } else {
+          final result = await Permission.requestInstallPackages.request();
+          granted = result.isGranted;
+        }
       } else {
-        final result = await Permission.requestInstallPackages.request();
-        granted = result.isGranted;
+        granted = true;
       }
     } catch (_) {
       granted = kIsWeb;
@@ -369,9 +393,9 @@ class _ShowcasePageState extends State<_ShowcasePage>
         Positioned.fill(
           child: Row(
             children: [
-              _Lane(animation: _ctrl, items: _animeItems, goUp: true, width: lw),
-              _Lane(animation: _ctrl, items: _mangaItems, goUp: false, width: lw),
-              _Lane(animation: _ctrl, items: _showItems, goUp: true, width: lw),
+              RepaintBoundary(child: _Lane(animation: _ctrl, items: _animeItems, goUp: true, width: lw)),
+              RepaintBoundary(child: _Lane(animation: _ctrl, items: _mangaItems, goUp: false, width: lw)),
+              RepaintBoundary(child: _Lane(animation: _ctrl, items: _showItems, goUp: true, width: lw)),
             ],
           ),
         ),
@@ -495,7 +519,7 @@ class _SloganPageState extends State<_SloganPage>
         .ceil()
         .toDouble();
     const laneW = 130.0;
-    const laneCount = 7;
+    const laneCount = 5;
 
     return Stack(
       children: [
@@ -862,7 +886,8 @@ class _PermissionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIOS = !kIsWeb && Platform.isIOS;
-    final all = storageGranted && notifGranted && installGranted;
+    // install est maintenant optionnel — ne bloque plus le bouton principal
+    final all = storageGranted && notifGranted;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -911,20 +936,7 @@ class _PermissionsPage extends StatelessWidget {
               onTap: onNotif,
             ),
 
-            // ── Android-only: Install packages ───────────────────────────
-            if (!isIOS) ...[
-              const SizedBox(height: 18),
-              _PermRow(
-                icon: Icons.system_update_alt_rounded,
-                title: "Installation d'apps",
-                subtitle: "Installer les mises a jour APK depuis l'application.",
-                granted: installGranted,
-                busy: busyInstall,
-                onTap: onInstall,
-              ),
-            ],
-
-            // ── Android-only: Optional overlay/PiP ──────────────────────
+            // ── Android-only: Optional (install APK + overlay/PiP) ──────
             if (!isIOS) ...[
               const SizedBox(height: 40),
               Row(
@@ -950,6 +962,16 @@ class _PermissionsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 20),
+              _PermRow(
+                icon: Icons.system_update_alt_rounded,
+                title: "Installation d'apps",
+                subtitle: "Installer les mises a jour APK directement depuis l'app.",
+                granted: installGranted,
+                busy: busyInstall,
+                onTap: onInstall,
+                optional: true,
+              ),
+              const SizedBox(height: 16),
               _PermRow(
                 icon: Icons.picture_in_picture_rounded,
                 title: 'Overlay / PiP',
@@ -1041,8 +1063,9 @@ class _PermRow extends StatelessWidget {
                 color: Color(0xFF06D6A0), size: 18),
           )
         else
-          GestureDetector(
+          InkWell(
             onTap: busy ? null : onTap,
+            borderRadius: BorderRadius.circular(10),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding:
@@ -1321,8 +1344,9 @@ class _AudioPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

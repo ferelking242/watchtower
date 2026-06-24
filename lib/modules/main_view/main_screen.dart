@@ -352,8 +352,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
               final isLongPressed = ref.watch(isLongPressedStateProvider);
 
-              // ── PC sidebar mode ─────────────────────────────────────────
-              if (dockStyle == 'pc_sidebar' &&
+              // ── PC sidebar mode (also auto-activates on Android TV / Smart TV) ──
+              // NavigationMode.directional is set by the Android TV system when
+              // a D-pad / remote control is the primary input device.
+              final _isTV = MediaQuery.of(context).navigationMode ==
+                  NavigationMode.directional;
+              if ((dockStyle == 'pc_sidebar' || _isTV) &&
                   MediaQuery.of(context).size.width >= 700 &&
                   !isReadingScreen) {
                 return _TabletLayout(
