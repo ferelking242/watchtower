@@ -1782,7 +1782,7 @@ class _TabPillsRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         itemCount: types.length,
         itemBuilder: (context, index) {
-          if (hasCustomLists && (index == 1 || index == 2)) {
+          if (hasCustomLists && index == 2) {
             return const SizedBox.shrink();
           }
           if (filterList.isEmpty && index == 2) {
