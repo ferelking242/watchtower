@@ -1261,9 +1261,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── EPISODE LIST (card style with cover + shimmer) ─────────────────────────
 
-  static const int    _kMaxVisibleEps = 5;
-  static const double _kEpThumbW      = 108.0;
-
   Widget _buildEpisodeList(List<Chapter> chapters, List<Chapter> allChapters) {
       if (chapters.isEmpty) return const SizedBox.shrink();
       const int maxVisible = 14;
