@@ -1,6 +1,6 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
-enum TransferMode { idle, receiving, sending }
+enum TransferMode { idle, room, receiving, sending }
 
 enum TransferStatus { pending, accepted, rejected, inProgress, done, failed }
 
@@ -146,4 +146,67 @@ class TransferSession {
         fileProgress: fileProgress,
         completedAt: completedAt ?? this.completedAt,
       );
+}
+
+// ── Peer catalog (room mode) ──────────────────────────────────────────────────
+
+class PeerCatalogEntry {
+  final String mangaName;
+  final String? imageUrl;
+  final TransferItemType itemType;
+  final List<PeerCatalogChapter> chapters;
+
+  const PeerCatalogEntry({
+    required this.mangaName,
+    this.imageUrl,
+    required this.itemType,
+    required this.chapters,
+  });
+
+  factory PeerCatalogEntry.fromJson(Map<String, dynamic> j) => PeerCatalogEntry(
+        mangaName: j['mangaName'] as String? ?? '—',
+        imageUrl: j['imageUrl'] as String?,
+        itemType: TransferItemType.values.byName(
+            (j['itemType'] as String?) ?? 'manga'),
+        chapters: ((j['chapters'] as List?) ?? [])
+            .cast<Map<String, dynamic>>()
+            .map(PeerCatalogChapter.fromJson)
+            .toList(),
+      );
+
+  int get totalSize => chapters.fold(0, (s, c) => s + c.size);
+}
+
+class PeerCatalogChapter {
+  final String id;
+  final String name;
+  final int size;
+  final TransferItemType type;
+
+  const PeerCatalogChapter({
+    required this.id,
+    required this.name,
+    required this.size,
+    required this.type,
+  });
+
+  factory PeerCatalogChapter.fromJson(Map<String, dynamic> j) =>
+      PeerCatalogChapter(
+        id: j['id'] as String,
+        name: j['name'] as String? ?? '—',
+        size: (j['size'] as num).toInt(),
+        type: TransferItemType.values.byName(
+            (j['type'] as String?) ?? 'manga'),
+      );
+
+  String get sizeLabel {
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
+    if (size < 1024 * 1024 * 1024) {
+      return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  TransferFile toTransferFile() =>
+      TransferFile(id: id, name: name, size: size, type: type);
 }
