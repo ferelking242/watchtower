@@ -6,7 +6,10 @@ import 'dart:math';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/download.dart';
+import 'package:watchtower/models/download.g.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/manga.g.dart';
 
 import 'transfer_models.dart';
 
