@@ -7,319 +7,154 @@ import 'package:flutter/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
     show skipAppUpdate;
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 
-// ── Static background download task ──────────────────────────────────────────
-// Survives widget disposal so the download continues when the screen is closed.
-// Features: 3-attempt retry loop, HTTP Range resume, connectivity pause/resume,
-// friendly French error messages, partial-file cleanup on final failure.
+// ── System DownloadManager task (Android-only) ────────────────────────────────
+// Delegates the APK download to Android's DownloadManager system service.
+// The download runs in a separate system process and survives:
+//   • App going to background or being killed
+//   • Network interruptions (DownloadManager auto-resumes)
+//   • Battery optimiser — DownloadManager is exempt by design
+// The Dart side polls progress every second via MethodChannel.
 
-class _AppDownloadTask {
-  static _AppDownloadTask? _current;
-  static _AppDownloadTask? get current => _current;
-  static const int _notifId = 8001;
-  static const _kWakelockChannel = MethodChannel('com.watchtower.app.wakelock');
-  static bool _channelCreated = false;
+class _SysDlManager {
+  static _SysDlManager? _current;
+  static _SysDlManager? get current => _current;
+  static const _kChannel = MethodChannel('com.watchtower.app.download_manager');
 
   final String version;
-  int received = 0;
-  int total = 0;
-  bool _done = false;
+  int _downloadId = -1;
+  int received    = 0;
+  int total       = 0;
+  bool _done      = false;
   bool _cancelled = false;
-  bool get isDone => _done;
+  bool get isDone      => _done;
   bool get isCancelled => _cancelled;
   File? completedFile;
   String? errorMsg;
+  Timer? _pollTimer;
 
   void Function(int r, int t)? onProgress;
-  void Function(File f)? onDone;
-  void Function(String e)? onError;
-  void Function(bool paused)? onPauseChanged;
+  void Function(File f)?       onDone;
+  void Function(String e)?     onError;
+  void Function(bool paused)?  onPauseChanged;
 
-  StreamSubscription<List<int>>? _sub;
+  _SysDlManager._({required this.version});
 
-  _AppDownloadTask._({required this.version});
-
-  static _AppDownloadTask start({required String version}) {
-    _current?._sub?.cancel();
-    final task = _AppDownloadTask._(version: version);
+  static _SysDlManager start({required String version}) {
+    _current?._stop();
+    final task = _SysDlManager._(version: version);
     _current = task;
     return task;
   }
 
-  static void clear() => _current = null;
-
-  static Future<void> _ensureChannel(FlutterLocalNotificationsPlugin p) async {
-    if (_channelCreated || kIsWeb) return;
-    if (!Platform.isAndroid) { _channelCreated = true; return; }
-    _channelCreated = true;
-    final android = p.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    await android?.createNotificationChannel(const AndroidNotificationChannel(
-      'wt_app_update',
-      'Mise à jour de l\'application',
-      description: 'Téléchargement de mises à jour de Watchtower',
-      importance: Importance.low,
-    ));
+  static void clear() {
+    _current?._stop();
+    _current = null;
   }
 
-  // ── Main entry: retry loop + Range resume + connectivity pause ────────────
+  // ── Enqueue via Android DownloadManager ───────────────────────────────────
 
-  Future<void> run(String url, File destFile) async {
-    final notifs = FlutterLocalNotificationsPlugin();
-    await _ensureChannel(notifs);
-
-    if (!kIsWeb && Platform.isAndroid) {
-      try { await _kWakelockChannel.invokeMethod('acquire'); } catch (_) {}
-    }
-
-    const maxAttempts = 3;
-    int attempt = 0;
-    String lastError = '';
-
-    while (attempt < maxAttempts && !_cancelled && !_done) {
-      attempt++;
-
-      // Pause until network is available.
-      if (!kIsWeb) {
-        final conn = await Connectivity().checkConnectivity();
-        final hasNet = conn.any((r) => r != ConnectivityResult.none);
-        if (!hasNet) {
-          onPauseChanged?.call(true);
-          await _waitForConnectivity();
-          if (_cancelled) break;
-          onPauseChanged?.call(false);
-        }
-      }
-
-      if (_cancelled) break;
-
-      try {
-        // Resume from how many bytes are already on disk.
-        int resumeFrom = 0;
-        if (attempt > 1 && await destFile.exists()) {
-          resumeFrom = await destFile.length();
-          if (resumeFrom > 0) {
-            received = resumeFrom;
-            onProgress?.call(received, total);
-          }
-        }
-
-        await _runAttempt(url, destFile, notifs, resumeFrom: resumeFrom);
-        break; // success
-      } catch (e) {
-        if (_cancelled) break;
-        lastError = e.toString();
-        log('[DOWNLOAD] Attempt $attempt/$maxAttempts failed: $lastError');
-        if (attempt < maxAttempts) {
-          await Future.delayed(Duration(seconds: attempt * 2));
-        }
-      }
-    }
-
-    if (!_done && !_cancelled) {
-      // All retries exhausted — remove partial file so next launch re-downloads.
-      try { if (await destFile.exists()) await destFile.delete(); } catch (_) {}
-      if (!kIsWeb && Platform.isAndroid) {
-        try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
-      }
-      errorMsg = _friendlyError(lastError);
-      onError?.call(errorMsg!);
-      _cancelNotif(notifs);
-    }
-  }
-
-  // ── Single HTTP attempt (supports Range resume) ───────────────────────────
-
-  Future<void> _runAttempt(
-    String url,
-    File destFile,
-    FlutterLocalNotificationsPlugin notifs, {
-    int resumeFrom = 0,
-  }) async {
-    final client = http.Client();
+  Future<void> run(String url, String fileName) async {
     try {
-      final req = http.Request('GET', Uri.parse(url));
-      req.headers['Accept-Encoding'] = 'identity';
-      if (resumeFrom > 0) req.headers['Range'] = 'bytes=$resumeFrom-';
-
-      final response = await client.send(req).timeout(const Duration(seconds: 30));
-
-      if (response.statusCode >= 400) {
-        throw Exception('HTTP ${response.statusCode}');
+      final id = await _kChannel.invokeMethod<int>('startDownload', {
+        'url':      url,
+        'fileName': fileName,
+        'title':    'Watchtower $version',
+      });
+      _downloadId = id ?? -1;
+      if (_downloadId < 0) {
+        errorMsg = 'Impossible de démarrer le téléchargement.';
+        onError?.call(errorMsg!);
+        return;
       }
-
-      if (response.statusCode == 206) {
-        // 206 Partial Content — parse total from Content-Range header.
-        final cr = response.headers['content-range'];
-        if (cr != null && total == 0) {
-          final m = RegExp(r'/(\d+)$').firstMatch(cr);
-          if (m != null) total = int.parse(m.group(1)!);
-        }
-      } else {
-        // 200 OK — server ignored Range; restart from zero.
-        if (resumeFrom > 0) {
-          received = 0;
-          try { await destFile.delete(); } catch (_) {}
-        }
-        total = response.contentLength ?? 0;
-      }
-
-      _showProgressNotif(notifs, received, total, version);
-
-      final sink = (resumeFrom > 0 && response.statusCode == 206)
-          ? destFile.openWrite(mode: FileMode.append)
-          : destFile.openWrite();
-
-      int lastNotifAt = received;
-      final completer = Completer<void>();
-
-      _sub = response.stream.listen(
-        (chunk) {
-          sink.add(chunk);
-          received += chunk.length;
-          onProgress?.call(received, total);
-          final threshold = total > 0
-              ? (total * 0.05).clamp(2097152, 10485760).toInt()
-              : 4194304;
-          if (received - lastNotifAt >= threshold) {
-            lastNotifAt = received;
-            _showProgressNotif(notifs, received, total, version);
-          }
-        },
-        onDone: () async {
-          await sink.close();
-          completedFile = destFile;
-          _done = true;
-          if (!kIsWeb && Platform.isAndroid) {
-            try { await _kWakelockChannel.invokeMethod('release'); } catch (_) {}
-          }
-          onDone?.call(destFile);
-          _showDoneNotif(notifs, version);
-          completer.complete();
-        },
-        onError: (Object e) async {
-          await sink.close();
-          completer.completeError(e);
-        },
-        cancelOnError: true,
-      );
-
-      await completer.future;
-    } finally {
-      client.close();
+      _startPolling();
+    } catch (e) {
+      errorMsg = 'Erreur au lancement : $e';
+      onError?.call(errorMsg!);
     }
   }
 
-  // ── Connectivity helpers ──────────────────────────────────────────────────
+  // ── Poll DownloadManager every second ─────────────────────────────────────
 
-  static Future<void> _waitForConnectivity() async {
-    final completer = Completer<void>();
-    late StreamSubscription<List<ConnectivityResult>> sub;
-    sub = Connectivity().onConnectivityChanged.listen((results) {
-      if (results.any((r) => r != ConnectivityResult.none)) {
-        sub.cancel();
-        if (!completer.isCompleted) completer.complete();
-      }
-    });
-    await completer.future;
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) => _poll());
   }
 
-  // ── Friendly French error messages ────────────────────────────────────────
+  Future<void> _poll() async {
+    if (_cancelled || _done || _downloadId < 0) return;
+    try {
+      final res = await _kChannel.invokeMapMethod<String, dynamic>(
+          'queryProgress', {'downloadId': _downloadId});
+      if (res == null) return;
 
-  static String _friendlyError(String raw) {
-    final lower = raw.toLowerCase();
-    if (lower.contains('connection closed') ||
-        lower.contains('socketexception') ||
-        lower.contains('connection refused') ||
-        lower.contains('clientexception')) {
-      return 'Connexion interrompue après 3 tentatives. '
-          'Vérifiez votre réseau puis réessayez.';
-    }
-    if (lower.contains('403') || lower.contains('forbidden')) {
-      return 'Lien de téléchargement expiré. '
-          'Fermez et rouvrez cet écran pour en obtenir un nouveau.';
-    }
-    if (lower.contains('timeout') || lower.contains('timedout')) {
-      return 'Délai dépassé. Vérifiez votre connexion et réessayez.';
-    }
-    return raw;
+      final status = (res['status'] as int?) ?? 0;
+      received = (res['received'] as int?) ?? received;
+      total    = (res['total']    as int?) ?? total;
+      onProgress?.call(received, total);
+
+      if (status == 8) {                        // STATUS_SUCCESSFUL
+        _stop();
+        _done = true;
+        final raw  = (res['localPath'] as String?) ?? '';
+        final path = raw.startsWith('file://') ? raw.substring(7) : raw;
+        final file = File(Uri.decodeFull(path));
+        completedFile = file;
+        onPauseChanged?.call(false);
+        onDone?.call(file);
+      } else if (status == 16) {               // STATUS_FAILED
+        _stop();
+        final reason = (res['reason'] as int?) ?? 0;
+        errorMsg = _friendlyError(reason);
+        onPauseChanged?.call(false);
+        onError?.call(errorMsg!);
+      } else if (status == 4) {               // STATUS_PAUSED (no network)
+        onPauseChanged?.call(true);
+      } else {                                 // PENDING or RUNNING
+        onPauseChanged?.call(false);
+      }
+    } catch (_) {}
+  }
+
+  void _stop() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
   }
 
   void cancel() {
     _cancelled = true;
-    _sub?.cancel();
-    _sub = null;
+    _stop();
+    if (_downloadId >= 0) {
+      _kChannel.invokeMethod('cancelDownload', {'downloadId': _downloadId})
+          .catchError((_) {});
+      _downloadId = -1;
+    }
   }
 
-  static void _showProgressNotif(
-      FlutterLocalNotificationsPlugin p, int recv, int tot, String version) {
-    if (kIsWeb || !Platform.isAndroid) return;
-    final pct = tot > 0 ? ((recv / tot) * 100).round() : 0;
-    final body = tot > 0
-        ? '${(recv / 1048576).toStringAsFixed(1)} / ${(tot / 1048576).toStringAsFixed(1)} MB'
-        : 'Téléchargement en cours…';
-    p.show(
-      _notifId,
-      'Watchtower v$version — Mise à jour',
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'wt_app_update',
-          'Mise à jour de l\'application',
-          channelDescription: 'Téléchargement de mises à jour de Watchtower',
-          importance: Importance.low,
-          priority: Priority.low,
-          showProgress: true,
-          maxProgress: 100,
-          progress: pct,
-          indeterminate: tot == 0,
-          ongoing: true,
-          autoCancel: false,
-          icon: '@mipmap/ic_launcher',
-        ),
-      ),
-    );
-  }
+  // ── DownloadManager reason codes → French messages ─────────────────────────
+  // https://developer.android.com/reference/android/app/DownloadManager#COLUMN_REASON
 
-  static void _showDoneNotif(FlutterLocalNotificationsPlugin p, String version) {
-    if (kIsWeb || !Platform.isAndroid) return;
-    p.show(
-      _notifId,
-      'Watchtower v$version prêt à installer',
-      'Appuyez pour installer la mise à jour',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'wt_app_update',
-          'Mise à jour de l\'application',
-          channelDescription: 'Téléchargement de mises à jour de Watchtower',
-          importance: Importance.high,
-          priority: Priority.high,
-          autoCancel: true,
-          actions: [
-            const AndroidNotificationAction(
-              'install', 'Installer',
-              showsUserInterface: true,
-            ),
-            const AndroidNotificationAction('dismiss', 'Ignorer'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static void _cancelNotif(FlutterLocalNotificationsPlugin p) {
-    if (!kIsWeb && Platform.isAndroid) p.cancel(_notifId);
+  static String _friendlyError(int reason) {
+    switch (reason) {
+      case 1001: return 'Erreur inconnue. Vérifiez votre connexion et réessayez.';
+      case 1002: return 'Erreur réseau. Vérifiez votre connexion et réessayez.';
+      case 1004: return 'Erreur HTTP. Réessayez plus tard.';
+      case 1005: return 'Lien de téléchargement invalide.';
+      case 1006: return 'Destination de téléchargement introuvable.';
+      case 1007:
+      case 1008: return 'Espace insuffisant sur l\'appareil.';
+      case 1009: return 'Type de fichier non supporté.';
+      case 1010: return 'URL invalide.';
+      default:   return 'Téléchargement échoué (code $reason). Réessayez.';
+    }
   }
 }
 
@@ -352,7 +187,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   void initState() {
     super.initState();
     _loadCurrentVersion();
-    final task = _AppDownloadTask.current;
+    final task = _SysDlManager.current;
     if (task != null && task.version == widget.updateAvailable.$1) {
       if (task.isDone && task.completedFile != null) {
         _completedFile = task.completedFile;
@@ -378,33 +213,33 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
 
   @override
   void dispose() {
-    final task = _AppDownloadTask.current;
+    final task = _SysDlManager.current;
     if (task != null) {
-      task.onProgress = null;
-      task.onDone = null;
-      task.onError = null;
+      task.onProgress     = null;
+      task.onDone         = null;
+      task.onError        = null;
       task.onPauseChanged = null;
     }
     super.dispose();
   }
 
-  void _attachCallbacks(_AppDownloadTask task) {
+  void _attachCallbacks(_SysDlManager task) {
     task.onProgress = (r, t) {
       if (mounted) setState(() { _received = r; _total = t; });
     };
     task.onDone = (f) {
       if (mounted) setState(() {
-        _isDownloading = false;
+        _isDownloading           = false;
         _isPausedForConnectivity = false;
-        _completedFile = f;
+        _completedFile           = f;
       });
       _tryAutoInstall(f);
     };
     task.onError = (e) {
       if (mounted) setState(() {
-        _isDownloading = false;
+        _isDownloading           = false;
         _isPausedForConnectivity = false;
-        _errorMsg = e;
+        _errorMsg                = e;
       });
     };
     task.onPauseChanged = (paused) {
@@ -418,7 +253,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
         if (status == SilentInstallStatus.active) {
           final ok = await SilentInstallerService.instance.installFile(file.path);
           if (ok && mounted) {
-            _AppDownloadTask.clear();
+            _SysDlManager.clear();
             Navigator.pop(context);
           }
         }
@@ -744,7 +579,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               onPressed: () async {
                 final fileToDelete = _completedFile;
                 await _installApk(_completedFile!);
-                _AppDownloadTask.clear();
+                _SysDlManager.clear();
                 if (mounted) Navigator.pop(context);
                 // Supprimer l'APK 5 s après le lancement de l'intent.
                 // PackageInstaller a déjà copié le fichier via FileProvider à ce stade.
@@ -778,8 +613,8 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               style: _BtnStyle.ghost,
               cs: cs,
               onPressed: () {
-                _AppDownloadTask.current?.cancel();
-                _AppDownloadTask.clear();
+                _SysDlManager.current?.cancel();
+                _SysDlManager.clear();
                 if (mounted) setState(() { _isDownloading = false; });
               },
             ),
@@ -892,9 +727,10 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       });
     }
 
-    final task = _AppDownloadTask.start(version: version);
+    final fileName = url.split('/').lastOrNull ?? 'Watchtower.apk';
+    final task = _SysDlManager.start(version: version);
     _attachCallbacks(task);
-    unawaited(task.run(url, file));
+    unawaited(task.run(url, fileName));
   }
 
   Future<void> _installApk(File file) async {
