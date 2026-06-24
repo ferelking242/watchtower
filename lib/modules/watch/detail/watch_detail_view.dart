@@ -770,7 +770,369 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       );
     }
 
-    void _showQualityBottomSheet() {
+  
+
+  Widget _infoPill(IconData icon, String label) {
+    if (label.trim().isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: _grey),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: _grey, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _sheetSectionLabel(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+          color: _textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w700),
+    );
+  }
+
+  String _statusLabel(dynamic status) {
+    switch (status?.toString()) {
+      case '0': return 'En cours';
+      case '1': return 'Terminé';
+      case '2': return 'Licencié';
+      case '3': return 'Annulé';
+      case '4': return 'En pause';
+      default:  return 'Inconnu';
+    }
+  }
+
+  // ─── ACTION BUTTONS ─────────────────────────────────────────────────────────
+
+  Widget _buildActionButtons(List<Chapter> chapters) {
+    final isFav = widget.manga.favorite ?? false;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _chip(
+            icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
+            label: isFav ? 'Dans la library' : 'Ajouter à la library',
+            onTap: _toggleFavorite,
+            active: isFav,
+          ),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.drive_file_move_outlined,
+              label: 'Migrer',
+              onTap: () => context.pushNamed('migrate', extra: widget.manga)),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.share_outlined,
+              label: 'Partager',
+              onTap: () => _share(context)),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.download_outlined,
+              label: 'Télécharger',
+              onTap: () => _showDownloadSheet(context, chapters)),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.language_outlined,
+              label: 'WebView',
+              onTap: _openInBrowser),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? _accent.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+              color: active ? _accent : _faint.withValues(alpha: 0.45),
+              width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 17,
+                color: active ? _accent : _onSurface.withValues(alpha: 0.55)),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    color:
+                        active ? _accent : _onSurface.withValues(alpha: 0.55),
+                    fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── MOVIE / SERIES DETECTION ───────────────────────────────────────────────
+
+  bool _isMovie(List<Chapter> chapters) {
+    if (widget.isLoading) return false;
+    if (chapters.isEmpty) return false;
+    // 1 episode → movie/single; 2+ → series
+    return chapters.length == 1;
+  }
+
+  List<String> _detectSeasons(List<Chapter> chapters) {
+    final seasonRegex = RegExp(
+        r'(?:Saison|Season|Partie|Part)\s*(\d+)|S(\d{1,2})(?:E\d+)?',
+        caseSensitive: false);
+    final seen = <String>{};
+    for (final ch in chapters) {
+      final m = seasonRegex.firstMatch(ch.name ?? '');
+      if (m != null) {
+        final num = m.group(1) ?? m.group(2) ?? '1';
+        seen.add('Saison $num');
+      }
+    }
+    if (seen.isEmpty) return [];
+    return seen.toList()
+      ..sort((a, b) {
+        final na =
+            int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        final nb =
+            int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        return na.compareTo(nb);
+      });
+  }
+
+  List<String> _detectLanguages(List<Chapter> chapters) {
+    final langRx = RegExp(
+        r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA)\b',
+        caseSensitive: false);
+    final seen = <String>{};
+    for (final ch in chapters) {
+      for (final m
+          in langRx.allMatches('${ch.scanlator ?? ''} ${ch.name ?? ''}')) {
+        seen.add(m.group(0)!.toUpperCase());
+      }
+    }
+    return seen.toList();
+  }
+
+  List<Chapter> _filterChapters(List<Chapter> all) {
+    List<Chapter> result = all;
+    final season = _selectedSeason;
+    if (season != null) {
+      final num = RegExp(r'\d+').firstMatch(season)?.group(0) ?? '';
+      final rx = RegExp(
+          r'(?:Saison|Season|Partie|Part)\s*' +
+              num +
+              r'|S' +
+              num.padLeft(2, '0'),
+          caseSensitive: false);
+      final filtered =
+          result.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
+      if (filtered.isNotEmpty) result = filtered;
+    }
+    final lang = _selectedLanguage;
+    if (lang != null) {
+      final filtered = result
+          .where((ch) =>
+              (ch.scanlator ?? '').toUpperCase().contains(lang) ||
+              (ch.name ?? '').toUpperCase().contains(lang))
+          .toList();
+      if (filtered.isNotEmpty) result = filtered;
+    }
+    return result;
+  }
+
+  // ─── RESSOURCES SECTION ─────────────────────────────────────────────────────
+
+  Widget _buildRessourcesSection(List<Chapter> chapters) {
+    final isMovie  = _isMovie(chapters);
+    final seasons  = isMovie ? <String>[] : _detectSeasons(chapters);
+    // Auto-select first season when user hasn't picked one yet
+    if (!isMovie && seasons.isNotEmpty && _selectedSeason == null) {
+      _selectedSeason = seasons.first;
+    }
+    final languages = _detectLanguages(chapters);
+    final filtered  = _filterChapters(chapters);
+
+    final source = getSource(
+        widget.manga.lang ?? '',
+        widget.manga.source ?? '',
+        widget.manga.sourceId);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Header: [icon] Ressources ······ [ext_icon] [ext_name] [⋮] ─────────
+        Row(
+          children: [
+            Icon(Icons.video_library_outlined,
+                size: 16, color: _textPrimary),
+            const SizedBox(width: 6),
+            Text(
+              'Ressources',
+              style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600),
+            ),
+            const Spacer(),
+            if (source != null) ...[
+              // Extension icon (extreme right, before options btn)
+              if ((source.iconUrl ?? '').isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: cachedNetworkImage(
+                    imageUrl: source.iconUrl!,
+                    width: 16,
+                    height: 16,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              const SizedBox(width: 4),
+              Text(
+                source.name ?? '',
+                style: TextStyle(
+                    color: _grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(width: 8),
+            ],
+            GestureDetector(
+              onTap: () => _showOptionsSheet(context, chapters),
+              child: Icon(Icons.more_vert_rounded, size: 20, color: _grey),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ── 2 boxes : Saison (série) · Langue ────────────────────────────
+        // Note: no background video-list fetch here — avoids Cloudflare triggers
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              if (!isMovie) ...[
+                _buildDropdownPill(
+                  label: seasons.isNotEmpty
+                      ? (_selectedSeason ?? seasons.first)
+                      : 'Saison 1',
+                  items: seasons.isNotEmpty ? seasons : ['Saison 1'],
+                  onSelect: (v) => setState(() => _selectedSeason = v),
+                ),
+                if (languages.isNotEmpty) const SizedBox(width: 8),
+              ],
+              if (languages.isNotEmpty)
+                _buildDropdownPill(
+                  label: _selectedLanguage ?? languages.first,
+                  items: languages,
+                  onSelect: (v) => setState(() => _selectedLanguage = v),
+                ),
+              if (_player.loadedVideos.length > 1) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _showQualityBottomSheet,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _faint, width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _player.selectedQuality ?? 'Qualite',
+                          style: TextStyle(
+                              color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Content ───────────────────────────────────────────────────────────
+        if (chapters.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              children: [
+                Icon(Icons.video_library_outlined, color: _grey, size: 40),
+                const SizedBox(height: 8),
+                Text('Aucun épisode disponible',
+                    style: TextStyle(color: _grey)),
+              ],
+            ),
+          )
+        else if (isMovie)
+          _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
+        else
+          _buildEpisodeList(
+            _sortedEpisodes(filtered),
+            _sortedEpisodes(chapters),
+          ),
+      ],
+    );
+  }
+
+  // ── Dropdown pill (MovieBox style: "French dub ▼") ───────────────────────────
+  Widget _buildDropdownPill({
+    required String label,
+    required List<String> items,
+    required void Function(String) onSelect,
+  }) {
+    return GestureDetector(
+      onTap: () => _showDropdownSheet(items, onSelect),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _faint, width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                  color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQualityBottomSheet() {
       if (_player.loadedVideos.isEmpty) return;
       showModalBottomSheet<void>(
         context: context,
