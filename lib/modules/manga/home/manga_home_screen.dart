@@ -954,10 +954,11 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemCount: items.length,
           itemBuilder: (c, i) => isWatch
-              ? _WatchCard(manga: items[i], source: source)
+              ? _WatchCard(key: ValueKey(items[i].link ?? items[i].imageUrl ?? items[i].name), manga: items[i], source: source)
               : SizedBox(
                   width: 138,
                   child: MangaHomeImageCard(
+                    key: ValueKey(items[i].link ?? items[i].imageUrl ?? items[i].name),
                     manga: items[i],
                     source: source,
                     itemType: source.itemType,
@@ -1020,6 +1021,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       return Column(
         children: items
             .map((m) => MangaHomeImageCardListTile(
+                  key: ValueKey(m.link ?? m.imageUrl ?? m.name),
                   manga: m,
                   source: source,
                   itemType: source.itemType,
@@ -1274,6 +1276,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         itemBuilder: (context, index) {
           if (index == _length) return buildProgressIndicator();
           return MangaHomeImageCardListTile(
+            key: ValueKey(_mangaList[index].link ?? _mangaList[index].imageUrl ?? _mangaList[index].name),
             itemType: source.itemType,
             manga: _mangaList[index],
             source: source,
@@ -1296,6 +1299,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           itemBuilder: (context, index) {
             if (index == _length) return buildProgressIndicator();
             return MangaHomeImageCard(
+              key: ValueKey(_mangaList[index].link ?? _mangaList[index].imageUrl ?? _mangaList[index].name),
               itemType: source.itemType,
               manga: _mangaList[index],
               source: source,
@@ -1521,7 +1525,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               title: ValueListenableBuilder<double>(
                   valueListenable: _collapseRatioNotifier,
                   builder: (ctx2, ratio, _) {
-                    final opacity = ((ratio - 0.55) / 0.45).clamp(0.0, 1.0);
+                    final opacity = ((ratio - 0.65) / 0.35).clamp(0.0, 1.0);
                     return Opacity(
                       opacity: opacity,
                       child: Row(
@@ -1692,41 +1696,41 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                           ),
                         ),
                       Positioned(
-                        top: kToolbarHeight,
-                        bottom: 40,
+                        top: lerpDouble(kToolbarHeight, 0.0, collapseRatio)!,
                         left: 0,
                         right: 0,
+                        height: lerpDouble(44.0, kToolbarHeight, collapseRatio)!,
                         child: Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: Alignment(lerpDouble(-1.0, 0.0, collapseRatio)!, 0.0),
                           child: Padding(
-                            padding: const EdgeInsets.only(left: 20),
+                            padding: EdgeInsets.only(left: lerpDouble(20.0, 0.0, collapseRatio)!),
                             child: Opacity(
-                              opacity: (1.0 - collapseRatio / 0.35).clamp(0.0, 1.0),
+                              opacity: (1.0 - collapseRatio / 0.75).clamp(0.0, 1.0),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   if (!isLocal &&
                                       (source.iconUrl?.isNotEmpty ?? false)) ...[
                                     ClipRRect(
-                                      borderRadius: BorderRadius.circular(9),
+                                      borderRadius: BorderRadius.circular(lerpDouble(9.0, 5.0, collapseRatio)!),
                                       child: Image.network(
                                         source.iconUrl!,
-                                        width: 36,
-                                        height: 36,
+                                        width: lerpDouble(36.0, 20.0, collapseRatio)!,
+                                        height: lerpDouble(36.0, 20.0, collapseRatio)!,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) =>
                                             const SizedBox.shrink(),
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
+                                    SizedBox(width: lerpDouble(10.0, 8.0, collapseRatio)!),
                                   ],
                                   Flexible(
                                     child: Text(
                                       sourceName,
-                                      style: const TextStyle(
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: -0.5,
+                                      style: TextStyle(
+                                        fontSize: lerpDouble(30.0, 17.0, collapseRatio)!,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: lerpDouble(-0.5, 0.0, collapseRatio)!,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -2552,6 +2556,7 @@ class _MangaHomeImageCardListTileState
             return const Center(child: CircularProgressIndicator(strokeWidth: 2));
           }
           return MangaHomeImageCard(
+            key: ValueKey(_items[i].link ?? _items[i].imageUrl ?? _items[i].name),
             manga: _items[i],
             source: widget.source,
             itemType: widget.source.itemType,
