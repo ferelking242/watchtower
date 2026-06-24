@@ -951,62 +951,36 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   items: languages,
                   onSelect: (v) => setState(() => _selectedLanguage = v),
                 ),
+              if (_player.loadedVideos.length > 1) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _showQualityBottomSheet,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _faint, width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _player.selectedQuality ?? 'Qualite',
+                          style: TextStyle(
+                              color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         const SizedBox(height: 14),
-
-        // ── Quality pills — visibles dès que le player a des vidéos ──────────
-        if (_player.loadedVideos.length > 1) ...[
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _player.loadedVideos.asMap().entries.map((entry) {
-                final v = entry.value;
-                final isSelected = _player.selectedQuality == v.quality;
-                return Padding(
-                  padding: EdgeInsets.only(
-                      right: entry.key < _player.loadedVideos.length - 1 ? 6 : 0),
-                  child: GestureDetector(
-                    onTap: () {
-                      _player.switchQuality(v).then((_) {
-                        if (mounted) setState(() {});
-                      });
-                      setState(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? _accent.withValues(alpha: 0.15)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? _accent : _faint,
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        v.quality,
-                        style: TextStyle(
-                          color: isSelected
-                              ? _accent
-                              : _onSurface.withValues(alpha: 0.75),
-                          fontSize: 13,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 14),
-        ],
 
         // ── Content ───────────────────────────────────────────────────────────
         if (chapters.isEmpty)
@@ -1021,7 +995,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ],
             ),
           )
-        else if (!isMovie)
+        else if (isMovie)
+          _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
+        else
           _buildEpisodeList(
             _sortedEpisodes(filtered),
             _sortedEpisodes(chapters),
@@ -1061,7 +1037,108 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  void _showDropdownSheet(List<String> items, void Function(String) onSelect) {
+  void _showQualityBottomSheet() {
+      if (_player.loadedVideos.isEmpty) return;
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        builder: (ctx) {
+          return Container(
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(top: BorderSide(color: _faint, width: 0.8)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36, height: 4,
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _faint,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text('Qualite',
+                        style: TextStyle(
+                            color: _textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                  StatefulBuilder(
+                    builder: (_, setSt) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final v in _player.loadedVideos)
+                          GestureDetector(
+                            onTap: () {
+                              _player.switchQuality(v).then((_) {
+                                if (mounted) setState(() {});
+                              });
+                              setState(() {});
+                              Navigator.pop(ctx);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                gradient: _player.selectedQuality == v.quality
+                                    ? LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [
+                                          _accent.withValues(alpha: 0.30),
+                                          _accent.withValues(alpha: 0.10),
+                                        ],
+                                      )
+                                    : null,
+                                color: _player.selectedQuality == v.quality ? null : _card,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _player.selectedQuality == v.quality
+                                      ? _accent.withValues(alpha: 0.55)
+                                      : Colors.transparent,
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                v.quality,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _player.selectedQuality == v.quality
+                                      ? _accent
+                                      : _textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: _player.selectedQuality == v.quality
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    void _showDropdownSheet(List<String> items, void Function(String) onSelect) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1124,306 +1201,141 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── MOVIE BOX — small rectangle, title only ─────────────────────────────────
 
   Widget _buildMovieBox(Chapter chapter) {
-    final title = widget.manga.name ?? '';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _accent.withValues(alpha: 0.80),
-            _accent.withValues(alpha: 0.40),
-            _bg.withValues(alpha: 0.90),
-          ],
-          stops: const [0.0, 0.55, 1.0],
-        ),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: _accent.withValues(alpha: 0.28), width: 0.8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (title.isNotEmpty) ...[
-            Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
-              ),
+      final title = widget.manga.name ?? '';
+      return GestureDetector(
+        onTap: () => _loadEpisodeInBanner(chapter),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                _accent.withValues(alpha: 0.20),
+                _accent.withValues(alpha: 0.08),
+              ],
             ),
-            const SizedBox(height: 12),
-          ],
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.play_circle_outline_rounded,
-                  color: Colors.white, size: 22),
-              const SizedBox(width: 8),
-              const Text(
-                'Regarder',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _accent.withValues(alpha: 0.30), width: 0.8),
           ),
-        ],
-      ),
-    );
-  }
+          child: Text(
+            title.isNotEmpty ? title : 'Regarder',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: _accent,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
 
-  // ─── EPISODE SORT ────────────────────────────────────────────────────────────
-  // Sort episodes by number (descending: latest first). Uses first digit sequence
-  // found in the chapter name; falls back to chapter index.
-
-  List<Chapter> _sortedEpisodes(List<Chapter> chapters) {
-    final indexed = chapters.asMap().entries.toList();
-    indexed.sort((a, b) {
-      final na = _epNum(a.value.name, a.key);
-      final nb = _epNum(b.value.name, b.key);
-      return na.compareTo(nb); // ascending — ep 1 first
-    });
-    return indexed.map((e) => e.value).toList();
-  }
-
-  int _epNum(String? name, int fallback) {
-    if (name == null || name.isEmpty) return fallback;
-    // Try "Ep. N" / "Ep N" / "Episode N" pattern first
-    final epMatch = RegExp(r'(?:Ep\.?|Episode)\s*(\d+)', caseSensitive: false)
-        .firstMatch(name);
-    if (epMatch != null) return int.tryParse(epMatch.group(1)!) ?? fallback;
-    // Fall back to the LAST number in the name (avoids matching season number first)
-    final all = RegExp(r'\d+').allMatches(name);
-    if (all.isEmpty) return fallback;
-    return int.tryParse(all.last.group(0)!) ?? fallback;
-  }
-
-  // ─── EPISODE LIST (card style with cover + shimmer) ─────────────────────────
-
-  static const int    _kMaxVisibleEps = 5;
+    static const int    _kMaxVisibleEps = 5;
   static const double _kEpThumbW      = 108.0;
 
   Widget _buildEpisodeList(List<Chapter> chapters, List<Chapter> allChapters) {
-    if (chapters.isEmpty) return const SizedBox.shrink();
-    final display   = chapters.take(_kMaxVisibleEps).toList();
-    final remaining = chapters.length - display.length;
+      if (chapters.isEmpty) return const SizedBox.shrink();
+      const int maxVisible = 14;
+      final display   = chapters.take(maxVisible).toList();
+      final remaining = chapters.length - display.length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < display.length; i++) ...[
-          _buildEpCard(display[i], fallbackIndex: i + 1),
-          if (i < display.length - 1) const SizedBox(height: 8),
-        ],
-        if (remaining > 0) ...[
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () => _showAllEpisodesSheet(context, allChapters),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.grid_view_rounded, size: 16, color: _accent),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$remaining épisodes de plus',
-                    style: TextStyle(
-                        color: _accent,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildEpCard(Chapter chapter, {required int fallbackIndex}) {
-    final isPlaying = _player.loadedChapterId == chapter.id;
-    final watched   = (chapter.isRead ?? false) && !isPlaying;
-    final epNum     = _epNum(chapter.name, fallbackIndex);
-
-    // Thumbnail: episode-specific if available, else anime cover
-    final thumb = (chapter.thumbnailUrl?.isNotEmpty ?? false)
-        ? chapter.thumbnailUrl!
-        : toImgUrl(
-            widget.manga.customCoverFromTracker ?? widget.manga.imageUrl ?? '');
-
-    // Episode label: "Ép. N" + optional name after the raw number
-    String epLabel = 'Ép. $epNum';
-    final rawName  = chapter.name ?? '';
-    final stripped = rawName
-        .replaceAll(RegExp(r'(?:Ep\.?|Episode|Épisode)\s*\d+', caseSensitive: false), '')
-        .replaceAll(RegExp(r'^\s*[-–—·:]\s*'), '')
-        .trim();
-    if (stripped.isNotEmpty) epLabel += ' · $stripped';
-
-    return GestureDetector(
-      onTap: () => _loadEpisodeInBanner(chapter),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isPlaying
-              ? _accent.withValues(alpha: 0.09)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isPlaying
-                ? _accent.withValues(alpha: 0.38)
-                : _faint.withValues(alpha: 0.32),
-            width: isPlaying ? 1.0 : 0.6,
-          ),
-        ),
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ── Thumbnail (16:9) ──────────────────────────────────────────────
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: _kEpThumbW,
-                height: _kEpThumbW * 9 / 16,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (thumb.isEmpty)
-                      Container(color: _card)
-                    else
-                      cachedNetworkImage(
-                        imageUrl: thumb,
-                        width: _kEpThumbW,
-                        height: _kEpThumbW * 9 / 16,
-                        fit: BoxFit.cover,
-                      ),
-                    // Scrim gradient
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            stops: const [0.3, 1.0],
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.55),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Playing indicator
-                    if (isPlaying)
-                      Center(
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.50),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.equalizer_rounded,
-                              color: Colors.white, size: 14),
-                        ),
-                      )
-                    else
-                      // Subtle play icon on hover / default
-                      Positioned(
-                        right: 4,
-                        bottom: 4,
-                        child: Icon(
-                          watched
-                              ? Icons.check_circle_rounded
-                              : Icons.play_circle_outline_rounded,
-                          color: Colors.white.withValues(alpha: 0.70),
-                          size: 16,
-                        ),
-                      ),
-                  ],
+            // "Tous" tile
+            GestureDetector(
+              onTap: () => _showAllEpisodesSheet(context, allChapters),
+              child: Container(
+                width: 62, height: 62,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _faint, width: 0.6),
+                ),
+                child: Center(
+                  child: Text('Tous',
+                      style: TextStyle(
+                          color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
                 ),
               ),
             ),
-
-            const SizedBox(width: 12),
-
-            // ── Episode info ──────────────────────────────────────────────────
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    epLabel,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isPlaying ? _accent : _textPrimary,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                    ),
+            // Episode tiles
+            for (int i = 0; i < display.length; i++) ...[
+              _buildEpTile(display[i], fallbackIndex: i + 1),
+              if (i < display.length - 1) const SizedBox(width: 8),
+            ],
+            // "+N more" tile
+            if (remaining > 0) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _showAllEpisodesSheet(context, allChapters),
+                child: Container(
+                  width: 62, height: 62,
+                  decoration: BoxDecoration(
+                    color: _card,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  if ((chapter.description?.isNotEmpty ?? false)) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      chapter.description!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: _grey, fontSize: 11, height: 1.45),
-                    ),
-                  ],
-                  if ((chapter.duration?.isNotEmpty ?? false)) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.schedule_rounded,
-                            size: 10, color: _faint),
-                        const SizedBox(width: 3),
-                        Text(
-                          chapter.duration!,
-                          style: TextStyle(color: _faint, fontSize: 10.5),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
+                  child: Center(
+                    child: Text('+$remaining',
+                        style: TextStyle(
+                            color: _accent, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ),
               ),
-            ),
-
-            // ── Status icon ───────────────────────────────────────────────────
-            const SizedBox(width: 6),
-            if (isPlaying)
-              Icon(Icons.volume_up_rounded, color: _accent, size: 16)
-            else if (watched)
-              Icon(Icons.check_rounded, color: _grey, size: 16),
+            ],
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  // ─── ALL EPISODES SHEET (MovieBox style) ─────────────────────────────────────
+    Widget _buildEpTile(Chapter chapter, {required int fallbackIndex}) {
+      final isPlaying = _player.loadedChapterId == chapter.id;
+      final epNum     = _epNum(chapter.name, fallbackIndex).toString().padLeft(2, '0');
 
-  void _showAllEpisodesSheet(BuildContext ctx, List<Chapter> allChapters) {
+      return GestureDetector(
+        onTap: () => _loadEpisodeInBanner(chapter),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 62, height: 62,
+          decoration: BoxDecoration(
+            gradient: isPlaying
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _accent.withValues(alpha: 0.45),
+                      _accent.withValues(alpha: 0.15),
+                    ],
+                  )
+                : null,
+            color: isPlaying ? null : _card,
+            borderRadius: BorderRadius.circular(10),
+            border: isPlaying
+                ? Border.all(color: _accent.withValues(alpha: 0.55), width: 0.8)
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              epNum,
+              style: TextStyle(
+                color: isPlaying ? _accent : _textPrimary,
+                fontSize: 15,
+                fontWeight: isPlaying ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    void _showAllEpisodesSheet(BuildContext ctx, List<Chapter> allChapters) {
     final seasons = _detectSeasons(allChapters);
     String? sheetSeason = seasons.isNotEmpty ? seasons.first : null;
 
