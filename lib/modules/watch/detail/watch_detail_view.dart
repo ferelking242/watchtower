@@ -956,6 +956,58 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
         const SizedBox(height: 14),
 
+        // ── Quality pills — visibles dès que le player a des vidéos ──────────
+        if (_player.loadedVideos.length > 1) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _player.loadedVideos.asMap().entries.map((entry) {
+                final v = entry.value;
+                final isSelected = _player.selectedQuality == v.quality;
+                return Padding(
+                  padding: EdgeInsets.only(
+                      right: entry.key < _player.loadedVideos.length - 1 ? 6 : 0),
+                  child: GestureDetector(
+                    onTap: () {
+                      _player.switchQuality(v).then((_) {
+                        if (mounted) setState(() {});
+                      });
+                      setState(() {});
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _accent.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? _accent : _faint,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        v.quality,
+                        style: TextStyle(
+                          color: isSelected
+                              ? _accent
+                              : _onSurface.withValues(alpha: 0.75),
+                          fontSize: 13,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
         // ── Content ───────────────────────────────────────────────────────────
         if (chapters.isEmpty)
           Padding(
@@ -969,9 +1021,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ],
             ),
           )
-        else if (isMovie)
-          _buildMovieBox(filtered.isNotEmpty ? filtered.first : chapters.first)
-        else
+        else if (!isMovie)
           _buildEpisodeList(
             _sortedEpisodes(filtered),
             _sortedEpisodes(chapters),

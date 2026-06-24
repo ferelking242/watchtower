@@ -14,6 +14,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:watchtower/models/chapter.dart';
+  import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/widgets/watchtower_loader.dart';
@@ -30,6 +31,8 @@ class WatchInlinePlayer {
   bool hasVideoUrl = false;
   bool loadFailed = false;
   int? loadedChapterId;
+  List<Video> loadedVideos = [];
+  String? selectedQuality;
 
   WatchInlinePlayer() {
     _player = Player();
@@ -39,6 +42,19 @@ class WatchInlinePlayer {
   void dispose() {
     _player.dispose();
     _seekingNotifier.dispose();
+  }
+
+  /// Switch to a different quality without re-fetching.
+  Future<void> switchQuality(Video targetVideo) async {
+    selectedQuality = targetVideo.quality;
+    final ua      = targetVideo.headers?['User-Agent'] ?? targetVideo.headers?['user-agent'] ?? '';
+    final referer = targetVideo.headers?['Referer']    ?? targetVideo.headers?['referer']    ?? '';
+    try {
+      final plat = _player.platform as dynamic;
+      if (ua.isNotEmpty)      await plat.setProperty('user-agent', ua);
+      if (referer.isNotEmpty) await plat.setProperty('referrer', referer);
+    } catch (_) {}
+    await _player.open(Media(targetVideo.url, httpHeaders: targetVideo.headers), play: true);
   }
 
   void reset() {
@@ -63,6 +79,7 @@ class WatchInlinePlayer {
       final data =
           await ref.read(getVideoListProvider(episode: chapter).future);
       final (videos, _, __, ___) = data;
+      loadedVideos = videos;
 
       if (videos.isEmpty) {
         loadFailed = true;
@@ -107,6 +124,7 @@ class WatchInlinePlayer {
           watchdog.cancel();
           errSub?.cancel();
           hasVideoUrl = true;
+          selectedQuality = v.quality;
           AppLogger.log(
             '[PLAYER] EN LECTURE ✓  qualité="${v.quality}"  durée=${dur.inSeconds}s  ep="$epName"',
             logLevel: LogLevel.info,
@@ -1970,6 +1988,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
   bool _firstDuration = true;
   bool _successShown = false;
 
+  Timer? _bufDebounce;
   StreamSubscription<Duration>? _durSub;
   StreamSubscription<bool>? _bufSub;
 
@@ -1991,13 +2010,21 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
     _bufSub = widget.player.stream.buffering.listen((buf) {
       if (!mounted) return;
       if (_successShown) {
-        setState(() => _anim = buf ? 'loading' : null);
+        _bufDebounce?.cancel();
+        if (buf) {
+          _bufDebounce = Timer(const Duration(milliseconds: 600), () {
+            if (mounted) setState(() => _anim = 'loading');
+          });
+        } else {
+          setState(() => _anim = null);
+        }
       }
     });
   }
 
   @override
   void dispose() {
+    _bufDebounce?.cancel();
     _durSub?.cancel();
     _bufSub?.cancel();
     super.dispose();
@@ -2012,7 +2039,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
           valueListenable: widget.seekingNotifier,
           builder: (_, seeking, __) => seeking
               ? const SizedBox.shrink()
-              : const WatchtowerLoader(animation: 'loading'),
+              : const _BufferingDotsIndicator(),
         ),
       );
     }
@@ -2028,3 +2055,57 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
     return const SizedBox.shrink();
   }
 }
+
+  // ─── 3-dots buffering indicator ───────────────────────────────────────────────
+  class _BufferingDotsIndicator extends StatefulWidget {
+    const _BufferingDotsIndicator();
+
+    @override
+    State<_BufferingDotsIndicator> createState() => _BufferingDotsIndicatorState();
+  }
+
+  class _BufferingDotsIndicatorState extends State<_BufferingDotsIndicator>
+      with SingleTickerProviderStateMixin {
+    late final AnimationController _ctrl;
+
+    @override
+    void initState() {
+      super.initState();
+      _ctrl = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 900),
+      )..repeat();
+    }
+
+    @override
+    void dispose() {
+      _ctrl.dispose();
+      super.dispose();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) {
+          final step = (_ctrl.value * 3).floor();
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(3, (i) {
+              final active = i <= step;
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: active ? 0.9 : 0.3),
+                ),
+              );
+            }),
+          );
+        },
+      );
+    }
+  }
+  
