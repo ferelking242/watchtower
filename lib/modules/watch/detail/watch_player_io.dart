@@ -48,8 +48,12 @@ class WatchInlinePlayer {
     _seekingNotifier.dispose();
   }
 
-  /// Switch to a different quality without re-fetching.
+  /// Callback fired when quality changes (so the page UI can rebuild).
+  VoidCallback? onQualityChanged;
+
+  /// Switch to a different quality, preserving current playback position.
   Future<void> switchQuality(wt.Video targetVideo) async {
+    final savedPos = _player.state.position;
     selectedQuality = targetVideo.quality;
     final ua      = targetVideo.headers?['User-Agent'] ?? targetVideo.headers?['user-agent'] ?? '';
     final referer = targetVideo.headers?['Referer']    ?? targetVideo.headers?['referer']    ?? '';
@@ -59,6 +63,16 @@ class WatchInlinePlayer {
       if (referer.isNotEmpty) await plat.setProperty('referrer', referer);
     } catch (_) {}
     await _player.open(Media(targetVideo.url, httpHeaders: targetVideo.headers), play: true);
+    // Restore position after the new stream is ready
+    if (savedPos > Duration.zero) {
+      try {
+        await _player.stream.duration
+            .firstWhere((d) => d > Duration.zero)
+            .timeout(const Duration(seconds: 12), onTimeout: () => Duration.zero);
+        await _player.seek(savedPos);
+      } catch (_) {}
+    }
+    onQualityChanged?.call();
   }
 
   void reset() {
@@ -274,6 +288,9 @@ class WatchInlinePlayer {
             accent: accent,
             title: title,
             seekingNotifier: _seekingNotifier,
+            loadedVideos: loadedVideos,
+            onSwitchQuality: switchQuality,
+            selectedQuality: selectedQuality,
           ),
         ),
       ],
@@ -298,6 +315,9 @@ class WatchInlinePlayer {
             controller: _controller,
             title: title,
             showBackButton: false,
+            loadedVideos: loadedVideos,
+            onSwitchQuality: switchQuality,
+            selectedQuality: selectedQuality,
           ),
         ),
       ],
@@ -311,11 +331,17 @@ class _FullscreenPlayerPage extends StatefulWidget {
   final VideoController controller;
   final Player player;
   final String title;
+  final List<wt.Video> loadedVideos;
+  final Future<void> Function(wt.Video)? onSwitchQuality;
+  final String? selectedQuality;
 
   const _FullscreenPlayerPage({
     required this.controller,
     required this.player,
     required this.title,
+    this.loadedVideos = const [],
+    this.onSwitchQuality,
+    this.selectedQuality,
   });
 
   @override
@@ -362,6 +388,9 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
               controller: widget.controller,
               title: widget.title,
               showBackButton: true,
+              loadedVideos: widget.loadedVideos,
+              onSwitchQuality: widget.onSwitchQuality,
+              selectedQuality: widget.selectedQuality,
             ),
           ),
         ],
@@ -377,12 +406,18 @@ class _FullscreenControlsOverlay extends StatefulWidget {
   final VideoController controller;
   final String title;
   final bool showBackButton;
+  final List<wt.Video> loadedVideos;
+  final Future<void> Function(wt.Video)? onSwitchQuality;
+  final String? selectedQuality;
 
   const _FullscreenControlsOverlay({
     required this.player,
     required this.controller,
     required this.title,
     required this.showBackButton,
+    this.loadedVideos = const [],
+    this.onSwitchQuality,
+    this.selectedQuality,
   });
 
   @override
@@ -426,11 +461,26 @@ class _FullscreenControlsOverlayState
     bool _audioOnly = false;
     bool _showSubPanel = false;
 
+    // ── Double-tap escalation (skip zones) ────────────────────────────────────
+    int _doubleTapCount = 0;
+    bool? _doubleTapRight;
+    Timer? _doubleTapResetTimer;
+    bool _showLeftSkipHUD  = false;
+    bool _showRightSkipHUD = false;
+    int _skipHudSeconds = 10;
+    Timer? _skipHudTimer;
+
+    // ── Current quality (synced with loadedVideos) ────────────────────────────
+    String? _currentQuality;
+
   @override
   void initState() {
     super.initState();
     _resetHideTimer();
     _initMedia();
+    // Sync current quality from the passed-in selectedQuality or first video
+    _currentQuality = widget.selectedQuality ??
+        (widget.loadedVideos.isNotEmpty ? widget.loadedVideos.first.quality : null);
   }
 
   Future<void> _initMedia() async {
@@ -446,7 +496,41 @@ class _FullscreenControlsOverlayState
   void dispose() {
     _hideTimer?.cancel();
     _hudTimer?.cancel();
+    _doubleTapResetTimer?.cancel();
+    _skipHudTimer?.cancel();
     super.dispose();
+  }
+
+  // ── Double-tap seek with escalating amounts ──────────────────────────────────
+  void _handleDoubleTap({required bool isRight}) {
+    _doubleTapResetTimer?.cancel();
+
+    // Reset count if side changed
+    if (_doubleTapRight != null && _doubleTapRight != isRight) {
+      _doubleTapCount = 0;
+    }
+    _doubleTapRight = isRight;
+    _doubleTapCount++;
+
+    final seconds = _doubleTapCount == 1 ? 10 : _doubleTapCount == 2 ? 30 : 60;
+    _skipHudSeconds = seconds;
+    _seek(isRight ? seconds : -seconds);
+
+    // Show HUD
+    _skipHudTimer?.cancel();
+    setState(() {
+      _showLeftSkipHUD  = !isRight;
+      _showRightSkipHUD = isRight;
+    });
+    _skipHudTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
+    });
+
+    // Reset escalation counter after 800ms of inactivity
+    _doubleTapResetTimer = Timer(const Duration(milliseconds: 800), () {
+      _doubleTapCount = 0;
+      _doubleTapRight = null;
+    });
   }
 
   void _resetHideTimer() {
@@ -664,6 +748,95 @@ class _FullscreenControlsOverlayState
         },
       child: Stack(
         children: [
+          // ── Left-third invisible double-tap zone (seek back) ─────────────────
+          Positioned(
+            left: 0, top: 0, bottom: 0,
+            width: size.width * 0.33,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: () => _handleDoubleTap(isRight: false),
+              onTap: _onTap,
+            ),
+          ),
+          // ── Right-third invisible double-tap zone (seek forward) ─────────────
+          Positioned(
+            right: 0, top: 0, bottom: 0,
+            width: size.width * 0.33,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: () => _handleDoubleTap(isRight: true),
+              onTap: _onTap,
+            ),
+          ),
+
+          // ── Skip HUD — left ───────────────────────────────────────────────────
+          if (_showLeftSkipHUD)
+            Positioned(
+              left: size.width * 0.04,
+              top: 0, bottom: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds),
+                ),
+              ),
+            ),
+          // ── Skip HUD — right ──────────────────────────────────────────────────
+          if (_showRightSkipHUD)
+            Positioned(
+              right: size.width * 0.04,
+              top: 0, bottom: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
+                ),
+              ),
+            ),
+
+          // ── Audio-only mode overlay ───────────────────────────────────────────
+          if (_audioOnly)
+            IgnorePointer(
+              child: Container(
+                color: Colors.black87,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 88,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C2C2E),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white12, width: 1),
+                        ),
+                        child: const Icon(Icons.audiotrack_rounded, color: Colors.white70, size: 44),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        widget.title,
+                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      StreamBuilder<Duration>(
+                        stream: widget.player.stream.position,
+                        initialData: widget.player.state.position,
+                        builder: (_, posSnap) {
+                          final pos = posSnap.data ?? Duration.zero;
+                          final dur = widget.player.state.duration;
+                          return Text(
+                            '${_fmt(pos)} / ${_fmt(dur)}',
+                            style: const TextStyle(color: Colors.white54, fontSize: 13),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // Buffering indicator
           IgnorePointer(
             child: Center(
@@ -891,6 +1064,43 @@ class _FullscreenControlsOverlayState
     }
   }
 
+  // ── Skip HUD (YouTube-style double-tap indicator) ─────────────────────────
+  Widget _buildSkipHUD({required bool isRight, required int seconds}) {
+    return AnimatedOpacity(
+      opacity: 1.0,
+      duration: const Duration(milliseconds: 120),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.52),
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: isRight
+                  ? [
+                      const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 22),
+                      const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 22),
+                    ]
+                  : [
+                      const Icon(Icons.fast_rewind_rounded, color: Colors.white, size: 22),
+                      const Icon(Icons.fast_rewind_rounded, color: Colors.white, size: 22),
+                    ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isRight ? '+${seconds}s' : '-${seconds}s',
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSideHUD({required IconData icon, required double value}) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
@@ -1043,69 +1253,30 @@ class _FullscreenControlsOverlayState
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Lock button placeholder — actual button rendered outside via Positioned
         const SizedBox(width: 80),
         const Spacer(),
-        // Center controls: ↺Ns | play/pause | ↻Ns
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: () => _seek(-_seekSeconds),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(Icons.replay, color: Colors.white, size: 46),
-                    Positioned(
-                      bottom: 5,
-                      child: Text(
-                        '$_seekSeconds',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
+        // Center: play/pause only — seek handled by edge double-tap zones
+        StreamBuilder<bool>(
+          stream: widget.player.stream.playing,
+          initialData: widget.player.state.playing,
+          builder: (_, snap) => GestureDetector(
+            onTap: () {
+              widget.player.playOrPause();
+              _resetHideTimer();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: const BoxDecoration(
+                color: Color(0x55000000),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 54,
               ),
             ),
-            const SizedBox(width: 24),
-            StreamBuilder<bool>(
-              stream: widget.player.stream.playing,
-              initialData: widget.player.state.playing,
-              builder: (_, snap) => GestureDetector(
-                onTap: () {
-                  widget.player.playOrPause();
-                  _resetHideTimer();
-                },
-                child: Icon(
-                  (snap.data ?? false) ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 54,
-                ),
-              ),
-            ),
-            const SizedBox(width: 24),
-            GestureDetector(
-              onTap: () => _seek(_seekSeconds),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(Icons.forward, color: Colors.white, size: 46),
-                    Positioned(
-                      bottom: 5,
-                      child: Text(
-                        '$_seekSeconds',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
         const Spacer(),
         const SizedBox(width: 80),
@@ -1116,7 +1287,6 @@ class _FullscreenControlsOverlayState
   Widget _buildLockButton() {
     return GestureDetector(
       onTap: () {
-        // Lock immediately: hide controls, only lock icon stays
         setState(() {
           _locked = true;
           _showControls = false;
@@ -1124,19 +1294,12 @@ class _FullscreenControlsOverlayState
         _hideTimer?.cancel();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
+        padding: const EdgeInsets.all(11),
+        decoration: const BoxDecoration(
           color: Colors.black45,
-          borderRadius: BorderRadius.circular(20),
+          shape: BoxShape.circle,
         ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.lock_open_rounded, color: Colors.white, size: 15),
-            SizedBox(width: 6),
-            Text('Verrouiller', style: TextStyle(color: Colors.white, fontSize: 12)),
-          ],
-        ),
+        child: const Icon(Icons.lock_open_rounded, color: Colors.white, size: 20),
       ),
     );
   }
@@ -1402,26 +1565,10 @@ class _FullscreenControlsOverlayState
     );
   }
 
-  // ─── Quality picker — vertical list expanding upward ───────────────────────
+  // ─── Quality picker — uses loadedVideos from parent ────────────────────────
   Widget _buildQualityPickerOverlay() {
-    // Standard quality tiers ordered top→bottom (highest at top)
-    const allQualities = ['4K', '1440p', '1080p', '720p', '480p', '360p'];
-    // Detect available qualities from video tracks
-    final videoTracks = widget.player.state.tracks.video;
-    final Set<String> available = {};
-    for (final t in videoTracks) {
-      final h = t.h ?? 0;
-      if (h >= 2160)      available.add('4K');
-      else if (h >= 1440) available.add('1440p');
-      else if (h >= 1080) available.add('1080p');
-      else if (h >= 720)  available.add('720p');
-      else if (h >= 480)  available.add('480p');
-      else if (h > 0)     available.add('360p');
-    }
-    // If no track info, treat all as available
-    final effectiveAvail =
-        available.isEmpty ? allQualities.toSet() : available;
-
+    final videos = widget.loadedVideos;
+    // Build ordered list preserving original order in loadedVideos
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
@@ -1442,77 +1589,58 @@ class _FullscreenControlsOverlayState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(14, 10, 14, 6),
               child: Text(
                 'Qualité',
-                style: const TextStyle(
+                style: TextStyle(
                     color: Colors.white54,
                     fontSize: 11,
                     fontWeight: FontWeight.w600),
               ),
             ),
             const Divider(height: 1, color: Colors.white12),
-            ...allQualities.map((q) {
-              final isAvail = effectiveAvail.contains(q);
-              return GestureDetector(
-                onTap: isAvail
-                    ? () {
-                        // Select matching video track
-                        if (videoTracks.isNotEmpty) {
-                          final target = videoTracks.cast<VideoTrack?>().firstWhere(
-                            (t) {
-                              final h = t?.h ?? 0;
-                              if (q == '4K')    return h >= 2160;
-                              if (q == '1440p') return h >= 1440;
-                              if (q == '1080p') return h >= 1080;
-                              if (q == '720p')  return h >= 720;
-                              if (q == '480p')  return h >= 480;
-                              return h > 0;
-                            },
-                            orElse: () => null,
-                          );
-                          if (target != null) {
-                            widget.player.setVideoTrack(target);
-                          }
-                        }
-                        setState(() => _showQualityPicker = false);
-                        _resetHideTimer();
-                      }
-                    : null,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 11),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 56,
-                        child: Text(
-                          q,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: isAvail
-                                ? Colors.white
-                                : Colors.white30,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+            if (videos.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                child: Text('Aucune qualité', style: TextStyle(color: Colors.white54, fontSize: 13)),
+              )
+            else
+              ...videos.map((v) {
+                final isCurrent = _currentQuality == v.quality;
+                return GestureDetector(
+                  onTap: () async {
+                    _currentQuality = v.quality;
+                    setState(() => _showQualityPicker = false);
+                    _resetHideTimer();
+                    if (widget.onSwitchQuality != null) {
+                      await widget.onSwitchQuality!(v);
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 72,
+                          child: Text(
+                            v.quality,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isCurrent ? Theme.of(context).primaryColor : Colors.white,
+                              fontSize: 14,
+                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                      if (!isAvail) ...[
-                        const SizedBox(width: 8),
-                        const Text(
-                          'N/D',
-                          style: TextStyle(
-                              color: Colors.white24, fontSize: 10),
-                        ),
+                        if (isCurrent)
+                          Icon(Icons.check_rounded, color: Theme.of(context).primaryColor, size: 14),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
             const SizedBox(height: 4),
           ],
         ),
@@ -1549,25 +1677,15 @@ class _FullscreenControlsOverlayState
         widget.player.setVolume(_muted ? 0 : _volume * 100);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
+        padding: const EdgeInsets.all(11),
+        decoration: const BoxDecoration(
           color: Colors.black45,
-          borderRadius: BorderRadius.circular(20),
+          shape: BoxShape.circle,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-              color: Colors.white,
-              size: 15,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              _muted ? 'Son off' : 'Couper',
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ],
+        child: Icon(
+          _muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+          color: Colors.white,
+          size: 20,
         ),
       ),
     );
@@ -2267,6 +2385,9 @@ class _InlineControls extends StatefulWidget {
   final Color accent;
   final String title;
   final ValueNotifier<bool> seekingNotifier;
+  final List<wt.Video> loadedVideos;
+  final Future<void> Function(wt.Video)? onSwitchQuality;
+  final String? selectedQuality;
 
   const _InlineControls({
     required this.player,
@@ -2274,6 +2395,9 @@ class _InlineControls extends StatefulWidget {
     required this.accent,
     required this.title,
     required this.seekingNotifier,
+    this.loadedVideos = const [],
+    this.onSwitchQuality,
+    this.selectedQuality,
   });
 
   @override
@@ -2304,6 +2428,9 @@ class _InlineControlsState extends State<_InlineControls> {
               controller: _c,
               player: _p,
               title: widget.title,
+              loadedVideos: widget.loadedVideos,
+              onSwitchQuality: widget.onSwitchQuality,
+              selectedQuality: widget.selectedQuality,
             ),
           ),
         );
@@ -2319,6 +2446,9 @@ class _InlineControlsState extends State<_InlineControls> {
           controller: _c,
           player: _p,
           title: widget.title,
+          loadedVideos: widget.loadedVideos,
+          onSwitchQuality: widget.onSwitchQuality,
+          selectedQuality: widget.selectedQuality,
         ),
       ),
     );
