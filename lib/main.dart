@@ -312,7 +312,7 @@ class _MyAppState extends ConsumerState<MyApp>
         return;
       }
       // Lock the app when going to background (if lock is enabled)
-      final lockEnabled = isar.settings.getSync(227)!.appLockEnabled ?? false;
+      final lockEnabled = isar.settings.getSync(227)?.appLockEnabled ?? false;
       if (lockEnabled) {
         ref.read(appUnlockedStateProvider.notifier).lock();
       }
