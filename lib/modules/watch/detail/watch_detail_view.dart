@@ -1108,7 +1108,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     required void Function(String) onSelect,
   }) {
     return GestureDetector(
-      onTap: () => _showDropdownSheet(items, onSelect),
+      onTap: () => _showDropdownSheet(label, items, onSelect),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
