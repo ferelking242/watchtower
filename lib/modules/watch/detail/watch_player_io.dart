@@ -8,6 +8,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -418,9 +419,12 @@ class _FullscreenControlsOverlayState
     double _horizDragStartSpeed = 1.0;
     bool _showSpeedBoostHUD     = false;
 
-    // ── Seek + mute ───────────────────────────────────────────────────────────
+    // ── Seek + mute + orientation + audio-only ────────────────────────────────
     int _seekSeconds = 10;
     bool _muted = false;
+    bool _landscapeIsLeft = true;
+    bool _audioOnly = false;
+    bool _showSubPanel = false;
 
   @override
   void initState() {
@@ -604,8 +608,8 @@ class _FullscreenControlsOverlayState
         },
         onLongPressMoveUpdate: (d) {
           if (!_holdSpeedActive) return;
-          final dy = d.offsetFromOrigin.dy;
-          final shift = (-dy / 50).round().clamp(-6, 6);
+          final dx = d.offsetFromOrigin.dx;
+          final shift = (dx / 50).round().clamp(-6, 6);
           const base2xIdx = 7;
           final newIdx = (base2xIdx + shift).clamp(0, _kAllSpeeds.length - 1);
           final newSpeed = _kAllSpeeds[newIdx];
@@ -679,26 +683,32 @@ class _FullscreenControlsOverlayState
           if (_showControls && !_locked)
             _buildControlsOverlay(),
 
-          // Left controls: Lock + Mute
+          // Lock icon — always visible when locked, icon only (no text)
           if (_locked)
             Positioned(
               left: 20, top: 0, bottom: 0,
-              child: AnimatedOpacity(
-                opacity: _showControls ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildLockButton(),
-                      const SizedBox(height: 12),
-                      _buildMuteButton(),
-                    ],
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _locked = false;
+                      _showControls = true;
+                    });
+                    _resetHideTimer();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lock_rounded, color: Colors.white, size: 22),
                   ),
                 ),
               ),
             ),
 
+          // Left controls (unlocked): Lock + Mute
           if (_showControls && !_locked)
             Positioned(
               left: 20, top: 0, bottom: 0,
@@ -714,8 +724,8 @@ class _FullscreenControlsOverlayState
               ),
             ),
 
-          // Right controls: Screenshot + Rotate
-          if (_showControls)
+          // Right controls (unlocked): Screenshot + Rotate
+          if (_showControls && !_locked)
             Positioned(
               right: 20, top: 0, bottom: 0,
               child: Center(
@@ -725,8 +735,29 @@ class _FullscreenControlsOverlayState
                     _buildIconCircle(
                       icon: Icons.camera_alt_outlined,
                       tooltip: 'Capture',
-                      onTap: () {
-                        // Screenshot placeholder
+                      onTap: () async {
+                        setState(() => _showControls = false);
+                        await Future.delayed(const Duration(milliseconds: 150));
+                        try {
+                          final bytes = await widget.player.screenshot();
+                          if (bytes != null) {
+                            final dir = await getTemporaryDirectory();
+                            final path = '${dir.path}/wt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                            await File(path).writeAsBytes(bytes);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Capture sauvegardée'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        } catch (_) {}
+                        if (mounted) {
+                          setState(() => _showControls = true);
+                          _resetHideTimer();
+                        }
                       },
                     ),
                     const SizedBox(height: 12),
@@ -734,11 +765,30 @@ class _FullscreenControlsOverlayState
                       icon: Icons.screen_rotation_outlined,
                       tooltip: 'Rotation',
                       onTap: () {
-                        // Rotate placeholder
+                        _landscapeIsLeft = !_landscapeIsLeft;
+                        SystemChrome.setPreferredOrientations([
+                          _landscapeIsLeft
+                              ? DeviceOrientation.landscapeLeft
+                              : DeviceOrientation.landscapeRight,
+                        ]);
+                        setState(() {});
                       },
                     ),
                   ],
                 ),
+              ),
+            ),
+
+          // Subtitles / audio side panel
+          if (_showSubPanel)
+            Positioned.fill(
+              child: _SettingsPanel(
+                player: widget.player,
+                accent: Theme.of(context).primaryColor,
+                onClose: () {
+                  setState(() => _showSubPanel = false);
+                  _resetHideTimer();
+                },
               ),
             ),
 
@@ -945,15 +995,29 @@ class _FullscreenControlsOverlayState
             icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
             onPressed: () {
               _hideTimer?.cancel();
-              _openSettings(2);
+              setState(() {
+                _showSubPanel = true;
+                _showSpeedPicker = false;
+                _showQualityPicker = false;
+              });
             },
             padding: const EdgeInsets.all(8),
           ),
           IconButton(
-            icon: const Icon(Icons.audio_file_outlined, color: Colors.white70, size: 20),
+            icon: Icon(
+              _audioOnly ? Icons.audiotrack_rounded : Icons.audiotrack_outlined,
+              color: _audioOnly ? Theme.of(context).primaryColor : Colors.white70,
+              size: 20,
+            ),
             onPressed: () {
-              _hideTimer?.cancel();
-              _openSettings(1);
+              setState(() => _audioOnly = !_audioOnly);
+              if (_audioOnly) {
+                widget.player.setVideoTrack(VideoTrack.no());
+              } else {
+                final tracks = widget.player.state.tracks.video;
+                if (tracks.isNotEmpty) widget.player.setVideoTrack(tracks.first);
+              }
+              _resetHideTimer();
             },
             padding: const EdgeInsets.all(8),
           ),
@@ -1052,19 +1116,12 @@ class _FullscreenControlsOverlayState
   Widget _buildLockButton() {
     return GestureDetector(
       onTap: () {
+        // Lock immediately: hide controls, only lock icon stays
         setState(() {
-          _locked = !_locked;
-          _showControls = true;
+          _locked = true;
+          _showControls = false;
         });
-        if (!_locked) {
-          _resetHideTimer();
-        } else {
-          // When locking: briefly show then auto-hide
-          _hideTimer?.cancel();
-          _hideTimer = Timer(const Duration(seconds: 2), () {
-            if (mounted) setState(() => _showControls = false);
-          });
-        }
+        _hideTimer?.cancel();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1072,19 +1129,12 @@ class _FullscreenControlsOverlayState
           color: Colors.black45,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              _locked ? Icons.lock_rounded : Icons.lock_open_rounded,
-              color: Colors.white,
-              size: 15,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              _locked ? 'Verrouillé' : 'Verrouiller',
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
+            Icon(Icons.lock_open_rounded, color: Colors.white, size: 15),
+            SizedBox(width: 6),
+            Text('Verrouiller', style: TextStyle(color: Colors.white, fontSize: 12)),
           ],
         ),
       ),
