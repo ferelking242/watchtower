@@ -1033,9 +1033,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }
 
   double _heroHeight(Size size) {
-    // Responsive: 16:9 + info area, capped to 50% of screen height
-    final target = size.width * (9 / 16) + 80.0;
-    return target.clamp(200.0, size.height * 0.5);
+    final isLandscape = size.width > size.height;
+    if (isLandscape) {
+      return (size.height * 0.72).clamp(240.0, 420.0);
+    }
+    final target = size.width * (9.0 / 16.0) + 88.0;
+    return target.clamp(220.0, size.height * 0.52);
   }
 
   Widget _buildError(BuildContext ctx, Object error) {
@@ -1115,8 +1118,12 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
 
   double _heroHeight(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final target = size.width * (9 / 16) + 80.0;
-    return target.clamp(200.0, size.height * 0.5);
+    final isLandscape = size.width > size.height;
+    if (isLandscape) {
+      return (size.height * 0.72).clamp(240.0, 420.0);
+    }
+    final target = size.width * (9.0 / 16.0) + 88.0;
+    return target.clamp(220.0, size.height * 0.52);
   }
 
   @override
