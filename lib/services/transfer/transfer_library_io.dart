@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
