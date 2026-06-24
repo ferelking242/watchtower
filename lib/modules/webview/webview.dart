@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/services/mini_webview_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
@@ -1004,6 +1005,74 @@ import 'package:flutter_svg/flutter_svg.dart';
   })();
   """;
 
+  // ─── Video intercept JS ───────────────────────────────────────────────────────
+
+const String _kVideoInterceptJs = r"""
+(function(){
+  if(window.__wtVideoInterceptInstalled) return;
+  window.__wtVideoInterceptInstalled = true;
+
+  function isMedia(url) {
+    if(!url || url.length < 5) return false;
+    if(url.startsWith('blob:') || url.startsWith('data:')) return false;
+    var lo = url.toLowerCase().split('?')[0].split('#')[0];
+    return /\.(m3u8|mp4|mkv|webm|mov|avi|mpd)$/.test(lo) || lo.indexOf('.m3u8') !== -1;
+  }
+
+  function sendUrl(url) {
+    if(!isMedia(url)) return;
+    try {
+      window.flutter_inappwebview.callHandler(
+        'videoIntercepted', url, document.title || '');
+    } catch(e) {}
+  }
+
+  function hookVideo(v) {
+    if(v.__wtHooked) return;
+    v.__wtHooked = true;
+    ['play','loadedmetadata'].forEach(function(ev) {
+      v.addEventListener(ev, function() {
+        sendUrl(this.currentSrc || this.src || '');
+      }, { passive: true });
+    });
+  }
+
+  document.querySelectorAll('video').forEach(hookVideo);
+
+  new MutationObserver(function(muts) {
+    muts.forEach(function(m) {
+      m.addedNodes.forEach(function(n) {
+        if(!n || n.nodeType !== 1) return;
+        if(n.tagName === 'VIDEO') hookVideo(n);
+        if(n.querySelectorAll) n.querySelectorAll('video').forEach(hookVideo);
+      });
+    });
+  }).observe(document.documentElement || document.body,
+             { childList: true, subtree: true });
+
+  var origPlay = HTMLVideoElement.prototype.play;
+  HTMLVideoElement.prototype.play = function() {
+    sendUrl(this.currentSrc || this.src || '');
+    return origPlay.call(this);
+  };
+
+  var origXHR = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(m, url) {
+    if(typeof url === 'string') sendUrl(url);
+    return origXHR.apply(this, arguments);
+  };
+
+  if(window.fetch) {
+    var origFetch = window.fetch;
+    window.fetch = function(r, opts) {
+      var url = typeof r === 'string' ? r : (r && (r.url || ''));
+      if(url) sendUrl(url);
+      return origFetch.apply(window, arguments);
+    };
+  }
+})();
+""";
+
   // ─── Panel snap positions ─────────────────────────────────────────────────────
 
 enum _PanelSnap { mini, half, full }
@@ -1084,6 +1153,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // Undo history: each entry is {selector, displayName}
   final List<Map<String, String>> _hiddenHistory = [];
 
+  // Video interception (MPV player)
+  String? _interceptedVideoUrl;
+  String? _interceptedVideoTitle;
+  bool _showVideoInterceptBanner = false;
+  Timer? _interceptBannerTimer;
+
   // Footer visibility (toggled by ghost icon)
   bool _showFooter = true;
 
@@ -1142,6 +1217,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   @override
   void dispose() {
+    _interceptBannerTimer?.cancel();
     // Restore system UI (status bar) when WebView closes
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _animCtrl.dispose();
@@ -1751,6 +1827,95 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     if (mounted) context.pop();
   }
 
+  // ── Video interception helpers ─────────────────────────────────────────────
+
+  /// Returns true if the URL points directly to a playable video/HLS manifest.
+  bool _isVideoUrl(String url) {
+    if (url.isEmpty) return false;
+    final lo = url.toLowerCase().split('?').first.split('#').first;
+    for (final ext in const [
+      '.m3u8', '.mp4', '.mkv', '.webm', '.mov', '.avi', '.mpd',
+    ]) {
+      if (lo.endsWith(ext)) return true;
+    }
+    return false;
+  }
+
+  /// Called whenever JS or shouldOverrideUrlLoading detects a media URL.
+  void _handleInterceptedVideo(String url, [String? title]) {
+    if (!mounted || url.isEmpty) return;
+    // Deduplicate: don't re-show if same URL is already visible
+    if (_interceptedVideoUrl == url && _showVideoInterceptBanner) return;
+    _interceptBannerTimer?.cancel();
+    setState(() {
+      _interceptedVideoUrl = url;
+      _interceptedVideoTitle =
+          (title != null && title.isNotEmpty) ? title : null;
+      _showVideoInterceptBanner = true;
+    });
+    // Auto-dismiss after 8 s
+    _interceptBannerTimer = Timer(const Duration(seconds: 8), () {
+      if (mounted) setState(() => _showVideoInterceptBanner = false);
+    });
+  }
+
+  /// Creates a temporary Isar entry and pushes to the MPV player.
+  Future<void> _openInMpv() async {
+    final url = _interceptedVideoUrl;
+    if (url == null || url.isEmpty) return;
+    _interceptBannerTimer?.cancel();
+    if (mounted) setState(() => _showVideoInterceptBanner = false);
+
+    try {
+      final title = (_interceptedVideoTitle?.isNotEmpty == true)
+          ? _interceptedVideoTitle!
+          : _displayHost(_url);
+
+      final manga = Manga(
+        source: 'webview_intercept',
+        author: '',
+        artist: '',
+        genre: [],
+        imageUrl: '',
+        lang: 'all',
+        link: url,
+        name: title,
+        status: Status.unknown,
+        description: '',
+        sourceId: 0,
+        isManga: false,
+        itemType: ItemType.anime,
+      );
+
+      int chapterId = 0;
+      await isar.writeTxn(() async {
+        final mangaId = await isar.mangas.put(manga);
+        manga.id = mangaId;
+        final chapter = Chapter(
+          mangaId: mangaId,
+          name: title,
+          url: url,
+        );
+        chapterId = await isar.chapters.put(chapter);
+        chapter.manga.value = manga;
+        await chapter.manga.save();
+      });
+
+      if (mounted) {
+        context.push('/animePlayerView', extra: chapterId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Impossible d\'ouvrir dans MPV : $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   void _showMoreMenu() {
     showModalBottomSheet(
       context: context,
@@ -1997,6 +2162,17 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                   setState(() => _pickerMode = false);
                                 },
                               );
+                              c.addJavaScriptHandler(
+                                handlerName: 'videoIntercepted',
+                                callback: (args) {
+                                  if (!mounted || args.isEmpty) return;
+                                  final videoUrl = args[0].toString().trim();
+                                  final pageTitle = args.length > 1
+                                      ? args[1].toString().trim()
+                                      : null;
+                                  _handleInterceptedVideo(videoUrl, pageTitle);
+                                },
+                              );
                             },
                             onCreateWindow: (c, req) async {
                               return true;
@@ -2007,6 +2183,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                             onLoadStop: (c, url) async {
                               if (mounted) setState(() => _url = url.toString());
                               await _injectJs();
+                              try {
+                                await c.evaluateJavascript(source: _kVideoInterceptJs);
+                              } catch (_) {}
                             },
                             onProgressChanged: (c, progress) {
                               if (mounted) {
@@ -2036,6 +2215,14 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                 final url = action.request.url?.toString() ?? '';
                                 if (_isAdUrl(url)) {
                                   if (mounted) setState(() => _blockedCount++);
+                                  return NavigationActionPolicy.CANCEL;
+                                }
+                              }
+                              // Intercept direct navigation to a video file → offer MPV
+                              if (action.isForMainFrame == true) {
+                                final rawUrl = action.request.url?.toString() ?? '';
+                                if (_isVideoUrl(rawUrl)) {
+                                  _handleInterceptedVideo(rawUrl, _title);
                                   return NavigationActionPolicy.CANCEL;
                                 }
                               }
@@ -2118,6 +2305,24 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             child: panelContent,
           ),
         ),
+        // ── Video intercept banner (Safari-style) ──────────────────────────
+        if (_showVideoInterceptBanner && _interceptedVideoUrl != null)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 58,
+            left: 12,
+            right: 12,
+            child: _VideoInterceptBanner(
+              url: _interceptedVideoUrl!,
+              title: _interceptedVideoTitle,
+              isDark: isDark,
+              cs: cs,
+              onPlay: _openInMpv,
+              onDismiss: () {
+                _interceptBannerTimer?.cancel();
+                setState(() => _showVideoInterceptBanner = false);
+              },
+            ),
+          ),
       ],
     );
   }
@@ -2184,7 +2389,106 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     }
   }
 
-  
+// ─── Video intercept banner (Safari-style) ────────────────────────────────────
+
+class _VideoInterceptBanner extends StatelessWidget {
+  final String url;
+  final String? title;
+  final bool isDark;
+  final ColorScheme cs;
+  final VoidCallback onPlay;
+  final VoidCallback onDismiss;
+
+  const _VideoInterceptBanner({
+    required this.url,
+    required this.isDark,
+    required this.cs,
+    required this.onPlay,
+    required this.onDismiss,
+    this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    // Truncate URL to a readable length
+    String displayUrl = url;
+    if (displayUrl.length > 60) {
+      displayUrl = '${displayUrl.substring(0, 57)}…';
+    }
+
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(14),
+      color: bg,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.play_circle_fill_rounded,
+                  color: cs.primary, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Vidéo détectée — lire dans MPV ?',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    displayUrl,
+                    style: TextStyle(fontSize: 11, color: subColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onPlay,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                backgroundColor: cs.primaryContainer,
+                foregroundColor: cs.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Lire', style: TextStyle(fontSize: 13)),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: onDismiss,
+              child: Icon(Icons.close_rounded, size: 18, color: subColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Browser header (drag handle + address bar + progress) ───────────────────
 
 class _BrowserHeader extends StatefulWidget {
