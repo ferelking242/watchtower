@@ -80,7 +80,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _player = WatchInlinePlayer();
     _nestedScrollCtrl.addListener(_onScroll);
   }
@@ -261,7 +261,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         fontSize: 13.5, fontWeight: FontWeight.w400),
                     dividerColor: Colors.transparent,
                     tabs: const [
-                      Tab(text: 'Détails'),
                       Tab(text: 'Pour vous'),
                       Tab(text: 'Commentaires'),
                     ],
@@ -273,7 +272,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             body: TabBarView(
               controller: _tabController,
               children: [
-                _buildDetailsTab(chapters),
                 _buildRecommendationsTab(),
                 _buildCommentsTab(),
               ],
@@ -1335,7 +1333,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         onTap: () => _loadEpisodeInBanner(chapter),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
@@ -1351,7 +1349,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           child: Text(
             title.isNotEmpty ? title : 'Regarder',
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: _accent,
@@ -2300,20 +2298,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   Widget _buildCommentsTab() {
-    // Commentaires : l'extension doit exposer getComments(url, page).
-    // Vérification via le champ supportsComments dans les métadonnées source.
     final source = getSource(
       widget.manga.lang ?? '',
       widget.manga.source ?? '',
       widget.manga.sourceId,
     );
     final supportsComments =
-        (source?.additionalParams?.contains('"supportsComments":true') ??
-            false) ||
+        (source?.additionalParams?.contains('"supportsComments":true') ?? false) ||
         (source?.notes?.contains('supportsComments') ?? false);
 
     if (!supportsComments) {
-      // Source ne fournit pas de commentaires → placeholder informatif
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2326,8 +2320,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 shape: BoxShape.circle,
                 border: Border.all(color: _faint, width: 1.5),
               ),
-              child:
-                  Icon(Icons.chat_bubble_outline, color: _grey, size: 32),
+              child: Icon(Icons.chat_bubble_outline, color: _grey, size: 32),
             ),
             const SizedBox(height: 16),
             Text(
@@ -2339,15 +2332,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
             const SizedBox(height: 6),
             Text(
-              'Cette extension ne fournit pas\nde commentaires (supportsComments: false).',
+              'Cette extension ne supporte pas les commentaires.',
               style: TextStyle(color: _grey, fontSize: 12),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             if ((source?.name ?? '').isNotEmpty)
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _card,
                   borderRadius: BorderRadius.circular(8),
@@ -2362,17 +2354,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       );
     }
 
-    // Source supporte les commentaires — à implémenter avec getCommentsProvider
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline, color: _accent, size: 32),
-          const SizedBox(height: 12),
-          Text('Chargement des commentaires…',
-              style: TextStyle(color: _grey, fontSize: 13)),
-        ],
-      ),
+    return _CommentsSection(
+      mangaUrl: widget.manga.link ?? '',
+      mangaName: widget.manga.name ?? '',
+      accent: _accent,
+      bg: _bg,
+      card: _card,
+      onSurface: _onSurface,
+      grey: _grey,
+      faint: _faint,
+      textPrimary: _textPrimary,
     );
   }
 
@@ -3559,6 +3550,723 @@ class _ModernCheckbox extends StatelessWidget {
       child: checked
           ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
           : null,
+    );
+  }
+}
+
+// ─── COMMENT MODEL ──────────────────────────────────────────────────────────
+
+class _Comment {
+  final String id;
+  final String author;
+  final String timeAgo;
+  final String body;
+  int likes;
+  bool liked;
+  bool collapsed;
+  final List<_Comment> replies;
+
+  _Comment({
+    required this.id,
+    required this.author,
+    required this.timeAgo,
+    required this.body,
+    this.likes = 0,
+    this.liked = false,
+    this.collapsed = false,
+    List<_Comment>? replies,
+  }) : replies = replies ?? [];
+}
+
+// ─── COMMENTS SECTION ────────────────────────────────────────────────────────
+
+class _CommentsSection extends StatefulWidget {
+  final String mangaUrl;
+  final String mangaName;
+  final Color accent;
+  final Color bg;
+  final Color card;
+  final Color onSurface;
+  final Color grey;
+  final Color faint;
+  final Color textPrimary;
+
+  const _CommentsSection({
+    required this.mangaUrl,
+    required this.mangaName,
+    required this.accent,
+    required this.bg,
+    required this.card,
+    required this.onSurface,
+    required this.grey,
+    required this.faint,
+    required this.textPrimary,
+  });
+
+  @override
+  State<_CommentsSection> createState() => _CommentsSectionState();
+}
+
+class _CommentsSectionState extends State<_CommentsSection> {
+  late List<_Comment> _comments;
+  bool _loading = true;
+  String? _replyingToId;
+  final _replyController = TextEditingController();
+  final _commentController = TextEditingController();
+  String _sortMode = 'Meilleures';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    setState(() {
+      _comments = _mockComments();
+      _loading = false;
+    });
+  }
+
+  List<_Comment> _mockComments() => [
+    _Comment(
+      id: 'c1',
+      author: 'AlexDupont',
+      timeAgo: 'il y a 3h',
+      body: 'Excellent film ! Paul Walker était vraiment incroyable dans ce rôle. La scène de parkour au début m\'a coupé le souffle.',
+      likes: 142,
+      replies: [
+        _Comment(
+          id: 'c1r1',
+          author: 'MarieF',
+          timeAgo: 'il y a 2h',
+          body: 'Complètement d\'accord, David Belle aussi ! Le fondateur du parkour en personne, ça change tout.',
+          likes: 67,
+          replies: [
+            _Comment(
+              id: 'c1r1r1',
+              author: 'AlexDupont',
+              timeAgo: 'il y a 1h',
+              body: 'Exactement ! Et la chorégraphie est clairement réelle, pas du CGI.',
+              likes: 29,
+            ),
+          ],
+        ),
+        _Comment(
+          id: 'c1r2',
+          author: 'FilmFan75',
+          timeAgo: 'il y a 2h',
+          body: 'Paul Walker R.I.P. 🙏 Un acteur qui nous manque encore.',
+          likes: 201,
+        ),
+      ],
+    ),
+    _Comment(
+      id: 'c2',
+      author: 'CineClub_Paris',
+      timeAgo: 'il y a 5h',
+      body: 'Le remake américain de "Banlieue 13". Si vous aimez, regardez l\'original avec Cyril Raffaelli, il est encore meilleur !',
+      likes: 88,
+      replies: [
+        _Comment(
+          id: 'c2r1',
+          author: 'OriginalFan',
+          timeAgo: 'il y a 4h',
+          body: 'Oui ! B13 est un chef-d\'œuvre du cinéma d\'action français. Luc Besson au top.',
+          likes: 54,
+        ),
+      ],
+    ),
+    _Comment(
+      id: 'c3',
+      author: 'NightOwl_42',
+      timeAgo: 'il y a 8h',
+      body: 'L\'action est bonne mais le scénario est assez prévisible. 3.5/5 pour moi.',
+      likes: 31,
+      replies: [],
+    ),
+    _Comment(
+      id: 'c4',
+      author: 'StreamAddict',
+      timeAgo: 'il y a 1j',
+      body: 'Je viens de finir. La fin est satisfaisante même si on la voit venir dès le début. Bon divertissement du vendredi soir.',
+      likes: 19,
+      replies: [
+        _Comment(
+          id: 'c4r1',
+          author: 'WeekendVibes',
+          timeAgo: 'il y a 20h',
+          body: 'Pareil, parfait pour ne pas trop se prendre la tête !',
+          likes: 8,
+        ),
+      ],
+    ),
+  ];
+
+  void _toggleLike(_Comment comment) {
+    setState(() {
+      if (comment.liked) {
+        comment.likes--;
+        comment.liked = false;
+      } else {
+        comment.likes++;
+        comment.liked = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              strokeWidth: 2,
+              color: widget.accent,
+            ),
+            const SizedBox(height: 12),
+            Text('Chargement des commentaires…',
+                style: TextStyle(color: widget.grey, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+
+    final total = _comments.fold<int>(
+      0, (sum, c) => sum + 1 + c.replies.fold<int>(0, (s, r) => s + 1 + r.replies.length));
+
+    return Column(
+      children: [
+        // Header bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+          child: Row(
+            children: [
+              Text(
+                '$total commentaires',
+                style: TextStyle(
+                  color: widget.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _sortMode = _sortMode == 'Meilleures' ? 'Récents' : 'Meilleures';
+                    if (_sortMode == 'Récents') {
+                      _comments.sort((a, b) => b.timeAgo.compareTo(a.timeAgo));
+                    } else {
+                      _comments.sort((a, b) => b.likes.compareTo(a.likes));
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: widget.card,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: widget.faint, width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sort_rounded, size: 13, color: widget.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        _sortMode,
+                        style: TextStyle(color: widget.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Write comment bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: GestureDetector(
+            onTap: () => _showWriteCommentSheet(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.card,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: widget.faint, width: 0.8),
+              ),
+              child: Row(
+                children: [
+                  _CommentAvatar(
+                    author: 'Moi',
+                    size: 26,
+                    accent: widget.accent,
+                    isLight: false,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Ajouter un commentaire…',
+                    style: TextStyle(color: widget.grey, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Divider(height: 1, color: widget.faint),
+        // Comment list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: _comments.length,
+            itemBuilder: (ctx, i) => _CommentTile(
+              comment: _comments[i],
+              depth: 0,
+              accent: widget.accent,
+              bg: widget.bg,
+              card: widget.card,
+              grey: widget.grey,
+              faint: widget.faint,
+              textPrimary: widget.textPrimary,
+              onLike: _toggleLike,
+              onReply: (c) => _showWriteCommentSheet(context, replyTo: c),
+              onCollapse: (_) => setState(() {}),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showWriteCommentSheet(BuildContext ctx, {_Comment? replyTo}) {
+    final ctrl = TextEditingController();
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          decoration: BoxDecoration(
+            color: widget.bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: widget.faint,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (replyTo != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: widget.card,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border(left: BorderSide(color: widget.accent, width: 3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          replyTo.author,
+                          style: TextStyle(
+                            color: widget.accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          replyTo.body,
+                          style: TextStyle(color: widget.grey, fontSize: 12),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _CommentAvatar(author: 'Moi', size: 32, accent: widget.accent, isLight: false),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: ctrl,
+                        autofocus: true,
+                        maxLines: 4,
+                        minLines: 1,
+                        style: TextStyle(color: widget.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: replyTo != null
+                              ? 'Répondre à ${replyTo.author}…'
+                              : 'Votre commentaire…',
+                          hintStyle: TextStyle(color: widget.grey),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        final text = ctrl.text.trim();
+                        if (text.isEmpty) return;
+                        setState(() {
+                          if (replyTo != null) {
+                            replyTo.replies.add(_Comment(
+                              id: 'new_${DateTime.now().millisecondsSinceEpoch}',
+                              author: 'Moi',
+                              timeAgo: 'à l\'instant',
+                              body: text,
+                            ));
+                          } else {
+                            _comments.insert(0, _Comment(
+                              id: 'new_${DateTime.now().millisecondsSinceEpoch}',
+                              author: 'Moi',
+                              timeAgo: 'à l\'instant',
+                              body: text,
+                            ));
+                          }
+                        });
+                        Navigator.pop(sheetCtx);
+                      },
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: widget.accent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── COMMENT TILE (recursive) ────────────────────────────────────────────────
+
+class _CommentTile extends StatelessWidget {
+  final _Comment comment;
+  final int depth;
+  final Color accent;
+  final Color bg;
+  final Color card;
+  final Color grey;
+  final Color faint;
+  final Color textPrimary;
+  final void Function(_Comment) onLike;
+  final void Function(_Comment) onReply;
+  final void Function(_Comment) onCollapse;
+
+  static const _kDepthColors = [
+    Color(0xFF6366F1),
+    Color(0xFF14B8A6),
+    Color(0xFFF59E0B),
+    Color(0xFFEC4899),
+    Color(0xFF10B981),
+  ];
+
+  const _CommentTile({
+    required this.comment,
+    required this.depth,
+    required this.accent,
+    required this.bg,
+    required this.card,
+    required this.grey,
+    required this.faint,
+    required this.textPrimary,
+    required this.onLike,
+    required this.onReply,
+    required this.onCollapse,
+  });
+
+  Color get _threadColor => _kDepthColors[depth % _kDepthColors.length];
+
+  @override
+  Widget build(BuildContext context) {
+    final indent = depth * 16.0;
+    return Padding(
+      padding: EdgeInsets.only(left: indent, top: depth == 0 ? 12 : 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Thread line + content
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Thread line (only for replies)
+                if (depth > 0) ...[
+                  GestureDetector(
+                    onTap: () {
+                      comment.collapsed = !comment.collapsed;
+                      onCollapse(comment);
+                    },
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(
+                        color: _threadColor.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(width: 16),
+                ],
+                // Comment body
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 16, bottom: depth == 0 ? 0 : 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Author row
+                        Row(
+                          children: [
+                            _CommentAvatar(
+                              author: comment.author,
+                              size: depth == 0 ? 30 : 24,
+                              accent: _threadColor,
+                              isLight: false,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    comment.author,
+                                    style: TextStyle(
+                                      color: textPrimary,
+                                      fontSize: depth == 0 ? 13 : 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    comment.timeAgo,
+                                    style: TextStyle(color: grey, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Collapse toggle
+                            GestureDetector(
+                              onTap: () {
+                                comment.collapsed = !comment.collapsed;
+                                onCollapse(comment);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  comment.collapsed
+                                      ? Icons.expand_more_rounded
+                                      : Icons.expand_less_rounded,
+                                  color: grey,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!comment.collapsed) ...[
+                          const SizedBox(height: 6),
+                          // Body
+                          Text(
+                            comment.body,
+                            style: TextStyle(
+                              color: textPrimary.withValues(alpha: 0.88),
+                              fontSize: 13.5,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Action bar
+                          Row(
+                            children: [
+                              // Like
+                              GestureDetector(
+                                onTap: () => onLike(comment),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      comment.liked
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      color: comment.liked ? const Color(0xFFEF4444) : grey,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${comment.likes}',
+                                      style: TextStyle(
+                                        color: comment.liked ? const Color(0xFFEF4444) : grey,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Reply
+                              GestureDetector(
+                                onTap: () => onReply(comment),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.reply_rounded, color: grey, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Répondre',
+                                      style: TextStyle(color: grey, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Replies count badge
+                              if (comment.replies.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _threadColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: _threadColor.withValues(alpha: 0.30), width: 0.7),
+                                  ),
+                                  child: Text(
+                                    '${comment.replies.length} réponse${comment.replies.length > 1 ? 's' : ''}',
+                                    style: TextStyle(
+                                      color: _threadColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          // Divider for top-level comments
+                          if (depth == 0 && comment.replies.isEmpty) ...[
+                            const SizedBox(height: 12),
+                            Divider(height: 1, color: faint),
+                          ],
+                        ] else ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '${comment.replies.length} réponse${comment.replies.length > 1 ? 's' : ''} cachée${comment.replies.length > 1 ? 's' : ''}',
+                            style: TextStyle(color: grey, fontSize: 11),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Nested replies
+          if (!comment.collapsed)
+            for (final reply in comment.replies)
+              _CommentTile(
+                comment: reply,
+                depth: depth + 1,
+                accent: accent,
+                bg: bg,
+                card: card,
+                grey: grey,
+                faint: faint,
+                textPrimary: textPrimary,
+                onLike: onLike,
+                onReply: onReply,
+                onCollapse: onCollapse,
+              ),
+          // Separator for top-level with replies
+          if (depth == 0 && comment.replies.isNotEmpty && !comment.collapsed)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Divider(height: 1, color: faint),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── COMMENT AVATAR ──────────────────────────────────────────────────────────
+
+class _CommentAvatar extends StatelessWidget {
+  final String author;
+  final double size;
+  final Color accent;
+  final bool isLight;
+
+  const _CommentAvatar({
+    required this.author,
+    required this.size,
+    required this.accent,
+    required this.isLight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = author.isEmpty
+        ? '?'
+        : author.trim().split(' ').map((w) => w.isNotEmpty ? w[0].toUpperCase() : '').take(2).join();
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: accent.withValues(alpha: 0.18),
+        border: Border.all(color: accent.withValues(alpha: 0.40), width: 1.5),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: accent,
+          fontSize: size * 0.38,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

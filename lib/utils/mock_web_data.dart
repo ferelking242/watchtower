@@ -28,8 +28,9 @@ void _seedSource(MockIsar mockIsar) {
     isAdded: true,
     isLocal: true,
     itemType: ItemType.anime,
-    version: '1.0.0',
-    versionLast: '1.0.0',
+    version: '1.0.1',
+    versionLast: '1.0.1',
+    additionalParams: '{"supportsComments":true}',
     sourceCode: '',
   )..sourceCodeLanguage = SourceCodeLanguage.javascript;
   mockIsar.seed<Source>(_kMockSourceId, src);

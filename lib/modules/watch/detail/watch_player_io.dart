@@ -20,6 +20,9 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/widgets/watchtower_loader.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
+// ─── Speed levels ─────────────────────────────────────────────────────────────
+const _kAllSpeeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0];
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 class WatchInlinePlayer {
@@ -410,9 +413,14 @@ class _FullscreenControlsOverlayState
     // ── Hold-right speed boost + horizontal speed swipe ──────────────────────
     bool _holdSpeedActive       = false;
     double _preHoldSpeed        = 1.0;
+    double _holdBoostSpeed      = 2.0;
     double? _horizDragStartX;
     double _horizDragStartSpeed = 1.0;
     bool _showSpeedBoostHUD     = false;
+
+    // ── Seek + mute ───────────────────────────────────────────────────────────
+    int _seekSeconds = 10;
+    bool _muted = false;
 
   @override
   void initState() {
@@ -478,7 +486,7 @@ class _FullscreenControlsOverlayState
 
   void _showSpeedSheet() {
     _hideTimer?.cancel();
-    const speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+    final speeds = _kAllSpeeds;
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1C1C1E),
@@ -586,6 +594,7 @@ class _FullscreenControlsOverlayState
         onLongPressStart: (d) {
           if (d.globalPosition.dx > size.width / 2) {
             _preHoldSpeed = _speed;
+            _holdBoostSpeed = 2.0;
             _speed = 2.0;
             _holdSpeedActive = true;
             widget.player.setRate(2.0);
@@ -593,10 +602,25 @@ class _FullscreenControlsOverlayState
             setState(() => _showSpeedBoostHUD = true);
           }
         },
+        onLongPressMoveUpdate: (d) {
+          if (!_holdSpeedActive) return;
+          final dy = d.offsetFromOrigin.dy;
+          final shift = (-dy / 50).round().clamp(-6, 6);
+          const base2xIdx = 7;
+          final newIdx = (base2xIdx + shift).clamp(0, _kAllSpeeds.length - 1);
+          final newSpeed = _kAllSpeeds[newIdx];
+          if (newSpeed != _holdBoostSpeed) {
+            _holdBoostSpeed = newSpeed;
+            _speed = newSpeed;
+            widget.player.setRate(newSpeed);
+            setState(() {});
+          }
+        },
         onLongPressEnd: (_) {
           if (_holdSpeedActive) {
             _holdSpeedActive = false;
             _speed = _preHoldSpeed;
+            _holdBoostSpeed = 2.0;
             widget.player.setRate(_preHoldSpeed);
             setState(() => _showSpeedBoostHUD = false);
             _resetHideTimer();
@@ -610,7 +634,7 @@ class _FullscreenControlsOverlayState
         onHorizontalDragUpdate: (d) {
           if (_horizDragStartX == null || _holdSpeedActive) return;
           final delta = (d.globalPosition.dx - _horizDragStartX!) / size.width;
-          const speeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+          final speeds = _kAllSpeeds;
           final baseIdx = speeds.indexWhere((s) => s >= _horizDragStartSpeed).clamp(0, speeds.length - 1);
           final shift = (delta * 8).round();
           final newIdx = (baseIdx + shift).clamp(0, speeds.length - 1);
@@ -655,33 +679,66 @@ class _FullscreenControlsOverlayState
           if (_showControls && !_locked)
             _buildControlsOverlay(),
 
-          // Lock icon
+          // Left controls: Lock + Mute
           if (_locked)
             Positioned(
               left: 20, top: 0, bottom: 0,
               child: AnimatedOpacity(
                 opacity: _showControls ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 250),
-                child: Center(child: _buildLockButton()),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildLockButton(),
+                      const SizedBox(height: 12),
+                      _buildMuteButton(),
+                    ],
+                  ),
+                ),
               ),
             ),
 
           if (_showControls && !_locked)
             Positioned(
               left: 20, top: 0, bottom: 0,
-              child: Center(child: _buildLockButton()),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildLockButton(),
+                    const SizedBox(height: 12),
+                    _buildMuteButton(),
+                  ],
+                ),
+              ),
             ),
 
-          // Settings panel — rounded, animated from corner
-          if (_showSettings)
-            Positioned.fill(
-              child: _SettingsPanel(
-                player: widget.player,
-                accent: Theme.of(context).primaryColor,
-                onClose: () {
-                  setState(() => _showSettings = false);
-                  _resetHideTimer();
-                },
+          // Right controls: Screenshot + Rotate
+          if (_showControls)
+            Positioned(
+              right: 20, top: 0, bottom: 0,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildIconCircle(
+                      icon: Icons.camera_alt_outlined,
+                      tooltip: 'Capture',
+                      onTap: () {
+                        // Screenshot placeholder
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildIconCircle(
+                      icon: Icons.screen_rotation_outlined,
+                      tooltip: 'Rotation',
+                      onTap: () {
+                        // Rotate placeholder
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -733,12 +790,17 @@ class _FullscreenControlsOverlayState
                         color: Colors.black.withValues(alpha: 0.72),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
-                          SizedBox(width: 6),
-                          Text('2x', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            _holdBoostSpeed == _holdBoostSpeed.roundToDouble()
+                                ? '${_holdBoostSpeed.toInt()}x'
+                                : '${_holdBoostSpeed}x',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
                         ],
                       ),
                     ),
@@ -880,17 +942,31 @@ class _FullscreenControlsOverlayState
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded,
-                color: Colors.white70, size: 20),
+            icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
+            onPressed: () {
+              _hideTimer?.cancel();
+              _openSettings(2);
+            },
+            padding: const EdgeInsets.all(8),
+          ),
+          IconButton(
+            icon: const Icon(Icons.audio_file_outlined, color: Colors.white70, size: 20),
+            onPressed: () {
+              _hideTimer?.cancel();
+              _openSettings(1);
+            },
+            padding: const EdgeInsets.all(8),
+          ),
+          IconButton(
+            icon: const Icon(Icons.playlist_play_rounded, color: Colors.white70, size: 22),
             onPressed: () {},
             padding: const EdgeInsets.all(8),
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined,
-                color: Colors.white, size: 20),
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 22),
             onPressed: () {
               _hideTimer?.cancel();
-              setState(() => _showSettings = true);
+              _openSettings(0);
             },
             padding: const EdgeInsets.all(8),
           ),
@@ -906,15 +982,27 @@ class _FullscreenControlsOverlayState
         // Lock button placeholder — actual button rendered outside via Positioned
         const SizedBox(width: 80),
         const Spacer(),
-        // Center controls: ↺10 | play/pause | ↻10
+        // Center controls: ↺Ns | play/pause | ↻Ns
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             GestureDetector(
-              onTap: () => _seek(-10),
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(Icons.replay_10, color: Colors.white, size: 46),
+              onTap: () => _seek(-_seekSeconds),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(Icons.replay, color: Colors.white, size: 46),
+                    Positioned(
+                      bottom: 5,
+                      child: Text(
+                        '$_seekSeconds',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 24),
@@ -935,10 +1023,22 @@ class _FullscreenControlsOverlayState
             ),
             const SizedBox(width: 24),
             GestureDetector(
-              onTap: () => _seek(10),
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(Icons.forward_10, color: Colors.white, size: 46),
+              onTap: () => _seek(_seekSeconds),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(Icons.forward, color: Colors.white, size: 46),
+                    Positioned(
+                      bottom: 5,
+                      child: Text(
+                        '$_seekSeconds',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1112,10 +1212,10 @@ class _FullscreenControlsOverlayState
             onTap: () {
               _hideTimer?.cancel();
               setState(() {
-                _showSettings    = true;
                 _showSpeedPicker   = false;
                 _showQualityPicker = false;
               });
+              _openSettings(2);
             },
           ),
           const SizedBox(width: 8),
@@ -1163,7 +1263,7 @@ class _FullscreenControlsOverlayState
 
   // ─── Speed picker — vertical list expanding upward ─────────────────────────
   Widget _buildSpeedPickerOverlay() {
-    const speeds = [2.0, 1.75, 1.5, 1.25, 1.0, 0.75, 0.5, 0.25];
+    final speeds = _kAllSpeeds.reversed.toList();
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
@@ -1369,6 +1469,78 @@ class _FullscreenControlsOverlayState
       ),
     );
   }
+
+  // ─── Open settings sheet ────────────────────────────────────────────────────
+  void _openSettings([int initialTab = 0]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) => _FullscreenSettingsSheet(
+        player: widget.player,
+        accent: Theme.of(context).primaryColor,
+        initialTab: initialTab,
+        seekSeconds: _seekSeconds,
+        onSeekSeconds: (s) => setState(() => _seekSeconds = s),
+        fit: _fit,
+        onFit: (f) => setState(() => _fit = f),
+      ),
+    ).then((_) => _resetHideTimer());
+  }
+
+  // ─── Mute button ────────────────────────────────────────────────────────────
+  Widget _buildMuteButton() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _muted = !_muted);
+        widget.player.setVolume(_muted ? 0 : _volume * 100);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black45,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              color: Colors.white,
+              size: 15,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _muted ? 'Son off' : 'Couper',
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Circle icon button (right side) ────────────────────────────────────────
+  Widget _buildIconCircle({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.black45,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    );
+  }
 }
 
 // ─── Toolbar chip button ───────────────────────────────────────────────────────
@@ -1421,6 +1593,265 @@ class _ToolbarChip extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Fullscreen settings sheet (PLAYit-style) ─────────────────────────────────
+
+class _FullscreenSettingsSheet extends StatefulWidget {
+  final Player player;
+  final Color accent;
+  final int initialTab;
+  final int seekSeconds;
+  final ValueChanged<int> onSeekSeconds;
+  final BoxFit fit;
+  final ValueChanged<BoxFit> onFit;
+
+  const _FullscreenSettingsSheet({
+    required this.player,
+    required this.accent,
+    required this.initialTab,
+    required this.seekSeconds,
+    required this.onSeekSeconds,
+    required this.fit,
+    required this.onFit,
+  });
+
+  @override
+  State<_FullscreenSettingsSheet> createState() => _FullscreenSettingsSheetState();
+}
+
+class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+  late int _seekSeconds;
+  late BoxFit _fit;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _seekSeconds = widget.seekSeconds;
+    _fit = widget.fit;
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const seekOptions = [5, 10, 15, 30, 60];
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8E8E93),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TabBar(
+              controller: _tabCtrl,
+              indicatorColor: widget.accent,
+              labelColor: Colors.white,
+              unselectedLabelColor: const Color(0xFF8E8E93),
+              tabs: const [
+                Tab(text: 'Lecture'),
+                Tab(text: 'Audio'),
+                Tab(text: 'Sous-titres'),
+              ],
+            ),
+            SizedBox(
+              height: 260,
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  // ── Lecture tab ──────────────────────────────────────────
+                  ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    children: [
+                      const Text(
+                        'INTERVALLE DE NAVIGATION',
+                        style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: seekOptions.map((s) {
+                          final sel = s == _seekSeconds;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() => _seekSeconds = s);
+                              widget.onSeekSeconds(s);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                              decoration: BoxDecoration(
+                                color: sel ? widget.accent : const Color(0xFF2C2C2E),
+                                borderRadius: BorderRadius.circular(10),
+                                border: sel ? null : Border.all(color: const Color(0xFF3A3A3C), width: 0.8),
+                              ),
+                              child: Text(
+                                '${s}s',
+                                style: TextStyle(
+                                  color: sel ? Colors.white : const Color(0xFF8E8E93),
+                                  fontSize: 13,
+                                  fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'AJUSTEMENT VIDÉO',
+                        style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _FitOption(label: 'Ajuster', fit: BoxFit.contain, currentFit: _fit, accent: widget.accent, onTap: () {
+                            setState(() => _fit = BoxFit.contain);
+                            widget.onFit(BoxFit.contain);
+                          }),
+                          const SizedBox(width: 8),
+                          _FitOption(label: 'Remplir', fit: BoxFit.fill, currentFit: _fit, accent: widget.accent, onTap: () {
+                            setState(() => _fit = BoxFit.fill);
+                            widget.onFit(BoxFit.fill);
+                          }),
+                        ],
+                      ),
+                    ],
+                  ),
+                  // ── Audio tab ────────────────────────────────────────────
+                  StreamBuilder(
+                    stream: widget.player.stream.tracks,
+                    initialData: widget.player.state.tracks,
+                    builder: (_, snap) {
+                      final tracks = snap.data?.audio ?? [];
+                      if (tracks.isEmpty) {
+                        return const Center(
+                          child: Text('Aucune piste audio', style: TextStyle(color: Colors.white54)),
+                        );
+                      }
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: tracks.length,
+                        itemBuilder: (_, i) {
+                          final t = tracks[i];
+                          final sel = widget.player.state.track.audio == t;
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              t.language ?? t.title ?? 'Piste ${i + 1}',
+                              style: TextStyle(color: sel ? Colors.white : Colors.white70, fontSize: 13),
+                            ),
+                            trailing: sel ? Icon(Icons.check_rounded, color: widget.accent, size: 16) : null,
+                            onTap: () {
+                              widget.player.setAudioTrack(t);
+                              setState(() {});
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  // ── Sous-titres tab ──────────────────────────────────────
+                  StreamBuilder(
+                    stream: widget.player.stream.tracks,
+                    initialData: widget.player.state.tracks,
+                    builder: (_, snap) {
+                      final tracks = snap.data?.subtitle ?? [];
+                      if (tracks.isEmpty) {
+                        return const Center(
+                          child: Text('Aucun sous-titre', style: TextStyle(color: Colors.white54)),
+                        );
+                      }
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: tracks.length,
+                        itemBuilder: (_, i) {
+                          final t = tracks[i];
+                          final sel = widget.player.state.track.subtitle == t;
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              t.language ?? t.title ?? (i == 0 ? 'Désactivé' : 'Sous-titre $i'),
+                              style: TextStyle(color: sel ? Colors.white : Colors.white70, fontSize: 13),
+                            ),
+                            trailing: sel ? Icon(Icons.check_rounded, color: widget.accent, size: 16) : null,
+                            onTap: () {
+                              widget.player.setSubtitleTrack(t);
+                              setState(() {});
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FitOption extends StatelessWidget {
+  final String label;
+  final BoxFit fit;
+  final BoxFit currentFit;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _FitOption({
+    required this.label,
+    required this.fit,
+    required this.currentFit,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sel = fit == currentFit;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: sel ? accent : const Color(0xFF2C2C2E),
+          borderRadius: BorderRadius.circular(10),
+          border: sel ? null : Border.all(color: const Color(0xFF3A3A3C), width: 0.8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: sel ? Colors.white : const Color(0xFF8E8E93),
+            fontSize: 13,
+            fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
       ),
     );
