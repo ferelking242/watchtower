@@ -14,6 +14,8 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/anime/anime_player_view.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:watchtower/services/mini_webview_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -1053,7 +1055,16 @@ const String _kVideoInterceptJs = r"""
 
   var origPlay = HTMLVideoElement.prototype.play;
   HTMLVideoElement.prototype.play = function() {
-    sendUrl(this.currentSrc || this.src || '');
+    var url = this.currentSrc || this.src || '';
+    if(isMedia(url)) {
+      sendUrl(url);
+      // Prevent native iOS/Android WebView player from launching alongside ours.
+      // Return a resolved Promise so site code doesn't see an error, but
+      // skip origPlay — our floating player handles actual playback.
+      var self = this;
+      setTimeout(function(){ try{ self.pause(); self.currentTime=0; }catch(e){} }, 80);
+      return Promise.resolve();
+    }
     return origPlay.call(this);
   };
 
@@ -1154,9 +1165,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // Undo history: each entry is {selector, displayName}
   final List<Map<String, String>> _hiddenHistory = [];
 
-  // Video interception (MPV player — Safari-style overlay)
+  // Video interception — floating PiP player
   String? _interceptedVideoUrl;
   DateTime? _lastInterceptTime;
+  OverlayEntry? _floatingEntry;
 
   // Footer visibility (toggled by ghost icon)
   bool _showFooter = true;
@@ -1216,6 +1228,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   @override
   void dispose() {
+    _dismissFloatingPlayer();
     // Restore system UI (status bar) when WebView closes
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _animCtrl.dispose();
@@ -1839,41 +1852,72 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     return false;
   }
 
-  /// Called whenever JS or shouldOverrideUrlLoading detects a media URL.
-  /// Opens our MPV player immediately as a fullscreen overlay (like Safari).
+  /// Called whenever JS / shouldOverrideUrlLoading / shouldInterceptRequest
+  /// detects a media URL. Shows the floating PiP player immediately.
   void _handleInterceptedVideo(String url, [String? title]) {
     if (!mounted || url.isEmpty) return;
-    // Debounce: same URL within 4 s → only open once
+    // Debounce: same URL within 4 s → open only once (JS + shouldInterceptRequest
+    // can both fire for the same stream within milliseconds).
     final now = DateTime.now();
     if (_interceptedVideoUrl == url &&
         _lastInterceptTime != null &&
         now.difference(_lastInterceptTime!) < const Duration(seconds: 4)) return;
     _interceptedVideoUrl = url;
     _lastInterceptTime = now;
-    _openInMpvOverlay(url, title);
+    _showFloatingPlayer(url, title);
   }
 
-  /// Creates a temporary Isar entry and opens our MPV player as a fullscreen
-  /// overlay on top of the WebView — the WebView stays alive in the background
-  /// (same behaviour as Safari's native video player takeover).
-  Future<void> _openInMpvOverlay(String url, [String? pageTitle]) async {
-    if (!mounted) return;
+  // ── Floating PiP helpers ─────────────────────────────────────────────────
 
-    // 1. Pause the site's video so it doesn't compete with our player.
+  /// Shows a draggable floating video player (PiP) on top of the WebView.
+  Future<void> _showFloatingPlayer(String url, [String? title]) async {
+    // Pause the site's video element (JS override already prevents origPlay,
+    // but belt-and-suspenders for iframes / non-overridden paths).
     try {
       await _webViewController?.evaluateJavascript(
-        source: "document.querySelectorAll('video').forEach(function(v){"
-            "try{v.pause();}catch(e){}});",
+        source: "document.querySelectorAll('video')"
+            ".forEach(function(v){try{v.pause();}catch(e){}});",
       );
     } catch (_) {}
 
+    _dismissFloatingPlayer();
+    if (!mounted) return;
+
+    final displayTitle =
+        (title != null && title.isNotEmpty) ? title : _displayHost(_url);
+    final capturedUrl = url;
+
+    _floatingEntry = OverlayEntry(
+      builder: (ctx) => _WebFloatingPlayerOverlay(
+        videoUrl: capturedUrl,
+        title: displayTitle,
+        onFullscreen: () {
+          _dismissFloatingPlayer();
+          _openInMpvFullscreen(capturedUrl, displayTitle);
+        },
+        onDismiss: _dismissFloatingPlayer,
+      ),
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_floatingEntry!);
+  }
+
+  /// Removes the floating PiP player overlay.
+  void _dismissFloatingPlayer() {
+    _floatingEntry?.remove();
+    _floatingEntry?.dispose();
+    _floatingEntry = null;
+  }
+
+  /// Creates a temporary Isar entry and opens our full MPV player as a
+  /// fullscreen modal — used when the user taps the ⤢ button in the PiP.
+  Future<void> _openInMpvFullscreen(String url, [String? pageTitle]) async {
+    if (!mounted) return;
     try {
       final title = (pageTitle != null && pageTitle.isNotEmpty)
           ? pageTitle
           : _displayHost(_url);
 
-      // 2. Create a temporary Manga + Chapter in Isar so the standard
-      //    player pipeline can resolve getVideoList → webview_intercept path.
       final manga = Manga(
         source: 'webview_intercept',
         author: '',
@@ -1906,8 +1950,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
       if (!mounted) return;
 
-      // 3. Show the player as a fullscreen modal overlay — the WebView stays
-      //    alive behind it, exactly like Safari's native player takeover.
       await Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           builder: (_) => AnimePlayerView(episodeId: chapterId),
@@ -2149,6 +2191,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               incognito: _incognitoMode,
                               // Transparent bg so scaffold colour shows during load
                               transparentBackground: true,
+                              // iOS: keep video inline so native fullscreen player doesn't
+                              // launch alongside our floating player.
+                              allowsInlineMediaPlayback: true,
+                              allowsBackgroundAudioPlaying: true,
                               userAgent:
                                   ref.read(userAgentStateProvider) ==
                                           defaultUserAgent
@@ -2157,6 +2203,13 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                             ),
                             onWebViewCreated: (c) {
                               _webViewController = c;
+                              // Inject video intercept script early (fires before page JS
+                              // on Android where onLoadStop can be too late for auto-play).
+                              c.addUserScript(userScript: UserScript(
+                                source: _kVideoInterceptJs,
+                                injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
+                                forMainFrameOnly: false,
+                              ));
                               c.addJavaScriptHandler(
                                 handlerName: 'elementPicked',
                                 callback: (args) {
@@ -2257,9 +2310,20 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                 ? (c, request) async {
                                     final url = request.url.toString();
                                     if (_adBlockEnabled && _isAdUrl(url)) {
-                                      if (mounted) {
-                                        setState(() => _blockedCount++);
-                                      }
+                                      if (mounted) setState(() => _blockedCount++);
+                                      return WebResourceResponse(
+                                        contentType: 'text/plain',
+                                        statusCode: 200,
+                                        reasonPhrase: 'OK',
+                                        data: Uint8List(0),
+                                      );
+                                    }
+                                    // Android: intercept video resource requests
+                                    // (XHR/fetch interception via JS misses some cases on Android).
+                                    if (_isVideoUrl(url)) {
+                                      _handleInterceptedVideo(url, _title);
+                                      // Block the WebView from loading the stream itself
+                                      // so only our floating player plays it.
                                       return WebResourceResponse(
                                         contentType: 'text/plain',
                                         statusCode: 200,
@@ -3740,5 +3804,250 @@ class MyInAppBrowser extends InAppBrowser {
       }
     }
     return NavigationActionPolicy.ALLOW;
+  }
+}
+
+// ─── Floating PiP video player overlay ────────────────────────────────────────
+//
+// Appears as a draggable floating window on top of the WebView.
+// • Drag anywhere on screen.
+// • Drag to left/right edge → snaps and collapses to a small coloured square
+//   with a chevron arrow; tap the square to restore.
+// • Tap ⤢ → opens our full MPV player (AnimePlayerView) as a modal.
+// • Tap × → dismiss.
+
+class _WebFloatingPlayerOverlay extends StatefulWidget {
+  final String videoUrl;
+  final String title;
+  final VoidCallback onFullscreen;
+  final VoidCallback onDismiss;
+
+  const _WebFloatingPlayerOverlay({
+    required this.videoUrl,
+    required this.title,
+    required this.onFullscreen,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_WebFloatingPlayerOverlay> createState() =>
+      _WebFloatingPlayerOverlayState();
+}
+
+class _WebFloatingPlayerOverlayState
+    extends State<_WebFloatingPlayerOverlay> {
+  late final Player _player;
+  late final VideoController _controller;
+
+  Offset _pos = const Offset(16, 120);
+  bool _snapped = false;
+  bool _snapLeft = true;
+
+  // Player window dimensions (16:9 + controls bar)
+  static const double _kW = 224.0;
+  static const double _kH = 126.0;
+  static const double _kCtrlH = 40.0;
+  // Pixels from the screen edge that trigger edge-snap
+  static const double _kSnapZone = 72.0;
+  // Size of the collapsed mini square
+  static const double _kMini = 64.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = Player();
+    _controller = VideoController(_player);
+    _player.open(Media(widget.videoUrl));
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    setState(() {
+      _pos += d.delta;
+      _snapped = false;
+    });
+  }
+
+  void _onPanEnd(DragEndDetails _, Size screen) {
+    if (_pos.dx < _kSnapZone) {
+      // Snap to left edge → minimise
+      setState(() {
+        _snapped = true;
+        _snapLeft = true;
+        _pos = Offset(0, _pos.dy.clamp(80.0, screen.height - _kMini - 40));
+      });
+    } else if (_pos.dx + _kW > screen.width - _kSnapZone) {
+      // Snap to right edge → minimise
+      setState(() {
+        _snapped = true;
+        _snapLeft = false;
+        _pos = Offset(
+          screen.width - _kMini,
+          _pos.dy.clamp(80.0, screen.height - _kMini - 40),
+        );
+      });
+    } else {
+      // Keep within safe bounds
+      setState(() {
+        _pos = Offset(
+          _pos.dx.clamp(0.0, screen.width - _kW),
+          _pos.dy.clamp(60.0, screen.height - _kH - _kCtrlH - 40),
+        );
+      });
+    }
+  }
+
+  // ── Collapsed mini square ──────────────────────────────────────────────────
+
+  Widget _buildMini(Size screen) {
+    final dy = _pos.dy.clamp(80.0, screen.height - _kMini - 40);
+    final dx = _snapLeft ? 4.0 : screen.width - _kMini - 4;
+
+    return Positioned(
+      left: dx,
+      top: dy,
+      child: GestureDetector(
+        onTap: () => setState(() => _snapped = false),
+        onPanUpdate: (d) => setState(() {
+          _pos += d.delta;
+          _snapped = false;
+        }),
+        child: Container(
+          width: _kMini,
+          height: _kMini,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 10)],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(fit: StackFit.expand, children: [
+              // Live video thumbnail in mini mode
+              Video(controller: _controller, controls: NoVideoControls),
+              // Dark scrim so the arrow is readable
+              Container(color: Colors.black.withValues(alpha: 0.38)),
+              Center(
+                child: Icon(
+                  _snapLeft
+                      ? Icons.chevron_right_rounded
+                      : Icons.chevron_left_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Full floating player ───────────────────────────────────────────────────
+
+  Widget _buildFull(Size screen) {
+    final px = _pos.dx.clamp(0.0, screen.width - _kW);
+    final py = _pos.dy.clamp(60.0, screen.height - _kH - _kCtrlH - 40);
+
+    return Positioned(
+      left: px,
+      top: py,
+      child: GestureDetector(
+        onPanUpdate: _onPanUpdate,
+        onPanEnd: (d) => _onPanEnd(d, screen),
+        child: Material(
+          elevation: 14,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.hardEdge,
+          color: Colors.black,
+          child: SizedBox(
+            width: _kW,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // ── Video area ────────────────────────────────────────────────
+              SizedBox(
+                width: _kW,
+                height: _kH,
+                child: Video(
+                  controller: _controller,
+                  controls: NoVideoControls,
+                ),
+              ),
+              // ── Controls bar ──────────────────────────────────────────────
+              Container(
+                height: _kCtrlH,
+                color: Colors.black87,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(children: [
+                  // Play / pause
+                  StreamBuilder<bool>(
+                    stream: _player.stream.playing,
+                    builder: (ctx, snap) {
+                      final playing = snap.data ?? false;
+                      return GestureDetector(
+                        onTap: () =>
+                            playing ? _player.pause() : _player.play(),
+                        child: Icon(
+                          playing
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  // Title
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Fullscreen → MPV
+                  GestureDetector(
+                    onTap: widget.onFullscreen,
+                    child: const Icon(
+                      Icons.fullscreen_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Close
+                  GestureDetector(
+                    onTap: widget.onDismiss,
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = MediaQuery.of(context).size;
+    return Stack(children: [
+      _snapped ? _buildMini(screen) : _buildFull(screen),
+    ]);
   }
 }
