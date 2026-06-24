@@ -17,6 +17,11 @@ class WatchInlinePlayer {
   List<Video> loadedVideos = [];
   String? selectedQuality;
 
+  // Callback fired when the active quality changes.
+  // No-op setter on web — quality switching is not supported in the HTML5 stub.
+  // ignore: avoid_setters_without_getters
+  set onQualityChanged(VoidCallback? _) {}
+
   String? _videoUrl;
   String? _viewType;
   static final _registeredViews = <String>{};

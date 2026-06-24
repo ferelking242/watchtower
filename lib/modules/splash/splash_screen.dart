@@ -91,7 +91,7 @@ class _WatchtowerSplashScreenState extends State<WatchtowerSplashScreen>
       ),
     ).timeout(
       const Duration(milliseconds: 3500),
-      onTimeout: () {},
+      onTimeout: () => <void>[],
     );
 
     // Both must complete: minimum visual duration AND preload (or timeout).
