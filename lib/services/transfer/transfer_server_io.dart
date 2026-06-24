@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
+import 'transfer_library_io.dart';
 import 'transfer_models.dart';
 
 class IncomingOffer {
@@ -30,6 +31,9 @@ class TransferServer {
   int _port = 0;
   int get port => _port;
 
+  // file-id → local path, populated on each /catalog call
+  final Map<String, String> _fileIndex = {};
+
   final _ctrl = StreamController<IncomingOffer>.broadcast();
   Stream<IncomingOffer> get offerStream => _ctrl.stream;
 
@@ -43,6 +47,8 @@ class TransferServer {
   Future<int> start() async {
     final router = Router()
       ..get('/ping', _ping)
+      ..get('/catalog', _catalog)
+      ..get('/file/<fid>', _fileStream)
       ..post('/offer', _offer)
       ..post('/transfer/<sid>/<fid>', _transfer);
 
@@ -63,6 +69,60 @@ class TransferServer {
         headers: {'content-type': 'application/json'},
       );
 
+  // ── Catalog ──────────────────────────────────────────────────────────────
+
+  Future<Response> _catalog(Request req) async {
+    try {
+      final entries = await loadLibraryDownloads();
+      _fileIndex.clear();
+
+      final result = entries.map((entry) {
+        final chapters = entry.chapters.map((ch) {
+          _fileIndex[ch.id] = ch.localPath;
+          return {
+            'id': ch.id,
+            'name': ch.name,
+            'size': ch.size,
+            'type': ch.type.name,
+          };
+        }).toList();
+        return {
+          'mangaName': entry.name,
+          'imageUrl': entry.imageUrl,
+          'itemType': entry.itemType.name,
+          'chapters': chapters,
+        };
+      }).toList();
+
+      return Response.ok(
+        jsonEncode(result),
+        headers: {'content-type': 'application/json'},
+      );
+    } catch (e) {
+      debugPrint('[Server] catalog error: $e');
+      return Response.internalServerError(body: e.toString());
+    }
+  }
+
+  Future<Response> _fileStream(Request req, String fid) async {
+    final path = _fileIndex[fid];
+    if (path == null) return Response.notFound('File not in catalog');
+    final file = File(path);
+    if (!file.existsSync()) return Response.notFound('File not found');
+    final size = file.statSync().size;
+    return Response.ok(
+      file.openRead(),
+      headers: {
+        'content-type': 'application/octet-stream',
+        'content-length': size.toString(),
+        'content-disposition':
+            'attachment; filename="${Uri.encodeComponent(p.basename(path))}"',
+      },
+    );
+  }
+
+  // ── Offer (legacy push) ───────────────────────────────────────────────────
+
   Future<Response> _offer(Request req) async {
     try {
       final body = await req.readAsString();
@@ -71,8 +131,7 @@ class TransferServer {
       final sessionId = json['sessionId'] as String;
       final senderFp = (json['senderFp'] as String?) ?? 'unknown';
       final senderName = (json['senderName'] as String?) ?? 'Appareil';
-      final connInfo =
-          req.context['shelf.io.connection_info'];
+      final connInfo = req.context['shelf.io.connection_info'];
       final senderIp = connInfo is HttpConnectionInfo
           ? connInfo.remoteAddress.address
           : '0.0.0.0';
@@ -154,7 +213,7 @@ class TransferServer {
     }
   }
 
-  Future<Directory> _resolveReceiveDir() async {
+  static Future<Directory> _resolveReceiveDir() async {
     if (Platform.isAndroid) {
       return Directory('/storage/emulated/0/Watchtower/received');
     }
