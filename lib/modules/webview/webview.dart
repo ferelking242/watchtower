@@ -13,6 +13,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/anime/anime_player_view.dart';
 import 'package:watchtower/services/mini_webview_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -1153,11 +1154,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // Undo history: each entry is {selector, displayName}
   final List<Map<String, String>> _hiddenHistory = [];
 
-  // Video interception (MPV player)
+  // Video interception (MPV player — Safari-style overlay)
   String? _interceptedVideoUrl;
-  String? _interceptedVideoTitle;
-  bool _showVideoInterceptBanner = false;
-  Timer? _interceptBannerTimer;
+  DateTime? _lastInterceptTime;
 
   // Footer visibility (toggled by ghost icon)
   bool _showFooter = true;
@@ -1217,7 +1216,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   @override
   void dispose() {
-    _interceptBannerTimer?.cancel();
     // Restore system UI (status bar) when WebView closes
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _animCtrl.dispose();
@@ -1842,35 +1840,40 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   }
 
   /// Called whenever JS or shouldOverrideUrlLoading detects a media URL.
+  /// Opens our MPV player immediately as a fullscreen overlay (like Safari).
   void _handleInterceptedVideo(String url, [String? title]) {
     if (!mounted || url.isEmpty) return;
-    // Deduplicate: don't re-show if same URL is already visible
-    if (_interceptedVideoUrl == url && _showVideoInterceptBanner) return;
-    _interceptBannerTimer?.cancel();
-    setState(() {
-      _interceptedVideoUrl = url;
-      _interceptedVideoTitle =
-          (title != null && title.isNotEmpty) ? title : null;
-      _showVideoInterceptBanner = true;
-    });
-    // Auto-dismiss after 8 s
-    _interceptBannerTimer = Timer(const Duration(seconds: 8), () {
-      if (mounted) setState(() => _showVideoInterceptBanner = false);
-    });
+    // Debounce: same URL within 4 s → only open once
+    final now = DateTime.now();
+    if (_interceptedVideoUrl == url &&
+        _lastInterceptTime != null &&
+        now.difference(_lastInterceptTime!) < const Duration(seconds: 4)) return;
+    _interceptedVideoUrl = url;
+    _lastInterceptTime = now;
+    _openInMpvOverlay(url, title);
   }
 
-  /// Creates a temporary Isar entry and pushes to the MPV player.
-  Future<void> _openInMpv() async {
-    final url = _interceptedVideoUrl;
-    if (url == null || url.isEmpty) return;
-    _interceptBannerTimer?.cancel();
-    if (mounted) setState(() => _showVideoInterceptBanner = false);
+  /// Creates a temporary Isar entry and opens our MPV player as a fullscreen
+  /// overlay on top of the WebView — the WebView stays alive in the background
+  /// (same behaviour as Safari's native video player takeover).
+  Future<void> _openInMpvOverlay(String url, [String? pageTitle]) async {
+    if (!mounted) return;
+
+    // 1. Pause the site's video so it doesn't compete with our player.
+    try {
+      await _webViewController?.evaluateJavascript(
+        source: "document.querySelectorAll('video').forEach(function(v){"
+            "try{v.pause();}catch(e){}});",
+      );
+    } catch (_) {}
 
     try {
-      final title = (_interceptedVideoTitle?.isNotEmpty == true)
-          ? _interceptedVideoTitle!
+      final title = (pageTitle != null && pageTitle.isNotEmpty)
+          ? pageTitle
           : _displayHost(_url);
 
+      // 2. Create a temporary Manga + Chapter in Isar so the standard
+      //    player pipeline can resolve getVideoList → webview_intercept path.
       final manga = Manga(
         source: 'webview_intercept',
         author: '',
@@ -1901,9 +1904,16 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         await chapter.manga.save();
       });
 
-      if (mounted) {
-        context.push('/animePlayerView', extra: chapterId);
-      }
+      if (!mounted) return;
+
+      // 3. Show the player as a fullscreen modal overlay — the WebView stays
+      //    alive behind it, exactly like Safari's native player takeover.
+      await Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(
+          builder: (_) => AnimePlayerView(episodeId: chapterId),
+          fullscreenDialog: true,
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2305,24 +2315,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             child: panelContent,
           ),
         ),
-        // ── Video intercept banner (Safari-style) ──────────────────────────
-        if (_showVideoInterceptBanner && _interceptedVideoUrl != null)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 58,
-            left: 12,
-            right: 12,
-            child: _VideoInterceptBanner(
-              url: _interceptedVideoUrl!,
-              title: _interceptedVideoTitle,
-              isDark: isDark,
-              cs: cs,
-              onPlay: _openInMpv,
-              onDismiss: () {
-                _interceptBannerTimer?.cancel();
-                setState(() => _showVideoInterceptBanner = false);
-              },
-            ),
-          ),
       ],
     );
   }
@@ -2388,106 +2380,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       );
     }
   }
-
-// ─── Video intercept banner (Safari-style) ────────────────────────────────────
-
-class _VideoInterceptBanner extends StatelessWidget {
-  final String url;
-  final String? title;
-  final bool isDark;
-  final ColorScheme cs;
-  final VoidCallback onPlay;
-  final VoidCallback onDismiss;
-
-  const _VideoInterceptBanner({
-    required this.url,
-    required this.isDark,
-    required this.cs,
-    required this.onPlay,
-    required this.onDismiss,
-    this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-
-    // Truncate URL to a readable length
-    String displayUrl = url;
-    if (displayUrl.length > 60) {
-      displayUrl = '${displayUrl.substring(0, 57)}…';
-    }
-
-    return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(14),
-      color: bg,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(Icons.play_circle_fill_rounded,
-                  color: cs.primary, size: 22),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Vidéo détectée — lire dans MPV ?',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    displayUrl,
-                    style: TextStyle(fontSize: 11, color: subColor),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: onPlay,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                backgroundColor: cs.primaryContainer,
-                foregroundColor: cs.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Lire', style: TextStyle(fontSize: 13)),
-            ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: onDismiss,
-              child: Icon(Icons.close_rounded, size: 18, color: subColor),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─── Browser header (drag handle + address bar + progress) ───────────────────
 
