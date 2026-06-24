@@ -135,6 +135,22 @@ List<Repo> _defaultNovelRepos() => [
   ),
 ];
 
+List<Repo> _defaultGameRepos() => [
+  Repo(
+    name: 'Watchtower Officiel – Game',
+    jsonUrl: '$_kWtExtBase/index/game.json',
+    website: 'https://github.com/ferelking242/watchtower-extensions',
+  ),
+];
+
+List<Repo> _defaultMusicRepos() => [
+  Repo(
+    name: 'Watchtower Officiel – Music',
+    jsonUrl: '$_kWtExtBase/index/music.json',
+    website: 'https://github.com/ferelking242/watchtower-extensions',
+  ),
+];
+
 @riverpod
 class ExtensionsRepoState extends _$ExtensionsRepoState {
   @override
@@ -143,13 +159,17 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
     final existing = switch (itemType) {
       ItemType.manga => settings.mangaExtensionsRepo,
       ItemType.anime => settings.animeExtensionsRepo,
-      _ => settings.novelExtensionsRepo,
+      ItemType.novel => settings.novelExtensionsRepo,
+      ItemType.game  => settings.gameExtensionsRepo,
+      ItemType.music => settings.musicExtensionsRepo,
     };
     if (existing != null) return existing;
     final defaults = switch (itemType) {
       ItemType.manga => _defaultMangaRepos(),
       ItemType.anime => _defaultAnimeRepos(),
-      _ => _defaultNovelRepos(),
+      ItemType.novel => _defaultNovelRepos(),
+      ItemType.game  => _defaultGameRepos(),
+      ItemType.music => _defaultMusicRepos(),
     };
     Future.microtask(() => set(defaults));
     return defaults;
@@ -180,9 +200,19 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
             ..animeExtensionsRepo = value
             ..updatedAt = DateTime.now().millisecondsSinceEpoch,
         ),
-        _ => isar.settings.putSync(
+        ItemType.novel => isar.settings.putSync(
           settings
             ..novelExtensionsRepo = value
+            ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+        ),
+        ItemType.game => isar.settings.putSync(
+          settings
+            ..gameExtensionsRepo = value
+            ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+        ),
+        ItemType.music => isar.settings.putSync(
+          settings
+            ..musicExtensionsRepo = value
             ..updatedAt = DateTime.now().millisecondsSinceEpoch,
         ),
       };
