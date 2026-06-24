@@ -59,6 +59,8 @@ import '../../../utils/constant.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
+enum _DetailSection { chapters, recommendations, comments }
+
 class MangaDetailView extends ConsumerStatefulWidget {
   final Function(bool) isExtended;
   final Widget? titleDescription;
@@ -105,6 +107,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
 
   final _scrollOffset = ValueNotifier<double>(0.0);
   bool _expanded = false;
+  _DetailSection _detailSection = _DetailSection.chapters;
   late final ScrollController _scrollController;
   late final isLocalArchive = widget.manga?.isLocalArchive ?? false;
   @override
@@ -793,7 +796,9 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         SliverPadding(
                           padding: const EdgeInsets.only(top: 0, bottom: 60),
                           sliver: SuperSliverList.builder(
-                            itemCount: chapters.length + 1,
+                            itemCount: _detailSection == _DetailSection.chapters
+                                ? chapters.length + 1
+                                : 2,
                             itemBuilder: (context, index) {
                               final l10n = l10nLocalizations(context)!;
                               int finalIndex = index - 1;
@@ -909,6 +914,45 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                     : _bodyContainer(
                                         chapterLength: chapters.length,
                                       );
+                              }
+                              if (_detailSection == _DetailSection.recommendations) {
+                                return _DetailInlinePanel(
+                                  icon: Icons.star_rate_outlined,
+                                  title: l10n.recommendations,
+                                  onOpen: () {
+                                    final w = ref.read(algorithmWeightsStateProvider);
+                                    context.push(
+                                      '/recommendations',
+                                      extra: (
+                                        widget.manga!.name,
+                                        widget.manga!.itemType,
+                                        w,
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+                              if (_detailSection == _DetailSection.comments) {
+                                return _DetailInlinePanel(
+                                  icon: Icons.chat_bubble_outline,
+                                  title: 'Commentaires',
+                                  onOpen: () {
+                                    final source = getSource(
+                                      widget.manga!.lang!,
+                                      widget.manga!.source!,
+                                      widget.manga!.sourceId,
+                                    );
+                                    if (source == null) return;
+                                    final url =
+                                        '${source.baseUrl}${widget.manga!.link!.getUrlWithoutDomain}';
+                                    context.push('/mangawebview', extra: {
+                                      'url': url,
+                                      'sourceId': source.id.toString(),
+                                      'title':
+                                          '${widget.manga!.name} - Commentaires',
+                                    });
+                                  },
+                                );
                               }
                               int reverseIndex =
                                   chapters.length -
@@ -1568,38 +1612,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         },
                       ),
                     ),
-                  const SizedBox(height: 15),
-                  SizedBox(
-                    width: context.width(1),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: OutlinedButton.icon(
-                        style: ButtonStyle(
-                          shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30.0),
-                            ),
-                          ),
-                        ),
-                        onPressed: () {
-                          final algorithmWeights = ref.read(
-                            algorithmWeightsStateProvider,
-                          );
-                          context.push(
-                            "/recommendations",
-                            extra: (
-                              widget.manga!.name,
-                              widget.manga!.itemType,
-                              algorithmWeights,
-                            ),
-                          );
-                        },
-                        label: Text(l10n.recommendations),
-                        icon: Icon(Icons.arrow_right_alt_outlined),
-                      ),
-                    ),
+                  const SizedBox(height: 12),
+                  _DetailTabPills(
+                    selected: _detailSection,
+                    onSelect: (s) => setState(() => _detailSection = s),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 12),
                   if (widget.manga!.itemType == ItemType.anime)
                     SizedBox(
                       width: context.width(1),
@@ -1679,7 +1697,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                       },
                     ),
                   const SizedBox(height: 15),
-                  if (!context.isTablet)
+                  if (!context.isTablet && _detailSection == _DetailSection.chapters)
                     Column(
                       children: [
                         //Description
@@ -2463,4 +2481,121 @@ Future<bool> _showSplitChaptersDialog(BuildContext context) async {
         ),
       ) ??
       true;
+}
+
+// ── Detail section tab pills ──────────────────────────────────────────────────
+
+class _DetailTabPills extends StatelessWidget {
+  final _DetailSection selected;
+  final ValueChanged<_DetailSection> onSelect;
+  const _DetailTabPills({required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = [
+      (section: _DetailSection.chapters, label: 'Chapitres', icon: Icons.menu_book_outlined),
+      (section: _DetailSection.recommendations, label: 'Recommandations', icon: Icons.star_rate_outlined),
+      (section: _DetailSection.comments, label: 'Commentaires', icon: Icons.chat_bubble_outline),
+    ];
+    return SizedBox(
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: tabs.map((tab) {
+          final isActive = selected == tab.section;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => onSelect(tab.section),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      tab.icon,
+                      size: 14,
+                      color: isActive
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      tab.label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isActive
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ── Inline panel for non-chapter sections ─────────────────────────────────────
+
+class _DetailInlinePanel extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onOpen;
+  const _DetailInlinePanel({
+    required this.icon,
+    required this.title,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+      alignment: Alignment.topCenter,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 56, color: Theme.of(context).hintColor),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).hintColor,
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.tonal(
+            onPressed: onOpen,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Ouvrir'),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.arrow_forward_rounded, size: 16),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
