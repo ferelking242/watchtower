@@ -10,7 +10,7 @@ part 'theme_mode_state_provider.g.dart';
 class ThemeModeState extends _$ThemeModeState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).themeIsDark!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).themeIsDark ?? true;
   }
 
   void setTheme(Brightness brightness) {
@@ -22,13 +22,14 @@ class ThemeModeState extends _$ThemeModeState {
   }
 
   void setLightTheme() {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = isar.settings.getSync(kSettingsId) ?? Settings();
     state = false;
+    final schemeIndex = settings.flexSchemeColorIndex ?? 5;
     ref
         .read(flexSchemeColorStateProvider.notifier)
         .setTheme(
-          ThemeAA.schemes[settings!.flexSchemeColorIndex!].light,
-          settings.flexSchemeColorIndex!,
+          ThemeAA.schemes[schemeIndex].light,
+          schemeIndex,
         );
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -40,13 +41,14 @@ class ThemeModeState extends _$ThemeModeState {
   }
 
   void setDarkTheme() {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = isar.settings.getSync(kSettingsId) ?? Settings();
     state = true;
+    final schemeIndex = settings.flexSchemeColorIndex ?? 5;
     ref
         .read(flexSchemeColorStateProvider.notifier)
         .setTheme(
-          ThemeAA.schemes[settings!.flexSchemeColorIndex!].dark,
-          settings.flexSchemeColorIndex!,
+          ThemeAA.schemes[schemeIndex].dark,
+          schemeIndex,
         );
     isar.writeTxnSync(
       () => isar.settings.putSync(
@@ -66,7 +68,7 @@ class FollowSystemThemeState extends _$FollowSystemThemeState {
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = isar.settings.getSync(kSettingsId) ?? Settings();
     state = value;
     if (value) {
       if (WidgetsBinding.instance.platformDispatcher.platformBrightness ==
@@ -78,7 +80,7 @@ class FollowSystemThemeState extends _$FollowSystemThemeState {
     }
     isar.writeTxnSync(
       () => isar.settings.putSync(
-        settings!
+        settings
           ..followSystemTheme = value
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
