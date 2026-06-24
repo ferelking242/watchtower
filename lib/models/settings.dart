@@ -213,6 +213,10 @@ class Settings {
 
   List<Repo>? novelExtensionsRepo;
 
+  List<Repo>? gameExtensionsRepo;
+
+  List<Repo>? musicExtensionsRepo;
+
   String? androidProxyServer;
 
   String? jrePath;
@@ -484,6 +488,8 @@ class Settings {
     this.mangaExtensionsRepo,
     this.animeExtensionsRepo,
     this.novelExtensionsRepo,
+    this.gameExtensionsRepo,
+    this.musicExtensionsRepo,
     this.androidProxyServer,
     this.jrePath = "",
     this.extensionServerPath = "",
@@ -764,6 +770,20 @@ class Settings {
                 .map((e) => Repo.fromJson(e))
                 .toList();
     }
+    if (json['gameExtensionsRepo'] != null) {
+      gameExtensionsRepo = json['gameExtensionsRepo'] is String
+          ? [Repo(jsonUrl: json['gameExtensionsRepo'])]
+          : (json['gameExtensionsRepo'] as List)
+                .map((e) => Repo.fromJson(e))
+                .toList();
+    }
+    if (json['musicExtensionsRepo'] != null) {
+      musicExtensionsRepo = json['musicExtensionsRepo'] is String
+          ? [Repo(jsonUrl: json['musicExtensionsRepo'])]
+          : (json['musicExtensionsRepo'] as List)
+                .map((e) => Repo.fromJson(e))
+                .toList();
+    }
     androidProxyServer = json['androidProxyServer'];
     jrePath = json['jrePath'];
     extensionServerPath = json['extensionServerPath'];
@@ -957,6 +977,8 @@ class Settings {
     'mangaExtensionsRepo': mangaExtensionsRepo?.map((e) => e.toJson()).toList(),
     'animeExtensionsRepo': animeExtensionsRepo?.map((e) => e.toJson()).toList(),
     'novelExtensionsRepo': novelExtensionsRepo?.map((e) => e.toJson()).toList(),
+    'gameExtensionsRepo': gameExtensionsRepo?.map((e) => e.toJson()).toList(),
+    'musicExtensionsRepo': musicExtensionsRepo?.map((e) => e.toJson()).toList(),
     'androidProxyServer': androidProxyServer,
     'jrePath': jrePath,
     'extensionServerPath': extensionServerPath,
