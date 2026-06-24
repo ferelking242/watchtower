@@ -82,6 +82,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _player = WatchInlinePlayer();
+    _player.onQualityChanged = () { if (mounted) setState(() {}); };
     _nestedScrollCtrl.addListener(_onScroll);
   }
 
