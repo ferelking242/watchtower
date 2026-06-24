@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:typed_data';
 
@@ -1015,73 +1016,209 @@ const String _kVideoInterceptJs = r"""
   if(window.__wtVideoInterceptInstalled) return;
   window.__wtVideoInterceptInstalled = true;
 
+  // Dedup: base URL (without query string) already reported this page load.
+  var _seenUrls = {};
+
   function isMedia(url) {
     if(!url || url.length < 5) return false;
-    if(url.startsWith('blob:') || url.startsWith('data:')) return false;
+    if(url.startsWith('data:')) return false;
     var lo = url.toLowerCase().split('?')[0].split('#')[0];
-    return /\.(m3u8|mp4|mkv|webm|mov|avi|mpd)$/.test(lo) || lo.indexOf('.m3u8') !== -1;
+    return /\.(m3u8|mp4|mkv|webm|mov|avi|mpd)(\b|$)/.test(lo) ||
+           lo.indexOf('.m3u8') !== -1;
   }
 
-  function sendUrl(url) {
-    if(!isMedia(url)) return;
+  function qualityLabel(url) {
+    var m = url.match(/[_\-\/](\d{3,4})[pP](?:[_\-\/.]|$)/);
+    if(m) return m[1]+'p';
+    if(/2160|4k|uhd/i.test(url)) return '4K';
+    if(/1080/i.test(url)) return '1080p';
+    if(/720/i.test(url)) return '720p';
+    if(/480/i.test(url)) return '480p';
+    if(/360/i.test(url)) return '360p';
+    return '';
+  }
+
+  function streamType(url) {
+    var lo = url.toLowerCase().split('?')[0];
+    if(lo.indexOf('.m3u8') !== -1 || lo.indexOf('/hls/') !== -1 || lo.indexOf('playlist') !== -1) return 'HLS';
+    if(lo.indexOf('.mpd') !== -1 || lo.indexOf('/dash/') !== -1) return 'DASH';
+    if(lo.endsWith('.mp4')) return 'MP4';
+    if(lo.endsWith('.webm')) return 'WebM';
+    if(lo.endsWith('.mkv')) return 'MKV';
+    if(lo.endsWith('.mov')) return 'MOV';
+    if(lo.endsWith('.avi')) return 'AVI';
+    return 'Video';
+  }
+
+  function sendUrl(url, quality, type) {
+    if(!url || !isMedia(url)) return;
+    var key = url.split('?')[0].split('#')[0];
+    if(_seenUrls[key]) return;
+    _seenUrls[key] = 1;
+    var q = quality || qualityLabel(url);
+    var t = type || streamType(url);
     try {
       window.flutter_inappwebview.callHandler(
-        'videoIntercepted', url, document.title || '');
+        'videoIntercepted',
+        JSON.stringify({
+          url: url,
+          quality: q,
+          type: t,
+          title: document.title || '',
+          referer: window.location.href || ''
+        })
+      );
     } catch(e) {}
   }
 
+  // ── Video element hooks ──────────────────────────────────────────────────
   function hookVideo(v) {
     if(v.__wtHooked) return;
     v.__wtHooked = true;
-    ['play','loadedmetadata'].forEach(function(ev) {
-      v.addEventListener(ev, function() {
-        sendUrl(this.currentSrc || this.src || '');
-      }, { passive: true });
+    function checkSrc() {
+      var src = v.currentSrc || v.src || '';
+      if(src && !src.startsWith('blob:') && !src.startsWith('data:')) sendUrl(src,'','');
+    }
+    ['loadedmetadata','canplay','play'].forEach(function(ev){
+      v.addEventListener(ev, checkSrc, {passive:true});
     });
+    // Check immediately if src already set
+    var s = v.src || v.currentSrc || v.getAttribute('src') || '';
+    if(s && !s.startsWith('blob:') && !s.startsWith('data:')) sendUrl(s,'','');
   }
 
   document.querySelectorAll('video').forEach(hookVideo);
 
-  new MutationObserver(function(muts) {
-    muts.forEach(function(m) {
-      m.addedNodes.forEach(function(n) {
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.addedNodes.forEach(function(n){
         if(!n || n.nodeType !== 1) return;
         if(n.tagName === 'VIDEO') hookVideo(n);
         if(n.querySelectorAll) n.querySelectorAll('video').forEach(hookVideo);
       });
     });
-  }).observe(document.documentElement || document.body,
-             { childList: true, subtree: true });
+  }).observe(document.documentElement || document.body, {childList:true,subtree:true});
 
-  var origPlay = HTMLVideoElement.prototype.play;
+  // Override play() — prevents native WebView video player from launching.
+  var _origPlay = HTMLVideoElement.prototype.play;
   HTMLVideoElement.prototype.play = function() {
-    var url = this.currentSrc || this.src || '';
-    if(isMedia(url)) {
-      sendUrl(url);
-      // Prevent native iOS/Android WebView player from launching alongside ours.
-      // Return a resolved Promise so site code doesn't see an error, but
-      // skip origPlay — our floating player handles actual playback.
+    var src = this.currentSrc || this.src || '';
+    if(src && !src.startsWith('blob:') && isMedia(src)) {
+      sendUrl(src,'','');
       var self = this;
-      setTimeout(function(){ try{ self.pause(); self.currentTime=0; }catch(e){} }, 80);
+      setTimeout(function(){ try{self.pause();self.currentTime=0;}catch(e){} },80);
       return Promise.resolve();
     }
-    return origPlay.call(this);
+    return _origPlay.call(this);
   };
 
-  var origXHR = XMLHttpRequest.prototype.open;
+  // ── XHR hook ────────────────────────────────────────────────────────────
+  var _origXHR = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(m, url) {
-    if(typeof url === 'string') sendUrl(url);
-    return origXHR.apply(this, arguments);
+    if(typeof url === 'string') sendUrl(url,'','');
+    return _origXHR.apply(this, arguments);
   };
 
+  // ── Fetch hook ───────────────────────────────────────────────────────────
   if(window.fetch) {
-    var origFetch = window.fetch;
+    var _origFetch = window.fetch;
     window.fetch = function(r, opts) {
-      var url = typeof r === 'string' ? r : (r && (r.url || ''));
-      if(url) sendUrl(url);
-      return origFetch.apply(window, arguments);
+      var url = typeof r === 'string' ? r : (r && r.url ? r.url : '');
+      if(url) sendUrl(url,'','');
+      return _origFetch.apply(window, arguments);
     };
   }
+
+  // ── hls.js — intercept loadSource() ─────────────────────────────────────
+  function _patchHls(H) {
+    if(!H||!H.prototype||H.prototype.__wtHlsPatched) return;
+    H.prototype.__wtHlsPatched = true;
+    var _orig = H.prototype.loadSource;
+    if(_orig) H.prototype.loadSource = function(src) {
+      sendUrl(src,'','HLS'); return _orig.apply(this,arguments);
+    };
+  }
+  try {
+    Object.defineProperty(window,'Hls',{
+      configurable:true,
+      get:function(){return window._wtHls;},
+      set:function(v){window._wtHls=v;try{_patchHls(v);}catch(e){}}
+    });
+    if(window._wtHls) _patchHls(window._wtHls);
+  } catch(e) {}
+  try { if(typeof Hls!=='undefined'&&Hls) _patchHls(Hls); } catch(e) {}
+
+  // ── Shaka Player — intercept load() ─────────────────────────────────────
+  function _patchShaka(s) {
+    if(!s||!s.Player||s.Player.prototype.__wtShakaPatched) return;
+    s.Player.prototype.__wtShakaPatched = true;
+    var _orig = s.Player.prototype.load;
+    if(_orig) s.Player.prototype.load = function(uri) {
+      sendUrl(uri,'',uri.indexOf('.m3u8')!==-1?'HLS':'DASH');
+      return _orig.apply(this,arguments);
+    };
+  }
+  try {
+    Object.defineProperty(window,'shaka',{
+      configurable:true,
+      get:function(){return window._wtShaka;},
+      set:function(v){window._wtShaka=v;try{_patchShaka(v);}catch(e){}}
+    });
+    if(window._wtShaka) _patchShaka(window._wtShaka);
+  } catch(e) {}
+  try { if(typeof shaka!=='undefined'&&shaka) _patchShaka(shaka); } catch(e) {}
+
+  // ── Video.js — intercept src() ───────────────────────────────────────────
+  function _patchVideoJs(vjs) {
+    if(!vjs||!vjs.prototype||vjs.prototype.__wtVjsPatched) return;
+    vjs.prototype.__wtVjsPatched = true;
+    var _orig = vjs.prototype.src;
+    if(_orig) vjs.prototype.src = function(src) {
+      if(typeof src==='string'&&isMedia(src)) sendUrl(src,'','');
+      else if(Array.isArray(src)) src.forEach(function(s){if(s&&s.src)sendUrl(s.src,s.label||'',s.type||'');});
+      return _orig.apply(this,arguments);
+    };
+  }
+  try {
+    Object.defineProperty(window,'videojs',{
+      configurable:true,
+      get:function(){return window._wtVideojs;},
+      set:function(v){window._wtVideojs=v;try{_patchVideoJs(v);}catch(e){}}
+    });
+    if(window._wtVideojs) _patchVideoJs(window._wtVideojs);
+  } catch(e) {}
+  try { if(typeof videojs!=='undefined'&&videojs) _patchVideoJs(videojs); } catch(e) {}
+
+  // ── JW Player — intercept setup() ───────────────────────────────────────
+  function _patchJwPlayer(jw) {
+    if(!jw||jw.__wtJwPatched) return;
+    jw.__wtJwPatched = true;
+    var _origFn = jw;
+    window._wtJwplayer = function() {
+      var inst = _origFn.apply(this,arguments);
+      if(inst&&inst.setup) {
+        var _origSetup = inst.setup;
+        inst.setup = function(cfg) {
+          if(cfg) {
+            (cfg.sources||[]).forEach(function(s){if(s&&s.file)sendUrl(s.file,s.label||'',s.type||'');});
+            if(cfg.file) sendUrl(cfg.file,'','');
+          }
+          return _origSetup.call(this,cfg);
+        };
+      }
+      return inst;
+    };
+    try { Object.assign(window._wtJwplayer, _origFn); } catch(e) {}
+  }
+  try {
+    Object.defineProperty(window,'jwplayer',{
+      configurable:true,
+      get:function(){return window._wtJwplayer;},
+      set:function(v){_patchJwPlayer(v);}
+    });
+  } catch(e) {}
+  try { if(typeof jwplayer!=='undefined'&&jwplayer&&!jwplayer.__wtJwPatched) _patchJwPlayer(jwplayer); } catch(e) {}
+
 })();
 """;
 
@@ -1166,7 +1303,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   final List<Map<String, String>> _hiddenHistory = [];
 
   // Video interception — floating PiP player
-  String? _interceptedVideoUrl;
+  final _interceptedUrls = <String>{};
   DateTime? _lastInterceptTime;
   OverlayEntry? _floatingEntry;
 
@@ -1854,23 +1991,33 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   /// Called whenever JS / shouldOverrideUrlLoading / shouldInterceptRequest
   /// detects a media URL. Shows the floating PiP player immediately.
-  void _handleInterceptedVideo(String url, [String? title]) {
+  ///
+  /// Dedup: the same base URL (without query string) is only opened once per
+  /// page load. The JS layer has its own in-page dedup; this guards against
+  /// the JS + shouldInterceptRequest firing for the same stream simultaneously.
+  void _handleInterceptedVideo(
+    String url, {
+    String? title,
+    String quality = '',
+    String type = '',
+  }) {
     if (!mounted || url.isEmpty) return;
-    // Debounce: same URL within 4 s → open only once (JS + shouldInterceptRequest
-    // can both fire for the same stream within milliseconds).
-    final now = DateTime.now();
-    if (_interceptedVideoUrl == url &&
-        _lastInterceptTime != null &&
-        now.difference(_lastInterceptTime!) < const Duration(seconds: 4)) return;
-    _interceptedVideoUrl = url;
-    _lastInterceptTime = now;
-    _showFloatingPlayer(url, title);
+    final baseUrl = url.split('?').first.split('#').first;
+    if (_interceptedUrls.contains(baseUrl)) return;
+    _interceptedUrls.add(baseUrl);
+    _lastInterceptTime = DateTime.now();
+    _showFloatingPlayer(url, title: title, quality: quality, type: type);
   }
 
   // ── Floating PiP helpers ─────────────────────────────────────────────────
 
   /// Shows a draggable floating video player (PiP) on top of the WebView.
-  Future<void> _showFloatingPlayer(String url, [String? title]) async {
+  Future<void> _showFloatingPlayer(
+    String url, {
+    String? title,
+    String quality = '',
+    String type = '',
+  }) async {
     // Pause the site's video element (JS override already prevents origPlay,
     // but belt-and-suspenders for iframes / non-overridden paths).
     try {
@@ -1886,11 +2033,15 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     final displayTitle =
         (title != null && title.isNotEmpty) ? title : _displayHost(_url);
     final capturedUrl = url;
+    final capturedQuality = quality;
+    final capturedType = type;
 
     _floatingEntry = OverlayEntry(
       builder: (ctx) => _WebFloatingPlayerOverlay(
         videoUrl: capturedUrl,
         title: displayTitle,
+        quality: capturedQuality,
+        type: capturedType,
         onFullscreen: () {
           _dismissFloatingPlayer();
           _openInMpvFullscreen(capturedUrl, displayTitle);
@@ -2229,11 +2380,31 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                 handlerName: 'videoIntercepted',
                                 callback: (args) {
                                   if (!mounted || args.isEmpty) return;
-                                  final videoUrl = args[0].toString().trim();
-                                  final pageTitle = args.length > 1
-                                      ? args[1].toString().trim()
-                                      : null;
-                                  _handleInterceptedVideo(videoUrl, pageTitle);
+                                  try {
+                                    // New format: JSON payload from enhanced JS
+                                    final raw = args[0];
+                                    final jsonStr = raw is String ? raw : raw.toString();
+                                    final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+                                    final videoUrl = (data['url'] ?? '').toString().trim();
+                                    final pageTitle = (data['title'] ?? '').toString().trim();
+                                    final quality = (data['quality'] ?? '').toString().trim();
+                                    final type = (data['type'] ?? '').toString().trim();
+                                    if (videoUrl.isNotEmpty) {
+                                      _handleInterceptedVideo(
+                                        videoUrl,
+                                        title: pageTitle.isEmpty ? null : pageTitle,
+                                        quality: quality,
+                                        type: type,
+                                      );
+                                    }
+                                  } catch (_) {
+                                    // Fallback: legacy positional args format
+                                    final videoUrl = args[0].toString().trim();
+                                    final pageTitle = args.length > 1 ? args[1].toString().trim() : null;
+                                    if (videoUrl.isNotEmpty) {
+                                      _handleInterceptedVideo(videoUrl, title: pageTitle);
+                                    }
+                                  }
                                 },
                               );
                             },
@@ -2241,7 +2412,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               return true;
                             },
                             onLoadStart: (c, url) {
-                              if (mounted) setState(() => _url = url.toString());
+                              if (mounted) setState(() {
+                                _url = url.toString();
+                                _interceptedUrls.clear();
+                              });
                             },
                             onLoadStop: (c, url) async {
                               if (mounted) setState(() => _url = url.toString());
@@ -2285,7 +2459,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               if (action.isForMainFrame == true) {
                                 final rawUrl = action.request.url?.toString() ?? '';
                                 if (_isVideoUrl(rawUrl)) {
-                                  _handleInterceptedVideo(rawUrl, _title);
+                                  _handleInterceptedVideo(rawUrl, title: _title);
                                   return NavigationActionPolicy.CANCEL;
                                 }
                               }
@@ -2321,7 +2495,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                     // Android: intercept video resource requests
                                     // (XHR/fetch interception via JS misses some cases on Android).
                                     if (_isVideoUrl(url)) {
-                                      _handleInterceptedVideo(url, _title);
+                                      _handleInterceptedVideo(url, title: _title);
                                       // Block the WebView from loading the stream itself
                                       // so only our floating player plays it.
                                       return WebResourceResponse(
@@ -3819,12 +3993,16 @@ class MyInAppBrowser extends InAppBrowser {
 class _WebFloatingPlayerOverlay extends StatefulWidget {
   final String videoUrl;
   final String title;
+  final String quality;
+  final String type;
   final VoidCallback onFullscreen;
   final VoidCallback onDismiss;
 
   const _WebFloatingPlayerOverlay({
     required this.videoUrl,
     required this.title,
+    this.quality = '',
+    this.type = '',
     required this.onFullscreen,
     required this.onDismiss,
   });
@@ -4014,6 +4192,26 @@ class _WebFloatingPlayerOverlayState
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // Quality / type badge (e.g. "1080p" or "HLS")
+                  if (widget.quality.isNotEmpty || widget.type.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        widget.quality.isNotEmpty ? widget.quality : widget.type,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 4),
                   // Fullscreen → MPV
                   GestureDetector(
