@@ -57,6 +57,8 @@ class SourceListTile extends StatelessWidget {
           );
           if (source.itemType == ItemType.anime) {
             context.push('/watchHome', extra: (source, false));
+          } else if (source.itemType == ItemType.novel) {
+            context.push('/novelHome', extra: (source, false));
           } else {
             context.push('/mangaHome', extra: (source, false));
           }
