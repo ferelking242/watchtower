@@ -27,7 +27,7 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
 
-// ── WatchHomeScreen ─────────────────────────────────────────────────────────
+// ── WatchHomeScreen ──────────────────────────────────────────────────────────
 
 class WatchHomeScreen extends ConsumerStatefulWidget {
   final Source source;
@@ -46,9 +46,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   Source get source => widget.source;
   bool get isLocal => source.name == 'local' && source.lang == '';
 
-  static const _kHomeIdx = 0;
-  static const _kLatestIdx = 1;
-  static const _kFilterIdx = 2;
+  static const _kHomeIdx    = 0;
+  static const _kPopularIdx = 1;
+  static const _kLatestIdx  = 2;
+  static const _kFilterIdx  = 3;
 
   late int _selectedIdx = widget.isLatest ? _kLatestIdx : _kHomeIdx;
 
@@ -56,6 +57,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   String _query = '';
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+
+  // Home catalogue scroll controller (separate from the tab scroll)
+  final _homeScrollCtrl = ScrollController();
+  final List<MManga> _catalogueItems = [];
+  int _cataloguePage = 1;
+  bool _catalogueHasNext = true;
+  bool _catalogueLoading = false;
 
   late final List<Map<String, dynamic>> _customLists =
       isLocal ? [] : getCustomLists(source: source);
@@ -76,17 +84,21 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
+    _homeScrollCtrl.addListener(_onHomeScroll);
   }
 
   @override
   void dispose() {
     _scrollCtrl.dispose();
     _searchCtrl.dispose();
+    _homeScrollCtrl.dispose();
     super.dispose();
   }
 
   bool get supportsLatest =>
       isLocal ? true : ref.watch(supportsLatestProvider(source: source));
+
+  // ── Filter ──────────────────────────────────────────────────────────────
 
   Future<void> _openFilterSheet(BuildContext ctx) async {
     await showModalBottomSheet(
@@ -122,6 +134,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     });
   }
 
+  // ── Scroll / load more (tab list views) ─────────────────────────────────
+
   void _onScroll() {
     if (!_scrollCtrl.hasClients) return;
     final pos = _scrollCtrl.position;
@@ -141,6 +155,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       if (_selectedIdx == _kLatestIdx && !_isSearching) {
         result = await ref
             .read(getLatestUpdatesProvider(source: source, page: next).future);
+      } else if (_selectedIdx == _kPopularIdx && !_isSearching) {
+        result = await ref
+            .read(getPopularProvider(source: source, page: next).future);
       } else if (_isSearching && _query.isNotEmpty) {
         result = await ref.read(searchProvider(
           source: source,
@@ -170,27 +187,54 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     }
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────
+  // ── Catalogue scroll (home view bottom) ──────────────────────────────────
+
+  void _onHomeScroll() {
+    if (!_homeScrollCtrl.hasClients) return;
+    final pos = _homeScrollCtrl.position;
+    if (pos.pixels >= pos.maxScrollExtent - 400 &&
+        _catalogueHasNext &&
+        !_catalogueLoading) {
+      _loadCatalogue();
+    }
+  }
+
+  Future<void> _loadCatalogue() async {
+    if (_catalogueLoading || !_catalogueHasNext) return;
+    setState(() => _catalogueLoading = true);
+    try {
+      final result = await ref
+          .read(getPopularProvider(source: source, page: _cataloguePage).future);
+      if (mounted && result != null && result.list.isNotEmpty) {
+        setState(() {
+          _cataloguePage++;
+          _catalogueHasNext = result.hasNextPage;
+          _catalogueItems.addAll(result.list);
+        });
+      } else if (mounted) {
+        setState(() => _catalogueHasNext = false);
+      }
+    } finally {
+      if (mounted) setState(() => _catalogueLoading = false);
+    }
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     if (_isSearching && _query.isNotEmpty) {
       _getManga = ref.watch(searchProvider(
-        source: source,
-        query: _query,
-        page: 1,
-        filterList: filters,
+        source: source, query: _query, page: 1, filterList: filters,
       ));
     } else if (_isFiltering) {
       _getManga = ref.watch(searchProvider(
-        source: source,
-        query: '',
-        page: 1,
-        filterList: filters,
+        source: source, query: '', page: 1, filterList: filters,
       ));
     } else if (_selectedIdx == _kLatestIdx) {
-      _getManga =
-          ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+      _getManga = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+    } else if (_selectedIdx == _kPopularIdx) {
+      _getManga = ref.watch(getPopularProvider(source: source, page: 1));
     } else {
       _getManga = ref.watch(getPopularProvider(source: source, page: 1));
     }
@@ -233,16 +277,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.chevron_left_rounded, size: 28,
-                  color: ctx.primaryColor),
-              Text(
-                'Browse',
-                style: TextStyle(
-                  fontSize: 17,
-                  color: ctx.primaryColor,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
+              Icon(Icons.chevron_left_rounded, size: 28, color: ctx.primaryColor),
+              Text('Browse',
+                  style: TextStyle(fontSize: 17, color: ctx.primaryColor,
+                      fontWeight: FontWeight.w400)),
             ],
           ),
         ),
@@ -253,24 +291,16 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(5),
-              child: Image.network(
-                source.iconUrl!,
-                width: 20,
-                height: 20,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
+              child: Image.network(source.iconUrl!, width: 20, height: 20,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink()),
             ),
             const SizedBox(width: 8),
           ],
           Flexible(
-            child: Text(
-              sourceName,
-              style: const TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(sourceName,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -293,16 +323,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
-                color: Theme.of(lbCtx)
-                    .scaffoldBackgroundColor
-                    .withValues(alpha: 0.92),
+                color: Theme.of(lbCtx).scaffoldBackgroundColor.withValues(alpha: 0.92),
               ),
             ),
           ),
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
+            bottom: 0, left: 0, right: 0,
             child: Container(
               height: 0.5,
               color: Theme.of(lbCtx).dividerColor.withValues(alpha: 0.25),
@@ -313,15 +339,16 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Tab chip bar ─────────────────────────────────────────────────────────
+  // ── Tab bar: Accueil · Popular · Latest · [Filter] ───────────────────────
 
   Widget _buildTabBar(BuildContext ctx) {
     final tabs = <_WatchTab>[
-      const _WatchTab(Icons.home_rounded, 'Home', _kHomeIdx),
+      const _WatchTab(Icons.home_rounded,         'Accueil',  _kHomeIdx),
+      const _WatchTab(Icons.local_fire_department_rounded, 'Popular', _kPopularIdx),
       if (supportsLatest)
-        const _WatchTab(Icons.update_rounded, 'Latest', _kLatestIdx),
+        const _WatchTab(Icons.update_rounded,     'Latest',   _kLatestIdx),
       if (filterList.isNotEmpty)
-        const _WatchTab(Icons.tune_rounded, 'Filter', _kFilterIdx),
+        const _WatchTab(Icons.tune_rounded,       'Filter',   _kFilterIdx),
     ];
 
     return SizedBox(
@@ -359,8 +386,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: isActive
                       ? ctx.primaryColor
@@ -376,24 +402,17 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      tab.icon,
-                      size: 13,
-                      color: isActive
-                          ? Colors.white
-                          : Theme.of(ctx).textTheme.bodyMedium?.color,
-                    ),
+                    Icon(tab.icon, size: 13,
+                        color: isActive ? Colors.white
+                            : Theme.of(ctx).textTheme.bodyMedium?.color),
                     const SizedBox(width: 5),
-                    Text(
-                      tab.label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isActive
-                            ? Colors.white
-                            : Theme.of(ctx).textTheme.bodyMedium?.color,
-                      ),
-                    ),
+                    Text(tab.label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.white
+                              : Theme.of(ctx).textTheme.bodyMedium?.color,
+                        )),
                   ],
                 ),
               ),
@@ -413,24 +432,21 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     return _buildListView(ctx);
   }
 
-  // ── Home view: hero + diverse section rows ───────────────────────────────
+  // ── Home view ────────────────────────────────────────────────────────────
 
   Widget _buildHomeView(BuildContext ctx) {
     return CustomScrollView(
+      controller: _homeScrollCtrl,
       slivers: [
-        // ── Hero carousel ────────────────────────────────────────────────
+        // ── Hero carousel (À l'affiche) ──────────────────────────────────
         SliverToBoxAdapter(
           child: Consumer(builder: (c, ref, _) {
-            final pop =
-                ref.watch(getPopularProvider(source: source, page: 1));
+            final pop = ref.watch(getPopularProvider(source: source, page: 1));
             return pop.when(
               data: (d) {
                 final items = d?.list ?? [];
                 if (items.isEmpty) return const SizedBox(height: 8);
-                return _WatchHero(
-                  mangas: items.take(8).toList(),
-                  source: source,
-                );
+                return _WatchHero(mangas: items.take(8).toList(), source: source);
               },
               loading: () => _buildHeroSkeleton(ctx),
               error: (_, __) => const SizedBox(height: 8),
@@ -438,90 +454,57 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           }),
         ),
 
-        // ── Popular — portrait poster cards ─────────────────────────────
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeader(
-                ctx,
-                title: 'Popular',
-                accent: ctx.primaryColor,
-                icon: Icons.local_fire_department_rounded,
-                onSeeAll: () {
-                  Navigator.of(ctx).push(MaterialPageRoute(
-                    builder: (_) => _WatchSectionPage(
-                      source: source,
-                      title: 'Popular',
-                      type: _SectionKind.popular,
-                    ),
-                  ));
-                },
-              ),
-              Consumer(builder: (c, ref, _) {
-                final pop =
-                    ref.watch(getPopularProvider(source: source, page: 1));
-                return pop.when(
-                  data: (d) =>
-                      _buildPortraitRow(ctx, d?.list ?? []),
-                  loading: () => _buildPortraitRowSkeleton(ctx),
-                  error: (_, __) => const SizedBox(height: 8),
-                );
-              }),
-            ],
-          ),
-        ),
-
-        // ── Custom list rows ─────────────────────────────────────────────
+        // ── Custom sections ──────────────────────────────────────────────
         ..._customLists.asMap().entries.map((entry) {
-          final idx = entry.key;
+          final sectionIdx = entry.key;
           final cl = entry.value;
           final listId = cl['id'] as String;
-          String listName = cl['name'] as String? ?? listId;
-          if (listName.toLowerCase() == 'new titles') {
-            listName = 'New Titles';
-          }
-
-          // First custom list shown as landscape spotlight cards
-          // Remaining custom lists as compact cards
-          final bool isSpotlight = idx == 0;
+          final listName = cl['name'] as String? ?? listId;
+          final isDerniers = sectionIdx == 0;   // → Latest tab
+          final isTop15    = sectionIdx == 1;   // → ranked cards, no voir tout
 
           return SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionHeader(
-                  ctx,
+                _buildSectionHeader(ctx,
                   title: listName,
-                  accent: isSpotlight
-                      ? const Color(0xFFE91E63)
-                      : const Color(0xFF9C27B0),
-                  icon: isSpotlight
-                      ? Icons.star_rounded
-                      : Icons.playlist_play_rounded,
-                  onSeeAll: () {
-                    Navigator.of(ctx).push(MaterialPageRoute(
-                      builder: (_) => _WatchSectionPage(
-                        source: source,
-                        title: listName,
-                        type: _SectionKind.custom,
-                        customListId: listId,
-                      ),
-                    ));
+                  accent: _sectionAccent(sectionIdx),
+                  icon:   _sectionIcon(sectionIdx),
+                  onSeeAll: isTop15 ? null : () {
+                    if (isDerniers) {
+                      // "Voir tout" → Latest tab
+                      setState(() {
+                        _selectedIdx = _kLatestIdx;
+                        _mangaList.clear();
+                        _page = 1;
+                        _hasNextPage = true;
+                      });
+                    } else {
+                      Navigator.of(ctx).push(MaterialPageRoute(
+                        builder: (_) => _WatchSectionPage(
+                          source: source,
+                          title: listName,
+                          type: _SectionKind.custom,
+                          customListId: listId,
+                        ),
+                      ));
+                    }
                   },
                 ),
                 Consumer(builder: (c, ref, _) {
                   final data = ref.watch(getCustomListProvider(
-                    source: source,
-                    listId: listId,
-                    page: 1,
+                    source: source, listId: listId, page: 1,
                   ));
                   return data.when(
-                    data: (d) => isSpotlight
-                        ? _buildSpotlightRow(ctx, d?.list ?? [])
-                        : _buildCompactRow(ctx, d?.list ?? []),
-                    loading: () => isSpotlight
-                        ? _buildSpotlightRowSkeleton(ctx)
+                    data: (d) {
+                      final items = d?.list ?? [];
+                      if (isTop15) return _buildRankedRow(ctx, items);
+                      if (isDerniers) return _buildSpotlightRow(ctx, items);
+                      return _buildCompactRow(ctx, items);
+                    },
+                    loading: () => isTop15
+                        ? _buildRankedRowSkeleton(ctx)
                         : _buildCompactRowSkeleton(ctx),
                     error: (_, __) => const SizedBox(height: 8),
                   );
@@ -531,34 +514,26 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           );
         }),
 
-        // ── Latest Updates — landscape cards with badge ──────────────────
-        if (supportsLatest)
+        // ── If no custom lists → show standard Latest row ────────────────
+        if (_customLists.isEmpty && supportsLatest)
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionHeader(
-                  ctx,
-                  title: 'Latest Updates',
-                  accent: const Color(0xFF00BCD4),
-                  icon: Icons.access_time_filled_rounded,
-                  onSeeAll: () {
-                    Navigator.of(ctx).push(MaterialPageRoute(
-                      builder: (_) => _WatchSectionPage(
-                        source: source,
-                        title: 'Latest Updates',
-                        type: _SectionKind.latest,
-                      ),
-                    ));
-                  },
+                _buildSectionHeader(ctx,
+                  title: 'Derniers ajouts',
+                  accent: ctx.primaryColor,
+                  icon: Icons.update_rounded,
+                  onSeeAll: () => setState(() {
+                    _selectedIdx = _kLatestIdx;
+                    _mangaList.clear(); _page = 1; _hasNextPage = true;
+                  }),
                 ),
                 Consumer(builder: (c, ref, _) {
-                  final latest = ref.watch(
-                      getLatestUpdatesProvider(source: source, page: 1));
+                  final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
                   return latest.when(
-                    data: (d) =>
-                        _buildLatestRow(ctx, d?.list ?? []),
-                    loading: () => _buildLatestRowSkeleton(ctx),
+                    data: (d) => _buildCompactRow(ctx, d?.list ?? []),
+                    loading: () => _buildCompactRowSkeleton(ctx),
                     error: (_, __) => const SizedBox(height: 8),
                   );
                 }),
@@ -566,15 +541,118 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             ),
           ),
 
+        // ── Catalogue header ─────────────────────────────────────────────
+        SliverToBoxAdapter(
+          child: _buildSectionHeader(ctx,
+            title: 'Explorer le catalogue',
+            accent: const Color(0xFF607D8B),
+            icon: Icons.grid_view_rounded,
+          ),
+        ),
+
+        // ── Catalogue grid (infinite scroll) ─────────────────────────────
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+          sliver: Consumer(builder: (c, ref, _) {
+            final pop = ref.watch(getPopularProvider(source: source, page: 1));
+            pop.whenData((d) {
+              if (d != null && _catalogueItems.isEmpty && d.list.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _catalogueItems.isEmpty) {
+                    setState(() {
+                      _catalogueItems.addAll(d.list);
+                      _cataloguePage = 2;
+                      _catalogueHasNext = d.hasNextPage;
+                    });
+                  }
+                });
+              }
+            });
+
+            if (_catalogueItems.isEmpty) {
+              return SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 140,
+                  childAspectRatio: 0.65,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (_, __) {
+                    final base = Theme.of(ctx).colorScheme
+                        .surfaceContainerHighest.withValues(alpha: 0.6);
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: base,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    );
+                  },
+                  childCount: 12,
+                ),
+              );
+            }
+
+            return SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 140,
+                childAspectRatio: 0.65,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (c2, i) {
+                  if (i >= _catalogueItems.length) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+                  return MangaImageCardWidget(
+                    getMangaDetail: _catalogueItems[i],
+                    source: source,
+                    itemType: source.itemType,
+                    isComfortableGrid: false,
+                  );
+                },
+                childCount: _catalogueItems.length + (_catalogueLoading ? 3 : 0),
+              ),
+            );
+          }),
+        ),
+
         const SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
   }
 
-  // ── Section header with accent ───────────────────────────────────────────
+  // ── Section accent + icon helpers ────────────────────────────────────────
 
-  Widget _buildSectionHeader(
-    BuildContext ctx, {
+  Color _sectionAccent(int idx) {
+    const colors = [
+      Color(0xFF00BCD4), // Derniers ajouts — cyan
+      Color(0xFFFFB300), // Top 15 — amber
+      Color(0xFF9C27B0), // Animations — purple
+      Color(0xFF4CAF50), // Docs & Spectacles — green
+    ];
+    return colors[idx % colors.length];
+  }
+
+  IconData _sectionIcon(int idx) {
+    const icons = [
+      Icons.fiber_new_rounded,
+      Icons.trending_up_rounded,
+      Icons.animation_rounded,
+      Icons.theaters_rounded,
+    ];
+    return icons[idx % icons.length];
+  }
+
+  // ── Section header ───────────────────────────────────────────────────────
+
+  Widget _buildSectionHeader(BuildContext ctx, {
     required String title,
     Color? accent,
     IconData? icon,
@@ -582,17 +660,15 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }) {
     final accentColor = accent ?? ctx.primaryColor;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 12, 10),
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Left accent bar
               Container(
-                width: 3,
-                height: 20,
+                width: 3, height: 18,
                 decoration: BoxDecoration(
                   color: accentColor,
                   borderRadius: BorderRadius.circular(2),
@@ -600,42 +676,31 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               ),
               const SizedBox(width: 8),
               if (icon != null) ...[
-                Icon(icon, size: 16, color: accentColor),
+                Icon(icon, size: 15, color: accentColor),
                 const SizedBox(width: 5),
               ],
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                ),
-              ),
+              Text(title,
+                  style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2,
+                  )),
             ],
           ),
           if (onSeeAll != null)
             GestureDetector(
               onTap: onSeeAll,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'See all',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: accentColor,
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded,
-                        size: 15, color: accentColor),
+                    Text('Voir tout',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                            color: accentColor)),
+                    Icon(Icons.chevron_right_rounded, size: 14, color: accentColor),
                   ],
                 ),
               ),
@@ -645,121 +710,56 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Portrait poster row (Popular) ────────────────────────────────────────
+  // ── Ranked row (Top 15) ──────────────────────────────────────────────────
 
-  Widget _buildPortraitRow(BuildContext ctx, List<MManga> items) {
+  Widget _buildRankedRow(BuildContext ctx, List<MManga> items) {
     if (items.isEmpty) return const SizedBox(height: 4);
-    final capped = items.take(12).toList();
+    final capped = items.take(15).toList();
     return SizedBox(
-      height: 200,
+      height: 190,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         itemCount: capped.length,
-        itemBuilder: (_, i) => _PortraitCard(
-          manga: capped[i],
-          source: source,
-          rank: i + 1,
+        itemBuilder: (_, i) => _RankedCard(
+          manga: capped[i], source: source, rank: i + 1,
         ),
       ),
     );
   }
 
-  Widget _buildPortraitRowSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx)
-        .colorScheme
-        .surfaceContainerHighest
-        .withValues(alpha: 0.7);
+  Widget _buildRankedRowSkeleton(BuildContext ctx) {
+    final base = Theme.of(ctx).colorScheme
+        .surfaceContainerHighest.withValues(alpha: 0.7);
     return Skeletonizer(
       enabled: true,
-      effect: ShimmerEffect(
-        baseColor: base,
-        highlightColor:
-            Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-        duration: const Duration(milliseconds: 1200),
-      ),
+      effect: ShimmerEffect(baseColor: base,
+          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+          duration: const Duration(milliseconds: 1200)),
       child: SizedBox(
-        height: 200,
+        height: 190,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           itemCount: 6,
           itemBuilder: (_, __) => Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 112,
-                  height: 158,
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(10),
+            padding: const EdgeInsets.only(right: 6),
+            child: SizedBox(
+              width: 105,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(width: 36, height: 52,
+                      color: base.withValues(alpha: 0.4)),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: Container(
+                      height: 155,
+                      decoration: BoxDecoration(
+                          color: base, borderRadius: BorderRadius.circular(8)),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  width: 90,
-                  height: 11,
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Spotlight row (first custom list) ────────────────────────────────────
-
-  Widget _buildSpotlightRow(BuildContext ctx, List<MManga> items) {
-    if (items.isEmpty) return const SizedBox(height: 4);
-    final capped = items.take(8).toList();
-    return SizedBox(
-      height: 160,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: capped.length,
-        itemBuilder: (_, i) => _SpotlightCard(
-          manga: capped[i],
-          source: source,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSpotlightRowSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx)
-        .colorScheme
-        .surfaceContainerHighest
-        .withValues(alpha: 0.7);
-    return Skeletonizer(
-      enabled: true,
-      effect: ShimmerEffect(
-        baseColor: base,
-        highlightColor:
-            Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-        duration: const Duration(milliseconds: 1200),
-      ),
-      child: SizedBox(
-        height: 160,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: 4,
-          itemBuilder: (_, __) => Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Container(
-              width: 240,
-              height: 135,
-              decoration: BoxDecoration(
-                color: base,
-                borderRadius: BorderRadius.circular(12),
+                ],
               ),
             ),
           ),
@@ -768,66 +768,65 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Compact row (other custom lists) ─────────────────────────────────────
+  // ── Spotlight row (Derniers ajouts) ──────────────────────────────────────
+
+  Widget _buildSpotlightRow(BuildContext ctx, List<MManga> items) {
+    if (items.isEmpty) return const SizedBox(height: 4);
+    final capped = items.take(10).toList();
+    return SizedBox(
+      height: 155,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        itemCount: capped.length,
+        itemBuilder: (_, i) => _SpotlightCard(manga: capped[i], source: source),
+      ),
+    );
+  }
+
+  // ── Compact row (Animations, Docs & Spectacles, etc.) ────────────────────
 
   Widget _buildCompactRow(BuildContext ctx, List<MManga> items) {
     if (items.isEmpty) return const SizedBox(height: 4);
     final capped = items.take(12).toList();
     return SizedBox(
-      height: 148,
+      height: 142,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         itemCount: capped.length,
-        itemBuilder: (_, i) => _CompactCard(
-          manga: capped[i],
-          source: source,
-        ),
+        itemBuilder: (_, i) => _CompactCard(manga: capped[i], source: source),
       ),
     );
   }
 
   Widget _buildCompactRowSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx)
-        .colorScheme
-        .surfaceContainerHighest
-        .withValues(alpha: 0.7);
+    final base = Theme.of(ctx).colorScheme
+        .surfaceContainerHighest.withValues(alpha: 0.7);
     return Skeletonizer(
       enabled: true,
-      effect: ShimmerEffect(
-        baseColor: base,
-        highlightColor:
-            Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-        duration: const Duration(milliseconds: 1200),
-      ),
+      effect: ShimmerEffect(baseColor: base,
+          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+          duration: const Duration(milliseconds: 1200)),
       child: SizedBox(
-        height: 148,
+        height: 142,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           itemCount: 6,
           itemBuilder: (_, __) => Padding(
-            padding: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.only(right: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 155,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  width: 152, height: 86,
+                  decoration: BoxDecoration(color: base,
+                      borderRadius: BorderRadius.circular(8)),
                 ),
-                const SizedBox(height: 6),
-                Container(
-                  width: 120,
-                  height: 11,
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
+                const SizedBox(height: 5),
+                Container(width: 120, height: 10,
+                    color: base.withValues(alpha: 0.5)),
               ],
             ),
           ),
@@ -836,76 +835,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Latest row ───────────────────────────────────────────────────────────
-
-  Widget _buildLatestRow(BuildContext ctx, List<MManga> items) {
-    if (items.isEmpty) return const SizedBox(height: 4);
-    final capped = items.take(12).toList();
-    return SizedBox(
-      height: 155,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: capped.length,
-        itemBuilder: (_, i) => _LatestCard(
-          manga: capped[i],
-          source: source,
-          isNew: i < 3,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLatestRowSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx)
-        .colorScheme
-        .surfaceContainerHighest
-        .withValues(alpha: 0.7);
-    return Skeletonizer(
-      enabled: true,
-      effect: ShimmerEffect(
-        baseColor: base,
-        highlightColor:
-            Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-        duration: const Duration(milliseconds: 1200),
-      ),
-      child: SizedBox(
-        height: 155,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: 6,
-          itemBuilder: (_, __) => Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 170,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  width: 130,
-                  height: 11,
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── List view (latest / filter / search) ─────────────────────────────────
+  // ── List view (Popular / Latest / Filter / Search tabs) ──────────────────
 
   Widget _buildListView(BuildContext ctx) {
     return NotificationListener<ScrollNotification>(
@@ -915,9 +845,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       },
       child: _getManga?.when(
             data: (data) {
-              if (data != null &&
-                  _mangaList.isEmpty &&
-                  data.list.isNotEmpty) {
+              if (data != null && _mangaList.isEmpty && data.list.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted && _mangaList.isEmpty) {
                     setState(() {
@@ -930,19 +858,15 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               if (_mangaList.isEmpty) {
                 if (data?.list.isEmpty ?? true) {
                   return Center(
-                    child: Text(
-                      ctx.l10n.no_result,
-                      style: TextStyle(color: Theme.of(ctx).hintColor),
-                    ),
+                    child: Text(ctx.l10n.no_result,
+                        style: TextStyle(color: Theme.of(ctx).hintColor)),
                   );
                 }
                 return _buildSkeletonGrid();
               }
               return _buildGrid(ctx);
             },
-            loading: () => _mangaList.isEmpty
-                ? _buildSkeletonGrid()
-                : _buildGrid(ctx),
+            loading: () => _mangaList.isEmpty ? _buildSkeletonGrid() : _buildGrid(ctx),
             error: (e, _) => _buildError(ctx, e),
           ) ??
           _buildSkeletonGrid(),
@@ -953,8 +877,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     return GridView.builder(
       controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 140,
         childAspectRatio: 0.65,
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
@@ -963,10 +887,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       itemBuilder: (c, i) {
         if (i >= _mangaList.length) {
           return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            child: Padding(padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(strokeWidth: 2)),
           );
         }
         return MangaImageCardWidget(
@@ -980,32 +902,26 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }
 
   Widget _buildSkeletonGrid() {
-    final base = Theme.of(context)
-        .colorScheme
-        .surfaceContainerHighest
-        .withValues(alpha: 0.7);
+    final base = Theme.of(context).colorScheme
+        .surfaceContainerHighest.withValues(alpha: 0.7);
     return Skeletonizer(
       enabled: true,
-      effect: ShimmerEffect(
-        baseColor: base,
-        highlightColor:
-            Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-        duration: const Duration(milliseconds: 1200),
-      ),
+      effect: ShimmerEffect(baseColor: base,
+          highlightColor:
+              Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+          duration: const Duration(milliseconds: 1200)),
       child: GridView.builder(
         padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 140,
           childAspectRatio: 0.65,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
         ),
         itemCount: 12,
         itemBuilder: (_, __) => Container(
-          decoration: BoxDecoration(
-            color: base,
-            borderRadius: BorderRadius.circular(10),
-          ),
+          decoration: BoxDecoration(color: base,
+              borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
@@ -1020,25 +936,21 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         child: Column(
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
                   Expanded(
                     child: Container(
                       height: 42,
                       decoration: BoxDecoration(
-                        color: Theme.of(ctx)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withValues(alpha: 0.8),
+                        color: Theme.of(ctx).colorScheme
+                            .surfaceContainerHighest.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
                           const SizedBox(width: 10),
-                          Icon(Icons.search,
-                              size: 20, color: Theme.of(ctx).hintColor),
+                          Icon(Icons.search, size: 20, color: Theme.of(ctx).hintColor),
                           const SizedBox(width: 6),
                           Expanded(
                             child: TextField(
@@ -1048,8 +960,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Search',
                                 hintStyle: TextStyle(
-                                    color: Theme.of(ctx).hintColor,
-                                    fontSize: 16),
+                                    color: Theme.of(ctx).hintColor, fontSize: 16),
                                 border: InputBorder.none,
                                 isDense: true,
                               ),
@@ -1072,8 +983,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                               },
                               child: Padding(
                                 padding: const EdgeInsets.only(right: 8),
-                                child: Icon(Icons.cancel,
-                                    size: 18,
+                                child: Icon(Icons.cancel, size: 18,
                                     color: Theme.of(ctx).hintColor),
                               ),
                             ),
@@ -1086,20 +996,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                     onPressed: () {
                       _searchCtrl.clear();
                       setState(() {
-                        _isSearching = false;
-                        _query = '';
-                        _mangaList.clear();
-                        _page = 1;
-                        _hasNextPage = true;
+                        _isSearching = false; _query = '';
+                        _mangaList.clear(); _page = 1; _hasNextPage = true;
                       });
                     },
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: ctx.primaryColor,
-                        fontSize: 16,
-                      ),
-                    ),
+                    child: Text('Cancel',
+                        style: TextStyle(color: ctx.primaryColor, fontSize: 16)),
                   ),
                 ],
               ),
@@ -1111,42 +1013,40 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Skeleton helpers ─────────────────────────────────────────────────────
+  // ── Skeletons & error ────────────────────────────────────────────────────
 
   Widget _buildHeroSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx)
-        .colorScheme
-        .surfaceContainerHighest
-        .withValues(alpha: 0.7);
+    final base = Theme.of(ctx).colorScheme
+        .surfaceContainerHighest.withValues(alpha: 0.7);
     final size = MediaQuery.sizeOf(ctx);
     return Skeletonizer(
       enabled: true,
-      effect: ShimmerEffect(
-        baseColor: base,
-        highlightColor:
-            Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-        duration: const Duration(milliseconds: 1400),
-      ),
+      effect: ShimmerEffect(baseColor: base,
+          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+          duration: const Duration(milliseconds: 1400)),
       child: Container(
         width: size.width,
-        height: size.height * 0.46,
+        height: _heroHeight(size),
         color: base,
       ),
     );
   }
 
+  double _heroHeight(Size size) {
+    // Responsive: 16:9 + info area, capped to 50% of screen height
+    final target = size.width * (9 / 16) + 80.0;
+    return target.clamp(200.0, size.height * 0.5);
+  }
+
   Widget _buildError(BuildContext ctx, Object error) {
     void retry() {
       if (_selectedIdx == _kLatestIdx) {
-        ref.invalidate(
-            getLatestUpdatesProvider(source: source, page: 1));
+        ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
+      } else if (_selectedIdx == _kPopularIdx) {
+        ref.invalidate(getPopularProvider(source: source, page: 1));
       } else if (_isSearching && _query.isNotEmpty) {
         ref.invalidate(searchProvider(
-          source: source,
-          query: _query,
-          page: 1,
-          filterList: filters,
-        ));
+            source: source, query: _query, page: 1, filterList: filters));
       } else {
         ref.invalidate(getPopularProvider(source: source, page: 1));
       }
@@ -1173,15 +1073,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline_rounded,
-                size: 48, color: Theme.of(ctx).hintColor),
+            Icon(Icons.error_outline_rounded, size: 48,
+                color: Theme.of(ctx).hintColor),
             const SizedBox(height: 12),
-            Text(
-              error.toString(),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Theme.of(ctx).hintColor, fontSize: 14),
-            ),
+            Text(error.toString(), textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 14)),
             const SizedBox(height: 20),
             ElevatedButton(onPressed: retry, child: const Text('Retry')),
           ],
@@ -1191,7 +1087,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }
 }
 
-// ── Tab data ─────────────────────────────────────────────────────────────────
+// ── Tab data ──────────────────────────────────────────────────────────────────
 
 class _WatchTab {
   final IconData icon;
@@ -1217,22 +1113,24 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
   int _page = 0;
   final Map<int, MManga> _detailCache = {};
 
+  double _heroHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final target = size.width * (9 / 16) + 80.0;
+    return target.clamp(200.0, size.height * 0.5);
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _prefetch(0);
-      _prefetch(1);
+      _prefetch(0); _prefetch(1);
     });
     if (widget.mangas.length > 1) {
       _timer = Timer.periodic(const Duration(seconds: 5), (_) {
         if (!mounted || !_ctrl.hasClients) return;
         _page = (_page + 1) % widget.mangas.length;
-        _ctrl.animateToPage(
-          _page,
-          duration: const Duration(milliseconds: 520),
-          curve: Curves.easeInOut,
-        );
+        _ctrl.animateToPage(_page,
+            duration: const Duration(milliseconds: 520), curve: Curves.easeInOut);
       });
     }
   }
@@ -1242,31 +1140,22 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
     final manga = widget.mangas[index];
     if (manga.link == null || _detailCache.containsKey(index)) return;
     ref
-        .read(
-            getDetailProvider(url: manga.link!, source: widget.source).future)
-        .then((d) {
-      if (mounted) setState(() => _detailCache[index] = d);
-    }).catchError((_) {});
+        .read(getDetailProvider(url: manga.link!, source: widget.source).future)
+        .then((d) { if (mounted) setState(() => _detailCache[index] = d); })
+        .catchError((_) {});
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    _ctrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _timer?.cancel(); _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    // More cinematic: 16:9 + a bit, not half the screen
-    final heroH = (size.width * 9 / 16) + 60.0;
+    final heroH = _heroHeight(context);
 
     return SizedBox(
       height: heroH,
       child: Stack(
         children: [
-          // ── Page slides ─────────────────────────────────────────────
           PageView.builder(
             controller: _ctrl,
             itemCount: widget.mangas.length,
@@ -1281,23 +1170,20 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
               height: heroH,
             ),
           ),
-
-          // ── Bottom indicator row: dots + counter ─────────────────────
+          // Indicators row
           Positioned(
-            bottom: 14,
-            left: 16,
-            right: 16,
+            bottom: 12, left: 14, right: 14,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Slim dot indicators
+                // Slim animated dots
                 Row(
                   children: List.generate(widget.mangas.length, (i) {
                     final isActive = _page == i;
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
                       margin: const EdgeInsets.only(right: 4),
-                      width: isActive ? 18 : 5,
+                      width: isActive ? 16 : 5,
                       height: 5,
                       decoration: BoxDecoration(
                         color: isActive
@@ -1308,24 +1194,17 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
                     );
                   }),
                 ),
-                // Slide counter pill
+                // Counter pill
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        width: 0.5),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '${_page + 1} / ${widget.mangas.length}',
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
+                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -1345,39 +1224,28 @@ class _HeroSlide extends ConsumerWidget {
   final MManga? detail;
   final Source source;
   final double height;
-  const _HeroSlide({
-    required this.manga,
-    this.detail,
-    required this.source,
-    required this.height,
-  });
+  const _HeroSlide({required this.manga, this.detail, required this.source,
+      required this.height});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final headers = ref.watch(headersProvider(
-      source: source.name!,
-      lang: source.lang!,
-      sourceId: source.id,
-    ));
+        source: source.name!, lang: source.lang!, sourceId: source.id));
     final imgUrl = toImgUrl(manga.imageUrl ?? '');
     final ImageProvider<Object> cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
-    final title = detail?.name ?? manga.name ?? '';
+    final title  = detail?.name  ?? manga.name  ?? '';
     final genres = detail?.genre ?? manga.genre ?? [];
 
     return GestureDetector(
       onTap: () {
         if (manga.link != null) {
           pushToMangaReaderDetail(
-            ref: ref,
-            context: context,
-            getManga: manga,
-            lang: source.lang!,
-            source: source.name!,
-            itemType: source.itemType,
-            sourceId: source.id,
+            ref: ref, context: context, getManga: manga,
+            lang: source.lang!, source: source.name!,
+            itemType: source.itemType, sourceId: source.id,
           );
         }
       },
@@ -1386,138 +1254,90 @@ class _HeroSlide extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Background image
             imgUrl.isNotEmpty
-                ? Image(
-                    image: cover,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
+                ? Image(image: cover, fit: BoxFit.cover, alignment: Alignment.topCenter,
                     errorBuilder: (_, __, ___) => Container(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       child: const Icon(Icons.play_circle_outline_rounded,
-                          size: 64, color: Colors.white30),
-                    ),
-                  )
+                          size: 56, color: Colors.white24),
+                    ))
                 : Container(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: const Icon(Icons.play_circle_outline_rounded,
-                        size: 64, color: Colors.white30),
-                  ),
-
-            // Cinematic gradient: dark sides + heavy bottom
+                        size: 56, color: Colors.white24)),
+            // Cinematic gradient
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.12),
+                      Colors.black.withValues(alpha: 0.08),
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.55),
-                      Colors.black.withValues(alpha: 0.92),
+                      Colors.black.withValues(alpha: 0.6),
+                      Colors.black.withValues(alpha: 0.95),
                     ],
-                    stops: const [0.0, 0.38, 0.68, 1.0],
+                    stops: const [0.0, 0.35, 0.68, 1.0],
                   ),
                 ),
               ),
             ),
-
-            // Info at bottom
+            // Info
             Positioned(
-              bottom: 38,
-              left: 16,
-              right: 16,
+              bottom: 36, left: 16, right: 16,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Genre chips
                   if (genres.isNotEmpty) ...[
                     Wrap(
                       spacing: 5,
-                      children: genres.take(3).map((g) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            g.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                      children: genres.take(3).map((g) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(g.toUpperCase(),
+                            style: const TextStyle(color: Colors.white70,
+                                fontSize: 9, fontWeight: FontWeight.w700,
+                                letterSpacing: 0.7)),
+                      )).toList(),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 7),
                   ],
-                  // Title
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.15,
-                      letterSpacing: -0.5,
-                      shadows: [
-                        Shadow(
-                            color: Colors.black54,
-                            blurRadius: 12,
-                            offset: Offset(0, 2))
-                      ],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  // Watch Now button
+                  Text(title,
+                      style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w900,
+                        color: Colors.white, height: 1.15, letterSpacing: -0.4,
+                        shadows: [Shadow(color: Colors.black54,
+                            blurRadius: 12, offset: Offset(0, 2))],
+                      ),
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 10),
                   SizedBox(
-                    height: 38,
+                    height: 36,
                     child: ElevatedButton.icon(
                       onPressed: () {
                         if (manga.link != null) {
                           pushToMangaReaderDetail(
-                            ref: ref,
-                            context: context,
-                            getManga: manga,
-                            lang: source.lang!,
-                            source: source.name!,
-                            itemType: source.itemType,
-                            sourceId: source.id,
+                            ref: ref, context: context, getManga: manga,
+                            lang: source.lang!, source: source.name!,
+                            itemType: source.itemType, sourceId: source.id,
                           );
                         }
                       },
                       icon: const Icon(Icons.play_arrow_rounded,
-                          size: 18, color: Colors.white),
-                      label: const Text(
-                        'Watch Now',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
+                          size: 17, color: Colors.white),
+                      label: const Text('Regarder',
+                          style: TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.w700, fontSize: 13)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(7)),
                         elevation: 0,
                       ),
                     ),
@@ -1532,113 +1352,104 @@ class _HeroSlide extends ConsumerWidget {
   }
 }
 
-// ── Portrait card (Popular) ───────────────────────────────────────────────────
-// Looks like a movie/anime poster with rank number
+// ── Ranked card (Top 15 Tendances) ───────────────────────────────────────────
+// Big rank number on the left side, portrait image on the right
 
-class _PortraitCard extends ConsumerWidget {
+class _RankedCard extends ConsumerWidget {
   final MManga manga;
   final Source source;
   final int rank;
-  const _PortraitCard(
-      {required this.manga, required this.source, required this.rank});
+  const _RankedCard({required this.manga, required this.source, required this.rank});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final headers = ref.watch(headersProvider(
-      source: source.name!,
-      lang: source.lang!,
-      sourceId: source.id,
-    ));
+        source: source.name!, lang: source.lang!, sourceId: source.id));
     final imgUrl = toImgUrl(manga.imageUrl ?? '');
     final ImageProvider<Object> cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: GestureDetector(
-        onTap: () {
-          if (manga.link != null) {
-            pushToMangaReaderDetail(
-              ref: ref,
-              context: context,
-              getManga: manga,
-              lang: source.lang!,
-              source: source.name!,
-              itemType: source.itemType,
-              sourceId: source.id,
-            );
-          }
-        },
+    // Rank color: gold / silver / bronze / rest
+    final rankColor = rank == 1
+        ? const Color(0xFFFFD700)
+        : rank == 2
+            ? const Color(0xFFC0C0C0)
+            : rank == 3
+                ? const Color(0xFFCD7F32)
+                : Theme.of(context).textTheme.bodySmall?.color
+                    ?.withValues(alpha: 0.4) ?? Colors.grey.shade600;
+
+    return GestureDetector(
+      onTap: () {
+        if (manga.link != null) {
+          pushToMangaReaderDetail(
+            ref: ref, context: context, getManga: manga,
+            lang: source.lang!, source: source.name!,
+            itemType: source.itemType, sourceId: source.id,
+          );
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
         child: SizedBox(
-          width: 112,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          width: 105,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Poster image
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: AspectRatio(
-                      aspectRatio: 2 / 3,
-                      child: imgUrl.isNotEmpty
-                          ? Image(
-                              image: cover,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                                child: const Icon(
-                                    Icons.movie_outlined,
-                                    size: 32,
-                                    color: Colors.white38),
-                              ),
-                            )
-                          : Container(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                              child: const Icon(Icons.movie_outlined,
-                                  size: 32, color: Colors.white38),
-                            ),
-                    ),
-                  ),
-                  // Rank badge
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(6),
+              // Big rank number
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '$rank',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: rank < 10 ? 46 : 38,
+                    fontWeight: FontWeight.w900,
+                    color: rankColor,
+                    height: 1.0,
+                    letterSpacing: -2,
+                    shadows: [
+                      Shadow(
+                        color: rankColor.withValues(alpha: 0.3),
+                        blurRadius: 8, offset: const Offset(1, 2),
                       ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$rank',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 5),
-              Text(
-                manga.name ?? '',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(width: 3),
+              // Portrait card
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: imgUrl.isNotEmpty
+                            ? Image(image: cover, fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Theme.of(context).colorScheme
+                                      .surfaceContainerHighest,
+                                  child: const Icon(Icons.movie_outlined,
+                                      size: 28, color: Colors.white38),
+                                ))
+                            : Container(
+                                color: Theme.of(context).colorScheme
+                                    .surfaceContainerHighest,
+                                child: const Icon(Icons.movie_outlined,
+                                    size: 28, color: Colors.white38)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(manga.name ?? '',
+                        style: const TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w600, height: 1.25),
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1648,8 +1459,7 @@ class _PortraitCard extends ConsumerWidget {
   }
 }
 
-// ── Spotlight card (first custom list) ───────────────────────────────────────
-// Wide landscape card with gradient title overlay
+// ── Spotlight card (Derniers ajouts) ─────────────────────────────────────────
 
 class _SpotlightCard extends ConsumerWidget {
   final MManga manga;
@@ -1659,10 +1469,7 @@ class _SpotlightCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final headers = ref.watch(headersProvider(
-      source: source.name!,
-      lang: source.lang!,
-      sourceId: source.id,
-    ));
+        source: source.name!, lang: source.lang!, sourceId: source.id));
     final imgUrl = toImgUrl(manga.imageUrl ?? '');
     final ImageProvider<Object> cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
@@ -1674,91 +1481,59 @@ class _SpotlightCard extends ConsumerWidget {
         onTap: () {
           if (manga.link != null) {
             pushToMangaReaderDetail(
-              ref: ref,
-              context: context,
-              getManga: manga,
-              lang: source.lang!,
-              source: source.name!,
-              itemType: source.itemType,
-              sourceId: source.id,
+              ref: ref, context: context, getManga: manga,
+              lang: source.lang!, source: source.name!,
+              itemType: source.itemType, sourceId: source.id,
             );
           }
         },
         child: SizedBox(
-          width: 245,
-          height: 138,
+          width: 230,
+          height: 130,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(11),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Thumbnail
                 imgUrl.isNotEmpty
-                    ? Image(
-                        image: cover,
-                        fit: BoxFit.cover,
+                    ? Image(image: cover, fit: BoxFit.cover,
                         alignment: Alignment.topCenter,
                         errorBuilder: (_, __, ___) => Container(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           child: const Icon(Icons.play_circle_outline_rounded,
-                              size: 40, color: Colors.white30),
-                        ),
-                      )
+                              size: 36, color: Colors.white24),
+                        ))
                     : Container(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         child: const Icon(Icons.play_circle_outline_rounded,
-                            size: 40, color: Colors.white30),
-                      ),
-
-                // Gradient overlay
+                            size: 36, color: Colors.white24)),
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.75),
+                          Colors.black.withValues(alpha: 0.72),
                         ],
-                        stops: const [0.35, 1.0],
+                        stops: const [0.3, 1.0],
                       ),
                     ),
                   ),
                 ),
-
-                // Play button center
                 const Center(
-                  child: Icon(
-                    Icons.play_circle_fill_rounded,
-                    size: 38,
-                    color: Colors.white70,
-                  ),
+                  child: Icon(Icons.play_circle_fill_rounded,
+                      size: 34, color: Colors.white60),
                 ),
-
-                // Title bottom
                 Positioned(
-                  bottom: 8,
-                  left: 10,
-                  right: 48,
-                  child: Text(
-                    manga.name ?? '',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                      shadows: [
-                        Shadow(color: Colors.black87, blurRadius: 6)
-                      ],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  bottom: 7, left: 9, right: 36,
+                  child: Text(manga.name ?? '',
+                      style: const TextStyle(
+                        color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700,
+                        height: 1.2,
+                        shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+                      ),
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
@@ -1769,8 +1544,7 @@ class _SpotlightCard extends ConsumerWidget {
   }
 }
 
-// ── Compact card (other custom lists) ────────────────────────────────────────
-// Smaller landscape card with a subtle tinted badge
+// ── Compact card (Animations, Docs & Spectacles) ──────────────────────────────
 
 class _CompactCard extends ConsumerWidget {
   final MManga manga;
@@ -1780,254 +1554,77 @@ class _CompactCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final headers = ref.watch(headersProvider(
-      source: source.name!,
-      lang: source.lang!,
-      sourceId: source.id,
-    ));
+        source: source.name!, lang: source.lang!, sourceId: source.id));
     final imgUrl = toImgUrl(manga.imageUrl ?? '');
     final ImageProvider<Object> cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.only(right: 9),
       child: GestureDetector(
         onTap: () {
           if (manga.link != null) {
             pushToMangaReaderDetail(
-              ref: ref,
-              context: context,
-              getManga: manga,
-              lang: source.lang!,
-              source: source.name!,
-              itemType: source.itemType,
-              sourceId: source.id,
+              ref: ref, context: context, getManga: manga,
+              lang: source.lang!, source: source.name!,
+              itemType: source.itemType, sourceId: source.id,
             );
           }
         },
         child: SizedBox(
-          width: 155,
+          width: 152,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Thumbnail
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
                       imgUrl.isNotEmpty
-                          ? Image(
-                              image: cover,
-                              fit: BoxFit.cover,
+                          ? Image(image: cover, fit: BoxFit.cover,
                               alignment: Alignment.topCenter,
                               errorBuilder: (_, __, ___) => Container(
-                                color: Theme.of(context)
-                                    .colorScheme
+                                color: Theme.of(context).colorScheme
                                     .surfaceContainerHighest,
-                                child: const Icon(
-                                    Icons.play_circle_outline_rounded,
-                                    size: 28),
-                              ),
-                            )
+                                child: const Icon(Icons.play_circle_outline_rounded,
+                                    size: 26),
+                              ))
                           : Container(
-                              color: Theme.of(context)
-                                  .colorScheme
+                              color: Theme.of(context).colorScheme
                                   .surfaceContainerHighest,
-                              child: const Icon(
-                                  Icons.play_circle_outline_rounded,
-                                  size: 28),
-                            ),
-                      // Subtle gradient
+                              child: const Icon(Icons.play_circle_outline_rounded,
+                                  size: 26)),
                       Positioned.fill(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
+                              begin: Alignment.topCenter, end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withValues(alpha: 0.45),
+                                Colors.black.withValues(alpha: 0.42),
                               ],
-                              stops: const [0.55, 1.0],
+                              stops: const [0.5, 1.0],
                             ),
                           ),
                         ),
                       ),
-                      // Play icon
                       Positioned(
-                        bottom: 5,
-                        right: 6,
-                        child: Icon(
-                          Icons.play_circle_fill_rounded,
-                          size: 22,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        ),
+                        bottom: 5, right: 6,
+                        child: Icon(Icons.play_circle_fill_rounded,
+                            size: 20, color: Colors.white.withValues(alpha: 0.82)),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 5),
-              Text(
-                manga.name ?? '',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Latest card (Latest Updates) ─────────────────────────────────────────────
-// Landscape card with "NEW" badge for recent items
-
-class _LatestCard extends ConsumerWidget {
-  final MManga manga;
-  final Source source;
-  final bool isNew;
-  const _LatestCard(
-      {required this.manga, required this.source, this.isNew = false});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final headers = ref.watch(headersProvider(
-      source: source.name!,
-      lang: source.lang!,
-      sourceId: source.id,
-    ));
-    final imgUrl = toImgUrl(manga.imageUrl ?? '');
-    final ImageProvider<Object> cover = imgUrl.isNotEmpty
-        ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
-        : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: GestureDetector(
-        onTap: () {
-          if (manga.link != null) {
-            pushToMangaReaderDetail(
-              ref: ref,
-              context: context,
-              getManga: manga,
-              lang: source.lang!,
-              source: source.name!,
-              itemType: source.itemType,
-              sourceId: source.id,
-            );
-          }
-        },
-        child: SizedBox(
-          width: 170,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Thumbnail with NEW badge
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          imgUrl.isNotEmpty
-                              ? Image(
-                                  image: cover,
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.topCenter,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest,
-                                    child: const Icon(
-                                        Icons.play_circle_outline_rounded,
-                                        size: 32),
-                                  ),
-                                )
-                              : Container(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                                  child: const Icon(
-                                      Icons.play_circle_outline_rounded,
-                                      size: 32),
-                                ),
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withValues(alpha: 0.5),
-                                  ],
-                                  stops: const [0.5, 1.0],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 6,
-                            right: 8,
-                            child: Icon(
-                              Icons.play_circle_fill_rounded,
-                              size: 24,
-                              color: Colors.white.withValues(alpha: 0.88),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // NEW badge
-                  if (isNew)
-                    Positioned(
-                      top: 6,
-                      left: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00BCD4),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'NEW',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 5),
-              Text(
-                manga.name ?? '',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              const SizedBox(height: 4),
+              Text(manga.name ?? '',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                      height: 1.25),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -2049,15 +1646,12 @@ class _WatchSectionPage extends ConsumerStatefulWidget {
   final String? customListId;
 
   const _WatchSectionPage({
-    required this.source,
-    required this.title,
-    required this.type,
+    required this.source, required this.title, required this.type,
     this.customListId,
   });
 
   @override
-  ConsumerState<_WatchSectionPage> createState() =>
-      _WatchSectionPageState();
+  ConsumerState<_WatchSectionPage> createState() => _WatchSectionPageState();
 }
 
 class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
@@ -2068,24 +1662,15 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
   final ScrollController _scrollCtrl = ScrollController();
 
   @override
-  void initState() {
-    super.initState();
-    _scrollCtrl.addListener(_onScroll);
-  }
+  void initState() { super.initState(); _scrollCtrl.addListener(_onScroll); }
 
   @override
-  void dispose() {
-    _scrollCtrl.removeListener(_onScroll);
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _scrollCtrl.removeListener(_onScroll); _scrollCtrl.dispose(); super.dispose(); }
 
   void _onScroll() {
     if (!_scrollCtrl.hasClients) return;
     final pos = _scrollCtrl.position;
-    if (pos.pixels >= pos.maxScrollExtent - 200 &&
-        _hasNextPage &&
-        !_isLoadingMore) {
+    if (pos.pixels >= pos.maxScrollExtent - 200 && _hasNextPage && !_isLoadingMore) {
       _loadMore();
     }
   }
@@ -2098,26 +1683,17 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
       final next = _page + 1;
       switch (widget.type) {
         case _SectionKind.popular:
-          result = await ref.read(
-              getPopularProvider(source: widget.source, page: next).future);
+          result = await ref.read(getPopularProvider(source: widget.source, page: next).future);
         case _SectionKind.latest:
-          result = await ref.read(getLatestUpdatesProvider(
-              source: widget.source, page: next).future);
+          result = await ref.read(getLatestUpdatesProvider(source: widget.source, page: next).future);
         case _SectionKind.custom:
           if (widget.customListId != null) {
             result = await ref.read(getCustomListProvider(
-              source: widget.source,
-              listId: widget.customListId!,
-              page: next,
-            ).future);
+                source: widget.source, listId: widget.customListId!, page: next).future);
           }
       }
       if (mounted && result != null && result.list.isNotEmpty) {
-        setState(() {
-          _page = next;
-          _hasNextPage = result!.hasNextPage;
-          _items.addAll(result.list);
-        });
+        setState(() { _page = next; _hasNextPage = result!.hasNextPage; _items.addAll(result.list); });
       } else if (mounted) {
         setState(() => _hasNextPage = false);
       }
@@ -2129,17 +1705,12 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
   AsyncValue<MPages?> get _provider {
     switch (widget.type) {
       case _SectionKind.popular:
-        return ref.watch(
-            getPopularProvider(source: widget.source, page: 1));
+        return ref.watch(getPopularProvider(source: widget.source, page: 1));
       case _SectionKind.latest:
-        return ref.watch(
-            getLatestUpdatesProvider(source: widget.source, page: 1));
+        return ref.watch(getLatestUpdatesProvider(source: widget.source, page: 1));
       case _SectionKind.custom:
         return ref.watch(getCustomListProvider(
-          source: widget.source,
-          listId: widget.customListId ?? '',
-          page: 1,
-        ));
+            source: widget.source, listId: widget.customListId ?? '', page: 1));
     }
   }
 
@@ -2150,60 +1721,41 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
       if (d != null && _items.isEmpty && d.list.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && _items.isEmpty) {
-            setState(() {
-              _items.addAll(d.list);
-              _hasNextPage = d.hasNextPage;
-            });
+            setState(() { _items.addAll(d.list); _hasNextPage = d.hasNextPage; });
           }
         });
       }
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: Text(widget.title),
+          backgroundColor: Colors.transparent, elevation: 0),
       body: data.when(
         data: (_) {
-          if (_items.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (_items.isEmpty) return const Center(child: CircularProgressIndicator());
           return GridView.builder(
             controller: _scrollCtrl,
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.65,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+              mainAxisSpacing: 8, crossAxisSpacing: 8,
             ),
             itemCount: _items.length + (_isLoadingMore ? 1 : 0),
             itemBuilder: (c, i) {
               if (i >= _items.length) {
-                return const Center(
-                  child: Padding(
+                return const Center(child: Padding(
                     padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                );
+                    child: CircularProgressIndicator(strokeWidth: 2)));
               }
               return MangaImageCardWidget(
-                getMangaDetail: _items[i],
-                source: widget.source,
-                itemType: widget.source.itemType,
-                isComfortableGrid: false,
+                getMangaDetail: _items[i], source: widget.source,
+                itemType: widget.source.itemType, isComfortableGrid: false,
               );
             },
           );
         },
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text(e.toString()),
-        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text(e.toString())),
       ),
     );
   }
