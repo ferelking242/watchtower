@@ -93,6 +93,23 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       );
     }
 
+    // ── WebView-intercepted URL — play directly, no extension needed ──────────
+    if (epManga.source == 'webview_intercept') {
+      final videoUrl = episode.url ?? '';
+      AppLogger.log(
+        '[$epLabel] getVideoList WEBVIEW_INTERCEPT  url=$videoUrl',
+        logLevel: LogLevel.info,
+        tag: LogTag.watch,
+      );
+      keepAlive.close();
+      return (
+        [Video(videoUrl, episode.name ?? 'Vidéo', videoUrl)],
+        false,
+        <String>[],
+        mpvDirectory,
+      );
+    }
+
     final source = getSource(
       epManga.lang!,
       epManga.source!,
