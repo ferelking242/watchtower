@@ -1,16 +1,12 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:math';
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 
-import 'package:watchtower/main.dart';
-import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/services/transfer/transfer_library.dart';
 import 'package:watchtower/services/transfer/transfer_models.dart';
 import 'package:watchtower/services/transfer/transfer_notifier.dart';
 import 'package:watchtower/services/transfer/transfer_server.dart';
@@ -28,79 +24,8 @@ const _textPrimary = Colors.white;
 const _textSecondary = Color(0xFF9E9E9E);
 const _textDim = Color(0xFF555555);
 
-// ──────────────────────────────────────────────
-// Library entry for the picker
-// ──────────────────────────────────────────────
-class _LibraryEntry {
-  final Manga manga;
-  final List<Chapter> downloadedChapters;
-  _LibraryEntry({required this.manga, required this.downloadedChapters});
-}
-
-Future<List<_LibraryEntry>> _loadLibraryDownloads() async {
-  if (kIsWeb) return [];
-  try {
-    final downloads =
-        await isar.downloads.filter().isDownloadEqualTo(true).findAll();
-    if (downloads.isEmpty) return [];
-
-    await Future.wait(downloads.map((d) => d.chapter.load()));
-
-    final Map<int, List<Chapter>> byManga = {};
-    for (final d in downloads) {
-      final ch = d.chapter.value;
-      if (ch == null || ch.mangaId == null) continue;
-      final path = ch.archivePath;
-      if (path == null || path.isEmpty) continue;
-      if (!File(path).existsSync()) continue;
-      byManga.putIfAbsent(ch.mangaId!, () => []).add(ch);
-    }
-    if (byManga.isEmpty) return [];
-
-    final mangaIds = byManga.keys.toList();
-    final mangas = await isar.mangas.getAll(mangaIds);
-
-    final entries = <_LibraryEntry>[];
-    for (int i = 0; i < mangaIds.length; i++) {
-      final manga = mangas[i];
-      if (manga == null) continue;
-      final chapters = byManga[mangaIds[i]]!
-        ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
-      entries.add(_LibraryEntry(manga: manga, downloadedChapters: chapters));
-    }
-    entries.sort(
-        (a, b) => (a.manga.name ?? '').compareTo(b.manga.name ?? ''));
-    return entries;
-  } catch (_) {
-    return [];
-  }
-}
-
-TransferFile _chapterToTransferFile(Chapter ch, ItemType itemType) {
-  final path = ch.archivePath!;
-  final rng = Random();
-  final TransferItemType type;
-  if (itemType == ItemType.anime) {
-    type = TransferItemType.anime;
-  } else if (itemType == ItemType.novel) {
-    type = TransferItemType.novel;
-  } else {
-    final ext = p.extension(path).replaceFirst('.', '').toLowerCase();
-    if ({'mp4', 'mkv', 'avi', 'webm', 'm4v', 'mov'}.contains(ext)) {
-      type = TransferItemType.anime;
-    } else {
-      type = TransferItemType.manga;
-    }
-  }
-  final stat = File(path).statSync();
-  return TransferFile(
-    id: List.generate(12, (_) => rng.nextInt(16).toRadixString(16)).join(),
-    name: p.basename(path),
-    size: stat.size,
-    type: type,
-    localPath: path,
-  );
-}
+// LibraryEntry and LibraryChapter come from the conditional import:
+// transfer_library.dart → _io.dart (native) or _stub.dart (web)
 
 // ──────────────────────────────────────────────
 // Main screen
@@ -839,9 +764,9 @@ class _LibraryPickerSheet extends StatefulWidget {
 
 class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
   bool _loading = true;
-  List<_LibraryEntry> _entries = [];
-  _LibraryEntry? _selected; // null = Level 1 (manga list)
-  final Set<String> _pickedChapterIds = {};
+  List<LibraryEntry> _entries = [];
+  LibraryEntry? _selected; // null = Level 1 (manga list)
+  final Set<String> _pickedIds = {};
 
   @override
   void initState() {
@@ -850,16 +775,16 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
   }
 
   Future<void> _load() async {
-    final entries = await _loadLibraryDownloads();
+    final entries = await loadLibraryDownloads();
     if (mounted) setState(() { _entries = entries; _loading = false; });
   }
 
   // ── helpers ──────────────────────────────────
   List<TransferFile> get _selectedFiles {
     if (_selected == null) return [];
-    return _selected!.downloadedChapters
-        .where((ch) => _pickedChapterIds.contains(ch.id?.toString()))
-        .map((ch) => _chapterToTransferFile(ch, _selected!.manga.itemType))
+    return _selected!.chapters
+        .where((ch) => _pickedIds.contains(ch.id))
+        .map((ch) => ch.toTransferFile())
         .toList();
   }
 
@@ -868,16 +793,15 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
 
   void _toggleAll() {
     if (_selected == null) return;
-    final ids =
-        _selected!.downloadedChapters.map((c) => c.id?.toString() ?? '').toSet();
-    if (ids.every(_pickedChapterIds.contains)) {
-      setState(() => _pickedChapterIds.removeAll(ids));
+    final ids = _selected!.chapters.map((c) => c.id).toSet();
+    if (ids.every(_pickedIds.contains)) {
+      setState(() => _pickedIds.removeAll(ids));
     } else {
-      setState(() => _pickedChapterIds.addAll(ids));
+      setState(() => _pickedIds.addAll(ids));
     }
   }
 
-  void _back() => setState(() { _selected = null; _pickedChapterIds.clear(); });
+  void _back() => setState(() { _selected = null; _pickedIds.clear(); });
 
   // ── build ─────────────────────────────────────
   @override
@@ -916,16 +840,16 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
                       Text(
                         _selected == null
                             ? 'Envoyer à ${widget.peer.name}'
-                            : _selected!.manga.name ?? '',
+                            : _selected!.name,
                         style: const TextStyle(
                             color: _textPrimary,
                             fontWeight: FontWeight.bold,
                             fontSize: 16),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (_pickedChapterIds.isNotEmpty)
+                      if (_pickedIds.isNotEmpty)
                         Text(
-                          '${_pickedChapterIds.length} sélectionné(s) · ${_fmtSize(_selectedSize)}',
+                          '${_pickedIds.length} sélectionné(s) · ${_fmtSize(_selectedSize)}',
                           style: const TextStyle(
                               color: _textSecondary, fontSize: 12),
                         ),
@@ -958,7 +882,7 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _pickedChapterIds.isEmpty
+                    onPressed: _pickedIds.isEmpty
                         ? null
                         : () => Navigator.of(context).pop(_selectedFiles),
                     style: ElevatedButton.styleFrom(
@@ -971,9 +895,9 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
                     ),
                     icon: const Icon(Icons.send_rounded, size: 18),
                     label: Text(
-                      _pickedChapterIds.isEmpty
+                      _pickedIds.isEmpty
                           ? 'Sélectionner des épisodes'
-                          : 'Envoyer ${_pickedChapterIds.length} épisode${_pickedChapterIds.length > 1 ? 's' : ''}',
+                          : 'Envoyer ${_pickedIds.length} épisode${_pickedIds.length > 1 ? 's' : ''}',
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 15),
                     ),
@@ -1003,7 +927,7 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
         entry: _entries[i],
         onTap: () => setState(() {
           _selected = _entries[i];
-          _pickedChapterIds.clear();
+          _pickedIds.clear();
         }),
       ),
     );
@@ -1011,7 +935,7 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
 
   // ── Level 2 : chapter list ────────────────────
   Widget _buildChapterList() {
-    final chapters = _selected!.downloadedChapters;
+    final chapters = _selected!.chapters;
     if (chapters.isEmpty) {
       return const _EmptyHint(
         icon: Icons.folder_open_outlined,
@@ -1024,48 +948,34 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
       separatorBuilder: (_, __) => const Divider(color: _border, height: 1),
       itemBuilder: (_, i) {
         final ch = chapters[i];
-        final key = ch.id?.toString() ?? '';
-        final sel = _pickedChapterIds.contains(key);
-        final sizeStr = ch.downloadSize != null && ch.downloadSize!.isNotEmpty
-            ? ch.downloadSize!
-            : (ch.archivePath != null
-                ? _fmtSize(File(ch.archivePath!).statSync().size)
-                : '—');
+        final sel = _pickedIds.contains(ch.id);
         return ListTile(
           tileColor: sel ? _teal.withValues(alpha: 0.08) : null,
-          leading: _TypeIcon(
-            type: _selected!.manga.itemType == ItemType.anime
-                ? TransferItemType.anime
-                : _selected!.manga.itemType == ItemType.novel
-                    ? TransferItemType.novel
-                    : TransferItemType.manga,
-          ),
-          title: Text(ch.name ?? '—',
+          leading: _TypeIcon(type: ch.type),
+          title: Text(ch.name,
               style: const TextStyle(color: _textPrimary, fontSize: 13),
               overflow: TextOverflow.ellipsis),
-          subtitle: Text(sizeStr,
-              style:
-                  const TextStyle(color: _textSecondary, fontSize: 11)),
+          subtitle: Text(_fmtSize(ch.size),
+              style: const TextStyle(color: _textSecondary, fontSize: 11)),
           trailing: Checkbox(
             value: sel,
             activeColor: _teal,
             checkColor: Colors.black,
             side: const BorderSide(color: _textSecondary),
-            onChanged: (_) => _toggle(key),
+            onChanged: (_) => _toggle(ch.id),
           ),
-          onTap: () => _toggle(key),
+          onTap: () => _toggle(ch.id),
         );
       },
     );
   }
 
-  void _toggle(String key) {
-    if (key.isEmpty) return;
+  void _toggle(String id) {
     setState(() {
-      if (_pickedChapterIds.contains(key)) {
-        _pickedChapterIds.remove(key);
+      if (_pickedIds.contains(id)) {
+        _pickedIds.remove(id);
       } else {
-        _pickedChapterIds.add(key);
+        _pickedIds.add(id);
       }
     });
   }
@@ -1081,18 +991,16 @@ class _LibraryPickerSheetState extends State<_LibraryPickerSheet> {
 
 // Manga/anime entry tile for Level 1
 class _MangaEntryTile extends StatelessWidget {
-  final _LibraryEntry entry;
+  final LibraryEntry entry;
   final VoidCallback onTap;
   const _MangaEntryTile({required this.entry, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final manga = entry.manga;
-    final count = entry.downloadedChapters.length;
-    final typeLabel = switch (manga.itemType) {
-      ItemType.anime => 'Anime',
-      ItemType.novel => 'Roman',
-      ItemType.music => 'Musique',
+    final count = entry.chapters.length;
+    final typeLabel = switch (entry.itemType) {
+      TransferItemType.anime => 'Anime',
+      TransferItemType.novel => 'Roman',
       _ => 'Manga',
     };
     return InkWell(
@@ -1107,18 +1015,16 @@ class _MangaEntryTile extends StatelessWidget {
               child: SizedBox(
                 width: 46,
                 height: 62,
-                child: manga.imageUrl != null && manga.imageUrl!.isNotEmpty
+                child: entry.imageUrl != null && entry.imageUrl!.isNotEmpty
                     ? ExtendedImage.network(
-                        manga.imageUrl!,
+                        entry.imageUrl!,
                         fit: BoxFit.cover,
                         cache: true,
                         loadStateChanged: (s) {
-                          if (s.extendedImageLoadState ==
-                              LoadState.loading) {
+                          if (s.extendedImageLoadState == LoadState.loading) {
                             return Container(color: _card);
                           }
-                          if (s.extendedImageLoadState ==
-                              LoadState.failed) {
+                          if (s.extendedImageLoadState == LoadState.failed) {
                             return Container(
                                 color: _card,
                                 child: const Icon(Icons.broken_image,
@@ -1138,7 +1044,7 @@ class _MangaEntryTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(manga.name ?? '—',
+                  Text(entry.name,
                       style: const TextStyle(
                           color: _textPrimary,
                           fontWeight: FontWeight.w600,
