@@ -1,5 +1,6 @@
 package com.watchtower.app
 
+  import android.app.DownloadManager
   import android.app.PendingIntent
   import android.app.PictureInPictureParams
   import android.content.BroadcastReceiver
@@ -10,6 +11,7 @@ package com.watchtower.app
   import android.content.pm.PackageManager
   import android.net.Uri
   import android.os.Build
+  import android.os.Environment
   import android.util.Log
   import androidx.annotation.NonNull
   import androidx.core.content.ContextCompat
@@ -527,6 +529,81 @@ package com.watchtower.app
                       prefs.edit().remove(key).apply()
                       result.success(null)
                   }
+                  else -> result.notImplemented()
+              }
+          }
+
+          // ── 11. System DownloadManager (background APK download) ──────────────
+          // Android's DownloadManager runs in a separate system process and survives
+          // the app being backgrounded or killed. This replaces the Dart http.Client
+          // approach which was fragile across app lifecycle events.
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.download_manager",
+              StandardMethodCodec.INSTANCE,
+              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+          ).setMethodCallHandler { call, result ->
+              val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+              when (call.method) {
+                  "startDownload" -> {
+                      val url      = call.argument<String>("url")      ?: run { result.error("NO_URL",  "url required",  null); return@setMethodCallHandler }
+                      val fileName = call.argument<String>("fileName") ?: run { result.error("NO_FILE", "fileName required", null); return@setMethodCallHandler }
+                      val title    = call.argument<String>("title")    ?: "Watchtower Update"
+
+                      try {
+                          val request = DownloadManager.Request(Uri.parse(url)).apply {
+                              setTitle(title)
+                              setDescription("Téléchargement de la mise à jour Watchtower")
+                              setNotificationVisibility(
+                                  DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                              setDestinationInExternalPublicDir(
+                                  Environment.DIRECTORY_DOWNLOADS, fileName)
+                              addRequestHeader("Accept-Encoding", "identity")
+                              setAllowedOverMetered(true)
+                              setAllowedOverRoaming(true)
+                          }
+                          val downloadId = dm.enqueue(request)
+                          result.success(downloadId)
+                      } catch (e: Exception) {
+                          result.error("DL_ERROR", e.message, null)
+                      }
+                  }
+
+                  "queryProgress" -> {
+                      val downloadId = call.argument<Number>("downloadId")?.toLong()
+                          ?: run { result.error("NO_ID", "downloadId required", null); return@setMethodCallHandler }
+
+                      val query  = DownloadManager.Query().setFilterById(downloadId)
+                      val cursor = dm.query(query)
+                      if (!cursor.moveToFirst()) {
+                          cursor.close()
+                          result.error("NOT_FOUND", "Download $downloadId not found", null)
+                          return@setMethodCallHandler
+                      }
+
+                      val received  = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                      val total     = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                      val status    = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                      val reason    = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                      val localUri  = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)) ?: ""
+                      cursor.close()
+
+                      result.success(mapOf(
+                          "received"  to received,
+                          "total"     to total,
+                          "status"    to status,
+                          "reason"    to reason,
+                          "localPath" to localUri,
+                      ))
+                  }
+
+                  "cancelDownload" -> {
+                      val downloadId = call.argument<Number>("downloadId")?.toLong()
+                          ?: run { result.error("NO_ID", "downloadId required", null); return@setMethodCallHandler }
+                      dm.remove(downloadId)
+                      result.success(null)
+                  }
+
                   else -> result.notImplemented()
               }
           }
