@@ -14,7 +14,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:watchtower/models/chapter.dart';
-  import 'package:watchtower/models/video.dart';
+  import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/widgets/watchtower_loader.dart';
@@ -31,7 +31,7 @@ class WatchInlinePlayer {
   bool hasVideoUrl = false;
   bool loadFailed = false;
   int? loadedChapterId;
-  List<Video> loadedVideos = [];
+  List<wt.Video> loadedVideos = [];
   String? selectedQuality;
 
   WatchInlinePlayer() {
@@ -45,7 +45,7 @@ class WatchInlinePlayer {
   }
 
   /// Switch to a different quality without re-fetching.
-  Future<void> switchQuality(Video targetVideo) async {
+  Future<void> switchQuality(wt.Video targetVideo) async {
     selectedQuality = targetVideo.quality;
     final ua      = targetVideo.headers?['User-Agent'] ?? targetVideo.headers?['user-agent'] ?? '';
     final referer = targetVideo.headers?['Referer']    ?? targetVideo.headers?['referer']    ?? '';
