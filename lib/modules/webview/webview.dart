@@ -2345,7 +2345,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               // iOS: keep video inline so native fullscreen player doesn't
                               // launch alongside our floating player.
                               allowsInlineMediaPlayback: true,
-                              allowsBackgroundAudioPlaying: true,
                               userAgent:
                                   ref.read(userAgentStateProvider) ==
                                           defaultUserAgent
