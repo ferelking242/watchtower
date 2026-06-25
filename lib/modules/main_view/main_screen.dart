@@ -35,6 +35,8 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
+import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
+import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
@@ -471,6 +473,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         downloadedOnly: downloadedOnly,
                         incognitoMode: incognitoMode,
                         l10n: l10n,
+                      ),
+                    // Music mini-player — shown above the dock when a track is active
+                    if (!isReadingScreen)
+                      Consumer(
+                        builder: (ctx, r, _) {
+                          final hasTrack =
+                              r.watch(musicPlayerProvider.select((s) => s.activeTrack != null));
+                          if (!hasTrack) return const SizedBox.shrink();
+                          final bottomInset = MediaQuery.of(ctx).padding.bottom;
+                          // Floating dock height: 64px height + 14px bottom pad
+                          final dockHeight = dockStyle == 'classic' ? 60.0 : 78.0;
+                          return Positioned(
+                            bottom: dockHeight + bottomInset,
+                            left: 0,
+                            right: 0,
+                            child: const MusicMiniPlayer(),
+                          );
+                        },
                       ),
                     // Menu overlay — triggered by the dock Menu button
                     if (!isReadingScreen && menuOpen && dockStyle != 'pc_sidebar')
