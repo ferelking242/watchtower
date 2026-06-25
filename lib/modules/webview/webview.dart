@@ -1100,16 +1100,22 @@ const String _kVideoInterceptJs = r"""
     });
   }).observe(document.documentElement || document.body, {childList:true,subtree:true});
 
-  // Safari-style PiP: inject "Cette vidéo est visionnée en Image dans l'image."
-  // overlay on the page video element — no abort/Error 80, video plays muted.
+  // Safari-style PiP: overlay at exact video position (position:fixed).
+  // Returns Promise.resolve() for media URLs — guaranteed no Error 80.
   function _injectPipOverlay(v) {
     if(v.__wtPipOverlay) return;
-    var par = v.parentElement; if(!par) return;
-    if(window.getComputedStyle(par).position==='static') par.style.position='relative';
+    var r = v.getBoundingClientRect();
+    var w = Math.max(r.width||220,120); var h = Math.max(r.height||124,80);
     var ov=document.createElement('div');
-    ov.style.cssText='position:absolute;inset:0;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2147483647;pointer-events:none;gap:12px;';
-    ov.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'54\' height=\'54\' viewBox=\'0 0 24 24\' fill=\'white\' opacity=\'0.88\'><path d=\'M19 11h-8v6h8v-6zm4-8H1C.45 3 0 3.45 0 4v16c0 .55.45 1 1 1h22c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 16H2V5h20v14z\'/></svg><span style=\'color:white;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;font-weight:500;text-align:center;padding:0 24px;line-height:1.5;opacity:0.9\'>Cette vidéo est visionnée<br>en Image dans l\'image.</span>';
-    par.appendChild(ov); v.__wtPipOverlay=ov;
+    ov.style.cssText='position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+w+'px;height:'+h+'px;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2147483647;pointer-events:none;gap:12px;';
+    var ic=document.createElement('div');
+    ic.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="white" opacity="0.88"><path d="M19 11h-8v6h8v-6zm4-8H1C.45 3 0 3.45 0 4v16c0 .55.45 1 1 1h22c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 16H2V5h20v14z"/></svg>';
+    var sp=document.createElement('span');
+    sp.style.cssText='color:white;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;font-weight:500;text-align:center;padding:0 24px;line-height:1.5;opacity:0.9;';
+    sp.innerHTML='Cette vid\u00e9o est visionn\u00e9e<br>en Image dans l\'image.';
+    ov.appendChild(ic);ov.appendChild(sp);
+    document.body.appendChild(ov);
+    v.__wtPipOverlay=ov;
   }
   var _origPlay = HTMLVideoElement.prototype.play;
   HTMLVideoElement.prototype.play = function() {
@@ -1117,8 +1123,7 @@ const String _kVideoInterceptJs = r"""
     if(src && !src.startsWith('blob:') && isMedia(src)) {
       sendUrl(src,'','');
       _injectPipOverlay(this);
-      this.muted = true;
-      return _origPlay.call(this);
+      return Promise.resolve();
     }
     return _origPlay.call(this);
   };
@@ -4000,7 +4005,7 @@ class MyInAppBrowser extends InAppBrowser {
 // • Tap ⤢ → opens our full MPV player (AnimePlayerView) as a modal.
 // • Tap × → dismiss.
 
-// ─── Floating PiP player overlay (Safari-style) ──────────────────────────────
+// ─── Floating PiP player overlay (Safari-style, v3) ─────────────────────────
 
 class _WebFloatingPlayerOverlay extends StatefulWidget {
   final String videoUrl;
@@ -4029,21 +4034,24 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
   late final Player _player;
   late final VideoController _controller;
 
-  // Drag offset from anchored bottom position
+  // Drag offset from bottom-anchored position
   Offset _offset = Offset.zero;
+
+  // Pinch-to-resize scale
+  double _scale = 1.0;
+  double _scaleBase = 1.0;
 
   // Mini (edge-snapped) state
   bool _isMini = false;
   bool _miniLeft = true;
-  double _miniTopFrac = 0.58;
+  double _miniTopFrac = 0.55;
 
-  // Spring-back animation
+  // Spring animation
   late final AnimationController _springCtrl;
 
   static const double _kMarginH = 10.0;
   static const double _kMarginB = 36.0;
   static const double _kCorner = 18.0;
-  static const double _kSnapEdge = 72.0;
   static const double _kMiniW = 60.0;
   static const double _kMiniH = 80.0;
 
@@ -4066,30 +4074,58 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
     super.dispose();
   }
 
-  void _onPanUpdate(DragUpdateDetails d) {
+  // ── Gesture: scale handles both 1-finger pan and 2-finger pinch ───────────
+
+  void _onScaleStart(ScaleStartDetails d) {
     _springCtrl.stop();
-    setState(() => _offset += d.delta);
+    _scaleBase = _scale;
   }
 
-  void _onPanEnd(DragEndDetails details, Size screen) {
-    final sw = screen.width;
-    final boxW = sw - 2 * _kMarginH;
-    final currentLeft = _kMarginH + _offset.dx;
+  void _onScaleUpdate(ScaleUpdateDetails d) {
+    setState(() {
+      if (d.pointerCount > 1) {
+        // Pinch → resize
+        _scale = (_scaleBase * d.scale).clamp(0.38, 1.62);
+      } else {
+        // Single finger → pan freely in all directions
+        _offset += d.focalPointDelta;
+      }
+    });
+  }
 
-    if (currentLeft < _kSnapEdge || currentLeft + boxW > sw - _kSnapEdge) {
-      // Snap to edge → mini mode
-      final goLeft = currentLeft + boxW / 2 < sw / 2;
-      final miniTop = screen.height * _miniTopFrac + _offset.dy;
-      setState(() {
-        _isMini = true;
-        _miniLeft = goLeft;
-        _miniTopFrac = (miniTop / screen.height).clamp(0.12, 0.80);
-        _offset = Offset.zero;
-      });
+  void _onScaleEnd(ScaleEndDetails d, Size screen) {
+    final sw = screen.width;
+    final baseW = sw - 2 * _kMarginH;
+    final boxW = baseW * _scale;
+    final currentLeft = _kMarginH + _offset.dx;
+    final boxCenterX = currentLeft + boxW / 2;
+    final vx = d.velocity.pixelsPerSecond.dx;
+
+    // Snap to mini ONLY when center passes 20% from the screen edge
+    // OR very fast fling while box is already partially off-screen
+    final snapLeft =
+        boxCenterX < sw * 0.20 || (vx < -1200 && currentLeft < -boxW * 0.3);
+    final snapRight =
+        boxCenterX > sw * 0.80 ||
+        (vx > 1200 && currentLeft + boxW > sw + boxW * 0.3);
+
+    if (snapLeft) {
+      _goMini(left: true, screen: screen);
+    } else if (snapRight) {
+      _goMini(left: false, screen: screen);
     } else {
-      // Spring back to bottom anchor
       _springBack();
     }
+  }
+
+  void _goMini({required bool left, required Size screen}) {
+    final rawTop = screen.height * _miniTopFrac + _offset.dy;
+    setState(() {
+      _isMini = true;
+      _miniLeft = left;
+      _miniTopFrac = (rawTop / screen.height).clamp(0.10, 0.82);
+      _offset = Offset.zero;
+    });
   }
 
   void _springBack() {
@@ -4105,7 +4141,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
     });
   }
 
-  // ── Mini bubble (snapped to edge) ──────────────────────────────────────────
+  // ── Mini bubble ────────────────────────────────────────────────────────────
 
   Widget _buildMini(Size screen) {
     final miniTop = screen.height * _miniTopFrac;
@@ -4119,8 +4155,9 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
           _offset = Offset.zero;
         }),
         onPanUpdate: (d) => setState(() {
-          final newTop = miniTop + d.delta.dy;
-          _miniTopFrac = (newTop / screen.height).clamp(0.10, 0.82);
+          _miniTopFrac =
+              ((_miniTopFrac * screen.height + d.delta.dy) / screen.height)
+                  .clamp(0.08, 0.84);
         }),
         child: Container(
           width: _kMiniW,
@@ -4130,9 +4167,9 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.55),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.60),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -4140,7 +4177,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
             borderRadius: BorderRadius.circular(16),
             child: Stack(fit: StackFit.expand, children: [
               Video(controller: _controller, controls: NoVideoControls),
-              Container(color: Colors.black.withValues(alpha: 0.36)),
+              Container(color: Colors.black.withValues(alpha: 0.30)),
               Center(
                 child: Icon(
                   _miniLeft
@@ -4157,98 +4194,86 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
     );
   }
 
-  // ── Full PiP player ─────────────────────────────────────────────────────────
+  // ── Full PiP player ────────────────────────────────────────────────────────
 
   Widget _buildFull(Size screen) {
     final sw = screen.width;
-    final boxW = sw - 2 * _kMarginH;
+    final baseW = sw - 2 * _kMarginH;
+    final boxW = (baseW * _scale).clamp(180.0, sw.toDouble());
     final boxH = boxW * 9.0 / 16.0;
+    // Centre horizontally when scaled down
+    final anchorLeft = _kMarginH + (baseW - boxW) / 2;
     final anchorTop = screen.height - _kMarginB - boxH;
 
-    final left =
-        (_kMarginH + _offset.dx).clamp(0.0, sw - boxW).toDouble();
+    final left = (anchorLeft + _offset.dx).clamp(0.0, sw - boxW).toDouble();
     final top =
-        (anchorTop + _offset.dy).clamp(80.0, screen.height - boxH - 16.0).toDouble();
+        (anchorTop + _offset.dy).clamp(60.0, screen.height - boxH - 12.0).toDouble();
 
     return Positioned(
       left: left,
       top: top,
-      child: GestureDetector(
-        onPanUpdate: _onPanUpdate,
-        onPanEnd: (d) => _onPanEnd(d, screen),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(_kCorner),
-          child: SizedBox(
-            width: boxW,
-            height: boxH,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // ── Video ──────────────────────────────────────────────
-                Video(controller: _controller, controls: NoVideoControls),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_kCorner),
+        child: SizedBox(
+          width: boxW,
+          height: boxH,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── Video + drag/pinch — does NOT wrap buttons ─────────────
+              GestureDetector(
+                onScaleStart: _onScaleStart,
+                onScaleUpdate: _onScaleUpdate,
+                onScaleEnd: (d) => _onScaleEnd(d, screen),
+                onTap: () => _player.state.playing
+                    ? _player.pause()
+                    : _player.play(),
+                child: Video(controller: _controller, controls: NoVideoControls),
+              ),
 
-                // ── Top bar: X (left) + fullscreen (right) ─────────────
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _PipBtn(
-                          icon: Icons.close_rounded,
-                          onTap: widget.onDismiss,
-                        ),
-                        _PipBtn(
-                          icon: Icons.fullscreen_rounded,
-                          onTap: widget.onFullscreen,
-                        ),
-                      ],
+              // ── Loading indicator ──────────────────────────────────────
+              StreamBuilder<bool>(
+                stream: _player.stream.buffering,
+                builder: (_, snap) {
+                  if (snap.data != true) return const SizedBox.shrink();
+                  return Container(
+                    color: Colors.black.withValues(alpha: 0.50),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2.5),
                     ),
-                  ),
-                ),
+                  );
+                },
+              ),
 
-                // ── Quality / type badge bottom-right ──────────────────
-                if (widget.quality.isNotEmpty || widget.type.isNotEmpty)
-                  Positioned(
-                    bottom: 10,
-                    right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.62),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        widget.quality.isNotEmpty
-                            ? widget.quality
-                            : widget.type,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // ── Centre play/pause on tap ───────────────────────────
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      _player.state.playing
-                          ? _player.pause()
-                          : _player.play();
-                    },
-                  ),
+              // ── X close — top-left, outside drag detector ──────────────
+              Positioned(
+                top: 10,
+                left: 10,
+                child: _PipBtn(
+                  icon: Icons.close_rounded,
+                  onTap: widget.onDismiss,
                 ),
-              ],
-            ),
+              ),
+
+              // ── Fullscreen — top-right, outside drag detector ──────────
+              Positioned(
+                top: 10,
+                right: 10,
+                child: _PipBtn(
+                  icon: Icons.fullscreen_rounded,
+                  onTap: widget.onFullscreen,
+                ),
+              ),
+
+              // ── Seek bar — bottom ──────────────────────────────────────
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _PipSeekBar(player: _player),
+              ),
+            ],
           ),
         ),
       ),
@@ -4259,6 +4284,61 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
     return _isMini ? _buildMini(screen) : _buildFull(screen);
+  }
+}
+
+// ─── PiP seek bar (interactive) ───────────────────────────────────────────────
+
+class _PipSeekBar extends StatelessWidget {
+  final Player player;
+  const _PipSeekBar({required this.player});
+
+  void _seekFromX(BuildContext ctx, double localX, int durMs) {
+    if (durMs <= 0) return;
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final frac = (localX / box.size.width).clamp(0.0, 1.0);
+    player.seek(Duration(milliseconds: (frac * durMs).round()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Duration>(
+      stream: player.stream.position,
+      builder: (_, posSnap) => StreamBuilder<Duration>(
+        stream: player.stream.duration,
+        builder: (ctx, durSnap) {
+          final posMs = posSnap.data?.inMilliseconds ?? 0;
+          final durMs = durSnap.data?.inMilliseconds ?? 0;
+          final progress =
+              durMs > 0 ? (posMs / durMs).clamp(0.0, 1.0) : 0.0;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragUpdate: (d) =>
+                _seekFromX(ctx, d.localPosition.dx, durMs),
+            onTapUp: (d) => _seekFromX(ctx, d.localPosition.dx, durMs),
+            child: SizedBox(
+              height: 28,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  height: 3,
+                  child: Stack(children: [
+                    // Track background
+                    Container(color: Colors.white.withValues(alpha: 0.28)),
+                    // Playback progress
+                    FractionallySizedBox(
+                      widthFactor: progress,
+                      child: Container(color: Colors.white),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -4279,10 +4359,10 @@ class _PipBtn extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Container(
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.50),
+              color: Colors.black.withValues(alpha: 0.52),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: Colors.white, size: 22),
