@@ -3,8 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/models/music_models.dart';
 import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 
+class _FollowedArtistsNotifier extends Notifier<List<MusicArtist>> {
+  @override
+  List<MusicArtist> build() => [];
+}
+
 final musicFollowedArtistsProvider =
-    StateProvider<List<MusicArtist>>((ref) => []);
+    NotifierProvider<_FollowedArtistsNotifier, List<MusicArtist>>(
+  _FollowedArtistsNotifier.new,
+);
 
 /// Followed artists tab — mirrors Spotube's UserArtistsPage: grid of artist
 /// circles with name label, follow count, play button.

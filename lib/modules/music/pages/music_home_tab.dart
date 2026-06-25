@@ -240,4 +240,12 @@ class _BrowseCategoriesSection extends StatelessWidget {
 
 // ─── Recently played provider ─────────────────────────────────────────────────
 
-final musicRecentlyPlayedProvider = StateProvider<List<MusicTrack>>((ref) => []);
+class _RecentlyPlayedNotifier extends Notifier<List<MusicTrack>> {
+  @override
+  List<MusicTrack> build() => [];
+}
+
+final musicRecentlyPlayedProvider =
+    NotifierProvider<_RecentlyPlayedNotifier, List<MusicTrack>>(
+  _RecentlyPlayedNotifier.new,
+);

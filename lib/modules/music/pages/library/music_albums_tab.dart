@@ -3,7 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/models/music_models.dart';
 import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 
-final musicSavedAlbumsProvider = StateProvider<List<MusicAlbum>>((ref) => []);
+class _SavedAlbumsNotifier extends Notifier<List<MusicAlbum>> {
+  @override
+  List<MusicAlbum> build() => [];
+}
+
+final musicSavedAlbumsProvider =
+    NotifierProvider<_SavedAlbumsNotifier, List<MusicAlbum>>(
+  _SavedAlbumsNotifier.new,
+);
 
 /// Saved albums tab — mirrors Spotube's UserAlbumsPage: list tiles with
 /// album art, name, artist and year. Swipe-to-remove supported.

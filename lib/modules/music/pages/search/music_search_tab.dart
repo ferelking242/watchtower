@@ -8,8 +8,21 @@ import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 
 // ─── Search state ─────────────────────────────────────────────────────────────
 
-final musicSearchTermProvider = StateProvider<String>((ref) => '');
-final musicSearchTabProvider = StateProvider<int>((ref) => 0);
+class _SearchTermNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+}
+
+final musicSearchTermProvider =
+    NotifierProvider<_SearchTermNotifier, String>(_SearchTermNotifier.new);
+
+class _SearchTabNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+}
+
+final musicSearchTabProvider =
+    NotifierProvider<_SearchTabNotifier, int>(_SearchTabNotifier.new);
 
 // ─── Music search tab — mirrors Spotube's SearchPage ─────────────────────────
 // Same structure: search field + chip filters (All / Tracks / Albums /

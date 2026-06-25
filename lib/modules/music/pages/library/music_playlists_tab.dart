@@ -44,8 +44,15 @@ class MusicLikedPlaylistTile extends ConsumerWidget {
 
 // ─── User playlists (Spotube: user_playlists.dart) ───────────────────────────
 
+class _UserPlaylistsNotifier extends Notifier<List<MusicPlaylist>> {
+  @override
+  List<MusicPlaylist> build() => _demoPlaylists;
+}
+
 final musicUserPlaylistsProvider =
-    StateProvider<List<MusicPlaylist>>((ref) => _demoPlaylists);
+    NotifierProvider<_UserPlaylistsNotifier, List<MusicPlaylist>>(
+  _UserPlaylistsNotifier.new,
+);
 
 class MusicPlaylistsTab extends ConsumerWidget {
   const MusicPlaylistsTab({super.key});

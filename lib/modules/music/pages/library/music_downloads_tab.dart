@@ -5,8 +5,15 @@ import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 import 'package:watchtower/modules/music/widgets/music_track_tile.dart';
 
+class _DownloadedTracksNotifier extends Notifier<List<MusicTrack>> {
+  @override
+  List<MusicTrack> build() => [];
+}
+
 final musicDownloadedTracksProvider =
-    StateProvider<List<MusicTrack>>((ref) => []);
+    NotifierProvider<_DownloadedTracksNotifier, List<MusicTrack>>(
+  _DownloadedTracksNotifier.new,
+);
 
 /// Downloads tab — mirrors Spotube's UserDownloadsPage: list of locally saved
 /// tracks with play, delete and share actions.

@@ -37,6 +37,42 @@ jobs:
           key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-pub-web-
 
+      - name: Override media_kit packages with web stubs
+        run: |
+          python3 - << 'PYEOF'
+          import re, sys
+
+          with open('pubspec.yaml', 'r') as f:
+              content = f.read()
+
+          stubs = (
+              '  media_kit:\n'
+              '    path: web_stubs/media_kit\n'
+              '  media_kit_video:\n'
+              '    path: web_stubs/media_kit_video\n'
+              '  media_kit_libs_video:\n'
+              '    path: web_stubs/media_kit_libs_video\n'
+          )
+
+          if 'media_kit:' in content and 'web_stubs/media_kit' in content:
+              print('media_kit web stubs already in dependency_overrides, skipping')
+              sys.exit(0)
+
+          if 'dependency_overrides:' not in content:
+              content += '\ndependency_overrides:\n' + stubs
+          else:
+              content = content.replace(
+                  'dependency_overrides:\n',
+                  'dependency_overrides:\n' + stubs,
+                  1,
+              )
+
+          with open('pubspec.yaml', 'w') as f:
+              f.write(content)
+
+          print('Patched pubspec.yaml: media_kit packages redirected to web stubs')
+          PYEOF
+
       - name: Install dependencies
         run: flutter pub get
 
