@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:typed_data';
+import 'dart:ui' show ImageFilter;
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:flutter/foundation.dart';
@@ -1099,15 +1100,25 @@ const String _kVideoInterceptJs = r"""
     });
   }).observe(document.documentElement || document.body, {childList:true,subtree:true});
 
-  // Override play() — prevents native WebView video player from launching.
+  // Safari-style PiP: inject "Cette vidéo est visionnée en Image dans l'image."
+  // overlay on the page video element — no abort/Error 80, video plays muted.
+  function _injectPipOverlay(v) {
+    if(v.__wtPipOverlay) return;
+    var par = v.parentElement; if(!par) return;
+    if(window.getComputedStyle(par).position==='static') par.style.position='relative';
+    var ov=document.createElement('div');
+    ov.style.cssText='position:absolute;inset:0;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2147483647;pointer-events:none;gap:12px;';
+    ov.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'54\' height=\'54\' viewBox=\'0 0 24 24\' fill=\'white\' opacity=\'0.88\'><path d=\'M19 11h-8v6h8v-6zm4-8H1C.45 3 0 3.45 0 4v16c0 .55.45 1 1 1h22c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 16H2V5h20v14z\'/></svg><span style=\'color:white;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;font-weight:500;text-align:center;padding:0 24px;line-height:1.5;opacity:0.9\'>Cette vidéo est visionnée<br>en Image dans l\'image.</span>';
+    par.appendChild(ov); v.__wtPipOverlay=ov;
+  }
   var _origPlay = HTMLVideoElement.prototype.play;
   HTMLVideoElement.prototype.play = function() {
     var src = this.currentSrc || this.src || '';
     if(src && !src.startsWith('blob:') && isMedia(src)) {
       sendUrl(src,'','');
-      var self = this;
-      setTimeout(function(){ try{self.pause();self.currentTime=0;}catch(e){} },80);
-      return Promise.resolve();
+      _injectPipOverlay(this);
+      this.muted = true;
+      return _origPlay.call(this);
     }
     return _origPlay.call(this);
   };
@@ -3989,6 +4000,8 @@ class MyInAppBrowser extends InAppBrowser {
 // • Tap ⤢ → opens our full MPV player (AnimePlayerView) as a modal.
 // • Tap × → dismiss.
 
+// ─── Floating PiP player overlay (Safari-style) ──────────────────────────────
+
 class _WebFloatingPlayerOverlay extends StatefulWidget {
   final String videoUrl;
   final String title;
@@ -4011,23 +4024,28 @@ class _WebFloatingPlayerOverlay extends StatefulWidget {
       _WebFloatingPlayerOverlayState();
 }
 
-class _WebFloatingPlayerOverlayState
-    extends State<_WebFloatingPlayerOverlay> {
+class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
+    with SingleTickerProviderStateMixin {
   late final Player _player;
   late final VideoController _controller;
 
-  Offset _pos = const Offset(16, 120);
-  bool _snapped = false;
-  bool _snapLeft = true;
+  // Drag offset from anchored bottom position
+  Offset _offset = Offset.zero;
 
-  // Player window dimensions (16:9 + controls bar)
-  static const double _kW = 224.0;
-  static const double _kH = 126.0;
-  static const double _kCtrlH = 40.0;
-  // Pixels from the screen edge that trigger edge-snap
-  static const double _kSnapZone = 72.0;
-  // Size of the collapsed mini square
-  static const double _kMini = 64.0;
+  // Mini (edge-snapped) state
+  bool _isMini = false;
+  bool _miniLeft = true;
+  double _miniTopFrac = 0.58;
+
+  // Spring-back animation
+  late final AnimationController _springCtrl;
+
+  static const double _kMarginH = 10.0;
+  static const double _kMarginB = 36.0;
+  static const double _kCorner = 18.0;
+  static const double _kSnapEdge = 72.0;
+  static const double _kMiniW = 60.0;
+  static const double _kMiniH = 80.0;
 
   @override
   void initState() {
@@ -4035,87 +4053,101 @@ class _WebFloatingPlayerOverlayState
     _player = Player();
     _controller = VideoController(_player);
     _player.open(Media(widget.videoUrl));
+    _springCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
   }
 
   @override
   void dispose() {
+    _springCtrl.dispose();
     _player.dispose();
     super.dispose();
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
-    setState(() {
-      _pos += d.delta;
-      _snapped = false;
-    });
+    _springCtrl.stop();
+    setState(() => _offset += d.delta);
   }
 
-  void _onPanEnd(DragEndDetails _, Size screen) {
-    if (_pos.dx < _kSnapZone) {
-      // Snap to left edge → minimise
+  void _onPanEnd(DragEndDetails details, Size screen) {
+    final sw = screen.width;
+    final boxW = sw - 2 * _kMarginH;
+    final currentLeft = _kMarginH + _offset.dx;
+
+    if (currentLeft < _kSnapEdge || currentLeft + boxW > sw - _kSnapEdge) {
+      // Snap to edge → mini mode
+      final goLeft = currentLeft + boxW / 2 < sw / 2;
+      final miniTop = screen.height * _miniTopFrac + _offset.dy;
       setState(() {
-        _snapped = true;
-        _snapLeft = true;
-        _pos = Offset(0, _pos.dy.clamp(80.0, screen.height - _kMini - 40));
-      });
-    } else if (_pos.dx + _kW > screen.width - _kSnapZone) {
-      // Snap to right edge → minimise
-      setState(() {
-        _snapped = true;
-        _snapLeft = false;
-        _pos = Offset(
-          screen.width - _kMini,
-          _pos.dy.clamp(80.0, screen.height - _kMini - 40),
-        );
+        _isMini = true;
+        _miniLeft = goLeft;
+        _miniTopFrac = (miniTop / screen.height).clamp(0.12, 0.80);
+        _offset = Offset.zero;
       });
     } else {
-      // Keep within safe bounds
-      setState(() {
-        _pos = Offset(
-          _pos.dx.clamp(0.0, screen.width - _kW),
-          _pos.dy.clamp(60.0, screen.height - _kH - _kCtrlH - 40),
-        );
-      });
+      // Spring back to bottom anchor
+      _springBack();
     }
   }
 
-  // ── Collapsed mini square ──────────────────────────────────────────────────
+  void _springBack() {
+    final start = _offset;
+    final anim = Tween<Offset>(begin: start, end: Offset.zero).animate(
+      CurvedAnimation(parent: _springCtrl, curve: Curves.elasticOut),
+    );
+    anim.addListener(() {
+      if (mounted) setState(() => _offset = anim.value);
+    });
+    _springCtrl.forward(from: 0).then((_) {
+      if (mounted) setState(() => _offset = Offset.zero);
+    });
+  }
+
+  // ── Mini bubble (snapped to edge) ──────────────────────────────────────────
 
   Widget _buildMini(Size screen) {
-    final dy = _pos.dy.clamp(80.0, screen.height - _kMini - 40);
-    final dx = _snapLeft ? 4.0 : screen.width - _kMini - 4;
-
+    final miniTop = screen.height * _miniTopFrac;
+    final dx = _miniLeft ? -_kMiniW * 0.40 : screen.width - _kMiniW * 0.60;
     return Positioned(
       left: dx,
-      top: dy,
+      top: miniTop,
       child: GestureDetector(
-        onTap: () => setState(() => _snapped = false),
+        onTap: () => setState(() {
+          _isMini = false;
+          _offset = Offset.zero;
+        }),
         onPanUpdate: (d) => setState(() {
-          _pos += d.delta;
-          _snapped = false;
+          final newTop = miniTop + d.delta.dy;
+          _miniTopFrac = (newTop / screen.height).clamp(0.10, 0.82);
         }),
         child: Container(
-          width: _kMini,
-          height: _kMini,
+          width: _kMiniW,
+          height: _kMiniH,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.82),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 10)],
+            color: Colors.black.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: Stack(fit: StackFit.expand, children: [
-              // Live video thumbnail in mini mode
               Video(controller: _controller, controls: NoVideoControls),
-              // Dark scrim so the arrow is readable
-              Container(color: Colors.black.withValues(alpha: 0.38)),
+              Container(color: Colors.black.withValues(alpha: 0.36)),
               Center(
                 child: Icon(
-                  _snapLeft
+                  _miniLeft
                       ? Icons.chevron_right_rounded
                       : Icons.chevron_left_rounded,
                   color: Colors.white,
-                  size: 32,
+                  size: 30,
                 ),
               ),
             ]),
@@ -4125,115 +4157,98 @@ class _WebFloatingPlayerOverlayState
     );
   }
 
-  // ── Full floating player ───────────────────────────────────────────────────
+  // ── Full PiP player ─────────────────────────────────────────────────────────
 
   Widget _buildFull(Size screen) {
-    final px = _pos.dx.clamp(0.0, screen.width - _kW);
-    final py = _pos.dy.clamp(60.0, screen.height - _kH - _kCtrlH - 40);
+    final sw = screen.width;
+    final boxW = sw - 2 * _kMarginH;
+    final boxH = boxW * 9.0 / 16.0;
+    final anchorTop = screen.height - _kMarginB - boxH;
+
+    final left =
+        (_kMarginH + _offset.dx).clamp(0.0, sw - boxW).toDouble();
+    final top =
+        (anchorTop + _offset.dy).clamp(80.0, screen.height - boxH - 16.0).toDouble();
 
     return Positioned(
-      left: px,
-      top: py,
+      left: left,
+      top: top,
       child: GestureDetector(
         onPanUpdate: _onPanUpdate,
         onPanEnd: (d) => _onPanEnd(d, screen),
-        child: Material(
-          elevation: 14,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.hardEdge,
-          color: Colors.black,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_kCorner),
           child: SizedBox(
-            width: _kW,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              // ── Video area ────────────────────────────────────────────────
-              SizedBox(
-                width: _kW,
-                height: _kH,
-                child: Video(
-                  controller: _controller,
-                  controls: NoVideoControls,
-                ),
-              ),
-              // ── Controls bar ──────────────────────────────────────────────
-              Container(
-                height: _kCtrlH,
-                color: Colors.black87,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(children: [
-                  // Play / pause
-                  StreamBuilder<bool>(
-                    stream: _player.stream.playing,
-                    builder: (ctx, snap) {
-                      final playing = snap.data ?? false;
-                      return GestureDetector(
-                        onTap: () =>
-                            playing ? _player.pause() : _player.play(),
-                        child: Icon(
-                          playing
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 22,
+            width: boxW,
+            height: boxH,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // ── Video ──────────────────────────────────────────────
+                Video(controller: _controller, controls: NoVideoControls),
+
+                // ── Top bar: X (left) + fullscreen (right) ─────────────
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _PipBtn(
+                          icon: Icons.close_rounded,
+                          onTap: widget.onDismiss,
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  // Title
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                        _PipBtn(
+                          icon: Icons.fullscreen_rounded,
+                          onTap: widget.onFullscreen,
+                        ),
+                      ],
                     ),
                   ),
-                  // Quality / type badge (e.g. "1080p" or "HLS")
-                  if (widget.quality.isNotEmpty || widget.type.isNotEmpty) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                ),
+
+                // ── Quality / type badge bottom-right ──────────────────
+                if (widget.quality.isNotEmpty || widget.type.isNotEmpty)
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple.withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(4),
+                        color: Colors.black.withValues(alpha: 0.62),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        widget.quality.isNotEmpty ? widget.quality : widget.type,
+                        widget.quality.isNotEmpty
+                            ? widget.quality
+                            : widget.type,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,
                         ),
                       ),
                     ),
-                  ],
-                  const SizedBox(width: 4),
-                  // Fullscreen → MPV
-                  GestureDetector(
-                    onTap: widget.onFullscreen,
-                    child: const Icon(
-                      Icons.fullscreen_rounded,
-                      color: Colors.white,
-                      size: 22,
-                    ),
                   ),
-                  const SizedBox(width: 8),
-                  // Close
-                  GestureDetector(
-                    onTap: widget.onDismiss,
-                    child: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white70,
-                      size: 18,
-                    ),
+
+                // ── Centre play/pause on tap ───────────────────────────
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      _player.state.playing
+                          ? _player.pause()
+                          : _player.play();
+                    },
                   ),
-                ]),
-              ),
-            ]),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -4243,8 +4258,37 @@ class _WebFloatingPlayerOverlayState
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
-    return Stack(children: [
-      _snapped ? _buildMini(screen) : _buildFull(screen),
-    ]);
+    return _isMini ? _buildMini(screen) : _buildFull(screen);
+  }
+}
+
+// ─── PiP control button (blurred circle, Safari-style) ────────────────────────
+
+class _PipBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _PipBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.50),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+        ),
+      ),
+    );
   }
 }
