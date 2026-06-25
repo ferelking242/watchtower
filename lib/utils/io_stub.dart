@@ -239,6 +239,10 @@ class HttpHeaders {
   void removeAll(String name) => _h.remove(name.toLowerCase());
   void clear() => _h.clear();
   void forEach(void Function(String, List<String>) f) => _h.forEach(f);
+  String? value(String name) {
+    final vals = _h[name.toLowerCase()];
+    return (vals != null && vals.isNotEmpty) ? vals.first : null;
+  }
   bool get chunkedTransferEncoding => false;
   set chunkedTransferEncoding(bool _) {}
   int get contentLength => -1;

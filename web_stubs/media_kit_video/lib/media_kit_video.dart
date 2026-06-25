@@ -3,6 +3,10 @@ import 'package:media_kit/media_kit.dart';
 
 export 'media_kit_video_controls/src/controls/extensions/duration.dart';
 
+/// Web stub for NoVideoControls — on real media_kit_video this is a top-level
+/// function passed as `controls:` to hide all playback controls.
+Widget? NoVideoControls(dynamic state) => null;
+
 class SubtitleViewConfiguration {
   final TextStyle style;
   final TextStyle textStyle;
