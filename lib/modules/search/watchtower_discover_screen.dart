@@ -7,8 +7,37 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+  import 'package:watchtower/modules/music/pages/search/music_search_tab.dart';
+  import 'package:watchtower/modules/game/game_discovery_screen.dart';
 
-// ── Content types ──────────────────────────────────────────────────────────────
+// ── Discover modes ────────────────────────────────────────────────────────────
+
+  enum _DiscoverMode {
+    series,
+    manga,
+    music,
+    game;
+
+    String get label {
+      switch (this) {
+        case _DiscoverMode.series: return 'Séries';
+        case _DiscoverMode.manga:  return 'Manga';
+        case _DiscoverMode.music:  return 'Music';
+        case _DiscoverMode.game:   return 'Game';
+      }
+    }
+
+    IconData get icon {
+      switch (this) {
+        case _DiscoverMode.series: return Icons.live_tv_rounded;
+        case _DiscoverMode.manga:  return Icons.menu_book_rounded;
+        case _DiscoverMode.music:  return Icons.music_note_rounded;
+        case _DiscoverMode.game:   return Icons.sports_esports_rounded;
+      }
+    }
+  }
+
+  // ── Content types ──────────────────────────────────────────────────────────────
 
 enum _ContentType {
   anime('Anime', 'ANIME', null, null),
@@ -133,7 +162,8 @@ class _WatchtowerDiscoverScreenState
   Timer? _debounce;
   String _searchQuery = '';
 
-  _ContentType _type = _ContentType.anime;
+  _ContentType _type = _ContentType.serie;
+    _DiscoverMode _mode = _DiscoverMode.series;
   _SortOption _sort = _SortOption.score;
   String? _genre;
   String? _format;
@@ -167,14 +197,44 @@ class _WatchtowerDiscoverScreenState
     super.dispose();
   }
 
-  void _onScroll() {
+  void _setMode(_DiscoverMode m) {
+      setState(() {
+        _mode = m;
+        if (m == _DiscoverMode.series) _type = _ContentType.serie;
+        if (m == _DiscoverMode.manga)  _type = _ContentType.manga;
+      });
+      if (m == _DiscoverMode.series || m == _DiscoverMode.manga) {
+        _fetchResults(reset: true);
+      }
+    }
+
+    void _onScroll() {
     if (_scrollCtrl.position.pixels >=
         _scrollCtrl.position.maxScrollExtent - 400) {
       if (_hasNextPage && !_isLoading) _fetchResults();
     }
   }
 
-  String get _titleText {
+  Widget _buildModePills(BuildContext context) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: _DiscoverMode.values.map((m) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _ModePill(
+                icon: m.icon,
+                label: m.label,
+                selected: _mode == m,
+                onTap: () => _setMode(m),
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    String get _titleText {
     final t = _type.label;
     return switch (_sort) {
       _SortOption.score       => 'Highest rated $t',
@@ -337,7 +397,42 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    // ── Early returns for non-AniList modes ────────────────────────
+      if (_mode == _DiscoverMode.music) {
+        return Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: _buildModePills(context),
+                ),
+                const Expanded(child: MusicSearchTab()),
+              ],
+            ),
+          ),
+        );
+      }
+      if (_mode == _DiscoverMode.game) {
+        return Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: _buildModePills(context),
+                ),
+                const Expanded(child: GameDiscoveryScreen()),
+              ],
+            ),
+          ),
+        );
+      }
+          final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenW = MediaQuery.of(context).size.width;
     final crossAxis = (screenW / 155).floor().clamp(2, 5);
