@@ -13,6 +13,10 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
+  import 'package:watchtower/modules/music/music_discovery_screen.dart';
+  import 'package:watchtower/modules/game/game_discovery_screen.dart';
+  import 'package:watchtower/modules/music/music_discovery_screen.dart';
+  import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -540,14 +544,20 @@ class _BrowseTypeView extends ConsumerStatefulWidget {
 }
 
 class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
-  @override
-  Widget build(BuildContext context) {
-    return SourcesScreen(
-      itemType: widget.itemType,
-      onShowExtensions: () => context.push('/marketplace'),
-    );
+    @override
+    Widget build(BuildContext context) {
+      if (widget.itemType == ItemType.music) {
+        return const MusicDiscoveryScreen();
+      }
+      if (widget.itemType == ItemType.game) {
+        return const GameDiscoveryScreen();
+      }
+      return SourcesScreen(
+        itemType: widget.itemType,
+        onShowExtensions: () => context.push('/marketplace'),
+      );
+    }
   }
-}
 
 /// Long-press shortcut on the translate icon: keeps only the device's
 /// language active (and English as a fallback). Long-press again to restore.
