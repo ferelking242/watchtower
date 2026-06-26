@@ -9,6 +9,7 @@ import 'package:watchtower/models/category.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
+  import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
@@ -198,77 +199,53 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
               child: Row(
                 children: [
-                  // ── Left : type selector with swipe ─────────────────────────
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onHorizontalDragEnd: (d) {
-                        final v = d.primaryVelocity ?? 0;
-                        if (v < -200) _changeType(1);
-                        else if (v > 200) _changeType(-1);
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _chevronBtn(
-                            Icons.chevron_left_rounded,
-                            () => _changeType(-1),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 180),
-                              transitionBuilder: (child, anim) =>
-                                  FadeTransition(opacity: anim, child: child),
-                              child: Row(
-                                key: ValueKey(_typeIndex),
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Type icon badge — smaller
-                                  Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      color: _kAccent.withValues(alpha: 0.14),
-                                      borderRadius: BorderRadius.circular(8),
+                  // ── Left : sub-dock type pills ──────────────────────────
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: List.generate(_kTypes.length, (i) {
+                            final t = _kTypes[i];
+                            final sel = _typeIndex == i;
+                            return GestureDetector(
+                              onTap: () => setState(() {
+                                _typeIndex = i;
+                                _selectedCatIndex = 0;
+                              }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                margin: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: sel ? _kAccent : Colors.white.withValues(alpha: 0.07),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _kTypeIcons[t] ?? Icons.library_books_rounded,
+                                      color: sel ? Colors.white : Colors.white54,
+                                      size: 13,
                                     ),
-                                    child: Icon(
-                                      _kTypeIcons[_currentType] ??
-                                          Icons.library_books_rounded,
-                                      color: _kAccent,
-                                      size: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Type label — more compact
-                                  Flexible(
-                                    child: Text(
-                                      _typeLabel(_currentType),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      _typeLabel(t),
                                       style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w800,
-                                        color: cs.onSurface,
-                                        letterSpacing: -0.4,
+                                        color: sel ? Colors.white : Colors.white54,
+                                        fontSize: 13,
+                                        fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _chevronBtn(
-                            Icons.chevron_right_rounded,
-                            () => _changeType(1),
-                          ),
-                        ],
+                            );
+                          }),
+                        ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(width: 8),
+                                      const SizedBox(width: 8),
 
                   // ── Right : action icons — smaller, lighter ─────────────────
                   Row(
@@ -369,23 +346,24 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
             const SizedBox(height: 8),
 
-            // ── Library content ──────────────────────────────────────────────
-            Expanded(
-              child: LibraryScreen(
-                key: ValueKey('lib_${_typeIndex}_$extCatId'),
-                itemType: _currentType,
-                presetInput: null,
-                hideOwnAppBar: true,
-                externalSearchQuery: _showSearch ? _searchController.text : null,
-                externalCategoryId: extCatId,
+            // ── Library content ─────────────────────────────────────────────
+              Expanded(
+                child: _currentType == ItemType.music
+                    ? const MusicDiscoveryScreen()
+                    : LibraryScreen(
+                        key: ValueKey('lib_${_typeIndex}_$extCatId'),
+                        itemType: _currentType,
+                        presetInput: null,
+                        hideOwnAppBar: true,
+                        externalSearchQuery: _showSearch ? _searchController.text : null,
+                        externalCategoryId: extCatId,
+                      ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
   }
-
   // ── 3-dot popup — same size as other icon buttons ─────────────────────────
   Widget _buildThreeDotsBtn(
     BuildContext context,
