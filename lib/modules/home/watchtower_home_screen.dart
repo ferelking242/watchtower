@@ -16,6 +16,7 @@ import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
+import 'package:watchtower/modules/music/music_discovery_screen_impl.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
@@ -329,11 +330,12 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           ...home.trendingAnimes.where((m) => ok(m) && (m.episodes ?? 99) <= 13),
         ];
         return shorts.isEmpty ? home.trendingAnimes.where(ok).take(6).toList() : shorts.take(8).toList();
+      case _HomeTab.musique:
+        return [];
       case _HomeTab.enfant:
       case _HomeTab.occidental:
       case _HomeTab.africa:
       case _HomeTab.football:
-      case _HomeTab.musique:
       case _HomeTab.jeux:
         return home.trendingAnimes.where(ok).take(6).toList();
     }
@@ -450,9 +452,12 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
             title: 'Football', subtitle: 'Matchs & résumés',
             color: const Color(0xFF2ECC71), route: '/globalSearch');
       case _HomeTab.musique:
-        return _promoTab(ctx, icon: Icons.queue_music_rounded,
-            title: 'Musique', subtitle: 'Stream & télécharge',
-            color: const Color(0xFF9B59B6), route: '/MusicSearch');
+        return [
+          const SliverFillRemaining(
+            hasScrollBody: true,
+            child: MusicDiscoveryScreen(initialRoute: 'search'),
+          ),
+        ];
       case _HomeTab.jeux:
         return _promoTab(ctx, icon: Icons.sports_esports_rounded,
             title: 'Jeux', subtitle: 'Bibliothèque ROM',
@@ -967,7 +972,7 @@ class _SlidingTabRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeColor = isDark ? Colors.white : cs.onSurface;
+    final activeColor = cs.primary;
     final inactiveColor = isDark
         ? Colors.white.withValues(alpha: 0.38)
         : cs.onSurface.withValues(alpha: 0.35);

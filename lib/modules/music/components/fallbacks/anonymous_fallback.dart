@@ -1,13 +1,11 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/material.dart' as mat;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
-
-import 'package:watchtower/modules/music/utils/platform.dart';
 
 class AnonymousFallback extends ConsumerWidget {
   final Widget? child;
@@ -21,21 +19,23 @@ class AnonymousFallback extends ConsumerWidget {
     final isLoggedIn = ref.watch(metadataPluginAuthenticatedProvider);
 
     if (isLoggedIn.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: mat.CircularProgressIndicator());
     }
 
     if (isLoggedIn.asData?.value == true && child != null) return child!;
+
+    final scaling = context.theme.scaling;
+    final primaryColor = context.theme.colorScheme.primary;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         spacing: 10,
         children: [
-          Undraw(
-            illustration: kIsMobile
-                ? UndrawIllustration.accessDenied
-                : UndrawIllustration.secureLogin,
-            height: 200 * context.theme.scaling,
-            color: context.theme.colorScheme.primary,
+          mat.Icon(
+            mat.Icons.lock_outline_rounded,
+            size: 80 * scaling,
+            color: primaryColor,
           ),
           Text(context.l10n.not_logged_in),
           Button.primary(

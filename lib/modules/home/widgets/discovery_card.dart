@@ -114,7 +114,7 @@ class DiscoveryCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
+                        color: Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -145,13 +145,14 @@ class DiscoveryCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.65),
+                            color: Colors.transparent,
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
                             fmt,
                             style: const TextStyle(
                               color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.w700, letterSpacing: 0.4,
+                              shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
                             ),
                           ),
                         ),
@@ -401,13 +402,13 @@ class LandscapeDiscoveryCard extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.60),
-                          borderRadius: BorderRadius.circular(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.all(Radius.circular(6)),
                         ),
                         child: Text(
                           fmt.isNotEmpty ? fmt : (media.format?.toUpperCase() ?? 'MOVIE'),
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5, shadows: [Shadow(color: Colors.black54, blurRadius: 4)]),
                         ),
                       ),
                       if (flag.isNotEmpty) ...[

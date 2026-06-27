@@ -240,7 +240,7 @@ class _WatchtowerDiscoverScreenState
     String get _titleText {
     final t = _type.label;
     return switch (_sort) {
-      _SortOption.score       => 'Highest rated $t',
+      _SortOption.score       => 'Découverte $t',
       _SortOption.popularity  => 'Most popular $t',
       _SortOption.trending    => 'Trending $t',
       _SortOption.newest      => 'Newest $t',
@@ -1155,7 +1155,7 @@ class _EnumPickerSheet<T> extends StatelessWidget {
     return SafeArea(
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: isDark ? const Color(0xFF1C1C1E) : cs.surface,
           borderRadius:
               const BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -1240,7 +1240,7 @@ class _StringPickerSheet extends StatelessWidget {
           maxHeight: MediaQuery.of(context).size.height * 0.55,
         ),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: isDark ? const Color(0xFF1C1C1E) : cs.surface,
           borderRadius:
               const BorderRadius.vertical(top: Radius.circular(20)),
         ),
