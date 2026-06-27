@@ -1,9 +1,13 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/router/music_app_router.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
+import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
 
 /// Native (mobile/desktop) implementation.
 ///
@@ -17,15 +21,16 @@ import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 ///
 /// A [shadcn.Theme] wrapper is injected so every music widget can access
 /// `context.theme.scaling`, `context.theme.surfaceBlur`, etc.
-class MusicDiscoveryScreen extends StatefulWidget {
+class MusicDiscoveryScreen extends ConsumerStatefulWidget {
   final String? initialRoute;
   const MusicDiscoveryScreen({super.key, this.initialRoute});
 
   @override
-  State<MusicDiscoveryScreen> createState() => _MusicDiscoveryScreenState();
+  ConsumerState<MusicDiscoveryScreen> createState() =>
+      _MusicDiscoveryScreenState();
 }
 
-class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
+class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
   late final SpotubeAppRouter _router;
 
   List<PageRouteInfo> get _initialRoutes {
@@ -49,6 +54,13 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   @override
   void initState() {
     super.initState();
+    // Initialise Spotube's own AppLogger so the Logs page and error
+    // reporting inside the music module work correctly.
+    try {
+      music_log.AppLogger.initialize(false);
+    } catch (_) {
+      // Already initialised — safe to ignore.
+    }
     _router = SpotubeAppRouter();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -69,7 +81,15 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final parentDispatcher = Router.of(context).backButtonDispatcher;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Read Watchtower's own theme providers so the shadcn colour scheme
+    // always matches the host app's dark/light state, regardless of the
+    // system brightness or follow-system setting.
+    final forcedDark = ref.watch(themeModeStateProvider);
+    final followSystem = ref.watch(followSystemThemeStateProvider);
+    final isDark = followSystem
+        ? MediaQuery.platformBrightnessOf(context) == Brightness.dark
+        : forcedDark;
 
     // shadcn_flutter widgets call context.theme.scaling / surfaceBlur /
     // surfaceOpacity (from shadcn_flutter_extension.dart).  Those lookups
