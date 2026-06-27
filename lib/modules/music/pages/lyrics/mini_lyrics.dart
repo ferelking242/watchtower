@@ -16,6 +16,7 @@ import 'package:watchtower/modules/music/pages/lyrics/synced_lyrics.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class MiniLyricsPage extends HookConsumerWidget {
   static const name = "mini_lyrics";
