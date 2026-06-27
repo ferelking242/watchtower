@@ -22,9 +22,15 @@ class WebViewEnvironment {
 class CreateConfiguration {
   final String? userDataFolderWindows;
   final WebViewEnvironment? environment;
+  final String? title;
+  final int? windowHeight;
+  final int? windowWidth;
   const CreateConfiguration({
     this.userDataFolderWindows,
     this.environment,
+    this.title,
+    this.windowHeight,
+    this.windowWidth,
   });
 }
 
@@ -43,6 +49,7 @@ class Webview {
   Future<String?> evaluateJavaScript(String script) async => null;
   void addScriptToExecuteOnDocumentCreated(String script) {}
   void setApplicationNameForUserAgent(String name) {}
+  void setApplicationUserAgent(String userAgent) {}
   void launch(String url) {}
   void setBrightness(Brightness brightness) {}
   void setNavigationDelegate({
@@ -51,7 +58,7 @@ class Webview {
     bool Function(String url)? onNavigationRequest,
   }) {}
 
-  void setOnUrlRequestCallback(void Function(String url) callback) {}
+  void setOnUrlRequestCallback(bool Function(String url) callback) {}
 }
 
 class WebviewWindow {
