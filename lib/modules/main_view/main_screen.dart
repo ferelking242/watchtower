@@ -206,6 +206,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   int currentIndex = 0;
   bool isLibSwitch = false;
+  bool isLibrarySwitch = false;
   @override
   Widget build(BuildContext context) {
     ref.listen<Locale>(l10nLocaleStateProvider, (previous, next) {
@@ -306,6 +307,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     dest.insert(insertIdx, '/Library');
                   }
                 }
+              }
+
+              // ── Library sub-dock mode ───────────────────────────────────────
+              // When isLibrarySwitch is on, show [Back, /Library, /MusicLibraryPage].
+              // Otherwise, if /Library is in dest, replace it with
+              // _enableLibrarySwitch so tapping opens the sub-dock instead of
+              // navigating directly to the library page.
+              if (isLibrarySwitch) {
+                dest = ['_disableLibrarySwitch', '/Library', '/MusicLibraryPage']
+                    .where((nav) => !hideItems.contains(nav))
+                    .toList();
+              } else if (dest.contains('/Library') && !isLibSwitch) {
+                dest = dest
+                    .map((nav) => nav == '/Library' ? '_enableLibrarySwitch' : nav)
+                    .toList();
               }
 
               if (isLibSwitch &&
@@ -431,9 +447,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                         .set(false);
                                     if (destination == "_enableLibSwitch") {
                                       setState(() => isLibSwitch = true);
-                                    } else if (destination ==
-                                        "_disableLibSwitch") {
+                                    } else if (destination == "_disableLibSwitch") {
                                       setState(() => isLibSwitch = false);
+                                    } else if (destination == "_enableLibrarySwitch") {
+                                      setState(() => isLibrarySwitch = true);
+                                    } else if (destination == "_disableLibrarySwitch") {
+                                      setState(() => isLibrarySwitch = false);
                                     } else {
                                       route.go(destination);
                                     }
@@ -456,9 +475,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                         .set(false);
                                     if (destination == "_enableLibSwitch") {
                                       setState(() => isLibSwitch = true);
-                                    } else if (destination ==
-                                        "_disableLibSwitch") {
+                                    } else if (destination == "_disableLibSwitch") {
                                       setState(() => isLibSwitch = false);
+                                    } else if (destination == "_enableLibrarySwitch") {
+                                      setState(() => isLibrarySwitch = true);
+                                    } else if (destination == "_disableLibrarySwitch") {
+                                      setState(() => isLibrarySwitch = false);
                                     } else if (destination == "_watchtower_menu") {
                                       ref.read(menuOpenProvider.notifier).state =
                                           !ref.read(menuOpenProvider);
@@ -1574,6 +1596,8 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/AnimeLibrary',
     '/NovelLibrary',
     '/MusicLibrary',
+    '/MusicSearch',
+    '/MusicLibraryPage',
     '/GameLibrary',
     '/WatchtowerHome',
     '/history',
@@ -1730,12 +1754,40 @@ class _FloatingDockState extends State<_FloatingDock> {
             icon: Icons.arrow_back,
             activeIcon: Icons.arrow_back,
           ));
+        case '_enableLibrarySwitch':
+          items.add(const _DockItemData(
+            route: '_enableLibrarySwitch',
+            label: 'Library',
+            icon: Icons.collections_bookmark_outlined,
+            activeIcon: Icons.collections_bookmark,
+          ));
+        case '_disableLibrarySwitch':
+          items.add(_DockItemData(
+            route: '_disableLibrarySwitch',
+            label: l10n.go_back,
+            icon: Icons.arrow_back,
+            activeIcon: Icons.arrow_back,
+          ));
+        case '/MusicLibraryPage':
+          items.add(const _DockItemData(
+            route: '/MusicLibraryPage',
+            label: 'Music Lib',
+            icon: Icons.library_music_outlined,
+            activeIcon: Icons.library_music,
+          ));
+        case '/MusicSearch':
+          items.add(const _DockItemData(
+            route: '/MusicSearch',
+            label: 'Music',
+            icon: Icons.music_note_outlined,
+            activeIcon: Icons.music_note,
+          ));
       }
     }
 
-    // In Hub sub-dock mode (_disableLibSwitch present), allow 5 slots so that
-    // Back + Watch + Manga + Novel + Music all fit; otherwise cap at 4.
-    final _hubMode = d.contains('_disableLibSwitch');
+    // In Hub or Library sub-dock mode, allow 5 content slots so that all items
+    // fit; otherwise cap at 4.
+    final _hubMode = d.contains('_disableLibSwitch') || d.contains('_disableLibrarySwitch');
     final _cap = _hubMode ? 5 : 4;
     if (items.length > _cap) {
       items.removeRange(_cap, items.length);
@@ -1782,10 +1834,105 @@ class _FloatingDockState extends State<_FloatingDock> {
         ? _dockHeight + _dockBottomPad + bottomPad
         : 0.0;
 
-    // In Hub mode the dock can hold 6 items (5 + Menu); enable scroll for overflow.
+    final isGlass = widget.ref.read(navDockStyleProvider) == 'immersive';
+
+    // In sub-dock mode (Back is first item), detach Back and Menu into their
+    // own mini pills flanking the content pill for a cleaner visual.
+    final inSubDock = items.length >= 3 &&
+        (items.first.route == '_disableLibSwitch' ||
+            items.first.route == '_disableLibrarySwitch');
+
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    if (inSubDock) {
+      final backItem = items.first;
+      final menuItem = items.last;
+      final contentItems = items.sublist(1, items.length - 1);
+      final contentNeedsScroll = contentItems.length > 4;
+      final contentWidth = (contentItems.length * _itemWidth + _pillHPad * 2)
+          .clamp(80.0, screenWidth - 32.0 - 2 * (_itemWidth + 10));
+
+      void onTap(String route) {
+        HapticFeedback.lightImpact();
+        widget.onDestinationSelected(route);
+      }
+
+      return AnimatedContainer(
+        duration: Duration(milliseconds: dockAnimMs),
+        curve: Curves.easeInOut,
+        height: totalHeight,
+        color: Colors.transparent,
+        alignment: Alignment.center,
+        child: visible
+            ? Padding(
+                padding: EdgeInsets.only(
+                  bottom: _dockBottomPad + bottomPad * 0.5,
+                  top: 4,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // ── Back — detached left pill ─────────────────────────
+                    SizedBox(
+                      width: _itemWidth + _pillHPad * 2,
+                      height: _dockHeight,
+                      child: _DockPill(
+                        items: [backItem],
+                        itemWidth: _itemWidth,
+                        scrollController: ScrollController(),
+                        isActive: _isActive,
+                        ref: widget.ref,
+                        needsScroll: false,
+                        isGlass: isGlass,
+                        onTap: onTap,
+                        onScrollEnd: _onScrollEnd,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // ── Content items — center pill ───────────────────────
+                    SizedBox(
+                      width: contentWidth,
+                      height: _dockHeight,
+                      child: _DockPill(
+                        items: contentItems,
+                        itemWidth: _itemWidth,
+                        scrollController: _scrollController,
+                        isActive: _isActive,
+                        ref: widget.ref,
+                        needsScroll: contentNeedsScroll,
+                        isGlass: isGlass,
+                        onTap: onTap,
+                        onScrollEnd: _onScrollEnd,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // ── Menu — detached right pill ────────────────────────
+                    SizedBox(
+                      width: _itemWidth + _pillHPad * 2,
+                      height: _dockHeight,
+                      child: _DockPill(
+                        items: [menuItem],
+                        itemWidth: _itemWidth,
+                        scrollController: ScrollController(),
+                        isActive: _isActive,
+                        ref: widget.ref,
+                        needsScroll: false,
+                        isGlass: isGlass,
+                        onTap: onTap,
+                        onScrollEnd: _onScrollEnd,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : const SizedBox.shrink(),
+      );
+    }
+
+    // Normal mode — single pill
     final needsScroll = items.length > 5;
     final rawWidth = items.length * _itemWidth + _pillHPad * 2;
-    final screenWidth = MediaQuery.of(context).size.width;
     final pillWidth = rawWidth.clamp(80.0, screenWidth - 32.0);
 
     return AnimatedContainer(
@@ -1810,7 +1957,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                   isActive: _isActive,
                   ref: widget.ref,
                   needsScroll: needsScroll,
-                  isGlass: widget.ref.read(navDockStyleProvider) == 'immersive',
+                  isGlass: isGlass,
                   onTap: (route) {
                     HapticFeedback.lightImpact();
                     widget.onDestinationSelected(route);
