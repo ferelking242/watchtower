@@ -8,14 +8,18 @@ import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 /// Native (mobile/desktop) implementation.
 ///
 /// Embeds the full Spotube UI via [SpotubeAppRouter] inside Watchtower's
-/// /MusicLibrary shell route.  Shows the GettingStarted plugin-connect
-/// wizard on first launch and the HomeRoute thereafter.
+/// shell routes (/MusicLibrary, /MusicSearch, /MusicLibraryPage).
 ///
-/// A [shadcn.Theme] wrapper is injected here so every music widget can access
-/// `context.theme.scaling`, `context.theme.surfaceBlur`, etc. — these require
-/// a shadcn Theme ancestor that doesn't exist in Watchtower's plain MaterialApp.
+/// [initialRoute] controls which Spotube page opens first:
+///   - null / 'home'    → HomeRoute  (Spotube accueil — default)
+///   - 'search'         → SearchRoute (Spotube recherche — Discovery pill)
+///   - 'library'        → LibraryRoute (Spotube bibliothèque — Library sub-dock)
+///
+/// A [shadcn.Theme] wrapper is injected so every music widget can access
+/// `context.theme.scaling`, `context.theme.surfaceBlur`, etc.
 class MusicDiscoveryScreen extends StatefulWidget {
-  const MusicDiscoveryScreen({super.key});
+  final String? initialRoute;
+  const MusicDiscoveryScreen({super.key, this.initialRoute});
 
   @override
   State<MusicDiscoveryScreen> createState() => _MusicDiscoveryScreenState();
@@ -24,19 +28,22 @@ class MusicDiscoveryScreen extends StatefulWidget {
 class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   late final SpotubeAppRouter _router;
 
-  /// Pick the Spotube initial route based on whether the user has already
-  /// completed the getting-started / plugin-connect flow.
   List<PageRouteInfo> get _initialRoutes {
-    try {
-      if (KVStoreService.doneGettingStarted) {
-        return const [
-          RootAppRoute(children: [HomeRoute()]),
-        ];
-      }
-    } catch (_) {
-      // KVStoreService not yet initialised — fall through to getting-started.
+    switch (widget.initialRoute) {
+      case 'search':
+        return const [RootAppRoute(children: [SearchRoute()])];
+      case 'library':
+        return const [RootAppRoute(children: [LibraryRoute()])];
+      default:
+        try {
+          if (KVStoreService.doneGettingStarted) {
+            return const [RootAppRoute(children: [HomeRoute()])];
+          }
+        } catch (_) {
+          // KVStoreService not yet initialised — fall through to getting-started.
+        }
+        return const [GettingStartedRoute()];
     }
-    return const [GettingStartedRoute()];
   }
 
   @override
