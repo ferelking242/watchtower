@@ -327,6 +327,7 @@ class ConnectControlPage extends HookConsumerWidget {
                             leading: const Icon(SpotubeIcons.queue),
                             child: Text(context.l10n.queue),
                             onPressed: () {
+                              final capturedTheme = Theme.of(context);
                               openDrawer(
                                 context: context,
                                 barrierDismissible: true,
@@ -339,13 +340,20 @@ class ConnectControlPage extends HookConsumerWidget {
                                 surfaceOpacity: 0.7,
                                 expands: true,
                                 builder: (context) {
-                                  return ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxHeight:
-                                          MediaQuery.sizeOf(context).height *
-                                              0.8,
+                                  return Theme(
+                                    data: capturedTheme,
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxHeight:
+                                              MediaQuery.sizeOf(context)
+                                                      .height *
+                                                  0.8,
+                                        ),
+                                        child: const RemotePlayerQueue(),
+                                      ),
                                     ),
-                                    child: const RemotePlayerQueue(),
                                   );
                                 },
                               );
