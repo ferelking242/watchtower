@@ -203,7 +203,7 @@ jobs:
               --release \
               --target-platform android-arm64 \
               --split-per-abi \
-              --obfuscate \
+
               --split-debug-info=debug-info/ \
               --build-name=${{ steps.ver.outputs.name }} \
               --build-number=${{ steps.ver.outputs.code }}; then

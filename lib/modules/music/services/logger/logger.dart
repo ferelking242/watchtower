@@ -111,12 +111,18 @@ class AppLogger {
     return file;
   }
 
-  static Future<void> reportError(
+  // ponytail: forward bridge — set by MusicDiscoveryScreen so Spotube errors
+    // appear in the Watchtower logger. Ceiling: single callback, no fan-out.
+    static void Function(dynamic error, StackTrace? stack)? _errorBridge;
+    static void setBridge(void Function(dynamic, StackTrace?) cb) => _errorBridge = cb;
+
+    static Future<void> reportError(
     dynamic error, [
     StackTrace? stackTrace,
     message = "",
   ]) async {
     log.e(message, error: error, stackTrace: stackTrace);
+    _errorBridge?.call(error, stackTrace);
 
     if (kReleaseMode) {
       await logFile.writeAsString(

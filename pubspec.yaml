@@ -299,6 +299,18 @@ flutter:
     - packages/hetu_std/assets/bytecode/std.out
     - packages/hetu_otp_util/assets/bytecode/otp_util.out
     - packages/hetu_spotube_plugin/assets/bytecode/spotube_plugin.out
+    - packages/flutter_undraw/assets/undraw/access_denied.svg
+    - packages/flutter_undraw/assets/undraw/fixing_bugs.svg
+    - packages/flutter_undraw/assets/undraw/secure_login.svg
+    - packages/flutter_undraw/assets/undraw/explore.svg
+    - packages/flutter_undraw/assets/undraw/dreamer.svg
+    - packages/flutter_undraw/assets/undraw/happy_music.svg
+    - packages/flutter_undraw/assets/undraw/follow_me_drone.svg
+    - packages/flutter_undraw/assets/undraw/taken.svg
+    - packages/flutter_undraw/assets/undraw/empty.svg
+    - packages/flutter_undraw/assets/undraw/no_data.svg
+    - packages/flutter_undraw/assets/undraw/process.svg
+    - packages/flutter_undraw/assets/undraw/stars.svg
 
   fonts:
     - family: RadixIcons

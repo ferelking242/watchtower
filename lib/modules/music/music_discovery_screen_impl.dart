@@ -8,6 +8,7 @@ import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/router/music_app_router.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
+import 'package:watchtower/utils/log/logger.dart' as wt_log;
 
 /// Native (mobile/desktop) implementation.
 ///
@@ -58,7 +59,16 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
     // reporting inside the music module work correctly.
     try {
       music_log.AppLogger.initialize(false);
-    } catch (_) {
+        // Bridge Spotube errors → Watchtower logger.
+        music_log.AppLogger.setBridge((error, stack) {
+          wt_log.AppLogger.log(
+            error.toString(),
+            tag: 'Music',
+            logLevel: wt_log.LogLevel.error,
+            stackTrace: stack,
+          );
+        });
+      } catch (_) {
       // Already initialised — safe to ignore.
     }
     _router = SpotubeAppRouter();

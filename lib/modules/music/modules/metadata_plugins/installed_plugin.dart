@@ -18,6 +18,12 @@ final validAbilities = {
   PluginAbilities.audioSource: ("Audio Source", SpotubeIcons.music),
 };
 
+// Wraps [child] with the captured shadcn ThemeData so dialogs opened via
+// showDialog() inherit the correct colour scheme even though they run in a
+// separate overlay entry (no ShadcnApp ancestor available there).
+Widget _withTheme(ThemeData data, Widget child) =>
+    Theme(data: data, child: child);
+
 class MetadataInstalledPluginItem extends HookConsumerWidget {
   final PluginConfiguration plugin;
   final bool isDefaultMetadata;
@@ -67,6 +73,9 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
       _ => null,
     };
     final hasUpdate = updateAvailable?.asData?.value != null;
+
+    // Capture theme once so dialog builders can use it.
+    final themeData = context.theme;
 
     return Card(
       child: Column(
@@ -219,12 +228,17 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                         ),
                         trailing: Button.primary(
                           onPressed: () {
+                            // ponytail: wrap with _withTheme so the dialog
+                            // inherits the shadcn colour scheme through the
+                            // overlay (no ShadcnApp ancestor in dialog route).
                             showDialog(
                               context: context,
-                              builder: (context) =>
-                                  MetadataPluginUpdateAvailableDialog(
-                                plugin: plugin,
-                                update: updateAvailable.asData!.value!,
+                              builder: (ctx) => _withTheme(
+                                themeData,
+                                MetadataPluginUpdateAvailableDialog(
+                                  plugin: plugin,
+                                  update: updateAvailable.asData!.value!,
+                                ),
                               ),
                             );
                           },
@@ -339,8 +353,9 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                         onPressed: () {
                           showDialog(
                             context: context,
-                            builder: (context) {
-                              return AlertDialog(
+                            builder: (ctx) => _withTheme(
+                              themeData,
+                              AlertDialog(
                                 title: Text(
                                     context.l10n.support_plugin_development),
                                 content: ConstrainedBox(
@@ -362,26 +377,34 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                                 actions: [
                                   Button.secondary(
                                     onPressed: () {
-                                      Navigator.of(context).pop();
+                                      Navigator.of(ctx).pop();
                                     },
                                     child: Text(context.l10n.close),
                                   ),
                                 ],
-                              );
-                            },
+                              ),
+                            ),
                           );
                         },
                       );
                     }),
+                  // Login button: guard against still-loading plugin snapshot.
+                  // ponytail: pluginSnapshot?.asData?.value is null while the
+                  // async provider is loading — show disabled state instead of
+                  // silently doing nothing.
                   if ((isDefaultMetadata || isDefaultAudioSource) &&
                       requiresAuth &&
                       !isAuthenticated)
                     Button.primary(
+                      enabled: pluginSnapshot?.asData?.value != null,
                       onPressed: () async {
-                        await pluginSnapshot?.asData?.value?.auth
-                            .authenticate();
+                        final plugin = pluginSnapshot?.asData?.value;
+                        if (plugin == null) return;
+                        await plugin.auth.authenticate();
                       },
-                      leading: const Icon(SpotubeIcons.login),
+                      leading: pluginSnapshot?.isLoading == true
+                          ? const CircularProgressIndicator()
+                          : const Icon(SpotubeIcons.login),
                       child: Text(context.l10n.login),
                     )
                   else if ((isDefaultMetadata || isDefaultAudioSource) &&
