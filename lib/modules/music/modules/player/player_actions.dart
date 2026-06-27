@@ -92,6 +92,7 @@ class PlayerActions extends HookConsumerWidget {
               icon: const Icon(SpotubeIcons.queue),
               enabled: playlist.activeTrack != null,
               onPressed: () {
+                final capturedTheme = Theme.of(context);
                 openDrawer(
                   context: context,
                   position: OverlayPosition.right,
@@ -100,20 +101,26 @@ class PlayerActions extends HookConsumerWidget {
                   surfaceBlur: context.theme.surfaceBlur,
                   surfaceOpacity: 0.7,
                   builder: (context) {
-                    return Container(
-                      constraints: const BoxConstraints(maxWidth: 800),
-                      child: Consumer(
-                        builder: (context, ref, _) {
-                          final playlist = ref.watch(audioPlayerProvider);
-                          final playlistNotifier =
-                              ref.read(audioPlayerProvider.notifier);
+                    return Theme(
+                      data: capturedTheme,
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 800),
+                          child: Consumer(
+                            builder: (context, ref, _) {
+                              final playlist = ref.watch(audioPlayerProvider);
+                              final playlistNotifier =
+                                  ref.read(audioPlayerProvider.notifier);
 
-                          return PlayerQueue.fromAudioPlayerNotifier(
-                            floating: true,
-                            playlist: playlist,
-                            notifier: playlistNotifier,
-                          );
-                        },
+                              return PlayerQueue.fromAudioPlayerNotifier(
+                                floating: true,
+                                playlist: playlist,
+                                notifier: playlistNotifier,
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     );
                   },
