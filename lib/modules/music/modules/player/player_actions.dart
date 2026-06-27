@@ -20,6 +20,7 @@ import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart
 import 'package:watchtower/modules/music/provider/local_tracks/local_tracks_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
 import 'package:watchtower/modules/music/provider/sleep_timer_provider.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class PlayerActions extends HookConsumerWidget {
   final MainAxisAlignment mainAxisAlignment;
