@@ -20,7 +20,7 @@ class SettingsDownloadsSection extends HookConsumerWidget {
 
     final pickDownloadLocation = useCallback(() async {
       if (kIsMobile || kIsMacOS) {
-        final dirStr = await FilePicker.platform.getDirectoryPath(
+        final dirStr = await FilePicker.getDirectoryPath(
           initialDirectory: preferences.downloadLocation,
         );
         if (dirStr == null) return;

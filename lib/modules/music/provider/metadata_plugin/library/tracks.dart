@@ -76,7 +76,7 @@ class MetadataPluginSavedTracksNotifier
   }
 }
 
-final metadataPluginSavedTracksProvider = AutoDisposeAsyncNotifierProvider<
+final metadataPluginSavedTracksProvider = AsyncNotifierProvider<
     MetadataPluginSavedTracksNotifier,
     SpotubePaginationResponseObject<SpotubeFullTrackObject>>(
   () => MetadataPluginSavedTracksNotifier(),

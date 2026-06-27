@@ -20,10 +20,6 @@ typedef AutoDisposeRef = Ref;
 typedef AutoDisposeAsyncNotifierProviderRef = Ref;
 typedef AsyncNotifierBase<T> = AsyncNotifier<T>;
 
-/// Riverpod 3.x compat: AutoDisposeAsyncNotifierProvider is now AsyncNotifierProvider
-typedef AutoDisposeAsyncNotifierProvider<N extends AsyncNotifier<T>, T>
-    = AsyncNotifierProvider<N, T>;
-
 extension AsyncValueCompat<T> on AsyncValue<T> {
   T? get valueOrNull => whenOrNull(data: (v) => v);
 }

@@ -222,7 +222,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                   ).xSmall().iconSmall(),
                   onPressed: () async {
                     final exportPath =
-                        await FilePicker.platform.getDirectoryPath();
+                        await FilePicker.getDirectoryPath();
 
                     if (exportPath == null) return;
                     final exportDirectory = Directory(exportPath);

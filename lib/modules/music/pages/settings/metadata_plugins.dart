@@ -200,7 +200,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                             if (result == null) return;
                             bytes = await result.readAsBytes();
                           } else {
-                            final result = await FilePicker.platform.pickFiles(
+                            final result = await FilePicker.pickFiles(
                               type: kIsAndroid ? FileType.any : FileType.custom,
                               allowedExtensions: kIsAndroid ? [] : ["smplug"],
                               withData: true,
