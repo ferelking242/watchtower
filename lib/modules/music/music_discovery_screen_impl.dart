@@ -62,15 +62,20 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final parentDispatcher = Router.of(context).backButtonDispatcher;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
 
     // shadcn_flutter widgets call context.theme.scaling / surfaceBlur /
     // surfaceOpacity (from shadcn_flutter_extension.dart).  Those lookups
     // throw a null-check error when there is no ShadcnApp/Theme ancestor.
     // Wrapping with shadcn.Theme here provides the required InheritedWidget
     // so all descendant music-module widgets work correctly.
+    //
+    // LegacyColorSchemes.zinc is a ColorScheme Function(ThemeMode) — must
+    // be called with the current ThemeMode to get an actual ColorScheme.
     return shadcn.Theme(
       data: shadcn.ThemeData(
-        colorScheme: shadcn.LegacyColorSchemes.zinc,
+        colorScheme: shadcn.LegacyColorSchemes.zinc(themeMode),
       ),
       child: Router(
         routerDelegate: _router.delegate(),
