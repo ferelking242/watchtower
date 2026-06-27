@@ -86,6 +86,7 @@ class TrackOptionsButton extends HookConsumerWidget {
             playlistId: playlistId,
           );
         } else {
+          final capturedTheme = Theme.of(context);
           openDrawer(
             context: context,
             position: OverlayPosition.bottom,
@@ -94,53 +95,59 @@ class TrackOptionsButton extends HookConsumerWidget {
             borderRadius: context.theme.borderRadiusMd,
             transformBackdrop: false,
             builder: (context) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 8,
-                  children: [
-                    Basic(
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          borderRadius: context.theme.borderRadiusMd,
-                          image: DecorationImage(
-                            fit: BoxFit.cover,
-                            image: imageProvider,
+              return Theme(
+                data: capturedTheme,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 8,
+                      children: [
+                        Basic(
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              borderRadius: context.theme.borderRadiusMd,
+                              image: DecorationImage(
+                                fit: BoxFit.cover,
+                                image: imageProvider,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            track.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ).semiBold(),
+                          subtitle: Align(
+                            alignment: Alignment.centerLeft,
+                            child: ArtistLink(
+                              artists: track.artists,
+                              onOverflowArtistClick: () => context.navigateTo(
+                                TrackRoute(trackId: track.id),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      title: Text(
-                        track.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ).semiBold(),
-                      subtitle: Align(
-                        alignment: Alignment.centerLeft,
-                        child: ArtistLink(
-                          artists: track.artists,
-                          onOverflowArtistClick: () => context.navigateTo(
-                            TrackRoute(trackId: track.id),
-                          ),
+                        const Divider(),
+                        TrackOptions(
+                          track: track,
+                          userPlaylist: userPlaylist,
+                          playlistId: playlistId,
+                          onTapItem: () {
+                            closeDrawer(context);
+                          },
                         ),
-                      ),
+                      ],
                     ),
-                    const Divider(),
-                    TrackOptions(
-                      track: track,
-                      userPlaylist: userPlaylist,
-                      playlistId: playlistId,
-                      onTapItem: () {
-                        closeDrawer(context);
-                      },
-                    ),
-                  ],
+                  ),
                 ),
               );
             },
