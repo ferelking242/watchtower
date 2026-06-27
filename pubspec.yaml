@@ -14,9 +14,9 @@ dependencies:
 
   # --- Core Watchtower ---
   go_router: ^17.2.0
-  flutter_riverpod: ^3.3.2
+  flutter_riverpod: ^3.1.0
   riverpod_annotation: ^4.0.0
-  riverpod: ^3.3.2
+  riverpod: ^3.1.0
   html: ^0.15.6
   font_awesome_flutter: ^11.0.0
   flex_color_scheme: ^8.3.1
@@ -128,7 +128,7 @@ dependencies:
   # --- Spotube Music Integration ---
   shadcn_flutter: 0.0.47
   flutter_hooks: ^0.21.0
-  hooks_riverpod: ^3.3.2
+  hooks_riverpod: ^3.1.0
   fluentui_system_icons: ^1.1.234
   flutter_feather_icons: ^2.0.0+1
   simple_icons: ^10.1.3
