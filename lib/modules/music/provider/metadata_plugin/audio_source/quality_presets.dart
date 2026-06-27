@@ -62,7 +62,7 @@ class AudioSourceAvailableQualityPresetsNotifier
     audioSourceConfigSnapshot.whenData((audioSourceConfig) {
       audioSourceSnapshot.whenData((audioSource) async {
         if (audioSource == null || audioSourceConfig == null) {
-          throw MetadataPluginException.noDefaultAudioSourcePlugin();
+          return;
         }
         final preferences = await SharedPreferences.getInstance();
         final persistedStateStr =
