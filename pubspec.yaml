@@ -226,6 +226,11 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.2
 
 dependency_overrides:
+  flutter_inappwebview:
+    git:
+      url: https://github.com/kodjodevf/flutter_inappwebview.git
+      path: flutter_inappwebview
+      ref: master
   desktop_webview_window:
     git:
       url: https://github.com/kodjodevf/desktop_webview_window.git
