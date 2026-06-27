@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' hide Response;
 import 'package:dio/dio.dart' as dio_lib;
 import 'package:flutter/foundation.dart';
@@ -58,13 +59,15 @@ class ServerPlaybackRoutes {
     String trackId,
   ) async {
     final track =
-        playlist.tracks.firstWhere((element) => element.id == trackId);
+        playlist.tracks.firstWhereOrNull((element) => element.id == trackId);
+    if (track == null) return null;
 
     final activeSourcedTrack =
         await ref.read(activeTrackSourcesProvider.future);
 
     final media = audioPlayer.playlist.medias
-        .firstWhere((e) => e.uri == request.requestedUri.toString());
+        .firstWhereOrNull((e) => e.uri == request.requestedUri.toString());
+    if (media == null) return null;
     final spotubeMedia =
         media is SpotubeMedia ? media : SpotubeMedia.media(media);
     final sourcedTrack = activeSourcedTrack?.track.id == track.id
@@ -112,9 +115,8 @@ class ServerPlaybackRoutes {
     final options = Options(
       headers: {
         "user-agent": _randomUserAgent,
-        "Cache-Control": "max-age=3600",
+        "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-        "host": Uri.parse(url).host,
       },
       validateStatus: (status) => status! < 400,
     );
@@ -162,13 +164,17 @@ class ServerPlaybackRoutes {
             .swapWithNextSibling()
             .then((track) => track.url!);
 
+    // Build clean headers for the upstream CDN request.
+    // Do NOT forward mpv/ICY headers (icy-metadata, icy-timeout, host, connection)
+    // as YouTube CDN rejects requests containing them (→ 403).
+    // Only forward `range` so the CDN can serve partial content correctly.
+    final rangeHeader = headers['range'] ?? headers['Range'];
     final options = Options(
       headers: {
-        ...headers,
         "user-agent": _randomUserAgent,
-        "Cache-Control": "max-age=3600",
+        "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-        "host": Uri.parse(url).host,
+        if (rangeHeader != null) "range": rangeHeader,
       },
       responseType: ResponseType.stream,
       validateStatus: (status) => status! < 400,
