@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 /// cannot be compiled with dart2js.  On web the music feature shows a simple
 /// "not available" message instead.
 class MusicDiscoveryScreen extends StatelessWidget {
-  const MusicDiscoveryScreen({super.key});
+  final String? initialRoute;
+  const MusicDiscoveryScreen({super.key, this.initialRoute});
 
   @override
   Widget build(BuildContext context) {
