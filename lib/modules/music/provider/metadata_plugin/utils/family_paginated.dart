@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/common.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 
@@ -14,24 +15,22 @@ abstract class FamilyPaginatedAsyncNotifier<K, A>
   Future<void> fetchMore() async {
     if (state.value == null || !state.value!.hasMore) return;
 
-    final oldState = state.value;
+    final oldState = state.value!;
 
     try {
-      state = AsyncLoadingNext(state.asData!.value);
-
       final newState = await fetch(
-        state.value!.nextOffset!,
-        state.value!.limit,
+        oldState.nextOffset!,
+        oldState.limit,
       );
 
       final oldItems =
-          state.value!.items.isEmpty ? <K>[] : state.value!.items.cast<K>();
+          oldState.items.isEmpty ? <K>[] : oldState.items.cast<K>();
       final items = newState.items.isEmpty ? <K>[] : newState.items.cast<K>();
 
       state = AsyncData(newState.copyWith(items: <K>[...oldItems, ...items]));
     } catch (e, stack) {
       AppLogger.reportError(e, stack);
-      state = AsyncData(oldState!);
+      state = AsyncData(oldState);
     }
   }
 
@@ -80,25 +79,23 @@ abstract class AutoDisposeFamilyPaginatedAsyncNotifier<K, A>
 
   Future<void> fetchMore() async {
     if (state.value == null || !state.value!.hasMore) return;
-    final oldState = state.value;
+    final oldState = state.value!;
 
     try {
-      state = AsyncLoadingNext(state.value!);
-
       final newState = await fetch(
-        state.value!.nextOffset!,
-        state.value!.limit,
+        oldState.nextOffset!,
+        oldState.limit,
       );
 
       state = AsyncData(
         newState.copyWith(items: [
-          ...state.value!.items.cast<K>(),
+          ...oldState.items.cast<K>(),
           ...newState.items.cast<K>(),
         ]),
       );
     } catch (e, stack) {
       AppLogger.reportError(e, stack);
-      state = AsyncData(oldState!);
+      state = AsyncData(oldState);
     }
   }
 

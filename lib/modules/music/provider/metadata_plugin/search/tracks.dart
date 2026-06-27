@@ -31,7 +31,7 @@ class MetadataPluginSearchTracksNotifier
   }
 
   @override
-  build(arg) async {
+  build() async {
     ref.cacheFor();
 
     ref.watch(metadataPluginProvider);
@@ -42,5 +42,5 @@ class MetadataPluginSearchTracksNotifier
 final metadataPluginSearchTracksProvider =
     AsyncNotifierProvider.family<MetadataPluginSearchTracksNotifier,
         SpotubePaginationResponseObject<SpotubeFullTrackObject>, String>(
-  () => MetadataPluginSearchTracksNotifier(),
+  (a) => MetadataPluginSearchTracksNotifier()..initFamily(a),
 );

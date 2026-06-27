@@ -21,7 +21,7 @@ class MetadataPluginAlbumTracksNotifier
   }
 
   @override
-  build(arg) async {
+  build() async {
     ref.cacheFor();
 
     ref.watch(metadataPluginProvider);
@@ -32,5 +32,5 @@ class MetadataPluginAlbumTracksNotifier
 final metadataPluginAlbumTracksProvider =
     AsyncNotifierProvider.family<MetadataPluginAlbumTracksNotifier,
         SpotubePaginationResponseObject<SpotubeFullTrackObject>, String>(
-  () => MetadataPluginAlbumTracksNotifier(),
+  (a) => MetadataPluginAlbumTracksNotifier()..initFamily(a),
 );

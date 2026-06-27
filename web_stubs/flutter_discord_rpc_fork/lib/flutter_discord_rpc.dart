@@ -74,6 +74,7 @@ class RpcActivity {
 
 class _FlutterDiscordRPCInstance {
   bool isConnected = false;
+  Stream<bool> get isConnectedStream => Stream.empty();
   Future<void> connect({
     required dynamic autoRetry,
     Duration? retryDelay,

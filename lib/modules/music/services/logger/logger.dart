@@ -148,10 +148,9 @@ class AppLoggerProviderObserver extends ProviderObserver {
 
   @override
   void providerDidFail(
-    ProviderBase<Object?> provider,
+    ProviderObserverContext context,
     Object error,
     StackTrace stackTrace,
-    ProviderContainer container,
   ) {
     AppLogger.reportError(error, stackTrace);
   }

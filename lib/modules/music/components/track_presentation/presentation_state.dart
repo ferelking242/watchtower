@@ -36,7 +36,7 @@ class PresentationState {
 class PresentationStateNotifier
     extends AutoDisposeFamilyNotifier<PresentationState, Object> {
   @override
-  PresentationState build(collection) {
+  PresentationState build() {
     if (arg case SpotubeSimplePlaylistObject() || SpotubeSimpleAlbumObject()) {
       if (isSavedTrackPlaylist) {
         ref.listen(
@@ -177,5 +177,5 @@ class PresentationStateNotifier
 
 final presentationStateProvider = NotifierProvider.family<
     PresentationStateNotifier, PresentationState, Object>(
-  () => PresentationStateNotifier(),
+  (a) => PresentationStateNotifier()..initFamily(a),
 );

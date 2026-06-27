@@ -119,7 +119,7 @@ class HistoryTopTracksNotifier extends FamilyPaginatedAsyncNotifier<
   }
 
   @override
-  build(arg) async {
+  build() async {
     final subscription = createTracksQuery().watch().listen((event) {
       if (state.asData == null) return;
       state = AsyncData(state.asData!.value.copyWith(
@@ -192,5 +192,5 @@ final historyTopTracksProvider = AsyncNotifierProvider.family<
     HistoryTopTracksNotifier,
     SpotubePaginationResponseObject<PlaybackHistoryTrack>,
     HistoryDuration>(
-  () => HistoryTopTracksNotifier(),
+  (a) => HistoryTopTracksNotifier()..initFamily(a),
 );

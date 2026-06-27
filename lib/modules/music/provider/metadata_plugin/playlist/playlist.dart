@@ -21,7 +21,8 @@ class MetadataPluginPlaylistNotifier
   }
 
   @override
-  build(playlistId) async {
+  build() async {
+    final playlistId = arg;
     ref.cacheFor();
 
     return (await metadataPlugin).playlist.getPlaylist(playlistId);
@@ -128,5 +129,5 @@ class MetadataPluginPlaylistNotifier
 
 final metadataPluginPlaylistProvider = AsyncNotifierProvider.family<
     MetadataPluginPlaylistNotifier, SpotubeFullPlaylistObject, String>(
-  () => MetadataPluginPlaylistNotifier(),
+  (a) => MetadataPluginPlaylistNotifier()..initFamily(a),
 );

@@ -31,7 +31,7 @@ class MetadataPluginSearchPlaylistsNotifier
   }
 
   @override
-  build(arg) async {
+  build() async {
     ref.cacheFor();
 
     ref.watch(metadataPluginProvider);
@@ -44,5 +44,5 @@ final metadataPluginSearchPlaylistsProvider =
         MetadataPluginSearchPlaylistsNotifier,
         SpotubePaginationResponseObject<SpotubeSimplePlaylistObject>,
         String>(
-  () => MetadataPluginSearchPlaylistsNotifier(),
+  (a) => MetadataPluginSearchPlaylistsNotifier()..initFamily(a),
 );

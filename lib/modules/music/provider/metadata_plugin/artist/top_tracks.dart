@@ -21,7 +21,7 @@ class MetadataPluginArtistTopTracksNotifier
   }
 
   @override
-  build(arg) async {
+  build() async {
     ref.cacheFor();
 
     ref.watch(metadataPluginProvider);
@@ -34,5 +34,5 @@ final metadataPluginArtistTopTracksProvider =
         MetadataPluginArtistTopTracksNotifier,
         SpotubePaginationResponseObject<SpotubeFullTrackObject>,
         String>(
-  () => MetadataPluginArtistTopTracksNotifier(),
+  (a) => MetadataPluginArtistTopTracksNotifier()..initFamily(a),
 );

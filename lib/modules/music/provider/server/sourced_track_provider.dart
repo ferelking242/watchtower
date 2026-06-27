@@ -10,7 +10,8 @@ import 'package:watchtower/modules/music/services/sourced_track/sourced_track.da
 class SourcedTrackNotifier
     extends FamilyAsyncNotifier<SourcedTrack, SpotubeFullTrackObject> {
   @override
-  FutureOr<SourcedTrack> build(query) {
+  FutureOr<SourcedTrack> build() {
+    final query = arg;
     ref.watch(audioSourcePluginProvider);
     ref.watch(audioSourcePresetsProvider);
 
@@ -46,5 +47,5 @@ class SourcedTrackNotifier
 
 final sourcedTrackProvider = AsyncNotifierProvider.family<SourcedTrackNotifier,
     SourcedTrack, SpotubeFullTrackObject>(
-  () => SourcedTrackNotifier(),
+  (a) => SourcedTrackNotifier()..initFamily(a),
 );

@@ -79,7 +79,7 @@ class HistoryTopAlbumsNotifier extends FamilyPaginatedAsyncNotifier<
   }
 
   @override
-  build(arg) async {
+  build() async {
     final subscription = createAlbumsQuery().watch().listen((event) {
       if (state.asData == null) return;
       state = AsyncData(state.asData!.value.copyWith(
@@ -112,5 +112,5 @@ final historyTopAlbumsProvider = AsyncNotifierProvider.family<
     HistoryTopAlbumsNotifier,
     SpotubePaginationResponseObject<PlaybackHistoryAlbum>,
     HistoryDuration>(
-  () => HistoryTopAlbumsNotifier(),
+  (a) => HistoryTopAlbumsNotifier()..initFamily(a),
 );

@@ -31,7 +31,7 @@ class MetadataPluginSearchArtistsNotifier
   }
 
   @override
-  build(arg) async {
+  build() async {
     ref.cacheFor();
 
     ref.watch(metadataPluginProvider);
@@ -42,5 +42,5 @@ class MetadataPluginSearchArtistsNotifier
 final metadataPluginSearchArtistsProvider =
     AsyncNotifierProvider.family<MetadataPluginSearchArtistsNotifier,
         SpotubePaginationResponseObject<SpotubeFullArtistObject>, String>(
-  () => MetadataPluginSearchArtistsNotifier(),
+  (a) => MetadataPluginSearchArtistsNotifier()..initFamily(a),
 );

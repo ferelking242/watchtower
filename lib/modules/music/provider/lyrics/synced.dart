@@ -89,7 +89,8 @@ class SyncedLyricsNotifier
   }
 
   @override
-  FutureOr<SubtitleSimple> build(track) async {
+  FutureOr<SubtitleSimple> build() async {
+    final track = arg;
     try {
       final database = ref.watch(databaseProvider);
 
@@ -136,7 +137,7 @@ final syncedLyricsDelayProvider = StateProvider<int>((ref) => 0);
 
 final syncedLyricsProvider = AsyncNotifierProvider.family<SyncedLyricsNotifier,
     SubtitleSimple, SpotubeTrackObject?>(
-  () => SyncedLyricsNotifier(),
+  (a) => SyncedLyricsNotifier()..initFamily(a),
 );
 
 final syncedLyricsMapProvider =

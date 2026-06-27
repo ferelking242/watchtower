@@ -18,7 +18,7 @@ class MetadataPluginBrowseSectionItemsNotifier
   }
 
   @override
-  build(arg) async {
+  build() async {
     ref.watch(metadataPluginAuthenticatedProvider);
     return await fetch(0, 20);
   }
@@ -28,5 +28,5 @@ final metadataPluginBrowseSectionItemsProvider = AsyncNotifierProvider.family<
     MetadataPluginBrowseSectionItemsNotifier,
     SpotubePaginationResponseObject<Object>,
     String>(
-  () => MetadataPluginBrowseSectionItemsNotifier(),
+  (a) => MetadataPluginBrowseSectionItemsNotifier()..initFamily(a),
 );

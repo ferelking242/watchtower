@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_discord_rpc/flutter_discord_rpc.dart';
+import 'package:flutter_discord_rpc_fork/flutter_discord_rpc.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';

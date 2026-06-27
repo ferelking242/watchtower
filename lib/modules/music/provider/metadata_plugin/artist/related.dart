@@ -18,7 +18,7 @@ class MetadataPluginArtistRelatedArtistsNotifier
   }
 
   @override
-  build(arg) async {
+  build() async {
     ref.watch(metadataPluginProvider);
     return await fetch(0, 20);
   }
@@ -28,5 +28,5 @@ final metadataPluginArtistRelatedArtistsProvider = AsyncNotifierProvider.family<
     MetadataPluginArtistRelatedArtistsNotifier,
     SpotubePaginationResponseObject<SpotubeFullArtistObject>,
     String>(
-  () => MetadataPluginArtistRelatedArtistsNotifier(),
+  (a) => MetadataPluginArtistRelatedArtistsNotifier()..initFamily(a),
 );
