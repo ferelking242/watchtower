@@ -165,7 +165,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate app icons (flutter_launcher_icons)
+
+        - name: Fix flutter_new_pipe_extractor missing assets dir
+          run: |
+            find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read d; do
+              mkdir -p "$d/assets"
+            done
+
+        - name: Generate app icons (flutter_launcher_icons)
         run: dart run flutter_launcher_icons
 
       - name: Build APK (ARMv8 release)
