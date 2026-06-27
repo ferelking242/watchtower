@@ -61,7 +61,6 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     final parentDispatcher = Router.of(context).backButtonDispatcher;
 
     // shadcn_flutter widgets call context.theme.scaling / surfaceBlur /
@@ -72,7 +71,6 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
     return shadcn.Theme(
       data: shadcn.ThemeData(
         colorScheme: shadcn.LegacyColorSchemes.zinc,
-        brightness: brightness,
       ),
       child: Router(
         routerDelegate: _router.delegate(),
