@@ -50,8 +50,12 @@
   -dontwarn com.mr.flutter.**
   -dontwarn com.bluechilli.**
 
-  # Rhino JS engine (flutter_new_pipe_extractor) — java.beans absent on Android
+  # Rhino JS engine (flutter_new_pipe_extractor) - java.beans absent on Android
   -dontwarn java.beans.**
   -dontwarn javax.script.**
   -dontwarn org.mozilla.javascript.**
+
+  # Google Play Core (split APK / deferred components) - not present in sideload APK builds
+  -dontwarn com.google.android.play.**
+  -dontwarn com.google.android.play.core.**
   
