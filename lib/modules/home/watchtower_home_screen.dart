@@ -452,7 +452,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       case _HomeTab.musique:
         return _promoTab(ctx, icon: Icons.queue_music_rounded,
             title: 'Musique', subtitle: 'Stream & télécharge',
-            color: const Color(0xFF9B59B6), route: '/MusicLibrary');
+            color: const Color(0xFF9B59B6), route: '/MusicSearch');
       case _HomeTab.jeux:
         return _promoTab(ctx, icon: Icons.sports_esports_rounded,
             title: 'Jeux', subtitle: 'Bibliothèque ROM',
