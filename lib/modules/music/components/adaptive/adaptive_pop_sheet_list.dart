@@ -58,6 +58,12 @@ class AdaptivePopSheetList<T> extends StatelessWidget {
 
   Future<void> showDropdownMenu(BuildContext context, Offset position) async {
     final mediaQuery = MediaQuery.of(context);
+    // Capture the shadcn theme BEFORE entering the overlay so the builder
+    // context (which comes from a new overlay entry) can re-inject it.
+    // Without this, openDrawer/showDropdown builders have no shadcn ancestor
+    // and shadcn widgets render as blank gray boxes.
+    final capturedTheme = Theme.of(context);
+
     List<MenuButton> childrenModified(BuildContext context) =>
         items(context).map((s) {
           if (s.onPressed == null) {
@@ -91,9 +97,12 @@ class AdaptivePopSheetList<T> extends StatelessWidget {
         // ),
         position: position,
         builder: (context) {
-          return WidgetStatesProvider.boundary(
-            child: DropdownMenu(
-              children: childrenModified(context),
+          return Theme(
+            data: capturedTheme,
+            child: WidgetStatesProvider.boundary(
+              child: DropdownMenu(
+                children: childrenModified(context),
+              ),
             ),
           );
         },
@@ -110,29 +119,32 @@ class AdaptivePopSheetList<T> extends StatelessWidget {
       transformBackdrop: false,
       builder: (context) {
         final children = childrenModified(context);
-        return ListView.builder(
-          itemCount: children.length,
-          shrinkWrap: true,
-          itemBuilder: (context, index) {
-            final data = children[index];
+        return Theme(
+          data: capturedTheme,
+          child: ListView.builder(
+            itemCount: children.length,
+            shrinkWrap: true,
+            itemBuilder: (context, index) {
+              final data = children[index];
 
-            return Button(
-              enabled: data.enabled,
-              style: ButtonVariance.ghost.copyWith(
-                padding: (context, state, value) => const EdgeInsets.all(16),
-              ),
-              onPressed: () {
-                data.onPressed?.call(context);
-                if (data.autoClose) {
-                  closeDrawer(context);
-                }
-              },
-              leading: data.leading,
-              trailing: data.trailing,
-              alignment: Alignment.centerLeft,
-              child: data.child,
-            );
-          },
+              return Button(
+                enabled: data.enabled,
+                style: ButtonVariance.ghost.copyWith(
+                  padding: (context, state, value) => const EdgeInsets.all(16),
+                ),
+                onPressed: () {
+                  data.onPressed?.call(context);
+                  if (data.autoClose) {
+                    closeDrawer(context);
+                  }
+                },
+                leading: data.leading,
+                trailing: data.trailing,
+                alignment: Alignment.centerLeft,
+                child: data.child,
+              );
+            },
+          ),
         );
       },
     );
