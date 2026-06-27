@@ -18,8 +18,9 @@ part 'audio_player_impl.dart';
 class SpotubeMedia extends mk.Media {
   static int serverPort = 0;
 
-  static String get _host =>
-      kIsWindows ? "localhost" : InternetAddress.anyIPv4.address;
+  // Always connect to loopback — the server binds on anyIPv4 (0.0.0.0) to
+  // listen on all interfaces, but HTTP clients must target 127.0.0.1 not 0.0.0.0.
+  static String get _host => "127.0.0.1";
 
   final SpotubeTrackObject track;
   SpotubeMedia(this.track)

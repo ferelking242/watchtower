@@ -19,10 +19,10 @@ import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
-// 0=Tout 1=Film 2=Série 3=Anime 4=Asia 5=Enfant 6=Occidental 7=Africa 8=TV Court 9=Football 10=Musique 11=Jeux
+// 0=Tout 1=Film 2=Série 3=Musique 4=Anime 5=Asia 6=Enfant 7=Occidental 8=Africa 9=TV Court 10=Football 11=Jeux
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _HomeTab { tout, film, serie, anime, asia, enfant, occidental, africa, tvCourt, football, musique, jeux }
+enum _HomeTab { tout, film, serie, musique, anime, asia, enfant, occidental, africa, tvCourt, football, jeux }
 
 /// Premium streaming home screen — Disney+ / Netflix / Apple TV+ hybrid.
 ///

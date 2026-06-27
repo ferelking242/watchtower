@@ -10,6 +10,7 @@ const kHomeTabs = [
   'Tout',
   'Film',
   'Série',
+  'Musique',   // ← Discovery Music pill entre Série et Anime
   'Anime',
   'Asia',
   'Enfant',
@@ -17,7 +18,6 @@ const kHomeTabs = [
   'Africa',
   'TV Court',
   'Football',
-  'Musique',
   'Jeux',
 ];
 
@@ -26,14 +26,14 @@ const kHomeTabIcons = <int, IconData>{
   0: Icons.all_inclusive_rounded,
   1: Icons.movie_creation_rounded,
   2: Icons.live_tv_rounded,
-  3: Icons.animation_rounded,
-  4: Icons.language_rounded,
-  5: Icons.child_care_rounded,
-  6: Icons.public_rounded,
-  7: Icons.flag_rounded,
-  8: Icons.timer_rounded,
-  9: Icons.sports_soccer_rounded,
-  10: Icons.headphones_rounded,
+  3: Icons.headphones_rounded,   // Musique
+  4: Icons.animation_rounded,
+  5: Icons.language_rounded,
+  6: Icons.child_care_rounded,
+  7: Icons.public_rounded,
+  8: Icons.flag_rounded,
+  9: Icons.timer_rounded,
+  10: Icons.sports_soccer_rounded,
   11: Icons.videogame_asset_rounded,
 };
 

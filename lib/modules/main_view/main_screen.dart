@@ -245,17 +245,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               bool uniqueSwitch = false;
               // Guard isLibSwitch with mergeLibraryNavMobile so that disabling
               // the Hub toggle instantly collapses back to the normal item list.
-              List<String> dest =
-                  isLibSwitch && mergeLibraryNavMobile
-                  ? [
-                      "_disableLibSwitch",
-                      ...navigationOrder.where(
-                        (nav) => libLocationRegex.hasMatch(nav),
-                      ),
-                    ].where((nav) => !hideItems.contains(nav)).toList()
-                  : navigationOrder
-                        .where((nav) => !hideItems.contains(nav))
-                        .toList();
+              List<String> dest;
+              if (isLibSwitch && mergeLibraryNavMobile) {
+                final libItems = navigationOrder
+                    .where((nav) => libLocationRegex.hasMatch(nav))
+                    .toList();
+                dest = [
+                  "_disableLibSwitch",
+                  ...libItems,
+                ].where((nav) => !hideItems.contains(nav)).toList();
+                // Always expose Music in the Hub sub-dock even if the user
+                // hasn't added /MusicLibrary to their navigation order.
+                final hasMusicInDest = dest.any((n) =>
+                    n == '/MusicLibrary' || n == '/MusicSearch');
+                if (!hasMusicInDest && !hideItems.contains('/MusicSearch')) {
+                  dest.add('/MusicSearch');
+                }
+                // Reset dock-hidden state so the sub-dock is always visible.
+                Future.microtask(
+                    () => ref.read(dockHiddenProvider.notifier).set(false));
+              } else {
+                dest = navigationOrder
+                    .where((nav) => !hideItems.contains(nav))
+                    .toList();
+              }
 
               if (mergeLibraryNavMobile && !isLibSwitch) {
                 dest = dest
@@ -504,8 +517,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               r.watch(musicPlayerProvider.select((s) => s.activeTrack != null));
                           if (!hasTrack) return const SizedBox.shrink();
                           final bottomInset = MediaQuery.of(ctx).padding.bottom;
-                          // Floating dock height: 64px height + 14px bottom pad
-                          final dockHeight = dockStyle == 'classic' ? 60.0 : 78.0;
+                          // Floating dock height: 54px height + 10px bottom pad
+                          final dockHeight = dockStyle == 'classic' ? 50.0 : 64.0;
                           return Positioned(
                             bottom: dockHeight + bottomInset,
                             left: 0,
@@ -1582,11 +1595,15 @@ class _FloatingDock extends StatefulWidget {
 
 class _FloatingDockState extends State<_FloatingDock> {
   final ScrollController _scrollController = ScrollController();
+  // Dedicated controllers for the detached Back/Menu pills so they are
+  // properly disposed (no leaks from creating ScrollController() inline).
+  final ScrollController _backPillCtrl = ScrollController();
+  final ScrollController _menuPillCtrl = ScrollController();
   bool _menuOpen = false;
 
-  static const double _itemWidth = 64.0;
-  static const double _dockHeight = 64.0;
-  static const double _dockBottomPad = 14.0;
+  static const double _itemWidth = 58.0;   // ↓ was 64 — slimmer dock items
+  static const double _dockHeight = 54.0;  // ↓ was 64 — less vertical bulk
+  static const double _dockBottomPad = 10.0; // ↓ was 14
   static const double _pillHPad = 6.0;
   static const int _maxInlineItems = 5;
 
@@ -1614,6 +1631,8 @@ class _FloatingDockState extends State<_FloatingDock> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _backPillCtrl.dispose();
+    _menuPillCtrl.dispose();
     super.dispose();
   }
 
@@ -1880,7 +1899,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                       child: _DockPill(
                         items: [backItem],
                         itemWidth: _itemWidth,
-                        scrollController: ScrollController(),
+                        scrollController: _backPillCtrl,
                         isActive: _isActive,
                         ref: widget.ref,
                         needsScroll: false,
@@ -1914,7 +1933,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                       child: _DockPill(
                         items: [menuItem],
                         itemWidth: _itemWidth,
-                        scrollController: ScrollController(),
+                        scrollController: _menuPillCtrl,
                         isActive: _isActive,
                         ref: widget.ref,
                         needsScroll: false,
@@ -2290,7 +2309,7 @@ class _ClassicDock extends StatelessWidget {
         duration: Duration(milliseconds: itemAnimMs),
         curve: Curves.easeOutCubic,
         margin: EdgeInsets.symmetric(horizontal: spacing / 2),
-        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 5),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
