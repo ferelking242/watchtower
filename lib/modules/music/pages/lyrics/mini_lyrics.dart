@@ -204,6 +204,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                       icon: const Icon(SpotubeIcons.queue),
                       onPressed: playlistQueue.activeTrack != null
                           ? () {
+                              final capturedTheme = Theme.of(context);
                               openDrawer(
                                 context: context,
                                 barrierDismissible: true,
@@ -215,27 +216,34 @@ class MiniLyricsPage extends HookConsumerWidget {
                                 surfaceBlur: context.theme.surfaceBlur,
                                 surfaceOpacity: 0.7,
                                 expands: true,
-                                builder: (context) => Consumer(
-                                  builder: (context, ref, _) {
-                                    final playlist = ref.watch(
-                                      audioPlayerProvider,
-                                    );
-                                    final playlistNotifier =
-                                        ref.read(audioPlayerProvider.notifier);
-                                    return ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxHeight:
-                                            MediaQuery.of(context).size.height *
+                                builder: (context) => Theme(
+                                  data: capturedTheme,
+                                  child: Material(
+                                    type: MaterialType.transparency,
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final playlist = ref.watch(
+                                          audioPlayerProvider,
+                                        );
+                                        final playlistNotifier = ref
+                                            .read(audioPlayerProvider.notifier);
+                                        return ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxHeight: MediaQuery.of(context)
+                                                    .size
+                                                    .height *
                                                 0.8,
-                                      ),
-                                      child:
-                                          PlayerQueue.fromAudioPlayerNotifier(
-                                        floating: false,
-                                        playlist: playlist,
-                                        notifier: playlistNotifier,
-                                      ),
-                                    );
-                                  },
+                                          ),
+                                          child:
+                                              PlayerQueue.fromAudioPlayerNotifier(
+                                            floating: false,
+                                            playlist: playlist,
+                                            notifier: playlistNotifier,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ),
                               );
                             }
