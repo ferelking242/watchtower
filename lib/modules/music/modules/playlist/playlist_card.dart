@@ -52,12 +52,14 @@ class PlaylistCard extends HookConsumerWidget {
 
     final fetchInitialTracks = useCallback(() async {
       if (playlist.id == 'user-liked-tracks') {
-        final tracks = await ref.read(metadataPluginSavedTracksProvider.future);
+        final tracks = await ref.read(metadataPluginSavedTracksProvider.future)
+            as SpotubePaginationResponseObject;
         return tracks.items;
       }
 
       final result = await ref
-          .read(metadataPluginPlaylistTracksProvider(playlist.id).future);
+          .read(metadataPluginPlaylistTracksProvider(playlist.id).future)
+          as SpotubePaginationResponseObject;
 
       return result.items;
     }, [playlist.id, ref]);

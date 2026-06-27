@@ -38,6 +38,14 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   void initState() {
     super.initState();
     _router = SpotubeAppRouter();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final routes = _initialRoutes;
+        if (routes.isNotEmpty) {
+          _router.navigate(routes.first);
+        }
+      }
+    });
   }
 
   @override
@@ -50,9 +58,7 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   Widget build(BuildContext context) {
     final parentDispatcher = Router.of(context).backButtonDispatcher;
     return Router(
-      routerDelegate: _router.delegate(
-        initialRoutes: _initialRoutes,
-      ),
+      routerDelegate: _router.delegate(),
       backButtonDispatcher: parentDispatcher != null
           ? ChildBackButtonDispatcher(parentDispatcher)
           : RootBackButtonDispatcher(),

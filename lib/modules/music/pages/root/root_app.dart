@@ -54,7 +54,7 @@ class RootAppPage extends HookConsumerWidget {
                 padding: MediaQuery.paddingOf(context)
                     .copyWith(bottom: 100 * context.theme.scaling),
               ),
-              child: const AutoRouter(),
+              child: AutoRouter(),
             ),
           ),
         ),

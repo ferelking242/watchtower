@@ -1,3 +1,4 @@
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'dart:convert';
 import 'dart:io';
 

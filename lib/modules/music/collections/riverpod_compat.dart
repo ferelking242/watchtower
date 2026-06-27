@@ -19,3 +19,25 @@ typedef AutoDisposeNotifier<T> = Notifier<T>;
 typedef AutoDisposeRef = Ref;
 typedef AutoDisposeAsyncNotifierProviderRef = Ref;
 typedef AsyncNotifierBase<T> = AsyncNotifier<T>;
+
+extension AsyncValueCompat<T> on AsyncValue<T> {
+  T? get valueOrNull => whenOrNull(data: (v) => v);
+}
+
+class _StateNotifier<T> extends Notifier<T> {
+  _StateNotifier(this._create);
+  final T Function(Ref) _create;
+
+  @override
+  T build() => _create(ref);
+}
+
+NotifierProvider<_StateNotifier<T>, T> StateProvider<T>(
+  T Function(Ref) create, {
+  String? name,
+}) {
+  return NotifierProvider<_StateNotifier<T>, T>(
+    () => _StateNotifier<T>(create),
+    name: name,
+  );
+}

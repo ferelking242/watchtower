@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/widgets.dart';
 
 export 'window_manager.dart';
 
@@ -18,16 +19,27 @@ mixin WindowListener {
   void onWindowLeaveFullScreen() {}
 }
 
+class TitleBarStyle {
+  final String _name;
+  const TitleBarStyle._(this._name);
+  static const TitleBarStyle normal = TitleBarStyle._('normal');
+  static const TitleBarStyle hidden = TitleBarStyle._('hidden');
+  @override
+  String toString() => _name;
+}
+
 class WindowOptions {
   final Size? size;
+  final Size? minimumSize;
   final bool center;
-  final String? backgroundColor;
+  final Color? backgroundColor;
   final bool? skipTaskbar;
-  final String? titleBarStyle;
+  final TitleBarStyle? titleBarStyle;
   final bool? windowButtonVisibility;
   final String? title;
   const WindowOptions({
     this.size,
+    this.minimumSize,
     this.center = false,
     this.backgroundColor,
     this.skipTaskbar,
@@ -65,6 +77,18 @@ class _WindowManager {
   Future<void> focus() async {}
   Future<void> blur() async {}
   Future<void> close() async {}
+  Future<void> setResizable(bool resizable) async {}
+  Future<void> setHasShadow(bool hasShadow) async {}
+  Future<void> setAlignment(Alignment alignment) async {}
+  Future<void> setTitleBarStyle(TitleBarStyle style) async {}
+  Future<void> startDragging() async {}
 }
 
 final windowManager = _WindowManager();
+
+class DragToMoveArea extends StatelessWidget {
+  final Widget child;
+  const DragToMoveArea({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) => child;
+}

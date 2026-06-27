@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'dart:ui';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';

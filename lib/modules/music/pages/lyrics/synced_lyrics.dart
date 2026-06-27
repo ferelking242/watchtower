@@ -174,7 +174,7 @@ class SyncedLyrics extends HookConsumerWidget {
                                     onTap: () async {
                                       final time = Duration(
                                         seconds:
-                                            lyricSlice.time.inSeconds - delay,
+                                            (lyricSlice.time.inSeconds - delay).toInt(),
                                       );
                                       if (time > audioPlayer.duration ||
                                           time.isNegative) {

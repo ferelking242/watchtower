@@ -143,7 +143,7 @@ class AppLogger {
   }
 }
 
-class AppLoggerProviderObserver extends ProviderObserver {
+base class AppLoggerProviderObserver extends ProviderObserver {
   const AppLoggerProviderObserver();
 
   @override
