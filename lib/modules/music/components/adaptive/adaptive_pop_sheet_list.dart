@@ -2,6 +2,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class AdaptiveMenuButton<T> extends MenuButton {
   final T? value;
