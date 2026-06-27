@@ -184,9 +184,16 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     ];
 
     for (final plugin in plugins) {
-      final byteData = await rootBundle.load(
-        "assets/plugins/$plugin/plugin.smplug",
-      );
+      ByteData byteData;
+      try {
+        byteData = await rootBundle.load(
+          "assets/plugins/$plugin/plugin.smplug",
+        );
+      } catch (_) {
+        // Bundled plugin asset not found — skip silently.  The user can
+        // install plugins manually from the plugin repository page.
+        continue;
+      }
       final pluginConfig =
           await extractPluginArchive(byteData.buffer.asUint8List());
       try {
