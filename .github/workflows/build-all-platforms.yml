@@ -49,6 +49,24 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.gradle/caches/build-cache-1
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Cache Android SDK extras (NDK, CMake)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
       - name: Decode keystore from secret
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
@@ -124,6 +142,24 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.gradle/caches/build-cache-1
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Cache Android SDK extras (NDK, CMake)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
       - name: Decode keystore from secret
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
@@ -184,30 +220,31 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      - name: Cache Rust (Linux x64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-linux-x64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-linux-x64-${{ runner.os }}-
+
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libblkid-dev libmount-dev \
             libglib2.0-dev libdbus-1-dev \
-            p7zip-full golang-go
-          sudo apt-get install -y libsecret-1-dev 2>/dev/null || true
-          sudo apt-get install -y libjsoncpp-dev 2>/dev/null || true
-          sudo apt-get install -y libgstreamer1.0-dev 2>/dev/null || true
-          sudo apt-get install -y libgstreamer-plugins-base1.0-dev 2>/dev/null || true
-          sudo apt-get install -y libgstreamer-plugins-bad1.0-dev 2>/dev/null || true
-          sudo apt-get install -y gstreamer1.0-plugins-good 2>/dev/null || true
-          sudo apt-get install -y gstreamer1.0-plugins-bad 2>/dev/null || true
-          sudo apt-get install -y libasound2-dev 2>/dev/null || true
-          sudo apt-get install -y libpulse-dev 2>/dev/null || true
-          sudo apt-get install -y libxcb-xfixes0-dev 2>/dev/null || true
-          sudo apt-get install -y libepoxy-dev 2>/dev/null || true
-          sudo apt-get install -y libmpv-dev 2>/dev/null || true
-          sudo apt-get install -y mpv 2>/dev/null || true
-          sudo apt-get install -y libstdc++-12-dev 2>/dev/null || true
-          sudo apt-get install -y libstdc++-13-dev 2>/dev/null || true
-          sudo apt-get install -y libstdc++-14-dev 2>/dev/null || true
+            libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev \
+            gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+            libasound2-dev libpulse-dev libxcb-xfixes0-dev \
+            libepoxy-dev libmpv-dev mpv \
+            p7zip-full golang-go || true
 
       - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
         uses: dtolnay/rust-toolchain@stable
@@ -319,6 +356,17 @@ jobs:
             ${{ env.LOCALAPPDATA }}\Pub\Cache
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
+
+      - name: Cache Rust (Windows x64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-windows-x64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-windows-x64-${{ runner.os }}-
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
