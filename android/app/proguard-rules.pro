@@ -7,11 +7,10 @@
   -keep class io.flutter.plugins.** { *; }
   -keep class io.flutter.embedding.** { *; }
 
-  # ── Flutter plugins — keep ALL FlutterPlugin implementations ─────────────────
+  # Flutter plugins
   -keep class * implements io.flutter.embedding.engine.plugins.FlutterPlugin { *; }
   -keep class * implements io.flutter.plugin.common.PluginRegistry$RegistrarGetter { *; }
 
-  # Blanket keep for known Flutter plugin vendor packages
   -keep class com.aaassseee.** { *; }
   -keep class com.alexmercerind.** { *; }
   -keep class com.eyedeadevelopment.** { *; }
@@ -34,7 +33,6 @@
   -keep class com.getkeepsafe.** { *; }
   -keep class com.crazecoder.** { *; }
 
-  # Suppress R8 warnings for all plugin packages (they exist at runtime)
   -dontwarn com.aaassseee.**
   -dontwarn com.alexmercerind.**
   -dontwarn com.eyedeadevelopment.**
@@ -52,8 +50,7 @@
   -dontwarn com.mr.flutter.**
   -dontwarn com.bluechilli.**
 
-  # ── Rhino JS engine (flutter_new_pipe_extractor / NewPipe) ───────────────────
-  # Rhino uses java.beans reflection not present on Android runtime.
+  # Rhino JS engine (flutter_new_pipe_extractor) — java.beans absent on Android
   -dontwarn java.beans.**
   -dontwarn javax.script.**
   -dontwarn org.mozilla.javascript.**
