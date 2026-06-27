@@ -1733,9 +1733,12 @@ class _FloatingDockState extends State<_FloatingDock> {
       }
     }
 
-    // Cap at 4 user destinations; extras become overflow (shown in menu overlay)
-    if (items.length > 4) {
-      items.removeRange(4, items.length);
+    // In Hub sub-dock mode (_disableLibSwitch present), allow 5 slots so that
+    // Back + Watch + Manga + Novel + Music all fit; otherwise cap at 4.
+    final _hubMode = d.contains('_disableLibSwitch');
+    final _cap = _hubMode ? 5 : 4;
+    if (items.length > _cap) {
+      items.removeRange(_cap, items.length);
     }
 
     items.add(const _DockItemData(
@@ -1779,8 +1782,8 @@ class _FloatingDockState extends State<_FloatingDock> {
         ? _dockHeight + _dockBottomPad + bottomPad
         : 0.0;
 
-    // Always a fixed Row — no scroll; cap enforces exactly 5 items (4 + Menu)
-    const needsScroll = false;
+    // In Hub mode the dock can hold 6 items (5 + Menu); enable scroll for overflow.
+    final needsScroll = items.length > 5;
     final rawWidth = items.length * _itemWidth + _pillHPad * 2;
     final screenWidth = MediaQuery.of(context).size.width;
     final pillWidth = rawWidth.clamp(80.0, screenWidth - 32.0);
