@@ -38,6 +38,10 @@ class RootAppPage extends HookConsumerWidget {
       return null;
     }, [backgroundColor, brightness]);
 
+    // When embedded inside Watchtower the host app provides its own dock and
+    // navigation — omit SpotubeNavigationBar to avoid double-nav and collapse
+    // the extra 100-unit bottom padding back to zero so pages are not taller
+    // than in standalone Spotube.
     final scaffold = MediaQuery.removeViewInsets(
       context: context,
       removeBottom: true,
@@ -46,14 +50,13 @@ class RootAppPage extends HookConsumerWidget {
         child: Scaffold(
           footers: const [
             BottomPlayer(),
-            SpotubeNavigationBar(),
           ],
           floatingFooter: true,
           child: Sidebar(
             child: MediaQuery(
               data: MediaQuery.of(context).copyWith(
                 padding: MediaQuery.paddingOf(context)
-                    .copyWith(bottom: 100 * context.theme.scaling),
+                    .copyWith(bottom: 0),
               ),
               child: AutoRouter(),
             ),
