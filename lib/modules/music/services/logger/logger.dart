@@ -1,163 +1,77 @@
-import 'dart:async';
-import 'dart:io';
-import 'dart:isolate';
-
 import 'package:flutter/foundation.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide join;
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:logger/logger.dart';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:watchtower/modules/music/utils/platform.dart';
-import 'package:logging/logging.dart' as logging;
+  import 'package:hooks_riverpod/hooks_riverpod.dart';
+  import 'package:watchtower/utils/log/logger.dart' as wt;
 
-final _loggingToLoggerLevel = {
-  logging.Level.ALL: Level.all,
-  logging.Level.FINEST: Level.trace,
-  logging.Level.FINER: Level.debug,
-  logging.Level.FINE: Level.info,
-  logging.Level.CONFIG: Level.info,
-  logging.Level.INFO: Level.info,
-  logging.Level.WARNING: Level.warning,
-  logging.Level.SEVERE: Level.error,
-  logging.Level.SHOUT: Level.fatal,
-  logging.Level.OFF: Level.off,
-};
+  // ponytail: Spotube's AppLogger replaced entirely by a thin forwarder to
+  // Watchtower's AppLogger. No second Logger instance, no second log file.
+  // Ceiling: maps logger-package levels to wt.LogLevel (trace/debug→debug,
+  // info→info, warning→warning, error/fatal→error).
 
-class AppLogger {
-  static late final Logger log;
-  static late final File logFile;
+  class _WtLogForwarder {
+    void t(Object? msg, {Object? error, StackTrace? stackTrace}) =>
+        _emit(wt.LogLevel.debug, msg, error, stackTrace);
+    void d(Object? msg, {Object? error, StackTrace? stackTrace}) =>
+        _emit(wt.LogLevel.debug, msg, error, stackTrace);
+    void i(Object? msg, {Object? error, StackTrace? stackTrace}) =>
+        _emit(wt.LogLevel.info, msg, error, stackTrace);
+    void w(Object? msg, {Object? error, StackTrace? stackTrace}) =>
+        _emit(wt.LogLevel.warning, msg, error, stackTrace);
+    void e(Object? msg, {Object? error, StackTrace? stackTrace}) =>
+        _emit(wt.LogLevel.error, msg, error, stackTrace);
+    void f(Object? msg, {Object? error, StackTrace? stackTrace}) =>
+        _emit(wt.LogLevel.error, msg, error, stackTrace);
 
-  static initialize(bool verbose) {
-    log = Logger(
-      level: kDebugMode || (verbose && kReleaseMode) ? Level.all : Level.info,
-    );
-  }
+    // Generic log() used in a few spots: level is unused, treated as debug.
+    void log(dynamic level, Object? msg,
+        {Object? error, StackTrace? stackTrace, DateTime? time}) =>
+        _emit(wt.LogLevel.debug, msg, error, stackTrace);
 
-  static void _initInternalPackageLoggers() {
-    if (!kDebugMode) return;
-    logging.hierarchicalLoggingEnabled = true;
-    logging.Logger('YoutubeExplode.StreamsClient')
-      ..level = logging.Level.SEVERE
-      ..onRecord.listen(
-        (record) {
-          log.log(
-            _loggingToLoggerLevel[record.level] ?? Level.info,
-            record.message,
-            error: record.error,
-            stackTrace: record.stackTrace,
-            time: record.time,
-          );
-        },
+    void _emit(wt.LogLevel level, Object? msg, Object? error, StackTrace? stack) {
+      wt.AppLogger.log(
+        msg?.toString() ?? '',
+        logLevel: level,
+        tag: 'Music',
+        error: error,
+        stackTrace: stack,
       );
+    }
   }
 
-  static R? runZoned<R>(R Function() body) {
-    return runZonedGuarded<R>(
-      () {
-        WidgetsFlutterBinding.ensureInitialized();
+  class AppLogger {
+    // Single forwarder instance — drop-in for Logger from the logger package.
+    static final _WtLogForwarder log = _WtLogForwarder();
 
-        FlutterError.onError = (details) {
-          reportError(details.exception, details.stack ?? StackTrace.current);
-        };
+    // No-op: Watchtower's logger is already initialised by main.dart.
+    static void initialize(bool verbose) {}
 
-        PlatformDispatcher.instance.onError = (error, stackTrace) {
-          reportError(error, stackTrace);
-          return true;
-        };
-
-        if (!kIsWeb) {
-          Isolate.current.addErrorListener(
-            RawReceivePort((pair) async {
-              final isolateError = pair as List<dynamic>;
-              reportError(
-                isolateError.first.toString(),
-                isolateError.last,
-              );
-            }).sendPort,
-          );
-        }
-
-        _initInternalPackageLoggers();
-
-        getLogsPath().then((value) => logFile = value);
-
-        return body();
-      },
-      (error, stackTrace) {
-        reportError(error, stackTrace);
-      },
-    );
-  }
-
-  static Future<File> getLogsPath() async {
-    String dir = (await getApplicationDocumentsDirectory()).path;
-    if (kIsAndroid) {
-      dir = (await getExternalStorageDirectory())?.path ?? "";
-    }
-
-    if (kIsMacOS) {
-      dir = join((await getLibraryDirectory()).path, "Logs");
-    }
-
-    if (kIsLinux) {
-      dir = join(_getXdgStateHome(), "spotube");
-    }
-
-    final file = File(join(dir, ".spotube_logs"));
-    if (!await file.exists()) {
-      await file.create(recursive: true);
-    }
-    return file;
-  }
-
-  // ponytail: forward bridge — set by MusicDiscoveryScreen so Spotube errors
-    // appear in the Watchtower logger. Ceiling: single callback, no fan-out.
-    static void Function(dynamic error, StackTrace? stack)? _errorBridge;
-    static void setBridge(void Function(dynamic, StackTrace?) cb) => _errorBridge = cb;
+    // Keep setBridge as no-op for any leftover call sites.
+    static void setBridge(void Function(dynamic, StackTrace?) cb) {}
 
     static Future<void> reportError(
-    dynamic error, [
-    StackTrace? stackTrace,
-    message = "",
-  ]) async {
-    log.e(message, error: error, stackTrace: stackTrace);
-    _errorBridge?.call(error, stackTrace);
-
-    if (kReleaseMode) {
-      await logFile.writeAsString(
-        "[${DateTime.now()}]---------------------\n"
-        "$error\n$stackTrace\n"
-        "----------------------------------------\n",
-        mode: FileMode.writeOnlyAppend,
+      dynamic error, [
+      StackTrace? stackTrace,
+      message = "",
+    ]) async {
+      wt.AppLogger.log(
+        message.toString().isNotEmpty ? message.toString() : error.toString(),
+        logLevel: wt.LogLevel.error,
+        tag: 'Music',
+        error: error,
+        stackTrace: stackTrace,
       );
     }
   }
 
-  static String _getXdgStateHome() {
-    // path_provider seems does not support XDG_STATE_HOME,
-    // which is the specification to store application logs on Linux.
-    // See https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-    // TODO: Use path_provider once it supports XDG_STATE_HOME
-    if (const bool.hasEnvironment("XDG_STATE_HOME")) {
-      String xdgStateHomeRaw = Platform.environment["XDG_STATE_HOME"] ?? "";
-      if (xdgStateHomeRaw.isNotEmpty) {
-        return xdgStateHomeRaw;
-      }
+  base class AppLoggerProviderObserver extends ProviderObserver {
+    const AppLoggerProviderObserver();
+
+    @override
+    void providerDidFail(
+      ProviderObserverContext context,
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      AppLogger.reportError(error, stackTrace);
     }
-    return join(Platform.environment["HOME"] ?? "", ".local", "state");
   }
-}
-
-base class AppLoggerProviderObserver extends ProviderObserver {
-  const AppLoggerProviderObserver();
-
-  @override
-  void providerDidFail(
-    ProviderObserverContext context,
-    Object error,
-    StackTrace stackTrace,
-  ) {
-    AppLogger.reportError(error, stackTrace);
-  }
-}
+  

@@ -518,7 +518,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           if (!hasTrack) return const SizedBox.shrink();
                           final bottomInset = MediaQuery.of(ctx).padding.bottom;
                           // Floating dock height: 54px height + 10px bottom pad
-                          final dockHeight = dockStyle == 'classic' ? 50.0 : 64.0;
+                          final dockHeight = dockStyle == 'classic' ? 50.0 : 72.0;
                           return Positioned(
                             bottom: dockHeight + bottomInset,
                             left: 0,
@@ -1602,7 +1602,7 @@ class _FloatingDockState extends State<_FloatingDock> {
   bool _menuOpen = false;
 
   static const double _itemWidth = 58.0;   // ↓ was 64 — slimmer dock items
-  static const double _dockHeight = 54.0;  // ↓ was 64 — less vertical bulk
+  static const double _dockHeight = 62.0;  // label-friendly height
   static const double _dockBottomPad = 10.0; // ↓ was 14
   static const double _pillHPad = 6.0;
   static const int _maxInlineItems = 5;
@@ -2094,7 +2094,7 @@ class _DockPill extends StatelessWidget {
 
     Widget pill = Container(
       decoration: decoration,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
         child: itemsWidget,

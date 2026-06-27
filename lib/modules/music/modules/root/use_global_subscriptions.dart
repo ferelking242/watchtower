@@ -10,13 +10,17 @@ import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugi
 import 'package:watchtower/modules/music/provider/metadata_plugin/updater/update_checker.dart';
 import 'package:watchtower/modules/music/provider/server/routes/connect.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
+import 'package:watchtower/modules/music/provider/server/server.dart';
 import 'package:watchtower/modules/music/services/connectivity_adapter.dart';
 import 'package:watchtower/modules/music/utils/service_utils.dart';
 
 void useGlobalSubscriptions(WidgetRef ref) {
   final context = useContext();
   final theme = Theme.of(context);
-  final connectRoutes = ref.watch(serverConnectRoutesProvider);
+  // Eagerly initialize the playback server so SpotubeMedia.serverPort is
+    // set before the first track play attempt (avoids port-0 race condition).
+    ref.watch(serverProvider);
+    final connectRoutes = ref.watch(serverConnectRoutesProvider);
 
   useEffect(() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {

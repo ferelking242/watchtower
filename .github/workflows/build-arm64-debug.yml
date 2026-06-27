@@ -203,8 +203,6 @@ jobs:
               --release \
               --target-platform android-arm64 \
               --split-per-abi \
-
-              --split-debug-info=debug-info/ \
               --build-name=${{ steps.ver.outputs.name }} \
               --build-number=${{ steps.ver.outputs.code }}; then
               echo "Build succeeded on attempt $attempt"
