@@ -21,6 +21,7 @@ import 'package:watchtower/modules/music/extensions/duration.dart';
 import 'package:watchtower/modules/music/provider/connect/clients.dart';
 import 'package:watchtower/modules/music/provider/connect/connect.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class RemotePlayerQueue extends ConsumerWidget {
   const RemotePlayerQueue({super.key});
