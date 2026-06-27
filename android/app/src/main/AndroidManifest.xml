@@ -105,5 +105,16 @@
               android:enabled="true"
               android:exported="true"
               android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <!-- ── Music player home widget ──────────────────────────────────── -->
+        <receiver
+            android:name="com.watchtower.app.glance.HomePlayerWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/home_player_widget_info" />
+        </receiver>
       </application>
 </manifest>
