@@ -54,14 +54,14 @@ class PlaylistCard extends HookConsumerWidget {
       if (playlist.id == 'user-liked-tracks') {
         final tracks = await ref.read(metadataPluginSavedTracksProvider.future)
             as SpotubePaginationResponseObject;
-        return tracks.items;
+        return tracks.items.cast<SpotubeTrackObject>().toList();
       }
 
       final result = await ref
           .read(metadataPluginPlaylistTracksProvider(playlist.id).future)
           as SpotubePaginationResponseObject;
 
-      return result.items;
+      return result.items.cast<SpotubeTrackObject>().toList();
     }, [playlist.id, ref]);
 
     final fetchAllTracks = useCallback(() async {
