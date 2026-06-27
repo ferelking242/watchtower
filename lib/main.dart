@@ -62,6 +62,10 @@ import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
+import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
+import 'package:watchtower/modules/music/services/kv_store/encrypted_kv_store.dart';
+import 'package:watchtower/modules/music/l10n/generated/app_localizations.dart'
+    as spotube_l10n;
 
 
 late Isar isar;
@@ -192,6 +196,12 @@ void main(List<String> args) async {
       Hive.registerAdapter(TrackSearchAdapter());
       await Hive.openBox('nav_display');
       await Hive.openBox('ui_prefs');
+
+      // --- Music module init (Spotube) ---
+      await KVStoreService.initialize();
+      if (!kIsWeb) {
+        await EncryptedKvStoreService.initialize();
+      }
 
       needsOnboarding = !await onboardingIsComplete();
       runApp(ProviderScope(child: MyApp(), retry: (retryCount, error) => null));
@@ -340,7 +350,10 @@ class _MyAppState extends ConsumerState<MyApp>
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: [
+        ...AppLocalizations.localizationsDelegates,
+        spotube_l10n.AppLocalizations.delegate,
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) {
         child = BotToastInit()(context, child);
