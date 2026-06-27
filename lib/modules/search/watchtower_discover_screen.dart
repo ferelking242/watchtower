@@ -7,8 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
-  import 'package:watchtower/modules/music/pages/search/music_search_tab.dart';
-  import 'package:watchtower/modules/game/game_discovery_screen.dart';
+import 'package:watchtower/modules/game/game_discovery_screen.dart';
 
 // ── Discover modes ────────────────────────────────────────────────────────────
 
@@ -198,15 +197,19 @@ class _WatchtowerDiscoverScreenState
   }
 
   void _setMode(_DiscoverMode m) {
-      setState(() {
-        _mode = m;
-        if (m == _DiscoverMode.series) _type = _ContentType.serie;
-        if (m == _DiscoverMode.manga)  _type = _ContentType.manga;
-      });
-      if (m == _DiscoverMode.series || m == _DiscoverMode.manga) {
-        _fetchResults(reset: true);
-      }
+    if (m == _DiscoverMode.music) {
+      context.go('/MusicLibrary');
+      return;
     }
+    setState(() {
+      _mode = m;
+      if (m == _DiscoverMode.series) _type = _ContentType.serie;
+      if (m == _DiscoverMode.manga)  _type = _ContentType.manga;
+    });
+    if (m == _DiscoverMode.series || m == _DiscoverMode.manga) {
+      _fetchResults(reset: true);
+    }
+  }
 
     void _onScroll() {
     if (_scrollCtrl.position.pixels >=
@@ -398,23 +401,6 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   @override
   Widget build(BuildContext context) {
     // ── Early returns for non-AniList modes ────────────────────────
-      if (_mode == _DiscoverMode.music) {
-        return Scaffold(
-          body: SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: _buildModePills(context),
-                ),
-                const Expanded(child: MusicSearchTab()),
-              ],
-            ),
-          ),
-        );
-      }
       if (_mode == _DiscoverMode.game) {
         return Scaffold(
           body: SafeArea(
