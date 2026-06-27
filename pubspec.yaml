@@ -122,7 +122,6 @@ dependencies:
     git:
       url: https://github.com/KRTirtho/hetu_spotube_plugin.git
       ref: main
-  d4rt: ^0.2.2
   flutter_qjs:
     git:
       url: https://github.com/ferelking242/quickjsR.git
@@ -226,6 +225,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.2
 
 dependency_overrides:
+  analyzer: ^9.0.0
   flutter_inappwebview:
     git:
       url: https://github.com/kodjodevf/flutter_inappwebview.git
