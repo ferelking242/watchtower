@@ -10,6 +10,7 @@ import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_options.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class TrackOptionsButton extends HookConsumerWidget {
   final SpotubeTrackObject track;
