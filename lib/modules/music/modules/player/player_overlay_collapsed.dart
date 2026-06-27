@@ -31,7 +31,7 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
     final shouldShow = useState(true);
 
     ref.listen(navigationPanelHeight, (_, height) {
-      shouldShow.value = height.ceil() == 50;
+      shouldShow.value = (height as double).ceil() == 50;
     });
 
     return AnimatedSwitcher(

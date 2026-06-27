@@ -1,4 +1,6 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:watchtower/modules/music/collections/routes.dart'
+    show rootNavigatorKey;
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 
 /// Auto-route router for the embedded Spotube music module.
@@ -21,6 +23,8 @@ import 'package:watchtower/modules/music/collections/routes.gr.dart';
 ///       ├ SettingsRoute
 ///       └ … pushed-overlay routes (Album, Artist, Track, Playlist, …)
 class SpotubeAppRouter extends RootStackRouter {
+  SpotubeAppRouter() : super(navigatorKey: rootNavigatorKey);
+
   @override
   List<AutoRoute> get routes => [
         AutoRoute(page: GettingStartedRoute.page),
@@ -45,7 +49,6 @@ class SpotubeAppRouter extends RootStackRouter {
             AutoRoute(page: ProfileRoute.page),
             AutoRoute(page: ConnectRoute.page),
             AutoRoute(page: SettingsRoute.page),
-            // Overlay / pushed routes (navigated to from any child page)
             AutoRoute(page: AlbumRoute.page),
             AutoRoute(page: ArtistRoute.page),
             AutoRoute(page: PlaylistRoute.page),

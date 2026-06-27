@@ -23,7 +23,7 @@ class HistoryTopTracksNotifier extends FamilyPaginatedAsyncNotifier<
       ..where(
         (tbl) =>
             tbl.type.equalsValue(HistoryEntryType.track) &
-            tbl.createdAt.isBiggerOrEqualValue(switch (arg) {
+            tbl.createdAt.isBiggerOrEqualValue(switch (arg as HistoryDuration) {
               HistoryDuration.allTime => DateTime(1970),
               // from start of the week
               HistoryDuration.days7 => DateTime.now()

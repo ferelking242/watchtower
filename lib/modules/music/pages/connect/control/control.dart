@@ -302,7 +302,7 @@ class ConnectControlPage extends HookConsumerWidget {
                                   ? null
                                   : () async {
                                       connectNotifier.setLoopMode(
-                                        switch (loopMode) {
+                                        switch (loopMode as PlaylistMode) {
                                           PlaylistMode.loop =>
                                             PlaylistMode.single,
                                           PlaylistMode.single =>

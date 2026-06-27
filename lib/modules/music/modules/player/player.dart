@@ -48,7 +48,7 @@ class PlayerView extends HookConsumerWidget {
     final shouldHide = useState(true);
 
     ref.listen(navigationPanelHeight, (_, height) {
-      shouldHide.value = height.ceil() == 50;
+      shouldHide.value = (height as double).ceil() == 50;
     });
 
     if (shouldHide.value) {

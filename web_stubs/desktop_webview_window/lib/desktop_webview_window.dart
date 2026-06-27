@@ -12,14 +12,20 @@ class WebViewEnvironment {
   static Future<String?> getAvailableVersion() async => null;
   static Future<WebViewEnvironment> create({
     WebViewEnvironmentSettings? settings,
-  }) async => WebViewEnvironment._();
+  }) async =>
+      WebViewEnvironment._();
   WebViewEnvironment._();
 }
 
-class Cookie {
-  final String name;
-  final String value;
-  const Cookie(this.name, this.value);
+/// Stub for the WebView creation configuration.
+/// The real class lives in the desktop_webview_window package.
+class CreateConfiguration {
+  final String? userDataFolderWindows;
+  final WebViewEnvironment? environment;
+  const CreateConfiguration({
+    this.userDataFolderWindows,
+    this.environment,
+  });
 }
 
 class _WebviewOnClose {
@@ -30,7 +36,10 @@ class Webview {
   final _WebviewOnClose onClose = _WebviewOnClose();
 
   Future<void> close() async {}
-  Future<List<Cookie>> getAllCookies() async => [];
+
+  /// Returns dynamic list to avoid Cookie class ambiguity with flutter_inappwebview.
+  Future<List<dynamic>> getAllCookies() async => [];
+
   Future<String?> evaluateJavaScript(String script) async => null;
   void addScriptToExecuteOnDocumentCreated(String script) {}
   void setApplicationNameForUserAgent(String name) {}
@@ -41,8 +50,17 @@ class Webview {
     void Function(String url)? onPageFinished,
     bool Function(String url)? onNavigationRequest,
   }) {}
+
+  void setOnUrlRequestCallback(void Function(String url) callback) {}
 }
 
 class WebviewWindow {
-  static Future<Webview> create() async => Webview();
+  static Future<Webview> create({
+    CreateConfiguration? configuration,
+  }) async =>
+      Webview();
+
+  static Future<void> clearAll({
+    String? userDataFolderWindows,
+  }) async {}
 }

@@ -18,7 +18,7 @@ class HistoryTopAlbumsNotifier extends FamilyPaginatedAsyncNotifier<
       {int? limit, int? offset}) {
     final database = ref.read(databaseProvider);
 
-    final duration = switch (arg) {
+    final duration = switch (arg as HistoryDuration) {
       HistoryDuration.allTime => '0',
       HistoryDuration.days7 => "strftime('%s', 'now', 'weekday 0', '-7 days')",
       HistoryDuration.days30 => "strftime('%s', 'now', 'start of month')",
