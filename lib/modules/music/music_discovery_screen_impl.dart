@@ -105,6 +105,10 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
         colorScheme: shadcn.LegacyColorSchemes.zinc(
           isDark ? shadcn.ThemeMode.dark : shadcn.ThemeMode.light,
         ),
+        radius: 0.5,
+        surfaceOpacity: 1.0,
+        surfaceBlur: 0,
+        scaling: 1.0,
       ),
       child: Router(
         routerDelegate: _router.delegate(),

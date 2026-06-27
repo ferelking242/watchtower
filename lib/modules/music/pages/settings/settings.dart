@@ -5,11 +5,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
-import 'package:watchtower/modules/music/pages/settings/sections/about.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/accounts.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/appearance.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/desktop.dart';
-import 'package:watchtower/modules/music/pages/settings/sections/developers.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/downloads.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/language_region.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/playback.dart';
@@ -52,8 +50,6 @@ class SettingsPage extends HookConsumerWidget {
                       const SettingsPlaybackSection(),
                       const SettingsDownloadsSection(),
                       if (kIsDesktop) const SettingsDesktopSection(),
-                      if (!kIsWeb) const SettingsDevelopersSection(),
-                      const SettingsAboutSection(),
                       Center(
                         child: Button.destructive(
                           onPressed: preferencesNotifier.reset,
