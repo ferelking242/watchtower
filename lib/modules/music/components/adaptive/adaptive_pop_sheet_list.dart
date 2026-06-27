@@ -121,29 +121,36 @@ class AdaptivePopSheetList<T> extends StatelessWidget {
         final children = childrenModified(context);
         return Theme(
           data: capturedTheme,
-          child: ListView.builder(
-            itemCount: children.length,
-            shrinkWrap: true,
-            itemBuilder: (context, index) {
-              final data = children[index];
+          // openDrawer creates a bare overlay entry with no Material ancestor.
+          // shadcn Button uses Flutter's Ink internally, which calls
+          // Material.of(context)! and crashes without this wrapper.
+          child: Material(
+            type: MaterialType.transparency,
+            child: ListView.builder(
+              itemCount: children.length,
+              shrinkWrap: true,
+              itemBuilder: (context, index) {
+                final data = children[index];
 
-              return Button(
-                enabled: data.enabled,
-                style: ButtonVariance.ghost.copyWith(
-                  padding: (context, state, value) => const EdgeInsets.all(16),
-                ),
-                onPressed: () {
-                  data.onPressed?.call(context);
-                  if (data.autoClose) {
-                    closeDrawer(context);
-                  }
-                },
-                leading: data.leading,
-                trailing: data.trailing,
-                alignment: Alignment.centerLeft,
-                child: data.child,
-              );
-            },
+                return Button(
+                  enabled: data.enabled,
+                  style: ButtonVariance.ghost.copyWith(
+                    padding: (context, state, value) =>
+                        const EdgeInsets.all(16),
+                  ),
+                  onPressed: () {
+                    data.onPressed?.call(context);
+                    if (data.autoClose) {
+                      closeDrawer(context);
+                    }
+                  },
+                  leading: data.leading,
+                  trailing: data.trailing,
+                  alignment: Alignment.centerLeft,
+                  child: data.child,
+                );
+              },
+            ),
           ),
         );
       },
