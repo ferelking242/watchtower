@@ -78,7 +78,7 @@ class HistoryTopPlaylistsNotifier extends FamilyPaginatedAsyncNotifier<
   }
 }
 
-final historyTopPlaylistsProvider = AsyncNotifierProviderFamily<
+final historyTopPlaylistsProvider = AsyncNotifierProvider.family<
     HistoryTopPlaylistsNotifier,
     SpotubePaginationResponseObject<PlaybackHistoryPlaylist>,
     HistoryDuration>(

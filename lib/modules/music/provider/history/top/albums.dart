@@ -108,7 +108,7 @@ class HistoryTopAlbumsNotifier extends FamilyPaginatedAsyncNotifier<
   }
 }
 
-final historyTopAlbumsProvider = AsyncNotifierProviderFamily<
+final historyTopAlbumsProvider = AsyncNotifierProvider.family<
     HistoryTopAlbumsNotifier,
     SpotubePaginationResponseObject<PlaybackHistoryAlbum>,
     HistoryDuration>(
