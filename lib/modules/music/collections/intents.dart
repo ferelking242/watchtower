@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
+import 'package:watchtower/modules/music/router/music_app_router.dart';
 import 'package:watchtower/modules/music/modules/player/player_controls.dart';
 import 'package:watchtower/modules/music/provider/audio_player/querying_track_info.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
@@ -32,7 +33,7 @@ class PlayPauseAction extends Action<PlayPauseIntent> {
 }
 
 class NavigationIntent extends Intent {
-  final AppRouter router;
+  final SpotubeAppRouter router;
   final String path;
   const NavigationIntent(this.router, this.path);
 }
@@ -58,7 +59,7 @@ enum HomeTabs {
 }
 
 class HomeTabIntent extends Intent {
-  final AppRouter router;
+  final SpotubeAppRouter router;
   final HomeTabs tab;
   const HomeTabIntent(this.router, {required this.tab});
 }

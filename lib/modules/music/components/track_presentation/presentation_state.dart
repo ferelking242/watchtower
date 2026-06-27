@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/pages/library/user_local_tracks/user_local_tracks.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/library/tracks.dart';
@@ -174,7 +175,7 @@ class PresentationStateNotifier
   }
 }
 
-final presentationStateProvider = AutoDisposeNotifierProviderFamily<
+final presentationStateProvider = NotifierProvider.family<
     PresentationStateNotifier, PresentationState, Object>(
   () => PresentationStateNotifier(),
 );

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/library/playlists.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -125,7 +126,7 @@ class MetadataPluginPlaylistNotifier
   }
 }
 
-final metadataPluginPlaylistProvider = AutoDisposeAsyncNotifierProviderFamily<
+final metadataPluginPlaylistProvider = AsyncNotifierProvider.family<
     MetadataPluginPlaylistNotifier, SpotubeFullPlaylistObject, String>(
   () => MetadataPluginPlaylistNotifier(),
 );

@@ -30,7 +30,7 @@ class MetadataPluginAlbumTracksNotifier
 }
 
 final metadataPluginAlbumTracksProvider =
-    AutoDisposeAsyncNotifierProviderFamily<MetadataPluginAlbumTracksNotifier,
+    AsyncNotifierProvider.family<MetadataPluginAlbumTracksNotifier,
         SpotubePaginationResponseObject<SpotubeFullTrackObject>, String>(
   () => MetadataPluginAlbumTracksNotifier(),
 );

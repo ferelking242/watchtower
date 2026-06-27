@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:lrc/lrc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
@@ -133,7 +134,7 @@ class SyncedLyricsNotifier
 
 final syncedLyricsDelayProvider = StateProvider<int>((ref) => 0);
 
-final syncedLyricsProvider = AsyncNotifierProviderFamily<SyncedLyricsNotifier,
+final syncedLyricsProvider = AsyncNotifierProvider.family<SyncedLyricsNotifier,
     SubtitleSimple, SpotubeTrackObject?>(
   () => SyncedLyricsNotifier(),
 );

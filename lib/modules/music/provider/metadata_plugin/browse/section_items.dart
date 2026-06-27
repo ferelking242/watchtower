@@ -24,7 +24,7 @@ class MetadataPluginBrowseSectionItemsNotifier
   }
 }
 
-final metadataPluginBrowseSectionItemsProvider = AsyncNotifierProviderFamily<
+final metadataPluginBrowseSectionItemsProvider = AsyncNotifierProvider.family<
     MetadataPluginBrowseSectionItemsNotifier,
     SpotubePaginationResponseObject<Object>,
     String>(

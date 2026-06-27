@@ -10,6 +10,7 @@ import 'package:watchtower/modules/music/provider/audio_player/state.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
 
 import 'package:watchtower/modules/music/provider/connect/clients.dart';

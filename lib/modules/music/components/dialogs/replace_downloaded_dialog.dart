@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import 'package:watchtower/modules/music/extensions/context.dart';

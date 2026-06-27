@@ -24,7 +24,7 @@ class MetadataPluginArtistRelatedArtistsNotifier
   }
 }
 
-final metadataPluginArtistRelatedArtistsProvider = AsyncNotifierProviderFamily<
+final metadataPluginArtistRelatedArtistsProvider = AsyncNotifierProvider.family<
     MetadataPluginArtistRelatedArtistsNotifier,
     SpotubePaginationResponseObject<SpotubeFullArtistObject>,
     String>(

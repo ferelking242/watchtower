@@ -40,7 +40,7 @@ class MetadataPluginSearchPlaylistsNotifier
 }
 
 final metadataPluginSearchPlaylistsProvider =
-    AutoDisposeAsyncNotifierProviderFamily<
+    AsyncNotifierProvider.family<
         MetadataPluginSearchPlaylistsNotifier,
         SpotubePaginationResponseObject<SpotubeSimplePlaylistObject>,
         String>(

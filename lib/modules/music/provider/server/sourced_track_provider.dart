@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/audio_source/quality_presets.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -43,7 +44,7 @@ class SourcedTrackNotifier
   }
 }
 
-final sourcedTrackProvider = AsyncNotifierProviderFamily<SourcedTrackNotifier,
+final sourcedTrackProvider = AsyncNotifierProvider.family<SourcedTrackNotifier,
     SourcedTrack, SpotubeFullTrackObject>(
   () => SourcedTrackNotifier(),
 );

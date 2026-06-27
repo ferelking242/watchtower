@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 
 enum HistoryDuration {
   allTime(Duration(days: 365 * 2003)),
