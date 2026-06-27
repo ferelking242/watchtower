@@ -196,8 +196,10 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       }
       final pluginConfig =
           await extractPluginArchive(byteData.buffer.asUint8List());
+      bool freshlyAdded = false;
       try {
         await addPlugin(pluginConfig);
+        freshlyAdded = true;
       } on MetadataPluginException catch (e) {
         if (e.errorCode == MetadataPluginErrorCode.duplicatePlugin &&
             await isPluginUpdate(pluginConfig)) {
@@ -219,6 +221,15 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
             await setDefaultAudioSourcePlugin(pluginConfig);
           }
         }
+      }
+
+      // ponytail: auto-set the bundled audio-source plugin as default when
+      // none is configured (first-run / Spotify-only setups).
+      if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
+          pluginState.defaultAudioSourcePlugin < 0) {
+        try {
+          await setDefaultAudioSourcePlugin(pluginConfig);
+        } catch (_) {}
       }
     }
   }
