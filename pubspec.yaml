@@ -289,6 +289,11 @@ flutter:
     - assets/trackers_icons/
     - assets/app_icons/
     - assets/icons/
+    - assets/branding/
+    - assets/images/
+    - assets/images/logos/
+    - assets/plugins/spotube-plugin-musicbrainz-listenbrainz/
+    - assets/plugins/spotube-plugin-youtube-audio/
     - packages/hetu_std/assets/bytecode/std.out
     - packages/hetu_otp_util/assets/bytecode/otp_util.out
     - packages/hetu_spotube_plugin/assets/bytecode/spotube_plugin.out
