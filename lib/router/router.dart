@@ -181,6 +181,14 @@ class RouterNotifier extends ChangeNotifier {
           child: const MusicDiscoveryScreen(),
         ),
         _genericRoute(
+          name: "MusicSearch",
+          child: const MusicDiscoveryScreen(initialRoute: 'search'),
+        ),
+        _genericRoute(
+          name: "MusicLibraryPage",
+          child: const MusicDiscoveryScreen(initialRoute: 'library'),
+        ),
+        _genericRoute(
           name: "GameLibrary",
           child: const GameDiscoveryScreen(),
         ),
