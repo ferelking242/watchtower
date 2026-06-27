@@ -57,7 +57,7 @@ Future<void> _updateWidget() async {
       await HomeWidget.updateWidget(
         androidName: 'HomePlayerWidgetReceiver',
         qualifiedAndroidName:
-            'oss.krtirtho.spotube.glance.HomePlayerWidgetReceiver',
+            'com.watchtower.app.glance.HomePlayerWidgetReceiver',
       );
     }
     if (kIsIOS) {
