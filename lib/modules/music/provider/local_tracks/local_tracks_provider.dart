@@ -45,6 +45,10 @@ final localTracksProvider =
     FutureProvider<Map<String, List<SpotubeLocalTrackObject>>>((ref) async {
   try {
     if (kIsWeb) return {};
+
+    // metadata_god uses flutter_rust_bridge internally and requires its own
+    // RustLib initialisation before any MetadataGod.readMetadata call.
+    await MetadataGod.initialize();
     final Map<String, List<SpotubeLocalTrackObject>> libraryToTracks = {};
 
     final downloadLocation = ref.watch(
