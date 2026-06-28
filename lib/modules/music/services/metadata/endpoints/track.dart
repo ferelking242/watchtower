@@ -28,17 +28,23 @@ class MetadataPluginTrackEndpoint {
   }
 
   Future<List<SpotubeFullTrackObject>> radio(String id) async {
-    final result = await hetuMetadataTrack.invoke(
-      "radio",
-      positionalArgs: [id],
-    );
+    try {
+      final result = await hetuMetadataTrack.invoke(
+        "radio",
+        positionalArgs: [id],
+      );
 
-    return (result as List)
-        .map(
-          (e) => SpotubeFullTrackObject.fromJson(
-            (e as Map).cast<String, dynamic>(),
-          ),
-        )
-        .toList();
+      if (result == null) return [];
+
+      return (result as List)
+          .map(
+            (e) => SpotubeFullTrackObject.fromJson(
+              (e as Map).cast<String, dynamic>(),
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 }

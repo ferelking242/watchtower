@@ -187,49 +187,41 @@ class ServerPlaybackRoutes {
             .swapWithNextSibling()
             .then((track) => track.url!);
 
-    final options = Options(
-      headers: {
-        ...headers,
-        "user-agent": _userAgentForUrl(url),
-        "Cache-Control": "max-age=3600",
-        "Connection": "keep-alive",
-        "host": Uri.parse(url).host,
-      },
-      responseType: ResponseType.stream,
-      validateStatus: (status) => status! < 400,
-    );
+    Options _buildOptions(String targetUrl) => Options(
+          headers: {
+            "user-agent": _userAgentForUrl(targetUrl),
+            "Cache-Control": "max-age=3600",
+            "Connection": "keep-alive",
+            "host": Uri.parse(targetUrl).host,
+            if (headers.containsKey("range")) "range": headers["range"],
+          },
+          responseType: ResponseType.stream,
+          validateStatus: (status) => status! < 400,
+        );
 
-    final contentLengthRes = await Future<dio_lib.Response?>.value(
-      dio.head(
-        url,
-        options: options.copyWith(responseType: ResponseType.bytes),
-      ),
-    ).catchError((e, stack) async {
+    // YouTube CDN returns 403 on HEAD requests for videoplayback URLs,
+    // so we skip HEAD entirely and go straight to GET.
+    // If GET fails (expired URL), we refresh and retry once.
+    dio_lib.Response<ResponseBody> res;
+    try {
+      res = await dio.get<ResponseBody>(url, options: _buildOptions(url));
+    } catch (e, stack) {
       AppLogger.reportError(e, stack);
 
+      // URL likely expired — refresh it and retry GET once.
       final sourcedTrack = await ref
           .read(sourcedTrackProvider(track.query).notifier)
           .refreshStreamingUrl();
 
       url = sourcedTrack.url!;
+      AppLogger.log.i("Refreshing ${track.query.name}: $url");
+      res = await dio.get<ResponseBody>(url, options: _buildOptions(url));
+    }
 
-      return dio.head(
-        url,
-        options: options.copyWith(
-          headers: {
-            ...headers,
-            "user-agent": _userAgentForUrl(url),
-            "Cache-Control": "max-age=3600",
-            "Connection": "keep-alive",
-            "host": Uri.parse(url).host,
-          },
-          responseType: ResponseType.bytes,
-        ),
-      );
-    });
-
-    if (contentLengthRes?.headers.value("content-type") ==
-        "application/vnd.apple.mpegurl") {
+    // Check if the refreshed/initial URL is an m3u8 playlist — redirect
+    // those directly because libmpv handles HLS range requests internally.
+    final resolvedContentType = res.headers.value("content-type");
+    if (resolvedContentType == "application/vnd.apple.mpegurl") {
       return dio_lib.Response<Uint8List>(
         statusCode: 301,
         statusMessage: "M3U8 Redirect",
@@ -241,18 +233,6 @@ class ServerPlaybackRoutes {
         isRedirect: true,
       );
     }
-
-    final streamOptions = options.copyWith(
-      headers: {
-        ...headers,
-        "user-agent": _userAgentForUrl(url),
-        "Cache-Control": "max-age=3600",
-        "Connection": "keep-alive",
-        "host": Uri.parse(url).host,
-      },
-    );
-
-    final res = await dio.get<ResponseBody>(url, options: streamOptions);
 
     AppLogger.log.i(
       "Streaming ${track.query.name}\n"
