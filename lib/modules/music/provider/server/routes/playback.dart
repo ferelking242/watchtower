@@ -136,18 +136,17 @@ class ServerPlaybackRoutes {
             .swapWithNextSibling()
             .then((track) => track.url!);
 
-    final options = Options(
-      headers: {
-        "user-agent": _userAgentForUrl(url),
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-      },
-      validateStatus: (status) => status! < 400,
+    // Return a synthetic HEAD response instead of querying YouTube CDN.
+    // Dart's HttpClient TLS fingerprint is rejected by YouTube CDN (→ 403).
+    // libmpv only needs content-type + accept-ranges to proceed to GET.
+    return dio_lib.Response<Uint8List>(
+      statusCode: 200,
+      headers: Headers.fromMap({
+        "content-type": ["audio/${track.qualityPreset?.name ?? 'mp4'}"],
+        "accept-ranges": ["bytes"],
+      }),
+      requestOptions: RequestOptions(path: request.requestedUri.toString()),
     );
-
-    final res = await dio.head(url, options: options);
-
-    return res;
   }
 
   Future<dio_lib.Response> streamTrack(
@@ -188,120 +187,23 @@ class ServerPlaybackRoutes {
             .swapWithNextSibling()
             .then((track) => track.url!);
 
-    // Build clean headers for the upstream CDN request.
-    // Do NOT forward mpv/ICY headers (icy-metadata, icy-timeout, host, connection)
-    // as YouTube CDN rejects requests containing them (→ 403).
-    // Only forward `range` so the CDN can serve partial content correctly.
-    final rangeHeader = headers['range'] ?? headers['Range'];
-    final options = Options(
-      headers: {
-        "user-agent": _userAgentForUrl(url),
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        if (rangeHeader != null) "range": rangeHeader,
-      },
-      responseType: ResponseType.stream,
-      validateStatus: (status) => status! < 400,
+    // Redirect libmpv directly to the YouTube CDN URL instead of proxying.
+    // Dart's HttpClient TLS fingerprint is rejected by YouTube CDN (→ 403).
+    // libmpv/libcurl follows 302 redirects transparently using its own TLS
+    // stack, which matches Spotube's original direct-URL approach.
+    // Note: caching is bypassed; add a post-download hook if needed later.
+    AppLogger.log.i("Redirecting ${track.query.name} → $url");
+    return dio_lib.Response<Uint8List>(
+      statusCode: 302,
+      statusMessage: "Direct CDN Redirect",
+      headers: Headers.fromMap({
+        "location": [url],
+        "cache-control": ["no-cache"],
+      }),
+      requestOptions: RequestOptions(path: request.requestedUri.toString()),
+      isRedirect: true,
     );
 
-    final contentLengthRes = await Future<dio_lib.Response?>.value(
-      dio.head(
-        url,
-        options: options.copyWith(responseType: ResponseType.bytes),
-      ),
-    ).catchError((e, stack) async {
-      AppLogger.reportError(e, stack);
-
-      final sourcedTrack = await ref
-          .read(sourcedTrackProvider(track.query).notifier)
-          .refreshStreamingUrl();
-
-      url = sourcedTrack.url!;
-
-      return dio.head(url, options: options);
-    });
-
-    // Redirect to m3u8 link directly as it handles range requests internally
-    if (contentLengthRes?.headers.value("content-type") ==
-        "application/vnd.apple.mpegurl") {
-      return dio_lib.Response<Uint8List>(
-        statusCode: 301,
-        statusMessage: "M3U8 Redirect",
-        headers: Headers.fromMap({
-          "location": [url],
-          "content-type": ["application/vnd.apple.mpegurl"],
-        }),
-        requestOptions: RequestOptions(path: request.requestedUri.toString()),
-        isRedirect: true,
-      );
-    }
-
-    final res = await dio.get<ResponseBody>(url, options: options);
-
-    AppLogger.log.i(
-      "Response for track: ${track.query.name}\n"
-      "Status Code: ${res.statusCode}\n"
-      "Headers: ${res.headers.map}",
-    );
-
-    if (!userPreferences.cacheMusic) {
-      return res;
-    }
-
-    final resStream = res.data!.stream.asBroadcastStream();
-
-    final trackPartialCacheFile = File("${trackCacheFile.path}.part");
-    if (!await trackPartialCacheFile.exists()) {
-      await trackPartialCacheFile.create(recursive: true);
-    }
-
-    // Write the stream to the file based on the range
-    final partialCacheFileSink =
-        trackPartialCacheFile.openWrite(mode: FileMode.writeOnlyAppend);
-    final contentRange = res.headers.value("content-range") != null
-        ? ContentRangeHeader.parse(res.headers.value("content-range") ?? "")
-        : ContentRangeHeader(0, 0, 0);
-
-    resStream.listen(
-      (data) {
-        partialCacheFileSink.add(data);
-      },
-      onError: (e, stack) {
-        partialCacheFileSink.close();
-      },
-      onDone: () async {
-        await partialCacheFileSink.close();
-
-        final fileLength = await trackPartialCacheFile.length();
-        if (fileLength != contentRange.total) return;
-
-        await trackPartialCacheFile.rename(trackCacheFile.path);
-
-        if (track.qualityPreset!.getFileExtension() == "weba") return;
-
-        final imageBytes = await ServiceUtils.downloadImage(
-          track.query.album.images.asUrlString(
-            placeholder: ImagePlaceholder.albumArt,
-            index: 1,
-          ),
-        );
-
-        await MetadataGod.writeMetadata(
-          file: trackCacheFile.path,
-          metadata: track.query.toMetadata(
-            imageBytes: imageBytes,
-            fileLength: fileLength,
-          ),
-        ).catchError((e, stackTrace) {
-          AppLogger.reportError(e, stackTrace);
-        });
-      },
-      cancelOnError: true,
-    );
-
-    res.data?.stream =
-        resStream; // To avoid Stream has been already listened to exception
-    return res;
   }
 
   /// @head('/stream/<trackId>')
