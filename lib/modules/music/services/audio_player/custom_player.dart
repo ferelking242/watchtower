@@ -22,6 +22,18 @@ class CustomPlayer extends Player {
   CustomPlayer({super.configuration})
       : _playerStateStream = StreamController.broadcast() {
     nativePlayer.setProperty("network-timeout", "120");
+    // YouTube CDN URLs are tagged c=ANDROID; send a matching UA so the CDN
+    // accepts the connection when libmpv follows the 302 redirect from our
+    // local proxy.  This mirrors the UA used by youtube_explode_dart's
+    // Android client and prevents 403 IP/UA mismatch on googlevideo.com.
+    nativePlayer.setProperty(
+      "user-agent",
+      "com.google.android.youtube/19.09.37 (Linux; U; Android 13) gzip",
+    );
+    // Allow libmpv to follow HTTP redirects from our local proxy (http) to
+    // the YouTube CDN (https). Without this flag some builds of libmpv refuse
+    // cross-scheme or cross-origin redirects originating from localhost.
+    nativePlayer.setProperty("force-seekable", "yes");
 
     _subscriptions = [
       stream.buffering.listen((event) {
