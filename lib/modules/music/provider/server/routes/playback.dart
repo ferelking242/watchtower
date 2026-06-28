@@ -331,33 +331,37 @@ class ServerPlaybackRoutes {
         return Response.notFound("Track not found in the current queue");
       }
 
-      final res = await streamTrack(
-        request,
-        sourcedTrack,
-        request.headers,
-      );
-
-      // m3u8 streams are redirected directly; all other audio is proxied above.
-      if (res.isRedirect) {
-        final location = res.headers.value('location');
-        if (location != null) {
-          return Response.found(location);
+      // Serve from the local cache when available (no YouTube request needed).
+      if (userPreferences.cacheMusic) {
+        final trackCacheFile =
+            File(await _getTrackCacheFilePath(sourcedTrack));
+        if (await trackCacheFile.exists()) {
+          final res = await streamTrack(request, sourcedTrack, request.headers);
+          if (res.data is ResponseBody) {
+            return Response(
+              res.statusCode!,
+              body: (res.data as ResponseBody).stream,
+              headers: res.headers.map,
+            );
+          }
+          return Response(res.statusCode!, body: res.data, headers: res.headers.map);
         }
       }
 
-      if (res.data is ResponseBody) {
-        return Response(
-          res.statusCode!,
-          body: (res.data as ResponseBody).stream,
-          headers: res.headers.map,
-        );
-      }
+      // For non-cached tracks, redirect MediaKit's libmpv to the CDN URL
+      // directly instead of proxying through Dart.  Dart's HttpClient TLS
+      // fingerprint causes YouTube CDN to return 403; libmpv's native
+      // HTTP stack (via FFmpeg) is accepted by YouTube CDN.
+      String url = sourcedTrack.url ??
+          await ref
+              .read(sourcedTrackProvider(sourcedTrack.query).notifier)
+              .swapWithNextSibling()
+              .then((t) => t.url!);
 
-      return Response(
-        res.statusCode!,
-        body: res.data,
-        headers: res.headers.map,
+      AppLogger.log.i(
+        "CDN redirect: ${sourcedTrack.query.name}\nURL: $url",
       );
+      return Response.found(url);
     } catch (e, stack) {
       AppLogger.reportError(e, stack);
       return Response.internalServerError();

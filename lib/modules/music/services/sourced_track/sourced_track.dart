@@ -259,20 +259,16 @@ class SourcedTrack extends BasicSourcedTrack {
       throw MetadataPluginException.noDefaultAudioSourcePlugin();
     }
 
-    // Skip HTTP HEAD validation — Dart's TLS fingerprint is rejected by
-    // YouTube CDN (→ 403 on every attempt). Trust existing sources as valid;
-    // if one fails at playback time the proxy's URL-refresh path handles it.
-    List<SpotubeAudioSourceStreamObject> validStreams = sources.toList();
-
-    if (validStreams.isEmpty) {
-      validStreams = await audioSource.audioSource.streams(info);
-    }
+    // Always fetch fresh CDN URLs from the plugin.  HEAD validation is
+    // skipped because YouTube CDN returns 403 for HEAD requests issued by
+    // Dart's HttpClient (TLS fingerprint mismatch).
+    final freshStreams = await audioSource.audioSource.streams(info);
 
     final sourcedTrack = SourcedTrack(
       ref: ref,
       siblings: siblings,
       source: source,
-      sources: validStreams,
+      sources: freshStreams.isNotEmpty ? freshStreams : sources.toList(),
       info: info,
       query: query,
     );
