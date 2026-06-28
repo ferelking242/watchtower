@@ -37,6 +37,30 @@ String? get _randomUserAgent => _deviceClients
     )
     .payload["context"]["client"]["userAgent"];
 
+/// Returns the YouTube user-agent that matches the client type embedded in
+/// [url]'s `c=` query parameter (e.g. ANDROID, IOS, MWEB).
+/// Sending a mismatched user-agent causes the CDN to return 403.
+/// Falls back to the Android user-agent when no match is found.
+String _userAgentForUrl(String url) {
+  try {
+    final uri = Uri.parse(url);
+    final clientType = uri.queryParameters['c']?.toUpperCase();
+    if (clientType != null) {
+      for (final client in _deviceClients) {
+        final name = (client.payload['context']?['client']?['clientName']
+                as String?)
+            ?.toUpperCase();
+        if (name == clientType) {
+          return client.payload['context']?['client']?['userAgent'] as String?
+              ?? YoutubeApiClient.android.payload['context']['client']['userAgent'] as String;
+        }
+      }
+    }
+  } catch (_) {}
+  return YoutubeApiClient.android.payload['context']['client']['userAgent']
+      as String;
+}
+
 class ServerPlaybackRoutes {
   final Ref ref;
   UserPreferences get userPreferences => ref.read(userPreferencesProvider);
@@ -114,7 +138,7 @@ class ServerPlaybackRoutes {
 
     final options = Options(
       headers: {
-        "user-agent": _randomUserAgent,
+        "user-agent": _userAgentForUrl(url),
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
       },
@@ -171,7 +195,7 @@ class ServerPlaybackRoutes {
     final rangeHeader = headers['range'] ?? headers['Range'];
     final options = Options(
       headers: {
-        "user-agent": _randomUserAgent,
+        "user-agent": _userAgentForUrl(url),
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
         if (rangeHeader != null) "range": rangeHeader,
