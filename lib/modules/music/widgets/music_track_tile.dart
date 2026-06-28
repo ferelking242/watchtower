@@ -30,7 +30,11 @@ class MusicTrackTile extends ConsumerWidget {
       musicLikedTracksProvider.select((s) => s.contains(track.id)),
     );
 
-    return InkWell(
+    // InkWell requires a Material ancestor. Watchtower uses shadcn_flutter which
+    // does not inject one at the root, so we wrap explicitly.
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
@@ -147,7 +151,8 @@ class MusicTrackTile extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ),   // closes InkWell
+    );   // closes Material
   }
 
   String _fmt(Duration d) {
