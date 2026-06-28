@@ -159,12 +159,17 @@ class YouTubeExplodeEngine implements YouTubeEngine {
   Future<StreamManifest> getStreamManifest(String videoId) async {
     await IsolatedYoutubeExplode.initialize();
 
+    // Client priority: prefer clients that generate CDN URLs without `rqh=1`
+    // (TV-embedded, mweb) before falling back to Android/iOS.
+    // Android-client URLs carry `rqh=1` which requires the native YouTube
+    // app TLS context and is rejected by any third-party HTTP stack.
     final streamManifest = await _youtubeExplode.manifest(
       videoId,
-      requireWatchPage: false,
+      requireWatchPage: true,
       ytClients: [
+        YoutubeApiClient.tvEmbedded,
+        YoutubeApiClient.mweb,
         YoutubeApiClient.ios,
-        YoutubeApiClient.androidVr,
         YoutubeApiClient.android,
       ],
     );

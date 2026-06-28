@@ -153,20 +153,21 @@ class AppLogger {
     }
   }
 
-  /// Absolute path of the current session log file (one new file per app
-  /// launch). Exposed so the in-app log viewer / overlay can offer a
-  /// "download / share this session's log" action.
+  /// Absolute path of today's log file (`<storage>/Watchtower/.dev/YYYY-MM-DD.log`).
+  /// Multiple sessions on the same calendar day append to the same file.
+  /// Exposed so the in-app log viewer can offer a "share log" action.
   static String? _currentSessionPath;
   static String? get currentSessionPath => _currentSessionPath;
 
-  /// Folder where all per-session log files live (`<storage>/logs_sessions/`).
+  /// Folder where daily log files live (`<storage>/Watchtower/.dev/`).
   static String? _sessionsDirPath;
   static String? get sessionsDirPath => _sessionsDirPath;
 
   static Future<void> init() async {
-    final enabled = isar.settings.getSync(kSettingsId)?.enableLogs ?? false;
-    if (!enabled) return;
-
+    // File logging is always enabled — regardless of the enableLogs setting.
+    // One daily file per calendar day, appended across sessions (never reset).
+    // Location: <storage>/Watchtower/.dev/YYYY-MM-DD.log
+    // The enableLogs setting now only controls the in-app log-viewer filters.
     await _loadSettings();
 
     final storage = StorageProvider();
@@ -179,10 +180,10 @@ class AppLogger {
     }
     final directory = await storage.getDefaultDirectory();
 
-    // ── New: one log file PER session, kept in `<storage>/logs_sessions/`.
-    //
-    // Each calendar day has its own file (e.g. 2026-06-19.log), appended across sessions.
-    final sessionsDir = Directory(path.join(directory!.path, 'log'));
+    // Daily log file in `<storage>/Watchtower/.dev/YYYY-MM-DD.log`.
+    // A new file is created for each calendar day; sessions within the same
+    // day append to the same file so nothing is lost between app launches.
+    final sessionsDir = Directory(path.join(directory!.path, '.dev'));
     if (!await sessionsDir.exists()) {
       await sessionsDir.create(recursive: true);
     }
