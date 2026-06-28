@@ -201,34 +201,49 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         await addPlugin(pluginConfig);
         freshlyAdded = true;
       } on MetadataPluginException catch (e) {
-        if (e.errorCode == MetadataPluginErrorCode.duplicatePlugin &&
-            await isPluginUpdate(pluginConfig)) {
-          final oldConfig = pluginState.plugins
-              .firstWhereOrNull((p) => p.slug == pluginConfig.slug);
-          if (oldConfig == null) continue;
-          final isDefaultMetadata =
-              oldConfig == pluginState.defaultMetadataPluginConfig;
-          final isDefaultAudioSource =
-              oldConfig == pluginState.defaultAudioSourcePluginConfig;
+        if (e.errorCode == MetadataPluginErrorCode.duplicatePlugin) {
+          if (await isPluginUpdate(pluginConfig)) {
+            final oldConfig = pluginState.plugins
+                .firstWhereOrNull((p) => p.slug == pluginConfig.slug);
+            if (oldConfig == null) continue;
+            final isDefaultMetadata =
+                oldConfig == pluginState.defaultMetadataPluginConfig;
+            final isDefaultAudioSource =
+                oldConfig == pluginState.defaultAudioSourcePluginConfig;
 
-          await removePlugin(pluginConfig);
-          await addPlugin(pluginConfig);
+            await removePlugin(pluginConfig);
+            await addPlugin(pluginConfig);
 
-          if (isDefaultMetadata) {
-            await setDefaultMetadataPlugin(pluginConfig);
+            if (isDefaultMetadata) {
+              await setDefaultMetadataPlugin(pluginConfig);
+            }
+            if (isDefaultAudioSource) {
+              await setDefaultAudioSourcePlugin(pluginConfig);
+            }
           }
-          if (isDefaultAudioSource) {
-            await setDefaultAudioSourcePlugin(pluginConfig);
-          }
+          // Plugin already at same version — mark as freshly available so the
+          // auto-set block below can still repair a missing default selection.
+          freshlyAdded = true;
         }
       }
 
-      // ponytail: auto-set the bundled audio-source plugin as default when
-      // none is configured (first-run / Spotify-only setups).
-      if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
+      // Auto-set this bundled plugin as the default when:
+      // (a) no default audio-source plugin is configured yet, or
+      // (b) the plugin exists in DB but was never selected (e.g. corrupted state).
+      if (freshlyAdded &&
+          pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
           pluginState.defaultAudioSourcePlugin < 0) {
         try {
           await setDefaultAudioSourcePlugin(pluginConfig);
+        } catch (_) {}
+      }
+
+      // Same repair for the metadata plugin slot.
+      if (freshlyAdded &&
+          pluginConfig.abilities.contains(PluginAbilities.metadata) &&
+          pluginState.defaultMetadataPlugin < 0) {
+        try {
+          await setDefaultMetadataPlugin(pluginConfig);
         } catch (_) {}
       }
     }

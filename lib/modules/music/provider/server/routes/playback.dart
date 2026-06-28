@@ -187,23 +187,135 @@ class ServerPlaybackRoutes {
             .swapWithNextSibling()
             .then((track) => track.url!);
 
-    // Redirect libmpv directly to the YouTube CDN URL instead of proxying.
-    // Dart's HttpClient TLS fingerprint is rejected by YouTube CDN (→ 403).
-    // libmpv/libcurl follows 302 redirects transparently using its own TLS
-    // stack, which matches Spotube's original direct-URL approach.
-    // Note: caching is bypassed; add a post-download hook if needed later.
-    AppLogger.log.i("Redirecting ${track.query.name} → $url");
-    return dio_lib.Response<Uint8List>(
-      statusCode: 302,
-      statusMessage: "Direct CDN Redirect",
-      headers: Headers.fromMap({
-        "location": [url],
-        "cache-control": ["no-cache"],
-      }),
-      requestOptions: RequestOptions(path: request.requestedUri.toString()),
-      isRedirect: true,
+    final options = Options(
+      headers: {
+        ...headers,
+        "user-agent": _userAgentForUrl(url),
+        "Cache-Control": "max-age=3600",
+        "Connection": "keep-alive",
+        "host": Uri.parse(url).host,
+      },
+      responseType: ResponseType.stream,
+      validateStatus: (status) => status! < 400,
     );
 
+    final contentLengthRes = await Future<dio_lib.Response?>.value(
+      dio.head(
+        url,
+        options: options.copyWith(responseType: ResponseType.bytes),
+      ),
+    ).catchError((e, stack) async {
+      AppLogger.reportError(e, stack);
+
+      final sourcedTrack = await ref
+          .read(sourcedTrackProvider(track.query).notifier)
+          .refreshStreamingUrl();
+
+      url = sourcedTrack.url!;
+
+      return dio.head(
+        url,
+        options: options.copyWith(
+          headers: {
+            ...headers,
+            "user-agent": _userAgentForUrl(url),
+            "Cache-Control": "max-age=3600",
+            "Connection": "keep-alive",
+            "host": Uri.parse(url).host,
+          },
+          responseType: ResponseType.bytes,
+        ),
+      );
+    });
+
+    if (contentLengthRes?.headers.value("content-type") ==
+        "application/vnd.apple.mpegurl") {
+      return dio_lib.Response<Uint8List>(
+        statusCode: 301,
+        statusMessage: "M3U8 Redirect",
+        headers: Headers.fromMap({
+          "location": [url],
+          "content-type": ["application/vnd.apple.mpegurl"],
+        }),
+        requestOptions: RequestOptions(path: request.requestedUri.toString()),
+        isRedirect: true,
+      );
+    }
+
+    final streamOptions = options.copyWith(
+      headers: {
+        ...headers,
+        "user-agent": _userAgentForUrl(url),
+        "Cache-Control": "max-age=3600",
+        "Connection": "keep-alive",
+        "host": Uri.parse(url).host,
+      },
+    );
+
+    final res = await dio.get<ResponseBody>(url, options: streamOptions);
+
+    AppLogger.log.i(
+      "Streaming ${track.query.name}\n"
+      "Status Code: ${res.statusCode}\n"
+      "Headers: ${res.headers.map}",
+    );
+
+    if (!userPreferences.cacheMusic) {
+      return res;
+    }
+
+    final resStream = res.data!.stream.asBroadcastStream();
+
+    final trackPartialCacheFile = File("${trackCacheFile.path}.part");
+    if (!await trackPartialCacheFile.exists()) {
+      await trackPartialCacheFile.create(recursive: true);
+    }
+
+    final partialCacheFileSink =
+        trackPartialCacheFile.openWrite(mode: FileMode.writeOnlyAppend);
+    final contentRange = res.headers.value("content-range") != null
+        ? ContentRangeHeader.parse(res.headers.value("content-range") ?? "")
+        : ContentRangeHeader(0, 0, 0);
+
+    resStream.listen(
+      (data) {
+        partialCacheFileSink.add(data);
+      },
+      onError: (e, stack) {
+        partialCacheFileSink.close();
+      },
+      onDone: () async {
+        await partialCacheFileSink.close();
+
+        final fileLength = await trackPartialCacheFile.length();
+        if (fileLength != contentRange.total) return;
+
+        await trackPartialCacheFile.rename(trackCacheFile.path);
+
+        if (track.qualityPreset!.getFileExtension() == "weba") return;
+
+        final imageBytes = await ServiceUtils.downloadImage(
+          track.query.album.images.asUrlString(
+            placeholder: ImagePlaceholder.albumArt,
+            index: 1,
+          ),
+        );
+
+        await MetadataGod.writeMetadata(
+          file: trackCacheFile.path,
+          metadata: track.query.toMetadata(
+            imageBytes: imageBytes,
+            fileLength: fileLength,
+          ),
+        ).catchError((e, stackTrace) {
+          AppLogger.reportError(e, stackTrace);
+        });
+      },
+      cancelOnError: true,
+    );
+
+    res.data?.stream = resStream;
+    return res;
   }
 
   /// @head('/stream/<trackId>')
@@ -245,10 +357,7 @@ class ServerPlaybackRoutes {
         request.headers,
       );
 
-      // 302 redirect — use Response.found() so shelf sends a plain String
-      // "Location: url" header. Passing headers.map (Map<String,List<String>>)
-      // causes shelf to stringify the list as "[https://...]" which libmpv
-      // cannot parse, resulting in immediate "Failed to open" errors.
+      // m3u8 streams are redirected directly; all other audio is proxied above.
       if (res.isRedirect) {
         final location = res.headers.value('location');
         if (location != null) {

@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
+import 'package:watchtower/modules/music/services/logger/logger.dart';
 
 final metadataPluginUpdateCheckerProvider =
     FutureProvider<PluginUpdateAvailable?>((ref) async {
@@ -12,8 +13,13 @@ final metadataPluginUpdateCheckerProvider =
     return null;
   }
 
-  return metadataPlugin.core
-      .checkUpdate(metadataPluginConfigs.defaultMetadataPluginConfig!);
+  try {
+    return await metadataPlugin.core
+        .checkUpdate(metadataPluginConfigs.defaultMetadataPluginConfig!);
+  } catch (e, stack) {
+    AppLogger.reportError(e, stack);
+    return null;
+  }
 });
 
 final audioSourcePluginUpdateCheckerProvider =
@@ -27,6 +33,11 @@ final audioSourcePluginUpdateCheckerProvider =
     return null;
   }
 
-  return audioSourcePlugin.core
-      .checkUpdate(audioSourcePluginConfigs.defaultAudioSourcePluginConfig!);
+  try {
+    return await audioSourcePlugin.core
+        .checkUpdate(audioSourcePluginConfigs.defaultAudioSourcePluginConfig!);
+  } catch (e, stack) {
+    AppLogger.reportError(e, stack);
+    return null;
+  }
 });
