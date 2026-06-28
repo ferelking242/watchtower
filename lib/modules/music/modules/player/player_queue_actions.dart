@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Material, MaterialType;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -16,16 +17,26 @@ class PlayerQueueActionButton extends StatelessWidget {
     return IconButton.ghost(
       onPressed: () {
         final mediaQuery = MediaQuery.sizeOf(context);
+        // Capture shadcn theme before entering the overlay.
+        // Without this the overlay context has no shadcn ancestor
+        // and shadcn widgets render as blank gray boxes.
+        final capturedTheme = Theme.of(context);
 
         if (mediaQuery.lgAndUp) {
           showDropdown(
             context: context,
             builder: (context) {
-              return SizedBox(
-                width: 220 * context.theme.scaling,
-                child: Card(
-                  padding: EdgeInsets.zero,
-                  child: builder(context, () => closeOverlay(context)),
+              return Theme(
+                data: capturedTheme,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: SizedBox(
+                    width: 220 * context.theme.scaling,
+                    child: Card(
+                      padding: EdgeInsets.zero,
+                      child: builder(context, () => closeOverlay(context)),
+                    ),
+                  ),
                 ),
               );
             },
@@ -33,7 +44,13 @@ class PlayerQueueActionButton extends StatelessWidget {
         } else {
           openSheet(
             context: context,
-            builder: (context) => builder(context, () => closeSheet(context)),
+            builder: (context) => Theme(
+              data: capturedTheme,
+              child: Material(
+                type: MaterialType.transparency,
+                child: builder(context, () => closeSheet(context)),
+              ),
+            ),
             position: OverlayPosition.bottom,
           );
         }
