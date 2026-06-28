@@ -12,6 +12,17 @@ import 'package:watchtower/modules/music/services/audio_player/audio_player.dart
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 
+/// Initialises HomeWidget once per process. On iOS the package requires an
+/// App Group to be set before any save/update call, otherwise it logs a
+/// warning and silently skips writes.
+Future<void> _initHomeWidget() async {
+  if (!kIsMobile) return;
+  if (kIsIOS) {
+    await HomeWidget.setAppGroupId('group.com.watchtower.app');
+  }
+  await HomeWidget.registerBackgroundCallback(glanceBackgroundCallback);
+}
+
 @pragma("vm:entry-point")
 Future<void> glanceBackgroundCallback(Uri? data) async {
   final logger = Logger();
@@ -106,6 +117,8 @@ Future<void> _sendActiveTrack(SpotubeTrackObject? track) async {
 }
 
 final glanceProvider = Provider((ref) {
+  _initHomeWidget();
+
   final server = ref.read(serverProvider);
   final activeTrack = ref.read(audioPlayerProvider).activeTrack;
 
