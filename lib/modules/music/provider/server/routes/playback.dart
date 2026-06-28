@@ -245,6 +245,17 @@ class ServerPlaybackRoutes {
         request.headers,
       );
 
+      // 302 redirect — use Response.found() so shelf sends a plain String
+      // "Location: url" header. Passing headers.map (Map<String,List<String>>)
+      // causes shelf to stringify the list as "[https://...]" which libmpv
+      // cannot parse, resulting in immediate "Failed to open" errors.
+      if (res.isRedirect) {
+        final location = res.headers.value('location');
+        if (location != null) {
+          return Response.found(location);
+        }
+      }
+
       if (res.data is ResponseBody) {
         return Response(
           res.statusCode!,
