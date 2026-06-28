@@ -259,26 +259,10 @@ class SourcedTrack extends BasicSourcedTrack {
       throw MetadataPluginException.noDefaultAudioSourcePlugin();
     }
 
-    List<SpotubeAudioSourceStreamObject> validStreams = [];
-
-    final stringBuffer = StringBuffer();
-    for (final source in sources) {
-      final res = await globalDio.head(
-        source.url,
-        options:
-            Options(validateStatus: (status) => status != null && status < 500),
-      );
-
-      stringBuffer.writeln(
-        "[${query.id}] ${res.statusCode} ${source.container} ${source.codec} ${source.bitrate}",
-      );
-
-      if (res.statusCode! < 400) {
-        validStreams.add(source);
-      }
-    }
-
-    AppLogger.log.d(stringBuffer.toString());
+    // Skip HTTP HEAD validation — Dart's TLS fingerprint is rejected by
+    // YouTube CDN (→ 403 on every attempt). Trust existing sources as valid;
+    // if one fails at playback time the proxy's URL-refresh path handles it.
+    List<SpotubeAudioSourceStreamObject> validStreams = sources.toList();
 
     if (validStreams.isEmpty) {
       validStreams = await audioSource.audioSource.streams(info);
