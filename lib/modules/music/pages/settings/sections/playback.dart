@@ -56,6 +56,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                   context.mounted) {
                 final hasInstalled = await showDialog<bool>(
                   context: context,
+                  useRootNavigator: false,
                   builder: (context) =>
                       YouTubeEngineNotInstalledDialog(engine: value),
                 );
@@ -193,6 +194,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                 onPressed: () {
                   showDialog(
                     context: context,
+                    useRootNavigator: false,
                     barrierColor: Colors.black.withValues(alpha: 0.5),
                     builder: (context) =>
                         const SettingsPlaybackEditConnectPortDialog(),
