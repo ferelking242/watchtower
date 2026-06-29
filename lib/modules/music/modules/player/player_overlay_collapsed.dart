@@ -74,25 +74,24 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
                                     ? null
                                     : audioPlayer.skipToPrevious,
                               ),
-                              Consumer(
-                                builder: (context, ref, _) {
-                                  return IconButton.ghost(
-                                    icon: isFetchingActiveTrack
-                                        ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(),
-                                          )
-                                        : Icon(
-                                            playing
-                                                ? SpotubeIcons.pause
-                                                : SpotubeIcons.play,
-                                          ),
-                                    onPressed: Actions.handler<PlayPauseIntent>(
-                                      context,
-                                      PlayPauseIntent(ref),
-                                    ),
-                                  );
+                              IconButton.ghost(
+                                icon: isFetchingActiveTrack
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(),
+                                      )
+                                    : Icon(
+                                        playing
+                                            ? SpotubeIcons.pause
+                                            : SpotubeIcons.play,
+                                      ),
+                                onPressed: () async {
+                                  if (audioPlayer.isPlaying) {
+                                    await audioPlayer.pause();
+                                  } else {
+                                    await audioPlayer.resume();
+                                  }
                                 },
                               ),
                               IconButton.ghost(
