@@ -1,10 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide FilePicker;
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
-
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/modules/library/local_folder/local_folder_item.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
@@ -54,8 +52,6 @@ class UserLocalLibraryPage extends HookConsumerWidget {
       }
     }, [preferences.localLibraryLocation]);
 
-    // This is just to pre-load the tracks.
-    // For now, this gets all of them.
     ref.watch(localTracksProvider);
 
     final locations = [
@@ -65,41 +61,48 @@ class UserLocalLibraryPage extends HookConsumerWidget {
     ];
 
     return LayoutBuilder(
-        builder: (context, constrains) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Button.secondary(
-                      leading: const Icon(SpotubeIcons.folderAdd),
-                      onPressed: addLocalLibraryLocation,
-                      child: Text(context.l10n.add_library_location),
-                    ),
-                  ),
-                  const Gap(8),
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 200,
-                        mainAxisExtent: constrains.isXs
-                            ? 230 * context.theme.scaling
-                            : constrains.mdAndDown
-                                ? 280 * context.theme.scaling
-                                : 250 * context.theme.scaling,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                      ),
-                      itemCount: locations.length,
-                      itemBuilder: (context, index) {
-                        return LocalFolderItem(
-                          folder: locations[index],
-                        );
-                      },
-                    ),
-                  ),
-                ],
+      builder: (context, constrains) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonal(
+                onPressed: addLocalLibraryLocation,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(SpotubeIcons.folderAdd, size: 18),
+                    const SizedBox(width: 8),
+                    Text(context.l10n.add_library_location),
+                  ],
+                ),
               ),
-            ));
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 200,
+                  mainAxisExtent: constrains.isXs
+                      ? 230
+                      : constrains.mdAndDown
+                          ? 280
+                          : 250,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: locations.length,
+                itemBuilder: (context, index) {
+                  return LocalFolderItem(
+                    folder: locations[index],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

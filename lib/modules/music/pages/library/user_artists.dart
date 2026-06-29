@@ -1,15 +1,11 @@
-import 'package:flutter/material.dart' as material;
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
-
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
-
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/fallbacks/anonymous_fallback.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
@@ -30,31 +26,23 @@ class UserArtistsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final authenticated = ref.watch(metadataPluginAuthenticatedProvider);
-
     final artistQuery = ref.watch(metadataPluginSavedArtistsProvider);
     final artistQueryNotifier =
         ref.watch(metadataPluginSavedArtistsProvider.notifier);
-
     final searchText = useState('');
+    final controller = useScrollController();
+    final theme = Theme.of(context);
 
     final filteredArtists = useMemoized(() {
       final artists = artistQuery.asData?.value.items ?? [];
-
-      if (searchText.value.isEmpty) {
-        return artists.toList();
-      }
+      if (searchText.value.isEmpty) return artists.toList();
       return artists
-          .map((e) => (
-                weightedRatio(e.name, searchText.value),
-                e,
-              ))
+          .map((e) => (weightedRatio(e.name, searchText.value), e))
           .sorted((a, b) => b.$1.compareTo(a.$1))
           .where((e) => e.$1 > 50)
           .map((e) => e.$2)
           .toList();
     }, [artistQuery.asData?.value.items, searchText.value]);
-
-    final controller = useScrollController();
 
     if (artistQuery.error
         case MetadataPluginException(
@@ -79,113 +67,127 @@ class UserArtistsPage extends HookConsumerWidget {
 
     return SafeArea(
       bottom: false,
-      child: Scaffold(
-        child: material.RefreshIndicator.adaptive(
-          onRefresh: () async {
-            ref.invalidate(metadataPluginSavedArtistsProvider);
-          },
-          child: InterScrollbar(
-            controller: controller,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: CustomScrollView(
-                controller: controller,
-                slivers: [
-                  SliverAppBar(
-                    automaticallyImplyLeading: false,
-                    backgroundColor: Theme.of(context).colorScheme.background,
-                    floating: true,
-                    flexibleSpace: SizedBox(
-                      height: 48,
-                      child: TextField(
-                        onChanged: (value) => searchText.value = value,
-                        features: const [
-                          InputFeature.leading(Icon(SpotubeIcons.filter)),
-                        ],
-                        placeholder: Text(context.l10n.filter_artist),
+      child: RefreshIndicator.adaptive(
+        onRefresh: () async {
+          ref.invalidate(metadataPluginSavedArtistsProvider);
+        },
+        child: InterScrollbar(
+          controller: controller,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: CustomScrollView(
+              controller: controller,
+              slivers: [
+                SliverAppBar(
+                  automaticallyImplyLeading: false,
+                  backgroundColor: theme.colorScheme.surface,
+                  floating: true,
+                  flexibleSpace: SizedBox(
+                    height: 48,
+                    child: TextField(
+                      onChanged: (value) => searchText.value = value,
+                      decoration: InputDecoration(
+                        hintText: context.l10n.filter_artist,
+                        prefixIcon: const Icon(SpotubeIcons.filter),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 20),
+                        isDense: true,
                       ),
                     ),
                   ),
-                  const SliverGap(10),
-                  if (filteredArtists.isNotEmpty || artistQuery.isLoading)
-                    SliverLayoutBuilder(builder: (context, constrains) {
-                      return SliverGrid.builder(
-                        itemCount: filteredArtists.length + 1,
-                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 200,
-                          mainAxisExtent: constrains.smAndDown ? 225 : 250,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemBuilder: (context, index) {
-                          if (filteredArtists.isNotEmpty &&
-                              index == filteredArtists.length) {
-                            if (artistQuery.asData?.value.hasMore != true) {
-                              return const SizedBox.shrink();
-                            }
-
-                            return Waypoint(
-                              controller: controller,
-                              isGrid: true,
-                              onTouchEdge: artistQueryNotifier.fetchMore,
-                              child: Skeletonizer(
-                                enabled: true,
-                                child: ArtistCard(FakeData.artist),
-                              ),
-                            );
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                if (filteredArtists.isNotEmpty || artistQuery.isLoading)
+                  SliverLayoutBuilder(builder: (context, constrains) {
+                    return SliverGrid.builder(
+                      itemCount: filteredArtists.length + 1,
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 200,
+                        mainAxisExtent: constrains.smAndDown ? 225 : 250,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemBuilder: (context, index) {
+                        if (filteredArtists.isNotEmpty &&
+                            index == filteredArtists.length) {
+                          if (artistQuery.asData?.value.hasMore != true) {
+                            return const SizedBox.shrink();
                           }
-
-                          return Skeletonizer(
-                            enabled: artistQuery.isLoading,
-                            child: ArtistCard(
-                              filteredArtists.elementAtOrNull(index) ??
-                                  FakeData.artist,
+                          return Waypoint(
+                            controller: controller,
+                            isGrid: true,
+                            onTouchEdge: artistQueryNotifier.fetchMore,
+                            child: Skeletonizer(
+                              enabled: true,
+                              child: ArtistCard(FakeData.artist),
                             ),
                           );
-                        },
-                      );
-                    })
-                  else if (filteredArtists.isEmpty &&
-                      searchText.value.isEmpty &&
-                      !artistQuery.isLoading)
-                    SliverToBoxAdapter(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 10,
-                        children: [
-                          Undraw(
-                            height: 200 * context.theme.scaling,
-                            illustration: UndrawIllustration.followMeDrone,
-                            color: Theme.of(context).colorScheme.primary,
+                        }
+                        return Skeletonizer(
+                          enabled: artistQuery.isLoading,
+                          child: ArtistCard(
+                            filteredArtists.elementAtOrNull(index) ??
+                                FakeData.artist,
                           ),
-                          Text(
-                            context.l10n.not_following_artists,
-                            textAlign: TextAlign.center,
-                          ).muted().small()
-                        ],
-                      ),
-                    )
-                  else
-                    SliverToBoxAdapter(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 10,
-                        children: [
-                          Undraw(
-                            height: 200 * context.theme.scaling,
-                            illustration: UndrawIllustration.taken,
-                            color: Theme.of(context).colorScheme.primary,
+                        );
+                      },
+                    );
+                  })
+                else if (filteredArtists.isEmpty &&
+                    searchText.value.isEmpty &&
+                    !artistQuery.isLoading)
+                  SliverToBoxAdapter(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 10),
+                        Undraw(
+                          height: 200,
+                          illustration: UndrawIllustration.followMeDrone,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          context.l10n.not_following_artists,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                          Text(
-                            context.l10n.nothing_found,
-                            textAlign: TextAlign.center,
-                          ).muted().small()
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  const SliverSafeArea(sliver: SliverGap(10)),
-                ],
-              ),
+                  )
+                else
+                  SliverToBoxAdapter(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 10),
+                        Undraw(
+                          height: 200,
+                          illustration: UndrawIllustration.taken,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          context.l10n.nothing_found,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SliverSafeArea(
+                  sliver: SliverToBoxAdapter(child: SizedBox(height: 10)),
+                ),
+              ],
             ),
           ),
         ),

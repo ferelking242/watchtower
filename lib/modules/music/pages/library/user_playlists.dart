@@ -1,13 +1,10 @@
-import 'package:flutter/material.dart' as material;
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:collection/collection.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide Image;
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
-
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/fallbacks/no_default_metadata_plugin.dart';
@@ -32,7 +29,6 @@ class UserPlaylistsPage extends HookConsumerWidget {
     final searchText = useState('');
 
     final authenticated = ref.watch(metadataPluginAuthenticatedProvider);
-
     final me = ref.watch(metadataPluginUserProvider);
     final playlistsQuery = ref.watch(metadataPluginSavedPlaylistsProvider);
     final playlistsQueryNotifier =
@@ -48,12 +44,12 @@ class UserPlaylistsPage extends HookConsumerWidget {
               externalUri: "",
               owner: me.asData!.value!,
               images: [
-                  SpotubeImageObject(
-                    url: Assets.images.likedTracks.path,
-                    width: 300,
-                    height: 300,
-                  )
-                ]),
+                SpotubeImageObject(
+                  url: Assets.images.likedTracks.path,
+                  width: 300,
+                  height: 300,
+                )
+              ]),
       [context.l10n, me.asData?.value],
     );
 
@@ -101,7 +97,7 @@ class UserPlaylistsPage extends HookConsumerWidget {
       );
     }
 
-    return material.RefreshIndicator.adaptive(
+    return RefreshIndicator.adaptive(
       onRefresh: () async {
         ref.invalidate(metadataPluginSavedPlaylistsProvider);
       },
@@ -115,20 +111,30 @@ class UserPlaylistsPage extends HookConsumerWidget {
               SliverAppBar(
                 automaticallyImplyLeading: false,
                 floating: true,
-                backgroundColor: context.theme.colorScheme.background,
-                flexibleSpace: Container(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                flexibleSpace: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  height: 48,
-                  child: TextField(
-                    onChanged: (value) => searchText.value = value,
-                    placeholder: Text(context.l10n.filter_playlists),
-                    features: const [
-                      InputFeature.leading(Icon(SpotubeIcons.filter)),
-                    ],
+                  child: SizedBox(
+                    height: 48,
+                    child: TextField(
+                      onChanged: (value) => searchText.value = value,
+                      decoration: InputDecoration(
+                        hintText: context.l10n.filter_playlists,
+                        prefixIcon: const Icon(SpotubeIcons.filter),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 20),
+                        isDense: true,
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const SliverGap(10),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 sliver: PlaybuttonView(
@@ -136,15 +142,6 @@ class UserPlaylistsPage extends HookConsumerWidget {
                     child: Row(
                       children: [
                         PlaylistCreateDialogButton(),
-                        // const Gap(10),
-                        // Button.primary(
-                        //   leading: const Icon(SpotubeIcons.magic),
-                        //   child: Text(context.l10n.generate),
-                        //   onPressed: () {
-                        //     context.navigateTo(const PlaylistGeneratorRoute());
-                        //   },
-                        // ),
-                        // const Gap(10),
                       ],
                     ),
                   ),
@@ -161,7 +158,9 @@ class UserPlaylistsPage extends HookConsumerWidget {
                   },
                 ),
               ),
-              const SliverSafeArea(sliver: SliverGap(10)),
+              const SliverSafeArea(
+                sliver: SliverToBoxAdapter(child: SizedBox(height: 10)),
+              ),
             ],
           ),
         ),
