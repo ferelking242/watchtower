@@ -446,6 +446,13 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                         ),
                         const SizedBox(width: 10),
                         _ModePill(
+                          icon: Icons.music_note_rounded,
+                          label: 'Music search',
+                          selected: false,
+                          onTap: () => context.go('/MusicSearch'),
+                        ),
+                        const SizedBox(width: 10),
+                        _ModePill(
                           icon: Icons.add_circle_outline_rounded,
                           label: 'Custom sources',
                           selected: false,
