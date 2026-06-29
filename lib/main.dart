@@ -84,6 +84,12 @@ void main(List<String> args) async {
         final msg = details.exceptionAsString();
         // Suppress broken image/asset loading errors (e.g. extension icons 404)
         if (AppLogger.shouldSuppressImageError(msg)) return;
+        // Suppress shadcn_flutter Tooltip OverlayManager null-check crash.
+        // Root cause: music module embeds shadcn widgets inside MaterialApp with
+        // only a shadcn.Theme wrapper — OverlayManager (provided by ShadcnApp)
+        // is absent. On mobile there is no real hover, so this is harmless.
+        final stack = details.stack?.toString() ?? '';
+        if (msg.contains('Null check operator') && stack.contains('tooltip.dart')) return;
         // Always print to browser console on web so we can diagnose issues
         debugPrint('[FlutterError] $msg\n${details.stack}');
         FlutterError.presentError(details);

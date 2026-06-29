@@ -12,8 +12,19 @@ class SourcedTrackNotifier
   @override
   FutureOr<SourcedTrack> build() {
     final query = arg;
-    ref.watch(audioSourcePluginProvider);
-    ref.watch(audioSourcePresetsProvider);
+
+    // Use ref.listen instead of ref.watch so that startup initialisation of
+    // audioSourcePluginProvider / audioSourcePresetsProvider does NOT trigger
+    // extra rebuilds while the first fetch is still in-flight.  Only once the
+    // state has a value (first fetch complete) do we invalidate and re-fetch
+    // with the new settings.  This eliminates the triple YouTube URL fetch
+    // that was visible at startup in the logs.
+    ref.listen(audioSourcePluginProvider, (_, __) {
+      if (state.valueOrNull != null) ref.invalidateSelf();
+    });
+    ref.listen(audioSourcePresetsProvider, (_, __) {
+      if (state.valueOrNull != null) ref.invalidateSelf();
+    });
 
     return SourcedTrack.fetchFromTrack(query: query, ref: ref);
   }
