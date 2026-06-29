@@ -58,6 +58,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:window_manager/window_manager.dart' show windowManager;
 
 import 'widgets/search_subtitles.dart';
+import 'widgets/player_help_page.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/widgets/error_box.dart';
 
@@ -1876,6 +1877,93 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     );
   }
 
+  // ── Settings 3-dot menu items ───────────────────────────────────────────────
+
+  /// Returns a tile showing a setting name and its current read-only value.
+  PopupMenuEntry<String> _settingRow(String name, String value) {
+    return PopupMenuItem<String>(
+      enabled: false,
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Container(
+            height: 0.5,
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: Theme.of(context).colorScheme.primary,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<String>> _buildSettingsMenuItems(BuildContext context) {
+    final doubleTapSkip = ref.read(defaultDoubleTapToSkipLengthStateProvider);
+    final introSkip = ref.read(defaultSkipIntroLengthStateProvider);
+    final speed = ref.read(defaultPlayBackSpeedStateProvider);
+    final useLibassVal = ref.read(useLibassStateProvider);
+
+    final audioTrack = _player.state.track.audio;
+    final audioLabel = audioTrack.title ??
+        audioTrack.language ??
+        audioTrack.channels ??
+        (audioTrack.id == 'auto' ? 'Auto' : audioTrack.id);
+
+    final subTrack = _player.state.track.subtitle;
+    final subLabel = subTrack.title ??
+        subTrack.language ??
+        (subTrack.id == 'auto' ? 'Auto' : subTrack.id == 'no' ? 'Aucun' : subTrack.id);
+
+    final fitName = () {
+      switch (_fit.value) {
+        case BoxFit.contain: return 'Contenir';
+        case BoxFit.cover: return 'Couvrir';
+        case BoxFit.fill: return 'Remplir';
+        case BoxFit.fitWidth: return 'Largeur';
+        case BoxFit.fitHeight: return 'Hauteur';
+        default: return _fit.value.name;
+      }
+    }();
+
+    return [
+      _settingRow('Double-tap skip', '${doubleTapSkip}s'),
+      const PopupMenuDivider(height: 1),
+      _settingRow('Skip intro', '${introSkip}s'),
+      const PopupMenuDivider(height: 1),
+      _settingRow('Vitesse', '${speed}x'),
+      const PopupMenuDivider(height: 1),
+      _settingRow('Mode affichage', fitName),
+      const PopupMenuDivider(height: 1),
+      _settingRow('Piste audio', audioLabel),
+      const PopupMenuDivider(height: 1),
+      _settingRow('Piste sous-titres', subLabel),
+      const PopupMenuDivider(height: 1),
+      _settingRow('Libass (renderer)', useLibassVal ? 'Activé' : 'Désactivé'),
+      const PopupMenuDivider(height: 1),
+      _settingRow('Rendu vidéo', useMpvConfig ? 'MPV' : 'Natif'),
+    ];
+  }
+
   List<Widget> _buildMpvSettingsButton(BuildContext context) {
     return [
       ArrowPopupMenuButton<String>(
@@ -1992,6 +2080,69 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           icon: const Icon(Icons.video_settings, color: Colors.white),
         ),
         if (useMpvConfig) ..._buildMpvSettingsButton(context),
+        // ── Audio language ─────────────────────────────────────────────────
+        ArrowPopupMenuButton<String>(
+          tooltip: '',
+          icon: const Icon(Icons.language, color: Colors.white),
+          menuWidth: 220,
+          itemBuilder: (context) {
+            final items = <PopupMenuEntry<String>>[];
+            final currentAudio = _player.state.track.audio;
+
+            // Tracks embedded in the file
+            for (final track in _player.state.tracks.audio) {
+              final label =
+                  track.title ?? track.language ?? track.channels ?? '';
+              if (label.isEmpty) continue;
+              items.add(PopupMenuItem<String>(
+                value: track.id,
+                onTap: () => _player.setAudioTrack(track),
+                child: textWidget(
+                  label,
+                  track.id == currentAudio.id,
+                ),
+              ));
+            }
+
+            // External audio tracks from video list
+            if (widget.videos.isNotEmpty && !widget.isLocal) {
+              final seen = <String>{};
+              for (final video in widget.videos) {
+                for (final audio in video.audios ?? []) {
+                  if (audio.file == null || audio.file!.isEmpty) continue;
+                  if (!seen.add(audio.file!)) continue;
+                  final lbl = audio.label ?? audio.file!;
+                  items.add(PopupMenuItem<String>(
+                    value: audio.file!,
+                    onTap: () => _player.setAudioTrack(
+                      AudioTrack.uri(
+                        audio.file!,
+                        title: lbl,
+                        language: lbl,
+                      ),
+                    ),
+                    child: textWidget(lbl, false),
+                  ));
+                }
+              }
+            }
+
+            if (items.isEmpty) {
+              items.add(const PopupMenuItem<String>(
+                enabled: false,
+                child: Text('Aucune piste audio disponible'),
+              ));
+            }
+            return items;
+          },
+        ),
+        // ── Settings 3-dot menu ────────────────────────────────────────────
+        ArrowPopupMenuButton<String>(
+          tooltip: '',
+          icon: const Icon(Icons.more_vert, color: Colors.white),
+          menuWidth: 270,
+          itemBuilder: (context) => _buildSettingsMenuItems(context),
+        ),
         ArrowPopupMenuButton<double>(
           tooltip: '', // Remove default tooltip "Show menu" for consistency
           icon: const Icon(Icons.speed, color: Colors.white),
@@ -2137,6 +2288,20 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                   } else {
                     _player.pause();
                   }
+                },
+              ),
+              // ── Help button ───────────────────────────────────────────────
+              IconButton(
+                icon: const Icon(
+                  Icons.help_outline_rounded,
+                  color: Colors.white,
+                ),
+                tooltip: 'Aide',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const PlayerHelpPage(),
+                  );
                 },
               ),
             ],

@@ -1076,7 +1076,7 @@ List<Widget> mobilePrimaryButtonBar(
   bool hasNextEpisode = streamController.getEpisodeIndex().$1 != 0;
   final isFullScreen = isFullscreen(context);
   return [
-    const Spacer(flex: 3),
+    const Spacer(flex: 2),
     IconButton(
       onPressed: hasPrevEpisode
           ? () {
@@ -1096,7 +1096,13 @@ List<Widget> mobilePrimaryButtonBar(
       ),
     ),
     const Spacer(),
+    // ── Skip −15 s ─────────────────────────────────────────────────────────
+    _SkipSecondsButton(seconds: -15, player: controller.player),
+    const SizedBox(width: 4),
     CustomPlayOrPauseButton(controller: controller, isDesktop: false),
+    const SizedBox(width: 4),
+    // ── Skip +15 s ─────────────────────────────────────────────────────────
+    _SkipSecondsButton(seconds: 15, player: controller.player),
     const Spacer(),
     IconButton(
       onPressed: hasNextEpisode
@@ -1116,6 +1122,89 @@ List<Widget> mobilePrimaryButtonBar(
         color: hasPrevEpisode ? Colors.white : Colors.grey,
       ),
     ),
-    const Spacer(flex: 3),
+    const Spacer(flex: 2),
   ];
+}
+
+// ── Skip ±N seconds button ────────────────────────────────────────────────────
+
+class _SkipSecondsButton extends StatefulWidget {
+  final int seconds;
+  final dynamic player; // Player from media_kit
+  const _SkipSecondsButton({required this.seconds, required this.player});
+
+  @override
+  State<_SkipSecondsButton> createState() => _SkipSecondsButtonState();
+}
+
+class _SkipSecondsButtonState extends State<_SkipSecondsButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  void _onTap() {
+    _anim.forward(from: 0).then((_) => _anim.reverse());
+    final pos = widget.player.state.position as Duration;
+    final dur = widget.player.state.duration as Duration;
+    final newPos = (pos + Duration(seconds: widget.seconds))
+        .clamp(Duration.zero, dur);
+    widget.player.seek(newPos);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isBackward = widget.seconds < 0;
+    final label = '${widget.seconds.abs()}s';
+    return GestureDetector(
+      onTap: _onTap,
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (context, child) => Transform.scale(
+          scale: 1.0 - 0.08 * _anim.value,
+          child: child,
+        ),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isBackward
+                    ? Icons.replay_rounded
+                    : Icons.forward_rounded,
+                color: Colors.white,
+                size: 17,
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.bold,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
