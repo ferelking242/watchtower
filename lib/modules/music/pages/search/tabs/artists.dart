@@ -1,8 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
@@ -27,6 +26,7 @@ class SearchPageArtistsTab extends HookConsumerWidget {
     final searchArtistsNotifier =
         ref.read(metadataPluginSearchArtistsProvider(searchTerm).notifier);
     final searchArtists = searchArtistsSnapshot.asData?.value.items ?? [];
+    final theme = Theme.of(context);
 
     if (searchArtistsSnapshot.hasError) {
       return ErrorBox(
@@ -47,17 +47,21 @@ class SearchPageArtistsTab extends HookConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                spacing: 10,
                 children: [
+                  const SizedBox(height: 10),
                   Undraw(
-                    height: 200 * context.theme.scaling,
+                    height: 200,
                     illustration: UndrawIllustration.taken,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: theme.colorScheme.primary,
                   ),
+                  const SizedBox(height: 10),
                   Text(
                     context.l10n.nothing_found,
                     textAlign: TextAlign.center,
-                  ).muted().small()
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             );

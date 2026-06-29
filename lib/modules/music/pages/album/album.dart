@@ -1,7 +1,6 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/material.dart' as material;
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_props.dart';
 import 'package:watchtower/modules/music/components/track_presentation/track_presentation.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -31,7 +30,7 @@ class AlbumPage extends HookConsumerWidget {
     final isSavedAlbum =
         ref.watch(metadataPluginIsSavedAlbumProvider(album.id));
 
-    return material.RefreshIndicator.adaptive(
+    return RefreshIndicator.adaptive(
       onRefresh: () async {
         ref.invalidate(metadataPluginAlbumTracksProvider(album.id));
         ref.invalidate(metadataPluginIsSavedAlbumProvider(album.id));

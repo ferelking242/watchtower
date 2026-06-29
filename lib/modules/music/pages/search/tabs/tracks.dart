@@ -1,5 +1,5 @@
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
@@ -80,20 +80,15 @@ class SearchPageTracksTab extends HookConsumerWidget {
                   final shouldPlay = (playlist.tracks.length) > 20
                       ? await showPromptDialog(
                           context: context,
-                          title: context.l10n.playing_track(
-                            track.name,
-                          ),
+                          title: context.l10n.playing_track(track.name),
                           message: context.l10n.queue_clear_alert(
-                            playlist.tracks.length,
-                          ),
+                              playlist.tracks.length),
                         )
                       : true;
 
                   if (shouldPlay) {
                     await remotePlayback.load(
-                      WebSocketLoadEventData.playlist(
-                        tracks: [track],
-                      ),
+                      WebSocketLoadEventData.playlist(tracks: [track]),
                     );
                   }
                 }
@@ -103,20 +98,14 @@ class SearchPageTracksTab extends HookConsumerWidget {
                   final shouldPlay = (playlist.tracks.length) > 20
                       ? await showPromptDialog(
                           context: context,
-                          title: context.l10n.playing_track(
-                            track.name,
-                          ),
+                          title: context.l10n.playing_track(track.name),
                           message: context.l10n.queue_clear_alert(
-                            playlist.tracks.length,
-                          ),
+                              playlist.tracks.length),
                         )
                       : true;
 
                   if (shouldPlay) {
-                    await playlistNotifier.load(
-                      [track],
-                      autoPlay: true,
-                    );
+                    await playlistNotifier.load([track], autoPlay: true);
                   }
                 }
               }

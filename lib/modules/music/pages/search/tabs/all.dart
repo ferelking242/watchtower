@@ -1,5 +1,5 @@
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
 import 'package:watchtower/modules/music/modules/search/loading.dart';
@@ -43,9 +43,9 @@ class SearchPageAllTab extends HookConsumerWidget {
                 children: [
                   SearchTracksSection(),
                   SearchPlaylistsSection(),
-                  Gap(20),
+                  SizedBox(height: 20),
                   SearchArtistsSection(),
-                  Gap(20),
+                  SizedBox(height: 20),
                   SearchAlbumsSection(),
                 ],
               ),

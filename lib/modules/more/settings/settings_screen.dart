@@ -3,6 +3,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:auto_route/auto_route.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/widgets/list_tile_widget.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
