@@ -1,12 +1,10 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/material.dart' show Badge;
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/side_bar_tiles.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/download_manager_provider.dart';
@@ -39,6 +37,7 @@ class LibraryPage extends HookConsumerWidget {
     final index = sidebarLibraryTileList.indexWhere(
       (e) => router.currentPath.startsWith(e.pathPrefix),
     );
+    final mediaQuery = MediaQuery.of(context);
 
     return PopScope(
       canPop: false,
@@ -47,45 +46,41 @@ class LibraryPage extends HookConsumerWidget {
       },
       child: SafeArea(
         bottom: false,
-        child: LayoutBuilder(builder: (context, constraints) {
-          return Scaffold(
-            headers: [
-              if (constraints.smAndDown)
-                TitleBar(
+        child: Scaffold(
+          appBar: mediaQuery.smAndDown
+              ? AppBar(
                   automaticallyImplyLeading: false,
-                  child: SingleChildScrollView(
+                  titleSpacing: 0,
+                  title: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: TabList(
-                      index: index,
-                      onChanged: (index) {
-                        context.navigateTo(sidebarLibraryTileList[index].route);
-                      },
+                    child: Row(
                       children: [
-                        for (final tile in sidebarLibraryTileList)
-                          TabItem(
-                            child: Badge(
+                        const SizedBox(width: 8),
+                        for (final tile in sidebarLibraryTileList) ...[
+                          ChoiceChip(
+                            label: Badge(
                               isLabelVisible: tile.id == 'downloads' &&
                                   downloadingCount > 0,
                               label: Text(downloadingCount.toString()),
                               child: Text(tile.title),
                             ),
+                            selected: sidebarLibraryTileList.indexOf(tile) ==
+                                index,
+                            showCheckmark: false,
+                            onSelected: (_) {
+                              context.navigateTo(tile.route);
+                            },
                           ),
+                          const SizedBox(width: 6),
+                        ],
+                        const SizedBox(width: 2),
                       ],
                     ),
                   ),
                 )
-              else
-                const TitleBar(
-                  automaticallyImplyLeading: false,
-                  backgroundColor: Colors.transparent,
-                  surfaceBlur: 0,
-                  height: 32,
-                ),
-              const Gap(10),
-            ],
-            child: AutoRouter(),
-          );
-        }),
+              : null,
+          body: const AutoRouter(),
+        ),
       ),
     );
   }

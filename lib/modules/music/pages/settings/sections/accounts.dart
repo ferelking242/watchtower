@@ -1,8 +1,6 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/material.dart' show ListTile;
-
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
@@ -15,6 +13,7 @@ class SettingsAccountSection extends HookConsumerWidget {
   @override
   Widget build(context, ref) {
     final scrobbler = ref.watch(scrobblerProvider);
+    final theme = Theme.of(context);
 
     return SectionCardWithHeading(
       heading: context.l10n.account,
@@ -23,25 +22,29 @@ class SettingsAccountSection extends HookConsumerWidget {
           leading: const Icon(SpotubeIcons.extensions),
           title: Text(context.l10n.plugins),
           subtitle: Text(context.l10n.configure_plugins),
+          trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () {
             context.pushRoute(const SettingsMetadataProviderRoute());
           },
-          trailing: const Icon(SpotubeIcons.angleRight),
         ),
         if (scrobbler.asData?.value == null)
           ListTile(
             leading: const Icon(SpotubeIcons.music),
             title: Text(context.l10n.audio_scrobblers),
+            trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () {
               context.pushRoute(const SettingsScrobblingRoute());
             },
-            trailing: const Icon(SpotubeIcons.angleRight),
           )
         else
           ListTile(
             leading: const Icon(SpotubeIcons.lastFm),
             title: Text(context.l10n.disconnect_lastfm),
-            trailing: Button.destructive(
+            trailing: FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+                backgroundColor: theme.colorScheme.errorContainer,
+              ),
               onPressed: () {
                 ref.read(scrobblerProvider.notifier).logout();
               },

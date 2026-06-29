@@ -1,19 +1,16 @@
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:sliver_tools/sliver_tools.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/user.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 class ProfilePage extends HookConsumerWidget {
   static const name = "profile";
-
   const ProfilePage({super.key});
 
   @override
@@ -21,115 +18,63 @@ class ProfilePage extends HookConsumerWidget {
     final me = ref.watch(metadataPluginUserProvider);
     final meData = me.asData?.value ?? FakeData.user;
 
-    // final userProperties = useMemoized(
-    //   () => {
-    //     context.l10n.email: meData.email ?? "N/A",
-    //     context.l10n.profile_followers:
-    //         meData.followers?.total.toString() ?? "N/A",
-    //     context.l10n.birthday: meData.birthdate ?? context.l10n.not_born,
-    //     context.l10n.country: markets
-    //         .firstWhere((market) => market.$1 == meData.country)
-    //         .$2,
-    //     context.l10n.subscription: meData.product ?? context.l10n.hacker,
-    //   },
-    //   [meData],
-    // );
-
     return SafeArea(
       child: Scaffold(
-        headers: [
-          TitleBar(
-            title: Text(context.l10n.profile),
-          )
-        ],
-        child: Skeletonizer(
+        appBar: AppBar(
+          title: Text(context.l10n.profile),
+        ),
+        body: Skeletonizer(
           enabled: me.isLoading,
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(600),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: ClipOval(
                       child: UniversalImage(
                         path: meData.images.asUrlString(
                           index: 1,
                           placeholder: ImagePlaceholder.artist,
                         ),
-                        width: 300,
-                        height: 300,
+                        width: 200,
+                        height: 200,
                         fit: BoxFit.cover,
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-              const SliverGap(10),
               SliverToBoxAdapter(
-                child: Text(
-                  meData.name,
-                  textAlign: TextAlign.center,
-                ).h4(),
+                child: Center(
+                  child: Text(
+                    meData.name,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
               ),
-              const SliverGap(20),
-              SliverCrossAxisConstrained(
-                maxCrossAxisExtent: 500,
-                child: SliverToBoxAdapter(
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Button.text(
-                        leading: const Icon(SpotubeIcons.edit),
+                      TextButton.icon(
+                        icon: const Icon(SpotubeIcons.edit),
+                        label: Text(context.l10n.edit),
                         onPressed: () {
                           launchUrlString(
                             meData.externalUri,
                             mode: LaunchMode.externalApplication,
                           );
                         },
-                        child: Text(context.l10n.edit),
                       ),
                     ],
                   ),
                 ),
               ),
-              // SliverCrossAxisConstrained(
-              //   maxCrossAxisExtent: 500,
-              //   child: SliverToBoxAdapter(
-              //     child: Card(
-              //       child: Padding(
-              //         padding: const EdgeInsets.all(8.0),
-              //         child: Table(
-              //           columnWidths: const {
-              //             0: FixedTableSize(120),
-              //           },
-              //           defaultRowHeight: const FixedTableSize(40),
-              //           rows: [
-              //             for (final MapEntry(:key, :value)
-              //                 in userProperties.entries)
-              //               TableRow(
-              //                 cells: [
-              //                   TableCell(
-              //                     child: Padding(
-              //                       padding: const EdgeInsets.all(6),
-              //                       child: Text(key).large(),
-              //                     ),
-              //                   ),
-              //                   TableCell(
-              //                     child: Padding(
-              //                       padding: const EdgeInsets.all(6),
-              //                       child: Text(value),
-              //                     ),
-              //                   ),
-              //                 ],
-              //               )
-              //           ],
-              //         ),
-              //       ),
-              //     ),
-              //   ),
-              // ),
-              const SliverGap(200),
+              const SliverToBoxAdapter(child: SizedBox(height: 200)),
             ],
           ),
         ),

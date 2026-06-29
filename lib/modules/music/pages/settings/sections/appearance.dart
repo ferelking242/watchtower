@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart' show ListTile;
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -21,14 +20,15 @@ class SettingsAppearanceSection extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final preferences = ref.watch(userPreferencesProvider);
     final preferencesNotifier = ref.watch(userPreferencesProvider.notifier);
-    final pickColorScheme = useCallback(() {
-      return () => showDialog(
-          context: context,
-          useRootNavigator: false,
-          builder: (context) {
-            return const ColorSchemePickerDialog();
-          });
-    }, []);
+    final theme = Theme.of(context);
+
+    void openColorPicker() {
+      showDialog(
+        context: context,
+        useRootNavigator: false,
+        builder: (context) => const ColorSchemePickerDialog(),
+      );
+    }
 
     final children = [
       AdaptiveSelectTile<LayoutMode>(
@@ -37,9 +37,7 @@ class SettingsAppearanceSection extends HookConsumerWidget {
         subtitle: Text(context.l10n.override_layout_settings),
         value: preferences.layoutMode,
         onChanged: (value) {
-          if (value != null) {
-            preferencesNotifier.setLayoutMode(value);
-          }
+          if (value != null) preferencesNotifier.setLayoutMode(value);
         },
         options: [
           SelectItemButton(
@@ -75,42 +73,31 @@ class SettingsAppearanceSection extends HookConsumerWidget {
           ),
         ],
         onChanged: (value) {
-          if (value != null) {
-            preferencesNotifier.setThemeMode(value);
-          }
+          if (value != null) preferencesNotifier.setThemeMode(value);
         },
       ),
-      // ListTile(
-      //     leading: const Icon(SpotubeIcons.amoled),
-      //     title: Text(context.l10n.use_amoled_mode),
-      //     subtitle: Text(context.l10n.pitch_dark_theme),
-      //     trailing: Switch(
-      //       value: preferences.amoledDarkTheme,
-      //       onChanged: preferencesNotifier.setAmoledDarkTheme,
-      //     )),
       ListTile(
         leading: const Icon(SpotubeIcons.palette),
         title: Text(context.l10n.accent_color),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 15,
-          vertical: 5,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+        trailing: GestureDetector(
+          onTap: openColorPicker,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: preferences.accentColorScheme,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: theme.colorScheme.outline,
+                width: 2,
+              ),
+            ),
+          ),
         ),
-        trailing: ColorChip(
-          color: preferences.accentColorScheme,
-          name: preferences.accentColorScheme.name,
-          onPressed: pickColorScheme(),
-          isActive: false,
-        ),
-        onTap: pickColorScheme(),
+        onTap: openColorPicker,
       ),
-      // ListTile(
-      //     leading: const Icon(SpotubeIcons.colorSync),
-      //     title: Text(context.l10n.sync_album_color),
-      //     subtitle: Text(context.l10n.sync_album_color_description),
-      //     trailing: Switch(
-      //       value: preferences.albumColorSync,
-      //       onChanged: preferencesNotifier.setAlbumColorSync,
-      //     )),
     ];
 
     if (isGettingStarted) {
@@ -119,7 +106,7 @@ class SettingsAppearanceSection extends HookConsumerWidget {
         children: [
           for (final child in children) ...[
             child,
-            const Gap(16),
+            const SizedBox(height: 16),
           ],
         ],
       );

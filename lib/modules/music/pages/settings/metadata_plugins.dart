@@ -1,15 +1,14 @@
 import 'package:collection/collection.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide FilePicker;
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/form/text_form_field.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/metadata_plugins/installed_plugin.dart';
@@ -30,6 +29,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final tabState = useState<int>(0);
     final formKey = useMemoized(() => GlobalKey<FormBuilderState>(), []);
+    final theme = Theme.of(context);
 
     final plugins = ref.watch(metadataPluginsProvider);
     final pluginsNotifier = ref.watch(metadataPluginsProvider.notifier);
@@ -45,27 +45,21 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                 .nonNulls
                 .toList() ??
             [];
-
         final pluginRepos = pluginReposSnapshot.asData?.value.items ?? [];
         if (installedPluginIds.isEmpty) return pluginRepos;
         final availablePlugins = pluginRepos
             .whereNot((repo) => installedPluginIds.contains(repo.repoUrl))
             .toList();
-
         if (tabState.value != 0) {
-          // metadata only plugins
-          return availablePlugins.where(
-            (d) {
-              return d.topics.contains(
-                tabState.value == 1
-                    ? "spotube-metadata-plugin"
-                    : "spotube-audio-source-plugin",
-              );
-            },
-          ).toList();
+          return availablePlugins.where((d) {
+            return d.topics.contains(
+              tabState.value == 1
+                  ? "spotube-metadata-plugin"
+                  : "spotube-audio-source-plugin",
+            );
+          }).toList();
         }
-
-        return availablePlugins; // all plugins
+        return availablePlugins;
       },
       [
         plugins.asData?.value.plugins,
@@ -76,7 +70,6 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
 
     final installedPlugins = useMemoized<List<PluginConfiguration>?>(() {
       if (tabState.value == 0) return plugins.asData?.value.plugins;
-
       return plugins.asData?.value.plugins.where((d) {
         return d.abilities.contains(
           tabState.value == 1
@@ -89,15 +82,14 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
-            title: Text(context.l10n.plugins),
-          )
-        ],
-        child: Padding(
+        appBar: AppBar(
+          title: Text(context.l10n.plugins),
+        ),
+        body: Padding(
           padding: const EdgeInsets.all(8),
           child: CustomScrollView(
             slivers: [
+              // URL install + file install
               SliverToBoxAdapter(
                 child: Row(
                   spacing: 8,
@@ -116,68 +108,60 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                     ),
                     HookBuilder(builder: (context) {
                       final isLoading = useState(false);
-
-                      return IconButton.secondary(
+                      return IconButton.outlined(
                         icon: isLoading.value
                             ? const SizedBox.square(
                                 dimension: 22,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
                               )
                             : const Icon(SpotubeIcons.download),
-                        enabled: !isLoading.value,
-                        onPressed: () async {
-                          try {
-                            if (formKey.currentState?.saveAndValidate() ??
-                                false) {
-                              final url = formKey.currentState
-                                  ?.fields["plugin_url"]?.value as String;
-
-                              if (url.isNotEmpty) {
-                                isLoading.value = true;
-                                final pluginConfig = await pluginsNotifier
-                                    .downloadAndCachePlugin(url);
-
-                                await pluginsNotifier.addPlugin(pluginConfig);
-
-                                formKey.currentState?.fields["plugin_url"]
-                                    ?.reset();
-                              }
-                            }
-                          } catch (e, stackTrace) {
-                            AppLogger.reportError(e, stackTrace);
-                            if (context.mounted) {
-                              showToast(
-                                showDuration: const Duration(seconds: 5),
-                                context: context,
-                                builder: (context, overlay) {
-                                  return SurfaceCard(
-                                    child: Basic(
-                                      leading: const Icon(
-                                        SpotubeIcons.error,
-                                        color: Colors.red,
-                                      ),
-                                      title: Text(
+                        onPressed: isLoading.value
+                            ? null
+                            : () async {
+                                try {
+                                  if (formKey.currentState
+                                          ?.saveAndValidate() ??
+                                      false) {
+                                    final url = formKey.currentState
+                                        ?.fields["plugin_url"]
+                                        ?.value as String;
+                                    if (url.isNotEmpty) {
+                                      isLoading.value = true;
+                                      final pluginConfig =
+                                          await pluginsNotifier
+                                              .downloadAndCachePlugin(url);
+                                      await pluginsNotifier
+                                          .addPlugin(pluginConfig);
+                                      formKey.currentState
+                                          ?.fields["plugin_url"]
+                                          ?.reset();
+                                    }
+                                  }
+                                } catch (e, stackTrace) {
+                                  AppLogger.reportError(e, stackTrace);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(SnackBar(
+                                      content: Text(
                                         context.l10n
                                             .failed_to_add_plugin_error(
                                                 e.toString()),
                                       ),
-                                    ),
-                                  );
-                                },
-                              );
-                            }
-                          } finally {
-                            isLoading.value = false;
-                          }
-                        },
+                                      backgroundColor:
+                                          theme.colorScheme.error,
+                                    ));
+                                  }
+                                } finally {
+                                  isLoading.value = false;
+                                }
+                              },
                       );
                     }),
-                    IconButton.primary(
+                    IconButton.filled(
                       icon: const Icon(SpotubeIcons.upload),
                       onPressed: () async {
                         Uint8List bytes;
-
                         if (kIsFlatpak) {
                           final result = await openFile(
                             acceptedTypeGroups: [
@@ -191,64 +175,81 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                           bytes = await result.readAsBytes();
                         } else {
                           final result = await FilePicker.pickFiles(
-                            type: kIsAndroid ? FileType.any : FileType.custom,
-                            allowedExtensions: kIsAndroid ? [] : ["smplug"],
+                            type:
+                                kIsAndroid ? FileType.any : FileType.custom,
+                            allowedExtensions:
+                                kIsAndroid ? [] : ["smplug"],
                             withData: true,
                           );
-
                           if (result == null) return;
-
                           final file = result.files.first;
                           if (file.bytes == null) return;
                           bytes = file.bytes!;
                         }
-
-                        final pluginConfig =
-                            await pluginsNotifier.extractPluginArchive(bytes);
+                        final pluginConfig = await pluginsNotifier
+                            .extractPluginArchive(bytes);
                         await pluginsNotifier.addPlugin(pluginConfig);
                       },
                     ),
                   ],
                 ),
               ),
-              const SliverGap(12),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+              // Tab filter chips
               SliverToBoxAdapter(
-                child: TabList(
-                  index: tabState.value,
-                  onChanged: (value) {
-                    tabState.value = value;
-                  },
-                  children: const [
-                    TabItem(child: Text("All")),
-                    TabItem(child: Text("Metadata")),
-                    TabItem(child: Text("Audio Source")),
-                  ],
-                ),
-              ),
-              const SliverGap(12),
-              if (plugins.asData?.value.plugins.isNotEmpty ?? false)
-                SliverToBoxAdapter(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      const Gap(8),
-                      Text(context.l10n.installed).h4,
-                      const Gap(8),
-                      const Expanded(child: Divider()),
-                      const Gap(8),
+                      for (final (i, label)
+                          in ["All", "Metadata", "Audio Source"].indexed) ...[
+                        FilterChip(
+                          label: Text(label),
+                          selected: tabState.value == i,
+                          onSelected: (_) => tabState.value = i,
+                          showCheckmark: false,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                     ],
                   ),
                 ),
-              const SliverGap(20),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+              // Installed heading
+              if (plugins.asData?.value.plugins.isNotEmpty ?? false)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          context.l10n.installed,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
               SliverList.separated(
                 itemCount: installedPlugins?.length ?? 0,
-                separatorBuilder: (context, index) => const Gap(12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final plugin = installedPlugins![index];
                   final isDefaultMetadata =
-                      plugins.asData!.value.defaultMetadataPluginConfig?.slug ==
+                      plugins.asData!.value.defaultMetadataPluginConfig
+                              ?.slug ==
                           plugin.slug;
-                  final isDefaultAudioSource = plugins
-                          .asData!.value.defaultAudioSourcePluginConfig?.slug ==
+                  final isDefaultAudioSource = plugins.asData!.value
+                          .defaultAudioSourcePluginConfig?.slug ==
                       plugin.slug;
                   return MetadataInstalledPluginItem(
                     plugin: plugin,
@@ -257,27 +258,34 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                   );
                 },
               ),
-              const SliverGap(12),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+              // Available plugins heading
               SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    const Gap(8),
-                    Text(context.l10n.available_plugins).h4,
-                    const Gap(8),
-                    const Expanded(child: Divider()),
-                    const Gap(8),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    children: [
+                      Text(
+                        context.l10n.available_plugins,
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(child: Divider()),
+                    ],
+                  ),
                 ),
               ),
-              const SliverGap(12),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
               SliverInfiniteList(
                 isLoading: pluginReposSnapshot.isLoading &&
                     !pluginReposSnapshot.isLoadingNextPage,
                 itemCount: pluginRepos.length,
                 onFetchData: pluginReposNotifier.fetchMore,
-                separatorBuilder: (context, index) {
-                  return const Gap(12);
-                },
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 loadingBuilder: (context) {
                   return Skeletonizer(
                     enabled: true,
@@ -293,14 +301,14 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                   );
                 },
                 itemBuilder: (context, index) {
-                  final pluginRepo = pluginRepos[index];
-
                   return MetadataPluginRepositoryItem(
-                    pluginRepo: pluginRepo,
+                    pluginRepo: pluginRepos[index],
                   );
                 },
               ),
-              const SliverGap(20),
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+              // Disclaimer card
               SliverCrossAxisConstrained(
                 maxCrossAxisExtent: 720,
                 child: SliverFillRemaining(
@@ -310,26 +318,36 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                     margin: const EdgeInsets.only(bottom: 20),
                     child: SafeArea(
                       child: Card(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 12,
-                          children: [
-                            Row(
-                              spacing: 8,
-                              children: [
-                                const Icon(SpotubeIcons.warning, size: 16),
-                                Text(
-                                  context.l10n.disclaimer,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
-                                ).bold,
-                              ],
-                            ),
-                            Text(context.l10n.third_party_plugin_dmca_notice)
-                                .muted
-                                .xSmall,
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(SpotubeIcons.warning,
+                                      size: 16,
+                                      color: theme.colorScheme.error),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    context.l10n.disclaimer,
+                                    style: theme.textTheme.titleSmall
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                context.l10n.third_party_plugin_dmca_notice,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color:
+                                      theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

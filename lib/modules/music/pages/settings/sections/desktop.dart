@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart' show ListTile;
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
@@ -19,7 +18,6 @@ class SettingsDesktopSection extends HookConsumerWidget {
     return SectionCardWithHeading(
       heading: context.l10n.desktop,
       children: [
-        const Gap(10),
         AdaptiveSelectTile<CloseBehavior>(
           secondary: const Icon(SpotubeIcons.close),
           title: Text(context.l10n.close_behavior),
@@ -35,9 +33,7 @@ class SettingsDesktopSection extends HookConsumerWidget {
             ),
           ],
           onChanged: (value) {
-            if (value != null) {
-              preferencesNotifier.setCloseBehavior(value);
-            }
+            if (value != null) preferencesNotifier.setCloseBehavior(value);
           },
         ),
         ListTile(

@@ -1,6 +1,6 @@
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/collections/language_codes.dart';
 import 'package:watchtower/modules/music/collections/markets.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/widgets/list_tile_widget.dart';
+import 'package:watchtower/modules/music/collections/routes.dart';
+import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -74,8 +76,17 @@ class SettingsScreen extends StatelessWidget {
               icon: Icons.tune_rounded,
               onTap: () => context.push('/advanced'),
             ),
-            // Sur web : on est le CLIENT — on configure l'URL du serveur distant
-            // Sur mobile/desktop : on est le SERVEUR — on active le Mode Distant
+            // Musique settings — navigates into the Spotube/music settings page
+            ListTileWidget(
+              title: 'Musique',
+              icon: Icons.music_note_rounded,
+              onTap: () {
+                final musicContext = rootNavigatorKey.currentContext;
+                if (musicContext != null) {
+                  musicContext.navigateTo(const SettingsRoute());
+                }
+              },
+            ),
             if (kIsWeb)
               ListTileWidget(
                 title: 'Connexion Distante',

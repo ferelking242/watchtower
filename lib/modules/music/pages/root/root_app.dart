@@ -1,13 +1,11 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/hooks/configurators/use_check_yt_dlp_installed.dart';
 import 'package:watchtower/modules/music/modules/root/bottom_player.dart';
 import 'package:watchtower/modules/music/modules/root/sidebar/sidebar.dart';
-import 'package:watchtower/modules/music/modules/root/spotube_navigation_bar.dart';
 import 'package:watchtower/modules/music/hooks/configurators/use_endless_playback.dart';
 import 'package:watchtower/modules/music/modules/root/use_global_subscriptions.dart';
 import 'package:watchtower/modules/music/provider/glance/glance.dart';
@@ -17,11 +15,11 @@ class RootAppPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final backgroundColor = Theme.of(context).colorScheme.background;
-    final brightness = Theme.of(context).brightness;
+    final theme = Theme.of(context);
+    final backgroundColor = theme.colorScheme.surface;
+    final brightness = theme.brightness;
 
     ref.listen(glanceProvider, (_, __) {});
-
     useGlobalSubscriptions(ref);
     useEndlessPlayback(ref);
     useCheckYtDlpInstalled(ref);
@@ -29,7 +27,7 @@ class RootAppPage extends HookConsumerWidget {
     useEffect(() {
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
-          statusBarColor: backgroundColor, // status bar color
+          statusBarColor: backgroundColor,
           statusBarIconBrightness: brightness == Brightness.dark
               ? Brightness.light
               : Brightness.dark,
@@ -38,33 +36,33 @@ class RootAppPage extends HookConsumerWidget {
       return null;
     }, [backgroundColor, brightness]);
 
-    // When embedded inside Watchtower the host app provides its own dock and
-    // navigation — omit SpotubeNavigationBar to avoid double-nav and collapse
-    // the extra 100-unit bottom padding back to zero so pages are not taller
-    // than in standalone Spotube.
-    final scaffold = MediaQuery.removeViewInsets(
+    return MediaQuery.removeViewInsets(
       context: context,
       removeBottom: true,
       child: SafeArea(
         top: false,
         child: Scaffold(
-          footers: const [
-            BottomPlayer(),
-          ],
-          floatingFooter: true,
-          child: Sidebar(
-            child: MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                padding: MediaQuery.paddingOf(context)
-                    .copyWith(bottom: 0),
+          body: Stack(
+            children: [
+              Sidebar(
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    padding:
+                        MediaQuery.paddingOf(context).copyWith(bottom: 0),
+                  ),
+                  child: const AutoRouter(),
+                ),
               ),
-              child: AutoRouter(),
-            ),
+              const Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: BottomPlayer(),
+              ),
+            ],
           ),
         ),
       ),
     );
-
-    return scaffold;
   }
 }

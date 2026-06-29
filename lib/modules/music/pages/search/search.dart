@@ -1,20 +1,15 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/services.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/fallbacks/no_default_metadata_plugin.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/extensions/string.dart';
-import 'package:watchtower/modules/music/hooks/controllers/use_shadcn_text_editing_controller.dart';
 import 'package:watchtower/modules/music/pages/search/tabs/albums.dart';
 import 'package:watchtower/modules/music/pages/search/tabs/all.dart';
 import 'package:watchtower/modules/music/pages/search/tabs/artists.dart';
@@ -30,12 +25,11 @@ final searchTermStateProvider = StateProvider<String>((ref) {
 
 class SearchPage extends HookConsumerWidget {
   static const name = "search";
-
   const SearchPage({super.key});
 
   @override
   Widget build(BuildContext context, ref) {
-    final controller = useShadcnTextEditingController();
+    final controller = useTextEditingController();
     final focusNode = useFocusNode();
 
     final searchTerm = ref.watch(searchTermStateProvider);
@@ -53,21 +47,15 @@ class SearchPage extends HookConsumerWidget {
 
     useEffect(() {
       controller.text = searchTerm;
-
       return null;
     }, []);
 
     void onSubmitted(String value) {
       ref.read(searchTermStateProvider.notifier).state = value;
       focusNode.unfocus();
-      if (value.trim().isEmpty) {
-        return;
-      }
+      if (value.trim().isEmpty) return;
       KVStoreService.setRecentSearches(
-        {
-          value,
-          ...KVStoreService.recentSearches,
-        }.toList(),
+        {value, ...KVStoreService.recentSearches}.toList(),
       );
     }
 
@@ -78,155 +66,164 @@ class SearchPage extends HookConsumerWidget {
       },
       child: SafeArea(
         bottom: false,
-        child: Scaffold(
-          headers: [
-            if (kTitlebarVisible)
-              const TitleBar(automaticallyImplyLeading: false, height: 30)
-          ],
-          child: Builder(builder: (context) {
-            if (searchChipSnapshot.error
-                case MetadataPluginException(
-                  errorCode: MetadataPluginErrorCode.noDefaultMetadataPlugin,
-                  message: _
-                )) {
-              return const NoDefaultMetadataPlugin();
-            }
+        child: Builder(builder: (context) {
+          if (searchChipSnapshot.error
+              case MetadataPluginException(
+                errorCode: MetadataPluginErrorCode.noDefaultMetadataPlugin,
+              )) {
+            return const NoDefaultMetadataPlugin();
+          }
+          if (searchChipSnapshot.hasError) {
+            return ErrorBox(
+              error: searchChipSnapshot.error!,
+              onRetry: () {
+                ref.invalidate(metadataPluginSearchChipsProvider);
+              },
+            );
+          }
 
-            if (searchChipSnapshot.hasError) {
-              return ErrorBox(
-                error: searchChipSnapshot.error!,
-                onRetry: () {
-                  ref.invalidate(metadataPluginSearchChipsProvider);
-                },
-              );
-            }
-
-            return Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        child: ListenableBuilder(
-                            listenable: controller,
-                            builder: (context, _) {
-                              final suggestions = controller.text.isEmpty
-                                  ? KVStoreService.recentSearches
-                                  : KVStoreService.recentSearches
-                                      .where(
-                                        (s) =>
-                                            weightedRatio(
-                                              s.toLowerCase(),
-                                              controller.text.toLowerCase(),
-                                            ) >
-                                            50,
-                                      )
-                                      .toList();
-
-                              return AutoComplete(
-                                suggestions: suggestions.length <= 2
-                                    ? [
-                                        ...suggestions,
-                                        "Twenty One Pilots",
-                                        "Linkin Park",
-                                      ]
-                                    : suggestions,
-                                completer: (suggestion) => suggestion,
-                                mode: AutoCompleteMode.replaceAll,
-                                child: TextField(
-                                  autofocus: true,
-                                  controller: controller,
-                                  focusNode: focusNode,
-                                  features: [
-                                    const InputFeature.leading(
-                                      Icon(SpotubeIcons.search),
-                                    ),
-                                    InputFeature.trailing(
-                                      AnimatedCrossFade(
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        crossFadeState:
-                                            controller.text.isNotEmpty
-                                                ? CrossFadeState.showFirst
-                                                : CrossFadeState.showSecond,
-                                        firstChild: IconButton.ghost(
-                                          size: ButtonSize.small,
-                                          icon: const Icon(SpotubeIcons.close),
-                                          onPressed: () {
-                                            controller.clear();
-                                          },
-                                        ),
-                                        secondChild: const SizedBox.square(
-                                            dimension: 28),
-                                      ),
+          return Column(
+            children: [
+              // Search bar with autocomplete
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Autocomplete<String>(
+                  optionsBuilder: (textEditingValue) {
+                    final text = textEditingValue.text;
+                    final recent = KVStoreService.recentSearches;
+                    final base = text.isEmpty
+                        ? [
+                            ...recent.take(3),
+                            if (recent.length < 3) ...[
+                              "Twenty One Pilots",
+                              "Linkin Park",
+                            ],
+                          ]
+                        : recent
+                            .where((s) =>
+                                weightedRatio(
+                                    s.toLowerCase(), text.toLowerCase()) >
+                                50)
+                            .take(5)
+                            .toList();
+                    return base;
+                  },
+                  onSelected: onSubmitted,
+                  fieldViewBuilder: (
+                    context,
+                    fieldController,
+                    fieldFocusNode,
+                    onFieldSubmitted,
+                  ) {
+                    return TextField(
+                      controller: fieldController,
+                      focusNode: fieldFocusNode,
+                      textInputAction: TextInputAction.search,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: context.l10n.search,
+                        prefixIcon: const Icon(SpotubeIcons.search),
+                        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: fieldController,
+                          builder: (context, value, _) =>
+                              value.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(SpotubeIcons.close),
+                                      onPressed: () {
+                                        fieldController.clear();
+                                        controller.clear();
+                                        ref
+                                            .read(searchTermStateProvider
+                                                .notifier)
+                                            .state = '';
+                                      },
                                     )
-                                  ],
-                                  textInputAction: TextInputAction.search,
-                                  placeholder: Text(context.l10n.search),
-                                  onSubmitted: onSubmitted,
-                                ),
-                              );
-                            }),
+                                  : const SizedBox.shrink(),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 20),
                       ),
-                    ),
-                  ],
+                      onSubmitted: (value) {
+                        onSubmitted(value);
+                        onFieldSubmitted();
+                      },
+                    );
+                  },
+                  optionsViewBuilder: (context, onSelected, options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                              maxHeight: 220, maxWidth: 400),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (context, index) {
+                              final option = options.elementAt(index);
+                              return ListTile(
+                                leading: const Icon(Icons.history_rounded,
+                                    size: 18),
+                                title: Text(option),
+                                onTap: () => onSelected(option),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                Row(
-                  spacing: 8,
-                  children: [
-                    const Gap(12),
-                    if (searchChipSnapshot.asData?.value != null)
-                      for (final chip in searchChipSnapshot.asData!.value)
-                        Chip(
-                          style: selectedChip.value == chip
-                              ? ButtonVariance.primary.copyWith(
-                                  decoration: (context, states, value) {
-                                    return ButtonVariance.primary
-                                        .decoration(context, states)
-                                        .copyWithIfBoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(100),
-                                        );
-                                  },
-                                )
-                              : ButtonVariance.secondary.copyWith(
-                                  decoration: (context, states, value) {
-                                    return ButtonVariance.secondary
-                                        .decoration(context, states)
-                                        .copyWithIfBoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(100),
-                                        );
-                                  },
-                                ),
-                          child: Text(chip.capitalize()),
-                          onPressed: () {
+              ),
+
+              // Filter chips
+              if (searchChipSnapshot.asData?.value != null)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 4),
+                      for (final chip in searchChipSnapshot.asData!.value) ...[
+                        FilterChip(
+                          label: Text(chip.capitalize()),
+                          selected: selectedChip.value == chip,
+                          onSelected: (_) {
                             selectedChip.value = chip;
                           },
+                          showCheckmark: false,
                         ),
-                  ],
-                ),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: switch (selectedChip.value) {
-                      "tracks" => const SearchPageTracksTab(),
-                      "albums" => const SearchPageAlbumsTab(),
-                      "artists" => const SearchPageArtistsTab(),
-                      "playlists" => const SearchPagePlaylistsTab(),
-                      _ => const SearchPageAllTab(),
-                    },
+                        const SizedBox(width: 8),
+                      ],
+                    ],
                   ),
                 ),
-              ],
-            );
-          }),
-        ),
+              const SizedBox(height: 4),
+
+              // Results
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: switch (selectedChip.value) {
+                    "tracks" => const SearchPageTracksTab(),
+                    "albums" => const SearchPageAlbumsTab(),
+                    "artists" => const SearchPageArtistsTab(),
+                    "playlists" => const SearchPagePlaylistsTab(),
+                    _ => const SearchPageAllTab(),
+                  },
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

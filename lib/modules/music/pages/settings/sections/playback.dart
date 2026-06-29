@@ -1,11 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart' show ListTile;
-
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_select_tile.dart';
@@ -18,7 +16,6 @@ import 'package:watchtower/modules/music/provider/metadata_plugin/audio_source/q
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:watchtower/modules/music/services/youtube_engine/yt_dlp_engine.dart';
-
 import 'package:watchtower/modules/music/utils/platform.dart';
 
 class SettingsPlaybackSection extends HookConsumerWidget {
@@ -42,17 +39,15 @@ class SettingsPlaybackSection extends HookConsumerWidget {
           value: preferences.youtubeClientEngine,
           options: YoutubeClientEngine.values
               .where((e) => e.isAvailableForPlatform())
-              .map((e) => SelectItemButton(
-                    value: e,
-                    child: Text(e.label),
-                  ))
+              .map((e) => SelectItemButton(value: e, child: Text(e.label)))
               .toList(),
           onChanged: (value) async {
             if (value == null) return;
             if (value == YoutubeClientEngine.ytDlp) {
               final customPath = KVStoreService.getYoutubeEnginePath(value);
               if (!await YtDlpEngine.isInstalled() &&
-                  (customPath == null || !await File(customPath).exists()) &&
+                  (customPath == null ||
+                      !await File(customPath).exists()) &&
                   context.mounted) {
                 final hasInstalled = await showDialog<bool>(
                   context: context,
@@ -91,7 +86,8 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                   .qualities
                   .asMap()
                   .entries)
-                SelectItemButton(value: key, child: Text(quality.toString())),
+                SelectItemButton(
+                    value: key, child: Text(quality.toString())),
             ],
             onChanged: (value) {
               if (value == null) return;
@@ -122,7 +118,8 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                   .qualities
                   .asMap()
                   .entries)
-                SelectItemButton(value: key, child: Text(quality.toString())),
+                SelectItemButton(
+                    value: key, child: Text(quality.toString())),
             ],
             onChanged: (value) {
               if (value == null) return;
@@ -142,11 +139,11 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                         text: context.l10n.cache_folder.toLowerCase(),
                         recognizer: TapGestureRecognizer()
                           ..onTap = preferencesNotifier.openCacheFolder,
-                        style: theme.typography.normal.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.primary,
                           decoration: TextDecoration.underline,
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -160,10 +157,10 @@ class SettingsPlaybackSection extends HookConsumerWidget {
           leading: const Icon(SpotubeIcons.playlistRemove),
           title: Text(context.l10n.blacklist),
           subtitle: Text(context.l10n.blacklist_description),
+          trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () {
             context.navigateTo(const BlackListRoute());
           },
-          trailing: const Icon(SpotubeIcons.angleRight),
         ),
         ListTile(
           leading: const Icon(SpotubeIcons.normalize),
@@ -174,23 +171,22 @@ class SettingsPlaybackSection extends HookConsumerWidget {
           ),
         ),
         ListTile(
-            leading: const Icon(SpotubeIcons.repeat),
-            title: Text(context.l10n.endless_playback),
-            trailing: Switch(
-              value: preferences.endlessPlayback,
-              onChanged: preferencesNotifier.setEndlessPlayback,
-            )),
+          leading: const Icon(SpotubeIcons.repeat),
+          title: Text(context.l10n.endless_playback),
+          trailing: Switch(
+            value: preferences.endlessPlayback,
+            onChanged: preferencesNotifier.setEndlessPlayback,
+          ),
+        ),
         ListTile(
           title: Text(context.l10n.enable_connect),
           subtitle: Text(context.l10n.enable_connect_description),
           leading: const Icon(SpotubeIcons.connect),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
-            spacing: 10,
             children: [
-              IconButton.outline(
-                icon: const Icon(SpotubeIcons.edit),
-                size: ButtonSize.small,
+              IconButton.outlined(
+                icon: const Icon(SpotubeIcons.edit, size: 18),
                 onPressed: () {
                   showDialog(
                     context: context,
@@ -201,6 +197,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                   );
                 },
               ),
+              const SizedBox(width: 8),
               Switch(
                 value: preferences.enableConnect,
                 onChanged: preferencesNotifier.setEnableConnect,
