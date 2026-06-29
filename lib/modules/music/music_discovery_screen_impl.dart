@@ -8,6 +8,7 @@ import 'package:auto_route/auto_route.dart';
   import 'package:watchtower/modules/music/collections/routes.gr.dart';
   import 'package:watchtower/modules/music/router/music_app_router.dart';
   import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
+    import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
   import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
 
   /// Native (mobile/desktop) implementation.
