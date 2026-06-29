@@ -1,13 +1,22 @@
 import 'dart:io';
-import 'dart:math' as math;
 
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/music/collections/routes.dart'
+    show rootNavigatorKey;
+import 'package:watchtower/modules/music/collections/routes.gr.dart';
+import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/browse/sections.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/search/all.dart';
+import 'package:watchtower/modules/music/services/metadata/errors/exceptions.dart';
+import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 
-// ── Provider: logo du plugin metadata actif ────────────────────────────────
+// ─── Provider : logo du plugin metadata actif ─────────────────────────────────
 
 final _activePluginLogoProvider = FutureProvider<File?>((ref) async {
   final state = ref.watch(metadataPluginsProvider);
@@ -17,52 +26,85 @@ final _activePluginLogoProvider = FutureProvider<File?>((ref) async {
   return notifier.getLogoPath(pluginConfig);
 });
 
-// ── Constantes design ──────────────────────────────────────────────────────
+// ─── Constantes design ────────────────────────────────────────────────────────
 
 const _kBg = Color(0xFF121212);
-const _kSurface = Color(0xFF1E1E1E);
 const _kSearchFill = Color(0xFF2A2A2A);
+const _kGreen = Color(0xFF1DB954);
 
-const _kMoods = [
-  _MoodCard('#surf crush', Color(0xFF6D4C41), Color(0xFFBF8660)),
-  _MoodCard('#energetic', Color(0xFF0D1B2A), Color(0xFF1565C0)),
-  _MoodCard('#uptown', Color(0xFF2C2C2C), Color(0xFF546E7A)),
-  _MoodCard('#chill', Color(0xFF1A3A2A), Color(0xFF2E7D52)),
-  _MoodCard('#focus', Color(0xFF1A1A2E), Color(0xFF4527A0)),
+// Palette de couleurs pour les cartes de section (cyclique)
+const _kSectionColors = [
+  Color(0xFF8D67AB),
+  Color(0xFFBA5D07),
+  Color(0xFFE8115B),
+  Color(0xFF1E3264),
+  Color(0xFF056952),
+  Color(0xFF0D73EC),
+  Color(0xFF537AA1),
+  Color(0xFF8C1932),
+  Color(0xFF2E6A59),
+  Color(0xFF6D4C41),
+  Color(0xFF4527A0),
+  Color(0xFF00695C),
 ];
 
-const _kCategories = [
-  _Category('Musique', Color(0xFFE91E8C), Icons.music_note_rounded),
-  _Category('Événements live', Color(0xFF7B52AB), Icons.event_rounded),
-  _Category('Conçu pour vous', Color(0xFF2E6A59), Icons.auto_awesome_rounded),
-  _Category('Sorties à venir', Color(0xFF3B7A46), Icons.new_releases_rounded),
-  _Category('Dernières sorties', Color(0xFFE05E2A), Icons.fiber_new_rounded),
-  _Category('Pop', Color(0xFF537AA1), Icons.star_rounded),
-  _Category('Hip-Hop', Color(0xFFBA5D07), Icons.mic_external_on_rounded),
-  _Category('Rock', Color(0xFF8C1932), Icons.bolt_rounded),
-  _Category('Électronique', Color(0xFF1E3264), Icons.graphic_eq_rounded),
-  _Category('R&B', Color(0xFF056952), Icons.audiotrack_rounded),
-  _Category('Jazz', Color(0xFF0D73EC), Icons.piano_rounded),
-  _Category('Podcasts', Color(0xFF6A3093), Icons.podcasts_rounded),
+// Paires de dégradés pour les mood cards
+const _kMoodGradients = [
+  [Color(0xFF6D4C41), Color(0xFFBF8660)],
+  [Color(0xFF0D1B2A), Color(0xFF1565C0)],
+  [Color(0xFF2C2C2C), Color(0xFF546E7A)],
+  [Color(0xFF1A3A2A), Color(0xFF2E7D52)],
+  [Color(0xFF1A1A2E), Color(0xFF4527A0)],
+  [Color(0xFF8C1932), Color(0xFFE8115B)],
+  [Color(0xFF0D73EC), Color(0xFF1E3264)],
 ];
 
-// ── Data classes ────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-class _MoodCard {
-  final String label;
-  final Color colorA;
-  final Color colorB;
-  const _MoodCard(this.label, this.colorA, this.colorB);
+Color _sectionColor(int index) =>
+    _kSectionColors[index % _kSectionColors.length];
+
+List<Color> _moodGradient(int index) =>
+    _kMoodGradients[index % _kMoodGradients.length];
+
+String _artistNames(List<SpotubeSimpleArtistObject> artists) =>
+    artists.map((a) => a.name).join(', ');
+
+String _fmtDuration(int ms) {
+  final total = Duration(milliseconds: ms);
+  final m = total.inMinutes;
+  final s = total.inSeconds % 60;
+  return '$m:${s.toString().padLeft(2, '0')}';
 }
 
-class _Category {
-  final String label;
-  final Color color;
-  final IconData icon;
-  const _Category(this.label, this.color, this.icon);
+// ─── Navigation via le navigator global du module music ───────────────────────
+
+void _toAlbum(SpotubeSimpleAlbumObject album) {
+  final ctx = rootNavigatorKey.currentContext;
+  if (ctx == null) return;
+  ctx.navigateTo(AlbumRoute(id: album.id, album: album));
 }
 
-// ── Écran principal ────────────────────────────────────────────────────────
+void _toPlaylist(SpotubeSimplePlaylistObject playlist) {
+  final ctx = rootNavigatorKey.currentContext;
+  if (ctx == null) return;
+  ctx.navigateTo(PlaylistRoute(id: playlist.id, playlist: playlist));
+}
+
+void _toArtist(SpotubeFullArtistObject artist) {
+  final ctx = rootNavigatorKey.currentContext;
+  if (ctx == null) return;
+  ctx.navigateTo(ArtistRoute(artistId: artist.id));
+}
+
+void _toBrowseSection(SpotubeBrowseSectionObject<Object> section) {
+  final ctx = rootNavigatorKey.currentContext;
+  if (ctx == null) return;
+  ctx.navigateTo(
+      HomeBrowseSectionItemsRoute(sectionId: section.id, section: section));
+}
+
+// ─── Écran principal ──────────────────────────────────────────────────────────
 
 class MusicSearchScreen extends ConsumerStatefulWidget {
   const MusicSearchScreen({super.key});
@@ -76,15 +118,16 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   final _focus = FocusNode();
   final _scroll = ScrollController();
   String _query = '';
-  int _chipIdx = 0;
-
-  static const _chips = ['Tout', 'Titres', 'Albums', 'Artistes', 'Playlists'];
+  String _selectedChip = 'all';
 
   @override
   void initState() {
     super.initState();
     _ctrl.addListener(() {
-      if (mounted) setState(() => _query = _ctrl.text);
+      if (mounted) setState(() => _query = _ctrl.text.trim());
+    });
+    _focus.addListener(() {
+      if (mounted) setState(() {});
     });
   }
 
@@ -96,15 +139,10 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
     super.dispose();
   }
 
-  // ── Header height ──────────────────────────────────────────────────────────
-
   double _headerHeight(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
-    // avatar row 52 + gap 8 + searchbar 48 + gap 10 + pills 36 + padding 24
     return topPad + 52 + 8 + 48 + 10 + 36 + 24;
   }
-
-  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +152,6 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
         controller: _scroll,
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ── Sticky header ────────────────────────────────────────────────
           SliverPersistentHeader(
             pinned: true,
             delegate: _StickyHeaderDelegate(
@@ -122,24 +159,28 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               child: _buildHeader(context),
             ),
           ),
-
-          // ── Corps scrollable ─────────────────────────────────────────────
           if (_query.isEmpty) ...[
-            _buildMoodsSection(context),
-            _buildBrowseSection(context),
+            _buildMoodsSection(),
+            _buildBrowseSection(),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ] else ...[
-            _buildSearchResults(context),
+            _buildSearchResults(),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ],
       ),
     );
   }
 
-  // ── Header (avatar + barre + pills) ───────────────────────────────────────
+  // ── Header ──────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
+
+    // Chips depuis le provider, fallback statique
+    final chipsAsync = ref.watch(metadataPluginSearchChipsProvider);
+    final chips = chipsAsync.asData?.value ?? ['all', 'tracks', 'albums', 'artists', 'playlists'];
+
     return Container(
       color: _kBg,
       padding: EdgeInsets.only(top: top, left: 16, right: 16, bottom: 12),
@@ -147,15 +188,15 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Ligne avatar + titre + caméra ──────────────────────────────
+          // Ligne avatar + titre
           Row(
             children: [
               _PluginAvatar(size: 36),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Rechercher',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -175,16 +216,14 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
 
           const SizedBox(height: 10),
 
-          // ── Barre de recherche ─────────────────────────────────────────
+          // Barre de recherche
           GestureDetector(
             onTap: () => _focus.requestFocus(),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               height: 46,
               decoration: BoxDecoration(
-                color: _focus.hasFocus
-                    ? Colors.white
-                    : _kSearchFill,
+                color: _focus.hasFocus ? Colors.white : _kSearchFill,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -193,9 +232,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                   Icon(
                     Icons.search_rounded,
                     size: 20,
-                    color: _focus.hasFocus
-                        ? Colors.black87
-                        : Colors.white70,
+                    color: _focus.hasFocus ? Colors.black87 : Colors.white70,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -246,198 +283,769 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
 
           const SizedBox(height: 10),
 
-          // ── Pills de découverte ────────────────────────────────────────
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _NavPill(
-                  label: 'Découverte',
-                  icon: Icons.compass_calibration_outlined,
-                  selected: false,
-                  onTap: () => context.go('/discover'),
-                ),
-                const SizedBox(width: 8),
-                _NavPill(
-                  label: 'Music search',
-                  icon: Icons.music_note_rounded,
-                  selected: true,
-                  onTap: () {},
-                ),
-                const SizedBox(width: 8),
-                _NavPill(
-                  label: 'Sources custom',
-                  icon: Icons.add_circle_outline_rounded,
-                  selected: false,
-                  onTap: () => context.push(
-                    '/globalSearch',
-                    extra: (null, ItemType.anime),
+          // Pills de navigation (Découverte / Music search / Sources custom)
+          // + chips de filtre quand une recherche est active
+          if (_query.isEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _NavPill(
+                    label: 'Découverte',
+                    icon: Icons.compass_calibration_outlined,
+                    selected: false,
+                    onTap: () => context.go('/discover'),
+                  ),
+                  const SizedBox(width: 8),
+                  const _NavPill(
+                    label: 'Music search',
+                    icon: Icons.music_note_rounded,
+                    selected: true,
+                    onTap: null,
+                  ),
+                  const SizedBox(width: 8),
+                  _NavPill(
+                    label: 'Sources custom',
+                    icon: Icons.add_circle_outline_rounded,
+                    selected: false,
+                    onTap: () => context.push(
+                      '/globalSearch',
+                      extra: (null, ItemType.anime),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            // Chips de filtre depuis le provider
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (int i = 0; i < chips.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    _FilterChip(
+                      label: _chipLabel(chips[i]),
+                      selected: _selectedChip == chips[i],
+                      onTap: () =>
+                          setState(() => _selectedChip = chips[i]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _chipLabel(String chip) {
+    switch (chip) {
+      case 'all':
+        return 'Tout';
+      case 'tracks':
+        return 'Titres';
+      case 'albums':
+        return 'Albums';
+      case 'artists':
+        return 'Artistes';
+      case 'playlists':
+        return 'Playlists';
+      default:
+        return chip[0].toUpperCase() + chip.substring(1);
+    }
+  }
+
+  // ── Section Moods (sections browse horizontales) ───────────────────────────
+
+  SliverToBoxAdapter _buildMoodsSection() {
+    final browseAsync = ref.watch(metadataPluginBrowseSectionsProvider);
+
+    return SliverToBoxAdapter(
+      child: browseAsync.when(
+        loading: () => const SizedBox(
+          height: 180,
+          child: Center(
+            child: CircularProgressIndicator(
+              color: _kGreen,
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+        error: (err, _) {
+          // Pas de plugin installé → section silencieuse
+          if (err is MetadataPluginException) return const SizedBox.shrink();
+          return const SizedBox.shrink();
+        },
+        data: (page) {
+          if (page.items.isEmpty) return const SizedBox.shrink();
+          final sections = page.items.take(7).toList();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 20, 16, 14),
+                child: Text(
+                  'Découvrez de nouveaux horizons',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Section "Découvrez de nouveaux horizons" ───────────────────────────────
-
-  SliverToBoxAdapter _buildMoodsSection(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 20, 16, 14),
-            child: Text(
-              'Découvrez de nouveaux horizons',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
               ),
-            ),
-          ),
-          SizedBox(
-            height: 148,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _kMoods.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, i) => _MoodCardWidget(mood: _kMoods[i]),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Section "Tout parcourir" ───────────────────────────────────────────────
-
-  SliverPadding _buildBrowseSection(BuildContext context) {
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-      sliver: SliverMainAxisGroup(
-        slivers: [
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: 14),
-              child: Text(
-                'Tout parcourir',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+              SizedBox(
+                height: 148,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: sections.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) => _SectionMoodCard(
+                    section: sections[i],
+                    gradient: _moodGradient(i),
+                    onTap: () => _toBrowseSection(sections[i]),
+                  ),
                 ),
               ),
-            ),
-          ),
-          SliverGrid.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1.7,
-            ),
-            itemCount: _kCategories.length,
-            itemBuilder: (_, i) => _CategoryCard(cat: _kCategories[i]),
-          ),
-        ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Section "Tout parcourir" (grille de sections) ─────────────────────────
+
+  SliverToBoxAdapter _buildBrowseSection() {
+    final browseAsync = ref.watch(metadataPluginBrowseSectionsProvider);
+
+    return SliverToBoxAdapter(
+      child: browseAsync.when(
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
+        data: (page) {
+          if (page.items.isEmpty) return const SizedBox.shrink();
+          final sections = page.items;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 24, 16, 14),
+                child: Text(
+                  'Tout parcourir',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1.7,
+                  ),
+                  itemCount: sections.length,
+                  itemBuilder: (_, i) => _SectionGridCard(
+                    section: sections[i],
+                    color: _sectionColor(i),
+                    onTap: () => _toBrowseSection(sections[i]),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   // ── Résultats de recherche ─────────────────────────────────────────────────
 
-  SliverToBoxAdapter _buildSearchResults(BuildContext context) {
+  SliverToBoxAdapter _buildSearchResults() {
+    final searchAsync =
+        ref.watch(metadataPluginSearchAllProvider(_query));
+
     return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Chips filtres ─────────────────────────────────────────────
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-              itemCount: _chips.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final sel = i == _chipIdx;
-                return GestureDetector(
-                  onTap: () => setState(() => _chipIdx = i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? Colors.white
-                          : const Color(0xFF2A2A2A),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _chips[i],
-                      style: TextStyle(
-                        color: sel ? Colors.black : Colors.white70,
-                        fontWeight: sel
-                            ? FontWeight.w700
-                            : FontWeight.w400,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                );
-              },
+      child: searchAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.only(top: 60),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: _kGreen,
+              strokeWidth: 2,
             ),
           ),
-          const SizedBox(height: 32),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.search_off_rounded,
-                      size: 56,
-                      color: Colors.white.withValues(alpha: 0.12)),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Aucun résultat pour\n"$_query"',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Installe une extension music depuis le\nMarketplace pour lancer des recherches.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white30),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+        ),
+        error: (err, _) {
+          if (err is MetadataPluginException &&
+              err.errorCode ==
+                  MetadataPluginErrorCode.noDefaultMetadataPlugin) {
+            return _NoPluginPlaceholder(query: _query);
+          }
+          return _NoPluginPlaceholder(query: _query);
+        },
+        data: (results) {
+          final showTracks = _selectedChip == 'all' ||
+              _selectedChip == 'tracks';
+          final showAlbums = _selectedChip == 'all' ||
+              _selectedChip == 'albums';
+          final showArtists = _selectedChip == 'all' ||
+              _selectedChip == 'artists';
+          final showPlaylists = _selectedChip == 'all' ||
+              _selectedChip == 'playlists';
+
+          final hasAny = results.tracks.isNotEmpty ||
+              results.albums.isNotEmpty ||
+              results.artists.isNotEmpty ||
+              results.playlists.isNotEmpty;
+
+          if (!hasAny) {
+            return _EmptyResults(query: _query);
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+
+              // ── Titres ─────────────────────────────────────────────────
+              if (showTracks && results.tracks.isNotEmpty)
+                _TrackResultsSection(
+                  tracks: results.tracks,
+                  onPlay: (track) {
+                    ref
+                        .read(audioPlayerProvider.notifier)
+                        .load([track], autoPlay: true);
+                  },
+                ),
+
+              // ── Albums ─────────────────────────────────────────────────
+              if (showAlbums && results.albums.isNotEmpty)
+                _HorizontalSection<SpotubeSimpleAlbumObject>(
+                  title: 'Albums',
+                  items: results.albums,
+                  imageUrl: (a) => a.images.isEmpty
+                      ? ''
+                      : a.images.first.url,
+                  label: (a) => a.name,
+                  sublabel: (a) =>
+                      _artistNames(a.artists),
+                  onTap: (a) => _toAlbum(a),
+                ),
+
+              // ── Artistes ───────────────────────────────────────────────
+              if (showArtists && results.artists.isNotEmpty)
+                _HorizontalSection<SpotubeFullArtistObject>(
+                  title: 'Artistes',
+                  items: results.artists,
+                  imageUrl: (a) => a.images.isEmpty
+                      ? ''
+                      : a.images.first.url,
+                  label: (a) => a.name,
+                  sublabel: (a) => 'Artiste',
+                  onTap: (a) => _toArtist(a),
+                  circular: true,
+                ),
+
+              // ── Playlists ──────────────────────────────────────────────
+              if (showPlaylists && results.playlists.isNotEmpty)
+                _HorizontalSection<SpotubeSimplePlaylistObject>(
+                  title: 'Playlists',
+                  items: results.playlists,
+                  imageUrl: (p) => p.images.isEmpty
+                      ? ''
+                      : p.images.first.url,
+                  label: (p) => p.name,
+                  sublabel: (p) => p.owner.displayName,
+                  onTap: (p) => _toPlaylist(p),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── Section titres (liste verticale) ────────────────────────────────────────
+
+class _TrackResultsSection extends ConsumerWidget {
+  final List<SpotubeFullTrackObject> tracks;
+  final void Function(SpotubeFullTrackObject) onPlay;
+
+  const _TrackResultsSection({
+    required this.tracks,
+    required this.onPlay,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playlist = ref.watch(audioPlayerProvider);
+    final activeId = playlist.activeTrack?.id;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: Text(
+            'Titres',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        ...tracks.take(5).map((track) {
+          final isActive = track.id == activeId;
+          final imageUrl = track.album.images.isEmpty
+              ? ''
+              : track.album.images.first.url;
+          return Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: () => onPlay(track),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    // Artwork
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: MusicCachedImage(
+                        url: imageUrl,
+                        width: 46,
+                        height: 46,
+                        placeholder: const Icon(Icons.music_note_rounded,
+                            color: Colors.white54, size: 22),
                       ),
                     ),
-                    onPressed: () => context.push('/marketplace'),
-                    icon: const Icon(Icons.store_rounded, size: 16),
-                    label: const Text('Marketplace'),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    // Titre + artistes
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            track.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isActive ? _kGreen : Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              if (track.explicit)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 3, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white24,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: const Text('E',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800)),
+                                ),
+                              Flexible(
+                                child: Text(
+                                  _artistNames(track.artists),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Durée
+                    Text(
+                      _fmtDuration(track.durationMs),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // More
+                    const Icon(Icons.more_vert_rounded,
+                        color: Colors.white38, size: 18),
+                  ],
+                ),
               ),
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+// ─── Section horizontale générique (albums / artistes / playlists) ────────────
+
+class _HorizontalSection<T> extends StatelessWidget {
+  final String title;
+  final List<T> items;
+  final String Function(T) imageUrl;
+  final String Function(T) label;
+  final String Function(T) sublabel;
+  final void Function(T) onTap;
+  final bool circular;
+
+  const _HorizontalSection({
+    required this.title,
+    required this.items,
+    required this.imageUrl,
+    required this.label,
+    required this.sublabel,
+    required this.onTap,
+    this.circular = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 190,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, i) {
+              final item = items[i];
+              final url = imageUrl(item);
+              return GestureDetector(
+                onTap: () => onTap(item),
+                child: SizedBox(
+                  width: 130,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      circular
+                          ? CircleAvatar(
+                              radius: 65,
+                              backgroundColor: const Color(0xFF2A2A2A),
+                              child: ClipOval(
+                                child: MusicCachedImage(
+                                  url: url,
+                                  width: 130,
+                                  height: 130,
+                                  placeholder: const Icon(
+                                      Icons.person_rounded,
+                                      color: Colors.white54,
+                                      size: 48),
+                                ),
+                              ),
+                            )
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: MusicCachedImage(
+                                url: url,
+                                width: 130,
+                                height: 130,
+                                placeholder: const Icon(Icons.album_rounded,
+                                    color: Colors.white54, size: 48),
+                              ),
+                            ),
+                      const SizedBox(height: 8),
+                      Text(
+                        label(item),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        sublabel(item),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Carte mood (section browse en mode horizontal) ───────────────────────────
+
+class _SectionMoodCard extends StatelessWidget {
+  final SpotubeBrowseSectionObject<Object> section;
+  final List<Color> gradient;
+  final VoidCallback onTap;
+
+  const _SectionMoodCard({
+    required this.section,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          width: 148,
+          height: 148,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: gradient,
+                  ),
+                ),
+              ),
+              // Cercles décoratifs
+              Positioned(
+                right: -20,
+                top: -20,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.07),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 10,
+                top: 30,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.05),
+                  ),
+                ),
+              ),
+              // Dégradé bas
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.5),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Titre
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Text(
+                  section.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    shadows: [
+                      Shadow(color: Colors.black45, blurRadius: 4),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Carte grid de section ────────────────────────────────────────────────────
+
+class _SectionGridCard extends StatelessWidget {
+  final SpotubeBrowseSectionObject<Object> section;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SectionGridCard({
+    required this.section,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              section.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Icon(
+                Icons.library_music_rounded,
+                color: Colors.white.withValues(alpha: 0.3),
+                size: 28,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Placeholder "aucun plugin" ───────────────────────────────────────────────
+
+class _NoPluginPlaceholder extends StatelessWidget {
+  final String query;
+  const _NoPluginPlaceholder({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.extension_rounded,
+              size: 56, color: Colors.white.withValues(alpha: 0.12)),
+          const SizedBox(height: 16),
+          Text(
+            'Aucune extension music installée',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Installe une extension depuis le\nMarketplace pour chercher "$query"',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.3),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white30),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            onPressed: () => context.push('/marketplace'),
+            icon: const Icon(Icons.store_rounded, size: 16),
+            label: const Text('Marketplace'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Placeholder "aucun résultat" ─────────────────────────────────────────────
+
+class _EmptyResults extends StatelessWidget {
+  final String query;
+  const _EmptyResults({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off_rounded,
+              size: 56, color: Colors.white.withValues(alpha: 0.12)),
+          const SizedBox(height: 16),
+          Text(
+            'Aucun résultat pour\n"$query"',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -446,7 +1054,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   }
 }
 
-// ── Avatar du plugin actif ─────────────────────────────────────────────────
+// ─── Avatar du plugin actif ───────────────────────────────────────────────────
 
 class _PluginAvatar extends ConsumerWidget {
   final double size;
@@ -493,7 +1101,7 @@ class _InitialsAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: const Color(0xFF1DB954),
+      backgroundColor: _kGreen,
       child: Text(
         initials,
         style: TextStyle(
@@ -506,13 +1114,14 @@ class _InitialsAvatar extends StatelessWidget {
   }
 }
 
-// ── Pill de navigation ─────────────────────────────────────────────────────
+// ─── Pill de navigation ───────────────────────────────────────────────────────
 
 class _NavPill extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+
   const _NavPill({
     required this.label,
     required this.icon,
@@ -526,16 +1135,11 @@ class _NavPill extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFF1DB954)
-              : const Color(0xFF2A2A2A),
+          color: selected ? _kGreen : const Color(0xFF2A2A2A),
           borderRadius: BorderRadius.circular(20),
-          border: selected
-              ? null
-              : Border.all(color: Colors.white12),
+          border: selected ? null : Border.all(color: Colors.white12),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -548,8 +1152,7 @@ class _NavPill extends StatelessWidget {
               label,
               style: TextStyle(
                 color: selected ? Colors.black : Colors.white70,
-                fontWeight:
-                    selected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 13,
               ),
             ),
@@ -560,161 +1163,44 @@ class _NavPill extends StatelessWidget {
   }
 }
 
-// ── Carte mood/hashtag ─────────────────────────────────────────────────────
+// ─── Chip de filtre de recherche ──────────────────────────────────────────────
 
-class _MoodCardWidget extends StatelessWidget {
-  final _MoodCard mood;
-  const _MoodCardWidget({required this.mood});
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: SizedBox(
-        width: 148,
-        height: 148,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Gradient de fond
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [mood.colorB, mood.colorA],
-                ),
-              ),
-            ),
-            // Motif abstrait avec circles décalés
-            Positioned(
-              right: -20,
-              top: -20,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.07),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 10,
-              top: 30,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.05),
-                ),
-              ),
-            ),
-            // Dégradé bas → label
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.6),
-                    ],
-                    stops: const [0.4, 1.0],
-                  ),
-                ),
-              ),
-            ),
-            // Label hashtag
-            Positioned(
-              left: 12,
-              bottom: 12,
-              right: 12,
-              child: Text(
-                mood.label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  shadows: [
-                    Shadow(blurRadius: 4, color: Colors.black54),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : Colors.white70,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            fontSize: 13,
+          ),
         ),
       ),
     );
   }
 }
 
-// ── Carte catégorie Spotify ────────────────────────────────────────────────
-
-class _CategoryCard extends StatelessWidget {
-  final _Category cat;
-  const _CategoryCard({required this.cat});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(color: cat.color),
-          // Icône décorative grande, décalée bas-droite
-          Positioned(
-            right: -8,
-            bottom: -8,
-            child: Transform.rotate(
-              angle: math.pi / 8,
-              child: Icon(
-                cat.icon,
-                size: 64,
-                color: Colors.black.withValues(alpha: 0.18),
-              ),
-            ),
-          ),
-          // Icône plus petite en haut-droite style Spotify
-          Positioned(
-            right: 10,
-            top: 10,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(cat.icon, color: Colors.white70, size: 20),
-            ),
-          ),
-          // Label
-          Positioned(
-            left: 12,
-            top: 12,
-            right: 56,
-            child: Text(
-              cat.label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                height: 1.2,
-              ),
-              maxLines: 2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── SliverPersistentHeaderDelegate ────────────────────────────────────────
+// ─── Sticky header delegate ───────────────────────────────────────────────────
 
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double height;
@@ -722,15 +1208,14 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _StickyHeaderDelegate({required this.height, required this.child});
 
   @override
-  Widget build(
-          BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      child;
-
+  double get minExtent => height;
   @override
   double get maxExtent => height;
 
   @override
-  double get minExtent => height;
+  Widget build(
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      child;
 
   @override
   bool shouldRebuild(_StickyHeaderDelegate old) =>
