@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
+  import 'dart:io' show Platform;
   import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
-  import 'package:flutter/material.dart';
+  import 'package:flutter/material.dart' show Material, Colors, Brightness;
   import 'package:hooks_riverpod/hooks_riverpod.dart';
   import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
   import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
@@ -59,7 +60,7 @@ import 'package:auto_route/auto_route.dart';
       // reporting inside the music module work correctly.
       try {
         music_log.AppLogger.initialize(false); // no-op — now delegates to wt AppLogger
-        } catch (_) {
+      } catch (_) {
         // Already initialised — safe to ignore.
       }
       _router = SpotubeAppRouter();
@@ -92,16 +93,20 @@ import 'package:auto_route/auto_route.dart';
           ? MediaQuery.platformBrightnessOf(context) == Brightness.dark
           : forcedDark;
 
-      // ShadcnApp normally provides OverlayManagerLayer + Theme together.
-      // Since Watchtower uses MaterialApp.router instead of ShadcnApp, we must
-      // inject both manually so that shadcn overlay widgets (Select popover,
-      // Tooltip, closeOverlay/closeDrawer/closeSheet) all find a live
-      // OverlayManager in the widget tree and work correctly.
+      // ShadcnApp wraps its entire tree with Material(color: transparent) so
+      // that shadcn.Scaffold's internal Overlay entries (headers, drawers,
+      // sheets, popovers) can call Material.of(context)! without crashing.
       //
-      // Without OverlayManagerLayer:
-      //  - Select/Language dropdown renders as a blank grey box (OverlayManager.of crash)
-      //  - closeOverlay/closeDrawer/closeSheet silently do nothing (no handler found)
-      //  - Tooltip crashes with "Null check operator used on a null value"
+      // shadcn.Scaffold.build() returns:
+      //   Overlay(initialEntries: [OverlayEntry(builder: _buildContent)])
+      // Overlay entries inherit ancestors only UP from the Overlay widget.
+      // Without a Material ABOVE the Overlay, any widget in an overlay entry
+      // that calls Material.of(context) (e.g. ListTile with shape → Ink)
+      // throws "Null check operator used on a null value" and the page goes gray.
+      //
+      // ShadcnApp normally provides OverlayManagerLayer + Theme + root Material.
+      // Since Watchtower uses MaterialApp.router instead of ShadcnApp, we inject
+      // all three manually here.
       //
       // Mobile uses Sheet-based overlays; desktop uses floating Popover overlays —
       // mirroring exactly what ShadcnApp chooses based on mobileMode.
@@ -109,31 +114,34 @@ import 'package:auto_route/auto_route.dart';
           (defaultTargetPlatform == TargetPlatform.android ||
               defaultTargetPlatform == TargetPlatform.iOS);
 
-      return shadcn.Theme(
-        data: shadcn.ThemeData(
-          colorScheme: shadcn.LegacyColorSchemes.zinc(
-            isDark ? shadcn.ThemeMode.dark : shadcn.ThemeMode.light,
+      return Material(
+        color: Colors.transparent,
+        child: shadcn.Theme(
+          data: shadcn.ThemeData(
+            colorScheme: shadcn.LegacyColorSchemes.zinc(
+              isDark ? shadcn.ThemeMode.dark : shadcn.ThemeMode.light,
+            ),
+            radius: 0.5,
+            surfaceOpacity: 1.0,
+            surfaceBlur: 0,
+            scaling: 1.0,
           ),
-          radius: 0.5,
-          surfaceOpacity: 1.0,
-          surfaceBlur: 0,
-          scaling: 1.0,
-        ),
-        child: shadcn.OverlayManagerLayer(
-          popoverHandler: isMobile
-              ? const shadcn.SheetOverlayHandler()
-              : const shadcn.PopoverOverlayHandler(),
-          tooltipHandler: isMobile
-              ? const shadcn.FixedTooltipOverlayHandler()
-              : const shadcn.PopoverOverlayHandler(),
-          menuHandler: isMobile
-              ? const shadcn.SheetOverlayHandler()
-              : const shadcn.PopoverOverlayHandler(),
-          child: Router(
-            routerDelegate: _router.delegate(),
-            backButtonDispatcher: parentDispatcher != null
-                ? ChildBackButtonDispatcher(parentDispatcher)
-                : RootBackButtonDispatcher(),
+          child: shadcn.OverlayManagerLayer(
+            popoverHandler: isMobile
+                ? const shadcn.SheetOverlayHandler()
+                : const shadcn.PopoverOverlayHandler(),
+            tooltipHandler: isMobile
+                ? const shadcn.FixedTooltipOverlayHandler()
+                : const shadcn.PopoverOverlayHandler(),
+            menuHandler: isMobile
+                ? const shadcn.SheetOverlayHandler()
+                : const shadcn.PopoverOverlayHandler(),
+            child: Router(
+              routerDelegate: _router.delegate(),
+              backButtonDispatcher: parentDispatcher != null
+                  ? ChildBackButtonDispatcher(parentDispatcher)
+                  : RootBackButtonDispatcher(),
+            ),
           ),
         ),
       );
