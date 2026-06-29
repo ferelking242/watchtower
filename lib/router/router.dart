@@ -59,6 +59,7 @@ import 'package:watchtower/modules/home/anilist_detail_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
+import 'package:watchtower/modules/music/pages/search/music_search_screen.dart';
 import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
@@ -182,7 +183,7 @@ class RouterNotifier extends ChangeNotifier {
         ),
         _genericRoute(
           name: "MusicSearch",
-          child: const MusicDiscoveryScreen(initialRoute: 'search'),
+          child: const MusicSearchScreen(),
         ),
         _genericRoute(
           name: "MusicLibraryPage",
