@@ -1877,91 +1877,45 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     );
   }
 
-  // ── Settings 3-dot menu items ───────────────────────────────────────────────
+  // ── Settings panel (3-dot menu) ─────────────────────────────────────────────
 
-  /// Returns a tile showing a setting name and its current read-only value.
-  PopupMenuEntry<String> _settingRow(String name, String value) {
-    return PopupMenuItem<String>(
-      enabled: false,
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Container(
-            height: 0.5,
-            color: Colors.white.withValues(alpha: 0.12),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: Theme.of(context).colorScheme.primary,
-              height: 1.2,
-            ),
-          ),
-        ],
+  void _showSettingsPanel(BuildContext context) {
+    _player.pause();
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => _PlayerSettingsDialog(
+        player: _player,
+        fit: _fit.value,
+        doubleTapSkip: ref.read(defaultDoubleTapToSkipLengthStateProvider),
+        introSkip: ref.read(defaultSkipIntroLengthStateProvider),
+        playbackSpeed: ref.read(defaultPlayBackSpeedStateProvider),
+        useLibassVal: useLibass,
+        enableHwAccel: enableHardwareAccel,
+        hwdecModeVal: hwdecMode,
+        forceLandscape: ref.read(forceLandscapePlayerStateProvider),
+        useMpvConfigVal: useMpvConfig,
+        useGpuNextVal: useGpuNext,
+        audioPreferredLangVal: audioPreferredLang,
+        enableAniSkipVal: ref.read(enableAniSkipStateProvider),
+        enableAutoSkipVal: ref.read(enableAutoSkipStateProvider),
+        onDoubleTapSkipChange: (v) =>
+            ref.read(defaultDoubleTapToSkipLengthStateProvider.notifier).set(v),
+        onIntroSkipChange: (v) =>
+            ref.read(defaultSkipIntroLengthStateProvider.notifier).set(v),
+        onSpeedChange: (v) => _setPlaybackSpeed(v),
+        onForceLandscapeChange: (v) {
+          ref.read(forceLandscapePlayerStateProvider.notifier).set(v);
+          _setLandscapeMode(v);
+        },
+        onEnableAniSkipChange: (v) =>
+            ref.read(enableAniSkipStateProvider.notifier).set(v),
+        onEnableAutoSkipChange: (v) =>
+            ref.read(enableAutoSkipStateProvider.notifier).set(v),
       ),
-    );
-  }
-
-  List<PopupMenuEntry<String>> _buildSettingsMenuItems(BuildContext context) {
-    final doubleTapSkip = ref.read(defaultDoubleTapToSkipLengthStateProvider);
-    final introSkip = ref.read(defaultSkipIntroLengthStateProvider);
-    final speed = ref.read(defaultPlayBackSpeedStateProvider);
-    final useLibassVal = ref.read(useLibassStateProvider);
-
-    final audioTrack = _player.state.track.audio;
-    final audioLabel = audioTrack.title ??
-        audioTrack.language ??
-        audioTrack.channels ??
-        (audioTrack.id == 'auto' ? 'Auto' : audioTrack.id);
-
-    final subTrack = _player.state.track.subtitle;
-    final subLabel = subTrack.title ??
-        subTrack.language ??
-        (subTrack.id == 'auto' ? 'Auto' : subTrack.id == 'no' ? 'Aucun' : subTrack.id);
-
-    final fitName = () {
-      switch (_fit.value) {
-        case BoxFit.contain: return 'Contenir';
-        case BoxFit.cover: return 'Couvrir';
-        case BoxFit.fill: return 'Remplir';
-        case BoxFit.fitWidth: return 'Largeur';
-        case BoxFit.fitHeight: return 'Hauteur';
-        default: return _fit.value.name;
-      }
-    }();
-
-    return [
-      _settingRow('Double-tap skip', '${doubleTapSkip}s'),
-      const PopupMenuDivider(height: 1),
-      _settingRow('Skip intro', '${introSkip}s'),
-      const PopupMenuDivider(height: 1),
-      _settingRow('Vitesse', '${speed}x'),
-      const PopupMenuDivider(height: 1),
-      _settingRow('Mode affichage', fitName),
-      const PopupMenuDivider(height: 1),
-      _settingRow('Piste audio', audioLabel),
-      const PopupMenuDivider(height: 1),
-      _settingRow('Piste sous-titres', subLabel),
-      const PopupMenuDivider(height: 1),
-      _settingRow('Libass (renderer)', useLibassVal ? 'Activé' : 'Désactivé'),
-      const PopupMenuDivider(height: 1),
-      _settingRow('Rendu vidéo', useMpvConfig ? 'MPV' : 'Natif'),
-    ];
+    ).then((_) {
+      if (mounted) _player.play();
+    });
   }
 
   List<Widget> _buildMpvSettingsButton(BuildContext context) {
@@ -2137,11 +2091,10 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           },
         ),
         // ── Settings 3-dot menu ────────────────────────────────────────────
-        ArrowPopupMenuButton<String>(
-          tooltip: '',
+        IconButton(
+          padding: _isDesktop ? EdgeInsets.zero : const EdgeInsets.all(5),
           icon: const Icon(Icons.more_vert, color: Colors.white),
-          menuWidth: 270,
-          itemBuilder: (context) => _buildSettingsMenuItems(context),
+          onPressed: () => _showSettingsPanel(context),
         ),
         ArrowPopupMenuButton<double>(
           tooltip: '', // Remove default tooltip "Show menu" for consistency
@@ -2888,6 +2841,681 @@ class _VideoStatsOverlayState extends State<_VideoStatsOverlay> {
           Text(value,
               style: const TextStyle(
                   fontWeight: FontWeight.w600, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Comprehensive player settings dialog ─────────────────────────────────────
+
+class _PlayerSettingsDialog extends StatefulWidget {
+  final Player player;
+  final BoxFit fit;
+  final int doubleTapSkip;
+  final int introSkip;
+  final double playbackSpeed;
+  final bool useLibassVal;
+  final bool enableHwAccel;
+  final String hwdecModeVal;
+  final bool forceLandscape;
+  final bool useMpvConfigVal;
+  final bool useGpuNextVal;
+  final String audioPreferredLangVal;
+  final bool enableAniSkipVal;
+  final bool enableAutoSkipVal;
+
+  final void Function(int) onDoubleTapSkipChange;
+  final void Function(int) onIntroSkipChange;
+  final void Function(double) onSpeedChange;
+  final void Function(bool) onForceLandscapeChange;
+  final void Function(bool) onEnableAniSkipChange;
+  final void Function(bool) onEnableAutoSkipChange;
+
+  const _PlayerSettingsDialog({
+    required this.player,
+    required this.fit,
+    required this.doubleTapSkip,
+    required this.introSkip,
+    required this.playbackSpeed,
+    required this.useLibassVal,
+    required this.enableHwAccel,
+    required this.hwdecModeVal,
+    required this.forceLandscape,
+    required this.useMpvConfigVal,
+    required this.useGpuNextVal,
+    required this.audioPreferredLangVal,
+    required this.enableAniSkipVal,
+    required this.enableAutoSkipVal,
+    required this.onDoubleTapSkipChange,
+    required this.onIntroSkipChange,
+    required this.onSpeedChange,
+    required this.onForceLandscapeChange,
+    required this.onEnableAniSkipChange,
+    required this.onEnableAutoSkipChange,
+  });
+
+  @override
+  State<_PlayerSettingsDialog> createState() => _PlayerSettingsDialogState();
+}
+
+class _PlayerSettingsDialogState extends State<_PlayerSettingsDialog> {
+  late int _doubleTapSkip = widget.doubleTapSkip;
+  late int _introSkip = widget.introSkip;
+  late double _speed = widget.playbackSpeed;
+  late bool _forceLandscape = widget.forceLandscape;
+  late bool _enableAniSkip = widget.enableAniSkipVal;
+  late bool _enableAutoSkip = widget.enableAutoSkipVal;
+
+  String get _fitName {
+    switch (widget.fit) {
+      case BoxFit.contain:
+        return 'Contenir';
+      case BoxFit.cover:
+        return 'Couvrir';
+      case BoxFit.fill:
+        return 'Remplir';
+      case BoxFit.fitWidth:
+        return 'Largeur';
+      case BoxFit.fitHeight:
+        return 'Hauteur';
+      case BoxFit.scaleDown:
+        return 'Réduire';
+      default:
+        return 'Aucun';
+    }
+  }
+
+  String get _audioLabel {
+    final t = widget.player.state.track.audio;
+    return t.title ??
+        t.language ??
+        t.channels ??
+        (t.id == 'auto' ? 'Auto' : t.id);
+  }
+
+  String get _subLabel {
+    final t = widget.player.state.track.subtitle;
+    return t.title ??
+        t.language ??
+        (t.id == 'auto'
+            ? 'Auto'
+            : t.id == 'no'
+                ? 'Aucun'
+                : t.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
+            decoration: BoxDecoration(
+              color: const Color(0xEA10101F),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  blurRadius: 50,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header ─────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: const Icon(
+                          Icons.tune_rounded,
+                          color: Colors.white70,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Paramètres — Lecteur',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white54,
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                            minWidth: 36, minHeight: 36),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                    height: 0.5,
+                    color: Colors.white.withValues(alpha: 0.09)),
+
+                // ── Scrollable content ──────────────────────────────────────
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── SECTION: Lecture ─────────────────────────────────
+                        _sectionHeader('Lecture'),
+                        _editableTile(
+                          label: 'Durée double-tap',
+                          value: '${_doubleTapSkip}s',
+                          icon: Icons.touch_app_rounded,
+                          onTap: () => _pickInt(
+                            context,
+                            title: 'Durée double-tap (secondes)',
+                            min: 1,
+                            max: 60,
+                            current: _doubleTapSkip,
+                            onConfirm: (v) {
+                              setState(() => _doubleTapSkip = v);
+                              widget.onDoubleTapSkipChange(v);
+                            },
+                          ),
+                        ),
+                        _editableTile(
+                          label: 'Skip intro',
+                          value: '${_introSkip}s',
+                          icon: Icons.skip_next_rounded,
+                          onTap: () => _pickInt(
+                            context,
+                            title: 'Durée skip intro (secondes)',
+                            min: 1,
+                            max: 300,
+                            current: _introSkip,
+                            onConfirm: (v) {
+                              setState(() => _introSkip = v);
+                              widget.onIntroSkipChange(v);
+                            },
+                          ),
+                        ),
+                        _readOnlyTile(
+                          label: 'Secondes skip ±',
+                          value: '15s',
+                          icon: Icons.fast_forward_rounded,
+                        ),
+                        _editableTile(
+                          label: 'Vitesse de lecture',
+                          value: '${_speed}x',
+                          icon: Icons.speed_rounded,
+                          onTap: () => _pickSpeed(context),
+                        ),
+                        _readOnlyTile(
+                          label: 'Vitesse maximale',
+                          value: '2.0x',
+                          icon: Icons.arrow_upward_rounded,
+                        ),
+                        _readOnlyTile(
+                          label: 'Vitesse minimale',
+                          value: '0.25x',
+                          icon: Icons.arrow_downward_rounded,
+                        ),
+
+                        // ── SECTION: Affichage ───────────────────────────────
+                        _sectionHeader('Affichage'),
+                        _readOnlyTile(
+                          label: 'Mode affichage',
+                          value: _fitName,
+                          icon: Icons.fit_screen_outlined,
+                        ),
+                        _toggleTile(
+                          label: 'Verrouillage orientation paysage',
+                          value: _forceLandscape,
+                          icon: Icons.screen_rotation_rounded,
+                          onChanged: (v) {
+                            setState(() => _forceLandscape = v);
+                            widget.onForceLandscapeChange(v);
+                          },
+                        ),
+
+                        // ── SECTION: Audio ───────────────────────────────────
+                        _sectionHeader('Audio'),
+                        _readOnlyTile(
+                          label: 'Langue audio préférée',
+                          value: widget.audioPreferredLangVal.isEmpty
+                              ? 'Auto'
+                              : widget.audioPreferredLangVal,
+                          icon: Icons.language_rounded,
+                        ),
+                        _readOnlyTile(
+                          label: 'Piste audio active',
+                          value: _audioLabel,
+                          icon: Icons.audio_file_rounded,
+                        ),
+
+                        // ── SECTION: Sous-titres ─────────────────────────────
+                        _sectionHeader('Sous-titres'),
+                        _readOnlyTile(
+                          label: 'Piste sous-titres',
+                          value: _subLabel,
+                          icon: Icons.subtitles_rounded,
+                        ),
+                        _readOnlyTile(
+                          label: 'Décodage sous-titres',
+                          value: widget.useLibassVal
+                              ? 'Libass (logiciel)'
+                              : 'Natif',
+                          icon: Icons.closed_caption_rounded,
+                        ),
+
+                        // ── SECTION: Décodeur ────────────────────────────────
+                        _sectionHeader('Décodeur'),
+                        _readOnlyTile(
+                          label: 'Accélération matérielle',
+                          value: widget.enableHwAccel ? 'Activée' : 'Désactivée',
+                          icon: Icons.memory_rounded,
+                        ),
+                        _readOnlyTile(
+                          label: 'Mode hwdec',
+                          value: widget.hwdecModeVal,
+                          icon: Icons.developer_board_rounded,
+                        ),
+                        _readOnlyTile(
+                          label: 'GPU-Next',
+                          value: widget.useGpuNextVal ? 'Activé' : 'Désactivé',
+                          icon: Icons.videocam_rounded,
+                        ),
+                        _readOnlyTile(
+                          label: 'Rendu vidéo',
+                          value: widget.useMpvConfigVal
+                              ? 'MPV (config)'
+                              : 'Natif',
+                          icon: Icons.settings_applications_rounded,
+                        ),
+
+                        // ── SECTION: AniSkip ─────────────────────────────────
+                        _sectionHeader('AniSkip'),
+                        _toggleTile(
+                          label: 'AniSkip activé',
+                          value: _enableAniSkip,
+                          icon: Icons.auto_fix_high_rounded,
+                          onChanged: (v) {
+                            setState(() => _enableAniSkip = v);
+                            widget.onEnableAniSkipChange(v);
+                          },
+                        ),
+                        _toggleTile(
+                          label: 'Skip automatique',
+                          value: _enableAutoSkip,
+                          icon: Icons.skip_next_rounded,
+                          onChanged: (v) {
+                            setState(() => _enableAutoSkip = v);
+                            widget.onEnableAutoSkipChange(v);
+                          },
+                        ),
+
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18, bottom: 6),
+      child: Row(
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.38),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 0.5,
+              color: Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _readOnlyTile({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.white38),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 3),
+                  height: 0.5,
+                  color: Colors.white.withValues(alpha: 0.10),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _editableTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 3),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(11),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(11),
+              border:
+                  Border.all(color: Colors.white.withValues(alpha: 0.07)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: Colors.white54),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.2,
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 3),
+                        height: 0.5,
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                      Text(
+                        value,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white30,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _toggleTile({
+    required String label,
+    required bool value,
+    required IconData icon,
+    required void Function(bool) onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.white54),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Transform.scale(
+            scale: 0.82,
+            child: Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickInt(
+    BuildContext context, {
+    required String title,
+    required int min,
+    required int max,
+    required int current,
+    required void Function(int) onConfirm,
+  }) async {
+    int tempVal = current;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+        ),
+        content: StatefulBuilder(
+          builder: (ctx, ss) => SizedBox(
+            height: 130,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.white60),
+                      onPressed: () {
+                        if (tempVal > min) ss(() => tempVal--);
+                      },
+                    ),
+                    Text(
+                      '$tempVal',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline,
+                          color: Colors.white60),
+                      onPressed: () {
+                        if (tempVal < max) ss(() => tempVal++);
+                      },
+                    ),
+                  ],
+                ),
+                Slider(
+                  min: min.toDouble(),
+                  max: max.toDouble(),
+                  value: tempVal.toDouble(),
+                  onChanged: (v) => ss(() => tempVal = v.round()),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              onConfirm(tempVal);
+              Navigator.pop(ctx);
+            },
+            child: Text(
+              'OK',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickSpeed(BuildContext context) async {
+    const speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+    double tempSpeed = _speed;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          'Vitesse de lecture',
+          style: TextStyle(color: Colors.white, fontSize: 15),
+        ),
+        content: StatefulBuilder(
+          builder: (ctx, ss) => SizedBox(
+            width: 260,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: speeds.map((s) {
+                final sel = s == tempSpeed;
+                return ChoiceChip(
+                  label: Text('${s}x'),
+                  selected: sel,
+                  onSelected: (_) => ss(() => tempSpeed = s),
+                  backgroundColor: Colors.white.withValues(alpha: 0.07),
+                  selectedColor: Theme.of(context).colorScheme.primary,
+                  labelStyle: TextStyle(
+                    color: sel ? Colors.white : Colors.white60,
+                    fontWeight:
+                        sel ? FontWeight.bold : FontWeight.normal,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() => _speed = tempSpeed);
+              widget.onSpeedChange(tempSpeed);
+              Navigator.pop(ctx);
+            },
+            child: Text(
+              'OK',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ],
       ),
     );

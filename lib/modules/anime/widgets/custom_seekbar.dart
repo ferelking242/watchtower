@@ -33,8 +33,10 @@ class CustomSeekBarState extends State<CustomSeekBar> {
   late Duration duration = player.state.duration;
   Duration buffer = Duration.zero;
   bool _isDragging = false;
-  // Position before drag started — used to cancel if needed
+  // Position before drag started — used to cancel seek on double-tap
   Duration? _positionBeforeDrag;
+  // When true, onChangeEnd skips the actual seek (double-tap cancel)
+  bool _cancelDrag = false;
 
   @override
   void initState() {
@@ -68,13 +70,28 @@ class CustomSeekBarState extends State<CustomSeekBar> {
   final isDesktop =
       !kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux);
 
+  /// Called by a double-tap on the seekbar area while dragging.
+  /// Cancels the seek and reverts to the position before drag started.
+  void _cancelCurrentDrag() {
+    if (!_isDragging) return;
+    if (mounted) {
+      setState(() {
+        _cancelDrag = true;
+        _isDragging = false;
+        tempPosition = null;
+        _positionBeforeDrag = null;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final displayPos = widget.delta ?? tempPosition ?? position;
     final maxValue = max(duration.inMilliseconds.toDouble(), 0).toDouble();
     final rawValue = displayPos.inMilliseconds.toDouble();
     final clampedValue = rawValue.clamp(0, maxValue).toDouble();
-    final remaining = duration > displayPos ? duration - displayPos : Duration.zero;
+    final remaining =
+        duration > displayPos ? duration - displayPos : Duration.zero;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -82,24 +99,27 @@ class CustomSeekBarState extends State<CustomSeekBar> {
         // ── Seek preview tooltip (shown during drag on mobile) ──────────────
         if (_isDragging && !isDesktop)
           Positioned(
-            top: -58,
+            top: -70,
             left: 70,
             right: 70,
             child: AnimatedOpacity(
               opacity: _isDragging ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 120),
+              duration: const Duration(milliseconds: 100),
               child: Center(
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.82),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.black.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -111,16 +131,26 @@ class CustomSeekBarState extends State<CustomSeekBar> {
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 17,
                           height: 1.1,
                         ),
                       ),
+                      const SizedBox(height: 1),
                       Text(
                         '-${remaining.label(reference: duration)}',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.65),
-                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.60),
+                          fontSize: 11.5,
                           height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Double-tap pour annuler',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          fontSize: 9.5,
+                          height: 1.1,
                         ),
                       ),
                     ],
@@ -165,50 +195,69 @@ class CustomSeekBarState extends State<CustomSeekBar> {
                       chapterMarkWidth: 10,
                     ),
                   ),
-                  child: Slider(
-                    max: maxValue,
-                    value: clampedValue,
-                    secondaryTrackValue:
-                        max(buffer.inMilliseconds.toDouble(), 0),
-                    onChanged: (value) {
-                      // ── PREVIEW ONLY during drag — no seek ────────────────
-                      // Seeking on every onChanged event caused 60fps lag.
-                      // We only update the visual position here; the real seek
-                      // happens in onChangeEnd when the finger is released.
-                      if (!_isDragging) {
-                        _positionBeforeDrag = position;
-                        widget.onSeekStart?.call(
+                  // GestureDetector wraps the Slider to detect double-tap cancel
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onDoubleTap: _cancelCurrentDrag,
+                    child: Slider(
+                      max: maxValue,
+                      value: clampedValue,
+                      secondaryTrackValue:
+                          max(buffer.inMilliseconds.toDouble(), 0),
+                      onChanged: (value) {
+                        // ── PREVIEW ONLY during drag — no seek ────────────────
+                        // Seeking on every onChanged event caused 60fps lag.
+                        // We only update the visual position here; the real seek
+                        // happens in onChangeEnd when the finger is released.
+                        if (!_isDragging) {
+                          _positionBeforeDrag = position;
+                          widget.onSeekStart?.call(
+                            Duration(
+                              milliseconds:
+                                  value.toInt() - position.inMilliseconds,
+                            ),
+                          );
+                        }
+                        if (mounted) {
+                          setState(() {
+                            _isDragging = true;
+                            tempPosition =
+                                Duration(milliseconds: value.toInt());
+                          });
+                        }
+                      },
+                      onChangeEnd: (value) async {
+                        // ── If double-tap cancelled drag, skip actual seek ─────
+                        if (_cancelDrag) {
+                          _cancelDrag = false;
+                          widget.onSeekEnd?.call(Duration.zero);
+                          if (mounted) {
+                            setState(() {
+                              _isDragging = false;
+                              tempPosition = null;
+                              _positionBeforeDrag = null;
+                            });
+                          }
+                          return;
+                        }
+                        // ── Real seek only on finger release ──────────────────
+                        widget.onSeekEnd?.call(
                           Duration(
                             milliseconds:
                                 value.toInt() - position.inMilliseconds,
                           ),
                         );
-                      }
-                      if (mounted) {
-                        setState(() {
-                          _isDragging = true;
-                          tempPosition = Duration(milliseconds: value.toInt());
-                        });
-                      }
-                    },
-                    onChangeEnd: (value) async {
-                      // ── Real seek only on finger release ──────────────────
-                      widget.onSeekEnd?.call(
-                        Duration(
-                          milliseconds:
-                              value.toInt() - position.inMilliseconds,
-                        ),
-                      );
-                      widget.player
-                          .seek(Duration(milliseconds: value.toInt()));
-                      if (mounted) {
-                        setState(() {
-                          _isDragging = false;
-                          tempPosition = null;
-                          _positionBeforeDrag = null;
-                        });
-                      }
-                    },
+                        widget.player
+                            .seek(Duration(milliseconds: value.toInt()));
+                        if (mounted) {
+                          setState(() {
+                            _isDragging = false;
+                            tempPosition = null;
+                            _positionBeforeDrag = null;
+                          });
+                        }
+                      },
+                    ),
                   ),
                 ),
               ),
