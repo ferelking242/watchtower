@@ -1,121 +1,142 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
-import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
-import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
-import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/router/music_app_router.dart';
-import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
-import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
+  import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+  import 'package:flutter/material.dart';
+  import 'package:hooks_riverpod/hooks_riverpod.dart';
+  import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+  import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
+  import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
+  import 'package:watchtower/modules/music/collections/routes.gr.dart';
+  import 'package:watchtower/modules/music/router/music_app_router.dart';
+  import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
+  import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
 
-/// Native (mobile/desktop) implementation.
-///
-/// Embeds the full Spotube UI via [SpotubeAppRouter] inside Watchtower's
-/// shell routes (/MusicLibrary, /MusicSearch, /MusicLibraryPage).
-///
-/// [initialRoute] controls which Spotube page opens first:
-///   - null / 'home'    → HomeRoute  (Spotube accueil — default)
-///   - 'search'         → SearchRoute (Spotube recherche — Discovery pill)
-///   - 'library'        → LibraryRoute (Spotube bibliothèque — Library sub-dock)
-///
-/// A [shadcn.Theme] wrapper is injected so every music widget can access
-/// `context.theme.scaling`, `context.theme.surfaceBlur`, etc.
-class MusicDiscoveryScreen extends ConsumerStatefulWidget {
-  final String? initialRoute;
-  const MusicDiscoveryScreen({super.key, this.initialRoute});
+  /// Native (mobile/desktop) implementation.
+  ///
+  /// Embeds the full Spotube UI via [SpotubeAppRouter] inside Watchtower's
+  /// shell routes (/MusicLibrary, /MusicSearch, /MusicLibraryPage).
+  ///
+  /// [initialRoute] controls which Spotube page opens first:
+  ///   - null / 'home'    → HomeRoute  (Spotube accueil — default)
+  ///   - 'search'         → SearchRoute (Spotube recherche — Discovery pill)
+  ///   - 'library'        → LibraryRoute (Spotube bibliothèque — Library sub-dock)
+  ///
+  /// A [shadcn.Theme] wrapper is injected so every music widget can access
+  /// `context.theme.scaling`, `context.theme.surfaceBlur`, etc.
+  class MusicDiscoveryScreen extends ConsumerStatefulWidget {
+    final String? initialRoute;
+    const MusicDiscoveryScreen({super.key, this.initialRoute});
 
-  @override
-  ConsumerState<MusicDiscoveryScreen> createState() =>
-      _MusicDiscoveryScreenState();
-}
+    @override
+    ConsumerState<MusicDiscoveryScreen> createState() =>
+        _MusicDiscoveryScreenState();
+  }
 
-class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
-  late final SpotubeAppRouter _router;
+  class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
+    late final SpotubeAppRouter _router;
 
-  List<PageRouteInfo> get _initialRoutes {
-    switch (widget.initialRoute) {
-      case 'search':
-        return const [RootAppRoute(children: [SearchRoute()])];
-      case 'library':
-        return const [RootAppRoute(children: [LibraryRoute()])];
-      default:
-        try {
-          if (KVStoreService.doneGettingStarted) {
-            return const [RootAppRoute(children: [HomeRoute()])];
+    List<PageRouteInfo> get _initialRoutes {
+      switch (widget.initialRoute) {
+        case 'search':
+          return const [RootAppRoute(children: [SearchRoute()])];
+        case 'library':
+          return const [RootAppRoute(children: [LibraryRoute()])];
+        default:
+          try {
+            if (KVStoreService.doneGettingStarted) {
+              return const [RootAppRoute(children: [HomeRoute()])];
+            }
+          } catch (_) {
+            // KVStoreService not yet initialised — fall through to getting-started.
           }
-        } catch (_) {
-          // KVStoreService not yet initialised — fall through to getting-started.
-        }
-        return const [GettingStartedRoute()];
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialise Spotube's own AppLogger so the Logs page and error
-    // reporting inside the music module work correctly.
-    try {
-      music_log.AppLogger.initialize(false); // no-op — now delegates to wt AppLogger
-      } catch (_) {
-      // Already initialised — safe to ignore.
-    }
-    _router = SpotubeAppRouter();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final routes = _initialRoutes;
-        if (routes.isNotEmpty) {
-          _router.navigate(routes.first);
-        }
+          return const [GettingStartedRoute()];
       }
-    });
-  }
+    }
 
-  @override
-  void dispose() {
-    _router.dispose();
-    super.dispose();
-  }
+    @override
+    void initState() {
+      super.initState();
+      // Initialise Spotube's own AppLogger so the Logs page and error
+      // reporting inside the music module work correctly.
+      try {
+        music_log.AppLogger.initialize(false); // no-op — now delegates to wt AppLogger
+        } catch (_) {
+        // Already initialised — safe to ignore.
+      }
+      _router = SpotubeAppRouter();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final routes = _initialRoutes;
+          if (routes.isNotEmpty) {
+            _router.navigate(routes.first);
+          }
+        }
+      });
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final parentDispatcher = Router.of(context).backButtonDispatcher;
+    @override
+    void dispose() {
+      _router.dispose();
+      super.dispose();
+    }
 
-    // Read Watchtower's own theme providers so the shadcn colour scheme
-    // always matches the host app's dark/light state, regardless of the
-    // system brightness or follow-system setting.
-    final forcedDark = ref.watch(themeModeStateProvider);
-    final followSystem = ref.watch(followSystemThemeStateProvider);
-    final isDark = followSystem
-        ? MediaQuery.platformBrightnessOf(context) == Brightness.dark
-        : forcedDark;
+    @override
+    Widget build(BuildContext context) {
+      final parentDispatcher = Router.of(context).backButtonDispatcher;
 
-    // shadcn_flutter widgets call context.theme.scaling / surfaceBlur /
-    // surfaceOpacity (from shadcn_flutter_extension.dart).  Those lookups
-    // throw a null-check error when there is no ShadcnApp/Theme ancestor.
-    // Wrapping with shadcn.Theme here provides the required InheritedWidget
-    // so all descendant music-module widgets work correctly.
-    //
-    // LegacyColorSchemes.zinc expects shadcn.ThemeMode (not Flutter's
-    // ThemeMode) — use the shadcn-namespaced constant to avoid the
-    // "ThemeMode/*1*/ can't be assigned to ThemeMode/*2*/" type conflict.
-    return shadcn.Theme(
-      data: shadcn.ThemeData(
-        colorScheme: shadcn.LegacyColorSchemes.zinc(
-          isDark ? shadcn.ThemeMode.dark : shadcn.ThemeMode.light,
+      // Read Watchtower's own theme providers so the shadcn colour scheme
+      // always matches the host app's dark/light state, regardless of the
+      // system brightness or follow-system setting.
+      final forcedDark = ref.watch(themeModeStateProvider);
+      final followSystem = ref.watch(followSystemThemeStateProvider);
+      final isDark = followSystem
+          ? MediaQuery.platformBrightnessOf(context) == Brightness.dark
+          : forcedDark;
+
+      // ShadcnApp normally provides OverlayManagerLayer + Theme together.
+      // Since Watchtower uses MaterialApp.router instead of ShadcnApp, we must
+      // inject both manually so that shadcn overlay widgets (Select popover,
+      // Tooltip, closeOverlay/closeDrawer/closeSheet) all find a live
+      // OverlayManager in the widget tree and work correctly.
+      //
+      // Without OverlayManagerLayer:
+      //  - Select/Language dropdown renders as a blank grey box (OverlayManager.of crash)
+      //  - closeOverlay/closeDrawer/closeSheet silently do nothing (no handler found)
+      //  - Tooltip crashes with "Null check operator used on a null value"
+      //
+      // Mobile uses Sheet-based overlays; desktop uses floating Popover overlays —
+      // mirroring exactly what ShadcnApp chooses based on mobileMode.
+      final isMobile = !kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS);
+
+      return shadcn.Theme(
+        data: shadcn.ThemeData(
+          colorScheme: shadcn.LegacyColorSchemes.zinc(
+            isDark ? shadcn.ThemeMode.dark : shadcn.ThemeMode.light,
+          ),
+          radius: 0.5,
+          surfaceOpacity: 1.0,
+          surfaceBlur: 0,
+          scaling: 1.0,
         ),
-        radius: 0.5,
-        surfaceOpacity: 1.0,
-        surfaceBlur: 0,
-        scaling: 1.0,
-      ),
-      child: Router(
-        routerDelegate: _router.delegate(),
-        backButtonDispatcher: parentDispatcher != null
-            ? ChildBackButtonDispatcher(parentDispatcher)
-            : RootBackButtonDispatcher(),
-      ),
-    );
+        child: shadcn.OverlayManagerLayer(
+          popoverHandler: isMobile
+              ? const shadcn.SheetOverlayHandler()
+              : const shadcn.PopoverOverlayHandler(),
+          tooltipHandler: isMobile
+              ? const shadcn.FixedTooltipOverlayHandler()
+              : const shadcn.PopoverOverlayHandler(),
+          menuHandler: isMobile
+              ? const shadcn.SheetOverlayHandler()
+              : const shadcn.PopoverOverlayHandler(),
+          child: Router(
+            routerDelegate: _router.delegate(),
+            backButtonDispatcher: parentDispatcher != null
+                ? ChildBackButtonDispatcher(parentDispatcher)
+                : RootBackButtonDispatcher(),
+          ),
+        ),
+      );
+    }
   }
-}
+  
