@@ -84,6 +84,12 @@ import 'package:auto_route/auto_route.dart';
     Widget build(BuildContext context) {
       final parentDispatcher = Router.of(context).backButtonDispatcher;
 
+      // Read Spotube's stored locale preference so that Settings → Language
+      // actually changes the visible language inside the music sub-tree.
+      final Locale? musicLocale = ref.watch(
+        userPreferencesProvider.select((p) => p.locale),
+      );
+
       // Read Watchtower's own theme providers so the shadcn colour scheme
       // always matches the host app's dark/light state, regardless of the
       // system brightness or follow-system setting.
@@ -136,11 +142,17 @@ import 'package:auto_route/auto_route.dart';
             menuHandler: isMobile
                 ? const shadcn.SheetOverlayHandler()
                 : const shadcn.PopoverOverlayHandler(),
-            child: Router(
-              routerDelegate: _router.delegate(),
-              backButtonDispatcher: parentDispatcher != null
-                  ? ChildBackButtonDispatcher(parentDispatcher)
-                  : RootBackButtonDispatcher(),
+            child: Builder(
+              builder: (locCtx) => Localizations.override(
+                context: locCtx,
+                locale: musicLocale,
+                child: Router(
+                  routerDelegate: _router.delegate(),
+                  backButtonDispatcher: parentDispatcher != null
+                      ? ChildBackButtonDispatcher(parentDispatcher)
+                      : RootBackButtonDispatcher(),
+                ),
+              ),
             ),
           ),
         ),
