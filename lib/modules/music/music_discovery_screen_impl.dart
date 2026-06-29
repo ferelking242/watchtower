@@ -1,7 +1,6 @@
 import 'package:auto_route/auto_route.dart';
-  import 'dart:io' show Platform;
+  import 'package:flutter/material.dart';
   import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
-  import 'package:flutter/material.dart' show Material, Colors, Brightness;
   import 'package:hooks_riverpod/hooks_riverpod.dart';
   import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
   import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
