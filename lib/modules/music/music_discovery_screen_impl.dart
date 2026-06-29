@@ -6,25 +6,10 @@ import 'package:auto_route/auto_route.dart';
   import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
   import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
   import 'package:watchtower/modules/music/collections/routes.gr.dart';
-  import 'package:watchtower/modules/music/router/music_app_router.dart';
-  import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
   import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';
-
-      // Read Spotube's accent color preference and map it to a shadcn ColorScheme.
-      final accentColorScheme = ref.watch(
-        userPreferencesProvider.select((p) => p.accentColorScheme),
-      );
-import 'package:auto_route/auto_route.dart';
-  import 'package:flutter/material.dart';
-  import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
-  import 'package:hooks_riverpod/hooks_riverpod.dart';
-  import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
-  import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
-  import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
-  import 'package:watchtower/modules/music/collections/routes.gr.dart';
+  import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
   import 'package:watchtower/modules/music/router/music_app_router.dart';
   import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
-    import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
   import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
 
   /// Native (mobile/desktop) implementation.
@@ -35,7 +20,7 @@ import 'package:auto_route/auto_route.dart';
   /// [initialRoute] controls which Spotube page opens first:
   ///   - null / 'home'    → HomeRoute  (Spotube accueil — default)
   ///   - 'search'         → SearchRoute (Spotube recherche — Discovery pill)
-  ///   - 'library'        → LibraryRoute (Spotube bibliothèque — Library sub-dock)
+  ///   - 'library'        → LibraryRoute (Spotube bibliothèque — Library sub-tab)
   ///
   /// A [shadcn.Theme] wrapper is injected so every music widget can access
   /// `context.theme.scaling`, `context.theme.surfaceBlur`, etc.
@@ -100,10 +85,16 @@ import 'package:auto_route/auto_route.dart';
     Widget build(BuildContext context) {
       final parentDispatcher = Router.of(context).backButtonDispatcher;
 
-      // Read Spotube's stored locale preference so that Settings → Language
-      // actually changes the visible language inside the music sub-tree.
+      // Read Spotube's stored locale so that Settings → Language applies to the
+      // entire music sub-tree via Localizations.override below.
       final Locale? musicLocale = ref.watch(
         userPreferencesProvider.select((p) => p.locale),
+      );
+
+      // Read Spotube's accent color preference and map it to the matching
+      // LegacyColorSchemes function (slate, zinc, blue, rose…).
+      final accentColorScheme = ref.watch(
+        userPreferencesProvider.select((p) => p.accentColorScheme),
       );
 
       // Read Watchtower's own theme providers so the shadcn colour scheme
