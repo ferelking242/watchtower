@@ -105,6 +105,7 @@ import 'package:flutter/material.dart' show ListTile, ListTileControlAffinity;
             : () {
                 showDialog(
                   context: context,
+                  useRootNavigator: false,
                   builder: (context) {
                     return AlertDialog(
                       content: SizedBox(
