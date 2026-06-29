@@ -1,3 +1,4 @@
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:watchtower/modules/music/collections/language_codes.dart';
@@ -32,6 +33,25 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final preferences = ref.watch(userPreferencesProvider);
+      final preferencesNotifier = ref.read(userPreferencesProvider.notifier);
+
+      // Pre-fill Spotube's locale with Watchtower's active locale on first setup,
+      // so the language picker shows the same language as the host app by default.
+      final appLocale = Localizations.localeOf(context);
+      useEffect(() {
+        final current = preferences.locale;
+        if (current == null || current.languageCode == 'system') {
+          final match = L10n.all.where(
+            (l) => l.languageCode == appLocale.languageCode,
+          ).firstOrNull;
+          if (match != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              preferencesNotifier.setLocale(match);
+            });
+          }
+        }
+        return null;
+      }, const []);
 
     return SafeArea(
       child: Center(
