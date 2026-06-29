@@ -24,6 +24,7 @@ class SettingsAppearanceSection extends HookConsumerWidget {
     final pickColorScheme = useCallback(() {
       return () => showDialog(
           context: context,
+          useRootNavigator: false,
           builder: (context) {
             return const ColorSchemePickerDialog();
           });
