@@ -74,38 +74,33 @@ class BottomPlayer extends HookConsumerWidget {
             children: [
               PlayerActions(
                 extraActions: [
-                  Tooltip(
-                    tooltip:
-                        TooltipContainer(child: Text(context.l10n.mini_player))
-                            .call,
-                    child: IconButton(
-                      variance: ButtonVariance.ghost,
-                      icon: const Icon(SpotubeIcons.miniPlayer),
-                      onPressed: () async {
-                        if (!kIsDesktop) return;
+                  IconButton(
+                    variance: ButtonVariance.ghost,
+                    icon: const Icon(SpotubeIcons.miniPlayer),
+                    onPressed: () async {
+                      if (!kIsDesktop) return;
 
-                        final prevSize = await windowManager.getSize();
-                        await windowManager.setMinimumSize(
-                          const Size(300, 300),
-                        );
-                        await windowManager.setAlwaysOnTop(true);
-                        if (!kIsLinux) {
-                          await windowManager.setHasShadow(false);
-                        }
-                        await windowManager.setAlignment(Alignment.topRight);
-                        await windowManager.setSize(const Size(400, 500));
-                        await Future.delayed(
-                          const Duration(milliseconds: 100),
-                          () async {
-                            if (context.mounted) {
-                              context.navigateTo(
-                                MiniLyricsRoute(prevSize: prevSize),
-                              );
-                            }
-                          },
-                        );
-                      },
-                    ),
+                      final prevSize = await windowManager.getSize();
+                      await windowManager.setMinimumSize(
+                        const Size(300, 300),
+                      );
+                      await windowManager.setAlwaysOnTop(true);
+                      if (!kIsLinux) {
+                        await windowManager.setHasShadow(false);
+                      }
+                      await windowManager.setAlignment(Alignment.topRight);
+                      await windowManager.setSize(const Size(400, 500));
+                      await Future.delayed(
+                        const Duration(milliseconds: 100),
+                        () async {
+                          if (context.mounted) {
+                            context.navigateTo(
+                              MiniLyricsRoute(prevSize: prevSize),
+                            );
+                          }
+                        },
+                      );
+                    },
                   ),
                 ],
               ),

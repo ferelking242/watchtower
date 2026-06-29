@@ -258,79 +258,65 @@ class LocalLibraryPage extends HookConsumerWidget {
                 child: Row(
                   children: [
                     const Gap(5),
-                    Tooltip(
-                      tooltip:
-                          TooltipContainer(child: Text(context.l10n.play)).call,
-                      child: IconButton.primary(
-                        onPressed: trackSnapshot.asData?.value != null
-                            ? () async {
-                                if (trackSnapshot.asData?.value.isNotEmpty ==
-                                    true) {
-                                  if (!isPlaylistPlaying) {
-                                    await playLocalTracks(
-                                      ref,
-                                      trackSnapshot.asData!.value[location] ??
-                                          [],
-                                    );
-                                  }
+                    IconButton.primary(
+                      onPressed: trackSnapshot.asData?.value != null
+                          ? () async {
+                              if (trackSnapshot.asData?.value.isNotEmpty ==
+                                  true) {
+                                if (!isPlaylistPlaying) {
+                                  await playLocalTracks(
+                                    ref,
+                                    trackSnapshot.asData!.value[location] ??
+                                        [],
+                                  );
                                 }
                               }
-                            : null,
-                        icon: Icon(
-                          isPlaylistPlaying
-                              ? SpotubeIcons.stop
-                              : SpotubeIcons.play,
-                        ),
+                            }
+                          : null,
+                      icon: Icon(
+                        isPlaylistPlaying
+                            ? SpotubeIcons.stop
+                            : SpotubeIcons.play,
                       ),
                     ),
                     const Gap(5),
-                    Tooltip(
-                      tooltip:
-                          TooltipContainer(child: Text(context.l10n.shuffle))
-                              .call,
-                      child: IconButton.outline(
-                        onPressed: trackSnapshot.asData?.value != null
-                            ? () async {
-                                if (trackSnapshot.asData?.value.isNotEmpty ==
-                                    true) {
-                                  if (!isPlaylistPlaying) {
-                                    await shufflePlayLocalTracks(
-                                      ref,
-                                      trackSnapshot.asData!.value[location] ??
-                                          [],
-                                    );
-                                  }
+                    IconButton.outline(
+                      onPressed: trackSnapshot.asData?.value != null
+                          ? () async {
+                              if (trackSnapshot.asData?.value.isNotEmpty ==
+                                  true) {
+                                if (!isPlaylistPlaying) {
+                                  await shufflePlayLocalTracks(
+                                    ref,
+                                    trackSnapshot.asData!.value[location] ??
+                                        [],
+                                  );
                                 }
                               }
-                            : null,
-                        enabled: !isPlaylistPlaying,
-                        icon: const Icon(SpotubeIcons.shuffle),
-                      ),
+                            }
+                          : null,
+                      enabled: !isPlaylistPlaying,
+                      icon: const Icon(SpotubeIcons.shuffle),
                     ),
                     const Gap(5),
-                    Tooltip(
-                      tooltip: TooltipContainer(
-                              child: Text(context.l10n.add_to_queue))
-                          .call,
-                      child: IconButton.outline(
-                        onPressed: trackSnapshot.asData?.value != null
-                            ? () async {
-                                if (trackSnapshot.asData?.value.isNotEmpty ==
-                                    true) {
-                                  if (!isPlaylistPlaying) {
-                                    await addToQueueLocalTracks(
-                                      context,
-                                      ref,
-                                      trackSnapshot.asData!.value[location] ??
-                                          [],
-                                    );
-                                  }
+                    IconButton.outline(
+                      onPressed: trackSnapshot.asData?.value != null
+                          ? () async {
+                              if (trackSnapshot.asData?.value.isNotEmpty ==
+                                  true) {
+                                if (!isPlaylistPlaying) {
+                                  await addToQueueLocalTracks(
+                                    context,
+                                    ref,
+                                    trackSnapshot.asData!.value[location] ??
+                                        [],
+                                  );
                                 }
                               }
-                            : null,
-                        enabled: !isPlaylistPlaying,
-                        icon: const Icon(SpotubeIcons.queueAdd),
-                      ),
+                            }
+                          : null,
+                      enabled: !isPlaylistPlaying,
+                      icon: const Icon(SpotubeIcons.queueAdd),
                     ),
                     const Spacer(),
                     if (constraints.smAndDown)

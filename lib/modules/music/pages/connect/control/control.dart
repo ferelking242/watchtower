@@ -205,113 +205,75 @@ class ConnectControlPage extends HookConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         spacing: 20,
                         children: [
-                          Tooltip(
-                            tooltip: TooltipContainer(
-                              child: Text(
-                                shuffled
-                                    ? context.l10n.unshuffle_playlist
-                                    : context.l10n.shuffle_playlist,
-                              ),
-                            ).call,
-                            child: IconButton(
-                              icon: const Icon(SpotubeIcons.shuffle),
-                              variance: shuffled
-                                  ? ButtonVariance.secondary
-                                  : ButtonVariance.ghost,
-                              onPressed: playlist.activeTrack == null
-                                  ? null
-                                  : () {
-                                      connectNotifier.setShuffle(!shuffled);
-                                    },
-                            ),
+                          IconButton(
+                            icon: const Icon(SpotubeIcons.shuffle),
+                            variance: shuffled
+                                ? ButtonVariance.secondary
+                                : ButtonVariance.ghost,
+                            onPressed: playlist.activeTrack == null
+                                ? null
+                                : () {
+                                    connectNotifier.setShuffle(!shuffled);
+                                  },
                           ),
-                          Tooltip(
-                            tooltip: TooltipContainer(
-                              child: Text(context.l10n.previous_track),
-                            ).call,
-                            child: IconButton.ghost(
-                              icon: const Icon(SpotubeIcons.skipBack),
-                              onPressed: playlist.activeTrack == null
-                                  ? null
-                                  : connectNotifier.previous,
-                            ),
+                          IconButton.ghost(
+                            icon: const Icon(SpotubeIcons.skipBack),
+                            onPressed: playlist.activeTrack == null
+                                ? null
+                                : connectNotifier.previous,
                           ),
-                          Tooltip(
-                            tooltip: TooltipContainer(
-                              child: Text(
-                                playing
-                                    ? context.l10n.pause_playback
-                                    : context.l10n.resume_playback,
-                              ),
-                            ).call,
-                            child: IconButton.primary(
-                              shape: ButtonShape.circle,
-                              icon: playlist.activeTrack == null
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                          onSurface: false),
-                                    )
-                                  : Icon(
-                                      playing
-                                          ? SpotubeIcons.pause
-                                          : SpotubeIcons.play,
-                                    ),
-                              onPressed: playlist.activeTrack == null
-                                  ? null
-                                  : () {
-                                      if (playing) {
-                                        connectNotifier.pause();
-                                      } else {
-                                        connectNotifier.resume();
-                                      }
-                                    },
-                            ),
+                          IconButton.primary(
+                            shape: ButtonShape.circle,
+                            icon: playlist.activeTrack == null
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                        onSurface: false),
+                                  )
+                                : Icon(
+                                    playing
+                                        ? SpotubeIcons.pause
+                                        : SpotubeIcons.play,
+                                  ),
+                            onPressed: playlist.activeTrack == null
+                                ? null
+                                : () {
+                                    if (playing) {
+                                      connectNotifier.pause();
+                                    } else {
+                                      connectNotifier.resume();
+                                    }
+                                  },
                           ),
-                          Tooltip(
-                            tooltip: TooltipContainer(
-                                    child: Text(context.l10n.next_track))
-                                .call,
-                            child: IconButton.ghost(
-                              icon: const Icon(SpotubeIcons.skipForward),
-                              onPressed: playlist.activeTrack == null
-                                  ? null
-                                  : connectNotifier.next,
-                            ),
+                          IconButton.ghost(
+                            icon: const Icon(SpotubeIcons.skipForward),
+                            onPressed: playlist.activeTrack == null
+                                ? null
+                                : connectNotifier.next,
                           ),
-                          Tooltip(
-                            tooltip: TooltipContainer(
-                              child: Text(
-                                loopMode == PlaylistMode.single
-                                    ? context.l10n.loop_track
-                                    : loopMode == PlaylistMode.loop
-                                        ? context.l10n.repeat_playlist
-                                        : context.l10n.no_loop,
-                              ),
-                            ).call,
-                            child: IconButton(
-                              icon: Icon(
-                                loopMode == PlaylistMode.single
-                                    ? SpotubeIcons.repeatOne
-                                    : SpotubeIcons.repeat,
-                              ),
-                              variance: loopMode == PlaylistMode.single ||
-                                      loopMode == PlaylistMode.loop
-                                  ? ButtonVariance.secondary
-                                  : ButtonVariance.ghost,
-                              onPressed: playlist.activeTrack == null
-                                  ? null
-                                  : () async {
-                                      connectNotifier.setLoopMode(
-                                        switch (loopMode as PlaylistMode) {
-                                          PlaylistMode.loop =>
-                                            PlaylistMode.single,
-                                          PlaylistMode.single =>
-                                            PlaylistMode.none,
-                                          PlaylistMode.none =>
-                                            PlaylistMode.loop,
-                                        },
+                          IconButton(
+                            icon: Icon(
+                              loopMode == PlaylistMode.single
+                                  ? SpotubeIcons.repeatOne
+                                  : SpotubeIcons.repeat,
+                            ),
+                            variance: loopMode == PlaylistMode.single ||
+                                    loopMode == PlaylistMode.loop
+                                ? ButtonVariance.secondary
+                                : ButtonVariance.ghost,
+                            onPressed: playlist.activeTrack == null
+                                ? null
+                                : () async {
+                                    connectNotifier.setLoopMode(
+                                      switch (loopMode as PlaylistMode) {
+                                        PlaylistMode.loop =>
+                                          PlaylistMode.single,
+                                        PlaylistMode.single =>
+                                          PlaylistMode.none,
+                                        PlaylistMode.none =>
+                                          PlaylistMode.loop,
+                                      },
                                       );
                                     },
                             ),

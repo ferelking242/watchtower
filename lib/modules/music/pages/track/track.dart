@@ -192,37 +192,23 @@ class TrackPage extends HookConsumerWidget {
                                       if (!isActive &&
                                           !playlist.tracks
                                               .containsBy(track, (t) => t.id))
-                                        Tooltip(
-                                          tooltip: TooltipContainer(
-                                            child: Text(context.l10n.play_next),
-                                          ).call,
-                                          child: IconButton.outline(
-                                            icon: const Icon(
-                                                SpotubeIcons.lightning),
-                                            onPressed: () {
-                                              playlistNotifier
-                                                  .addTracksAtFirst([track]);
-                                            },
-                                          ),
+                                        IconButton.outline(
+                                          icon: const Icon(
+                                              SpotubeIcons.lightning),
+                                          onPressed: () {
+                                            playlistNotifier
+                                                .addTracksAtFirst([track]);
+                                          },
                                         ),
                                       const Gap(5),
-                                      Tooltip(
-                                        tooltip: TooltipContainer(
-                                          child: Text(
-                                            isActive
-                                                ? context.l10n.pause_playback
-                                                : context.l10n.play,
-                                          ),
-                                        ).call,
-                                        child: IconButton.primary(
-                                          shape: ButtonShape.circle,
-                                          icon: Icon(
-                                            isActive
-                                                ? SpotubeIcons.pause
-                                                : SpotubeIcons.play,
-                                          ),
-                                          onPressed: onPlay,
+                                      IconButton.primary(
+                                        shape: ButtonShape.circle,
+                                        icon: Icon(
+                                          isActive
+                                              ? SpotubeIcons.pause
+                                              : SpotubeIcons.play,
                                         ),
+                                        onPressed: onPlay,
                                       ),
                                       const Gap(5),
                                       if (mediaQuery.smAndDown)

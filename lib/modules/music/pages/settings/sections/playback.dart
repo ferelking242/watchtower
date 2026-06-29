@@ -187,22 +187,17 @@ class SettingsPlaybackSection extends HookConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             spacing: 10,
             children: [
-              Tooltip(
-                tooltip: TooltipContainer(
-                  child: Text(context.l10n.edit_port),
-                ).call,
-                child: IconButton.outline(
-                  icon: const Icon(SpotubeIcons.edit),
-                  size: ButtonSize.small,
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      barrierColor: Colors.black.withValues(alpha: 0.5),
-                      builder: (context) =>
-                          const SettingsPlaybackEditConnectPortDialog(),
-                    );
-                  },
-                ),
+              IconButton.outline(
+                icon: const Icon(SpotubeIcons.edit),
+                size: ButtonSize.small,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    barrierColor: Colors.black.withValues(alpha: 0.5),
+                    builder: (context) =>
+                        const SettingsPlaybackEditConnectPortDialog(),
+                  );
+                },
               ),
               Switch(
                 value: preferences.enableConnect,

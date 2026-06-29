@@ -87,80 +87,72 @@ class PlayerActions extends HookConsumerWidget {
       mainAxisAlignment: mainAxisAlignment,
       children: [
         if (showQueue)
-          Tooltip(
-            tooltip: TooltipContainer(child: Text(context.l10n.queue)).call,
-            child: IconButton.ghost(
-              icon: const Icon(SpotubeIcons.queue),
-              enabled: playlist.activeTrack != null,
-              onPressed: () {
-                final capturedTheme = Theme.of(context);
-                openDrawer(
-                  context: context,
-                  position: OverlayPosition.right,
-                  transformBackdrop: false,
-                  draggable: false,
-                  surfaceBlur: context.theme.surfaceBlur,
-                  surfaceOpacity: 0.7,
-                  builder: (context) {
-                    return Theme(
-                      data: capturedTheme,
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 800),
-                          child: Consumer(
-                            builder: (context, ref, _) {
-                              final playlist = ref.watch(audioPlayerProvider);
-                              final playlistNotifier =
-                                  ref.read(audioPlayerProvider.notifier);
+          IconButton.ghost(
+            icon: const Icon(SpotubeIcons.queue),
+            enabled: playlist.activeTrack != null,
+            onPressed: () {
+              final capturedTheme = Theme.of(context);
+              openDrawer(
+                context: context,
+                position: OverlayPosition.right,
+                transformBackdrop: false,
+                draggable: false,
+                surfaceBlur: context.theme.surfaceBlur,
+                surfaceOpacity: 0.7,
+                builder: (context) {
+                  return Theme(
+                    data: capturedTheme,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final playlist = ref.watch(audioPlayerProvider);
+                            final playlistNotifier =
+                                ref.read(audioPlayerProvider.notifier);
 
-                              return PlayerQueue.fromAudioPlayerNotifier(
-                                floating: true,
-                                playlist: playlist,
-                                notifier: playlistNotifier,
-                              );
-                            },
-                          ),
+                            return PlayerQueue.fromAudioPlayerNotifier(
+                              floating: true,
+                              playlist: playlist,
+                              notifier: playlistNotifier,
+                            );
+                          },
                         ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        if (!isLocalTrack)
+          IconButton.ghost(
+            enabled: playlist.activeTrack != null,
+            icon: const Icon(SpotubeIcons.alternativeRoute),
+            onPressed: () {
+              final screenSize = MediaQuery.sizeOf(context);
+              if (screenSize.mdAndUp) {
+                showPopover(
+                  alignment: Alignment.bottomCenter,
+                  context: context,
+                  builder: (context) {
+                    return SurfaceCard(
+                      padding: EdgeInsets.zero,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxHeight: 600,
+                          maxWidth: 500,
+                        ),
+                        child: SiblingTracksSheet(floating: floatingQueue),
                       ),
                     );
                   },
                 );
-              },
-            ),
-          ),
-        if (!isLocalTrack)
-          Tooltip(
-            tooltip: TooltipContainer(
-              child: Text(context.l10n.alternative_track_sources),
-            ).call,
-            child: IconButton.ghost(
-              enabled: playlist.activeTrack != null,
-              icon: const Icon(SpotubeIcons.alternativeRoute),
-              onPressed: () {
-                final screenSize = MediaQuery.sizeOf(context);
-                if (screenSize.mdAndUp) {
-                  showPopover(
-                    alignment: Alignment.bottomCenter,
-                    context: context,
-                    builder: (context) {
-                      return SurfaceCard(
-                        padding: EdgeInsets.zero,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxHeight: 600,
-                            maxWidth: 500,
-                          ),
-                          child: SiblingTracksSheet(floating: floatingQueue),
-                        ),
-                      );
-                    },
-                  );
-                } else {
-                  context.pushRoute(const PlayerTrackSourcesRoute());
-                }
-              },
-            ),
+              } else {
+                context.pushRoute(const PlayerTrackSourcesRoute());
+              }
+            },
           ),
         if (!kIsWeb && !isLocalTrack)
           if (isInQueue)
@@ -172,19 +164,14 @@ class PlayerActions extends HookConsumerWidget {
               ),
             )
           else
-            Tooltip(
-              tooltip:
-                  TooltipContainer(child: Text(context.l10n.download_track))
-                      .call,
-              child: IconButton.ghost(
-                icon: Icon(
-                  isDownloaded ? SpotubeIcons.done : SpotubeIcons.download,
-                ),
-                onPressed: playlist.activeTrack != null
-                    ? () => downloader.addToQueue(
-                        playlist.activeTrack! as SpotubeFullTrackObject)
-                    : null,
+            IconButton.ghost(
+              icon: Icon(
+                isDownloaded ? SpotubeIcons.done : SpotubeIcons.download,
               ),
+              onPressed: playlist.activeTrack != null
+                  ? () => downloader.addToQueue(
+                      playlist.activeTrack! as SpotubeFullTrackObject)
+                  : null,
             ),
         if (playlist.activeTrack != null &&
             !isLocalTrack &&

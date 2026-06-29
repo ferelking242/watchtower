@@ -36,31 +36,21 @@ class TrackPresentationTopSection extends HookConsumerWidget {
     final playbackActions = Row(
       spacing: 8 * scale,
       children: [
-        Tooltip(
-          tooltip: TooltipContainer(
-            child: Text(context.l10n.shuffle_playlist),
-          ).call,
-          child: IconButton.secondary(
-            icon: isLoading
-                ? const Center(
-                    child:
-                        CircularProgressIndicator(onSurface: false, size: 20),
-                  )
-                : const Icon(SpotubeIcons.shuffle),
-            enabled: !isLoading && !isActive,
-            onPressed: onShuffle,
-          ),
+        IconButton.secondary(
+          icon: isLoading
+              ? const Center(
+                  child:
+                      CircularProgressIndicator(onSurface: false, size: 20),
+                )
+              : const Icon(SpotubeIcons.shuffle),
+          enabled: !isLoading && !isActive,
+          onPressed: onShuffle,
         ),
         if (mediaQuery.width <= 320)
-          Tooltip(
-            tooltip: TooltipContainer(
-              child: Text(context.l10n.add_to_queue),
-            ).call,
-            child: IconButton.secondary(
-              icon: const Icon(SpotubeIcons.queueAdd),
-              enabled: !isLoading && !isActive,
-              onPressed: onAddToQueue,
-            ),
+          IconButton.secondary(
+            icon: const Icon(SpotubeIcons.queueAdd),
+            enabled: !isLoading && !isActive,
+            onPressed: onAddToQueue,
           )
         else
           Button.secondary(
@@ -105,34 +95,29 @@ class TrackPresentationTopSection extends HookConsumerWidget {
             },
           ),
         if (options.shareUrl != null)
-          Tooltip(
-            tooltip: TooltipContainer(
-              child: Text(context.l10n.share),
-            ).call,
-            child: IconButton.outline(
-              icon: const Icon(SpotubeIcons.share),
-              size: ButtonSize.small,
-              onPressed: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: options.shareUrl!),
-                );
+          IconButton.outline(
+            icon: const Icon(SpotubeIcons.share),
+            size: ButtonSize.small,
+            onPressed: () async {
+              await Clipboard.setData(
+                ClipboardData(text: options.shareUrl!),
+              );
 
-                if (!context.mounted) return;
+              if (!context.mounted) return;
 
-                showToast(
-                  context: context,
-                  location: ToastLocation.topRight,
-                  builder: (context, overlay) {
-                    return SurfaceCard(
-                      child: Text(
-                        context.l10n
-                            .copied_shareurl_to_clipboard(options.shareUrl!),
-                      ).small(),
-                    );
-                  },
-                );
-              },
-            ),
+              showToast(
+                context: context,
+                location: ToastLocation.topRight,
+                builder: (context, overlay) {
+                  return SurfaceCard(
+                    child: Text(
+                      context.l10n
+                          .copied_shareurl_to_clipboard(options.shareUrl!),
+                    ).small(),
+                  );
+                },
+              );
+            },
           ),
         if (options.onHeart != null)
           HeartButton(

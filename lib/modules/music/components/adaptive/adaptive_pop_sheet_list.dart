@@ -163,49 +163,38 @@ class AdaptivePopSheetList<T> extends StatelessWidget {
     final mediaQuery = MediaQuery.of(context);
 
     if (mediaQuery.mdAndUp) {
-      return Tooltip(
-        tooltip: TooltipContainer(
-          child: Text(tooltip),
-        ).call,
-        child: IconButton(
-          variance: variance,
-          icon: icon ?? const Icon(SpotubeIcons.moreVertical),
-          onPressed: () {
-            final renderBox = context.findRenderObject() as RenderBox;
-            final position = RelativeRect.fromRect(
-              Rect.fromPoints(
-                renderBox.localToGlobal(Offset.zero,
-                    ancestor: context.findRenderObject()),
-                renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero),
-                    ancestor: context.findRenderObject()),
-              ),
-              Offset.zero & mediaQuery.size,
-            );
-            final offset = Offset(position.left, position.top);
-            showDropdownMenu(context, offset);
-          },
-        ),
+      return IconButton(
+        variance: variance,
+        icon: icon ?? const Icon(SpotubeIcons.moreVertical),
+        onPressed: () {
+          final renderBox = context.findRenderObject() as RenderBox;
+          final position = RelativeRect.fromRect(
+            Rect.fromPoints(
+              renderBox.localToGlobal(Offset.zero,
+                  ancestor: context.findRenderObject()),
+              renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero),
+                  ancestor: context.findRenderObject()),
+            ),
+            Offset.zero & mediaQuery.size,
+          );
+          final offset = Offset(position.left, position.top);
+          showDropdownMenu(context, offset);
+        },
       );
     }
 
     if (child != null) {
-      return Tooltip(
-        tooltip: TooltipContainer(child: Text(tooltip)).call,
-        child: Button(
-          onPressed: () => showDropdownMenu(context, Offset.zero),
-          style: variance,
-          child: IgnorePointer(child: child),
-        ),
+      return Button(
+        onPressed: () => showDropdownMenu(context, Offset.zero),
+        style: variance,
+        child: IgnorePointer(child: child),
       );
     }
 
-    return Tooltip(
-      tooltip: TooltipContainer(child: Text(tooltip)).call,
-      child: IconButton(
-        variance: variance,
-        icon: icon ?? const Icon(SpotubeIcons.moreVertical),
-        onPressed: () => showDropdownMenu(context, Offset.zero),
-      ),
+    return IconButton(
+      variance: variance,
+      icon: icon ?? const Icon(SpotubeIcons.moreVertical),
+      onPressed: () => showDropdownMenu(context, Offset.zero),
     );
   }
 }

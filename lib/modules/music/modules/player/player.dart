@@ -109,26 +109,21 @@ class PlayerView extends HookConsumerWidget {
                 ],
                 trailing: [
                   if (!isLocalTrack)
-                    Tooltip(
-                      tooltip: TooltipContainer(
-                        child: Text(context.l10n.details),
-                      ).call,
-                      child: IconButton.ghost(
-                        size: const ButtonSize(1.2),
-                        icon: const Icon(SpotubeIcons.info),
-                        onPressed: currentActiveTrackSource == null
-                            ? null
-                            : () {
-                                showDialog(
-                                    context: context,
-                                    builder: (context) {
-                                      return TrackDetailsDialog(
-                                        track: currentActiveTrack
-                                            as SpotubeFullTrackObject,
-                                      );
-                                    });
-                              },
-                      ),
+                    IconButton.ghost(
+                      size: const ButtonSize(1.2),
+                      icon: const Icon(SpotubeIcons.info),
+                      onPressed: currentActiveTrackSource == null
+                          ? null
+                          : () {
+                              showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return TrackDetailsDialog(
+                                      track: currentActiveTrack
+                                          as SpotubeFullTrackObject,
+                                    );
+                                  });
+                            },
                     )
                 ],
               ),

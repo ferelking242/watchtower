@@ -117,107 +117,96 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                     HookBuilder(builder: (context) {
                       final isLoading = useState(false);
 
-                      return Tooltip(
-                        tooltip: TooltipContainer(
-                          child: Text(context
-                              .l10n.download_and_install_plugin_from_url),
-                        ).call,
-                        child: IconButton.secondary(
-                          icon: isLoading.value
-                              ? const SizedBox.square(
-                                  dimension: 22,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(SpotubeIcons.download),
-                          enabled: !isLoading.value,
-                          onPressed: () async {
-                            try {
-                              if (formKey.currentState?.saveAndValidate() ??
-                                  false) {
-                                final url = formKey.currentState
-                                    ?.fields["plugin_url"]?.value as String;
+                      return IconButton.secondary(
+                        icon: isLoading.value
+                            ? const SizedBox.square(
+                                dimension: 22,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(SpotubeIcons.download),
+                        enabled: !isLoading.value,
+                        onPressed: () async {
+                          try {
+                            if (formKey.currentState?.saveAndValidate() ??
+                                false) {
+                              final url = formKey.currentState
+                                  ?.fields["plugin_url"]?.value as String;
 
-                                if (url.isNotEmpty) {
-                                  isLoading.value = true;
-                                  final pluginConfig = await pluginsNotifier
-                                      .downloadAndCachePlugin(url);
+                              if (url.isNotEmpty) {
+                                isLoading.value = true;
+                                final pluginConfig = await pluginsNotifier
+                                    .downloadAndCachePlugin(url);
 
-                                  await pluginsNotifier.addPlugin(pluginConfig);
+                                await pluginsNotifier.addPlugin(pluginConfig);
 
-                                  formKey.currentState?.fields["plugin_url"]
-                                      ?.reset();
-                                }
+                                formKey.currentState?.fields["plugin_url"]
+                                    ?.reset();
                               }
-                            } catch (e, stackTrace) {
-                              AppLogger.reportError(e, stackTrace);
-                              if (context.mounted) {
-                                showToast(
-                                  showDuration: const Duration(seconds: 5),
-                                  context: context,
-                                  builder: (context, overlay) {
-                                    return SurfaceCard(
-                                      child: Basic(
-                                        leading: const Icon(
-                                          SpotubeIcons.error,
-                                          color: Colors.red,
-                                        ),
-                                        title: Text(
-                                          context.l10n
-                                              .failed_to_add_plugin_error(
-                                                  e.toString()),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              }
-                            } finally {
-                              isLoading.value = false;
                             }
-                          },
-                        ),
+                          } catch (e, stackTrace) {
+                            AppLogger.reportError(e, stackTrace);
+                            if (context.mounted) {
+                              showToast(
+                                showDuration: const Duration(seconds: 5),
+                                context: context,
+                                builder: (context, overlay) {
+                                  return SurfaceCard(
+                                    child: Basic(
+                                      leading: const Icon(
+                                        SpotubeIcons.error,
+                                        color: Colors.red,
+                                      ),
+                                      title: Text(
+                                        context.l10n
+                                            .failed_to_add_plugin_error(
+                                                e.toString()),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }
+                          } finally {
+                            isLoading.value = false;
+                          }
+                        },
                       );
                     }),
-                    Tooltip(
-                      tooltip: TooltipContainer(
-                        child: Text(context.l10n.upload_plugin_from_file),
-                      ).call,
-                      child: IconButton.primary(
-                        icon: const Icon(SpotubeIcons.upload),
-                        onPressed: () async {
-                          Uint8List bytes;
+                    IconButton.primary(
+                      icon: const Icon(SpotubeIcons.upload),
+                      onPressed: () async {
+                        Uint8List bytes;
 
-                          if (kIsFlatpak) {
-                            final result = await openFile(
-                              acceptedTypeGroups: [
-                                const XTypeGroup(
-                                  label: 'Spotube Metadata Plugin',
-                                  extensions: ['smplug'],
-                                ),
-                              ],
-                            );
-                            if (result == null) return;
-                            bytes = await result.readAsBytes();
-                          } else {
-                            final result = await FilePicker.pickFiles(
-                              type: kIsAndroid ? FileType.any : FileType.custom,
-                              allowedExtensions: kIsAndroid ? [] : ["smplug"],
-                              withData: true,
-                            );
+                        if (kIsFlatpak) {
+                          final result = await openFile(
+                            acceptedTypeGroups: [
+                              const XTypeGroup(
+                                label: 'Spotube Metadata Plugin',
+                                extensions: ['smplug'],
+                              ),
+                            ],
+                          );
+                          if (result == null) return;
+                          bytes = await result.readAsBytes();
+                        } else {
+                          final result = await FilePicker.pickFiles(
+                            type: kIsAndroid ? FileType.any : FileType.custom,
+                            allowedExtensions: kIsAndroid ? [] : ["smplug"],
+                            withData: true,
+                          );
 
-                            if (result == null) return;
+                          if (result == null) return;
 
-                            final file = result.files.first;
-                            if (file.bytes == null) return;
-                            bytes = file.bytes!;
-                          }
+                          final file = result.files.first;
+                          if (file.bytes == null) return;
+                          bytes = file.bytes!;
+                        }
 
-                          final pluginConfig =
-                              await pluginsNotifier.extractPluginArchive(bytes);
-                          await pluginsNotifier.addPlugin(pluginConfig);
-                        },
-                      ),
+                        final pluginConfig =
+                            await pluginsNotifier.extractPluginArchive(bytes);
+                        await pluginsNotifier.addPlugin(pluginConfig);
+                      },
                     ),
                   ],
                 ),

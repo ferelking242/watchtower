@@ -80,32 +80,27 @@ class ArtistPageHeader extends HookConsumerWidget {
               },
             ),
           const SizedBox(width: 5),
-          Tooltip(
-            tooltip: TooltipContainer(
-              child: Text(context.l10n.add_artist_to_blacklist),
-            ).call,
-            child: IconButton(
-              icon: Icon(
-                SpotubeIcons.userRemove,
-                color: !isBlackListed ? Colors.red[400] : null,
-              ),
-              variance: isBlackListed
-                  ? ButtonVariance.destructive
-                  : ButtonVariance.ghost,
-              onPressed: () async {
-                if (isBlackListed) {
-                  await ref.read(blacklistProvider.notifier).remove(artist.id);
-                } else {
-                  await ref.read(blacklistProvider.notifier).add(
-                        BlacklistTableCompanion.insert(
-                          name: artist.name,
-                          elementId: artist.id,
-                          elementType: BlacklistedType.artist,
-                        ),
-                      );
-                }
-              },
+          IconButton(
+            icon: Icon(
+              SpotubeIcons.userRemove,
+              color: !isBlackListed ? Colors.red[400] : null,
             ),
+            variance: isBlackListed
+                ? ButtonVariance.destructive
+                : ButtonVariance.ghost,
+            onPressed: () async {
+              if (isBlackListed) {
+                await ref.read(blacklistProvider.notifier).remove(artist.id);
+              } else {
+                await ref.read(blacklistProvider.notifier).add(
+                      BlacklistTableCompanion.insert(
+                        name: artist.name,
+                        elementId: artist.id,
+                        elementType: BlacklistedType.artist,
+                      ),
+                    );
+              }
+            },
           ),
           IconButton.ghost(
             icon: const Icon(SpotubeIcons.share),

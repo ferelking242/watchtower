@@ -87,75 +87,60 @@ class MiniLyricsPage extends HookConsumerWidget {
                         ],
                       ),
                     const Spacer(),
-                    Tooltip(
-                      tooltip:
-                          TooltipContainer(child: Text(context.l10n.lyrics))
-                              .call,
-                      child: IconButton(
-                        variance: showLyrics.value
-                            ? ButtonVariance.secondary
-                            : ButtonVariance.ghost,
-                        icon: showLyrics.value
-                            ? const Icon(SpotubeIcons.lyrics)
-                            : const Icon(SpotubeIcons.lyricsOff),
-                        onPressed: () async {
-                          showLyrics.value = !showLyrics.value;
-                          areaActive.value = true;
-                          hoverMode.value = false;
+                    IconButton(
+                      variance: showLyrics.value
+                          ? ButtonVariance.secondary
+                          : ButtonVariance.ghost,
+                      icon: showLyrics.value
+                          ? const Icon(SpotubeIcons.lyrics)
+                          : const Icon(SpotubeIcons.lyricsOff),
+                      onPressed: () async {
+                        showLyrics.value = !showLyrics.value;
+                        areaActive.value = true;
+                        hoverMode.value = false;
 
-                          if (kIsDesktop) {
-                            await windowManager.setSize(
-                              showLyrics.value
-                                  ? const Size(400, 500)
-                                  : const Size(400, 150),
-                            );
-                          }
-                        },
-                      ),
+                        if (kIsDesktop) {
+                          await windowManager.setSize(
+                            showLyrics.value
+                                ? const Size(400, 500)
+                                : const Size(400, 150),
+                          );
+                        }
+                      },
                     ),
-                    Tooltip(
-                      tooltip: TooltipContainer(
-                        child: Text(context.l10n.show_hide_ui_on_hover),
-                      ).call,
-                      child: IconButton(
-                        variance: hoverMode.value
-                            ? ButtonVariance.secondary
-                            : ButtonVariance.ghost,
-                        icon: hoverMode.value
-                            ? const Icon(SpotubeIcons.hoverOn)
-                            : const Icon(SpotubeIcons.hoverOff),
-                        onPressed: () async {
-                          areaActive.value = true;
-                          hoverMode.value = !hoverMode.value;
-                        },
-                      ),
+                    IconButton(
+                      variance: hoverMode.value
+                          ? ButtonVariance.secondary
+                          : ButtonVariance.ghost,
+                      icon: hoverMode.value
+                          ? const Icon(SpotubeIcons.hoverOn)
+                          : const Icon(SpotubeIcons.hoverOff),
+                      onPressed: () async {
+                        areaActive.value = true;
+                        hoverMode.value = !hoverMode.value;
+                      },
                     ),
                     if (kIsDesktop)
                       FutureBuilder(
                         future: windowManager.isAlwaysOnTop(),
                         builder: (context, snapshot) {
-                          return Tooltip(
-                            tooltip: TooltipContainer(
-                              child: Text(context.l10n.always_on_top),
-                            ).call,
-                            child: IconButton(
-                              variance: snapshot.data == true
-                                  ? ButtonVariance.secondary
-                                  : ButtonVariance.ghost,
-                              icon: Icon(
-                                snapshot.data == true
-                                    ? SpotubeIcons.pinOn
-                                    : SpotubeIcons.pinOff,
-                              ),
-                              onPressed: snapshot.data == null
-                                  ? null
-                                  : () async {
-                                      await windowManager.setAlwaysOnTop(
-                                        snapshot.data == true ? false : true,
-                                      );
-                                      update();
-                                    },
+                          return IconButton(
+                            variance: snapshot.data == true
+                                ? ButtonVariance.secondary
+                                : ButtonVariance.ghost,
+                            icon: Icon(
+                              snapshot.data == true
+                                  ? SpotubeIcons.pinOn
+                                  : SpotubeIcons.pinOff,
                             ),
+                            onPressed: snapshot.data == null
+                                ? null
+                                : () async {
+                                    await windowManager.setAlwaysOnTop(
+                                      snapshot.data == true ? false : true,
+                                    );
+                                    update();
+                                  },
                           );
                         },
                       ),
@@ -197,11 +182,7 @@ class MiniLyricsPage extends HookConsumerWidget {
               secondChild: const SizedBox(),
               firstChild: Row(
                 children: [
-                  Tooltip(
-                    tooltip: TooltipContainer(
-                      child: Text(context.l10n.queue),
-                    ).call,
-                    child: IconButton.ghost(
+                  IconButton.ghost(
                       icon: const Icon(SpotubeIcons.queue),
                       onPressed: playlistQueue.activeTrack != null
                           ? () {
@@ -250,39 +231,33 @@ class MiniLyricsPage extends HookConsumerWidget {
                             }
                           : null,
                     ),
-                  ),
                   const Flexible(child: PlayerControls(compact: true)),
-                  Tooltip(
-                    tooltip: TooltipContainer(
-                            child: Text(context.l10n.exit_mini_player))
-                        .call,
-                    child: IconButton.ghost(
-                      icon: const Icon(SpotubeIcons.maximize),
-                      onPressed: () async {
-                        if (!kIsDesktop) return;
+                  IconButton.ghost(
+                    icon: const Icon(SpotubeIcons.maximize),
+                    onPressed: () async {
+                      if (!kIsDesktop) return;
 
-                        try {
-                          await windowManager
-                              .setMinimumSize(const Size(300, 700));
-                          await windowManager.setAlwaysOnTop(false);
-                          if (wasMaximized.value) {
-                            await windowManager.maximize();
-                          } else {
-                            await windowManager.setSize(prevSize);
-                          }
-                          await windowManager.setAlignment(Alignment.center);
-                          if (!kIsLinux) {
-                            await windowManager.setHasShadow(true);
-                          }
-                          await Future.delayed(
-                              const Duration(milliseconds: 200));
-                        } finally {
-                          if (context.mounted) {
-                            context.navigateTo(const LyricsRoute());
-                          }
+                      try {
+                        await windowManager
+                            .setMinimumSize(const Size(300, 700));
+                        await windowManager.setAlwaysOnTop(false);
+                        if (wasMaximized.value) {
+                          await windowManager.maximize();
+                        } else {
+                          await windowManager.setSize(prevSize);
                         }
-                      },
-                    ),
+                        await windowManager.setAlignment(Alignment.center);
+                        if (!kIsLinux) {
+                          await windowManager.setHasShadow(true);
+                        }
+                        await Future.delayed(
+                            const Duration(milliseconds: 200));
+                      } finally {
+                        if (context.mounted) {
+                          context.navigateTo(const LyricsRoute());
+                        }
+                      }
+                    },
                   ),
                 ],
               ),
