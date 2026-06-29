@@ -564,7 +564,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                       ? ''
                       : p.images.first.url,
                   label: (p) => p.name,
-                  sublabel: (p) => p.owner.displayName,
+                  sublabel: (p) => p.owner.name,
                   onTap: (p) => _toPlaylist(p),
                 ),
             ],
