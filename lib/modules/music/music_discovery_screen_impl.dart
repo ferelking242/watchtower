@@ -8,6 +8,22 @@ import 'package:auto_route/auto_route.dart';
   import 'package:watchtower/modules/music/collections/routes.gr.dart';
   import 'package:watchtower/modules/music/router/music_app_router.dart';
   import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
+  import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';
+
+      // Read Spotube's accent color preference and map it to a shadcn ColorScheme.
+      final accentColorScheme = ref.watch(
+        userPreferencesProvider.select((p) => p.accentColorScheme),
+      );
+import 'package:auto_route/auto_route.dart';
+  import 'package:flutter/material.dart';
+  import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+  import 'package:hooks_riverpod/hooks_riverpod.dart';
+  import 'package:shadcn_flutter/shadcn_flutter.dart' as shadcn;
+  import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
+  import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
+  import 'package:watchtower/modules/music/collections/routes.gr.dart';
+  import 'package:watchtower/modules/music/router/music_app_router.dart';
+  import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
     import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
   import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
 
@@ -124,7 +140,8 @@ import 'package:auto_route/auto_route.dart';
         color: Colors.transparent,
         child: shadcn.Theme(
           data: shadcn.ThemeData(
-            colorScheme: shadcn.LegacyColorSchemes.zinc(
+            colorScheme: (colorSchemeMap[accentColorScheme.name] ??
+                shadcn.LegacyColorSchemes.zinc)(
               isDark ? shadcn.ThemeMode.dark : shadcn.ThemeMode.light,
             ),
             radius: 0.5,
