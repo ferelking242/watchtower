@@ -88,7 +88,7 @@ class PlayerView extends HookConsumerWidget {
         await panelController.close();
       },
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: SafeArea(

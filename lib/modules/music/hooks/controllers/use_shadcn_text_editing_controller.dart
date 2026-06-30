@@ -54,7 +54,11 @@ class _TextEditingControllerHookCreator {
 ///
 /// See also:
 /// - [TextEditingController], which this hook creates.
-const useShadcnTextEditingController = _TextEditingControllerHookCreator();
+const useTextEditingController = _TextEditingControllerHookCreator();
+
+// Deprecated alias kept for backwards compatibility
+// ignore: constant_identifier_names
+const useShadcnTextEditingController = useTextEditingController;
 
 class _TextEditingControllerHook extends Hook<TextEditingController> {
   const _TextEditingControllerHook(

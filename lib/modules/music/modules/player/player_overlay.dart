@@ -38,7 +38,7 @@ class PlayerOverlay extends HookConsumerWidget {
         ref.read(navigationPanelHeight.notifier).state = 50 * invertedPosition;
       },
       controller: panelController,
-      color: Colors.transparent,
+      color: Theme.of(context).colorScheme.surface,
       parallaxEnabled: true,
       renderPanelSheet: false,
       header: SizedBox(

@@ -2,12 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-class ShadcnWindowButton extends StatelessWidget {
+class WindowControlButton extends StatelessWidget {
   final Widget icon;
   final VoidCallback onPressed;
   final Color? hoverBackgroundColor;
 
-  const ShadcnWindowButton({
+  const WindowControlButton({
     super.key,
     required this.icon,
     required this.onPressed,
