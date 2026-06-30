@@ -29,7 +29,7 @@ class BlackListPage extends HookConsumerWidget {
           return blacklist.asData?.value ?? [];
         }
         return blacklist.asData?.value
-                .map(
+                ?.map(
                   (e) => (
                     weightedRatio(
                         "${e.name} ${e.elementType.name}", searchText.value),
@@ -49,9 +49,9 @@ class BlackListPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: AppBar(
-            title: Text(context.l10n.blacklist),
-            leading: const [BackButton()],
-          ),
+          leading: const MusicBackButton(),
+          title: Text(context.l10n.blacklist),
+        ),
         body: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -59,30 +59,40 @@ class BlackListPage extends HookConsumerWidget {
               padding: const EdgeInsets.all(8.0),
               child: TextField(
                 onChanged: (value) => searchText.value = value,
-                placeholder: Text(context.l10n.search),
-                // prefixIcon: const Icon(SpotubeIcons.search),
+                decoration: InputDecoration(
+                  hintText: context.l10n.search,
+                  prefixIcon: const Icon(SpotubeIcons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  isDense: true,
+                ),
               ),
             ),
-            InterScrollbar(
-              controller: controller,
-              child: ListView.builder(
+            Expanded(
+              child: InterScrollbar(
                 controller: controller,
-                shrinkWrap: true,
-                itemCount: filteredBlacklist.length,
-                itemBuilder: (context, index) {
-                  final item = filteredBlacklist.elementAt(index);
-                  return ButtonTile(
-                    leading: Text("${index + 1}."),
-                    title: Text("${item.name} (${item.elementType.name})"),
-                    trailing: IconButton(
-                      icon: Icon(SpotubeIcons.trash, color: Colors.red[400]),
-                      onPressed: () {
-                        ref.read(blacklistProvider.notifier).remove(
-                            filteredBlacklist.elementAt(index).elementId);
-                      },
-                    ),
-                  );
-                },
+                child: ListView.builder(
+                  controller: controller,
+                  shrinkWrap: true,
+                  itemCount: filteredBlacklist.length,
+                  itemBuilder: (context, index) {
+                    final item = filteredBlacklist.elementAt(index);
+                    return ButtonTile(
+                      leading: Text("${index + 1}."),
+                      title: Text("${item.name} (${item.elementType.name})"),
+                      trailing: IconButton(
+                        icon: Icon(SpotubeIcons.trash,
+                            color: Colors.red[400]),
+                        onPressed: () {
+                          ref
+                              .read(blacklistProvider.notifier)
+                              .remove(item);
+                        },
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ],

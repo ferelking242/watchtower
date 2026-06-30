@@ -61,7 +61,6 @@ class TrackPage extends HookConsumerWidget {
             backgroundColor: Colors.transparent,
                       )
         ,
-        floatingHeader: true,
         body: Stack(
           children: [
             Positioned.fill(

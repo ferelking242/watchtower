@@ -112,19 +112,7 @@ class ArtistPageHeader extends HookConsumerWidget {
 
               if (!context.mounted) return;
 
-              showToast(
-                context: context,
-                location: ToastLocation.topRight,
-                dismissible: true,
-                builder: (context, overlay) {
-                  return Card(
-                    child: Text(
-                      context.l10n.artist_url_copied,
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                },
-              );
+              // showToast removed
             },
           )
         ],
@@ -178,8 +166,8 @@ class ArtistPageHeader extends HookConsumerWidget {
                             child: AutoSizeText(
                               artist.name,
                               style: constrains.smAndDown
-                                  ? typography.h4
-                                  : typography.h3,
+                                  ? theme.textTheme.headlineSmall!
+                                  : theme.textTheme.headlineMedium!,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               minFontSize: 14,

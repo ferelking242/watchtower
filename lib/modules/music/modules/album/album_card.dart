@@ -126,21 +126,7 @@ class AlbumCard extends HookConsumerWidget {
         playlistNotifier.addTracks(fetchedTracks);
         playlistNotifier.addCollection(album.id);
         historyNotifier.addAlbums([album]);
-        if (context.mounted) {
-          showToast(
-            context: context,
-            builder: (context, overlay) {
-              return Card(
-                child: Basic(
-                  content: Text(
-                    context.l10n.added_to_queue(fetchedTracks.length),
-                  ),
-                  trailing: OutlinedButton(
-                    child: Text(context.l10n.undo),
-                    onPressed: () {
-                      playlistNotifier
-                          .removeTracks(fetchedTracks.map((e) => e.id));
-                    },
+        // context.mounted showToast removed,
                   ),
                 ),
               );

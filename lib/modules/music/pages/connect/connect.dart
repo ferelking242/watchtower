@@ -16,7 +16,9 @@ class ConnectPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final ThemeData(:colorScheme, :typography) = Theme.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
     final connectClients = ref.watch(connectClientsProvider);
     final connectClientsNotifier = ref.read(connectClientsProvider.notifier);
@@ -25,9 +27,8 @@ class ConnectPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-      appBar: AppBar(title: Text(context.l10n.devices)),
-        ,
-        child: Padding(
+        appBar: AppBar(title: Text(context.l10n.devices)),
+        body: Padding(
           padding: const EdgeInsets.all(10.0),
           child: CustomScrollView(
             slivers: [
@@ -36,14 +37,16 @@ class ConnectPage extends HookConsumerWidget {
                 sliver: SliverToBoxAdapter(
                   child: Text(
                     context.l10n.remote,
-                    style: typography.bold,
+                    style: textTheme.bodyLarge!
+                        .copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
-              const SliverGap(10),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverList.separated(
                 itemCount: discoveredDevices?.length ?? 0,
-                separatorBuilder: (context, index) => const SizedBox(height: 10, width: 10),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final device = discoveredDevices![index];
                   final selected =
@@ -60,9 +63,8 @@ class ConnectPage extends HookConsumerWidget {
                           )
                         : null,
                     trailing: selected
-                        ? IconButton.outlined(
+                        ? IconButton(
                             icon: const Icon(SpotubeIcons.power),
-                            size: 20.0,
                             onPressed: () =>
                                 connectClientsNotifier.clearResolvedService(),
                           )

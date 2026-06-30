@@ -16,28 +16,30 @@ class SelectDeviceDialog extends HookConsumerWidget {
 
     return AlertDialog(
       title: Text(context.l10n.choose_the_device),
-      content: RadioGroup(
-        value: isRemoteService.value,
-        onChanged: (value) {
-          isRemoteService.value = value;
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(context.l10n.multiple_device_connected),
-            SizedBox(height: 16),
-            RadioItem(
-              trailing: Text(remoteService.name),
-              value: true,
-            ),
-            SizedBox(height: 8),
-            RadioItem(
-              trailing: Text(context.l10n.this_device),
-              value: false,
-            ),
-          ],
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.multiple_device_connected),
+          const SizedBox(height: 16),
+          RadioListTile<bool>(
+            title: Text(remoteService.name),
+            value: true,
+            groupValue: isRemoteService.value,
+            onChanged: (value) {
+              if (value != null) isRemoteService.value = value;
+            },
+          ),
+          const SizedBox(height: 8),
+          RadioListTile<bool>(
+            title: Text(context.l10n.this_device),
+            value: false,
+            groupValue: isRemoteService.value,
+            onChanged: (value) {
+              if (value != null) isRemoteService.value = value;
+            },
+          ),
+        ],
       ),
       actions: [
         FilledButton(

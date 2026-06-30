@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -14,7 +15,6 @@ import 'package:watchtower/modules/music/pages/lyrics/synced_lyrics.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:flutter/material.dart' show Material, MaterialType;
 
 class MiniLyricsPage extends HookConsumerWidget {
   static const name = "mini_lyrics";
@@ -31,6 +31,7 @@ class MiniLyricsPage extends HookConsumerWidget {
     final playlistQueue = ref.watch(audioPlayerProvider);
 
     final index = useState(0);
+    final tabController = useTabController(initialLength: 2);
 
     final areaActive = useState(false);
     final hoverMode = useState(true);
@@ -57,31 +58,39 @@ class MiniLyricsPage extends HookConsumerWidget {
               areaActive.value = false;
             },
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
-        appBar: Padding(
+        backgroundColor:
+            theme.colorScheme.surface.withValues(alpha: 0.4),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: AnimatedCrossFade(
               duration: const Duration(milliseconds: 200),
               crossFadeState: areaActive.value
                   ? CrossFadeState.showFirst
                   : CrossFadeState.showSecond,
-              secondChild: const SizedBox(),
-              firstChild: Container(
+              secondChild: const SizedBox(height: 48),
+              firstChild: SizedBox(
+                height: 48,
                 child: Row(
-                  spacing: 2,
                   children: [
-                    const SizedBox(height: 10, width: 10),
+                    const SizedBox(width: 10),
                     if (kIsMacOS) const SizedBox(width: 65),
                     if (showLyrics.value)
-                      TabBar(
-            onTap: (i) {
-                          index.value = i;
-                        },
-            tabs: [
-                          Tab(child: Text(context.l10n.synced)),
-                          Tab(child: Text(context.l10n.plain)),
-                      ),
-                    const Spacer(),
+                      Expanded(
+                        child: TabBar(
+                          controller: tabController,
+                          onTap: (i) {
+                            index.value = i;
+                          },
+                          tabs: [
+                            Tab(child: Text(context.l10n.synced)),
+                            Tab(child: Text(context.l10n.plain)),
+                          ],
+                        ),
+                      )
+                    else
+                      const Spacer(),
                     IconButton(
                       icon: showLyrics.value
                           ? const Icon(SpotubeIcons.lyrics)
@@ -135,23 +144,25 @@ class MiniLyricsPage extends HookConsumerWidget {
               ),
             ),
           ),
-        ],
-        child: Column(
+        ),
+        body: Column(
           children: [
             if (playlistQueue.activeTrack != null)
               Text(playlistQueue.activeTrack!.name!),
             if (showLyrics.value)
               Expanded(
-                child: IndexedStack(
-                  
+                child: TabBarView(
+                  controller: tabController,
                   children: [
                     SyncedLyrics(
-                      palette: PaletteColor(Theme.of(context).colorScheme.surface, 0),
+                      palette: PaletteColor(
+                          theme.colorScheme.surface, 0),
                       isModal: true,
                       defaultTextZoom: 65,
                     ),
                     PlainLyrics(
-                      palette: PaletteColor(Theme.of(context).colorScheme.surface, 0),
+                      palette: PaletteColor(
+                          theme.colorScheme.surface, 0),
                       isModal: true,
                       defaultTextZoom: 65,
                     ),
@@ -169,51 +180,42 @@ class MiniLyricsPage extends HookConsumerWidget {
               firstChild: Row(
                 children: [
                   IconButton(
-                      icon: const Icon(SpotubeIcons.queue),
-                      onPressed: playlistQueue.activeTrack != null
-                          ? () {
-                              final capturedTheme = Theme.of(context);
-                              openDrawer(
-                                context: context,
-                                barrierDismissible: true,
-                                draggable: true,
-                                barrierColor: Colors.black.withAlpha(100),
-                                borderRadius: BorderRadius.circular(10),
-                                transformBackdrop: false).surfaceBlur
-                                expands: true,
-                                builder: (context) => Theme(
-                                  data: capturedTheme,
-                                  child: Material(
-                                    type: MaterialType.transparency,
-                                    child: Consumer(
-                                      builder: (context, ref, _) {
-                                        final playlist = ref.watch(
-                                          audioPlayerProvider,
-                                        );
-                                        final playlistNotifier = ref
-                                            .read(audioPlayerProvider.notifier);
-                                        return ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            maxHeight: MediaQuery.of(context)
-                                                    .size
-                                                    .height *
+                    icon: const Icon(SpotubeIcons.queue),
+                    onPressed: playlistQueue.activeTrack != null
+                        ? () {
+                            final capturedTheme = Theme.of(context);
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              showDragHandle: true,
+                              builder: (context) => Theme(
+                                data: capturedTheme,
+                                child: Consumer(
+                                  builder: (context, ref, _) {
+                                    final playlist =
+                                        ref.watch(audioPlayerProvider);
+                                    final playlistNotifier = ref.read(
+                                        audioPlayerProvider.notifier);
+                                    return ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight:
+                                            MediaQuery.of(context).size.height *
                                                 0.8,
-                                          ),
-                                          child:
-                                              PlayerQueue.fromAudioPlayerNotifier(
-                                            floating: false,
-                                            playlist: playlist,
-                                            notifier: playlistNotifier,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
+                                      ),
+                                      child: PlayerQueue
+                                          .fromAudioPlayerNotifier(
+                                        floating: false,
+                                        playlist: playlist,
+                                        notifier: playlistNotifier,
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            }
-                          : null,
-                    ),
+                              ),
+                            );
+                          }
+                        : null,
+                  ),
                   const Flexible(child: PlayerControls(compact: true)),
                   IconButton(
                     icon: const Icon(SpotubeIcons.maximize),

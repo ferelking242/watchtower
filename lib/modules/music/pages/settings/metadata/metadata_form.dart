@@ -45,7 +45,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                       style: Theme.of(context).textTheme.headlineLarge!,
                     ),
                   ),
-                  const SliverGap(24),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
                   SliverList.separated(
                     itemCount: fields.length,
                     separatorBuilder: (context, index) => const SizedBox(height: 12, width: 12),
@@ -80,10 +80,17 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                             spacing: 4,
                             children: [
                               TextField(
-                                placeholder: field.placeholder == null
-                                    ? null
-                                    : Text(field.placeholder!),
-                                initialValue: formField.value,
+                                decoration: InputDecoration(
+                                  hintText: field.placeholder,
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                  suffixIcon: field.variant == FormFieldVariant.password
+                                      ? IconButton(
+                                          icon: const Icon(Icons.visibility),
+                                          onPressed: () {},
+                                        )
+                                      : null,
+                                ),
                                 onChanged: (value) {
                                   formField.didChange(value);
                                 },
@@ -93,11 +100,6 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                                     field.variant == FormFieldVariant.number
                                         ? TextInputType.number
                                         : TextInputType.text,
-                                features: [
-                                  if (field.variant ==
-                                      FormFieldVariant.password)
-                                    const InputFeature.passwordToggle(),
-                                ],
                               ),
                               if (formField.hasError)
                                 Text(
@@ -111,7 +113,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                       );
                     },
                   ),
-                  const SliverGap(24),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
                   SliverToBoxAdapter(
                     child: FilledButton(
                       onPressed: () {
@@ -131,7 +133,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                       child: Text(context.l10n.submit),
                     ),
                   ),
-                  const SliverGap(200)
+                  const SliverToBoxAdapter(child: SizedBox(height: 200))
                 ],
               ),
             ),

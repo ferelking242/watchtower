@@ -6,47 +6,40 @@ class TextFormBuilderField extends StatelessWidget {
   final String name;
   final FormFieldValidator<String>? validator;
   final Widget? label;
-
+  final Widget? placeholder;
   final TextEditingController? controller;
   final bool filled;
-  final Widget? placeholder;
-  // final AlignmentGeometry? placeholderAlignment;
-  // final AlignmentGeometry? leadingAlignment;
-  // final AlignmentGeometry? trailingAlignment;
-  final Border? border;
-  final List<InputFeature> features;
-  final EdgeInsetsGeometry? padding;
-  final ValueChanged<String>? onSubmitted;
-  final VoidCallback? onEditingComplete;
-  final FocusNode? focusNode;
-  final VoidCallback? onTap;
-  final bool enabled;
-  final bool readOnly;
   final bool obscureText;
   final String obscuringCharacter;
+  final bool enabled;
+  final bool readOnly;
+  final bool expands;
+  final bool autofocus;
   final String? initialValue;
   final int? maxLength;
   final MaxLengthEnforcement? maxLengthEnforcement;
   final int? maxLines;
   final int? minLines;
-  final BorderRadiusGeometry? borderRadius;
-  final TextAlign textAlign;
-  final bool expands;
-  final TextAlignVertical? textAlignVertical;
-  final UndoHistoryController? undoController;
+  final FocusNode? focusNode;
+  final VoidCallback? onTap;
+  final VoidCallback? onEditingComplete;
+  final ValueChanged<String>? onSubmitted;
   final ValueChanged<String>? onChanged;
   final Iterable<String>? autofillHints;
-  final void Function(PointerDownEvent event)? onTapOutside;
   final List<TextInputFormatter>? inputFormatters;
   final TextStyle? style;
-  // final EditableTextContextMenuBuilder? contextMenuBuilder;
-  // final bool useNativeContextMenu;
-  // final bool? isCollapsed;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
+  final TextAlign textAlign;
+  final TextAlignVertical? textAlignVertical;
+  final UndoHistoryController? undoController;
+  final void Function(PointerDownEvent)? onTapOutside;
   final Clip clipBehavior;
-  final bool autofocus;
   final WidgetStatesController? statesController;
+  final EdgeInsetsGeometry? padding;
+  final BorderRadiusGeometry? borderRadius;
+  final Widget? suffixIcon;
+  final Widget? prefixIcon;
 
   const TextFormBuilderField({
     super.key,
@@ -60,18 +53,11 @@ class TextFormBuilderField extends StatelessWidget {
     this.minLines,
     this.filled = false,
     this.placeholder,
-    this.border,
-    this.padding,
-    this.onSubmitted,
-    this.onEditingComplete,
-    this.focusNode,
-    this.onTap,
     this.enabled = true,
     this.readOnly = false,
     this.obscureText = false,
     this.obscuringCharacter = '•',
     this.initialValue,
-    this.borderRadius,
     this.keyboardType,
     this.textAlign = TextAlign.start,
     this.expands = false,
@@ -82,21 +68,23 @@ class TextFormBuilderField extends StatelessWidget {
     this.onTapOutside,
     this.inputFormatters,
     this.style,
-    // this.contextMenuBuilder = TextField.defaultContextMenuBuilder,
-    // this.useNativeContextMenu = false,
-    // this.isCollapsed,
     this.textInputAction,
     this.clipBehavior = Clip.hardEdge,
     this.autofocus = false,
-    // this.placeholderAlignment,
-    // this.leadingAlignment,
-    // this.trailingAlignment,
     this.statesController,
-    this.features = const [],
+    this.padding,
+    this.borderRadius,
+    this.focusNode,
+    this.onTap,
+    this.onEditingComplete,
+    this.onSubmitted,
+    this.suffixIcon,
+    this.prefixIcon,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return FormBuilderField<String>(
       name: name,
       validator: validator,
@@ -107,28 +95,26 @@ class TextFormBuilderField extends StatelessWidget {
       builder: (field) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
-        spacing: 5,
         children: [
-          if (label != null)
+          if (label != null) ...[
             DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
-                color: field.hasError
-                    ? Theme.of(context).colorScheme.destructive
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
+              style: theme.textTheme.bodyMedium!
+                  .copyWith(fontWeight: FontWeight.w600)
+                  .copyWith(
+                    color: field.hasError
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.onSurface,
+                  ),
               child: label!,
             ),
+            const SizedBox(height: 5),
+          ],
           TextField(
             controller: controller,
             maxLength: maxLength,
             maxLengthEnforcement: maxLengthEnforcement,
             maxLines: maxLines,
             minLines: minLines,
-            filled: filled,
-            placeholder: placeholder,
-            border: border,
-            features: features,
-            padding: padding,
             onSubmitted: (value) {
               field.validate();
               field.save();
@@ -144,8 +130,6 @@ class TextFormBuilderField extends StatelessWidget {
             readOnly: readOnly,
             obscureText: obscureText,
             obscuringCharacter: obscuringCharacter,
-            initialValue: field.value,
-            borderRadius: borderRadius,
             textAlign: textAlign,
             expands: expands,
             textAlignVertical: textAlignVertical,
@@ -157,25 +141,29 @@ class TextFormBuilderField extends StatelessWidget {
             onTapOutside: onTapOutside,
             inputFormatters: inputFormatters,
             style: style,
-            // contextMenuBuilder: contextMenuBuilder,
-            // useNativeContextMenu: useNativeContextMenu,
-            // isCollapsed: isCollapsed,
             keyboardType: keyboardType,
             textInputAction: textInputAction,
             clipBehavior: clipBehavior,
             autofocus: autofocus,
-            // placeholderAlignment: placeholderAlignment,
-            // leadingAlignment: leadingAlignment,
-            // trailingAlignment: trailingAlignment,
             statesController: statesController,
-          ),
-          if (field.hasError)
-            Text(
-              field.errorText ?? "",
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.destructive,
+            decoration: InputDecoration(
+              hintText:
+                  placeholder is Text ? (placeholder as Text).data : null,
+              hintStyle: placeholder is Text
+                  ? (placeholder as Text).style
+                  : null,
+              errorText: field.hasError ? field.errorText : null,
+              filled: filled,
+              prefixIcon: prefixIcon,
+              suffixIcon: suffixIcon,
+              contentPadding: padding,
+              border: OutlineInputBorder(
+                borderRadius: borderRadius != null
+                    ? (borderRadius as BorderRadius)
+                    : BorderRadius.circular(8),
               ),
             ),
+          ),
         ],
       ),
     );

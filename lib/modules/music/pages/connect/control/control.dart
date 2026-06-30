@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'dart:convert';
 
@@ -19,7 +20,6 @@ import 'package:watchtower/modules/music/extensions/duration.dart';
 import 'package:watchtower/modules/music/provider/connect/clients.dart';
 import 'package:watchtower/modules/music/provider/connect/connect.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
-import 'package:flutter/material.dart' show Material, MaterialType;
 
 class RemotePlayerQueue extends ConsumerWidget {
   const RemotePlayerQueue({super.key});
@@ -55,7 +55,8 @@ class ConnectControlPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final ThemeData(, :colorScheme) = Theme.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     final resolvedService =
         ref.watch(connectClientsProvider).asData?.value.resolvedService;
@@ -95,11 +96,10 @@ class ConnectControlPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-      appBar: AppBar(
-            title: Text(resolvedService?.name ?? ""),
-          )
-        ,
-        child: LayoutBuilder(builder: (context, constrains) {
+        appBar: AppBar(
+          title: Text(resolvedService?.name ?? ""),
+        ),
+        body: LayoutBuilder(builder: (context, constrains) {
           return Row(
             children: [
               Expanded(
@@ -112,8 +112,8 @@ class ConnectControlPage extends HookConsumerWidget {
                           horizontal: 20,
                           vertical: 10,
                         ).copyWith(top: 0),
-                        constraints:
-                            const BoxConstraints(maxHeight: 350, maxWidth: 350),
+                        constraints: const BoxConstraints(
+                            maxHeight: 350, maxWidth: 350),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: UniversalImage(
@@ -127,35 +127,40 @@ class ConnectControlPage extends HookConsumerWidget {
                       ),
                     ),
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 20),
                       sliver: SliverMainAxisGroup(
                         slivers: [
                           SliverToBoxAdapter(
                             child: AnchorButton(
                               playlist.activeTrack?.name ?? "",
-                              style: typography.h4,
+                              style: theme.textTheme.headlineSmall,
                               onTap: () {
                                 if (playlist.activeTrack == null) return;
                                 context.navigateTo(
-                                  TrackRoute(trackId: playlist.activeTrack!.id),
+                                  TrackRoute(
+                                      trackId: playlist.activeTrack!.id),
                                 );
                               },
                             ),
                           ),
                           SliverToBoxAdapter(
                             child: ArtistLink(
-                              artists: playlist.activeTrack?.artists ?? [],
-                              textStyle: typography.normal,
+                              artists:
+                                  playlist.activeTrack?.artists ?? [],
+                              textStyle: theme.textTheme.bodyMedium,
                               mainAxisAlignment: WrapAlignment.start,
-                              onOverflowArtistClick: () => context.navigateTo(
-                                TrackRoute(trackId: playlist.activeTrack!.id),
+                              onOverflowArtistClick: () =>
+                                  context.navigateTo(
+                                TrackRoute(
+                                    trackId: playlist.activeTrack!.id),
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SliverGap(30),
+                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
                     SliverToBoxAdapter(
                       child: Consumer(
                         builder: (context, ref, _) {
@@ -163,22 +168,23 @@ class ConnectControlPage extends HookConsumerWidget {
                           final duration = ref.watch(durationProvider);
 
                           final progress = duration.inSeconds == 0
-                              ? 0
-                              : position.inSeconds / duration.inSeconds;
+                              ? 0.0
+                              : position.inSeconds /
+                                  duration.inSeconds.toDouble();
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12),
                             child: Column(
                               children: [
                                 Slider(
-                                  value:
-                                      SliderValue.single(progress.toDouble()),
+                                  value: progress.clamp(0.0, 1.0),
                                   onChanged: (value) {
                                     connectNotifier.seek(
                                       Duration(
-                                        seconds:
-                                            (value.value * duration.inSeconds)
-                                                .toInt(),
+                                        seconds: (value *
+                                                duration.inSeconds)
+                                            .toInt(),
                                       ),
                                     );
                                   },
@@ -187,8 +193,10 @@ class ConnectControlPage extends HookConsumerWidget {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(position.toHumanReadableString()),
-                                    Text(duration.toHumanReadableString()),
+                                    Text(
+                                        position.toHumanReadableString()),
+                                    Text(
+                                        duration.toHumanReadableString()),
                                   ],
                                 ),
                               ],
@@ -200,37 +208,46 @@ class ConnectControlPage extends HookConsumerWidget {
                     SliverToBoxAdapter(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        spacing: 20,
                         children: [
                           IconButton(
-                            icon: const Icon(SpotubeIcons.shuffle)
-                                ? ButtonStyle()
-                                : ButtonStyle(),
+                            icon: Icon(
+                              SpotubeIcons.shuffle,
+                              color: shuffled
+                                  ? colorScheme.primary
+                                  : null,
+                            ),
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : () {
-                                    connectNotifier.setShuffle(!shuffled);
+                                    connectNotifier
+                                        .setShuffle(!shuffled);
                                   },
                           ),
+                          const SizedBox(width: 12),
                           IconButton(
                             icon: const Icon(SpotubeIcons.skipBack),
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : connectNotifier.previous,
                           ),
-                          IconButton.primary(
-                            shape: ButtonShape.circle,
-                            icon: playlist.activeTrack == null
+                          const SizedBox(width: 12),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              shape: const CircleBorder(),
+                              padding: const EdgeInsets.all(16),
+                            ),
+                            child: playlist.activeTrack == null
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
-                                        onSurface: false),
+                                        color: Colors.white),
                                   )
                                 : Icon(
                                     playing
                                         ? SpotubeIcons.pause
                                         : SpotubeIcons.play,
+                                    color: Colors.white,
                                   ),
                             onPressed: playlist.activeTrack == null
                                 ? null
@@ -242,26 +259,28 @@ class ConnectControlPage extends HookConsumerWidget {
                                     }
                                   },
                           ),
+                          const SizedBox(width: 12),
                           IconButton(
                             icon: const Icon(SpotubeIcons.skipForward),
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : connectNotifier.next,
                           ),
+                          const SizedBox(width: 12),
                           IconButton(
                             icon: Icon(
                               loopMode == PlaylistMode.single
                                   ? SpotubeIcons.repeatOne
                                   : SpotubeIcons.repeat,
-                            )
-                                    loopMode == PlaylistMode.loop
-                                ? ButtonStyle()
-                                : ButtonStyle(),
+                              color: loopMode == PlaylistMode.loop
+                                  ? colorScheme.primary
+                                  : null,
+                            ),
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : () async {
                                     connectNotifier.setLoopMode(
-                                      switch (loopMode as PlaylistMode) {
+                                      switch (loopMode) {
                                         PlaylistMode.loop =>
                                           PlaylistMode.single,
                                         PlaylistMode.single =>
@@ -269,44 +288,37 @@ class ConnectControlPage extends HookConsumerWidget {
                                         PlaylistMode.none =>
                                           PlaylistMode.loop,
                                       },
-                                      );
-                                    },
-                            ),
+                                    );
+                                  },
+                          ),
                         ],
                       ),
                     ),
-                    const SliverGap(30),
+                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
                     if (constrains.mdAndDown)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         sliver: SliverToBoxAdapter(
-                          child: OutlinedButton(
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.queue),
-                            child: Text(context.l10n.queue),
+                          child: OutlinedButton.icon(
+                            icon: const Icon(SpotubeIcons.queue),
+                            label: Text(context.l10n.queue),
                             onPressed: () {
                               final capturedTheme = Theme.of(context);
-                              openDrawer(
+                              showModalBottomSheet(
                                 context: context,
-                                barrierDismissible: true,
-                                draggable: true,
-                                barrierColor: Colors.black.withAlpha(100),
-                                borderRadius: BorderRadius.circular(10),
-                                transformBackdrop: false).surfaceBlur
-                                expands: true,
+                                isScrollControlled: true,
+                                showDragHandle: true,
                                 builder: (context) {
                                   return Theme(
                                     data: capturedTheme,
-                                    child: Material(
-                                      type: MaterialType.transparency,
-                                      child: ConstrainedBox(
-                                        constraints: BoxConstraints(
-                                          maxHeight:
-                                              MediaQuery.sizeOf(context)
-                                                      .height *
-                                                  0.8,
-                                        ),
-                                        child: const RemotePlayerQueue(),
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight:
+                                            MediaQuery.sizeOf(context)
+                                                    .height *
+                                                0.8,
                                       ),
+                                      child: const RemotePlayerQueue(),
                                     ),
                                   );
                                 },
@@ -315,7 +327,7 @@ class ConnectControlPage extends HookConsumerWidget {
                           ),
                         ),
                       ),
-                    const SliverGap(30),
+                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
                     SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       sliver: SliverToBoxAdapter(
@@ -325,14 +337,15 @@ class ConnectControlPage extends HookConsumerWidget {
                             fullWidth: true,
                             value: volume,
                             onChanged: (value) {
-                              ref.read(volumeProvider.notifier).state = value;
+                              ref.read(volumeProvider.notifier).state =
+                                  value;
                               connectNotifier.setVolume(value);
                             },
                           );
                         }),
                       ),
                     ),
-                    const SliverSafeArea(sliver: SliverGap(10)),
+                    const SliverSafeArea(sliver: SliverToBoxAdapter(child: SizedBox(height: 10))),
                   ],
                 ),
               ),

@@ -33,38 +33,36 @@ class GettingStartedPage extends HookConsumerWidget {
     }, [pageController]);
 
     return Scaffold(
-      appBar: SafeArea(
-          child: AppBar(
-            backgroundColor: Colors.transparent
-            actions: [
-              ListenableBuilder(
-                listenable: pageController,
-                builder: (context, _) {
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: pageController.hasClients &&
-                            (pageController.page == 0 ||
-                                pageController.page == 3)
-                        ? const SizedBox()
-                        : TextButton(
-                            onPressed: () {
-                              pageController.animateToPage(
-                                3,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            child: Text(context.l10n.skip_this_nonsense),
-                          ),
-                  );
-                },
-              ),
-            ,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          ListenableBuilder(
+            listenable: pageController,
+            builder: (context, _) {
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: pageController.hasClients &&
+                        (pageController.page == 0 ||
+                            pageController.page == 3)
+                    ? const SizedBox()
+                    : TextButton(
+                        onPressed: () {
+                          pageController.animateToPage(
+                            3,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        child: Text(context.l10n.skip_this_nonsense),
+                      ),
+              );
+            },
           ),
-        ),
-      ],
-      floatingHeader: true,
-      child: DecoratedBox(
+        ],
+      ),
+      body: DecoratedBox(
         decoration: BoxDecoration(
           image: DecorationImage(
             image: Assets.images.bengaliPatternsBg.provider(),

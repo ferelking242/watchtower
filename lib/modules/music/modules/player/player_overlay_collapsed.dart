@@ -39,8 +39,10 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
       child: canShow && shouldShow.value
           ? Padding(
               padding: const EdgeInsets.all(5),
-              child: Card(,
-                borderRadius: theme.borderRadiusLg,
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

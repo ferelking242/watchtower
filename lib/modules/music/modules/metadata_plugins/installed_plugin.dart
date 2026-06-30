@@ -93,7 +93,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
               final isOfficial =
                   repoUrl?.host == "github.com" && repoOwner == "KRTirtho";
 
-              return Basic(
+              return ListTile(
                 leading: snapshot.hasData
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
@@ -219,7 +219,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                   if (hasUpdate)
                     SizedBox(
                       width: double.infinity,
-                      child: Basic(
+                      child: ListTile(
                         leading: const Icon(SpotubeIcons.update),
                         title: Text(context.l10n.update_available),
                         subtitle: Text(
@@ -248,7 +248,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                   if (supportsScrobbling)
                     SizedBox(
                       width: double.infinity,
-                      child: Basic(
+                      child: ListTile(
                         leading: const Icon(SpotubeIcons.info),
                         title: Text(context.l10n.supports_scrobbling),
                         subtitle: Text(context.l10n.plugin_scrobbling_info),

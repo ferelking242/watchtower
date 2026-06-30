@@ -84,56 +84,11 @@ void useGlobalSubscriptions(WidgetRef ref) {
         // Show notification for connection related issues
         if (!context.mounted) return;
 
-        showToast(
-          context: context,
-          location: ToastLocation.bottomCenter,
-          builder: (context, overlay) {
-            if (connected) {
-              return Card(
-                child: Basic(
-                  leading: const Icon(SpotubeIcons.wifi),
-                  title: Text(context.l10n.connection_restored),
-                ),
-              );
-            }
-
-            return Card(
-              child: Basic(
-                leading: Icon(
-                  SpotubeIcons.noWifi,
-                  color: theme.colorScheme.destructiveForeground,
-                ),
-                trailing: Text(
-                  context.l10n.you_are_offline,
-                  style: TextStyle(
-                    color: theme.colorScheme.destructiveForeground,
-                  ),
-                ),
-              ),
-            );
-          },
-        );
+        // showToast removed
       }),
       connectRoutes.connectClientStream.listen((clientOrigin) {
         if (!context.mounted) return;
-        showToast(
-          context: context,
-          location: ToastLocation.topRight,
-          builder: (context, overlay) {
-            return Card(
-              child: Basic(
-                leading: const Icon(
-                  SpotubeIcons.error,
-                  color: Colors.black,
-                ),
-                title: Text(
-                  context.l10n.connect_client_alert(clientOrigin),
-                  style: const TextStyle(color: Colors.black),
-                ),
-              ),
-            );
-          },
-        );
+        // toast removed - use SnackBar instead
       })
     ];
 

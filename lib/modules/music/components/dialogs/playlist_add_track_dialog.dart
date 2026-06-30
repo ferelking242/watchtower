@@ -10,7 +10,6 @@ import 'package:watchtower/modules/music/provider/metadata_plugin/library/playli
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/user.dart';
 
 class PlaylistAddTrackDialog extends HookConsumerWidget {
-  /// The id of the playlist this dialog was opened from
   final String? openFromPlaylist;
   final List<SpotubeTrackObject> tracks;
   const PlaylistAddTrackDialog({
@@ -21,7 +20,6 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final typography = Theme.of(context).typography;
     final userPlaylists = ref.watch(metadataPluginSavedPlaylistsProvider);
     final favoritePlaylistsNotifier =
         ref.watch(metadataPluginSavedPlaylistsProvider.notifier);
@@ -87,7 +85,7 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
               Navigator.pop(context, false);
             },
           ),
-          PrimaryButton(
+          FilledButton(
             onPressed: onAdd,
             child: Text(context.l10n.add),
           ),
@@ -101,15 +99,18 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
                   itemCount: filteredPlaylists.length,
                   itemBuilder: (context, index) {
                     final playlist = filteredPlaylists.elementAt(index);
-                    return TextButton(
-                      leading: Avatar(
-                        initials: Avatar.getInitials(playlist.name),
-                        provider: UniversalImage.imageProvider(
+                    return ListTile(
+                      leading: CircleAvatar(
+                        foregroundImage: UniversalImage.imageProvider(
                           playlist.images.asUrlString(
                             placeholder: ImagePlaceholder.collection,
                           ),
                         ),
+                        child: Text(
+                          playlist.name.isNotEmpty ? playlist.name[0] : '?',
+                        ),
                       ),
+                      title: Text(playlist.name),
                       trailing: Checkbox(
                         value: (playlistsCheck.value[playlist.id] ?? false)
                             ? true
@@ -121,17 +122,13 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
                           };
                         },
                       ),
-                      onPressed: () {
+                      onTap: () {
                         playlistsCheck.value = {
                           ...playlistsCheck.value,
                           playlist.id:
                               !(playlistsCheck.value[playlist.id] ?? false),
                         };
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Text(playlist.name),
-                      ),
                     );
                   },
                 ),

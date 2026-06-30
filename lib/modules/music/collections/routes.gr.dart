@@ -432,7 +432,7 @@ class LogsRoute extends _i41.PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [_i15.LyricsPage]
+/// [_i15.PlayerLyricsPage]
 class LyricsRoute extends _i41.PageRouteInfo<void> {
   const LyricsRoute({List<_i41.PageRouteInfo>? children})
     : super(LyricsRoute.name, initialChildren: children);
@@ -442,7 +442,7 @@ class LyricsRoute extends _i41.PageRouteInfo<void> {
   static _i41.PageInfo page = _i41.PageInfo(
     name,
     builder: (data) {
-      return const _i15.LyricsPage();
+      return const _i15.PlayerLyricsPage();
     },
   );
 }

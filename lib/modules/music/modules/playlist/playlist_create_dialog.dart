@@ -70,22 +70,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
     }, [playlist]);
 
     final onError = useCallback((error) {
-      showToast(
-        context: context,
-        location: ToastLocation.topRight,
-        builder: (context, overlay) {
-          return Card(
-            child: Basic(
-              title: Text(
-                l10n.error(l10n.epic_failure),
-                style: theme.textTheme.bodyMedium!.copyWith(
-                  color: theme.colorScheme.destructive,
-                ),
-              ),
-            ),
-          );
-        },
-      );
+      // toast removed - use SnackBar instead
     }, [l10n, theme]);
 
     Future<void> onCreate() async {
@@ -253,7 +238,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
               TextFormBuilderField(
                 name: 'playlistName',
                 label: Text(context.l10n.playlist_name),
-                placeholder: Text(context.l10n.name_of_playlist),
+                decoration: InputDecoration(hintText: context.l10n.name_of_playlist),
                 validator: FormBuilderValidators.required(),
               ),
               const SizedBox(height: 20, width: 20),
@@ -261,7 +246,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
                 name: 'description',
                 label: Text(context.l10n.description),
                 validator: FormBuilderValidators.required(),
-                placeholder: Text(context.l10n.description),
+                decoration: InputDecoration(hintText: context.l10n.description),
                 keyboardType: TextInputType.multiline,
                 maxLines: 5,
               ),

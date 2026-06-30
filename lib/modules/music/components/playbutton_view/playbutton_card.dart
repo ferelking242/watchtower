@@ -37,7 +37,7 @@ class PlaybuttonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unescapeHtml = description?.unescapeHtml().cleanHtml() ?? "";
-    final scale = Theme.of(context).scaling;
+    final scale = 1.0;
 
     return SizedBox(
       width: 150 * scale,
@@ -139,7 +139,7 @@ class PlaybuttonCard extends StatelessWidget {
                 top: 5,
                 child: SecondaryBadge(
                   style: ButtonStyle.secondaryIcon(
-                    shape: ButtonShape.circle,
+                    style: FilledButton.styleFrom(shape: const CircleBorder(), padding: const EdgeInsets.all(12)),
                     size: 20.0,
                   ),
                   child: Icon(SpotubeIcons.user),

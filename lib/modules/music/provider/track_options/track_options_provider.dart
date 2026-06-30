@@ -53,20 +53,22 @@ class TrackOptionsActions {
       ref.read(downloadManagerProvider.notifier);
   BlackListNotifier get blacklist => ref.read(blacklistProvider.notifier);
 
+  void _showToast(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, textAlign: TextAlign.center),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   void actionShare(BuildContext context) {
     Clipboard.setData(ClipboardData(text: track.externalUri)).then((_) {
       if (context.mounted) {
-        showToast(
-          context: rootNavigatorKey.currentContext!,
-          location: ToastLocation.topRight,
-          builder: (context, overlay) {
-            return Card(
-              child: Text(
-                context.l10n.copied_to_clipboard(track.externalUri),
-                textAlign: TextAlign.center,
-              ),
-            );
-          },
+        _showToast(
+          context,
+          context.l10n.copied_to_clipboard(track.externalUri),
         );
       }
     });
@@ -76,8 +78,6 @@ class TrackOptionsActions {
     BuildContext context,
     String? playlistId,
   ) async {
-    /// showDialog doesn't work for some reason. So we have to
-    /// manually push a Dialog Route in the Navigator to get it working
     await showDialog(
       context: context,
       builder: (context) {
@@ -115,8 +115,6 @@ class TrackOptionsActions {
     if (replaceQueue || playlist.tracks.isEmpty) {
       await playback.stop();
       await playback.load([track], autoPlay: true);
-
-      // we don't have to add those tracks as useEndlessPlayback will do it for us
       return;
     } else {
       await playback.addTrack(track);
@@ -149,63 +147,26 @@ class TrackOptionsActions {
       case TrackOptionValue.addToQueue:
         await playback.addTrack(track);
         if (context.mounted) {
-          showToast(
-            context: context,
-            location: ToastLocation.topRight,
-            builder: (context, overlay) {
-              return Card(
-                child: Text(
-                  context.l10n.added_track_to_queue(track.name),
-                  textAlign: TextAlign.center,
-                ),
-              );
-            },
-          );
+          _showToast(context, context.l10n.added_track_to_queue(track.name));
         }
         break;
       case TrackOptionValue.playNext:
         await playback.addTracksAtFirst([track]);
-
         if (context.mounted) {
-          showToast(
-            context: context,
-            location: ToastLocation.topRight,
-            builder: (context, overlay) {
-              return Card(
-                child: Text(
-                  context.l10n.track_will_play_next(track.name),
-                  textAlign: TextAlign.center,
-                ),
-              );
-            },
-          );
+          _showToast(context, context.l10n.track_will_play_next(track.name));
         }
         break;
       case TrackOptionValue.removeFromQueue:
         playback.removeTrack(track.id);
-
         if (context.mounted) {
-          showToast(
-            context: context,
-            location: ToastLocation.topRight,
-            builder: (context, overlay) {
-              return Card(
-                child: Text(
-                  context.l10n.removed_track_from_queue(
-                    track.name,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              );
-            },
-          );
+          _showToast(
+              context, context.l10n.removed_track_from_queue(track.name));
         }
         break;
       case TrackOptionValue.favorite:
         final isLikedTrack = await ref.read(
           metadataPluginIsSavedTrackProvider(track.id).future,
         );
-
         if (isLikedTrack) {
           await favoriteTracks.removeFavorite([track]);
         } else {
@@ -219,11 +180,11 @@ class TrackOptionsActions {
         favoritePlaylistsNotifier.removeTracks(playlistId ?? "", [track.id]);
         break;
       case TrackOptionValue.blacklist:
-        final isBlacklisted = blacklist.contains(track);
-        if (isBlacklisted == true) {
-          await ref.read(blacklistProvider.notifier).remove(track.id);
+        if (blacklist.contains(track)) {
+          blacklist.remove(track);
         } else {
-          await ref.read(blacklistProvider.notifier).add(
+          final database = ref.read(databaseProvider);
+          await database.into(database.blacklistTable).insert(
                 BlacklistTableCompanion.insert(
                   name: track.name,
                   elementId: track.id,

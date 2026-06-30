@@ -12,45 +12,39 @@ import 'package:watchtower/modules/music/provider/download_manager_provider.dart
 import 'package:watchtower/modules/music/provider/history/history.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
-ToastOverlay showToastForAction(
+void showToastForAction(
   BuildContext context,
   String action,
   int count,
 ) {
   final message = switch (action) {
-    "download" => (context.l10n.download_count(count), SpotubeIcons.download),
-    "add-to-playlist" => (
-        context.l10n.add_count_to_playlist(count),
-        SpotubeIcons.playlistAdd
-      ),
-    "add-to-queue" => (
-        context.l10n.add_count_to_queue(count),
-        SpotubeIcons.queueAdd
-      ),
-    "play-next" => (
-        context.l10n.play_count_next(count),
-        SpotubeIcons.lightning
-      ),
-    _ => ("", SpotubeIcons.error),
+    "download" => context.l10n.download_count(count),
+    "add-to-playlist" => context.l10n.add_count_to_playlist(count),
+    "add-to-queue" => context.l10n.add_count_to_queue(count),
+    "play-next" => context.l10n.play_count_next(count),
+    _ => "",
   };
 
-  return showToast(
-    context: context,
-    location: ToastLocation.topRight,
-    builder: (context, overlay) {
-      return Card(
-        child: ListTile(
-          title: Text(message.$1),
-          trailing: IconButton(
-          iconSize: 20.0,
+  if (message.isEmpty || !context.mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: Text(message)),
+          IconButton(
+            iconSize: 20.0,
             icon: const Icon(SpotubeIcons.close),
             onPressed: () {
-              overlay.close();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
             },
           ),
-        ),
-      );
-    },
+        ],
+      ),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 3),
+    ),
   );
 }
 
@@ -105,7 +99,6 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
 
         if (selectedTracks.isEmpty) {
           tracks = await options.pagination.onFetchAll();
-
           notifier.selectAllTracks();
         }
 
@@ -131,7 +124,6 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
                     );
                   },
                 );
-
                 if (!context.mounted || worked != true) return;
                 showToastForAction(context, action, tracks.length);
               }
@@ -171,54 +163,38 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
             }
           default:
         }
-
-        if (!context.mounted) return;
       },
-      icon: const Icon(SpotubeIcons.moreVertical)
+      icon: const Icon(SpotubeIcons.moreVertical),
       items: (context) => [
         AdaptiveMenuButton(
           value: "download",
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
-              ? Text(
-                  context.l10n.download_all,
-                )
-              : Text(
-                  context.l10n.download_count(selectedTracks.length),
-                ),
+              ? Text(context.l10n.download_all)
+              : Text(context.l10n.download_count(selectedTracks.length)),
         ),
         AdaptiveMenuButton(
           value: "add-to-playlist",
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
-              ? Text(
-                  context.l10n.add_all_to_playlist,
-                )
+              ? Text(context.l10n.add_all_to_playlist)
               : Text(
-                  context.l10n.add_count_to_playlist(selectedTracks.length),
-                ),
+                  context.l10n.add_count_to_playlist(selectedTracks.length)),
         ),
         AdaptiveMenuButton(
           value: "add-to-queue",
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
-              ? Text(
-                  context.l10n.add_all_to_queue,
-                )
+              ? Text(context.l10n.add_all_to_queue)
               : Text(
-                  context.l10n.add_count_to_queue(selectedTracks.length),
-                ),
+                  context.l10n.add_count_to_queue(selectedTracks.length)),
         ),
         AdaptiveMenuButton(
           value: "play-next",
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
-              ? Text(
-                  context.l10n.play_all_next,
-                )
-              : Text(
-                  context.l10n.play_count_next(selectedTracks.length),
-                ),
+              ? Text(context.l10n.play_all_next)
+              : Text(context.l10n.play_count_next(selectedTracks.length)),
         ),
       ],
     );

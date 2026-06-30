@@ -92,7 +92,7 @@ class UserArtistsPage extends HookConsumerWidget {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(28),
                           borderSide: BorderSide.none,
-                        )
+                        ),
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 20),
                         isDense: true,

@@ -19,7 +19,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final mediaQuery = MediaQuery.sizeOf(context);
     final options = TrackPresentationOptions.of(context);
-    final scale = Theme.of(context).scaling;
+    final theme = Theme.of(context);
     final isUserPlaylist = useIsUserPlaylist(ref, options.collectionId);
 
     final decorationImage = DecorationImage(
@@ -27,58 +27,60 @@ class TrackPresentationTopSection extends HookConsumerWidget {
       fit: BoxFit.cover,
     );
 
-    final imageDimension = mediaQuery.mdAndUp ? 200 : 120;
+    final double imageDimension = mediaQuery.mdAndUp ? 200 : 120;
 
     final (:isLoading, :isActive, :onPlay, :onShuffle, :onAddToQueue) =
         useActionCallbacks(ref);
 
     final playbackActions = Row(
-      spacing: 8 * scale,
       children: [
-        IconButton.secondary(
+        IconButton(
           icon: isLoading
-              ? const Center(
-                  child:
-                      CircularProgressIndicator(onSurface: false, iconSize: 20),
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(),
                 )
               : const Icon(SpotubeIcons.shuffle),
-          enabled: !isLoading && !isActive,
-          onPressed: onShuffle,
+          onPressed: (!isLoading && !isActive) ? onShuffle : null,
         ),
+        const SizedBox(width: 8),
         if (mediaQuery.width <= 320)
-          IconButton.secondary(
+          IconButton(
             icon: const Icon(SpotubeIcons.queueAdd),
-            enabled: !isLoading && !isActive,
-            onPressed: onAddToQueue,
+            onPressed: (!isLoading && !isActive) ? onAddToQueue : null,
           )
         else
-          TextButton(
-            child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.add),
-            enabled: !isLoading && !isActive,
-            onPressed: onAddToQueue,
-            child: Text(context.l10n.queue),
+          OutlinedButton.icon(
+            icon: const Icon(SpotubeIcons.add),
+            label: Text(context.l10n.queue),
+            onPressed: (!isLoading && !isActive) ? onAddToQueue : null,
           ),
-        FilledButton(
-          alignment: Alignment.center,
-          leading: switch ((isActive, isLoading)) {
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          icon: switch ((isActive, isLoading)) {
             (true, false) => const Icon(SpotubeIcons.pause),
-            (false, true) => const Center(
-                child: CircularProgressIndicator(onSurface: true, size: 18),
+            (false, true) => const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
               ),
             _ => const Icon(SpotubeIcons.play),
           },
-          onPressed: onPlay,
-          enabled: !isLoading && !isActive,
-          child: isActive ? Text(context.l10n.pause) : Text(context.l10n.play),
+          label:
+              isActive ? Text(context.l10n.pause) : Text(context.l10n.play),
+          onPressed: (!isLoading && !isActive) ? onPlay : null,
         ),
       ],
     );
 
     final additionalActions = Row(
-      spacing: 8 * scale,
       children: [
         if (isUserPlaylist)
-          IconButton.outlined(
+          IconButton(
             iconSize: 20.0,
             icon: const Icon(SpotubeIcons.edit),
             onPressed: () {
@@ -94,9 +96,9 @@ class TrackPresentationTopSection extends HookConsumerWidget {
             },
           ),
         if (options.shareUrl != null)
-          IconButton.outlined(
+          IconButton(
             icon: const Icon(SpotubeIcons.share),
-            size: 20.0,
+            iconSize: 20.0,
             onPressed: () async {
               await Clipboard.setData(
                 ClipboardData(text: options.shareUrl!),
@@ -104,17 +106,14 @@ class TrackPresentationTopSection extends HookConsumerWidget {
 
               if (!context.mounted) return;
 
-              showToast(
-                context: context,
-                location: ToastLocation.topRight,
-                builder: (context, overlay) {
-                  return Card(
-                    child: Text(
-                      context.l10n
-                          .copied_shareurl_to_clipboard(options.shareUrl!),
-                    ),
-                  );
-                },
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    context.l10n
+                        .copied_shareurl_to_clipboard(options.shareUrl!),
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                ),
               );
             },
           ),
@@ -123,7 +122,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
             isLiked: options.isLiked,
             tooltip: options.isLiked
                 ? context.l10n.remove_from_favorites
-                : context.l10n.save_as_favorite),
+                : context.l10n.save_as_favorite,
             size: 20.0,
             onPressed: options.onHeart,
           ),
@@ -132,109 +131,120 @@ class TrackPresentationTopSection extends HookConsumerWidget {
 
     return SliverMainAxisGroup(
       slivers: [
-        if (mediaQuery.mdAndUp) SliverGap(16 * scale),
+        if (mediaQuery.mdAndUp) const SliverToBoxAdapter(child: SizedBox(height: 16)),
         SliverPadding(
           padding: EdgeInsets.symmetric(
-            horizontal: (mediaQuery.mdAndUp ? 16 : 8.0) * scale,
+            horizontal: mediaQuery.mdAndUp ? 16.0 : 8.0,
           ),
           sliver: SliverList.list(
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  image: decorationImage,
-                  borderRadius: BorderRadius.circular(45),
-                ),
-                child: OutlinedContainer().surfaceOpacity).surfaceBlur,
-                  padding: EdgeInsets.all(24 * scale),
-                  borderRadius: BorderRadius.circular(22 * scale)
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 16 * scale,
-                    children: [
-                      Row(
-                        spacing: 16 * scale,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            height: imageDimension * scale,
-                            width: imageDimension * scale,
-                            decoration: BoxDecoration(
-                              borderRadius: Theme.of(context).borderRadiusXl,
-                              image: decorationImage,
-                            ),
-                          ),
-                          Flexible(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                AutoSizeText(
-                                  options.title,
-                                  maxLines: 2,
-                                  minFontSize: 16,
-                                  style: Theme.of(context).textTheme.headlineMedium!,
-                                ),
-                                if (options.description != null)
-                                  AutoSizeText(
-                                    options.description!,
-                                    maxLines: 2,
-                                    minFontSize: 14,
-                                    maxFontSize: 18,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: context
-                                          .theme.colorScheme.mutedForeground,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                const SizedBox(height: 16, width: 16),
-                                Flex(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  direction: mediaQuery.smAndUp
-                                      ? Axis.horizontal
-                                      : Axis.vertical,
-                                  spacing: 8 * scale,
-                                  children: [
-                                    if (options.owner != null)
-                                      OutlineBadge(
-                                        leading: options.ownerImage != null
-                                            ? Avatar(
-                                                initials:
-                                                    options.owner?[0] ?? "U",
-                                                provider: UniversalImage
-                                                    .imageProvider(
-                                                  options.ownerImage!,
-                                                ),
-                                                size: 20 * scale,
-                                              )
-                                            : null,
-                                        child: Text(
-                                          options.owner!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    additionalActions,
-                                  ],
-                                ),
-                                if (mediaQuery.mdAndUp) ...[
-                                  const SizedBox(height: 16, width: 16),
-                                  playbackActions
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
+              Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          image: decorationImage,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Container(
+                          color: Colors.black.withValues(alpha: 0.5),
+                        ),
                       ),
-                      if (mediaQuery.smAndDown) playbackActions,
-                    ],
+                    ),
                   ),
-                ),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              height: imageDimension,
+                              width: imageDimension,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                image: decorationImage,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Flexible(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  AutoSizeText(
+                                    options.title,
+                                    maxLines: 2,
+                                    minFontSize: 16,
+                                    style: theme.textTheme.headlineMedium!
+                                        .copyWith(color: Colors.white),
+                                  ),
+                                  if (options.description != null)
+                                    AutoSizeText(
+                                      options.description!,
+                                      maxLines: 2,
+                                      minFontSize: 14,
+                                      maxFontSize: 18,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.7),
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    children: [
+                                      if (options.owner != null)
+                                        Chip(
+                                          avatar: options.ownerImage != null
+                                              ? CircleAvatar(
+                                                  foregroundImage:
+                                                      UniversalImage.imageProvider(
+                                                    options.ownerImage!,
+                                                  ),
+                                                  radius: 10,
+                                                )
+                                              : null,
+                                          label: Text(
+                                            options.owner!,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      additionalActions,
+                                    ],
+                                  ),
+                                  if (mediaQuery.mdAndUp) ...[
+                                    const SizedBox(height: 16),
+                                    playbackActions,
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (mediaQuery.smAndDown) ...[
+                          const SizedBox(height: 16),
+                          playbackActions,
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        )
+        ),
       ],
     );
   }

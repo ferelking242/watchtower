@@ -21,7 +21,7 @@ class TrackPresentation extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final scrollController = useScrollController();
     final focusNode = useFocusNode();
-    final scale = Theme.of(context).scaling;
+    final scale = 1.0;
 
     useEffect(() {
       if (!kIsMobile) return null;
@@ -53,14 +53,14 @@ class TrackPresentation extends HookConsumerWidget {
             controller: scrollController,
             slivers: [
               const TrackPresentationTopSection(),
-              const SliverGap(16),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
               SliverList.list(
                 children: [
                   TrackPresentationModifiersSection(
                     focusNode: focusNode,
                   ),
                   LayoutBuilder(builder: (context, constrains) {
-                    return Basic(
+                    return ListTile(
                       padding: const EdgeInsets.symmetric(
                         vertical: 8,
                         horizontal: 16,
@@ -85,7 +85,7 @@ class TrackPresentation extends HookConsumerWidget {
                 ],
               ),
               const PresentationListSection(),
-              const SliverSafeArea(sliver: SliverGap(10)),
+              const SliverSafeArea(sliver: SliverToBoxAdapter(child: SizedBox(height: 10))),
             ],
           ),
         ),

@@ -29,8 +29,8 @@ class PlainLyrics extends HookConsumerWidget {
     final playlist = ref.watch(audioPlayerProvider);
     final lyricsQuery = ref.watch(syncedLyricsProvider(playlist.activeTrack));
     final mediaQuery = MediaQuery.of(context);
-    final typography = Theme.of(context).typography;
-
+    
+    final theme = Theme.of(context);
     final textZoomLevel = useState<int>(defaultTextZoom);
 
     return Stack(
@@ -43,8 +43,8 @@ class PlainLyrics extends HookConsumerWidget {
                 child: Text(
                   playlist.activeTrack?.name ?? "",
                   style: mediaQuery.mdAndUp
-                      ? typography.h3
-                      : typography.h4.copyWith(
+                      ? theme.textTheme.headlineMedium!
+                      : theme.textTheme.headlineSmall!.copyWith(
                           color: palette.titleTextColor,
                         ),
                 ),
@@ -52,7 +52,7 @@ class PlainLyrics extends HookConsumerWidget {
               Center(
                 child: Text(
                   playlist.activeTrack?.artists.asString() ?? "",
-                  style: (mediaQuery.mdAndUp ? typography.h4 : Theme.of(context).textTheme.bodyLarge!)
+                  style: (mediaQuery.mdAndUp ? theme.textTheme.headlineSmall! : Theme.of(context).textTheme.bodyLarge!)
                       .copyWith(
                     color: palette.bodyTextColor,
                   ),

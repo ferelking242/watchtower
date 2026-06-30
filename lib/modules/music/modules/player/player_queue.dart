@@ -103,7 +103,7 @@ class PlayerQueue extends HookConsumerWidget {
                 onChanged: (value) {
                   searchText.value = value;
                 },
-                placeholder: Text(context.l10n.search),
+                decoration: InputDecoration(hintText: context.l10n.search),
               ),
             );
             return CallbackShortcuts(
@@ -259,7 +259,7 @@ class PlayerQueue extends HookConsumerWidget {
                       child: CustomScrollView(
                         controller: controller,
                         slivers: [
-                          const SliverGap(10),
+                          const SliverToBoxAdapter(child: SizedBox(height: 10)),
                           SliverReorderableList(
                             onReorder: onReorder,
                             itemCount: filteredTracks.length,
@@ -336,7 +336,7 @@ class PlayerQueue extends HookConsumerWidget {
                               );
                             },
                           ),
-                          const SliverSafeArea(sliver: SliverGap(100)),
+                          const SliverSafeArea(sliver: SliverToBoxAdapter(child: SizedBox(height: 100))),
                         ],
                       ),
                     ),

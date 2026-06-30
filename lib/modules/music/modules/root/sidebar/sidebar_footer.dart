@@ -13,7 +13,7 @@ import 'package:watchtower/modules/music/provider/download_manager_provider.dart
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/user.dart';
 
-class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
+class SidebarFooter extends HookConsumerWidget {
   const SidebarFooter({
     super.key,
   });
@@ -42,13 +42,12 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
     if (mediaQuery.mdAndDown) {
       return Column(
         mainAxisSize: MainAxisSize.min,
-        spacing: 10,
         children: [
+          const SizedBox(height: 10),
           Badge(
             isLabelVisible: downloadCount > 0,
             label: Text(downloadCount.toString()),
-            child: IconButton(.topRoute.name == UserDownloadsRoute.name
-                  ? null : null,
+            child: IconButton(
               icon: const Icon(SpotubeIcons.download),
               onPressed: () => context.navigateTo(const UserDownloadsRoute()),
             ),
@@ -67,22 +66,30 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
       width: 180,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        spacing: 10,
         children: [
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            child: TextButton(
-              style: router.topRoute.name == UserDownloadsRoute.name
-                  ? null : null,
-              onPressed: () {
-                context.navigateTo(const UserDownloadsRoute());
-              },
-              trailing: downloadCount > 0
-                  ? PrimaryBadge(
-                      child: Text(downloadCount.toString()),
-                    )
-                  : null,
-              child: Text(context.l10n.downloads),
+            child: Stack(
+              alignment: Alignment.centerRight,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    context.navigateTo(const UserDownloadsRoute());
+                  },
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(context.l10n.downloads),
+                  ),
+                ),
+                if (downloadCount > 0)
+                  Positioned(
+                    right: 8,
+                    child: Badge(
+                      label: Text(downloadCount.toString()),
+                    ),
+                  ),
+              ],
             ),
           ),
           const ConnectDeviceButton.sidebar(),
@@ -100,9 +107,13 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
                     },
                     child: Row(
                       children: [
-                        Avatar(
-                          initials: Avatar.getInitials(data.name),
-                          provider: UniversalImage.imageProvider(avatarImg),
+                        CircleAvatar(
+                          radius: 16,
+                          foregroundImage:
+                              UniversalImage.imageProvider(avatarImg),
+                          child: Text(
+                            data.name.isNotEmpty ? data.name[0] : '?',
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Flexible(
@@ -111,7 +122,7 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
                             maxLines: 1,
                             softWrap: false,
                             overflow: TextOverflow.fade,
-                            style: Theme.of(context).textTheme.bodyMedium!
+                            style: theme.textTheme.bodyMedium!
                                 .copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),

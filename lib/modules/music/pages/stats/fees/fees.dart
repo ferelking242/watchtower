@@ -55,9 +55,8 @@ class StatsStreamFeesPage extends HookConsumerWidget {
       child: Scaffold(
       appBar: AppBar(
             title: Text(context.l10n.streaming_fees_hypothetical),
-          )
-        ,
-        child: CustomScrollView(
+          ),
+        body: CustomScrollView(
           slivers: [
             SliverCrossAxisConstrained(
               maxCrossAxisExtent: 600,

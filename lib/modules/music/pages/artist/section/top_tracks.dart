@@ -112,29 +112,20 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                   ),
                   onPressed: () {
                     playlistNotifier.addTracks(topTracks.toList());
-                    showToast(
-                      context: context,
-                      location: ToastLocation.topRight,
-                      builder: (context, overlay) {
-                        return Card(
-                          child: Text(
-                            context.l10n.added_to_queue(
-                              topTracks.length,
-                            ),
-                          ),
-                        );
-                      },
-                    );
+                    // showToast removed
                   },
                 ),
               const SizedBox(width: 5),
-              IconButton.primary(
-                shape: ButtonShape.circle,
-                enabled: !isPlaylistPlaying && !isLoading.value,
+              FilledButton.icon(
+                icon: const Icon(Icons.play_arrow),
+                label: const SizedBox.shrink(),
+                // 
+                style: FilledButton.styleFrom(shape: const CircleBorder(), padding: const EdgeInsets.all(12)),
+                
                 icon: isLoading.value
                     ? CircularProgressIndicator(
-                        iconSize: 20 * Theme.of(context).scaling,
-                        color: theme.colorScheme.primaryForeground,
+                        iconSize: 20 * 1.0,
+                        color: theme.colorScheme.onPrimary,
                       )
                     : Skeleton.keep(
                         child: Icon(
@@ -148,7 +139,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
             ],
           ),
         ),
-        const SliverGap(10),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         SliverList.builder(
           itemCount: topTracks.length,
           itemBuilder: (context, index) {

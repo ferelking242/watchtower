@@ -47,8 +47,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                   : pluginRepo.name.toCapitalCase(),
             ),
             trailing: FilledButton(
-              enabled: !isInstalling.value,
-              onPressed: () async {
+              onPressed: isInstalling.value ? null : () async {
                 try {
                   isInstalling.value = true;
                   final pluginConfig = await pluginsNotifier
@@ -146,7 +145,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                   ? SizedBox.square(
                       dimension: 20,
                       child: CircularProgressIndicator(
-                        color: Theme.of(context).colorScheme.primaryForeground,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : const Icon(SpotubeIcons.add),

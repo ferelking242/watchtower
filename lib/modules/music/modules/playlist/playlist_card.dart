@@ -147,22 +147,7 @@ class PlaylistCard extends HookConsumerWidget {
         playlistNotifier.addTracks(fetchedInitialTracks);
         playlistNotifier.addCollection(playlist.id);
         historyNotifier.addPlaylists([playlist]);
-        if (context.mounted) {
-          showToast(
-            context: context,
-            builder: (context, overlay) {
-              return Card(
-                child: Basic(
-                  content: Text(
-                    context.l10n
-                        .added_num_tracks_to_queue(fetchedInitialTracks.length),
-                  ),
-                  trailing: OutlinedButton(
-                    child: Text(context.l10n.undo),
-                    onPressed: () {
-                      playlistNotifier
-                          .removeTracks(fetchedInitialTracks.map((e) => e.id));
-                    },
+        // context.mounted showToast removed,
                   ),
                 ),
               );

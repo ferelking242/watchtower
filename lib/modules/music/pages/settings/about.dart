@@ -27,17 +27,35 @@ class AboutSpotubePage extends HookConsumerWidget {
     final license = ref.watch(_licenseProvider);
     final theme = Theme.of(context);
 
-    const colon = TableCell(child: Text(":"));
+    Widget buildRow(String label, Widget value) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 95,
+              child: Text(label,
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 4),
+            const Text(":"),
+            const SizedBox(width: 8),
+            Expanded(child: value),
+          ],
+        ),
+      );
+    }
 
     return SafeArea(
       bottom: false,
       child: Scaffold(
-      appBar: AppBar(
-            leading: const [BackButton(),
-            title: Text(context.l10n.about_spotube),
-          )
-        ],
-        child: SingleChildScrollView(
+        appBar: AppBar(
+          leading: const MusicBackButton(),
+          title: Text(context.l10n.about_spotube),
+        ),
+        body: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
@@ -51,99 +69,52 @@ class AboutSpotubePage extends HookConsumerWidget {
                     children: [
                       Text(context.l10n.spotube_description),
                       const SizedBox(height: 20),
-                      Table(
-                        columnWidths: const {
-                          0: FixedTableSize(95),
-                          1: FixedTableSize(10),
-                          2: IntrinsicTableSize(),
-                        },
-                        defaultRowHeight: const FixedTableSize(40),
-                        rows: [
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.founder)),
-                              colon,
-                              TableCell(
-                                child: Hyperlink(
-                                  context.l10n.kingkor_roy_tirtho,
-                                  "https://github.com/KRTirtho",
-                                ),
-                              )
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.version)),
-                              colon,
-                              TableCell(child: Text("v${packageInfo.version}"))
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.channel)),
-                              colon,
-                              TableCell(child: Text(Env.releaseChannel.name))
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.build_number)),
-                              colon,
-                              TableCell(
-                                child: Text(packageInfo.buildNumber
-                                    .replaceAll(".", " ")),
-                              )
-                            ],
-                          ),
-                          const TableRow(
-                            cells: [
-                              TableCell(child: Text("Website")),
-                              colon,
-                              TableCell(
-                                child: Hyperlink(
-                                  "spotube.krtirtho.dev",
-                                  "https://spotube.krtirtho.dev",
-                                ),
-                              ),
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.repository)),
-                              colon,
-                              const TableCell(
-                                child: Hyperlink(
-                                  "github.com/KRTirtho/spotube",
-                                  "https://github.com/KRTirtho/spotube",
-                                ),
-                              ),
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.license)),
-                              colon,
-                              const TableCell(
-                                child: Hyperlink(
-                                  "BSD-4-Clause",
-                                  "https://raw.githubusercontent.com/KRTirtho/spotube/master/LICENSE",
-                                ),
-                              ),
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.bug_issues)),
-                              colon,
-                              const TableCell(
-                                child: Hyperlink(
-                                  "Discord#chat",
-                                  "https://discord.gg/uJ94vxB6vg",
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      buildRow(
+                        context.l10n.founder,
+                        Hyperlink(
+                          context.l10n.kingkor_roy_tirtho,
+                          "https://github.com/KRTirtho",
+                        ),
+                      ),
+                      buildRow(
+                        context.l10n.version,
+                        Text("v${packageInfo.version}"),
+                      ),
+                      buildRow(
+                        context.l10n.channel,
+                        Text(Env.releaseChannel.name),
+                      ),
+                      buildRow(
+                        context.l10n.build_number,
+                        Text(packageInfo.buildNumber.replaceAll(".", " ")),
+                      ),
+                      buildRow(
+                        "Website",
+                        const Hyperlink(
+                          "spotube.krtirtho.dev",
+                          "https://spotube.krtirtho.dev",
+                        ),
+                      ),
+                      buildRow(
+                        context.l10n.repository,
+                        const Hyperlink(
+                          "github.com/KRTirtho/spotube",
+                          "https://github.com/KRTirtho/spotube",
+                        ),
+                      ),
+                      buildRow(
+                        context.l10n.license,
+                        const Hyperlink(
+                          "BSD-4-Clause",
+                          "https://raw.githubusercontent.com/KRTirtho/spotube/master/LICENSE",
+                        ),
+                      ),
+                      buildRow(
+                        context.l10n.bug_issues,
+                        const Hyperlink(
+                          "Discord#chat",
+                          "https://discord.gg/uJ94vxB6vg",
+                        ),
                       ),
                     ],
                   ),
@@ -166,12 +137,12 @@ class AboutSpotubePage extends HookConsumerWidget {
                 Text(
                   context.l10n.made_with,
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall!,
+                  style: theme.textTheme.bodySmall!,
                 ),
                 Text(
                   context.l10n.copyright(DateTime.now().year),
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall!,
+                  style: theme.textTheme.bodySmall!,
                 ),
                 const SizedBox(height: 20),
                 ConstrainedBox(
@@ -179,10 +150,8 @@ class AboutSpotubePage extends HookConsumerWidget {
                   child: SafeArea(
                     child: license.when(
                       data: (data) {
-                        return Text(
-                          data,
-                          style: Theme.of(context).textTheme.bodySmall!,
-                        );
+                        return Text(data,
+                            style: theme.textTheme.bodySmall!);
                       },
                       loading: () {
                         return const Center(
@@ -190,10 +159,8 @@ class AboutSpotubePage extends HookConsumerWidget {
                         );
                       },
                       error: (e, s) {
-                        return Text(
-                          e.toString(),
-                          style: Theme.of(context).textTheme.bodySmall!,
-                        );
+                        return Text(e.toString(),
+                            style: theme.textTheme.bodySmall!);
                       },
                     ),
                   ),

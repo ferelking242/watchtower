@@ -32,7 +32,6 @@ final isBlacklistedProvider =
   },
 );
 
-final _overlay = ValueNotifier<OverlayCompleter<dynamic>?>(null);
 
 class TrackTile extends HookConsumerWidget {
   /// [index] will not be shown if null
@@ -93,13 +92,8 @@ class TrackTile extends HookConsumerWidget {
       return Listener(
         onPointerDown: (event) {
           if (event.buttons != kSecondaryMouseButton) return;
-          if (_overlay.value != null) {
-            _overlay.value?.remove();
-            _overlay.value = null;
-          }
-          _overlay.value = TrackOptionsButton.showOptions(
+          TrackOptionsButton.showOptions(
             context,
-            Offset.zero,
             track,
             userPlaylist: userPlaylist,
             playlistId: playlistId,

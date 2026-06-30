@@ -30,7 +30,7 @@ class TitleBar extends HookConsumerWidget implements PreferredSizeWidget {
   final double? surfaceBlur;
   final double? surfaceOpacity;
 
-  const AppBar({
+  const TitleBar({
     super.key,
     this.automaticallyImplyLeading = true,
     this.trailing = const [],
@@ -62,7 +62,6 @@ class TitleBar extends HookConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final hasLeadingOrCanPop = leading.isNotEmpty || Navigator.canPop(context);
     final lastClicked = useRef<int>(DateTime.now().millisecondsSinceEpoch);
 
     final canPop = leading.isEmpty &&

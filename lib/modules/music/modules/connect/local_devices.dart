@@ -10,7 +10,7 @@ class ConnectPageLocalDevices extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData(:typography) = Theme.of(context);
+    final theme = Theme.of(context);
     final devicesFuture = useFuture(audioPlayer.devices);
     final devicesStream = useStream(audioPlayer.devicesStream);
     final selectedDeviceFuture = useFuture(audioPlayer.selectedDevice);
@@ -32,7 +32,7 @@ class ConnectPageLocalDevices extends HookWidget {
           sliver: SliverToBoxAdapter(
             child: Text(
               context.l10n.this_device,
-              style: typography.bold,
+              style: theme.textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
         ),

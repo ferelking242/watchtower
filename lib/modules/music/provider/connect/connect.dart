@@ -120,22 +120,12 @@ class ConnectNotifier extends AsyncNotifier<ConnectState?> {
               if (rootNavigatorKey.currentContext?.mounted == true) {
                 final theme = Theme.of(rootNavigatorKey.currentContext!);
 
-                showToast(
-                  context: rootNavigatorKey.currentContext!,
-                  location: ToastLocation.topRight,
-                  dismissible: true,
-                  builder: (context, overlay) {
-                    return Card(
-                      child: ListTile(
-                        title: Text(
-                          context.l10n.connection_request_denied,
-                          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                            color: theme.colorScheme.destructiveForeground,
-                          ),
-                        ),
-                        ),
-                    );
-                  },
+                ScaffoldMessenger.of(rootNavigatorKey.currentContext!).showSnackBar(
+                  SnackBar(
+                    content: Text(rootNavigatorKey.currentContext!.l10n.connection_request_denied),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: theme.colorScheme.error,
+                  ),
                 );
               }
             }

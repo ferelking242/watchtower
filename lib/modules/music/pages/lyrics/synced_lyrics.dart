@@ -53,8 +53,7 @@ class SyncedLyrics extends HookConsumerWidget {
         useSyncedLyrics(ref, lyricsState.asData?.value.lyricsMap ?? {}, delay);
     final textZoomLevel = useState<int>(defaultTextZoom);
 
-    final typography = Theme.of(context).typography;
-
+    
     ref.listen(
       audioPlayerProvider.select((s) => s.activeTrack),
       (previous, next) {
@@ -68,8 +67,8 @@ class SyncedLyrics extends HookConsumerWidget {
     );
 
     final headlineTextStyle = (mediaQuery.mdAndUp
-            ? typography.h3
-            : typography.h4.copyWith(fontSize: 25))
+            ? theme.textTheme.headlineMedium!
+            : theme.textTheme.headlineSmall!.copyWith(fontSize: 25))
         .copyWith(
       color: palette.titleTextColor,
     );
@@ -117,7 +116,7 @@ class SyncedLyrics extends HookConsumerWidget {
                   child: Text(
                     playlist.activeTrack?.artists.asString() ?? "",
                     style:
-                        mediaQuery.mdAndUp ? typography.h4 : typography.x2Large,
+                        mediaQuery.mdAndUp ? theme.textTheme.headlineSmall! : theme.textTheme.titleLarge!,
                   ),
                 ),
               ),
@@ -160,7 +159,7 @@ class SyncedLyrics extends HookConsumerWidget {
                                 style: TextStyle(
                                   color: isActive
                                       ? theme.colorScheme.onSurface
-                                      : theme.colorScheme.mutedForeground,
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                                   fontWeight: isActive
                                       ? FontWeight.w500
                                       : FontWeight.normal,

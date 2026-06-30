@@ -30,12 +30,6 @@ class TrackDetailsDialog extends HookConsumerWidget {
         textStyle: const TextStyle(color: Colors.blue),
         hideOverflowArtist: false,
       ),
-      // context.l10n.album: LinkText(
-      //   track.album!.name!,
-      //   AlbumRoute(album: track.album!, id: track.album!.id!),
-      //   overflow: TextOverflow.ellipsis,
-      //   style: const TextStyle(color: Colors.blue),
-      // ),
       context.l10n.duration: sourcedTrack.asData != null
           ? sourcedTrack.asData!.value.info.duration.toHumanReadableString()
           : Duration(milliseconds: track.durationMs).toHumanReadableString(),
@@ -46,7 +40,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
     final sourceInfo = sourcedTrack.asData?.value.info;
 
     final ytTracksDetailsMap = sourceInfo == null
-        ? {}
+        ? <String, dynamic>{}
         : {
             context.l10n.youtube: Hyperlink(
               "https://piped.video/watch?v=${sourceInfo.id}",
@@ -64,81 +58,56 @@ class TrackDetailsDialog extends HookConsumerWidget {
               ),
           };
 
+    Widget buildRow(String key, dynamic value) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 95,
+              child: Text(
+                key,
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(":"),
+            const SizedBox(width: 8),
+            Expanded(
+              child: value is Widget
+                  ? value
+                  : Text(
+                      value?.toString() ?? "",
+                      style: theme.textTheme.bodyMedium!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return AlertDialog(
       title: Row(
-        spacing: 8,
         children: [
           const Icon(SpotubeIcons.info),
+          const SizedBox(width: 8),
           Text(
             context.l10n.details,
-            style: Theme.of(context).textTheme.headlineMedium!,
+            style: theme.textTheme.headlineMedium!,
           ),
         ],
       ),
       content: SizedBox(
         width: mediaQuery.mdAndUp ? double.infinity : 700,
-        child: Table(
-          columnWidths: const {
-            0: FixedTableSize(95),
-            1: FixedTableSize(10),
-            2: FlexTableSize(),
-          },
-          theme: const TableTheme(
-            backgroundColor: Colors.transparent,
-            cellTheme: TableCellTheme(
-              backgroundColor: WidgetStatePropertyAll(Colors.transparent),
-            ),
-          ),
-          rowHeights: const {0: FixedTableSize(40)},
-          rows: [
-            for (final entry in detailsMap.entries)
-              TableRow(
-                cells: [
-                  TableCell(
-                    child: Text(
-                      entry.key,
-                      style: theme.textTheme.bodyMedium!,
-                    ),
-                  ),
-                  const TableCell(
-                    child: Text(":"),
-                  ),
-                  TableCell(
-                    child: entry.value is Widget
-                        ? entry.value as Widget
-                        : (entry.value is String)
-                            ? Text(
-                                entry.value as String,
-                                style: theme.textTheme.bodyMedium!,
-                              )
-                            : const Text(""),
-                  ),
-                ],
-              ),
-            for (final entry in ytTracksDetailsMap.entries)
-              TableRow(
-                cells: [
-                  TableCell(
-                    child: Text(
-                      entry.key,
-                      style: theme.textTheme.bodyMedium!,
-                    ),
-                  ),
-                  const TableCell(
-                    child: Text(":"),
-                  ),
-                  TableCell(
-                    child: entry.value is Widget
-                        ? entry.value as Widget
-                        : Text(
-                            entry.value,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium!,
-                          ),
-                  ),
-                ],
-              ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in detailsMap.entries) buildRow(entry.key, entry.value),
+            for (final entry in ytTracksDetailsMap.entries) buildRow(entry.key, entry.value),
           ],
         ),
       ),

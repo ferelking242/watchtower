@@ -8,7 +8,6 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
-import 'package:watchtower/modules/music/components/framework/app_pop_scope.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/player/player_actions.dart';
 import 'package:watchtower/modules/music/modules/player/player_controls.dart';
@@ -88,170 +87,183 @@ class PlayerView extends HookConsumerWidget {
       onPopInvoked: (didPop) async {
         await panelController.close();
       },
-      child: Card(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: SafeArea(
-              bottom: false,
-              child: AppBar(
-                leading: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(
-                    iconSize: 1.2,
-                    icon: const Icon(SpotubeIcons.angleDown),
-                    onPressed: panelController.close,
-                  )]),
-                trailing: [
-                  if (!isLocalTrack)
-                    IconButton(
-                      iconSize: 1.2,
-                      icon: const Icon(SpotubeIcons.info),
-                      onPressed: currentActiveTrackSource == null
-                          ? null
-                          : () {
-                              showDialog(
-                                  context: context,
-                                  builder: (context) {
-                                    return TrackDetailsDialog(
-                                      track: currentActiveTrack
-                                          as SpotubeFullTrackObject,
-                                    );
-                                  });
-                            },
-                    ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: SafeArea(
+            bottom: false,
+            child: AppBar(
+              backgroundColor: Colors.transparent,
+              leading: IconButton(
+                iconSize: 24,
+                icon: const Icon(SpotubeIcons.angleDown),
+                onPressed: panelController.close,
               ),
+              actions: [
+                if (!isLocalTrack)
+                  IconButton(
+                    iconSize: 24,
+                    icon: const Icon(SpotubeIcons.info),
+                    onPressed: currentActiveTrackSource == null
+                        ? null
+                        : () {
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return TrackDetailsDialog(
+                                  track: currentActiveTrack
+                                      as SpotubeFullTrackObject,
+                                );
+                              },
+                            );
+                          },
+                  ),
+              ],
             ),
-          ],
-          child: SingleChildScrollView(
-            controller: scrollController,
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    constraints:
-                        const BoxConstraints(maxHeight: 300, maxWidth: 300),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(100),
-                          spreadRadius: 2,
-                          blurRadius: 10,
-                          offset: Offset.zero,
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: UniversalImage(
-                        path: albumArt,
-                        placeholder: Assets.images.albumPlaceholder.path,
-                        fit: BoxFit.cover,
+          ),
+        ),
+        body: SingleChildScrollView(
+          controller: scrollController,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.all(8),
+                  constraints:
+                      const BoxConstraints(maxHeight: 300, maxWidth: 300),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(100),
+                        spreadRadius: 2,
+                        blurRadius: 10,
+                        offset: Offset.zero,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 60),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AutoSizeText(
-                          currentActiveTrack?.name ?? context.l10n.not_playing,
-                          style: const TextStyle(fontSize: 22),
-                          maxFontSize: 22,
-                          maxLines: 1,
-                          textAlign: TextAlign.start,
-                        ),
-                        if (isLocalTrack)
-                          Text(
-                            currentActiveTrack.artists.asString(),
-                            style: theme.textTheme.bodyMedium!
-                                .copyWith(fontWeight: FontWeight.bold),
-                          )
-                        else
-                          ArtistLink(
-                            artists: currentActiveTrack?.artists ?? [],
-                            textStyle: theme.textTheme.bodyMedium!
-                                .copyWith(fontWeight: FontWeight.bold),
-                            onRouteChange: (route) {
-                              panelController.close();
-                              context.router.navigateNamed(route);
-                            },
-                            onOverflowArtistClick: () => context.navigateTo(
-                              TrackRoute(
-                                trackId: currentActiveTrack!.id,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const PlayerControls(),
-                  const SizedBox(height: 25),
-                  const PlayerActions(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    showQueue: false,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlineButton(
-                          leading: const Icon(SpotubeIcons.queue),
-                          child: Text(context.l10n.queue),
-                          onPressed: () {
-                            context.pushRoute(const PlayerQueueRoute());
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlineButton(
-                          leading: const Icon(SpotubeIcons.music),
-                          child: Text(context.l10n.lyrics),
-                          onPressed: () {
-                            context.pushRoute(const PlayerLyricsRoute());
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
                     ],
                   ),
-                  const SizedBox(height: 25),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Consumer(builder: (context, ref, _) {
-                      final volume = ref.watch(volumeProvider);
-                      return VolumeSlider(
-                        fullWidth: true,
-                        value: volume,
-                        onChanged: (value) {
-                          ref.read(volumeProvider.notifier).setVolume(value);
-                        },
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 25, width: 25),
-                  OutlineBadge(
-                    style: const ButtonStyle.outline(
-                      size: 24.0,
-                      density: ButtonDensity.dense,
-                      shape: ButtonShape.rectangle,
-                    ).copyWith(
-                      textStyle: (context, states, value) {
-                        return value.copyWith(fontWeight: FontWeight.w500);
-                      },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: UniversalImage(
+                      path: albumArt,
+                      placeholder: Assets.images.albumPlaceholder.path,
+                      fit: BoxFit.cover,
                     ),
-                    leading: const Icon(SpotubeIcons.lightningOutlined),
-                    child: Text(qualityLabel),
-                  )
-                ],
-              ),
+                  ),
+                ),
+                const SizedBox(height: 60),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AutoSizeText(
+                        currentActiveTrack?.name ?? context.l10n.not_playing,
+                        style: const TextStyle(fontSize: 22),
+                        maxFontSize: 22,
+                        maxLines: 1,
+                        textAlign: TextAlign.start,
+                      ),
+                      if (isLocalTrack)
+                        Text(
+                          currentActiveTrack.artists.asString(),
+                          style: theme.textTheme.bodyMedium!
+                              .copyWith(fontWeight: FontWeight.bold),
+                        )
+                      else
+                        ArtistLink(
+                          artists: currentActiveTrack?.artists ?? [],
+                          textStyle: theme.textTheme.bodyMedium!
+                              .copyWith(fontWeight: FontWeight.bold),
+                          onRouteChange: (route) {
+                            panelController.close();
+                            context.router.navigateNamed(route);
+                          },
+                          onOverflowArtistClick: () => context.navigateTo(
+                            TrackRoute(
+                              trackId: currentActiveTrack!.id,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const PlayerControls(),
+                const SizedBox(height: 25),
+                const PlayerActions(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  showQueue: false,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(SpotubeIcons.queue),
+                        label: Text(context.l10n.queue),
+                        onPressed: () {
+                          context.pushRoute(const PlayerQueueRoute());
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(SpotubeIcons.music),
+                        label: Text(context.l10n.lyrics),
+                        onPressed: () {
+                          context.pushRoute(const PlayerLyricsRoute());
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                ),
+                const SizedBox(height: 25),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Consumer(builder: (context, ref, _) {
+                    final volume = ref.watch(volumeProvider);
+                    return VolumeSlider(
+                      fullWidth: true,
+                      value: volume,
+                      onChanged: (value) {
+                        ref.read(volumeProvider.notifier).setVolume(value);
+                      },
+                    );
+                  }),
+                ),
+                const SizedBox(height: 25, width: 25),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: theme.colorScheme.outline,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(SpotubeIcons.lightningOutlined, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        qualityLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),

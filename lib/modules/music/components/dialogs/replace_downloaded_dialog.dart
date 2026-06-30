@@ -17,28 +17,30 @@ class ReplaceDownloadedDialog extends ConsumerWidget {
 
     return AlertDialog(
       title: Text(context.l10n.track_exists(track.name)),
-      content: RadioGroup(
-        value: replaceAll,
-        onChanged: (value) {
-          ref.read(replaceDownloadedFileState.notifier).state = value;
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(context.l10n.do_you_want_to_replace),
-            SizedBox(height: 16),
-            RadioItem<bool>(
-              value: true,
-              trailing: Text(context.l10n.replace_downloaded_tracks),
-            ),
-            SizedBox(height: 8),
-            RadioItem<bool>(
-              value: false,
-              trailing: Text(context.l10n.skip_download_tracks),
-            ),
-          ],
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.do_you_want_to_replace),
+          const SizedBox(height: 16),
+          RadioListTile<bool>(
+            title: Text(context.l10n.replace_downloaded_tracks),
+            value: true,
+            groupValue: replaceAll,
+            onChanged: (value) {
+              ref.read(replaceDownloadedFileState.notifier).state = value;
+            },
+          ),
+          const SizedBox(height: 8),
+          RadioListTile<bool>(
+            title: Text(context.l10n.skip_download_tracks),
+            value: false,
+            groupValue: replaceAll,
+            onChanged: (value) {
+              ref.read(replaceDownloadedFileState.notifier).state = value;
+            },
+          ),
+        ],
       ),
       actions: [
         OutlinedButton(

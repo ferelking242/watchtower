@@ -27,7 +27,7 @@ class ErrorBox extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             spacing: 12,
             children: [
-              Basic(
+              ListTile(
                 leading: const Icon(SpotubeIcons.error),
                 contentSpacing: 8,
                 title: Text(context.l10n.an_error_occurred),
@@ -39,7 +39,7 @@ class ErrorBox extends StatelessWidget {
                   style: TextStyle(
                     // Use monospace
                     fontFamily: 'Ubuntu Mono',
-                    color: Theme.of(context).colorScheme.mutedForeground,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                     fontSize: 14,
                   ),
                   maxLines: 6,
@@ -103,7 +103,7 @@ class ErrorBox extends StatelessWidget {
                                       // Use monospace
                                       fontFamily: 'Ubuntu Mono',
                                       color: context
-                                          .theme.colorScheme.mutedForeground,
+                                          .colorScheme.onSurface.withValues(alpha: 0.5),
                                       fontSize: 16,
                                     ),
                                   ),

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/material.dart' as material;
+import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -97,8 +97,6 @@ class LocalLibraryPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final scale = Theme.of(context).scaling;
-
     final sortBy = useState<SortBy>(SortBy.none);
     final playlist = ref.watch(audioPlayerProvider);
     final trackSnapshot = ref.watch(localTracksProvider);
@@ -129,131 +127,124 @@ class LocalLibraryPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-      appBar: AppBar(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 0,
-            )
-            leading: const [BackButton(),
-            title: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isDownloads
-                      ? context.l10n.downloads
-                      : isCache
-                          ? context.l10n.cache_folder.capitalize()
-                          : location,
-                ),
-                FutureBuilder<String>(
-                  future: directorySize,
-                  builder: (context, snapshot) {
-                    return Text(
-                      "${(snapshot.data ?? 0)} GB",
-                    );
-                  },
-                )
-              ],
-            ),
-            backgroundColor: Colors.transparent,
-            trailingGap: 10,
-            trailing: [
-              if (isCache) ...[
-                IconButton.outlined(
-                  iconSize: 20.0,
-                  icon: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(SpotubeIcons.delete),
-                      Text(context.l10n.clear_cache)
-                    ],
-                  ),
-                  onPressed: () async {
-                    final accepted = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text(context.l10n.clear_cache_confirmation),
-                        actions: [
-                          OutlinedButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(false);
-                            },
-                            child: Text(context.l10n.decline),
-                          ),
-                          FilledButton(
-                            onPressed: () async {
-                              Navigator.of(context).pop(true);
-                            },
-                            child: Text(context.l10n.accept),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (accepted != true) return;
-
-                    final cacheDir = Directory(
-                      await UserPreferencesNotifier.getMusicCacheDir(),
-                    );
-
-                    if (cacheDir.existsSync()) {
-                      await cacheDir.delete(recursive: true);
-                    }
-
-                    ref.invalidate(localTracksProvider);
-                  },
-                ),
-                IconButton.outlined(
-                  iconSize: 20.0,
-                  icon: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(SpotubeIcons.export),
-                      Text(
-                        context.l10n.export,
-                      )
-                    ],
-                  ),
-                  onPressed: () async {
-                    final exportPath =
-                        await FilePicker.getDirectoryPath();
-
-                    if (exportPath == null) return;
-                    final exportDirectory = Directory(exportPath);
-
-                    if (!exportDirectory.existsSync()) {
-                      await exportDirectory.create(recursive: true);
-                    }
-
-                    final cacheDir = Directory(
-                        await UserPreferencesNotifier.getMusicCacheDir());
-
-                    if (!context.mounted) return;
-                    await showDialog(
-                      context: context,
-                      builder: (context) {
-                        return LocalFolderCacheExportDialog(
-                          cacheDir: cacheDir,
-                          exportDir: exportDirectory,
-                        );
-                      },
-                    );
-                  },
-                ),
-              ]
+        appBar: AppBar(
+          leading: const MusicBackButton(),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isDownloads
+                    ? context.l10n.downloads
+                    : isCache
+                        ? context.l10n.cache_folder.capitalize()
+                        : location,
+              ),
+              FutureBuilder<String>(
+                future: directorySize,
+                builder: (context, snapshot) {
+                  return Text(
+                    "${(snapshot.data ?? 0)} GB",
+                    style: Theme.of(context).textTheme.bodySmall,
+                  );
+                },
+              )
             ],
           ),
-        ],
-        child: LayoutBuilder(
+          backgroundColor: Colors.transparent,
+          actions: [
+            if (isCache) ...[
+              IconButton(
+                icon: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(SpotubeIcons.delete),
+                    Text(context.l10n.clear_cache,
+                        style: const TextStyle(fontSize: 10)),
+                  ],
+                ),
+                onPressed: () async {
+                  final accepted = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(context.l10n.clear_cache_confirmation),
+                      actions: [
+                        OutlinedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(false);
+                          },
+                          child: Text(context.l10n.decline),
+                        ),
+                        FilledButton(
+                          onPressed: () async {
+                            Navigator.of(context).pop(true);
+                          },
+                          child: Text(context.l10n.accept),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (accepted != true) return;
+
+                  final cacheDir = Directory(
+                    await UserPreferencesNotifier.getMusicCacheDir(),
+                  );
+
+                  if (cacheDir.existsSync()) {
+                    await cacheDir.delete(recursive: true);
+                  }
+
+                  ref.invalidate(localTracksProvider);
+                },
+              ),
+              IconButton(
+                icon: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(SpotubeIcons.export),
+                    Text(context.l10n.export,
+                        style: const TextStyle(fontSize: 10)),
+                  ],
+                ),
+                onPressed: () async {
+                  final exportPath =
+                      await FilePicker.getDirectoryPath();
+
+                  if (exportPath == null) return;
+                  final exportDirectory = Directory(exportPath);
+
+                  if (!exportDirectory.existsSync()) {
+                    await exportDirectory.create(recursive: true);
+                  }
+
+                  final cacheDir = Directory(
+                      await UserPreferencesNotifier.getMusicCacheDir());
+
+                  if (!context.mounted) return;
+                  await showDialog(
+                    context: context,
+                    builder: (context) {
+                      return LocalFolderCacheExportDialog(
+                        cacheDir: cacheDir,
+                        exportDir: exportDirectory,
+                      );
+                    },
+                  );
+                },
+              ),
+            ]
+          ],
+        ),
+        body: LayoutBuilder(
           builder: (context, constraints) => Column(
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
                   children: [
-                    const SizedBox(height: 5, width: 5),
-                    IconButton.primary(
+                    const SizedBox(width: 5),
+                    FilledButton.icon(
                       onPressed: trackSnapshot.asData?.value != null
                           ? () async {
                               if (trackSnapshot.asData?.value.isNotEmpty ==
@@ -273,45 +264,42 @@ class LocalLibraryPage extends HookConsumerWidget {
                             ? SpotubeIcons.stop
                             : SpotubeIcons.play,
                       ),
+                      label: const SizedBox.shrink(),
                     ),
-                    const SizedBox(height: 5, width: 5),
-                    IconButton.outlined(
-                      onPressed: trackSnapshot.asData?.value != null
+                    const SizedBox(width: 5),
+                    OutlinedButton.icon(
+                      onPressed: (trackSnapshot.asData?.value != null &&
+                              !isPlaylistPlaying)
                           ? () async {
                               if (trackSnapshot.asData?.value.isNotEmpty ==
                                   true) {
-                                if (!isPlaylistPlaying) {
-                                  await shufflePlayLocalTracks(
-                                    ref,
-                                    trackSnapshot.asData!.value[location] ??
-                                        [],
-                                  );
-                                }
+                                await shufflePlayLocalTracks(
+                                  ref,
+                                  trackSnapshot.asData!.value[location] ?? [],
+                                );
                               }
                             }
                           : null,
-                      enabled: !isPlaylistPlaying,
                       icon: const Icon(SpotubeIcons.shuffle),
+                      label: const SizedBox.shrink(),
                     ),
-                    const SizedBox(height: 5, width: 5),
-                    IconButton.outlined(
-                      onPressed: trackSnapshot.asData?.value != null
+                    const SizedBox(width: 5),
+                    OutlinedButton.icon(
+                      onPressed: (trackSnapshot.asData?.value != null &&
+                              !isPlaylistPlaying)
                           ? () async {
                               if (trackSnapshot.asData?.value.isNotEmpty ==
                                   true) {
-                                if (!isPlaylistPlaying) {
-                                  await addToQueueLocalTracks(
-                                    context,
-                                    ref,
-                                    trackSnapshot.asData!.value[location] ??
-                                        [],
-                                  );
-                                }
+                                await addToQueueLocalTracks(
+                                  context,
+                                  ref,
+                                  trackSnapshot.asData!.value[location] ?? [],
+                                );
                               }
                             }
                           : null,
-                      enabled: !isPlaylistPlaying,
                       icon: const Icon(SpotubeIcons.queueAdd),
+                      label: const SizedBox.shrink(),
                     ),
                     const Spacer(),
                     if (constraints.smAndDown)
@@ -321,11 +309,9 @@ class LocalLibraryPage extends HookConsumerWidget {
                         searchFocus: searchFocus,
                       )
                     else
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: 300 * scale,
-                          maxHeight: 38 * scale,
-                        ),
+                      SizedBox(
+                        width: 300,
+                        height: 38,
                         child: ExpandableSearchField(
                           isFiltering: true,
                           onChangeFiltering: (value) {},
@@ -333,15 +319,15 @@ class LocalLibraryPage extends HookConsumerWidget {
                           searchFocus: searchFocus,
                         ),
                       ),
-                    const SizedBox(height: 5, width: 5),
+                    const SizedBox(width: 5),
                     SortTracksDropdown(
                       value: sortBy.value,
                       onChanged: (value) {
                         sortBy.value = value;
                       },
                     ),
-                    const SizedBox(height: 5, width: 5),
-                    IconButton.outlined(
+                    const SizedBox(width: 5),
+                    IconButton(
                       icon: const Icon(SpotubeIcons.refresh),
                       onPressed: () {
                         ref.invalidate(localTracksProvider);
@@ -383,7 +369,6 @@ class LocalLibraryPage extends HookConsumerWidget {
                           )
                           .where((e) => e.$1 > 50)
                           .map((e) => e.$2)
-                          .toList()
                           .toList();
                     }, [searchController.text, sortedTracks]);
 
@@ -394,10 +379,10 @@ class LocalLibraryPage extends HookConsumerWidget {
                           children: [
                             Undraw(
                               illustration: UndrawIllustration.empty,
-                              height: 200 * scale,
+                              height: 200,
                               color: Theme.of(context).colorScheme.primary,
                             ),
-                            const SizedBox(height: 10, width: 10),
+                            const SizedBox(height: 10),
                             Text(
                               context.l10n.nothing_found,
                               textAlign: TextAlign.center,
@@ -408,7 +393,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                     }
 
                     return Expanded(
-                      child: material.RefreshIndicator.adaptive(
+                      child: RefreshIndicator.adaptive(
                         onRefresh: () async {
                           ref.invalidate(localTracksProvider);
                         },
@@ -449,7 +434,8 @@ class LocalLibraryPage extends HookConsumerWidget {
                                     );
                                   },
                                 ),
-                                const SliverGap(200),
+                                const SliverToBoxAdapter(
+                                    child: SizedBox(height: 200)),
                               ],
                             ),
                           ),

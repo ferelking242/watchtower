@@ -76,7 +76,7 @@ class LocalFolderCacheExportDialog extends HookConsumerWidget {
                         TextSpan(
                           text: "\n${exportDir.path}?",
                           style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                            color: colorScheme.mutedForeground,
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ],

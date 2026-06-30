@@ -19,81 +19,68 @@ class LogsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final controller = useScrollController();
-
     final logsQuery = ref.watch(logsProvider);
 
-    return Scaffold(
-      appBar: SafeArea(
-          bottom: false,
-          child: AppBar(
-            title: Text(context.l10n.logs),
-            leading: const [BackButton(),
-            trailing: [
-              IconButton(
-                icon: const Icon(SpotubeIcons.clipboard, iconSize: 16),
-                onPressed: () async {
-                  final logsSnapshot = await ref.read(logsProvider.future);
-
-                  await Clipboard.setData(ClipboardData(text: logsSnapshot));
-                  if (context.mounted) {
-                    showToast(
-                      context: context,
-                      location: ToastLocation.topRight,
-                      builder: (context, overlay) {
-                        return Card(
-                          child: Basic(
-                            title: Text(context.l10n.copied_to_clipboard("")),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                },
-              ),
-              IconButton(
-                icon: const Icon(
-                  SpotubeIcons.trash,
-                  iconSize: 16,
-                ),
-                onPressed: () async {
-                  ref.invalidate(logsProvider);
-
-                  final logsFile = await AppLogger.getLogsPath();
-
-                  await logsFile.writeAsString("");
-                },
-              )
-            ],
-          ),
-        )
-      ],
-      child: SafeArea(
-        child: switch (logsQuery) {
-          AsyncData(:final value) => InterScrollbar(
-              controller: controller,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(8.0),
-                controller: controller,
-                child: Card(child: SelectableText(value)),
-              ),
-            ),
-          AsyncError(:final error) => switch (error) {
-              StateError() => Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Undraw(
-                      illustration: UndrawIllustration.noData,
-                      height: 200 * Theme.of(context).scaling,
-                      width: 200 * Theme.of(context).scaling,
-                      color: Theme.of(context).colorScheme.primary,
+    return SafeArea(
+      bottom: false,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const MusicBackButton(),
+          title: Text(context.l10n.logs),
+          actions: [
+            IconButton(
+              icon: const Icon(SpotubeIcons.clipboard),
+              onPressed: () async {
+                final logsSnapshot = await ref.read(logsProvider.future);
+                await Clipboard.setData(ClipboardData(text: logsSnapshot));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(context.l10n.copied_to_clipboard("")),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                    Text(context.l10n.no_logs_found),
-                  ],
+                  );
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(SpotubeIcons.trash),
+              onPressed: () async {
+                ref.invalidate(logsProvider);
+                final logsFile = await AppLogger.getLogsPath();
+                await logsFile.writeAsString("");
+              },
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: switch (logsQuery) {
+            AsyncData(:final value) => InterScrollbar(
+                controller: controller,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(8.0),
+                  controller: controller,
+                  child: Card(child: SelectableText(value)),
                 ),
-              _ => Center(child: Text(error.toString())),
-            },
-          _ => const Center(child: CircularProgressIndicator()),
-        },
+              ),
+            AsyncError(:final error) => switch (error) {
+                StateError() => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Undraw(
+                        illustration: UndrawIllustration.noData,
+                        height: 200,
+                        width: 200,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      Text(context.l10n.no_logs_found),
+                    ],
+                  ),
+                _ => Center(child: Text(error.toString())),
+              },
+            _ => const Center(child: CircularProgressIndicator()),
+          },
+        ),
       ),
     );
   }

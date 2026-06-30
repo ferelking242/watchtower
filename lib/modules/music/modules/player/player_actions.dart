@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
@@ -18,7 +19,6 @@ import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart
 import 'package:watchtower/modules/music/provider/local_tracks/local_tracks_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
 import 'package:watchtower/modules/music/provider/sleep_timer_provider.dart';
-import 'package:flutter/material.dart' show Material, MaterialType;
 
 class PlayerActions extends HookConsumerWidget {
   final MainAxisAlignment mainAxisAlignment;
@@ -79,47 +79,48 @@ class PlayerActions extends HookConsumerWidget {
       [context.l10n],
     );
 
-    var customHoursEnabled =
+    final customHoursEnabled =
         sleepTimer == null || sleepTimerEntries.values.contains(sleepTimer);
+
     return Row(
       mainAxisAlignment: mainAxisAlignment,
       children: [
         if (showQueue)
           IconButton(
             icon: const Icon(SpotubeIcons.queue),
-            enabled: playlist.activeTrack != null,
-            onPressed: () {
-              final capturedTheme = Theme.of(context);
-              openDrawer(
-                context: context
-                transformBackdrop: false,
-                draggable: false).surfaceBlur
-                builder: (context) {
-                  return Theme(
-                    data: capturedTheme,
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 800),
-                        child: Consumer(
-                          builder: (context, ref, _) {
-                            final playlist = ref.watch(audioPlayerProvider);
-                            final playlistNotifier =
-                                ref.read(audioPlayerProvider.notifier);
-
-                            return PlayerQueue.fromAudioPlayerNotifier(
-                              floating: true,
-                              playlist: playlist,
-                              notifier: playlistNotifier,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
+            tooltip: context.l10n.queue,
+            onPressed: playlist.activeTrack != null
+                ? () {
+                    final screenSize = MediaQuery.sizeOf(context);
+                    if (screenSize.mdAndUp) {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (context) {
+                          return Material(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 800),
+                              child: Consumer(
+                                builder: (context, ref, _) {
+                                  final p = ref.watch(audioPlayerProvider);
+                                  final n = ref.read(
+                                      audioPlayerProvider.notifier);
+                                  return PlayerQueue.fromAudioPlayerNotifier(
+                                    floating: true,
+                                    playlist: p,
+                                    notifier: n,
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    } else {
+                      context.pushRoute(const PlayerQueueRoute());
+                    }
+                  }
+                : null,
           ),
         if (!isLocalTrack)
           IconButton(
@@ -127,18 +128,16 @@ class PlayerActions extends HookConsumerWidget {
             onPressed: () {
               final screenSize = MediaQuery.sizeOf(context);
               if (screenSize.mdAndUp) {
-                showPopover(
-                  alignment: Alignment.bottomCenter,
+                showModalBottomSheet(
                   context: context,
+                  isScrollControlled: true,
                   builder: (context) {
-                    return Card(,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxHeight: 600,
-                          maxWidth: 500,
-                        ),
-                        child: SiblingTracksSheet(floating: floatingQueue),
+                    return ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxHeight: 600,
+                        maxWidth: 500,
                       ),
+                      child: SiblingTracksSheet(floating: floatingQueue),
                     );
                   },
                 );
@@ -170,7 +169,7 @@ class PlayerActions extends HookConsumerWidget {
           TrackHeartButton(track: playlist.activeTrack!),
         AdaptivePopSheetList<Duration>(
           tooltip: context.l10n.sleep_timer,
-          offset: Offset(0, -50 * (sleepTimerEntries.values.length + 2)),
+          offset: Offset(0, -50.0 * (sleepTimerEntries.values.length + 2)),
           headings: [
             Text(context.l10n.sleep_timer),
           ],
@@ -196,41 +195,14 @@ class PlayerActions extends HookConsumerWidget {
               enabled: customHoursEnabled,
               onPressed: (context) async {
                 final currentTime = TimeOfDay.now();
-                final time = await showDialog<TimeOfDay?>(
+                final time = await showTimePicker(
                   context: context,
-                  builder: (context) => HookBuilder(builder: (context) {
-                    final timeRef = useRef<TimeOfDay?>(null);
-                    return AlertDialog(
-                      trailing: IconButton(
-                        iconSize: 16.0,
-                        icon: const Icon(SpotubeIcons.close),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                      title: Text(
-                        ShadcnLocalizations.of(context).placeholderTimePicker,
-                      ),
-                      content: TimePickerDialog(
-                        use24HourFormat: false,
-                        initialValue: TimeOfDay.fromDateTime(
-                          DateTime.now().add(sleepTimer ?? Duration.zero),
-                        ),
-                        onChanged: (value) => timeRef.value = value,
-                      ),
-                      actions: [
-                        FilledButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(timeRef.value);
-                          },
-                          child: Text(context.l10n.save),
-                        ),
-                      ],
-                    );
-                  }),
+                  initialTime: TimeOfDay.fromDateTime(
+                    DateTime.now().add(sleepTimer ?? Duration.zero),
+                  ),
                 );
 
-                if (time != null) {
+                if (time != null && context.mounted) {
                   sleepTimerNotifier.setSleepTimer(
                     Duration(
                       hours: (time.hour - currentTime.hour).abs(),
@@ -242,7 +214,7 @@ class PlayerActions extends HookConsumerWidget {
               child: Text(
                 customHoursEnabled
                     ? context.l10n.custom_hours
-                    : sleepTimer.format(abbreviated: true),
+                    : sleepTimer!.format(abbreviated: true),
               ),
             ),
             AdaptiveMenuButton(

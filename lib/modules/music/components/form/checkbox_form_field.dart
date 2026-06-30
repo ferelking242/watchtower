@@ -25,19 +25,25 @@ class CheckboxFormBuilderField extends StatelessWidget {
       name: name,
       validator: validator,
       builder: (field) {
-        return Checkbox(
-          value: tristate && field.value == null
-              ? null
-              : field.value == true
-                  ? true
-                  : false,
-          onChanged: (state) {
-            field.didChange(state == true);
-            onChanged?.call(state);
-          },
-          leading: leading,
-          trailing: trailing,
-          tristate: tristate,
+        final checkboxValue = tristate && field.value == null
+            ? null
+            : field.value == true
+                ? true
+                : false;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 8)],
+            Checkbox(
+              value: checkboxValue,
+              onChanged: (state) {
+                field.didChange(state == true);
+                onChanged?.call(state ?? false);
+              },
+              tristate: tristate,
+            ),
+            if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+          ],
         );
       },
     );
