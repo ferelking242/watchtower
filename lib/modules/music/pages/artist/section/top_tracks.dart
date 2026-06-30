@@ -107,9 +107,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
               ),
               if (!isPlaylistPlaying)
                 IconButton(
-                  icon: const Icon(
-                    SpotubeIcons.queueAdd,
-                  ),
+                  icon: const Icon(SpotubeIcons.queueAdd),
                   style: IconButton.styleFrom(
                     side: BorderSide(
                       color: Theme.of(context).colorScheme.outline,
@@ -120,16 +118,20 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                   },
                 ),
               const SizedBox(width: 5),
-              FilledButton.icon(
-                icon: const Icon(Icons.play_arrow),
-                label: const SizedBox.shrink(),
-                // 
-                style: FilledButton.styleFrom(shape: const CircleBorder(), padding: const EdgeInsets.all(12)),
-                
-                icon: isLoading.value
-                    ? CircularProgressIndicator(
-                        iconSize: 20 * 1.0,
-                        color: theme.colorScheme.onPrimary,
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(12),
+                ),
+                onPressed: () => playPlaylist(topTracks.toList()),
+                child: isLoading.value
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.onPrimary,
+                        ),
                       )
                     : Skeleton.keep(
                         child: Icon(
@@ -138,8 +140,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                               : SpotubeIcons.play,
                         ),
                       ),
-                onPressed: () => playPlaylist(topTracks.toList()),
-              )
+              ),
             ],
           ),
         ),

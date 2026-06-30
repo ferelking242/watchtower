@@ -25,11 +25,10 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-      appBar: AppBar(
-            title: Text(title),
-          ),
-        ,
-        child: FormBuilder(
+        appBar: AppBar(
+          title: Text(title),
+        ),
+        body: FormBuilder(
           key: formKey,
           child: Center(
             child: Container(
@@ -77,7 +76,6 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                           return Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            spacing: 4,
                             children: [
                               TextField(
                                 decoration: InputDecoration(

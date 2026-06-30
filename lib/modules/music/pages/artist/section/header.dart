@@ -26,7 +26,6 @@ class ArtistPageHeader extends HookConsumerWidget {
     final artist = artistQuery.asData?.value ?? FakeData.artist;
 
     final theme = Theme.of(context);
-    final ThemeData() = theme;
 
     final authenticated = ref.watch(metadataPluginAuthenticatedProvider);
     ref.watch(blacklistProvider);
@@ -84,9 +83,7 @@ class ArtistPageHeader extends HookConsumerWidget {
             icon: Icon(
               SpotubeIcons.userRemove,
               color: !isBlackListed ? Colors.red[400] : null,
-            )
-                ? ButtonStyle()
-                : ButtonStyle(),
+            ),
             onPressed: () async {
               if (isBlackListed) {
                 await ref.read(blacklistProvider.notifier).remove(artist.id);
@@ -109,10 +106,6 @@ class ArtistPageHeader extends HookConsumerWidget {
                   text: artist.externalUri,
                 ),
               );
-
-              if (!context.mounted) return;
-
-              // showToast removed
             },
           )
         ],
@@ -124,84 +117,97 @@ class ArtistPageHeader extends HookConsumerWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: theme.borderRadiusXl,
-                      child: UniversalImage(
-                        path: image,
-                        width: constrains.mdAndUp ? 200 : 120,
-                        height: constrains.mdAndUp ? 200 : 120,
-                        fit: BoxFit.cover,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: UniversalImage(
+                          path: image,
+                          width: constrains.mdAndUp ? 200 : 120,
+                          height: constrains.mdAndUp ? 200 : 120,
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20, width: 20),
-                    Flexible(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              OutlineBadge(
-                                child:
-                                    Text(context.l10n.artist),
-                              ),
-                              if (isBlackListed) ...[
-                                const SizedBox(height: 5, width: 5),
-                                DestructiveBadge(
-                                  child: Text(context.l10n.blacklisted),
+                      const SizedBox(height: 20, width: 20),
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Chip(
+                                  label: Text(context.l10n.artist),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                              ]
-                            ],
-                          ),
-                          const SizedBox(height: 10, width: 10),
-                          Flexible(
-                            child: AutoSizeText(
-                              artist.name,
-                              style: constrains.smAndDown
-                                  ? theme.textTheme.headlineSmall!
-                                  : theme.textTheme.headlineMedium!,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              minFontSize: 14,
+                                if (isBlackListed) ...[
+                                  const SizedBox(height: 5, width: 5),
+                                  Chip(
+                                    label: Text(context.l10n.blacklisted),
+                                    backgroundColor: Colors.red.shade100,
+                                    labelStyle: const TextStyle(
+                                        color: Colors.red),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ]
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 5, width: 5),
-                          Flexible(
-                            child: AutoSizeText(
-                              context.l10n.followers(
-                                artist.followers == null
-                                    ? double.infinity
-                                    : PrimitiveUtils.toReadableNumber(
-                                        artist.followers!.toDouble(),
-                                      ),
+                            const SizedBox(height: 10, width: 10),
+                            Flexible(
+                              child: AutoSizeText(
+                                artist.name,
+                                style: constrains.smAndDown
+                                    ? theme.textTheme.headlineSmall!
+                                    : theme.textTheme.headlineMedium!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                minFontSize: 14,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              minFontSize: 12,
                             ),
-                          ),
-                          if (constrains.mdAndUp) ...[
-                            const SizedBox(height: 20, width: 20),
-                            actions,
-                          ]
-                        ],
+                            const SizedBox(height: 5, width: 5),
+                            Flexible(
+                              child: AutoSizeText(
+                                context.l10n.followers(
+                                  artist.followers == null
+                                      ? double.infinity
+                                      : PrimitiveUtils.toReadableNumber(
+                                          artist.followers!.toDouble(),
+                                        ),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                minFontSize: 12,
+                              ),
+                            ),
+                            if (constrains.mdAndUp) ...[
+                              const SizedBox(height: 20, width: 20),
+                              actions,
+                            ]
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                if (constrains.smAndDown) ...[
-                  const SizedBox(height: 20, width: 20),
-                  actions,
-                ]
-              ],
+                    ],
+                  ),
+                  if (constrains.smAndDown) ...[
+                    const SizedBox(height: 20, width: 20),
+                    actions,
+                  ]
+                ],
+              ),
             ),
           ),
         );

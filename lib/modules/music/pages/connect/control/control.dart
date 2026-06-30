@@ -134,7 +134,7 @@ class ConnectControlPage extends HookConsumerWidget {
                           SliverToBoxAdapter(
                             child: AnchorButton(
                               playlist.activeTrack?.name ?? "",
-                              style: theme.textTheme.headlineSmall,
+                              style: theme.textTheme.headlineSmall ?? const TextStyle(),
                               onTap: () {
                                 if (playlist.activeTrack == null) return;
                                 context.navigateTo(
@@ -148,7 +148,7 @@ class ConnectControlPage extends HookConsumerWidget {
                             child: ArtistLink(
                               artists:
                                   playlist.activeTrack?.artists ?? [],
-                              textStyle: theme.textTheme.bodyMedium,
+                              textStyle: theme.textTheme.bodyMedium ?? const TextStyle(),
                               mainAxisAlignment: WrapAlignment.start,
                               onOverflowArtistClick: () =>
                                   context.navigateTo(

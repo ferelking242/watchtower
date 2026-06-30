@@ -147,13 +147,6 @@ class PlaylistCard extends HookConsumerWidget {
         playlistNotifier.addTracks(fetchedInitialTracks);
         playlistNotifier.addCollection(playlist.id);
         historyNotifier.addPlaylists([playlist]);
-        // context.mounted showToast removed,
-                  ),
-                ),
-              );
-            },
-          );
-        }
       } finally {
         updating.value = false;
       }

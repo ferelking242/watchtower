@@ -126,13 +126,6 @@ class AlbumCard extends HookConsumerWidget {
         playlistNotifier.addTracks(fetchedTracks);
         playlistNotifier.addCollection(album.id);
         historyNotifier.addAlbums([album]);
-        // context.mounted showToast removed,
-                  ),
-                ),
-              );
-            },
-          );
-        }
       } finally {
         updating.value = false;
       }

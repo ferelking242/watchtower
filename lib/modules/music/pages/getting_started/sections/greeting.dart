@@ -19,19 +19,32 @@ class GettingStartedPageGreetingSection extends HookConsumerWidget {
           children: [
             Assets.branding.spotubeLogoPng.image(height: 200),
             const SizedBox(height: 24, width: 24),
-            const Text("Spotube").h4(),
+            const Text(
+              "Spotube",
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 4, width: 4),
             Text(
               kIsMobile
                   ? context.l10n.freedom_of_music_palm
                   : context.l10n.freedom_of_music,
               textAlign: TextAlign.center,
-            ).light().italic(),
+              style: const TextStyle(
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w300,
+              ),
+            ),
             const SizedBox(height: 84, width: 84),
             FilledButton(
               onPressed: onNext,
-              trailing: const Icon(SpotubeIcons.angleRight),
-              child: Text(context.l10n.get_started),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(context.l10n.get_started),
+                  const SizedBox(width: 8),
+                  const Icon(SpotubeIcons.angleRight),
+                ],
+              ),
             ),
           ],
         ),

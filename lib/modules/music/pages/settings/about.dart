@@ -52,7 +52,7 @@ class AboutSpotubePage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: AppBar(
-          leading: const MusicBackButton(),
+          leading: MusicBackButton(),
           title: Text(context.l10n.about_spotube),
         ),
         body: SingleChildScrollView(

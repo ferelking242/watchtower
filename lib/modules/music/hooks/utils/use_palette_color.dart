@@ -8,7 +8,7 @@ import 'package:watchtower/modules/music/components/image/universal_image.dart';
 
 final _paletteColorState = StateProvider<PaletteColor>(
   (ref) {
-    return PaletteColor(Colors.grey[300], 0);
+    return PaletteColor(Colors.grey[300]!, 0);
   },
 );
 

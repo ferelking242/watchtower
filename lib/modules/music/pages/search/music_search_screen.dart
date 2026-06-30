@@ -184,7 +184,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
     return Container(
       color: _kBg,
       padding: EdgeInsets.only(top: top, left: 16, right: 16, bottom: 12),
-      body: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -206,7 +206,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.camera_alt_outlined,
-                    color: Colors.white, iconSize: 24),
+                    color: Colors.white, size: 24),
                 onPressed: () {},
                 visualDensity: VisualDensity.compact,
               ),

@@ -128,7 +128,7 @@ class LocalLibraryPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: AppBar(
-          leading: const MusicBackButton(),
+          leading: MusicBackButton(),
           title: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

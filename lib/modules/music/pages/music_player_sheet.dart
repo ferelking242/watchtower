@@ -401,7 +401,7 @@ class _CtrlBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return IconButton(
-      icon: Icon(icon, iconSize: size),
+      icon: Icon(icon, size: size),
       color: active ? cs.primary : Colors.white.withValues(alpha: 0.85),
       onPressed: onTap,
     );

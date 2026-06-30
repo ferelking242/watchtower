@@ -121,28 +121,29 @@ class PlayerQueue extends HookConsumerWidget {
                   if (isSearching.value && mediaQuery.smAndDown)
                     AppBar(
                       backgroundColor: Colors.transparent,
-                      leading: Row(mainAxisSize: MainAxisSize.min, children: [if (mediaQuery.smAndDown)
-                          IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_outlined,
-                            ),
-                            onPressed: () {
-                              isSearching.value = false;
-                              searchText.value = '';
-                            },
-                          )])
-                      child: searchBar,
+                      leading: mediaQuery.smAndDown
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new_outlined,
+                              ),
+                              onPressed: () {
+                                isSearching.value = false;
+                                searchText.value = '';
+                              },
+                            )
+                          : null,
+                      title: searchBar,
                     )
                   else if (selectionMode.value)
                     AppBar(
-                      backgroundColor: Colors.transparent
-                      leading: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(
-                          icon: const Icon(SpotubeIcons.close),
-                          onPressed: () {
-                            selectedTrackIds.value = {};
-                            selectionMode.value = false;
-                          },
-                        )]),
+                      backgroundColor: Colors.transparent,
+                      leading: IconButton(
+                        icon: const Icon(SpotubeIcons.close),
+                        onPressed: () {
+                          selectedTrackIds.value = {};
+                          selectionMode.value = false;
+                        },
+                      ),
                       title: SizedBox(
                         height: 30,
                         child: AutoSizeText(
@@ -150,14 +151,13 @@ class PlayerQueue extends HookConsumerWidget {
                           maxLines: 1,
                         ),
                       ),
-                      trailing: [
+                      actions: [
                         PlayerQueueActionButton(
                           builder: (context, close) => Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(height: 12, width: 12),
                               ButtonTile(
-                                style: const ButtonStyle.ghost(),
                                 leading:
                                     const Icon(SpotubeIcons.selectionCheck),
                                 title: Text(context.l10n.select_all),
@@ -168,7 +168,6 @@ class PlayerQueue extends HookConsumerWidget {
                                 },
                               ),
                               ButtonTile(
-                                style: const ButtonStyle.ghost(),
                                 leading: const Icon(SpotubeIcons.playlistAdd),
                                 title: Text(context.l10n.add_to_playlist),
                                 onPressed: () async {
@@ -193,7 +192,6 @@ class PlayerQueue extends HookConsumerWidget {
                                 },
                               ),
                               ButtonTile(
-                                style: const ButtonStyle.ghost(),
                                 leading: const Icon(SpotubeIcons.trash),
                                 title: Text(context.l10n.remove_from_queue),
                                 onPressed: () async {
@@ -216,8 +214,7 @@ class PlayerQueue extends HookConsumerWidget {
                     )
                   else
                     AppBar(
-                      trailingGap: 0,
-                      backgroundColor: Colors.transparent
+                      backgroundColor: Colors.transparent,
                       title: mediaQuery.mdAndUp || !isSearching.value
                           ? SizedBox(
                               height: 30,
@@ -227,7 +224,7 @@ class PlayerQueue extends HookConsumerWidget {
                               ),
                             )
                           : null,
-                      trailing: [
+                      actions: [
                         if (mediaQuery.mdAndUp)
                           searchBar
                         else

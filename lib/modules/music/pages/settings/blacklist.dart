@@ -49,7 +49,7 @@ class BlackListPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: AppBar(
-          leading: const MusicBackButton(),
+          leading: MusicBackButton(),
           title: Text(context.l10n.blacklist),
         ),
         body: Column(
@@ -87,7 +87,7 @@ class BlackListPage extends HookConsumerWidget {
                         onPressed: () {
                           ref
                               .read(blacklistProvider.notifier)
-                              .remove(item);
+                              .remove(item.elementId);
                         },
                       ),
                     );

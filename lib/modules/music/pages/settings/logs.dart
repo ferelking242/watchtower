@@ -25,7 +25,7 @@ class LogsPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: AppBar(
-          leading: const MusicBackButton(),
+          leading: MusicBackButton(),
           title: Text(context.l10n.logs),
           actions: [
             IconButton(

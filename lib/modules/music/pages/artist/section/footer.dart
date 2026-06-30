@@ -14,7 +14,6 @@ class ArtistPageFooter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final ThemeData() = Theme.of(context);
     final mediaQuery = MediaQuery.of(context);
 
     final artistImage = artist.images.asUrlString(
@@ -53,7 +52,6 @@ class ArtistPageFooter extends ConsumerWidget {
             color: Colors.white,
           ),
           children: [
-            // icon
             const WidgetSpan(
               child: Icon(
                 SpotubeIcons.wikipedia,
@@ -74,9 +72,9 @@ class ArtistPageFooter extends ConsumerWidget {
             TextSpan(
               text: '\n...read more at wikipedia',
               style: theme.textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
-                color: Colors.sky[300],
+                color: Colors.lightBlue[300],
                 decoration: TextDecoration.underline,
-                decorationColor: Colors.sky[300],
+                decorationColor: Colors.lightBlue[300],
               ),
               recognizer: TapGestureRecognizer()
                 ..onTap = () async {

@@ -37,10 +37,16 @@ class ConnectDeviceButton extends HookConsumerWidget {
           onPressed: () {
             context.navigateTo(const ConnectRoute());
           },
-          trailing: const Icon(SpotubeIcons.speaker),
-          child: Text(
-            "${context.l10n.devices}"
-            "${hasServices ? " (${connectClients.asData?.value.services.length})" : ""}",
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "${context.l10n.devices}"
+                "${hasServices ? " (${connectClients.asData?.value.services.length})" : ""}",
+              ),
+              const SizedBox(width: 8),
+              const Icon(SpotubeIcons.speaker),
+            ],
           ),
         ),
       );
@@ -48,31 +54,42 @@ class ConnectDeviceButton extends HookConsumerWidget {
 
     return Row(
       children: [
-        SecondaryBadge(
+        OutlinedButton(
           onPressed: () {
             context.navigateTo(const ConnectRoute());
           },
-          
-          leading: connectClients.asData?.value.resolvedService != null
-              ? const Center(
-                  child: DotItem(
-                    size: 6,
-                    borderRadius: 10,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (connectClients.asData?.value.resolvedService != null)
+                Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: const BoxDecoration(
                     color: Colors.green,
+                    shape: BoxShape.circle,
                   ),
-                )
-              : null,
-          child: Text(
-            "${context.l10n.devices}"
-            "${hasServices ? " (${connectClients.asData?.value.services.length})" : ""}",
+                ),
+              Text(
+                "${context.l10n.devices}"
+                "${hasServices ? " (${connectClients.asData?.value.services.length})" : ""}",
+              ),
+            ],
           ),
         ),
-        IconButton.primary(
-          icon: const Icon(SpotubeIcons.speaker),
+        const SizedBox(width: 4),
+        FilledButton.tonal(
           onPressed: () {
             context.navigateTo(const ConnectRoute());
           },
-        )
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(40, 40),
+            padding: EdgeInsets.zero,
+            shape: const CircleBorder(),
+          ),
+          child: const Icon(SpotubeIcons.speaker),
+        ),
       ],
     );
   }

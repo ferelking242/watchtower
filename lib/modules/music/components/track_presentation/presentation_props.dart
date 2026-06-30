@@ -38,6 +38,29 @@ class PaginationProps {
       onRefresh.hashCode;
 }
 
+class TrackPresentationOptionsScope extends InheritedWidget {
+  final TrackPresentationOptions data;
+
+  const TrackPresentationOptionsScope({
+    super.key,
+    required this.data,
+    required super.child,
+  });
+
+  static TrackPresentationOptions of(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<TrackPresentationOptionsScope>();
+    assert(scope != null,
+        'No TrackPresentationOptionsScope found in widget tree');
+    return scope!.data;
+  }
+
+  @override
+  bool updateShouldNotify(TrackPresentationOptionsScope oldWidget) {
+    return data != oldWidget.data;
+  }
+}
+
 class TrackPresentationOptions {
   final Object collection;
   final String title;
@@ -77,7 +100,7 @@ class TrackPresentationOptions {
       : (collection as SpotubeSimplePlaylistObject).id;
 
   static TrackPresentationOptions of(BuildContext context) {
-    return Data.of<TrackPresentationOptions>(context);
+    return TrackPresentationOptionsScope.of(context);
   }
 
   @override

@@ -69,7 +69,7 @@ class TitleBar extends HookConsumerWidget implements PreferredSizeWidget {
         (Navigator.canPop(context) || context.watchRouter.canPop());
 
     final effectiveLeading = canPop
-        ? const MusicBackButton()
+        ? MusicBackButton()
         : leading.isNotEmpty
             ? leading.first
             : null;

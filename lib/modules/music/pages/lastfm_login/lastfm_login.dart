@@ -52,7 +52,7 @@ class LastFMLoginPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: AppBar(
-          leading: const MusicBackButton(),
+          leading: MusicBackButton(),
         ),
         body: Row(
           mainAxisAlignment: MainAxisAlignment.center,

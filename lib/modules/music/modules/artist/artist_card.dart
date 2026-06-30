@@ -33,41 +33,71 @@ class ArtistCard extends HookConsumerWidget {
 
     return SizedBox(
       width: 180,
-      child: Button.card(
-        onPressed: () {
-          context.navigateTo(ArtistRoute(artistId: artist.id));
-        },
-        child: Column(
-          children: [
-            Avatar(
-              initials: artist.name.trim()[0].toUpperCase(),
-              provider: backgroundImage,
-              size: 130,
-            ),
-            const SizedBox(height: 10, width: 10),
-            AutoSizeText(
-              artist.name,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium!,
-            ),
-            const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            context.navigateTo(ArtistRoute(artistId: artist.id));
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
               children: [
-                if (isBlackListed == true) ...[
-                  DestructiveBadge(
-                    child: Text(context.l10n.blacklisted.toUpperCase()),
+                ClipOval(
+                  child: CircleAvatar(
+                    backgroundImage: backgroundImage,
+                    radius: 65,
+                    child: AutoSizeText(
+                      artist.name.isNotEmpty
+                          ? artist.name.trim()[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(fontSize: 48, color: Colors.white),
+                      maxLines: 1,
+                    ),
                   ),
-                  const SizedBox(height: 5, width: 5),
-                ],
-                SecondaryBadge(
-                  child: Text(context.l10n.artist.toUpperCase()),
+                ),
+                const SizedBox(height: 10, width: 10),
+                AutoSizeText(
+                  artist.name,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium!,
+                ),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (isBlackListed == true) ...[
+                      Chip(
+                        label: Text(context.l10n.blacklisted.toUpperCase()),
+                        backgroundColor: Colors.red.shade100,
+                        labelStyle: const TextStyle(
+                            color: Colors.red, fontSize: 10),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      const SizedBox(height: 5, width: 5),
+                    ],
+                    Chip(
+                      label: Text(context.l10n.artist.toUpperCase()),
+                      backgroundColor:
+                          theme.colorScheme.secondaryContainer,
+                      labelStyle: TextStyle(
+                          color: theme.colorScheme.onSecondaryContainer,
+                          fontSize: 10),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ],
                 )
               ],
-            )
-          ],
+            ),
+          ),
         ),
       ),
     );

@@ -43,13 +43,13 @@ class TrackPresentation extends HookConsumerWidget {
       };
     }, [focusNode, scrollController, scale]);
 
-    return Data<TrackPresentationOptions>.inherit(
+    return TrackPresentationOptionsScope(
       data: options,
       child: SafeArea(
         bottom: false,
         child: Scaffold(
-          headers: const [AppBar()],
-          child: CustomScrollView(
+          appBar: AppBar(),
+          body: CustomScrollView(
             controller: scrollController,
             slivers: [
               const TrackPresentationTopSection(),
@@ -61,7 +61,7 @@ class TrackPresentation extends HookConsumerWidget {
                   ),
                   LayoutBuilder(builder: (context, constrains) {
                     return ListTile(
-                      padding: const EdgeInsets.symmetric(
+                      contentPadding: const EdgeInsets.symmetric(
                         vertical: 8,
                         horizontal: 16,
                       ),

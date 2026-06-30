@@ -40,54 +40,50 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Button(
-                      leading: const Icon(SpotubeIcons.github).copyWith(
-                          decoration: (context, states, value) {
-                        if (states.isNotEmpty) {
-                          return ButtonStyle()
-                              .decoration(context, states);
-                        }
-
-                        return BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(8),
-                        );
-                      }),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.black,
+                      ),
                       onPressed: () async {
                         await launchUrlString(
                           "https://github.com/KRTirtho/spotube",
                           mode: LaunchMode.externalApplication,
                         );
                       },
-                      child: Text(
-                        context.l10n.contribute_on_github,
-                        style: const TextStyle(color: Colors.white),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(SpotubeIcons.github),
+                          const SizedBox(width: 8),
+                          Text(
+                            context.l10n.contribute_on_github,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ],
                       ),
                     ),
                     if (!Env.hideDonations) ...[
                       const SizedBox(height: 16, width: 16),
-                      Button(
-                        leading: const Icon(SpotubeIcons.openCollective).copyWith(
-                            decoration: (context, states, value) {
-                          if (states.isNotEmpty) {
-                            return ButtonStyle()
-                                .decoration(context, states);
-                          }
-
-                          return BoxDecoration(
-                            color: const Color(0xff4cb7f6),
-                            borderRadius: BorderRadius.circular(8),
-                          );
-                        }),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xff4cb7f6),
+                        ),
                         onPressed: () async {
                           await launchUrlString(
                             "https://opencollective.com/spotube",
                             mode: LaunchMode.externalApplication,
                           );
                         },
-                        child: Text(
-                          context.l10n.donate_on_open_collective,
-                          style: const TextStyle(color: Colors.white),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(SpotubeIcons.openCollective),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.l10n.donate_on_open_collective,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ],
                         ),
                       ),
                     ]
@@ -103,14 +99,20 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 FilledButton(
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.extensions),
                   onPressed: () async {
                     await KVStoreService.setDoneGettingStarted(true);
                     if (context.mounted) {
                       context.pushRoute(const SettingsMetadataProviderRoute());
                     }
                   },
-                  child: Text(context.l10n.install_a_metadata_provider),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(SpotubeIcons.extensions),
+                      const SizedBox(width: 8),
+                      Text(context.l10n.install_a_metadata_provider),
+                    ],
+                  ),
                 ),
               ],
             ),
