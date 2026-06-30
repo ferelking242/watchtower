@@ -41,7 +41,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                     child: Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: context.Theme.of(context).textTheme.headlineMedium!,
+                      style: Theme.of(context).textTheme.headlineMedium!,
                     ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),

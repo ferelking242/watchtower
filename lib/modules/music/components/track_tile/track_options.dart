@@ -79,7 +79,7 @@ class TrackOptions extends HookConsumerWidget {
                 Text(context.l10n.go_to_album),
                 Text(
                   track.album.name,
-                  style: context.Theme.of(context).textTheme.labelSmall!,
+                  style: Theme.of(context).textTheme.labelSmall!,
                 ),
               ],
             ),

@@ -97,7 +97,7 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
       headings: [
         Text(
           context.l10n.more_actions,
-          style: context.Theme.of(context).textTheme.bodyLarge!,
+          style: Theme.of(context).textTheme.bodyLarge!,
         ),
       ],
       onSelected: (action) async {

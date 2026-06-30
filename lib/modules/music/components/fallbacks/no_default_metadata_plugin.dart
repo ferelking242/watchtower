@@ -24,7 +24,7 @@ class NoDefaultMetadataPlugin extends StatelessWidget {
           ),
           AutoSizeText(
             context.l10n.no_default_metadata_provider_selected,
-            style: context.Theme.of(context).textTheme.titleLarge!,
+            style: Theme.of(context).textTheme.titleLarge!,
             maxLines: 1,
           ),
           FilledButton(

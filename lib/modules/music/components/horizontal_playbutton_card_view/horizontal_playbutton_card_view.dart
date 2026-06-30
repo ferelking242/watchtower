@@ -54,7 +54,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
             children: [
               Flexible(
                 child: DefaultTextStyle(
-                  style: context.Theme.of(context).textTheme.titleLarge!.copyWith(
+                  style: Theme.of(context).textTheme.titleLarge!.copyWith(
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                   maxLines: 1,

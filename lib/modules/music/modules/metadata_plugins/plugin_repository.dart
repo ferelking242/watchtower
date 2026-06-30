@@ -171,7 +171,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                   ),
                 ],
               ),
-              style: context.Theme.of(context).textTheme.labelSmall!,
+              style: Theme.of(context).textTheme.labelSmall!,
             ),
           Wrap(
             spacing: 8,
@@ -184,7 +184,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
               else ...[
                 Text(
                   context.l10n.author_name(pluginRepo.owner),
-                  style: context.Theme.of(context).textTheme.labelSmall!,
+                  style: Theme.of(context).textTheme.labelSmall!,
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(

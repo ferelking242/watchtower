@@ -111,7 +111,7 @@ class TextFormBuilderField extends StatelessWidget {
         children: [
           if (label != null)
             DefaultTextStyle(
-              style: context.Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
                 color: field.hasError
                     ? Theme.of(context).colorScheme.destructive
                     : Theme.of(context).colorScheme.onSurface,

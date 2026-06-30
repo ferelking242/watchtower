@@ -31,7 +31,7 @@ class SettingsScrobblingPage extends HookConsumerWidget {
           textColor: Theme.of(context).colorScheme.onSurface,
           iconColor: Theme.of(context).colorScheme.onSurface,
           selectedColor: Theme.of(context).colorScheme.accent,
-          subtitleTextStyle: context.Theme.of(context).textTheme.labelSmall!,
+          subtitleTextStyle: Theme.of(context).textTheme.labelSmall!,
         ),
         child: SafeArea(
           bottom: false,
