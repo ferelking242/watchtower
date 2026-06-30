@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/music/collections/routes.dart'
-    show rootNavigatorKey;
+    show rootNavigatorKey; // kept for _NavPill go_router usage
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
@@ -79,29 +79,20 @@ String _fmtDuration(int ms) {
 
 // ─── Navigation via le navigator global du module music ───────────────────────
 
-void _toAlbum(SpotubeSimpleAlbumObject album) {
-  final ctx = rootNavigatorKey.currentContext;
-  if (ctx == null) return;
-  ctx.navigateTo(AlbumRoute(id: album.id, album: album));
+void _toAlbum(BuildContext context, SpotubeSimpleAlbumObject album) {
+  context.navigateTo(AlbumRoute(id: album.id, album: album));
 }
 
-void _toPlaylist(SpotubeSimplePlaylistObject playlist) {
-  final ctx = rootNavigatorKey.currentContext;
-  if (ctx == null) return;
-  ctx.navigateTo(PlaylistRoute(id: playlist.id, playlist: playlist));
+void _toPlaylist(BuildContext context, SpotubeSimplePlaylistObject playlist) {
+  context.navigateTo(PlaylistRoute(id: playlist.id, playlist: playlist));
 }
 
-void _toArtist(SpotubeFullArtistObject artist) {
-  final ctx = rootNavigatorKey.currentContext;
-  if (ctx == null) return;
-  ctx.navigateTo(ArtistRoute(artistId: artist.id));
+void _toArtist(BuildContext context, SpotubeFullArtistObject artist) {
+  context.navigateTo(ArtistRoute(artistId: artist.id));
 }
 
-void _toBrowseSection(SpotubeBrowseSectionObject<Object> section) {
-  final ctx = rootNavigatorKey.currentContext;
-  if (ctx == null) return;
-  ctx.navigateTo(
-      HomeBrowseSectionItemsRoute(sectionId: section.id, section: section));
+void _toBrowseSection(BuildContext context, SpotubeBrowseSectionObject<Object> section) {
+  context.navigateTo(HomeBrowseSectionItemsRoute(sectionId: section.id, section: section));
 }
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
@@ -403,7 +394,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                   itemBuilder: (_, i) => _SectionMoodCard(
                     section: sections[i],
                     gradient: _moodGradient(i),
-                    onTap: () => _toBrowseSection(sections[i]),
+                    onTap: () => _toBrowseSection(context, sections[i]),
                   ),
                 ),
               ),
@@ -537,7 +528,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                   label: (a) => a.name,
                   sublabel: (a) =>
                       _artistNames(a.artists),
-                  onTap: (a) => _toAlbum(a),
+                  onTap: (a) => _toAlbum(context, a),
                 ),
 
               // ── Artistes ───────────────────────────────────────────────
@@ -550,7 +541,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                       : a.images.first.url,
                   label: (a) => a.name,
                   sublabel: (a) => 'Artiste',
-                  onTap: (a) => _toArtist(a),
+                  onTap: (a) => _toArtist(context, a),
                   circular: true,
                 ),
 
@@ -564,7 +555,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                       : p.images.first.url,
                   label: (p) => p.name,
                   sublabel: (p) => p.owner.name,
-                  onTap: (p) => _toPlaylist(p),
+                  onTap: (p) => _toPlaylist(context, p),
                 ),
             ],
           );
