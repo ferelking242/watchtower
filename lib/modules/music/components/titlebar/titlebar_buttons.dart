@@ -54,12 +54,12 @@ class WindowTitleBarButtons extends HookConsumerWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ShadcnWindowButton(
+          WindowControlButton(
             icon: MinimizeIcon(color: Theme.of(context).colorScheme.onSurface),
             onPressed: windowManager.minimize,
           ),
           if (isMaximized.value != true)
-            ShadcnWindowButton(
+            WindowControlButton(
               icon: MaximizeIcon(color: Theme.of(context).colorScheme.onSurface),
               onPressed: () {
                 windowManager.maximize();
@@ -67,7 +67,7 @@ class WindowTitleBarButtons extends HookConsumerWidget {
               },
             )
           else
-            ShadcnWindowButton(
+            WindowControlButton(
               icon: RestoreIcon(color: Theme.of(context).colorScheme.onSurface),
               onPressed: () {
                 windowManager.unmaximize();
@@ -75,7 +75,7 @@ class WindowTitleBarButtons extends HookConsumerWidget {
               },
             ),
           HoverBuilder(builder: (context, isHovered) {
-            return ShadcnWindowButton(
+            return WindowControlButton(
               icon: CloseIcon(
                 color: isHovered
                     ? Colors.white

@@ -109,9 +109,7 @@ class LocalFolderItem extends HookConsumerWidget {
                     icon: const Icon(Icons.more_vert),
                     iconSize: 20.0,
                     onPressed: () {
-                      // Capture shadcn theme before entering the overlay.
-                      // Without this the overlay context has no shadcn ancestor
-                      // and shadcn widgets render as blank gray boxes.
+                      // Capture theme data before entering the overlay.
                       showMenu(
                         context: context,
                         position: RelativeRect.fromLTRB(0, 0, 0, 0),
