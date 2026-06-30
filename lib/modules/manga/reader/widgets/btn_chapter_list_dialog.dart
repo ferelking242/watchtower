@@ -18,8 +18,10 @@ Widget btnToShowChapterListDialog(
   Chapter chapter, {
   void Function(bool)? onChanged,
   Color? iconColor,
+  double? iconSize,
 }) {
   return IconButton(
+    iconSize: iconSize ?? 24,
     onPressed: () async {
       onChanged?.call(false);
       await showDialog(

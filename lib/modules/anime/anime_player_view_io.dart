@@ -2383,6 +2383,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
         return ArrowPopupMenuButton<String>(
           tooltip: '',
           icon: const Icon(Icons.closed_caption_outlined, color: Colors.white),
+          iconSize: 26,
           menuWidth: 220,
           itemBuilder: (context) => items,
         );
@@ -2394,6 +2395,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     return ArrowPopupMenuButton<String>(
       tooltip: '',
       icon: const Icon(Icons.audiotrack_outlined, color: Colors.white),
+      iconSize: 26,
       menuWidth: 220,
       itemBuilder: (context) {
         final items = <PopupMenuEntry<String>>[];
@@ -2594,10 +2596,11 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                   }
                 },
                 iconColor: Colors.white,
+                iconSize: 26,
               ),
               IconButton(
                 padding: const EdgeInsets.all(5),
-                icon: const Icon(Icons.more_vert, color: Colors.white),
+                icon: const Icon(Icons.more_vert, color: Colors.white, size: 26),
                 onPressed: () => _showSettingsPanel(context),
               ),
             ],

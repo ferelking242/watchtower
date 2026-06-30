@@ -186,6 +186,7 @@ void main(List<String> args) async {
         isar = _mockIsar;
       } else {
         isar = await storage.initDB(null, inspector: false);
+        _ensureLocalSources();
       }
       // Start the background isolate AFTER the DB is open and isar is assigned.
       if (!kIsWeb) {
@@ -225,6 +226,40 @@ void main(List<String> args) async {
   );
 }
 
+void _ensureLocalSources() {
+  const itemTypes = [ItemType.manga, ItemType.anime, ItemType.novel];
+  isar.writeTxnSync(() {
+    for (final type in itemTypes) {
+      final existing = isar.sources
+          .filter()
+          .nameEqualTo('local')
+          .and()
+          .langEqualTo('')
+          .and()
+          .itemTypeEqualTo(type)
+          .findFirstSync();
+      if (existing == null) {
+        isar.sources.putSync(
+          Source()
+            ..name = 'local'
+            ..lang = ''
+            ..isAdded = true
+            ..isActive = true
+            ..isPinned = false
+            ..lastUsed = false
+            ..itemType = type,
+        );
+      } else if (!(existing.isAdded ?? false) || !(existing.isActive ?? false)) {
+        isar.sources.putSync(
+          existing
+            ..isAdded = true
+            ..isActive = true,
+        );
+      }
+    }
+  });
+}
+
 Future<void> _postLaunchInit(StorageProvider storage) async {
   await AppLogger.init();
   if (!kIsWeb) {
@@ -248,6 +283,13 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
         }
       }
     }
+    // Ensure Watchtower/local folder exists for local media source
+    try {
+      final localDir = Directory('/storage/emulated/0/Watchtower/local');
+      if (!await localDir.exists()) {
+        await localDir.create(recursive: true);
+      }
+    } catch (_) {}
     await cfResolutionWebviewServer();
       // Only init notification service AFTER onboarding is complete.
       // During onboarding the user grants notification permission manually.
