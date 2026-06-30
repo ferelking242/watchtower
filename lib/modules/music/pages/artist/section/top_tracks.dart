@@ -106,13 +106,17 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                 ),
               ),
               if (!isPlaylistPlaying)
-                IconButton.outlined(
+                IconButton(
                   icon: const Icon(
                     SpotubeIcons.queueAdd,
                   ),
+                  style: IconButton.styleFrom(
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
                   onPressed: () {
                     playlistNotifier.addTracks(topTracks.toList());
-                    // showToast removed
                   },
                 ),
               const SizedBox(width: 5),
