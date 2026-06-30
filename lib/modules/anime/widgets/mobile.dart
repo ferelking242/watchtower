@@ -28,6 +28,8 @@ class MobileControllerWidget extends ConsumerStatefulWidget {
   final GlobalKey<VideoState> videoStatekey;
   final Widget bottomButtonBarWidget;
   final ValueNotifier<List<(String, int)>> chapterMarks;
+  final Widget? leftSideWidget;
+  final Widget? rightSideWidget;
   const MobileControllerWidget({
     super.key,
     required this.videoController,
@@ -37,6 +39,8 @@ class MobileControllerWidget extends ConsumerStatefulWidget {
     required this.videoStatekey,
     required this.doubleSpeed,
     required this.chapterMarks,
+    this.leftSideWidget,
+    this.rightSideWidget,
   });
 
   @override
@@ -462,15 +466,37 @@ class _MobileControllerWidgetState
                                     ? 0.0
                                     : 1.0,
                                 duration: controlsTransitionDuration,
-                                child: Center(
-                                  child: Row(
-                                    children: mobilePrimaryButtonBar(
-                                      context,
-                                      widget.videoStatekey,
-                                      widget.streamController,
-                                      widget.videoController,
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: Row(
+                                        children: mobilePrimaryButtonBar(
+                                          context,
+                                          widget.videoStatekey,
+                                          widget.streamController,
+                                          widget.videoController,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    if (widget.leftSideWidget != null)
+                                      Positioned(
+                                        left: 8,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Center(
+                                          child: widget.leftSideWidget!,
+                                        ),
+                                      ),
+                                    if (widget.rightSideWidget != null)
+                                      Positioned(
+                                        right: 8,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Center(
+                                          child: widget.rightSideWidget!,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),

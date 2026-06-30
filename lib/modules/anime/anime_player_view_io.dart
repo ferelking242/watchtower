@@ -333,6 +333,9 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
   final ValueNotifier<String> _selectedShader = ValueNotifier("");
   final ValueNotifier<ActiveCustomButton?> _customButton = ValueNotifier(null);
   final ValueNotifier<List<CustomButton>?> _customButtons = ValueNotifier(null);
+  bool _locked = false;
+  bool _isMuted = false;
+  double _savedVolume = 1.0;
   late final ValueNotifier<_AniSkipPhase> _skipPhase = ValueNotifier(
     _AniSkipPhase.none,
   );
@@ -1714,16 +1717,46 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
 
   Widget _mobileBottomButtonBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 30),
+      padding: const EdgeInsets.only(bottom: 15),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                CustomPlayOrPauseButton(
+                  controller: _controller,
+                  isDesktop: false,
+                ),
+                if (hasNextEpisode)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.skip_next,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    onPressed: () async {
+                      pushToNewEpisode(
+                        context,
+                        _streamController.getNextEpisode(),
+                      );
+                    },
+                  ),
                 _seekToWidget(),
+                Expanded(
+                  child: Text(
+                    widget.episode.name ??
+                        widget.episode.manga.value!.name!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 _chapterMarkWidget(),
                 _buildSettingsButtons(context),
               ],
@@ -2203,68 +2236,6 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           icon: const Icon(Icons.video_settings, color: Colors.white),
         ),
         if (useMpvConfig) ..._buildMpvSettingsButton(context),
-        // ── Audio language ─────────────────────────────────────────────────
-        ArrowPopupMenuButton<String>(
-          tooltip: '',
-          icon: const Icon(Icons.language, color: Colors.white),
-          menuWidth: 220,
-          itemBuilder: (context) {
-            final items = <PopupMenuEntry<String>>[];
-            final currentAudio = _player.state.track.audio;
-
-            // Tracks embedded in the file
-            for (final track in _player.state.tracks.audio) {
-              final label =
-                  track.title ?? track.language ?? track.channels ?? '';
-              if (label.isEmpty) continue;
-              items.add(PopupMenuItem<String>(
-                value: track.id,
-                onTap: () => _player.setAudioTrack(track),
-                child: textWidget(
-                  label,
-                  track.id == currentAudio.id,
-                ),
-              ));
-            }
-
-            // External audio tracks from video list
-            if (widget.videos.isNotEmpty && !widget.isLocal) {
-              final seen = <String>{};
-              for (final video in widget.videos) {
-                for (final audio in video.audios ?? []) {
-                  if (audio.file == null || audio.file!.isEmpty) continue;
-                  if (!seen.add(audio.file!)) continue;
-                  final lbl = audio.label ?? audio.file!;
-                  items.add(PopupMenuItem<String>(
-                    value: audio.file!,
-                    onTap: () => _player.setAudioTrack(
-                      AudioTrack.uri(
-                        audio.file!,
-                        title: lbl,
-                        language: lbl,
-                      ),
-                    ),
-                    child: textWidget(lbl, false),
-                  ));
-                }
-              }
-            }
-
-            if (items.isEmpty) {
-              items.add(const PopupMenuItem<String>(
-                enabled: false,
-                child: Text('Aucune piste audio disponible'),
-              ));
-            }
-            return items;
-          },
-        ),
-        // ── Settings 3-dot menu ────────────────────────────────────────────
-        IconButton(
-          padding: _isDesktop ? EdgeInsets.zero : const EdgeInsets.all(5),
-          icon: const Icon(Icons.more_vert, color: Colors.white),
-          onPressed: () => _showSettingsPanel(context),
-        ),
         ArrowPopupMenuButton<double>(
           tooltip: '', // Remove default tooltip "Show menu" for consistency
           icon: const Icon(Icons.speed, color: Colors.white),
@@ -2363,6 +2334,204 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     );
   }
 
+  Widget _subtitleTopButton(BuildContext context) {
+    return StreamBuilder(
+      stream: _player.stream.tracks,
+      builder: (context, _) {
+        final currentSub = _player.state.track.subtitle;
+        final tracks = _player.state.tracks.subtitle
+            .where((t) => (t.title ?? t.language ?? '').isNotEmpty)
+            .toList();
+        final items = <PopupMenuEntry<String>>[];
+        items.add(PopupMenuItem<String>(
+          value: 'no',
+          onTap: () => _player.setSubtitleTrack(SubtitleTrack.no()),
+          child: textWidget('Désactivé', currentSub.id == 'no'),
+        ));
+        for (final track in tracks) {
+          final label = track.title ?? track.language ?? '';
+          items.add(PopupMenuItem<String>(
+            value: track.id,
+            onTap: () => _player.setSubtitleTrack(track),
+            child: textWidget(label, track.id == currentSub.id),
+          ));
+        }
+        if (widget.videos.isNotEmpty) {
+          for (final video in widget.videos) {
+            for (final sub in video.subtitles ?? []) {
+              if (sub.file == null || sub.file!.isEmpty) continue;
+              final file = sub.file!;
+              final lbl = sub.label ?? file;
+              items.add(PopupMenuItem<String>(
+                value: file,
+                onTap: () => _player.setSubtitleTrack(
+                  file.startsWith('http') || file.startsWith('file')
+                      ? SubtitleTrack.uri(file, title: lbl, language: lbl)
+                      : SubtitleTrack.data(file, title: lbl, language: lbl),
+                ),
+                child: textWidget(lbl, false),
+              ));
+            }
+          }
+        }
+        if (items.length <= 1) {
+          items.add(const PopupMenuItem<String>(
+            enabled: false,
+            child: Text('Aucun sous-titre disponible'),
+          ));
+        }
+        return ArrowPopupMenuButton<String>(
+          tooltip: '',
+          icon: const Icon(Icons.closed_caption_outlined, color: Colors.white),
+          menuWidth: 220,
+          itemBuilder: (context) => items,
+        );
+      },
+    );
+  }
+
+  Widget _audioTopButton(BuildContext context) {
+    return ArrowPopupMenuButton<String>(
+      tooltip: '',
+      icon: const Icon(Icons.audiotrack_outlined, color: Colors.white),
+      menuWidth: 220,
+      itemBuilder: (context) {
+        final items = <PopupMenuEntry<String>>[];
+        final currentAudio = _player.state.track.audio;
+        for (final track in _player.state.tracks.audio) {
+          final label = track.title ?? track.language ?? track.channels ?? '';
+          if (label.isEmpty) continue;
+          items.add(PopupMenuItem<String>(
+            value: track.id,
+            onTap: () => _player.setAudioTrack(track),
+            child: textWidget(label, track.id == currentAudio.id),
+          ));
+        }
+        if (widget.videos.isNotEmpty && !widget.isLocal) {
+          final seen = <String>{};
+          for (final video in widget.videos) {
+            for (final audio in video.audios ?? []) {
+              if (audio.file == null || audio.file!.isEmpty) continue;
+              if (!seen.add(audio.file!)) continue;
+              final lbl = audio.label ?? audio.file!;
+              items.add(PopupMenuItem<String>(
+                value: audio.file!,
+                onTap: () => _player.setAudioTrack(
+                  AudioTrack.uri(audio.file!, title: lbl, language: lbl),
+                ),
+                child: textWidget(lbl, false),
+              ));
+            }
+          }
+        }
+        if (items.isEmpty) {
+          items.add(const PopupMenuItem<String>(
+            enabled: false,
+            child: Text('Aucune piste audio disponible'),
+          ));
+        }
+        return items;
+      },
+    );
+  }
+
+  Widget _lockButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: IconButton(
+        icon: Icon(
+          _locked ? Icons.lock_outline : Icons.lock_open_outlined,
+          color: Colors.white,
+          size: 22,
+        ),
+        tooltip: _locked ? 'Déverrouiller' : 'Verrouiller',
+        onPressed: () => setState(() => _locked = !_locked),
+      ),
+    );
+  }
+
+  Widget _muteButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: IconButton(
+        icon: Icon(
+          _isMuted ? Icons.volume_off_outlined : Icons.volume_up_outlined,
+          color: Colors.white,
+          size: 22,
+        ),
+        tooltip: _isMuted ? 'Réactiver le son' : 'Muet',
+        onPressed: () {
+          setState(() {
+            if (_isMuted) {
+              _isMuted = false;
+              _player.setVolume(_savedVolume * 100);
+            } else {
+              _savedVolume = _player.state.volume / 100;
+              _isMuted = true;
+              _player.setVolume(0);
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _screenshotSideButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: btnToShowShareScreenshot(
+        widget.episode,
+        onChanged: (v) {
+          if (v) {
+            _player.play();
+          } else {
+            _player.pause();
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _rotateSideButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: IconButton(
+        icon: const Icon(
+          Icons.screen_rotation_outlined,
+          color: Colors.white,
+          size: 22,
+        ),
+        tooltip: 'Rotation',
+        onPressed: () {
+          final orientation = MediaQuery.of(context).orientation;
+          if (orientation == Orientation.landscape) {
+            SystemChrome.setPreferredOrientations([
+              DeviceOrientation.portraitUp,
+              DeviceOrientation.portraitDown,
+            ]);
+          } else {
+            SystemChrome.setPreferredOrientations([
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]);
+          }
+        },
+      ),
+    );
+  }
+
   Widget _topButtonBar(BuildContext context) {
     final fullScreen = ref.watch(fullscreenProvider);
     return Padding(
@@ -2435,6 +2604,8 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                     windowManager.setAlwaysOnTop(_alwaysOnTop);
                   },
                 ),
+              _subtitleTopButton(context),
+              _audioTopButton(context),
               btnToShowChapterListDialog(
                 context,
                 context.l10n.episodes,
@@ -2448,29 +2619,10 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                 },
                 iconColor: Colors.white,
               ),
-              btnToShowShareScreenshot(
-                widget.episode,
-                onChanged: (v) {
-                  if (v) {
-                    _player.play();
-                  } else {
-                    _player.pause();
-                  }
-                },
-              ),
-              // ── Help button ───────────────────────────────────────────────
               IconButton(
-                icon: const Icon(
-                  Icons.help_outline_rounded,
-                  color: Colors.white,
-                ),
-                tooltip: 'Aide',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const PlayerHelpPage(),
-                  );
-                },
+                padding: const EdgeInsets.all(5),
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                onPressed: () => _showSettingsPanel(context),
               ),
             ],
           ),
@@ -2538,6 +2690,22 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                     _isDoubleSpeed.value = value ?? false;
                   },
                   chapterMarks: _chapterMarks,
+                  leftSideWidget: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _lockButton(),
+                      const SizedBox(height: 12),
+                      _muteButton(),
+                    ],
+                  ),
+                  rightSideWidget: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _screenshotSideButton(),
+                      const SizedBox(height: 12),
+                      _rotateSideButton(),
+                    ],
+                  ),
                 ),
           controller: _controller,
           width: context.width(1),
@@ -2609,6 +2777,44 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                   aniSkipResult: result,
                 );
               },
+            ),
+          ),
+        // ── Lock overlay ──────────────────────────────────────────────────────
+        if (_locked)
+          Positioned.fill(
+            child: Stack(
+              children: [
+                GestureDetector(
+                  onTap: () {},
+                  onDoubleTap: () {},
+                  onLongPress: () {},
+                  onHorizontalDragUpdate: (_) {},
+                  onVerticalDragUpdate: (_) {},
+                  child: Container(color: Colors.transparent),
+                ),
+                Positioned(
+                  left: 12,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.lock,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                        tooltip: 'Déverrouiller',
+                        onPressed: () => setState(() => _locked = false),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
       ],
