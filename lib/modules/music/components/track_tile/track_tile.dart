@@ -159,7 +159,7 @@ class TrackTile extends HookConsumerWidget {
                       height: 40,
                       width: 40,
                       decoration: BoxDecoration(
-                        borderRadius: theme.borderRadiusMd,
+                        borderRadius: BorderRadius.circular(8),
                         image: DecorationImage(
                           fit: BoxFit.cover,
                           image: imageProvider,
@@ -170,7 +170,7 @@ class TrackTile extends HookConsumerWidget {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         decoration: BoxDecoration(
-                          borderRadius: theme.borderRadiusMd,
+                          borderRadius: BorderRadius.circular(8),
                           color: isHovering
                               ? Colors.black.withAlpha(102)
                               : Colors.transparent,
