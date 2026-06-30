@@ -181,7 +181,7 @@ class TrackOptionsActions {
         break;
       case TrackOptionValue.blacklist:
         if (blacklist.contains(track)) {
-          blacklist.remove(track);
+          await blacklist.remove(track.id);
         } else {
           final database = ref.read(databaseProvider);
           await database.into(database.blacklistTable).insert(
