@@ -158,6 +158,10 @@ class _MobileControllerWidgetState
   }
 
   void onTap() {
+    // Never dismiss controls while a seek indicator is animating —
+    // double-tap must always take priority over single-tap so the overlay
+    // never accidentally closes mid-sequence.
+    if (_mountSeekBackwardButton || _mountSeekForwardButton) return;
     if (!visible) {
       setState(() {
         mount = true;

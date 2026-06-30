@@ -323,6 +323,9 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
   final ValueNotifier<Duration?> _currentTotalDuration = ValueNotifier(null);
   final ValueNotifier<bool> _showFitLabel = ValueNotifier(false);
   final ValueNotifier<bool> _isCompleted = ValueNotifier(false);
+  // OPlayer-style side panel (settings + episodes, 60 % width, right edge)
+  bool _sidePanelOpen = false;
+  int _sidePanelTab = 0; // 0 = Settings, 1 = Épisodes
   final ValueNotifier<Duration?> _tempPosition = ValueNotifier(null);
   final ValueNotifier<BoxFit> _fit = ValueNotifier(BoxFit.contain);
   final ValueNotifier<List<(String, int)>> _chapterMarks = ValueNotifier([]);
@@ -1877,14 +1880,129 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     );
   }
 
-  // ── Settings panel (3-dot menu) ─────────────────────────────────────────────
+  // ── OPlayer-style side panel (right edge, 60 % width, 100 % height) ──────────
 
   void _showSettingsPanel(BuildContext context) {
-    _player.pause();
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.55),
-      builder: (ctx) => _PlayerSettingsDialog(
+    setState(() {
+      _sidePanelOpen = !_sidePanelOpen;
+      _sidePanelTab = 0;
+    });
+  }
+
+  Widget _buildSidePanelOverlay(BuildContext context) {
+    if (!_sidePanelOpen) return const SizedBox.shrink();
+    final panelWidth = MediaQuery.of(context).size.width * 0.60;
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _sidePanelOpen = false),
+        child: Stack(
+          children: [
+            // Dim backdrop
+            Positioned.fill(
+              child: AnimatedOpacity(
+                opacity: _sidePanelOpen ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 240),
+                child: Container(color: Colors.black.withValues(alpha: 0.45)),
+              ),
+            ),
+            // Panel itself — slides from the right
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: panelWidth,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {}, // absorb taps inside the panel
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                  ),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xEE0D0D1A),
+                        border: Border(
+                          left: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.09),
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Tab bar ───────────────────────────────────────
+                          SafeArea(
+                            bottom: false,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
+                              child: Row(
+                                children: [
+                                  _PanelTab(
+                                    label: 'Paramètres',
+                                    selected: _sidePanelTab == 0,
+                                    onTap: () => setState(
+                                        () => _sidePanelTab = 0),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _PanelTab(
+                                    label: 'Épisodes',
+                                    selected: _sidePanelTab == 1,
+                                    onTap: () => setState(
+                                        () => _sidePanelTab = 1),
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: const Icon(Icons.close_rounded,
+                                        color: Colors.white54, size: 20),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                        minWidth: 32, minHeight: 32),
+                                    onPressed: () => setState(
+                                        () => _sidePanelOpen = false),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Container(
+                            height: 0.5,
+                            margin: const EdgeInsets.only(top: 10),
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                          // ── Content ───────────────────────────────────────
+                          Expanded(
+                            child: IndexedStack(
+                              index: _sidePanelTab,
+                              children: [
+                                // Tab 0 – Settings
+                                _buildPanelSettings(context),
+                                // Tab 1 – Episodes
+                                _buildPanelEpisodes(context),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanelSettings(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: _PlayerSettingsDialog(
+        inline: true,
         player: _player,
         fit: _fit.value,
         doubleTapSkip: ref.read(defaultDoubleTapToSkipLengthStateProvider),
@@ -1913,9 +2031,62 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
         onEnableAutoSkipChange: (v) =>
             ref.read(enableAutoSkipStateProvider.notifier).set(v),
       ),
-    ).then((_) {
-      if (mounted) _player.play();
-    });
+    );
+  }
+
+  Widget _buildPanelEpisodes(BuildContext context) {
+    final manga = widget.episode.manga.value;
+    final episodes = manga?.getFilteredChapterList() ??
+        manga?.chapters.toList().reversed.toList() ??
+        <dynamic>[];
+    final currentId = widget.episode.id;
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: episodes.length,
+      itemBuilder: (context, index) {
+        final ep = episodes[index] as Chapter;
+        final isCurrent = ep.id == currentId;
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              if (isCurrent) return;
+              setState(() => _sidePanelOpen = false);
+              pushToNewEpisode(context, ep);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: isCurrent
+                  ? BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.12),
+                      border: Border(
+                        left: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 3,
+                        ),
+                      ),
+                    )
+                  : null,
+              child: Text(
+                ep.name ?? 'Épisode ${index + 1}',
+                style: TextStyle(
+                  color: isCurrent
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.white70,
+                  fontSize: 13,
+                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   List<Widget> _buildMpvSettingsButton(BuildContext context) {
@@ -2112,10 +2283,56 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                   )
                   .toList(),
         ),
-        IconButton(
-          icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
-          onPressed: () async {
-            _changeFitLabel(ref);
+        // ── Fit / format picker ────────────────────────────────────────────
+        ValueListenableBuilder<BoxFit>(
+          valueListenable: _fit,
+          builder: (context, currentFit, _) {
+            const fits = <(BoxFit, String)>[
+              (BoxFit.contain, 'Contenir'),
+              (BoxFit.cover, 'Couvrir'),
+              (BoxFit.fill, 'Remplir'),
+              (BoxFit.fitWidth, 'Largeur'),
+              (BoxFit.fitHeight, 'Hauteur'),
+              (BoxFit.none, 'Original'),
+            ];
+            return ArrowPopupMenuButton<BoxFit>(
+              tooltip: '',
+              icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
+              itemBuilder: (context) => fits
+                  .map(
+                    (pair) => PopupMenuItem<BoxFit>(
+                      value: pair.$1,
+                      onTap: () {
+                        setState(() => _fit.value = pair.$1);
+                        _resize(pair.$1);
+                      },
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            child: currentFit == pair.$1
+                                ? Icon(
+                                    Icons.check,
+                                    size: 15,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  )
+                                : null,
+                          ),
+                          Text(
+                            pair.$2,
+                            style: TextStyle(
+                              fontWeight: currentFit == pair.$1
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
           },
         ),
         if (_isDesktop)
@@ -2370,6 +2587,8 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           ],
         ),
         _VideoStatsOverlay(player: _player),
+        // ── OPlayer side panel overlay ────────────────────────────────────
+        _buildSidePanelOverlay(context),
         if (enableAniSkip && (_hasOpeningSkip || _hasEndingSkip))
           Positioned(
             right: 0,
@@ -2864,6 +3083,8 @@ class _PlayerSettingsDialog extends StatefulWidget {
   final String audioPreferredLangVal;
   final bool enableAniSkipVal;
   final bool enableAutoSkipVal;
+  // When true, renders as a plain scrollable column (no Dialog chrome)
+  final bool inline;
 
   final void Function(int) onDoubleTapSkipChange;
   final void Function(int) onIntroSkipChange;
@@ -2893,6 +3114,7 @@ class _PlayerSettingsDialog extends StatefulWidget {
     required this.onForceLandscapeChange,
     required this.onEnableAniSkipChange,
     required this.onEnableAutoSkipChange,
+    this.inline = false,
   });
 
   @override
@@ -2945,85 +3167,11 @@ class _PlayerSettingsDialogState extends State<_PlayerSettingsDialog> {
                 : t.id);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
-            decoration: BoxDecoration(
-              color: const Color(0xEA10101F),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  blurRadius: 50,
-                  offset: const Offset(0, 16),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── Header ─────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.07),
-                          borderRadius: BorderRadius.circular(9),
-                        ),
-                        child: const Icon(
-                          Icons.tune_rounded,
-                          color: Colors.white70,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Paramètres — Lecteur',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white54,
-                          size: 20,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                            minWidth: 36, minHeight: 36),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                    height: 0.5,
-                    color: Colors.white.withValues(alpha: 0.09)),
-
-                // ── Scrollable content ──────────────────────────────────────
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+  /// The shared settings content (tiles, toggles, sections).
+  Widget _buildContent(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
                         // ── SECTION: Lecture ─────────────────────────────────
                         _sectionHeader('Lecture'),
                         _editableTile(
@@ -3173,9 +3321,92 @@ class _PlayerSettingsDialogState extends State<_PlayerSettingsDialog> {
                           },
                         ),
 
-                        const SizedBox(height: 8),
-                      ],
-                    ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.inline) {
+      // Rendered inside the OPlayer side panel — no Dialog chrome needed
+      return _buildContent(context);
+    }
+    // Standalone dialog mode
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
+            decoration: BoxDecoration(
+              color: const Color(0xEA10101F),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  blurRadius: 50,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header ─────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: const Icon(
+                          Icons.tune_rounded,
+                          color: Colors.white70,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Paramètres — Lecteur',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white54,
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                    height: 0.5,
+                    color: Colors.white.withValues(alpha: 0.09)),
+                // ── Scrollable content ──────────────────────────────────────
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    child: _buildContent(context),
                   ),
                 ),
               ],
@@ -3517,6 +3748,49 @@ class _PlayerSettingsDialogState extends State<_PlayerSettingsDialog> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── OPlayer side-panel tab button ─────────────────────────────────────────────
+
+class _PanelTab extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PanelTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? primary.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: selected
+              ? Border.all(color: primary.withValues(alpha: 0.55), width: 1)
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? primary : Colors.white54,
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }
