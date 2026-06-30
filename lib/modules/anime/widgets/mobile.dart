@@ -77,6 +77,11 @@ class _MobileControllerWidgetState
   bool _mountSeekForwardButton = false;
   bool _hideSeekBackwardButton = false;
   bool _hideSeekForwardButton = false;
+
+  // GlobalKeys allow us to call increment() on a live indicator widget —
+  // this is the key to unbounded counter accumulation without resetting.
+  final GlobalKey<_BackwardSeekIndicatorState> _backwardKey = GlobalKey();
+  final GlobalKey<_ForwardSeekIndicatorState> _forwardKey = GlobalKey();
   double buttonBarHeight = 100;
   final bottomButtonBarMargin = const EdgeInsets.only(left: 16.0, right: 8.0);
 
@@ -178,15 +183,31 @@ class _MobileControllerWidgetState
   }
 
   void onDoubleTapSeekBackward() {
-    setState(() {
-      _mountSeekBackwardButton = true;
-    });
+    // Cancel auto-hide while indicator is active (prevents overlay from closing).
+    _timer?.cancel();
+    if (_mountSeekBackwardButton && !_hideSeekBackwardButton) {
+      // Indicator already shown: increment the SAME instance (no counter reset).
+      _backwardKey.currentState?.increment();
+    } else {
+      setState(() {
+        _mountSeekBackwardButton = true;
+        _hideSeekBackwardButton = false;
+        _mountSeekForwardButton = false;
+      });
+    }
   }
 
   void onDoubleTapSeekForward() {
-    setState(() {
-      _mountSeekForwardButton = true;
-    });
+    _timer?.cancel();
+    if (_mountSeekForwardButton && !_hideSeekForwardButton) {
+      _forwardKey.currentState?.increment();
+    } else {
+      setState(() {
+        _mountSeekForwardButton = true;
+        _hideSeekForwardButton = false;
+        _mountSeekBackwardButton = false;
+      });
+    }
   }
 
   void onHorizontalDragUpdate(DragUpdateDetails details) {
@@ -628,9 +649,19 @@ class _MobileControllerWidgetState
                                       _hideSeekBackwardButton = false;
                                       _mountSeekBackwardButton = false;
                                     });
+                                    // Resume auto-hide timer after indicator dismisses.
+                                    if (mounted && visible) {
+                                      _timer?.cancel();
+                                      _timer = Timer(controlsHoverDuration, () {
+                                        if (mounted) {
+                                          setState(() { visible = false; });
+                                        }
+                                      });
+                                    }
                                   }
                                 },
                                 child: _BackwardSeekIndicator(
+                                  key: _backwardKey,
                                   onChanged: (value) {
                                     setState(() {
                                       _seekBarDeltaValueNotifier =
@@ -684,9 +715,18 @@ class _MobileControllerWidgetState
                                       _hideSeekForwardButton = false;
                                       _mountSeekForwardButton = false;
                                     });
+                                    if (mounted && visible) {
+                                      _timer?.cancel();
+                                      _timer = Timer(controlsHoverDuration, () {
+                                        if (mounted) {
+                                          setState(() { visible = false; });
+                                        }
+                                      });
+                                    }
                                   }
                                 },
                                 child: _ForwardSeekIndicator(
+                                  key: _forwardKey,
                                   onChanged: (value) {
                                     setState(() {
                                       _seekBarDeltaValueNotifier =
@@ -740,6 +780,7 @@ class _BackwardSeekIndicator extends StatefulWidget {
   final void Function(Duration) onSubmitted;
   final int skipDuration;
   const _BackwardSeekIndicator({
+    super.key,
     required this.onChanged,
     required this.onSubmitted,
     required this.skipDuration,
@@ -888,6 +929,7 @@ class _ForwardSeekIndicator extends StatefulWidget {
   final void Function(Duration) onSubmitted;
   final int skipDuration;
   const _ForwardSeekIndicator({
+    super.key,
     required this.onChanged,
     required this.onSubmitted,
     required this.skipDuration,
