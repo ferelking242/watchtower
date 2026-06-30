@@ -12,7 +12,7 @@ import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.d
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
-import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -148,19 +148,11 @@ class _ExtensionListTileWidgetState
                       ),
                       child: widget.source.iconUrl!.isEmpty
                           ? const Icon(Icons.extension_rounded, size: 18)
-                          : cachedNetworkImage(
-                              imageUrl: widget.source.iconUrl!,
-                              fit: BoxFit.contain,
-                              width: 36,
-                              height: 36,
-                              errorWidget: const SizedBox(
-                                width: 36,
-                                height: 36,
-                                child: Center(
-                                    child: Icon(Icons.extension_rounded,
-                                        size: 18)),
-                              ),
-                            ),
+                            : ExtensionIconWidget(
+                                sourceId: widget.source.id,
+                                iconUrl: widget.source.iconUrl,
+                                size: 36,
+                              )
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -422,17 +414,11 @@ class _ExtensionListTileWidgetState
         ),
         child: widget.source.iconUrl!.isEmpty
             ? const Icon(Icons.extension_rounded, size: 18)
-            : cachedNetworkImage(
-                imageUrl: widget.source.iconUrl!,
-                fit: BoxFit.contain,
-                width: 30,
-                height: 30,
-                errorWidget: const SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: Center(child: Icon(Icons.extension_rounded, size: 18)),
-                ),
-              ),
+              : ExtensionIconWidget(
+                  sourceId: widget.source.id,
+                  iconUrl: widget.source.iconUrl,
+                  size: 30,
+                )
       ),
       title: Text(widget.source.name!),
       subtitle: Row(
