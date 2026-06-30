@@ -239,16 +239,19 @@ class PlayerQueue extends HookConsumerWidget {
                           ),
                         if (!isSearching.value) ...[
                           const SizedBox(width: 10),
-                          IconButton.outlined(
+                          IconButton(
                             icon: const Icon(SpotubeIcons.playlistRemove),
                             onPressed: () {
                               onStop();
-                              closeDrawer(context);
+                              Navigator.pop(context);
                             },
                           ),
                           const SizedBox(height: 5, width: 5),
                           if (mediaQuery.smAndDown)
-                            const BackButton(icon: SpotubeIcons.angleDown),
+                            IconButton(
+                              icon: const Icon(SpotubeIcons.angleDown),
+                              onPressed: () => Navigator.pop(context),
+                            ),
                         ],
                       ],
                     ),
@@ -349,8 +352,12 @@ class PlayerQueue extends HookConsumerWidget {
         Positioned(
           right: 20,
           bottom: 20,
-          child: IconButton.secondary(
+          child: IconButton(
             icon: const Icon(SpotubeIcons.angleDown),
+            style: IconButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+            ),
             onPressed: () {
               controller.scrollToIndex(
                 playlist.currentIndex,
