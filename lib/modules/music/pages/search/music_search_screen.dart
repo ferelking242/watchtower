@@ -631,7 +631,7 @@ class _TrackResultsSection extends ConsumerWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: isActive ? _kGreen : Colors.white,
+                              color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
@@ -1090,7 +1090,7 @@ class _InitialsAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: _kGreen,
+      backgroundColor: Theme.of(context).colorScheme.primary,
       child: Text(
         initials,
         style: TextStyle(
@@ -1126,7 +1126,7 @@ class _NavPill extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? _kGreen : const Color(0xFF2A2A2A),
+          color: selected ? Theme.of(context).colorScheme.primary : const Color(0xFF2A2A2A),
           borderRadius: BorderRadius.circular(20),
           border: selected ? null : Border.all(color: Colors.white12),
         ),
