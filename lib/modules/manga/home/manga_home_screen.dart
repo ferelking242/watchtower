@@ -8,6 +8,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
@@ -1073,30 +1074,63 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       }
 
       Widget _buildCarouselSkeleton(BuildContext ctx) {
-        final base = Theme.of(ctx)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.7);
-        final high =
-            Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Skeletonizer(
-            enabled: true,
-            effect: ShimmerEffect(
-                baseColor: base,
-                highlightColor: high,
-                duration: const Duration(milliseconds: 1200)),
-            child: Container(
-              height: 220,
-              decoration: BoxDecoration(
-                color: base,
-                borderRadius: BorderRadius.circular(12),
+          final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
+          final high = Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Skeletonizer(
+              enabled: true,
+              effect: ShimmerEffect(
+                  baseColor: base, highlightColor: high,
+                  duration: const Duration(milliseconds: 1200)),
+              child: Container(
+                height: 220,
+                decoration: BoxDecoration(
+                  color: base.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: base, width: 0.5),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
+                      child: Container(width: 160, color: base),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 14, 10, 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(height: 17, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                            const SizedBox(height: 8),
+                            Container(width: 100, height: 13, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                            const Spacer(),
+                            Row(children: [
+                              Container(width: 55, height: 22, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(11))),
+                              const SizedBox(width: 6),
+                              Container(width: 55, height: 22, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(11))),
+                            ]),
+                            const SizedBox(height: 8),
+                            Row(children: [
+                              Container(width: 12, height: 12, decoration: BoxDecoration(color: base, shape: BoxShape.circle)),
+                              const SizedBox(width: 6),
+                              Container(width: 60, height: 11, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      }
+          );
+        }
 
       Widget _buildSectionsView(BuildContext ctx) {
       return CustomScrollView(
@@ -1532,18 +1566,13 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(5),
-                              child: Image.network(
-                                source.iconUrl!,
-                                width: 20,
-                                height: 20,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              ExtensionIconWidget(
+                                sourceId: source.id,
+                                iconUrl: source.iconUrl,
+                                size: 20,
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
+                              const SizedBox(width: 8),
+                            ],
                           Flexible(
                             child: Text(
                               sourceName,
@@ -1589,10 +1618,19 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 Builder(
                   builder: (actCtx) =>
                       ArrowPopupMenuButton<_HomeMenuAction>(
-                    padding: const EdgeInsets.all(10),
-                    icon: Icon(Icons.more_vert,
-                        color: Theme.of(actCtx).hintColor),
-                    onSelected: (action) =>
+                    padding: const EdgeInsets.all(4),
+                      icon: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Theme.of(actCtx).colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.75),
+                        ),
+                        child: Icon(Icons.more_horiz,
+                            size: 18, color: Theme.of(actCtx).hintColor),
+                      ),
+                      onSelected: (action) =>
                         _handleHomeMenuAction(actCtx, action),
                     itemBuilder: (menuCtx) => [
                       PopupMenuItem(
@@ -2118,7 +2156,7 @@ class _MangaHomeImageCardListTileState
               child: imgUrl.isNotEmpty
                   ? Image(
                       image: coverImage,
-                      width: 120,
+                      width: 160,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
                       frameBuilder: (ctx, child, frame, loaded) {
@@ -2130,7 +2168,7 @@ class _MangaHomeImageCardListTileState
                               highlightColor: Theme.of(ctx).colorScheme.surface,
                               duration: const Duration(milliseconds: 1000),
                             ),
-                            child: Container(width: 120, color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+                            child: Container(width: 160, color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
                           );
                         }
                         return AnimatedOpacity(
@@ -2140,12 +2178,12 @@ class _MangaHomeImageCardListTileState
                         );
                       },
                       errorBuilder: (_, __, ___) => Container(
-                        width: 120,
+                        width: 160,
                         color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       ),
                     )
                   : Container(
-                      width: 120,
+                      width: 160,
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
             ),
