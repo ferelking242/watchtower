@@ -115,12 +115,8 @@ class TrackTile extends HookConsumerWidget {
               }
             },
             onLongPress: onLongPress,
-            style: (isBlackListed
-                    ? ButtonStyle()
-                    : ButtonStyle())
-                .copyWith(
-              padding: (context, states, value) =>
-                  const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+            style: ButtonStyle(
+              padding: WidgetStateProperty.all(const EdgeInsets.symmetric(vertical: 8, horizontal: 0)),
             ),
             leading: Row(
               mainAxisSize: MainAxisSize.min,
@@ -236,16 +232,15 @@ class TrackTile extends HookConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Flexible(
-                child: Button(.copyWith(
-                padding: (context, states, value) =>
-                  EdgeInsets.zero,
-                ),
-                onPressed: effectiveSelection
-                  ? null
-                  : () {
-                    context
-                      .navigateTo(TrackRoute(trackId: track.id));
-                  },
+                child: TextButton(
+                              style: ButtonStyle(
+                                padding: WidgetStateProperty.all(EdgeInsets.zero),
+                              ),
+                              onPressed: effectiveSelection
+                                  ? null
+                                  : () {
+                                      context.navigateTo(TrackRoute(trackId: track.id));
+                                    },
                               child: Text(
                                 track.name,
                                 maxLines: 1,

@@ -107,7 +107,7 @@ class LocalFolderItem extends HookConsumerWidget {
                   alignment: Alignment.topRight,
                   child: IconButton(
                     icon: const Icon(Icons.more_vert),
-                    size: 20.0,
+                    iconSize: 20.0,
                     onPressed: () {
                       // Capture shadcn theme before entering the overlay.
                       // Without this the overlay context has no shadcn ancestor

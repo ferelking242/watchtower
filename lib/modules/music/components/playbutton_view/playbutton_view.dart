@@ -77,22 +77,26 @@ class PlaybuttonView extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   if (leading != null) leading!,
-                  Toggle(
-                    value: isGrid.value,
-                    onChanged: (value) {
-                      isGrid.value = value;
+                  IconButton(
+                    onPressed: () {
+                      isGrid.value = true;
                       hasUserInteracted.value = true;
                     },
-                    child: const Icon(SpotubeIcons.grid),
+                    style: isGrid.value
+                        ? IconButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primaryContainer)
+                        : null,
+                    icon: const Icon(SpotubeIcons.grid),
                   ),
                   const SizedBox(width: 8),
-                  Toggle(
-                    value: !isGrid.value,
-                    onChanged: (value) {
-                      isGrid.value = !value;
+                  IconButton(
+                    onPressed: () {
+                      isGrid.value = false;
                       hasUserInteracted.value = true;
                     },
-                    child: const Icon(SpotubeIcons.list),
+                    style: !isGrid.value
+                        ? IconButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primaryContainer)
+                        : null,
+                    icon: const Icon(SpotubeIcons.list),
                   ),
                 ],
               ),

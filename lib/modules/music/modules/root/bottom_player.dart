@@ -51,7 +51,7 @@ class BottomPlayer extends HookConsumerWidget {
     }
 
     return Card(
-      borderRadius: BorderRadius.zero,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

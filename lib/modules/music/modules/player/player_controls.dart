@@ -134,7 +134,7 @@ class PlayerControls extends HookConsumerWidget {
                     );
                   }),
                   IconButton(
-                    icon: Icon(SpotubeIcons.skipBack, iconSize: iconSize),
+                    icon: Icon(SpotubeIcons.skipBack, size: iconSize),
                     onPressed:
                         isFetchingActiveTrack ? null : audioPlayer.skipToPrevious,
                   ),
@@ -159,7 +159,7 @@ class PlayerControls extends HookConsumerWidget {
                           ),
                   ),
                   IconButton(
-                    icon: Icon(SpotubeIcons.skipForward, iconSize: iconSize),
+                    icon: Icon(SpotubeIcons.skipForward, size: iconSize),
                     onPressed:
                         isFetchingActiveTrack ? null : audioPlayer.skipToNext,
                   ),

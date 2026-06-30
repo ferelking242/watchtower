@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 
-class BackButton extends StatelessWidget {
+class MusicBackButton extends StatelessWidget {
   final Color? color;
   final IconData icon;
   const BackButton({

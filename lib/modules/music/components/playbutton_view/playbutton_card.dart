@@ -1,164 +1,152 @@
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
-import 'package:watchtower/modules/music/components/image/universal_image.dart';
-import 'package:watchtower/modules/music/extensions/string.dart';
-import 'package:watchtower/modules/music/utils/platform.dart';
+  import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+  import 'package:watchtower/modules/music/components/image/universal_image.dart';
+  import 'package:watchtower/modules/music/extensions/string.dart';
+  import 'package:watchtower/modules/music/utils/platform.dart';
 
-class PlaybuttonCard extends StatelessWidget {
-  final void Function()? onTap;
-  final void Function()? onPlaybuttonPressed;
-  final void Function()? onAddToQueuePressed;
-  final String? description;
+  class PlaybuttonCard extends StatelessWidget {
+    final void Function()? onTap;
+    final void Function()? onPlaybuttonPressed;
+    final void Function()? onAddToQueuePressed;
+    final String? description;
 
-  final String? imageUrl;
-  final Widget? image;
-  final bool isPlaying;
-  final bool isLoading;
-  final String title;
-  final bool isOwner;
+    final String? imageUrl;
+    final Widget? image;
+    final bool isPlaying;
+    final bool isLoading;
+    final String title;
+    final bool isOwner;
 
-  const PlaybuttonCard({
-    required this.isPlaying,
-    required this.isLoading,
-    required this.title,
-    this.description,
-    this.onPlaybuttonPressed,
-    this.onAddToQueuePressed,
-    this.onTap,
-    this.isOwner = false,
-    this.imageUrl,
-    this.image,
-    super.key,
-  }) : assert(
-          imageUrl != null || image != null,
-          "imageUrl and image can't be null at the same time",
-        );
+    const PlaybuttonCard({
+      required this.isPlaying,
+      required this.isLoading,
+      required this.title,
+      this.description,
+      this.onPlaybuttonPressed,
+      this.onAddToQueuePressed,
+      this.onTap,
+      this.isOwner = false,
+      this.imageUrl,
+      this.image,
+      super.key,
+    }) : assert(
+            imageUrl != null || image != null,
+            "imageUrl and image can't be null at the same time",
+          );
 
-  @override
-  Widget build(BuildContext context) {
-    final unescapeHtml = description?.unescapeHtml().cleanHtml() ?? "";
-    final scale = 1.0;
+    @override
+    Widget build(BuildContext context) {
+      final unescapeHtml = description?.unescapeHtml().cleanHtml() ?? "";
+      const double cardSize = 150.0;
+      final borderRadius = BorderRadius.circular(8);
 
-    return SizedBox(
-      width: 150 * scale,
-      child: CardImage(
-        image: Stack(
-          children: [
-            if (imageUrl != null)
-              Container(
-                width: 150 * scale,
-                height: 150 * scale,
-                decoration: BoxDecoration(
-                  borderRadius: Theme.of(context).borderRadiusMd,
-                  image: DecorationImage(
-                    image: UniversalImage.imageProvider(
-                      imageUrl!,
-                      height: 200 * scale,
-                      width: 200 * scale,
-                    ),
-                    fit: BoxFit.cover,
-                  ),
+      final imageWidget = ClipRRect(
+        borderRadius: borderRadius,
+        child: imageUrl != null
+            ? Image(
+                image: UniversalImage.imageProvider(
+                  imageUrl!,
+                  height: cardSize,
+                  width: cardSize,
                 ),
+                width: cardSize,
+                height: cardSize,
+                fit: BoxFit.cover,
               )
-            else
-              SizedBox(
-                width: 150 * scale,
-                height: 150 * scale,
-                child: ClipRRect(
-                  borderRadius: Theme.of(context).borderRadiusMd,
-                  child: image!,
-                ),
+            : SizedBox(
+                width: cardSize,
+                height: cardSize,
+                child: image!,
               ),
-            StatedWidget.builder(
-              builder: (context, states) {
-                return Positioned(
-                  right: 8,
-                  bottom: 8,
-                  child: Column(
-                    children: [
-                      AnimatedScale(
-                        curve: Curves.easeOutBack,
-                        duration: const Duration(milliseconds: 300),
-                        scale: (states.contains(WidgetState.hovered) ||
-                                    kIsMobile) &&
-                                !isLoading
-                            ? 1
-                            : 0.7,
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 300),
-                          opacity: (states.contains(WidgetState.hovered) ||
-                                      kIsMobile) &&
-                                  !isLoading
-                              ? 1
-                              : 0,
-                          child: IconButton.secondary(
-                            icon: const Icon(SpotubeIcons.queueAdd),
+      );
+
+      return GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: cardSize,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  imageWidget,
+                  if (isOwner)
+                    Positioned(
+                      right: 5,
+                      top: 5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          SpotubeIcons.user,
+                          size: 12,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Column(
+                      children: [
+                        if (kIsMobile || onAddToQueuePressed != null)
+                          IconButton(
+                            icon: const Icon(SpotubeIcons.queueAdd, size: 16),
                             onPressed: onAddToQueuePressed,
-                            size: 20.0,
+                            style: IconButton.styleFrom(
+                              backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                              padding: const EdgeInsets.all(6),
+                              minimumSize: const Size(28, 28),
+                            ),
+                          ),
+                        const SizedBox(height: 4),
+                        IconButton(
+                          icon: isLoading
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Icon(
+                                  isPlaying ? SpotubeIcons.pause : SpotubeIcons.play,
+                                  size: 16,
+                                ),
+                          onPressed: isLoading ? null : onPlaybuttonPressed,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                            padding: const EdgeInsets.all(6),
+                            minimumSize: const Size(28, 28),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 5, width: 5),
-                      AnimatedScale(
-                        curve: Curves.easeOutBack,
-                        duration: const Duration(milliseconds: 150),
-                        scale: states.contains(WidgetState.hovered) ||
-                                kIsMobile ||
-                                isPlaying ||
-                                isLoading
-                            ? 1
-                            : 0.7,
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 150),
-                          opacity: states.contains(WidgetState.hovered) ||
-                                  kIsMobile ||
-                                  isPlaying ||
-                                  isLoading
-                              ? 1
-                              : 0,
-                          child: IconButton.secondary(
-                            icon: switch ((isLoading, isPlaying)) {
-                              (true, _) => const CircularProgressIndicator(),
-                              (false, false) => const Icon(SpotubeIcons.play),
-                              (false, true) => const Icon(SpotubeIcons.pause)
-                            },
-                            enabled: !isLoading,
-                            onPressed: onPlaybuttonPressed,
-                            size: 20.0,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                );
-              },
-            ),
-            if (isOwner)
-              const Positioned(
-                right: 5,
-                top: 5,
-                child: SecondaryBadge(
-                  style: ButtonStyle.secondaryIcon(
-                    style: FilledButton.styleFrom(shape: const CircleBorder(), padding: const EdgeInsets.all(12)),
-                    size: 20.0,
-                  ),
-                  child: Icon(SpotubeIcons.user),
-                ),
+                ],
               ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              if (unescapeHtml.isNotEmpty)
+                Text(
+                  unescapeHtml,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+            ],
+          ),
         ),
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          unescapeHtml.isEmpty ? "\n" : unescapeHtml,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        onPressed: onTap,
-      ),
-    );
+      );
+    }
   }
-}
+  

@@ -39,7 +39,7 @@ class ExpandableSearchField extends StatelessWidget {
               child: TextField(
                 focusNode: searchFocus,
                 controller: searchController,
-                hintText: context.l10n.search_tracks,
+                decoration: InputDecoration(hintText: context.l10n.search_tracks),
               ),
             ),
           ),
@@ -66,7 +66,7 @@ class ExpandableSearchButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: icon) : ButtonStyle(),
+      icon: icon,
       onPressed: () {
         if (isFiltering) {
           searchFocus.requestFocus();

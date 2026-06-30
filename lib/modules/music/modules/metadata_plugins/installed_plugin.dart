@@ -268,10 +268,9 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                 children: [
                   if (plugin.abilities.contains(PluginAbilities.metadata))
                     TextButton(
-                      enabled: !isDefaultMetadata,
-                      onPressed: () async {
+                      onPressed: !isDefaultMetadata ? () async {
                         await pluginsNotifier.setDefaultMetadataPlugin(plugin);
-                      },
+                      } : null,
                       child: Text(
                         isDefaultMetadata
                             ? context.l10n.default_metadata_source
@@ -280,15 +279,16 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                     ),
                   if (plugin.abilities.contains(PluginAbilities.audioSource))
                     TextButton(
-                      enabled: !isDefaultAudioSource,
-                      onPressed: () async {
+                      onPressed: !isDefaultAudioSource ? () async {
                         await pluginsNotifier
                             .setDefaultAudioSourcePlugin(plugin);
-                      },
+                      } : null,
                       child: Text(
                         isDefaultAudioSource
                             ? context.l10n.default_audio_source
                             : context.l10n.set_default_audio_source,
+                      ),
+                    ),
                       ),
                     ),
                 ],
@@ -393,27 +393,29 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                   if ((isDefaultMetadata || isDefaultAudioSource) &&
                       requiresAuth &&
                       !isAuthenticated)
-                    FilledButton(
-                      enabled: pluginSnapshot?.asData?.value != null,
-                      onPressed: () async {
+                    FilledButton.icon(
+                      onPressed: pluginSnapshot?.asData?.value != null ? () async {
                         final plugin = pluginSnapshot?.asData?.value;
                         if (plugin == null) return;
                         await plugin.auth.authenticate();
-                      },
-                      leading: pluginSnapshot?.isLoading == true
-                          ? const CircularProgressIndicator()
+                      } : null,
+                      icon: pluginSnapshot?.isLoading == true
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(SpotubeIcons.login),
+                      label: Text(context.l10n.login),
+                    )
                       child: Text(context.l10n.login),
                     )
                   else if ((isDefaultMetadata || isDefaultAudioSource) &&
                       requiresAuth &&
                       isAuthenticated)
                     FilledButton(
+                    FilledButton.icon(
                       onPressed: () async {
                         await pluginSnapshot?.asData?.value?.auth.logout();
                       },
-                      leading: const Icon(SpotubeIcons.logout),
-                      child: Text(context.l10n.logout),
+                      icon: const Icon(SpotubeIcons.logout),
+                      label: Text(context.l10n.logout),
                     ),
                 ],
               )

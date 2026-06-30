@@ -135,7 +135,7 @@ class SiblingTracksSheet extends HookConsumerWidget {
                               if (MediaQuery.sizeOf(context).mdAndUp) {
                                 Navigator.pop(context);
                               } else {
-                                closeDrawer(context);
+                                Navigator.pop(context);
                               }
                             }
                           }
