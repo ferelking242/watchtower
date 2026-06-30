@@ -412,7 +412,7 @@ import 'package:flutter/material.dart';
                               builder: (ctx) => _withTheme(
                                 themeData,
                                 AlertDialog(
-                                  title: Text(context.l10n.plugin_support),
+                                  title: Text(context.l10n.support),
                                   content: AppMarkdown(
                                     data: supportTextSnapshot!.asData!.value!,
                                   ),

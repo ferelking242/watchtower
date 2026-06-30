@@ -11,6 +11,7 @@ import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
 import 'package:watchtower/modules/music/components/dialogs/track_details_dialog.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
+import 'package:watchtower/modules/music/provider/database/database.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/blacklist_provider.dart';

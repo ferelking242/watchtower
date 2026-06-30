@@ -193,7 +193,7 @@ class PlayerActions extends HookConsumerWidget {
               ),
             AdaptiveMenuButton(
               enabled: customHoursEnabled,
-              onPressed: (context) async {
+              onPressed: () async {
                 final currentTime = TimeOfDay.now();
                 final time = await showTimePicker(
                   context: context,
