@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:watchtower/modules/music/collections/intents.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -39,10 +39,7 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
       child: canShow && shouldShow.value
           ? Padding(
               padding: const EdgeInsets.all(5),
-              child: Card(
-                surfaceBlur: theme.surfaceBlur,
-                surfaceOpacity: theme.surfaceOpacity,
-                padding: EdgeInsets.zero,
+              child: Card(,
                 borderRadius: theme.borderRadiusLg,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -100,7 +97,7 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
                                     ? null
                                     : audioPlayer.skipToNext,
                               ),
-                              SizedBox(height: 5),
+                              const SizedBox(height: 5, width: 5),
                             ],
                           ),
                         ],

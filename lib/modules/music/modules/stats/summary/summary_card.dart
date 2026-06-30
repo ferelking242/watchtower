@@ -1,5 +1,4 @@
 import 'package:auto_size_text/auto_size_text.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/formatters.dart';
 
@@ -8,8 +7,7 @@ class SummaryCard extends StatelessWidget {
   final String unit;
   final String description;
   final VoidCallback? onTap;
-
-  final ColorShades color;
+  final Color color;
 
   SummaryCard({
     super.key,
@@ -31,18 +29,20 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData(:typography, :brightness) = Theme.of(context);
+    final theme = Theme.of(context);
+    final brightness = theme.brightness;
+    final cardColor = brightness == Brightness.dark
+        ? color.withValues(alpha: 0.15)
+        : color.withValues(alpha: 0.08);
+    final textColor = brightness == Brightness.dark ? color.withValues(alpha: 0.9) : color;
 
     final descriptionNewLines = description.split("").where((s) => s == "\n");
 
     return Card(
-      fillColor: brightness == Brightness.dark ? color.shade100 : color.shade50,
-      filled: true,
-      borderColor: color,
-      padding: EdgeInsets.zero,
-      borderRadius: const BorderRadius.all(Radius.circular(8)),
-      child: TextButton(
-        onPressed: onTap,
+      color: cardColor,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 15),
           child: Column(
@@ -55,30 +55,27 @@ class SummaryCard extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: title,
-                      style: typography.h2.copyWith(
-                        color: color.shade900,
-                      ),
+                      style: theme.textTheme.headlineMedium?.copyWith(color: textColor),
                     ),
                     TextSpan(
                       text: " $unit",
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
-                        color: color.shade900,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 maxLines: 1,
               ),
-              SizedBox(height: 5),
+              const SizedBox(height: 5),
               AutoSizeText(
                 description,
                 maxLines: description.contains("\n")
                     ? descriptionNewLines.length + 1
                     : 1,
                 minFontSize: 9,
-                style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: color.shade900,
-                ),
+                style: theme.textTheme.bodySmall?.copyWith(color: textColor),
               ),
             ],
           ),

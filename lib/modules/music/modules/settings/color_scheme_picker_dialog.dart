@@ -1,9 +1,8 @@
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
-
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
 
 class SpotubeColor extends Color {
@@ -25,33 +24,33 @@ class SpotubeColor extends Color {
 }
 
 final Set<SpotubeColor> colorsMap = {
-  SpotubeColor(Colors.slate.value, name: "slate"),
-  SpotubeColor(Colors.gray.value, name: "gray"),
-  SpotubeColor(Colors.zinc.value, name: "zinc"),
-  SpotubeColor(Colors.neutral.value, name: "neutral"),
-  SpotubeColor(Colors.stone.value, name: "stone"),
+  SpotubeColor(Colors.blueGrey.value, name: "slate"),
+  SpotubeColor(Colors.grey.value, name: "gray"),
+  SpotubeColor(Colors.grey.value, name: "zinc"),
+  SpotubeColor(Colors.grey.value, name: "neutral"),
+  SpotubeColor(Colors.brown.value, name: "stone"),
   SpotubeColor(Colors.red.value, name: "red"),
   SpotubeColor(Colors.orange.value, name: "orange"),
   SpotubeColor(Colors.yellow.value, name: "yellow"),
   SpotubeColor(Colors.green.value, name: "green"),
   SpotubeColor(Colors.blue.value, name: "blue"),
-  SpotubeColor(Colors.violet.value, name: "violet"),
-  SpotubeColor(Colors.rose.value, name: "rose"),
+  SpotubeColor(Colors.purple.value, name: "violet"),
+  SpotubeColor(Colors.pink.value, name: "rose"),
 };
 
-final colorSchemeMap = {
-  "slate": LegacyColorSchemes.slate,
-  "gray": LegacyColorSchemes.gray,
-  "zinc": LegacyColorSchemes.zinc,
-  "neutral": LegacyColorSchemes.neutral,
-  "stone": LegacyColorSchemes.stone,
-  "red": LegacyColorSchemes.red,
-  "orange": LegacyColorSchemes.orange,
-  "yellow": LegacyColorSchemes.yellow,
-  "green": LegacyColorSchemes.green,
-  "blue": LegacyColorSchemes.blue,
-  "violet": LegacyColorSchemes.violet,
-  "rose": LegacyColorSchemes.rose,
+final Map<String, ColorScheme> colorSchemeMap = {
+  "slate": ColorScheme.fromSeed(seedColor: Colors.blueGrey),
+  "gray": ColorScheme.fromSeed(seedColor: Colors.grey),
+  "zinc": ColorScheme.fromSeed(seedColor: Colors.grey),
+  "neutral": ColorScheme.fromSeed(seedColor: Colors.grey),
+  "stone": ColorScheme.fromSeed(seedColor: Colors.brown),
+  "red": ColorScheme.fromSeed(seedColor: Colors.red),
+  "orange": ColorScheme.fromSeed(seedColor: Colors.orange),
+  "yellow": ColorScheme.fromSeed(seedColor: Colors.yellow),
+  "green": ColorScheme.fromSeed(seedColor: Colors.green),
+  "blue": ColorScheme.fromSeed(seedColor: Colors.blue),
+  "violet": ColorScheme.fromSeed(seedColor: Colors.purple),
+  "rose": ColorScheme.fromSeed(seedColor: Colors.pink),
 };
 
 class ColorSchemePickerDialog extends HookConsumerWidget {
@@ -65,28 +64,19 @@ class ColorSchemePickerDialog extends HookConsumerWidget {
     final scheme = preferences.accentColorScheme;
     final active = useState<String?>(
       colorsMap.firstWhereOrNull(
-        (element) {
-          return scheme.name == element.name;
-        },
+        (element) => scheme.name == element.name,
       )?.name,
     );
 
     return AlertDialog(
-      title: Text(
-        context.l10n.pick_color_scheme,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-      ),
+      title: Text(context.l10n.pick_color_scheme),
       actions: [
         OutlinedButton(
+          onPressed: () => Navigator.pop(context),
           child: Text(context.l10n.cancel),
-          onPressed: () {
-            Navigator.pop(context);
-          },
         ),
         FilledButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
           child: Text(context.l10n.save),
         ),
       ],
@@ -98,18 +88,14 @@ class ColorSchemePickerDialog extends HookConsumerWidget {
           runSpacing: 8,
           children: colorsMap.map(
             (color) {
-              return ColorChip(
+              return _ColorChip(
                 name: color.name,
                 color: color,
                 isActive: color.name == active.value,
                 onPressed: () {
                   active.value = color.name;
                   preferencesNotifier.setAccentColorScheme(
-                    colorsMap.firstWhere(
-                      (element) {
-                        return element.name == color.name;
-                      },
-                    ),
+                    colorsMap.firstWhere((e) => e.name == color.name),
                   );
                 },
               );
@@ -121,13 +107,13 @@ class ColorSchemePickerDialog extends HookConsumerWidget {
   }
 }
 
-class ColorChip extends StatelessWidget {
+class _ColorChip extends StatelessWidget {
   final String name;
   final Color color;
   final bool isActive;
   final VoidCallback onPressed;
-  const ColorChip({
-    super.key,
+
+  const _ColorChip({
     required this.name,
     required this.color,
     required this.isActive,
@@ -136,18 +122,30 @@ class ColorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      leading: Container(
-        width: 20,
-        height: 20,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-      onPressed: onPressed,
-      style: isActive ? null : null,
-      child: Text(name),
-    );
+    return isActive
+        ? FilledButton.icon(
+            onPressed: onPressed,
+            icon: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            label: Text(name),
+          )
+        : OutlinedButton.icon(
+            onPressed: onPressed,
+            icon: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            label: Text(name),
+          );
   }
 }

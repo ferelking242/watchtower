@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -25,8 +25,9 @@ class ConnectPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(title: Text(context.l10n.devices)),,
-        body: Padding(
+      appBar: AppBar(title: Text(context.l10n.devices)),
+        ,
+        child: Padding(
           padding: const EdgeInsets.all(10.0),
           child: CustomScrollView(
             slivers: [
@@ -39,10 +40,10 @@ class ConnectPage extends HookConsumerWidget {
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+              const SliverGap(10),
               SliverList.separated(
                 itemCount: discoveredDevices?.length ?? 0,
-                separatorBuilder: (context, index) => SizedBox(height: 10),
+                separatorBuilder: (context, index) => const SizedBox(height: 10, width: 10),
                 itemBuilder: (context, index) {
                   final device = discoveredDevices![index];
                   final selected =
@@ -50,6 +51,7 @@ class ConnectPage extends HookConsumerWidget {
                           device.name;
                   return ButtonTile(
                     selected: selected,
+                    leading: const Icon(SpotubeIcons.monitor),
                     title: Text(device.name),
                     subtitle: selected
                         ? Text(
@@ -58,7 +60,7 @@ class ConnectPage extends HookConsumerWidget {
                           )
                         : null,
                     trailing: selected
-                        ? IconButton(
+                        ? IconButton.outlined(
                             icon: const Icon(SpotubeIcons.power),
                             size: 20.0,
                             onPressed: () =>

@@ -23,8 +23,7 @@ class ProfilePage extends HookConsumerWidget {
         appBar: AppBar(
           title: Text(context.l10n.profile),
         ),
-        body: Opacity(opacity: 1.0, 
-          enabled: me.isLoading,
+        body: Skeletonizer(enabled: me.isLoading,
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(

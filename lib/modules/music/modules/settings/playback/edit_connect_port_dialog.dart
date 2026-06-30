@@ -6,7 +6,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/form/text_form_field.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
-import 'package:watchtower/modules/music/hooks/controllers/use_shadcn_text_editing_controller.dart';
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
 
 class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
@@ -17,7 +16,7 @@ class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
     final connectPort = ref.watch(
       userPreferencesProvider.select((s) => s.connectPort),
     );
-    final controller = useShadcnTextEditingController(
+    final controller = useTextEditingController(
       text: connectPort.toString(),
     );
     final formKey = useMemoized(() => GlobalKey<FormBuilderState>(), []);

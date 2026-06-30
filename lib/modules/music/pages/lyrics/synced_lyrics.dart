@@ -209,7 +209,7 @@ class SyncedLyrics extends HookConsumerWidget {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 26)),
               const SliverToBoxAdapter(
-                child: Icon(SpotubeIcons.noLyrics, size: 60),
+                child: Icon(SpotubeIcons.noLyrics),
               ),
             ] else if (lyricsState.asData?.value.static == true)
               SliverFillRemaining(

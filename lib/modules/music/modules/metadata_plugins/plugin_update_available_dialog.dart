@@ -28,7 +28,7 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
                 child: ListTile(
                   title: Text(message),
                   trailing: IconButton(
-                    size: 20.0,
+          iconSize: 20.0,
                     icon: const Icon(SpotubeIcons.close),
                     onPressed: () {
                       overlay.close();

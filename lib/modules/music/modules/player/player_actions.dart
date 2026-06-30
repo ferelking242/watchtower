@@ -2,7 +2,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -19,6 +18,7 @@ import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart
 import 'package:watchtower/modules/music/provider/local_tracks/local_tracks_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
 import 'package:watchtower/modules/music/provider/sleep_timer_provider.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class PlayerActions extends HookConsumerWidget {
   final MainAxisAlignment mainAxisAlignment;
@@ -89,13 +89,17 @@ class PlayerActions extends HookConsumerWidget {
             icon: const Icon(SpotubeIcons.queue),
             enabled: playlist.activeTrack != null,
             onPressed: () {
-              showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            showDragHandle: true,
-            constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
-            builder: (context) {
-              return Container(
+              final capturedTheme = Theme.of(context);
+              openDrawer(
+                context: context
+                transformBackdrop: false,
+                draggable: false).surfaceBlur
+                builder: (context) {
+                  return Theme(
+                    data: capturedTheme,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Container(
                         constraints: const BoxConstraints(maxWidth: 800),
                         child: Consumer(
                           builder: (context, ref, _) {
@@ -110,22 +114,24 @@ class PlayerActions extends HookConsumerWidget {
                             );
                           },
                         ),
-                      );
-            },
-          );
+                      ),
+                    ),
+                  );
+                },
+              );
             },
           ),
         if (!isLocalTrack)
           IconButton(
-            // was: enabled: playlist.activeTrack != null
             icon: const Icon(SpotubeIcons.alternativeRoute),
             onPressed: () {
               final screenSize = MediaQuery.sizeOf(context);
               if (screenSize.mdAndUp) {
-                showDialog(
+                showPopover(
+                  alignment: Alignment.bottomCenter,
                   context: context,
                   builder: (context) {
-                    return Card(
+                    return Card(,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(
                           maxHeight: 600,
@@ -146,9 +152,7 @@ class PlayerActions extends HookConsumerWidget {
             const SizedBox(
               height: 20,
               width: 20,
-              child: CircularProgressIndicator(
-                size: 2,
-              ),
+              child: CircularProgressIndicator(),
             )
           else
             IconButton(
@@ -197,14 +201,18 @@ class PlayerActions extends HookConsumerWidget {
                   builder: (context) => HookBuilder(builder: (context) {
                     final timeRef = useRef<TimeOfDay?>(null);
                     return AlertDialog(
-                                              onPressed: () {
+                      trailing: IconButton(
+                        iconSize: 16.0,
+                        icon: const Icon(SpotubeIcons.close),
+                        onPressed: () {
                           Navigator.of(context).pop();
                         },
                       ),
                       title: Text(
-                        "Select Time",
+                        ShadcnLocalizations.of(context).placeholderTimePicker,
                       ),
-                      content: const Text("Time picker not available"),
+                      content: TimePickerDialog(
+                        use24HourFormat: false,
                         initialValue: TimeOfDay.fromDateTime(
                           DateTime.now().add(sleepTimer ?? Duration.zero),
                         ),

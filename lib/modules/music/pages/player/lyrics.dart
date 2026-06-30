@@ -1,7 +1,7 @@
 import 'package:auto_route/annotations.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -27,32 +27,29 @@ class PlayerLyricsPage extends HookConsumerWidget {
     final selectedIndex = useState(0);
     final palette = usePaletteColor(albumArt, ref);
 
-    final tabbar = TabList(
-      index: selectedIndex.value,
-      onChanged: (index) => selectedIndex.value = index,
-      children: [
-        TabItem(
-          child: Text(context.l10n.synced),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(SpotubeIcons.angleDown),
+            onPressed: () => Navigator.maybePop(context),
+          ),
+          bottom: TabBar(
+            onTap: (index) => selectedIndex.value = index,
+            tabs: [
+              Tab(text: context.l10n.synced),
+              Tab(text: context.l10n.plain),
+            ],
+          ),
         ),
-        TabItem(
-          child: Text(context.l10n.plain),
-        ),
-      ],
-    );
-
-    return Scaffold(
-      appBar: AppBar(
-          leading: tabbar,
-          trailing: const [
-            BackButton(icon: SpotubeIcons.angleDown),
+        body: IndexedStack(
+          
+          children: [
+            SyncedLyrics(palette: palette, isModal: false),
+            PlainLyrics(palette: palette, isModal: false),
           ],
-        ),,
-      body: IndexedStack(
-        index: selectedIndex.value,
-        children: [
-          SyncedLyrics(palette: palette, isModal: false),
-          PlainLyrics(palette: palette, isModal: false),
-        ],
+        ),
       ),
     );
   }

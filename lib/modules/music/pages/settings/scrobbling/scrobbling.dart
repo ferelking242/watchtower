@@ -36,7 +36,7 @@ class SettingsScrobblingPage extends HookConsumerWidget {
         child: SafeArea(
           bottom: false,
           child: Scaffold(
-            appBar: TitleBar(title: Text(context.l10n.scrobbling)),
+            appBar: AppBar(title: Text(context.l10n.scrobbling)),
             body: ListView(
               padding: const EdgeInsets.all(8),
               children: [

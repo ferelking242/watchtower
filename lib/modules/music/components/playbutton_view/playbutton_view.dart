@@ -131,8 +131,7 @@ class PlaybuttonView extends StatelessWidget {
                       ),
                       itemBuilder: (context, index) {
                         if (isLoading) {
-                          return const Opacity(opacity: 1.0, 
-                            enabled: true,
+                          return const Skeletonizer(enabled: true,
                             child: _dummyPlaybuttonCard,
                           );
                         }
@@ -143,8 +142,7 @@ class PlaybuttonView extends StatelessWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: onRequestMore,
-                            child: const Opacity(opacity: 1.0, 
-                              enabled: true,
+                            child: const Skeletonizer(enabled: true,
                               child: _dummyPlaybuttonCard,
                             ),
                           );
@@ -164,8 +162,7 @@ class PlaybuttonView extends StatelessWidget {
                 ),
               (false, false) => SliverInfiniteList(
                   itemCount: itemCount,
-                  loadingBuilder: (context) => const Opacity(opacity: 1.0, 
-                    enabled: true,
+                  loadingBuilder: (context) => const Skeletonizer(enabled: true,
                     child: _dummyPlaybuttonTile,
                   ),
                   itemBuilder: listItemBuilder,

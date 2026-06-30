@@ -15,7 +15,6 @@ import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_actions.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/string.dart';
-import 'package:watchtower/modules/music/hooks/controllers/use_shadcn_text_editing_controller.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/library/local_folder/cache_export_dialog.dart';
 import 'package:watchtower/modules/music/pages/library/user_local_tracks/user_local_tracks.dart';
@@ -98,7 +97,7 @@ class LocalLibraryPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final scale = 1.0;
+    final scale = Theme.of(context).scaling;
 
     final sortBy = useState<SortBy>(SortBy.none);
     final playlist = ref.watch(audioPlayerProvider);
@@ -110,7 +109,7 @@ class LocalLibraryPage extends HookConsumerWidget {
       [playlist, trackSnapshot, location],
     );
 
-    final searchController = useShadcnTextEditingController();
+    final searchController = useTextEditingController();
     useValueListenable(searchController);
     final searchFocus = useFocusNode();
     final isFiltering = useState(false);
@@ -130,12 +129,12 @@ class LocalLibraryPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(
+      appBar: AppBar(
             padding: const EdgeInsets.symmetric(
               horizontal: 10,
               vertical: 0,
-            ),
-                        leading: const [BackButton()],
+            )
+            leading: const [BackButton(),
             title: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,24 +151,24 @@ class LocalLibraryPage extends HookConsumerWidget {
                   builder: (context, snapshot) {
                     return Text(
                       "${(snapshot.data ?? 0)} GB",
-                    ).xSmall();
+                    );
                   },
                 )
               ],
             ),
             backgroundColor: Colors.transparent,
             trailingGap: 10,
-            actions: [
+            trailing: [
               if (isCache) ...[
-                IconButton(
-                  size: 20.0,
+                IconButton.outlined(
+                  iconSize: 20.0,
                   icon: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(SpotubeIcons.delete),
                       Text(context.l10n.clear_cache)
                     ],
-                  ).xSmall().iconSmall(),
+                  ),
                   onPressed: () async {
                     final accepted = await showDialog<bool>(
                       context: context,
@@ -180,9 +179,9 @@ class LocalLibraryPage extends HookConsumerWidget {
                             onPressed: () {
                               Navigator.of(context).pop(false);
                             },
-                            body: Text(context.l10n.decline),
+                            child: Text(context.l10n.decline),
                           ),
-                          ElevatedButton(
+                          FilledButton(
                             onPressed: () async {
                               Navigator.of(context).pop(true);
                             },
@@ -205,8 +204,8 @@ class LocalLibraryPage extends HookConsumerWidget {
                     ref.invalidate(localTracksProvider);
                   },
                 ),
-                IconButton(
-                  size: 20.0,
+                IconButton.outlined(
+                  iconSize: 20.0,
                   icon: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -215,7 +214,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                         context.l10n.export,
                       )
                     ],
-                  ).xSmall().iconSmall(),
+                  ),
                   onPressed: () async {
                     final exportPath =
                         await FilePicker.getDirectoryPath();
@@ -242,18 +241,19 @@ class LocalLibraryPage extends HookConsumerWidget {
                     );
                   },
                 ),
-              ],
+              ]
+            ],
           ),
         ],
-        body: LayoutBuilder(
+        child: LayoutBuilder(
           builder: (context, constraints) => Column(
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
                   children: [
-                    SizedBox(height: 5),
-                    IconButton(
+                    const SizedBox(height: 5, width: 5),
+                    IconButton.primary(
                       onPressed: trackSnapshot.asData?.value != null
                           ? () async {
                               if (trackSnapshot.asData?.value.isNotEmpty ==
@@ -274,8 +274,8 @@ class LocalLibraryPage extends HookConsumerWidget {
                             : SpotubeIcons.play,
                       ),
                     ),
-                    SizedBox(height: 5),
-                    IconButton(
+                    const SizedBox(height: 5, width: 5),
+                    IconButton.outlined(
                       onPressed: trackSnapshot.asData?.value != null
                           ? () async {
                               if (trackSnapshot.asData?.value.isNotEmpty ==
@@ -293,8 +293,8 @@ class LocalLibraryPage extends HookConsumerWidget {
                       enabled: !isPlaylistPlaying,
                       icon: const Icon(SpotubeIcons.shuffle),
                     ),
-                    SizedBox(height: 5),
-                    IconButton(
+                    const SizedBox(height: 5, width: 5),
+                    IconButton.outlined(
                       onPressed: trackSnapshot.asData?.value != null
                           ? () async {
                               if (trackSnapshot.asData?.value.isNotEmpty ==
@@ -333,15 +333,15 @@ class LocalLibraryPage extends HookConsumerWidget {
                           searchFocus: searchFocus,
                         ),
                       ),
-                    SizedBox(height: 5),
+                    const SizedBox(height: 5, width: 5),
                     SortTracksDropdown(
                       value: sortBy.value,
                       onChanged: (value) {
                         sortBy.value = value;
                       },
                     ),
-                    SizedBox(height: 5),
-                    IconButton(
+                    const SizedBox(height: 5, width: 5),
+                    IconButton.outlined(
                       icon: const Icon(SpotubeIcons.refresh),
                       onPressed: () {
                         ref.invalidate(localTracksProvider);
@@ -397,7 +397,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                               height: 200 * scale,
                               color: Theme.of(context).colorScheme.primary,
                             ),
-                            SizedBox(height: 10),
+                            const SizedBox(height: 10, width: 10),
                             Text(
                               context.l10n.nothing_found,
                               textAlign: TextAlign.center,
@@ -414,7 +414,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                         },
                         child: InterScrollbar(
                           controller: controller,
-                          child: Opacity(opacity: 1.0, 
+                          child: Skeletonizer(
                             enabled: trackSnapshot.isLoading,
                             child: CustomScrollView(
                               controller: controller,
@@ -449,7 +449,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                                     );
                                   },
                                 ),
-                                const SliverToBoxAdapter(child: SizedBox(height: 200)),
+                                const SliverGap(200),
                               ],
                             ),
                           ),
@@ -458,7 +458,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                     );
                   },
                   loading: () => Expanded(
-                    child: Opacity(opacity: 1.0, 
+                    child: Skeletonizer(
                       enabled: true,
                       child: ListView.builder(
                         itemCount: 5,

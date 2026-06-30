@@ -126,7 +126,7 @@ class _MiniControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(icon, size: 22),
+      icon: Icon(icon, iconSize: 22),
       onPressed: onTap,
       color: Theme.of(context).colorScheme.onSurface,
       visualDensity: VisualDensity.compact,

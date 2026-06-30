@@ -7,7 +7,6 @@ import 'package:watchtower/modules/music/components/track_presentation/presentat
 import 'package:watchtower/modules/music/components/track_presentation/presentation_state.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
-import 'package:watchtower/modules/music/hooks/controllers/use_shadcn_text_editing_controller.dart';
 
 class TrackPresentationModifiersSection extends HookConsumerWidget {
   final FocusNode? focusNode;
@@ -24,7 +23,7 @@ class TrackPresentationModifiersSection extends HookConsumerWidget {
       presentationStateProvider(options.collection).notifier,
     );
 
-    final controller = useShadcnTextEditingController();
+    final controller = useTextEditingController();
     final scale = 1.0;
 
     return LayoutBuilder(builder: (context, constrains) {
@@ -39,7 +38,7 @@ class TrackPresentationModifiersSection extends HookConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Checkbox(
-                  state: state.selectedTracks.length == options.tracks.length
+                  value: state.selectedTracks.length == options.tracks.length
                       ? true
                       : false,
                   onChanged: (value) {

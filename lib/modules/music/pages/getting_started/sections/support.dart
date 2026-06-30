@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/env.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -33,18 +33,18 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16, width: 16),
                 Text(context.l10n.help_project_grow_description),
-                SizedBox(height: 16),
+                const SizedBox(height: 16, width: 16),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextButton(
-                      .copyWith(
+                    Button(
+                      leading: const Icon(SpotubeIcons.github).copyWith(
                           decoration: (context, states, value) {
                         if (states.isNotEmpty) {
-                          return null
+                          return ButtonStyle()
                               .decoration(context, states);
                         }
 
@@ -65,12 +65,12 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
                       ),
                     ),
                     if (!Env.hideDonations) ...[
-                      SizedBox(height: 16),
-                      TextButton(
-                        .copyWith(
+                      const SizedBox(height: 16, width: 16),
+                      Button(
+                        leading: const Icon(SpotubeIcons.openCollective).copyWith(
                             decoration: (context, states, value) {
                           if (states.isNotEmpty) {
-                            return null
+                            return ButtonStyle()
                                 .decoration(context, states);
                           }
 
@@ -96,13 +96,14 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
               ],
             ),
           ),
-          SizedBox(height: 48),
+          const SizedBox(height: 48, width: 48),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 250),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 FilledButton(
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.extensions),
                   onPressed: () async {
                     await KVStoreService.setDoneGettingStarted(true);
                     if (context.mounted) {

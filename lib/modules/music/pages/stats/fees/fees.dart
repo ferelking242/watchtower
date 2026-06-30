@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:watchtower/modules/music/collections/formatters.dart';
@@ -53,10 +53,11 @@ class StatsStreamFeesPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(
+      appBar: AppBar(
             title: Text(context.l10n.streaming_fees_hypothetical),
-          ),
-        body: CustomScrollView(
+          )
+        ,
+        child: CustomScrollView(
           slivers: [
             SliverCrossAxisConstrained(
               maxCrossAxisExtent: 600,

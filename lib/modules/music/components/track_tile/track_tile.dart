@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
@@ -5,7 +6,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -32,7 +32,7 @@ final isBlacklistedProvider =
   },
 );
 
-final _overlay = ValueNotifier<Future<dynamic>?>(null);
+final _overlay = ValueNotifier<OverlayCompleter<dynamic>?>(null);
 
 class TrackTile extends HookConsumerWidget {
   /// [index] will not be shown if null
@@ -122,7 +122,8 @@ class TrackTile extends HookConsumerWidget {
             },
             onLongPress: onLongPress,
             style: (isBlackListed
-                    ? null : null)
+                    ? ButtonStyle()
+                    : ButtonStyle())
                 .copyWith(
               padding: (context, states, value) =>
                   const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
@@ -137,7 +138,7 @@ class TrackTile extends HookConsumerWidget {
                       ? CrossFadeState.showSecond
                       : CrossFadeState.showFirst,
                   firstChild: Checkbox(
-                    state: selected
+                    value: selected
                         ? true
                         : false,
                     onChanged: (state) =>
@@ -241,7 +242,10 @@ class TrackTile extends HookConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Flexible(
-                child: TextButton(
+                child: Button(.copyWith(
+                padding: (context, states, value) =>
+                  EdgeInsets.zero,
+                ),
                 onPressed: effectiveSelection
                   ? null
                   : () {
@@ -287,6 +291,7 @@ class TrackTile extends HookConsumerWidget {
                 ],
               ],
             ),
+            subtitle: Align(
               alignment: Alignment.centerLeft,
                     child: track is SpotubeLocalTrackObject
                   ? Text(
@@ -330,7 +335,7 @@ class TrackTile extends HookConsumerWidget {
                     );
                   },
                 ),
-                if (kIsDesktop) SizedBox(height: 10),
+                if (kIsDesktop) const SizedBox(height: 10, width: 10),
               ],
             ),
           ),

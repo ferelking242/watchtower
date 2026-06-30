@@ -1,9 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/markdown/markdown.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -25,10 +25,11 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(
+      appBar: AppBar(
             title: Text(title),
-          ),,
-        body: FormBuilder(
+          ),
+        ,
+        child: FormBuilder(
           key: formKey,
           child: Center(
             child: Container(
@@ -41,13 +42,13 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                     child: Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium!,
+                      style: Theme.of(context).textTheme.headlineLarge!,
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  const SliverGap(24),
                   SliverList.separated(
                     itemCount: fields.length,
-                    separatorBuilder: (context, index) => SizedBox(height: 12),
+                    separatorBuilder: (context, index) => const SizedBox(height: 12, width: 12),
                     itemBuilder: (context, index) {
                       if (fields[index] is MetadataFormFieldTextObject) {
                         final field =
@@ -110,7 +111,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                       );
                     },
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  const SliverGap(24),
                   SliverToBoxAdapter(
                     child: FilledButton(
                       onPressed: () {
@@ -130,7 +131,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                       child: Text(context.l10n.submit),
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 200))
+                  const SliverGap(200)
                 ],
               ),
             ),

@@ -72,7 +72,7 @@ class UserLocalLibraryPage extends HookConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(SpotubeIcons.folderAdd, size: 18),
+                    const Icon(SpotubeIcons.folderAdd),
                     const SizedBox(width: 8),
                     Text(context.l10n.add_library_location),
                   ],

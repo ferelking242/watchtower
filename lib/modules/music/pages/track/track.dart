@@ -57,7 +57,7 @@ class TrackPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: 
-          TitleBar(
+          AppBar(
             backgroundColor: Colors.transparent,
                       )
         ,
@@ -86,8 +86,7 @@ class TrackPage extends HookConsumerWidget {
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Opacity(opacity: 1.0, 
-                  enabled: trackQuery.isLoading,
+                child: Skeletonizer(enabled: trackQuery.isLoading,
                   child: Container(
                     alignment: Alignment.topCenter,
                     decoration: BoxDecoration(

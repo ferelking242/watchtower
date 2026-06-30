@@ -143,8 +143,7 @@ class SearchPage extends HookConsumerWidget {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(28),
                           borderSide: BorderSide.none,
-                        ),
-                        filled: true,
+                        )
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 20),
                       ),
@@ -163,8 +162,7 @@ class SearchPage extends HookConsumerWidget {
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(
                               maxHeight: 220, maxWidth: 400),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
+                          child: ListView.builder(,
                             shrinkWrap: true,
                             itemCount: options.length,
                             itemBuilder: (context, index) {

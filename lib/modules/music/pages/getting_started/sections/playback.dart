@@ -1,5 +1,5 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/modules/getting_started/blur_card.dart';
@@ -43,16 +43,16 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
             Row(
               children: [
                 const Icon(SpotubeIcons.album, size: 16),
-                SizedBox(height: 8),
+                const SizedBox(height: 8, width: 8),
                 Text(context.l10n.playback),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16, width: 16),
             // Align(
             //   alignment: Alignment.centerLeft,
             //   child: Text(context.l10n.select_audio_source),
             // ),
-            // SizedBox(height: 16),
+            // const SizedBox(height: 16, width: 16),
             // RadioGroup<AudioSource>(
             //   value: preferences.audioSource,
             //   onChanged: (value) {
@@ -82,13 +82,14 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
             //     ],
             //   ),
             // ),
-            // SizedBox(height: 16),
+            // const SizedBox(height: 16, width: 16),
             // Text(
             //   audioSourceToDescription[preferences.audioSource]!,
             // ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16, width: 16),
             ButtonTile(
               title: Text(context.l10n.endless_playback),
+              subtitle: Text(
                 context.l10n.endless_playback_description,
               ),
               onPressed: () {
@@ -102,17 +103,19 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
                 },
               ),
             ),
-            SizedBox(height: 34),
+            const SizedBox(height: 34, width: 34),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ElevatedButton(
+                TextButton(
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.angleLeft),
                   onPressed: onPrevious,
                   child: Text(context.l10n.previous),
                 ),
                 Directionality(
                   textDirection: TextDirection.rtl,
                   child: FilledButton(
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.angleRight),
                     onPressed: onNext,
                     child: Text(context.l10n.next),
                   ),

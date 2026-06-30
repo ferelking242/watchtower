@@ -1,5 +1,5 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
@@ -69,7 +69,7 @@ class ExpandableSearchButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: icon ? null : null,
+      icon: icon) : ButtonStyle(),
       onPressed: () {
         if (isFiltering) {
           searchFocus.requestFocus();

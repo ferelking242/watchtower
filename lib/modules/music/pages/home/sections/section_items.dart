@@ -50,10 +50,9 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
 
     return SafeArea(
       bottom: false,
-      child: Opacity(opacity: 1.0, 
-        enabled: sectionItems.isLoading,
+      child: Skeletonizer(enabled: sectionItems.isLoading,
         child: Scaffold(
-          appBar: TitleBar(
+          appBar: AppBar(
               title: Text(section.title),
             ),
           body: Padding(
@@ -71,8 +70,7 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
                   ),
                   itemBuilder: (context, index) {
                     if (isLoading) {
-                      return const Opacity(opacity: 1.0, 
-                        enabled: true,
+                      return const Skeletonizer(enabled: true,
                         child: _dummyPlaybuttonCard,
                       );
                     }
@@ -85,8 +83,7 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
                         onTouchEdge: () async {
                           await sectionItemsNotifier.fetchMore();
                         },
-                        child: const Opacity(opacity: 1.0, 
-                          enabled: true,
+                        child: const Skeletonizer(enabled: true,
                           child: _dummyPlaybuttonCard,
                         ),
                       );

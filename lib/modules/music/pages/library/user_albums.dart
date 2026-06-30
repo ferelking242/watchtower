@@ -92,8 +92,7 @@ class UserAlbumsPage extends HookConsumerWidget {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(28),
                           borderSide: BorderSide.none,
-                        ),
-                        filled: true,
+                        )
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 20),
                         isDense: true,

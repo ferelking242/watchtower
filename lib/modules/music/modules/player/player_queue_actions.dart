@@ -15,19 +15,19 @@ class PlayerQueueActionButton extends StatelessWidget {
     return IconButton(
       onPressed: () {
         final mediaQuery = MediaQuery.sizeOf(context);
-        // Capture shadcn theme before entering the overlay.
-        // Without this the overlay context has no shadcn ancestor
-        // and shadcn widgets render as blank gray boxes.
         final capturedTheme = Theme.of(context);
 
         if (mediaQuery.lgAndUp) {
-           {
+          showDialog(
+            context: context,
+            barrierColor: Colors.transparent,
+            builder: (context) {
               return Theme(
                 data: capturedTheme,
                 child: Material(
                   type: MaterialType.transparency,
                   child: SizedBox(
-                    width: 220 * 1.0,
+                    width: 220,
                     child: Card(
                       child: builder(context, () => Navigator.pop(context)),
                     ),
@@ -37,14 +37,18 @@ class PlayerQueueActionButton extends StatelessWidget {
             },
           );
         } else {
-           => Theme(
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            showDragHandle: true,
+            builder: (context) => Theme(
               data: capturedTheme,
               child: Material(
                 type: MaterialType.transparency,
                 child: builder(context, () => Navigator.pop(context)),
               ),
             ),
-            );
+          );
         }
       },
       icon: const Icon(SpotubeIcons.moreHorizontal),

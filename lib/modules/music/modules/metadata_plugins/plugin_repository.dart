@@ -199,7 +199,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     spacing: 4,
                     children: [
-                      const Icon(SpotubeIcons.warning, size: 14),
+                      const Icon(SpotubeIcons.warning),
                       Text(
                         context.l10n.third_party,
                         style: const TextStyle(color: Colors.white),

@@ -20,8 +20,7 @@ class HomeRecentlyPlayedSection extends HookConsumerWidget {
       return const SizedBox();
     }
 
-    return Opacity(opacity: 1.0, 
-      enabled: history.isLoading,
+    return Skeletonizer(enabled: history.isLoading,
       child: HorizontalPlaybuttonCardView(
         title: Text(context.l10n.recently_played),
         items: [

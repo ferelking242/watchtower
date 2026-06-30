@@ -92,8 +92,7 @@ class UserArtistsPage extends HookConsumerWidget {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(28),
                           borderSide: BorderSide.none,
-                        ),
-                        filled: true,
+                        )
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 20),
                         isDense: true,
@@ -122,14 +121,12 @@ class UserArtistsPage extends HookConsumerWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: artistQueryNotifier.fetchMore,
-                            child: Opacity(opacity: 1.0, 
-                              enabled: true,
+                            child: Skeletonizer(enabled: true,
                               child: ArtistCard(FakeData.artist),
                             ),
                           );
                         }
-                        return Opacity(opacity: 1.0, 
-                          enabled: artistQuery.isLoading,
+                        return Skeletonizer(enabled: artistQuery.isLoading,
                           child: ArtistCard(
                             filteredArtists.elementAtOrNull(index) ??
                                 FakeData.artist,

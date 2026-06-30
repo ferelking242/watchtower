@@ -29,11 +29,10 @@ class StatsMinutesPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(
+        appBar: AppBar(
             title: Text(context.l10n.minutes_listened),
           ),
-        body: Opacity(opacity: 1.0, 
-          enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
+        body: Skeletonizer(enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
           child: InfiniteList(
             separatorBuilder: (context, index) => SizedBox(height: 8),
             onFetchData: () async {

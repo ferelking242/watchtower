@@ -91,8 +91,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           itemCount: items.length,
                           onFetchData: onFetchMore,
-                          loadingBuilder: (context) => Opacity(opacity: 1.0, 
-                                enabled: true,
+                          loadingBuilder: (context) => Skeletonizer(enabled: true,
                                 child: isArtist
                                     ? ArtistCard(FakeData.artist)
                                     : AlbumCard(FakeData.albumSimple),

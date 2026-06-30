@@ -72,8 +72,7 @@ class PresentationListSection extends HookConsumerWidget {
       itemCount: state.presentationTracks.length,
       hasReachedMax: !options.pagination.hasNextPage,
       loadingBuilder: (context) {
-        return Opacity(opacity: 1.0, 
-          enabled: true,
+        return Skeletonizer(enabled: true,
           child: TrackTile(
             index: 0,
             playlist: playlist,
@@ -81,8 +80,7 @@ class PresentationListSection extends HookConsumerWidget {
           ),
         );
       },
-      emptyBuilder: (context) => Opacity(opacity: 1.0, 
-        enabled: true,
+      emptyBuilder: (context) => Skeletonizer(enabled: true,
         child: Column(
           children: List.generate(
             10,

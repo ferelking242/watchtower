@@ -15,6 +15,7 @@ import 'package:watchtower/modules/music/models/metadata/market.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/services/kv_store/encrypted_kv_store.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
+import 'package:flutter/material.dart' show ThemeMode, Colors;
 import 'package:flutter/widgets.dart' hide Table, Key, View;
 import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';
 import 'package:drift/native.dart';

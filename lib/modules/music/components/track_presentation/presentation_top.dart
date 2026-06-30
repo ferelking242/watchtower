@@ -1,7 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/heart_button/heart_button.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -19,7 +19,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final mediaQuery = MediaQuery.sizeOf(context);
     final options = TrackPresentationOptions.of(context);
-    final scale = 1.0;
+    final scale = Theme.of(context).scaling;
     final isUserPlaylist = useIsUserPlaylist(ref, options.collectionId);
 
     final decorationImage = DecorationImage(
@@ -35,24 +35,25 @@ class TrackPresentationTopSection extends HookConsumerWidget {
     final playbackActions = Row(
       spacing: 8 * scale,
       children: [
-        IconButton(
+        IconButton.secondary(
           icon: isLoading
               ? const Center(
                   child:
-                      CircularProgressIndicator(onSurface: false, size: 20),
+                      CircularProgressIndicator(onSurface: false, iconSize: 20),
                 )
               : const Icon(SpotubeIcons.shuffle),
           enabled: !isLoading && !isActive,
           onPressed: onShuffle,
         ),
         if (mediaQuery.width <= 320)
-          IconButton(
+          IconButton.secondary(
             icon: const Icon(SpotubeIcons.queueAdd),
             enabled: !isLoading && !isActive,
             onPressed: onAddToQueue,
           )
         else
-          ElevatedButton(
+          TextButton(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.add),
             enabled: !isLoading && !isActive,
             onPressed: onAddToQueue,
             child: Text(context.l10n.queue),
@@ -77,8 +78,8 @@ class TrackPresentationTopSection extends HookConsumerWidget {
       spacing: 8 * scale,
       children: [
         if (isUserPlaylist)
-          IconButton(
-            size: 20.0,
+          IconButton.outlined(
+            iconSize: 20.0,
             icon: const Icon(SpotubeIcons.edit),
             onPressed: () {
               showDialog(
@@ -93,7 +94,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
             },
           ),
         if (options.shareUrl != null)
-          IconButton(
+          IconButton.outlined(
             icon: const Icon(SpotubeIcons.share),
             size: 20.0,
             onPressed: () async {
@@ -122,7 +123,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
             isLiked: options.isLiked,
             tooltip: options.isLiked
                 ? context.l10n.remove_from_favorites
-                : context.l10n.save_as_favorite
+                : context.l10n.save_as_favorite),
             size: 20.0,
             onPressed: options.onHeart,
           ),
@@ -131,7 +132,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
 
     return SliverMainAxisGroup(
       slivers: [
-        if (mediaQuery.mdAndUp) SliverToBoxAdapter(child: SizedBox(height: 16 * scale)),
+        if (mediaQuery.mdAndUp) SliverGap(16 * scale),
         SliverPadding(
           padding: EdgeInsets.symmetric(
             horizontal: (mediaQuery.mdAndUp ? 16 : 8.0) * scale,
@@ -143,10 +144,10 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                   image: decorationImage,
                   borderRadius: BorderRadius.circular(45),
                 ),
-                child: OutlinedContainer(
-                                                      padding: EdgeInsets.all(24 * scale),
-                  borderRadius: BorderRadius.circular(22 * scale),
-                                    child: Column(
+                child: OutlinedContainer().surfaceOpacity).surfaceBlur,
+                  padding: EdgeInsets.all(24 * scale),
+                  borderRadius: BorderRadius.circular(22 * scale)
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     spacing: 16 * scale,
                     children: [
@@ -159,7 +160,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                             height: imageDimension * scale,
                             width: imageDimension * scale,
                             decoration: BoxDecoration(
-                              borderRadius: const BorderRadius.all(Radius.circular(8)),
+                              borderRadius: Theme.of(context).borderRadiusXl,
                               image: decorationImage,
                             ),
                           ),
@@ -172,7 +173,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                                   options.title,
                                   maxLines: 2,
                                   minFontSize: 16,
-                                  style: Theme.of(context).textTheme.headlineSmall!,
+                                  style: Theme.of(context).textTheme.headlineMedium!,
                                 ),
                                 if (options.description != null)
                                   AutoSizeText(
@@ -187,7 +188,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                                       fontSize: 18,
                                     ),
                                   ),
-                                SizedBox(height: 16),
+                                const SizedBox(height: 16, width: 16),
                                 Flex(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   direction: mediaQuery.smAndUp
@@ -196,7 +197,8 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                                   spacing: 8 * scale,
                                   children: [
                                     if (options.owner != null)
-                                      Chip(label: leading: options.ownerImage != null
+                                      OutlineBadge(
+                                        leading: options.ownerImage != null
                                             ? Avatar(
                                                 initials:
                                                     options.owner?[0] ?? "U",
@@ -217,7 +219,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                                   ],
                                 ),
                                 if (mediaQuery.mdAndUp) ...[
-                                  SizedBox(height: 16),
+                                  const SizedBox(height: 16, width: 16),
                                   playbackActions
                                 ],
                               ],

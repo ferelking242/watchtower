@@ -9,7 +9,6 @@ class PlaybuttonTile extends StatelessWidget {
   final void Function()? onPlaybuttonPressed;
   final void Function()? onAddToQueuePressed;
   final String? description;
-
   final String? imageUrl;
   final Widget? image;
   final bool isPlaying;
@@ -37,68 +36,78 @@ class PlaybuttonTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cleanDescription = description?.unescapeHtml().cleanHtml() ?? "";
-    final scale = 1.0;
 
-    return TextButton(
-      leading: imageUrl != null
-          ? Container(
-              width: 50 * scale,
-              height: 50 * scale,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(16)),
-                image: DecorationImage(
-                  image: UniversalImage.imageProvider(imageUrl!),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            )
-          : SizedBox(
-              width: 50 * scale,
-              height: 50 * scale,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(16)),
-                child: image,
+    final leadingWidget = imageUrl != null
+        ? Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
+              image: DecorationImage(
+                image: UniversalImage.imageProvider(imageUrl!),
+                fit: BoxFit.cover,
               ),
             ),
-              .copyWith(right: 0, left: 0);
-        },
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(SpotubeIcons.queueAdd),
-            onPressed: onAddToQueuePressed,
-            enabled: !isLoading,
-          ),
-          SizedBox(height: 8),
-          IconButton(
-            icon: switch ((isLoading, isPlaying)) {
-              (true, _) => const CircularProgressIndicator(
-                  size: 22,
-                ),
-              (false, false) => const Icon(SpotubeIcons.play),
-              (false, true) => const Icon(SpotubeIcons.pause)
-            },
-            onPressed: onPlaybuttonPressed,
-            enabled: !isLoading,
-          ),
-        ],
-      ),
-      enabled: !isLoading,
-      onPressed: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title),
-          if (cleanDescription.isNotEmpty)
-            Text(
-              description!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ).xSmall(),
-        ],
+          )
+        : SizedBox(
+            width: 50,
+            height: 50,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
+              child: image,
+            ),
+          );
+
+    final trailingWidget = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(SpotubeIcons.queueAdd),
+          onPressed: isLoading ? null : onAddToQueuePressed,
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: switch ((isLoading, isPlaying)) {
+            (true, _) => const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            (false, false) => const Icon(SpotubeIcons.play),
+            (false, true) => const Icon(SpotubeIcons.pause)
+          },
+          onPressed: isLoading ? null : onPlaybuttonPressed,
+        ),
+      ],
+    );
+
+    return InkWell(
+      onTap: isLoading ? null : onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            leadingWidget,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title),
+                  if (cleanDescription.isNotEmpty)
+                    Text(
+                      description!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+            trailingWidget,
+          ],
+        ),
       ),
     );
   }

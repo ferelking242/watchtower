@@ -83,7 +83,7 @@ class PlainLyrics extends HookConsumerWidget {
                                   textAlign: TextAlign.center,
                                 ),
                                 SizedBox(height: 26),
-                                const Icon(SpotubeIcons.noLyrics, size: 60),
+                                const Icon(SpotubeIcons.noLyrics),
                               ],
                             ),
                           );

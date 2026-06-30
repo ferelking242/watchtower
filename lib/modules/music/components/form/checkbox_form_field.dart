@@ -26,7 +26,7 @@ class CheckboxFormBuilderField extends StatelessWidget {
       validator: validator,
       builder: (field) {
         return Checkbox(
-          state: tristate && field.value == null
+          value: tristate && field.value == null
               ? null
               : field.value == true
                   ? true

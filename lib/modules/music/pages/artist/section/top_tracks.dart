@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -102,11 +102,11 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
                   context.l10n.top_tracks,
-                  style: Theme.of(context).textTheme.titleLarge!,
+                  style: Theme.of(context).textTheme.headlineMedium!,
                 ),
               ),
               if (!isPlaylistPlaying)
-                IconButton(
+                IconButton.outlined(
                   icon: const Icon(
                     SpotubeIcons.queueAdd,
                   ),
@@ -128,11 +128,12 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                   },
                 ),
               const SizedBox(width: 5),
-              IconButton(
-                // was: enabled: !isPlaylistPlaying && !isLoading.value
+              IconButton.primary(
+                shape: ButtonShape.circle,
+                enabled: !isPlaylistPlaying && !isLoading.value,
                 icon: isLoading.value
                     ? CircularProgressIndicator(
-                        size: 20 * 1.0,
+                        iconSize: 20 * Theme.of(context).scaling,
                         color: theme.colorScheme.primaryForeground,
                       )
                     : Skeleton.keep(
@@ -147,7 +148,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
             ],
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 10)),
+        const SliverGap(10),
         SliverList.builder(
           itemCount: topTracks.length,
           itemBuilder: (context, index) {

@@ -1,8 +1,8 @@
+import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/modules/metadata_plugins/plugin_update_available_dialog.dart';
@@ -90,16 +90,19 @@ void useGlobalSubscriptions(WidgetRef ref) {
           builder: (context, overlay) {
             if (connected) {
               return Card(
-                child: ListTile(
+                child: Basic(
+                  leading: const Icon(SpotubeIcons.wifi),
                   title: Text(context.l10n.connection_restored),
                 ),
               );
             }
 
             return Card(
-              fillColor: theme.colorScheme.destructive,
-              filled: true,
-              child: ListTile(
+              child: Basic(
+                leading: Icon(
+                  SpotubeIcons.noWifi,
+                  color: theme.colorScheme.destructiveForeground,
+                ),
                 trailing: Text(
                   context.l10n.you_are_offline,
                   style: TextStyle(
@@ -118,9 +121,11 @@ void useGlobalSubscriptions(WidgetRef ref) {
           location: ToastLocation.topRight,
           builder: (context, overlay) {
             return Card(
-              fillColor: Colors.yellow[600],
-              filled: true,
-              child: ListTile(
+              child: Basic(
+                leading: const Icon(
+                  SpotubeIcons.error,
+                  color: Colors.black,
+                ),
                 title: Text(
                   context.l10n.connect_client_alert(clientOrigin),
                   style: const TextStyle(color: Colors.black),

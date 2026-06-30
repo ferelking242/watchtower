@@ -1,5 +1,5 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/env.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
@@ -32,11 +32,12 @@ class AboutSpotubePage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(
-            leading: const [BackButton()],
+      appBar: AppBar(
+            leading: const [BackButton(),
             title: Text(context.l10n.about_spotube),
-          ),
-        body: SingleChildScrollView(
+          )
+        ],
+        child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(

@@ -1,5 +1,5 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -14,7 +14,7 @@ class ArtistPageFooter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final ThemeData(:typography) = Theme.of(context);
+    final ThemeData() = Theme.of(context);
     final mediaQuery = MediaQuery.of(context);
 
     final artistImage = artist.images.asUrlString(
@@ -48,7 +48,7 @@ class ArtistPageFooter extends ConsumerWidget {
       alignment: Alignment.center,
       child: RichText(
         text: TextSpan(
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
+          style: typography.semiBold.copyWith(
             color: Colors.white,
           ),
           children: [
@@ -62,7 +62,7 @@ class ArtistPageFooter extends ConsumerWidget {
             ),
             TextSpan(
               text: " Wikipedia",
-              style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+              style: typography.large.copyWith(
                 color: Colors.white,
               ),
             ),
@@ -72,7 +72,7 @@ class ArtistPageFooter extends ConsumerWidget {
             ),
             TextSpan(
               text: '\n...read more at wikipedia',
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
+              style: typography.semiBold.copyWith(
                 color: Colors.sky[300],
                 decoration: TextDecoration.underline,
                 decorationColor: Colors.sky[300],

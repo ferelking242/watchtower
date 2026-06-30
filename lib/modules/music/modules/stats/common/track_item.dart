@@ -1,5 +1,5 @@
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:auto_route/auto_route.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
@@ -29,6 +29,7 @@ class StatsTrackItem extends StatelessWidget {
         ),
       ),
       title: Text(track.name),
+      subtitle: ArtistLink(
         artists: track.artists,
         mainAxisAlignment: WrapAlignment.start,
         onOverflowArtistClick: () {

@@ -1,5 +1,5 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/links/hyper_link.dart';
@@ -65,13 +65,13 @@ class TrackDetailsDialog extends HookConsumerWidget {
           };
 
     return AlertDialog(
-                  title: Row(
+      title: Row(
         spacing: 8,
         children: [
           const Icon(SpotubeIcons.info),
           Text(
             context.l10n.details,
-            style: Theme.of(context).textTheme.titleLarge!,
+            style: Theme.of(context).textTheme.headlineMedium!,
           ),
         ],
       ),
@@ -97,7 +97,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
                   TableCell(
                     child: Text(
                       entry.key,
-                      style: theme.typography.bold,
+                      style: theme.textTheme.bodyMedium!,
                     ),
                   ),
                   const TableCell(
@@ -109,7 +109,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
                         : (entry.value is String)
                             ? Text(
                                 entry.value as String,
-                                style: Theme.of(context).textTheme.bodyMedium!,
+                                style: theme.textTheme.bodyMedium!,
                               )
                             : const Text(""),
                   ),
@@ -121,7 +121,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
                   TableCell(
                     child: Text(
                       entry.key,
-                      style: theme.typography.bold,
+                      style: theme.textTheme.bodyMedium!,
                     ),
                   ),
                   const TableCell(
@@ -134,7 +134,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
                             entry.value,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium!,
+                            style: theme.textTheme.bodyMedium!,
                           ),
                   ),
                 ],

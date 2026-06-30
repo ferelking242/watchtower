@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_list.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_props.dart';
@@ -21,7 +21,7 @@ class TrackPresentation extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final scrollController = useScrollController();
     final focusNode = useFocusNode();
-    final scale = 1.0;
+    final scale = Theme.of(context).scaling;
 
     useEffect(() {
       if (!kIsMobile) return null;
@@ -48,19 +48,19 @@ class TrackPresentation extends HookConsumerWidget {
       child: SafeArea(
         bottom: false,
         child: Scaffold(
-          appBar: TitleBar(),
-          body: CustomScrollView(
+          headers: const [AppBar()],
+          child: CustomScrollView(
             controller: scrollController,
             slivers: [
               const TrackPresentationTopSection(),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              const SliverGap(16),
               SliverList.list(
                 children: [
                   TrackPresentationModifiersSection(
                     focusNode: focusNode,
                   ),
                   LayoutBuilder(builder: (context, constrains) {
-                    return ListTile(
+                    return Basic(
                       padding: const EdgeInsets.symmetric(
                         vertical: 8,
                         horizontal: 16,
@@ -85,7 +85,7 @@ class TrackPresentation extends HookConsumerWidget {
                 ],
               ),
               const PresentationListSection(),
-              const SliverSafeArea(sliver: SliverToBoxAdapter(child: SizedBox(height: 10))),
+              const SliverSafeArea(sliver: SliverGap(10)),
             ],
           ),
         ),

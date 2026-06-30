@@ -1,5 +1,5 @@
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:auto_route/auto_route.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -26,6 +26,7 @@ class StatsAlbumItem extends StatelessWidget {
         ),
       ),
       title: Text(album.name),
+      subtitle: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text("${album.albumType.formatted} • "),

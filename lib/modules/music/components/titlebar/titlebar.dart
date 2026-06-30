@@ -30,7 +30,7 @@ class TitleBar extends HookConsumerWidget implements PreferredSizeWidget {
   final double? surfaceBlur;
   final double? surfaceOpacity;
 
-  const TitleBar({
+  const AppBar({
     super.key,
     this.automaticallyImplyLeading = true,
     this.trailing = const [],

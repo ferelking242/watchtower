@@ -1,8 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
@@ -83,7 +83,7 @@ class PlayerView extends HookConsumerWidget {
       };
     }, [panelController.isAttached && panelController.isPanelOpen]);
 
-    return AppPopScope(
+    return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
         await panelController.close();
@@ -91,14 +91,18 @@ class PlayerView extends HookConsumerWidget {
       child: Card(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: TitleBar(
-                                                leading: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(
+          appBar: SafeArea(
+              bottom: false,
+              child: AppBar(
+                leading: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(
+                    iconSize: 1.2,
                     icon: const Icon(SpotubeIcons.angleDown),
                     onPressed: panelController.close,
                   )]),
-                actions: [
+                trailing: [
                   if (!isLocalTrack)
                     IconButton(
+                      iconSize: 1.2,
                       icon: const Icon(SpotubeIcons.info),
                       onPressed: currentActiveTrackSource == null
                           ? null
@@ -112,10 +116,10 @@ class PlayerView extends HookConsumerWidget {
                                     );
                                   });
                             },
-                    )
-                ],
+                    ),
               ),
-            ),,
+            ),
+          ],
           child: SingleChildScrollView(
             controller: scrollController,
             child: Padding(
@@ -163,13 +167,13 @@ class PlayerView extends HookConsumerWidget {
                         if (isLocalTrack)
                           Text(
                             currentActiveTrack.artists.asString(),
-                            style: Theme.of(context).textTheme.bodyMedium!
+                            style: theme.textTheme.bodyMedium!
                                 .copyWith(fontWeight: FontWeight.bold),
                           )
                         else
                           ArtistLink(
                             artists: currentActiveTrack?.artists ?? [],
-                            textStyle: Theme.of(context).textTheme.bodyMedium!
+                            textStyle: theme.textTheme.bodyMedium!
                                 .copyWith(fontWeight: FontWeight.bold),
                             onRouteChange: (route) {
                               panelController.close();
@@ -197,7 +201,8 @@ class PlayerView extends HookConsumerWidget {
                     children: [
                       const SizedBox(width: 10),
                       Expanded(
-                        child: OutlinedButton(
+                        child: OutlineButton(
+                          leading: const Icon(SpotubeIcons.queue),
                           child: Text(context.l10n.queue),
                           onPressed: () {
                             context.pushRoute(const PlayerQueueRoute());
@@ -206,7 +211,8 @@ class PlayerView extends HookConsumerWidget {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: OutlinedButton(
+                        child: OutlineButton(
+                          leading: const Icon(SpotubeIcons.music),
                           child: Text(context.l10n.lyrics),
                           onPressed: () {
                             context.pushRoute(const PlayerLyricsRoute());
@@ -230,12 +236,18 @@ class PlayerView extends HookConsumerWidget {
                       );
                     }),
                   ),
-                  SizedBox(height: 25),
-                  Chip(label: .copyWith(
+                  const SizedBox(height: 25, width: 25),
+                  OutlineBadge(
+                    style: const ButtonStyle.outline(
+                      size: 24.0,
+                      density: ButtonDensity.dense,
+                      shape: ButtonShape.rectangle,
+                    ).copyWith(
                       textStyle: (context, states, value) {
                         return value.copyWith(fontWeight: FontWeight.w500);
                       },
                     ),
+                    leading: const Icon(SpotubeIcons.lightningOutlined),
                     child: Text(qualityLabel),
                   )
                 ],

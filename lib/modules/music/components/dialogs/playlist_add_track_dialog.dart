@@ -111,7 +111,7 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
                         ),
                       ),
                       trailing: Checkbox(
-                        state: (playlistsCheck.value[playlist.id] ?? false)
+                        value: (playlistsCheck.value[playlist.id] ?? false)
                             ? true
                             : false,
                         onChanged: (val) {

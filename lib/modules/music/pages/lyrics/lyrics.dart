@@ -1,21 +1,18 @@
+import 'package:auto_route/annotations.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
-import 'package:watchtower/modules/music/components/image/universal_image.dart';
+import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/hooks/utils/use_palette_color.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/pages/lyrics/plain_lyrics.dart';
 import 'package:watchtower/modules/music/pages/lyrics/synced_lyrics.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
-import 'package:watchtower/modules/music/provider/lyrics/synced.dart';
-import 'package:watchtower/modules/music/utils/platform.dart';
 
-class LyricsPage extends HookConsumerWidget {
-  static const name = "lyrics";
-
-  const LyricsPage({super.key});
+class PlayerLyricsPage extends HookConsumerWidget {
+  const PlayerLyricsPage({super.key});
 
   @override
   Widget build(BuildContext context, ref) {
@@ -27,81 +24,31 @@ class LyricsPage extends HookConsumerWidget {
       ),
       [playlist.activeTrack?.album.images],
     );
-    final palette = usePaletteColor(albumArt, ref);
     final selectedIndex = useState(0);
+    final palette = usePaletteColor(albumArt, ref);
 
-    Widget tabbar = Padding(
-      padding: const EdgeInsets.all(10),
-      child: Tabs(
-        index: selectedIndex.value,
-        onChanged: (index) => selectedIndex.value = index,
-        children: [
-          TabItem(child: Text(context.l10n.synced)),
-          TabItem(child: Text(context.l10n.plain)),
-        ],
-      ),
-    );
-
-    tabbar = Row(
-      children: [
-        tabbar,
-        const Spacer(),
-        Consumer(
-          builder: (context, ref, child) {
-            final playback = ref.watch(audioPlayerProvider);
-            final lyric = ref.watch(syncedLyricsProvider(playback.activeTrack));
-            final providerName = lyric.asData?.value.provider;
-
-            if (providerName == null) {
-              return const SizedBox.shrink();
-            }
-
-            return Align(
-              alignment: Alignment.bottomRight,
-              child: Text(context.l10n.powered_by_provider(providerName)),
-            );
-          },
-        ),
-        SizedBox(height: 5),
-      ],
-    );
-
-    return SafeArea(
-      bottom: false,
+    return DefaultTabController(
+      length: 2,
       child: Scaffold(
-        floatingHeader: true,
-        appBar: !kIsMacOS
-              ? TitleBar(
-                  backgroundColor: Colors.transparent,
-                  title: tabbar,
-                  height: 58 * 1.0,
-                                    automaticallyImplyLeading: false,
-                )
-              : tabbar,
-        body: Container(
-          clipBehavior: Clip.hardEdge,
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: UniversalImage.imageProvider(albumArt),
-              fit: BoxFit.cover,
-            ),
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(SpotubeIcons.angleDown),
+            onPressed: () => Navigator.maybePop(context),
           ),
-          margin: const EdgeInsets.only(bottom: 10),
-          child: Card(
-            borderRadius: BorderRadius.zero,
-                        child: ColoredBox(
-              color: palette.color.withValues(alpha: .7),
-              child: SafeArea(
-                child: IndexedStack(
-                  index: selectedIndex.value,
-                  children: [
-                    SyncedLyrics(palette: palette, isModal: false),
-                    PlainLyrics(palette: palette, isModal: false),
-                  ],
-                ),
-              ),
-            ),
+          bottom: TabBar(
+            onTap: (index) => selectedIndex.value = index,
+            tabs: [
+              Tab(text: context.l10n.synced),
+              Tab(text: context.l10n.plain),
+            ],
           ),
+        ),
+        body: IndexedStack(
+          
+          children: [
+            SyncedLyrics(palette: palette, isModal: false),
+            PlainLyrics(palette: palette, isModal: false),
+          ],
         ),
       ),
     );

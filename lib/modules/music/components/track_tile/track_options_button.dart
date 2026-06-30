@@ -1,7 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -9,6 +8,7 @@ import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_options.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class TrackOptionsButton extends HookConsumerWidget {
   final SpotubeTrackObject track;
@@ -21,19 +21,22 @@ class TrackOptionsButton extends HookConsumerWidget {
     this.playlistId,
   });
 
-  static Future<dynamic> showOptions(
+  static OverlayCompleter<dynamic> showOptions(
     BuildContext context,
     Offset offset,
     SpotubeTrackObject track, {
     bool userPlaylist = false,
     String? playlistId,
   }) {
-    return showDialog(
+    return showPopover(
       context: context,
+      position: offset,
+      alignment: Alignment.bottomRight,
       builder: (context) {
         return SizedBox(
-          width: 220 * 1.0,
+          width: 220 * Theme.of(context).scaling,
           child: Card(
+            padding: const EdgeInsets.all(8),
             child: TrackOptions(
               track: track,
               playlistId: playlistId,
@@ -82,11 +85,14 @@ class TrackOptionsButton extends HookConsumerWidget {
             playlistId: playlistId,
           );
         } else {
-          showModalBottomSheet(
-                context: context,
-                                isScrollControlled: true,
-                builder: (context) {
-                  return SafeArea(
+          final capturedTheme = Theme.of(context);
+          openDrawer(
+            context: context
+            draggable: true,
+            showDragHandle: true,
+            borderRadius: Theme.of(context).borderRadiusMd,
+            transformBackdrop: false,
+            builder: (context) {
               return Theme(
                 data: capturedTheme,
                 child: Material(
@@ -99,25 +105,34 @@ class TrackOptionsButton extends HookConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                        ListTile(
+                      spacing: 8,
+                      children: [
+                        Basic(
                           leading: Container(
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                                                            image: DecorationImage(
+                              borderRadius: Theme.of(context).borderRadiusMd,
+                              image: DecorationImage(
                                 fit: BoxFit.cover,
                                 image: imageProvider,
                               ),
                             ),
                           ),
-                          title: Text(track.name, maxLines: 1, overflow: TextOverflow.ellipsis,),
-                          subtitle: ArtistLink(
+                          title: Text(
+                            track.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Align(
+                            alignment: Alignment.centerLeft,
+                            child: ArtistLink(
                               artists: track.artists,
                               onOverflowArtistClick: () => context.navigateTo(
                                 TrackRoute(trackId: track.id),
                               ),
                             ),
+                          ),
                         ),
                         const Divider(),
                         TrackOptions(
@@ -125,7 +140,7 @@ class TrackOptionsButton extends HookConsumerWidget {
                           userPlaylist: userPlaylist,
                           playlistId: playlistId,
                           onTapItem: () {
-                            Navigator.pop(context);
+                            closeDrawer(context);
                           },
                         ),
                       ],
@@ -133,9 +148,8 @@ class TrackOptionsButton extends HookConsumerWidget {
                   ),
                 ),
               );
-            );
-                },
-              );
+            },
+          );
         }
       },
     );

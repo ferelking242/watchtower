@@ -27,11 +27,10 @@ class StatsAlbumsPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(
+        appBar: AppBar(
             title: Text(context.l10n.albums),
           ),
-        body: Opacity(opacity: 1.0, 
-          enabled: topAlbums.isLoading && !topAlbums.isLoadingNextPage,
+        body: Skeletonizer(enabled: topAlbums.isLoading && !topAlbums.isLoadingNextPage,
           child: InfiniteList(
             onFetchData: () async {
               await topAlbumsNotifier.fetchMore();

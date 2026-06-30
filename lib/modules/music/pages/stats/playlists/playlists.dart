@@ -28,11 +28,10 @@ class StatsPlaylistsPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        appBar: TitleBar(
+        appBar: AppBar(
             title: Text(context.l10n.playlists),
           ),
-        body: Opacity(opacity: 1.0, 
-          enabled: topPlaylists.isLoading && !topPlaylists.isLoadingNextPage,
+        body: Skeletonizer(enabled: topPlaylists.isLoading && !topPlaylists.isLoadingNextPage,
           child: InfiniteList(
             onFetchData: () async {
               await topPlaylistsNotifier.fetchMore();

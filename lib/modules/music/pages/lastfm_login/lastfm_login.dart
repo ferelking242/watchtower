@@ -1,8 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
@@ -28,11 +28,14 @@ class LastFMLoginPage extends HookConsumerWidget {
     final isLoading = useState(false);
 
     return Scaffold(
-      appBar: TitleBar(
-            leading: BackButton(),
+      headers: const [
+        SafeArea(
+          bottom: false,
+          child: AppBar(
+            leading: Row(mainAxisSize: MainAxisSize.min, children: [BackButton()]),
           ),
         ),
-      ,
+      ],
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -42,6 +45,7 @@ class LastFMLoginPage extends HookConsumerWidget {
               alignment: Alignment.center,
               padding: const EdgeInsets.all(16),
               child: Card(
+                padding: const EdgeInsets.all(16.0),
                 child: Form(
                   onSubmit: (context, values) async {
                     try {

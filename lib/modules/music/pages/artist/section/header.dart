@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -25,7 +26,7 @@ class ArtistPageHeader extends HookConsumerWidget {
     final artist = artistQuery.asData?.value ?? FakeData.artist;
 
     final theme = Theme.of(context);
-    final ThemeData(:typography) = theme;
+    final ThemeData() = theme;
 
     final authenticated = ref.watch(metadataPluginAuthenticatedProvider);
     ref.watch(blacklistProvider);
@@ -84,7 +85,8 @@ class ArtistPageHeader extends HookConsumerWidget {
               SpotubeIcons.userRemove,
               color: !isBlackListed ? Colors.red[400] : null,
             )
-                ? null : null,
+                ? ButtonStyle()
+                : ButtonStyle(),
             onPressed: () async {
               if (isBlackListed) {
                 await ref.read(blacklistProvider.notifier).remove(artist.id);
@@ -150,7 +152,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                         fit: BoxFit.cover,
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20, width: 20),
                     Flexible(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -159,18 +161,19 @@ class ArtistPageHeader extends HookConsumerWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Chip(label: child:
+                              OutlineBadge(
+                                child:
                                     Text(context.l10n.artist),
                               ),
                               if (isBlackListed) ...[
-                                SizedBox(height: 5),
+                                const SizedBox(height: 5, width: 5),
                                 DestructiveBadge(
                                   child: Text(context.l10n.blacklisted),
                                 ),
                               ]
                             ],
                           ),
-                          SizedBox(height: 10),
+                          const SizedBox(height: 10, width: 10),
                           Flexible(
                             child: AutoSizeText(
                               artist.name,
@@ -182,7 +185,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                               minFontSize: 14,
                             ),
                           ),
-                          SizedBox(height: 5),
+                          const SizedBox(height: 5, width: 5),
                           Flexible(
                             child: AutoSizeText(
                               context.l10n.followers(
@@ -198,7 +201,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                             ),
                           ),
                           if (constrains.mdAndUp) ...[
-                            SizedBox(height: 20),
+                            const SizedBox(height: 20, width: 20),
                             actions,
                           ]
                         ],
@@ -207,7 +210,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                   ],
                 ),
                 if (constrains.smAndDown) ...[
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20, width: 20),
                   actions,
                 ]
               ],

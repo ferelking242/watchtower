@@ -1,5 +1,5 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/markdown/markdown.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
@@ -93,7 +93,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
               final isOfficial =
                   repoUrl?.host == "github.com" && repoOwner == "KRTirtho";
 
-              return ListTile(
+              return Basic(
                 leading: snapshot.hasData
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
@@ -114,6 +114,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                         child: const Icon(SpotubeIcons.plugin),
                       ),
                 title: Text(plugin.name),
+                subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: 8,
                   children: [
@@ -125,6 +126,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                         for (final ability in plugin.abilities)
                           if (validAbilities.keys.contains(ability))
                             SecondaryBadge(
+                              leading: Icon(validAbilities[ability]!.$2),
                               child: Text(validAbilities[ability]!.$1),
                             ),
                       ],
@@ -136,6 +138,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                         children: [
                           if (isOfficial)
                             PrimaryBadge(
+                              leading: const Icon(SpotubeIcons.done),
                               child: Text(context.l10n.official),
                             )
                           else ...[
@@ -163,6 +166,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                             ),
                           ],
                           SecondaryBadge(
+                            leading: const Icon(SpotubeIcons.connect),
                             child: Text(repoUrl.host),
                             onPressed: () {
                               launchUrl(repoUrl);
@@ -215,8 +219,10 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                   if (hasUpdate)
                     SizedBox(
                       width: double.infinity,
-                      child: ListTile(
+                      child: Basic(
+                        leading: const Icon(SpotubeIcons.update),
                         title: Text(context.l10n.update_available),
+                        subtitle: Text(
                           updateAvailable!.asData!.value!.version,
                         ),
                         trailing: FilledButton(
@@ -242,8 +248,10 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                   if (supportsScrobbling)
                     SizedBox(
                       width: double.infinity,
-                      child: ListTile(
+                      child: Basic(
+                        leading: const Icon(SpotubeIcons.info),
                         title: Text(context.l10n.supports_scrobbling),
+                        subtitle: Text(context.l10n.plugin_scrobbling_info),
                       ),
                     )
                 ],
@@ -259,7 +267,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                 runSpacing: 8,
                 children: [
                   if (plugin.abilities.contains(PluginAbilities.metadata))
-                    ElevatedButton(
+                    TextButton(
                       enabled: !isDefaultMetadata,
                       onPressed: () async {
                         await pluginsNotifier.setDefaultMetadataPlugin(plugin);
@@ -271,7 +279,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                       ),
                     ),
                   if (plugin.abilities.contains(PluginAbilities.audioSource))
-                    ElevatedButton(
+                    TextButton(
                       enabled: !isDefaultAudioSource,
                       onPressed: () async {
                         await pluginsNotifier
@@ -321,7 +329,24 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
 
                       final mediaQuery = MediaQuery.sizeOf(context);
 
-                      return TextButton(
+                      return Button(.copyWith(
+                          decoration: (context, states, value) {
+                            return value.copyWithIfBoxDecoration(
+                              color: bgColor,
+                            );
+                          },
+                          textStyle: (context, states, value) {
+                            return value.copyWith(
+                              color: textColor,
+                            );
+                          },
+                          iconTheme: (context, states, value) {
+                            return value.copyWith(
+                              color: textColor,
+                            );
+                          },
+                        ),
+                        leading: const Icon(SpotubeIcons.heartFilled),
                         child: Text(context.l10n.support),
                         onPressed: () {
                           showDialog(
@@ -348,7 +373,7 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                                   ),
                                 ),
                                 actions: [
-                                  ElevatedButton(
+                                  TextButton(
                                     onPressed: () {
                                       Navigator.of(ctx).pop();
                                     },
@@ -383,10 +408,11 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                   else if ((isDefaultMetadata || isDefaultAudioSource) &&
                       requiresAuth &&
                       isAuthenticated)
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () async {
                         await pluginSnapshot?.asData?.value?.auth.logout();
                       },
+                      leading: const Icon(SpotubeIcons.logout),
                       child: Text(context.l10n.logout),
                     ),
                 ],

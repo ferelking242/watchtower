@@ -8,8 +8,7 @@ class ShimmerLyrics extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(opacity: 1.0, 
-      enabled: true,
+    return Skeletonizer(enabled: true,
       child: ListView.builder(
         itemCount: 30,
         physics: const NeverScrollableScrollPhysics(),

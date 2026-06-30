@@ -42,7 +42,7 @@ ToastOverlay showToastForAction(
         child: ListTile(
           title: Text(message.$1),
           trailing: IconButton(
-            size: 20.0,
+          iconSize: 20.0,
             icon: const Icon(SpotubeIcons.close),
             onPressed: () {
               overlay.close();

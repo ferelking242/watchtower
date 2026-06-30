@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 
 /// A temporary workaround for [WillPopScope] and [PopScope] not working in GoRouter
 /// https://github.com/flutter/flutter/issues/140869#issuecomment-2247181468
-class AppPopScope extends StatefulWidget {
+class PopScope extends StatefulWidget {
   final Widget child;
 
   final PopInvokedCallback? onPopInvoked;
 
   final bool canPop;
 
-  const AppPopScope({
+  const PopScope({
     super.key,
     required this.child,
     this.canPop = true,
@@ -19,10 +19,10 @@ class AppPopScope extends StatefulWidget {
   });
 
   @override
-  State<AppPopScope> createState() => _AppPopScopeState();
+  State<PopScope> createState() => _AppPopScopeState();
 }
 
-class _AppPopScopeState extends State<AppPopScope> {
+class _AppPopScopeState extends State<PopScope> {
   final bool _enable = Platform.isAndroid;
   ModalRoute? _route;
   BackButtonDispatcher? _parentBackBtnDispatcher;

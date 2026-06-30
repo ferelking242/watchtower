@@ -287,8 +287,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 12),
                 loadingBuilder: (context) {
-                  return Opacity(opacity: 1.0, 
-                    enabled: true,
+                  return Skeletonizer(enabled: true,
                     child: MetadataPluginRepositoryItem(
                       pluginRepo: MetadataPluginRepository(
                         name: "Loading...",

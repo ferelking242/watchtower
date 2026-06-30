@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/language_codes.dart';
 import 'package:watchtower/modules/music/collections/markets.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -69,7 +69,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                   Text(context.l10n.language_region),
                 ],
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30, width: 30),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -78,9 +78,9 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                   Text(
                     context.l10n.choose_your_region_description,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16, width: 16),
                   Text(context.l10n.market_place_region),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8, width: 8),
                   SizedBox(
                     width: double.infinity,
                     child: Select(
@@ -123,13 +123,13 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                       ).call,
                     ),
                   ),
-                  SizedBox(height: 36),
+                  const SizedBox(height: 36, width: 36),
                   Text(
                     context.l10n.choose_your_language,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16, width: 16),
                   Text(context.l10n.language),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8, width: 8),
                   SizedBox(
                     width: double.infinity,
                     child: Select<Locale>(
@@ -196,7 +196,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                   ),
                 ],
               ),
-              SizedBox(height: 48),
+              const SizedBox(height: 48, width: 48),
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton(

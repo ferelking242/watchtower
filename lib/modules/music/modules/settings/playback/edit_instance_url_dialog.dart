@@ -5,7 +5,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/form/text_form_field.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
-import 'package:watchtower/modules/music/hooks/controllers/use_shadcn_text_editing_controller.dart';
 
 class SettingsPlaybackEditInstanceUrlDialog extends HookConsumerWidget {
   final String title;
@@ -21,7 +20,7 @@ class SettingsPlaybackEditInstanceUrlDialog extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final controller = useShadcnTextEditingController(
+    final controller = useTextEditingController(
       text: initialValue,
     );
     final formKey = useMemoized(() => GlobalKey<FormBuilderState>(), []);

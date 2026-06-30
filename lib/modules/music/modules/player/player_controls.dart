@@ -120,7 +120,7 @@ class PlayerControls extends HookConsumerWidget {
                       icon: Icon(
                         SpotubeIcons.shuffle,
                         color: shuffled ? theme.colorScheme.primary : null,
-                        size: iconSize,
+                        iconSize: iconSize,
                       ),
                       style: shuffled
                           ? IconButton.styleFrom(
@@ -134,7 +134,7 @@ class PlayerControls extends HookConsumerWidget {
                     );
                   }),
                   IconButton(
-                    icon: Icon(SpotubeIcons.skipBack, size: iconSize),
+                    icon: Icon(SpotubeIcons.skipBack, iconSize: iconSize),
                     onPressed:
                         isFetchingActiveTrack ? null : audioPlayer.skipToPrevious,
                   ),
@@ -159,7 +159,7 @@ class PlayerControls extends HookConsumerWidget {
                           ),
                   ),
                   IconButton(
-                    icon: Icon(SpotubeIcons.skipForward, size: iconSize),
+                    icon: Icon(SpotubeIcons.skipForward, iconSize: iconSize),
                     onPressed:
                         isFetchingActiveTrack ? null : audioPlayer.skipToNext,
                   ),

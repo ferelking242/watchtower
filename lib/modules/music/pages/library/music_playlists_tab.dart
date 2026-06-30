@@ -28,7 +28,7 @@ class MusicLikedPlaylistTile extends ConsumerWidget {
           ),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 26),
+        child: const Icon(Icons.favorite_rounded, color: Colors.white),
       ),
       title: Text('Liked Songs',
           style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),

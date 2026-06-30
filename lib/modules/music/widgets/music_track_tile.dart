@@ -63,7 +63,7 @@ class MusicTrackTile extends ConsumerWidget {
                   url: track.imageUrl,
                   width: 46,
                   height: 46,
-                  placeholder: const Icon(Icons.music_note_rounded, size: 24),
+                  placeholder: const Icon(Icons.music_note_rounded),
                 ),
               ),
             const SizedBox(width: 12),
@@ -130,7 +130,7 @@ class MusicTrackTile extends ConsumerWidget {
             IconButton(
               icon: Icon(
                 liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                size: 18,
+                iconSize: 18,
                 color: liked ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
               ),
               onPressed: () =>
@@ -141,7 +141,7 @@ class MusicTrackTile extends ConsumerWidget {
             IconButton(
               icon: Icon(
                 Icons.more_vert_rounded,
-                size: 18,
+                iconSize: 18,
                 color: cs.onSurface.withValues(alpha: 0.4),
               ),
               onPressed: onMoreTap ?? () => _showOptions(context, ref),

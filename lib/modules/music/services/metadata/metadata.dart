@@ -56,7 +56,7 @@ class MetadataPlugin {
           pageContext = context;
           return Scaffold(
             appBar: 
-              TitleBar(
+              AppBar(
                 automaticallyImplyLeading: true,
               )
             ,

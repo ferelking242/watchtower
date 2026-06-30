@@ -57,8 +57,7 @@ class ArtistPage extends HookConsumerWidget {
                 ),
               );
             }
-            return Opacity(opacity: 1.0, 
-              enabled: artistQuery.isLoading,
+            return Skeletonizer(enabled: artistQuery.isLoading,
               child: CustomScrollView(
                 controller: scrollController,
                 slivers: [

@@ -23,7 +23,7 @@ class StatsPage extends HookConsumerWidget {
         bottom: false,
         child: Scaffold(
           appBar: if (kTitlebarVisible)
-              const TitleBar(automaticallyImplyLeading: false),,
+              const AppBar(automaticallyImplyLeading: false),,
           body: CustomScrollView(
             slivers: [
               if (kIsMacOS) const SliverToBoxAdapter(child: SizedBox(height: 20)),

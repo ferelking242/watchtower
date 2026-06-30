@@ -50,7 +50,7 @@ class HomePage extends HookConsumerWidget {
                   const ConnectDeviceButton(),
                   const SizedBox(width: 4),
                   IconButton(
-                    icon: const Icon(SpotubeIcons.settings, size: 20),
+                    icon: const Icon(SpotubeIcons.settings, iconSize: 20),
                     onPressed: () {
                       context.navigateTo(const SettingsRoute());
                     },

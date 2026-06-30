@@ -401,7 +401,7 @@ class _CtrlBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return IconButton(
-      icon: Icon(icon, size: size),
+      icon: Icon(icon, iconSize: size),
       color: active ? cs.primary : Colors.white.withValues(alpha: 0.85),
       onPressed: onTap,
     );
@@ -530,6 +530,7 @@ class _QueueView extends ConsumerWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          subtitle: Text(
             t.artistNames,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),

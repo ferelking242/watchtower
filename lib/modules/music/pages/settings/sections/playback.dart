@@ -179,7 +179,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton.outlined(
-                icon: const Icon(SpotubeIcons.edit, size: 18),
+                icon: const Icon(SpotubeIcons.edit),
                 onPressed: () {
                   showDialog(
                     context: context,

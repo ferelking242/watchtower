@@ -14,6 +14,7 @@ import 'package:watchtower/modules/music/pages/lyrics/synced_lyrics.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 
 class MiniLyricsPage extends HookConsumerWidget {
   static const name = "mini_lyrics";
@@ -56,35 +57,32 @@ class MiniLyricsPage extends HookConsumerWidget {
               areaActive.value = false;
             },
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.4),
+        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
         appBar: Padding(
             padding: const EdgeInsets.all(8.0),
-            body: AnimatedCrossFade(
+            child: AnimatedCrossFade(
               duration: const Duration(milliseconds: 200),
               crossFadeState: areaActive.value
                   ? CrossFadeState.showFirst
                   : CrossFadeState.showSecond,
               secondChild: const SizedBox(),
-              firstChild: DragToMoveArea(
+              firstChild: Container(
                 child: Row(
                   spacing: 2,
                   children: [
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10, width: 10),
                     if (kIsMacOS) const SizedBox(width: 65),
                     if (showLyrics.value)
-                      Tabs(
-                        index: index.value,
-                        onChanged: (i) {
+                      TabBar(
+            onTap: (i) {
                           index.value = i;
                         },
-                        children: [
-                          TabItem(child: Text(context.l10n.synced)),
-                          TabItem(child: Text(context.l10n.plain)),
-                        ],
+            tabs: [
+                          Tab(child: Text(context.l10n.synced)),
+                          Tab(child: Text(context.l10n.plain)),
                       ),
                     const Spacer(),
-                    IconButton(.value
-                          ? null : null,
+                    IconButton(
                       icon: showLyrics.value
                           ? const Icon(SpotubeIcons.lyrics)
                           : const Icon(SpotubeIcons.lyricsOff),
@@ -102,8 +100,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                         }
                       },
                     ),
-                    IconButton(.value
-                          ? null : null,
+                    IconButton(
                       icon: hoverMode.value
                           ? const Icon(SpotubeIcons.hoverOn)
                           : const Icon(SpotubeIcons.hoverOff),
@@ -116,8 +113,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                       FutureBuilder(
                         future: windowManager.isAlwaysOnTop(),
                         builder: (context, snapshot) {
-                          return IconButton(.data == true
-                                ? null : null,
+                          return IconButton(
                             icon: Icon(
                               snapshot.data == true
                                   ? SpotubeIcons.pinOn
@@ -138,23 +134,24 @@ class MiniLyricsPage extends HookConsumerWidget {
                 ),
               ),
             ),
-          ),,
-        body: Column(
+          ),
+        ],
+        child: Column(
           children: [
             if (playlistQueue.activeTrack != null)
               Text(playlistQueue.activeTrack!.name!),
             if (showLyrics.value)
               Expanded(
                 child: IndexedStack(
-                  index: index.value,
+                  
                   children: [
                     SyncedLyrics(
-                      palette: PaletteColor(theme.colorScheme.surface, 0),
+                      palette: PaletteColor(Theme.of(context).colorScheme.surface, 0),
                       isModal: true,
                       defaultTextZoom: 65,
                     ),
                     PlainLyrics(
-                      palette: PaletteColor(theme.colorScheme.surface, 0),
+                      palette: PaletteColor(Theme.of(context).colorScheme.surface, 0),
                       isModal: true,
                       defaultTextZoom: 65,
                     ),
@@ -162,7 +159,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                 ),
               )
             else
-              SizedBox(height: 20),
+              const SizedBox(height: 20, width: 20),
             AnimatedCrossFade(
               crossFadeState: areaActive.value
                   ? CrossFadeState.showFirst
@@ -176,12 +173,14 @@ class MiniLyricsPage extends HookConsumerWidget {
                       onPressed: playlistQueue.activeTrack != null
                           ? () {
                               final capturedTheme = Theme.of(context);
-                              showModalBottomSheet(
+                              openDrawer(
                                 context: context,
                                 barrierDismissible: true,
-                                                                barrierColor: Colors.black.withAlpha(100),
+                                draggable: true,
+                                barrierColor: Colors.black.withAlpha(100),
                                 borderRadius: BorderRadius.circular(10),
-                                                                                                                                                                expands: true,
+                                transformBackdrop: false).surfaceBlur
+                                expands: true,
                                 builder: (context) => Theme(
                                   data: capturedTheme,
                                   child: Material(

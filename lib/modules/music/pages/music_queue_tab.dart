@@ -121,11 +121,10 @@ class MusicQueueTab extends ConsumerWidget {
                 TextButton.icon(
                   onPressed: () =>
                       ref.read(musicPlayerProvider.notifier).clearQueue(),
-                  icon: const Icon(Icons.clear_all_rounded, size: 16),
+                  icon: const Icon(Icons.clear_all_rounded),
                   label: const Text('Clear', style: TextStyle(fontSize: 13)),
                   style: TextButton.styleFrom(
                     foregroundColor: cs.onSurface.withValues(alpha: 0.5),
-                    padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),

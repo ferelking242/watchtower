@@ -132,7 +132,6 @@ class MusicHorizontalCardRow extends StatelessWidget {
                   onPressed: onSeeAll,
                   style: TextButton.styleFrom(
                     foregroundColor: cs.primary,
-                    padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),

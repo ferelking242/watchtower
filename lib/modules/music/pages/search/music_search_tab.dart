@@ -78,21 +78,18 @@ class _MusicSearchTabState extends ConsumerState<MusicSearchTab> {
             decoration: InputDecoration(
               hintText: 'Artists, songs or podcasts',
               prefixIcon:
-                  const Icon(Icons.search_rounded, size: 22),
+                  const Icon(Icons.search_rounded),
               suffixIcon: AnimatedOpacity(
                 opacity: _ctrl.text.isNotEmpty ? 1 : 0,
                 duration: const Duration(milliseconds: 200),
                 child: IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18),
+                  icon: const Icon(Icons.close_rounded, iconSize: 18),
                   onPressed: () {
                     _ctrl.clear();
                     ref.read(musicSearchTermProvider.notifier).state = '';
                   },
                 ),
-              ),
-              filled: true,
-              fillColor: cs.surfaceContainerHigh,
-              border: OutlineInputBorder(
+              )border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),
@@ -202,7 +199,7 @@ class _SearchBrowseGrid extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Row(
                   children: [
-                    Icon(icon, color: Colors.white.withValues(alpha: 0.3), size: 36),
+                    Icon(icon, color: Colors.white.withValues(alpha: 0.3)),
                     const SizedBox(width: 10),
                     Text(name,
                         style: const TextStyle(
@@ -257,7 +254,7 @@ class _SearchResults extends ConsumerWidget {
             const SizedBox(height: 20),
             OutlinedButton.icon(
               onPressed: () {},
-              icon: const Icon(Icons.store_rounded, size: 16),
+              icon: const Icon(Icons.store_rounded),
               label: const Text('Open Marketplace'),
             ),
           ],

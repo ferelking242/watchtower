@@ -126,8 +126,6 @@ class ConnectNotifier extends AsyncNotifier<ConnectState?> {
                   dismissible: true,
                   builder: (context, overlay) {
                     return Card(
-                      fillColor: theme.colorScheme.destructive,
-                      filled: true,
                       child: ListTile(
                         title: Text(
                           context.l10n.connection_request_denied,

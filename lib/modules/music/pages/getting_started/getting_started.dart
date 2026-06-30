@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -33,19 +33,20 @@ class GettingStartedPage extends HookConsumerWidget {
     }, [pageController]);
 
     return Scaffold(
-      appBar: TitleBar(
-            backgroundColor: Colors.transparent,
-                        actions: [
+      appBar: SafeArea(
+          child: AppBar(
+            backgroundColor: Colors.transparent
+            actions: [
               ListenableBuilder(
                 listenable: pageController,
                 builder: (context, _) {
                   return AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    body: pageController.hasClients &&
+                    child: pageController.hasClients &&
                             (pageController.page == 0 ||
                                 pageController.page == 3)
                         ? const SizedBox()
-                        : ElevatedButton(
+                        : TextButton(
                             onPressed: () {
                               pageController.animateToPage(
                                 3,
@@ -58,11 +59,12 @@ class GettingStartedPage extends HookConsumerWidget {
                   );
                 },
               ),
-            ],
+            ,
           ),
-        ),,
+        ),
+      ],
       floatingHeader: true,
-      body: DecoratedBox(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           image: DecorationImage(
             image: Assets.images.bengaliPatternsBg.provider(),
