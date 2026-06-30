@@ -24,28 +24,24 @@ class RecentlyPlayedItemNotifier extends AsyncNotifier<List<HistoryTableData>> {
       LIMIT 10
       """,
       readsFrom: {database.historyTable},
-    ).map((rows) async {
-      return await rows.map((row) {
-        final type = row.read<String>('type');
-        return HistoryTableData(
-          id: row.read<int>('id'),
-          itemId: row.read<String>('item_id'),
-          type: HistoryEntryType.values.firstWhere((e) => e.name == type),
-          createdAt: row.read<DateTime>('created_at'),
-          data: jsonDecode(row.read<String>('data')) as Map<String, dynamic>,
-        );
-      });
+    ).map((row) {
+      final type = row.read<String>('type');
+      return HistoryTableData(
+        id: row.read<int>('id'),
+        itemId: row.read<String>('item_id'),
+        type: HistoryEntryType.values.firstWhere((e) => e.name == type),
+        createdAt: row.read<DateTime>('created_at'),
+        data: jsonDecode(row.read<String>('data')) as Map<String, dynamic>,
+      );
     });
 
-    final subscription = query.watch().listen((event) async {
-      state = AsyncData(await Future.wait(event));
+    final subscription = query.watch().listen((event) {
+      state = AsyncData(event);
     });
 
     ref.onDispose(() => subscription.cancel());
 
-    final items = await Future.wait(await query.get());
-
-    return items;
+    return await query.get();
   }
 }
 

@@ -19,36 +19,35 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final isUpdating = useState(false);
 
-    final showErrorSnackbar = useCallback(
-      (BuildContext context, String message) {
-        showToast(
-            context: context,
-            builder: (context, overlay) {
-              return Card(
-                child: ListTile(
-                  title: Text(message),
-                  trailing: IconButton(
-          iconSize: 20.0,
-                    icon: const Icon(SpotubeIcons.close),
-                    onPressed: () {
-                      overlay.close();
-                    },
-                  ),
-                ),
-              );
-            });
-      },
-      [],
-    );
+    void showErrorSnackbar(BuildContext ctx, String message) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(
+          content: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(child: Text(message)),
+              IconButton(
+                iconSize: 20.0,
+                icon: const Icon(SpotubeIcons.close),
+                onPressed: () {
+                  ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return AlertDialog(
       title: const Text('Plugin update available'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 8,
         children: [
           Text('${plugin.name} (${update.version}) available.'),
+          if (update.changelog != null && update.changelog!.isNotEmpty)
+            const SizedBox(height: 8),
           if (update.changelog != null && update.changelog!.isNotEmpty)
             AppMarkdown(
               data: '### Changelog: \n\n${update.changelog}',
@@ -56,33 +55,34 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
         ],
       ),
       actions: [
-        SecondaryButton(
+        OutlinedButton(
           onPressed: () {
             Navigator.of(context).pop();
           },
           child: const Text('Dismiss'),
         ),
-        PrimaryButton(
-          enabled: !isUpdating.value,
-          onPressed: () async {
-            isUpdating.value = true;
-            try {
-              await ref
-                  .read(metadataPluginsProvider.notifier)
-                  .updatePlugin(plugin, update);
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-            } catch (e) {
-              if (context.mounted) {
-                showErrorSnackbar(context, e.toString());
-              }
-            } finally {
-              if (context.mounted) {
-                isUpdating.value = false;
-              }
-            }
-          },
+        FilledButton(
+          onPressed: isUpdating.value
+              ? null
+              : () async {
+                  isUpdating.value = true;
+                  try {
+                    await ref
+                        .read(metadataPluginsProvider.notifier)
+                        .updatePlugin(plugin, update);
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      showErrorSnackbar(context, e.toString());
+                    }
+                  } finally {
+                    if (context.mounted) {
+                      isUpdating.value = false;
+                    }
+                  }
+                },
           child: const Text('Update'),
         ),
       ],

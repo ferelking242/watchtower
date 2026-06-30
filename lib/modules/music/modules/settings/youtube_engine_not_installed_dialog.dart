@@ -32,10 +32,10 @@ class YouTubeEngineNotInstalledDialog extends HookConsumerWidget {
 
     return AlertDialog(
       title: Row(
-        spacing: 8,
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(SpotubeIcons.error, color: Colors.red),
+          const SizedBox(width: 8),
           Text(
             context.l10n.youtube_engine_not_installed_title(engine.label),
             style: const TextStyle(color: Colors.red),
@@ -47,26 +47,31 @@ class YouTubeEngineNotInstalledDialog extends HookConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 8,
           children: [
             Text(
               context.l10n.youtube_engine_not_installed_message(engine.label),
             ),
-            if (engineDownloadUrls[engine] != null)
+            if (engineDownloadUrls[engine] != null) ...[
+              const SizedBox(height: 8),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text("${context.l10n.download}:"),
-                  Button.link(
-                    child: Text(engineDownloadUrls[engine]!.split("?").first),
+                  TextButton(
                     onPressed: () async {
                       launchUrl(Uri.parse(engineDownloadUrls[engine]!));
                     },
+                    child: Text(
+                      engineDownloadUrls[engine]!.split("?").first,
+                      style: const TextStyle(color: Colors.blue),
+                    ),
                   ),
                 ],
               ),
+            ],
+            const SizedBox(height: 8),
             Text(context.l10n.youtube_engine_set_path(engine.label)),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             FormBuilder(
               key: formKey,
               child: TextFormBuilderField(
@@ -80,8 +85,10 @@ class YouTubeEngineNotInstalledDialog extends HookConsumerWidget {
                 }),
               ),
             ),
-            if (kIsMacOS || kIsLinux)
+            if (kIsMacOS || kIsLinux) ...[
+              const SizedBox(height: 8),
               Text(context.l10n.youtube_engine_unix_issue_message),
+            ],
           ],
         ),
       ),

@@ -30,7 +30,7 @@ class SearchPlaceholder extends HookConsumerWidget {
             Undraw(
               illustration: UndrawIllustration.explore,
               color: theme.colorScheme.primary,
-              height: 200 * theme.scaling,
+              height: 200,
             ),
             const SizedBox(height: 20),
             Text(context.l10n.search_to_get_results),

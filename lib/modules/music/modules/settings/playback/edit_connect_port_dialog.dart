@@ -13,6 +13,7 @@ class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
+    final theme = Theme.of(context);
     final connectPort = ref.watch(
       userPreferencesProvider.select((s) => s.connectPort),
     );
@@ -23,13 +24,17 @@ class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 400),
-      child: Alert(
-        title: Text(context.l10n.edit_port).h4(),
+      child: AlertDialog(
+        title: Text(
+          context.l10n.edit_port,
+          style: theme.textTheme.headlineSmall,
+        ),
         content: FormBuilder(
           key: formKey,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextFormBuilderField(
                 name: "port",
                 controller: controller,
@@ -37,7 +42,6 @@ class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
                 validator: FormBuilderValidators.integer(radix: 10),
                 keyboardType: TextInputType.number,
                 inputFormatters: [
-                  // Allow only signed integers
                   TextInputFormatter.withFunction(
                     (oldValue, newValue) {
                       if (newValue.text.isEmpty) {
@@ -46,7 +50,6 @@ class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
                       if (newValue.text.length == 1 && newValue.text == "-") {
                         return newValue;
                       }
-
                       final intValue = int.tryParse(newValue.text);
                       if (intValue == null) {
                         return oldValue;
@@ -56,9 +59,14 @@ class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
                   ),
                 ],
               ),
-              SizedBox(height: 5),
-              Text(context.l10n.port_helper_msg).small.muted,
-              SizedBox(height: 20),
+              const SizedBox(height: 5),
+              Text(
+                context.l10n.port_helper_msg,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
@@ -69,7 +77,7 @@ class SettingsPlaybackEditConnectPortDialog extends HookConsumerWidget {
                       child: Text(context.l10n.cancel),
                     ),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
                       onPressed: () {
