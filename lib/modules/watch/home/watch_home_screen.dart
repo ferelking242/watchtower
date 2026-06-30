@@ -26,7 +26,6 @@ import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
-import 'package:watchtower/eval/model/filter.dart';
 
 // ── WatchHomeScreen ──────────────────────────────────────────────────────────
 
@@ -57,7 +56,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   bool _isSearching = false;
   String _query = '';
   final _searchCtrl = TextEditingController();
-  String? _expandedChipName;
   final _scrollCtrl = ScrollController();
 
   // Home catalogue scroll controller (separate from the tab scroll)
@@ -290,14 +288,15 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-            if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
-              ExtensionIconWidget(
-                sourceId: source.id,
-                iconUrl: source.iconUrl,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-            ],
+          if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: Image.network(source.iconUrl!, width: 20, height: 20,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+            ),
+            const SizedBox(width: 8),
+          ],
           Flexible(
             child: Text(sourceName,
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
@@ -307,29 +306,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       ),
       centerTitle: true,
       actions: [
-          IconButton(
-            splashRadius: 20,
-            onPressed: () => setState(() => _isSearching = true),
-            icon: Icon(Icons.search, color: ctx.primaryColor),
-          ),
-          Builder(
-            builder: (bCtx) => GestureDetector(
-              onTap: () => _showMoreMenu(bCtx),
-              child: Container(
-                width: 32,
-                height: 32,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Theme.of(bCtx).colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.75),
-                ),
-                child: Icon(Icons.more_horiz,
-                    size: 18, color: Theme.of(bCtx).hintColor),
-              ),
-            ),
-          ),
-        ],
+        IconButton(
+          splashRadius: 20,
+          onPressed: () => setState(() => _isSearching = true),
+          icon: Icon(Icons.search, color: ctx.primaryColor),
+        ),
+        const SizedBox(width: 4),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(40),
         child: _buildTabBar(ctx),
@@ -346,12 +329,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           ),
           Positioned(
             bottom: 0, left: 0, right: 0,
-            child: CustomPaint(
-              size: const Size(double.infinity, 3),
-              painter: _WavePainter(
-                Theme.of(lbCtx).dividerColor.withValues(alpha: 0.35),
-              ),
-            ),          ),
+            child: Container(
+              height: 0.5,
+              color: Theme.of(lbCtx).dividerColor.withValues(alpha: 0.25),
+            ),
+          ),
         ]);
       }),
     );
@@ -373,7 +355,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         itemCount: tabs.length,
         itemBuilder: (_, i) {
           final tab = tabs[i];
@@ -565,7 +547,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             title: 'Explorer le catalogue',
             accent: const Color(0xFF607D8B),
             icon: Icons.grid_view_rounded,
-            centered: true,
           ),
         ),
 
@@ -672,66 +653,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   // ── Section header ───────────────────────────────────────────────────────
 
   Widget _buildSectionHeader(BuildContext ctx, {
-      required String title,
-      Color? accent,
-      IconData? icon,
-      VoidCallback? onSeeAll,
-      bool centered = false,
-    }) {
-      final accentColor = accent ?? ctx.primaryColor;
-      final titleRow = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 3, height: 18,
-            decoration: BoxDecoration(
-              color: accentColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (icon != null) ...[
-            Icon(icon, size: 15, color: accentColor),
-            const SizedBox(width: 5),
-          ],
-          Text(title,
-              style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2,
-              )),
-        ],
-      );
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 12, 8),
-        child: centered
-            ? Center(child: titleRow)
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  titleRow,
-                  if (onSeeAll != null)
-                    GestureDetector(
-                      onTap: onSeeAll,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('Voir tout',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                                    color: accentColor)),
-                            Icon(Icons.chevron_right_rounded, size: 14, color: accentColor),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-      );
-    }) {
+    required String title,
+    Color? accent,
+    IconData? icon,
+    VoidCallback? onSeeAll,
+  }) {
     final accentColor = accent ?? ctx.primaryColor;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 14, 12, 8),
@@ -790,7 +716,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     if (items.isEmpty) return const SizedBox(height: 4);
     final capped = items.take(15).toList();
     return SizedBox(
-      height: 230,
+      height: 190,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -811,7 +737,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
           duration: const Duration(milliseconds: 1200)),
       child: SizedBox(
-        height: 230,
+        height: 190,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -819,16 +745,16 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           itemBuilder: (_, __) => Padding(
             padding: const EdgeInsets.only(right: 6),
             child: SizedBox(
-              width: 140,
+              width: 105,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Container(width: 46, height: 62,
+                  Container(width: 36, height: 52,
                       color: base.withValues(alpha: 0.4)),
                   const SizedBox(width: 2),
                   Expanded(
                     child: Container(
-                      height: 190,
+                      height: 155,
                       decoration: BoxDecoration(
                           color: base, borderRadius: BorderRadius.circular(8)),
                     ),
@@ -1080,40 +1006,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 ],
               ),
             ),
-            if (!isLocal)
-                SizedBox(
-                  height: 38,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [
-                      _WatchFilterIconBtn(
-                        activeCount: _countActiveFilters(
-                            filters.isEmpty ? filterList : filters),
-                        onTap: () => showModalBottomSheet(
-                          context: ctx,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (_) => FilterWidget(
-                            filterList: filters.isEmpty ? filterList : filters,
-                            onChanged: (fl) => setState(() {
-                              filters = fl;
-                              _mangaList.clear();
-                              _page = 1;
-                              _hasNextPage = true;
-                            }),
-                          ),
-                        ),
-                      ),
-                      if (filterList.isNotEmpty)
-                        ..._buildFilterChips(ctx, filters.isEmpty ? filterList : filters),
-                    ],
-                  ),
-                ),
-              if (!isLocal && _expandedChipName != null)
-                _buildChipExpansionPanel(ctx, filters.isEmpty ? filterList : filters),
-              const SizedBox(height: 4),
-              Expanded(child: _buildListView(ctx)),
+            Expanded(child: _buildListView(ctx)),
           ],
         ),
       ),
@@ -1195,217 +1088,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       ),
     );
   }
-
-    // ── Filter chip helpers ──────────────────────────────────────────────────
-
-    int _countActiveFilters(List<dynamic> fl) {
-      int count = 0;
-      for (final f in fl) {
-        if (f is CheckBoxFilter && f.state) count++;
-        else if (f is TriStateFilter && f.state != 0) count++;
-        else if (f is SelectFilter && f.state != 0) count++;
-        else if (f is GroupFilter) {
-          for (final inner in f.state) {
-            if (inner is CheckBoxFilter && inner.state) count++;
-            else if (inner is TriStateFilter && inner.state != 0) count++;
-          }
-        }
-      }
-      return count;
-    }
-
-    List<Widget> _buildFilterChips(BuildContext ctx, List<dynamic> fl) {
-      return fl
-          .where((f) => f is SelectFilter || f is SortFilter || f is GroupFilter)
-          .map<Widget>((f) {
-        String label;
-        String filterName;
-        if (f is SortFilter) {
-          final val = f.values.isNotEmpty
-              ? (f.values[f.state.index] as dynamic).name as String
-              : f.name;
-          label = '${f.name}: $val';
-          filterName = f.name;
-        } else if (f is SelectFilter) {
-          label = f.name;
-          filterName = f.name;
-        } else if (f is GroupFilter) {
-          label = f.name;
-          filterName = f.name;
-        } else {
-          label = '';
-          filterName = '';
-        }
-        final isExpanded = _expandedChipName == filterName;
-        return _WatchFilterChipBtn(
-          label: label,
-          isExpanded: isExpanded,
-          onTap: () => setState(() {
-            _expandedChipName = isExpanded ? null : filterName;
-          }),
-        );
-      }).toList();
-    }
-
-    void _updateFilterInList(dynamic expandedFilter, dynamic newFilter) {
-      if (filters.isEmpty) filters = List<dynamic>.from(filterList);
-      final idx = filters.indexWhere((f) {
-        if (f is SelectFilter && expandedFilter is SelectFilter) return f.name == expandedFilter.name;
-        if (f is GroupFilter && expandedFilter is GroupFilter) return f.name == expandedFilter.name;
-        if (f is SortFilter && expandedFilter is SortFilter) return f.name == expandedFilter.name;
-        return false;
-      });
-      if (idx != -1) filters[idx] = newFilter;
-    }
-
-    Widget _buildChipExpansionPanel(BuildContext ctx, List<dynamic> fl) {
-      if (_expandedChipName == null) return const SizedBox.shrink();
-      dynamic expandedFilter;
-      for (final f in fl) {
-        if (f is SelectFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
-        if (f is SortFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
-        if (f is GroupFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
-      }
-      if (expandedFilter == null) return const SizedBox.shrink();
-      final cs = Theme.of(ctx).colorScheme;
-      List<Widget> options = [];
-      if (expandedFilter is SelectFilter) {
-        options = expandedFilter.values.asMap().entries.map<Widget>((entry) {
-          final idx = entry.key;
-          final opt = entry.value;
-          final optName = opt is SelectFilterOption ? opt.name : opt.toString();
-          final isSelected = expandedFilter.state == idx;
-          return InkWell(
-            onTap: () => setState(() {
-              _updateFilterInList(expandedFilter,
-                SelectFilter(expandedFilter.type, expandedFilter.name, idx,
-                    expandedFilter.values, expandedFilter.typeName));
-              _expandedChipName = null;
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(children: [
-                Icon(isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                    size: 18,
-                    color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.4)),
-                const SizedBox(width: 12),
-                Text(optName, style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: cs.onSurface,
-                )),
-              ]),
-            ),
-          );
-        }).toList();
-      } else if (expandedFilter is GroupFilter) {
-        options = (expandedFilter.state as List).asMap().entries.map<Widget>((entry) {
-          final itemIdx = entry.key;
-          final item = entry.value;
-          if (item is CheckBoxFilter) {
-            return InkWell(
-              onTap: () => setState(() {
-                final newState = List<dynamic>.from(expandedFilter.state as List);
-                newState[itemIdx] = CheckBoxFilter(item.type, item.name, item.value,
-                    item.typeName, state: !item.state);
-                _updateFilterInList(expandedFilter,
-                  GroupFilter(expandedFilter.type, expandedFilter.name,
-                      newState, expandedFilter.typeName));
-              }),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(children: [
-                  Icon(item.state ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                      size: 18,
-                      color: item.state ? cs.primary : cs.onSurface.withValues(alpha: 0.4)),
-                  const SizedBox(width: 12),
-                  Text(item.name, style: TextStyle(fontSize: 14, color: cs.onSurface)),
-                ]),
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        }).toList();
-      } else if (expandedFilter is SortFilter) {
-        options = expandedFilter.values.asMap().entries.map<Widget>((entry) {
-          final idx = entry.key;
-          final val = entry.value;
-          final valName = (val as dynamic).name as String;
-          final isSelected = expandedFilter.state.index == idx;
-          return InkWell(
-            onTap: () => setState(() {
-              final newAsc = isSelected
-                  ? !expandedFilter.state.ascending
-                  : expandedFilter.state.ascending;
-              _updateFilterInList(expandedFilter,
-                SortFilter(expandedFilter.type, expandedFilter.name,
-                    SortState(idx, newAsc, expandedFilter.state.typeName),
-                    expandedFilter.values, expandedFilter.typeName));
-              _expandedChipName = null;
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(children: [
-                Icon(isSelected
-                    ? (expandedFilter.state.ascending
-                        ? Icons.arrow_upward_rounded
-                        : Icons.arrow_downward_rounded)
-                    : Icons.remove_rounded,
-                    size: 18,
-                    color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.4)),
-                const SizedBox(width: 12),
-                Text(valName, style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: cs.onSurface,
-                )),
-              ]),
-            ),
-          );
-        }).toList();
-      }
-      if (options.isEmpty) return const SizedBox.shrink();
-      return Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(22), topRight: Radius.circular(22),
-            bottomLeft: Radius.circular(14), bottomRight: Radius.circular(14),
-          ),
-          border: Border.all(color: cs.onSurface.withValues(alpha: 0.12), width: 0.8),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: options),
-      );
-    }
-
-    void _showMoreMenu(BuildContext ctx) {
-      final RenderBox? box = ctx.findRenderObject() as RenderBox?;
-      final offset = box?.localToGlobal(Offset.zero) ?? Offset.zero;
-      showMenu<String>(
-        context: ctx,
-        position: RelativeRect.fromLTRB(
-          MediaQuery.of(ctx).size.width - 48,
-          offset.dy + kToolbarHeight - 8,
-          8,
-          0,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        items: [
-          PopupMenuItem<String>(
-            value: 'settings',
-            child: Row(children: [
-              Icon(Icons.settings_outlined, size: 18, color: Theme.of(ctx).hintColor),
-              const SizedBox(width: 12),
-              const Text('Paramètres'),
-            ]),
-          ),
-        ],
-      ).then((value) {
-        if (value == 'settings' && mounted) {
-          context.push('/extension_detail', extra: source);
-        }
-      });
-    }
 }
 
 // ── Tab data ──────────────────────────────────────────────────────────────────
@@ -1416,136 +1098,6 @@ class _WatchTab {
   final int idx;
   const _WatchTab(this.icon, this.label, this.idx);
 }
-
-  // ── Wave painter ──────────────────────────────────────────────────────────────
-
-  class _WavePainter extends CustomPainter {
-    final Color color;
-    const _WavePainter(this.color);
-
-    @override
-    void paint(Canvas canvas, Size size) {
-      final paint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-      final w = size.width;
-      final path = Path();
-      path.moveTo(0, 0);
-      path.quadraticBezierTo(w * 0.15, 2.2, w * 0.30, 0.6);
-      path.quadraticBezierTo(w * 0.45, -0.8, w * 0.60, 1.0);
-      path.quadraticBezierTo(w * 0.75, 2.6, w * 0.90, 0.4);
-      path.quadraticBezierTo(w * 0.96, -0.2, w, 0.9);
-      path.lineTo(w, 3.0);
-      path.quadraticBezierTo(w * 0.96, 2.5, w * 0.90, 2.0);
-      path.quadraticBezierTo(w * 0.75, 3.4, w * 0.60, 2.0);
-      path.quadraticBezierTo(w * 0.45, 0.8, w * 0.30, 2.0);
-      path.quadraticBezierTo(w * 0.15, 3.2, 0, 2.0);
-      path.close();
-      canvas.drawPath(path, paint);
-    }
-
-    @override
-    bool shouldRepaint(_WavePainter old) => old.color != color;
-  }
-
-  // ── Filter chip button (Watch) ────────────────────────────────────────────────
-
-  class _WatchFilterChipBtn extends StatelessWidget {
-    final String label;
-    final bool isExpanded;
-    final VoidCallback onTap;
-    const _WatchFilterChipBtn({
-      required this.label,
-      required this.isExpanded,
-      required this.onTap,
-    });
-
-    @override
-    Widget build(BuildContext context) {
-      final cs = Theme.of(context).colorScheme;
-      return GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(right: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: isExpanded
-                ? cs.primary.withValues(alpha: 0.15)
-                : cs.surfaceContainerHighest.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isExpanded ? cs.primary : cs.onSurface.withValues(alpha: 0.15),
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label, style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isExpanded ? cs.primary : cs.onSurface,
-              )),
-              const SizedBox(width: 4),
-              Icon(
-                isExpanded
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                size: 14,
-                color: isExpanded ? cs.primary : cs.onSurface.withValues(alpha: 0.6),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
-
-  // ── Filter icon button (Watch) ────────────────────────────────────────────────
-
-  class _WatchFilterIconBtn extends StatelessWidget {
-    final int activeCount;
-    final VoidCallback onTap;
-    const _WatchFilterIconBtn({required this.activeCount, required this.onTap});
-
-    @override
-    Widget build(BuildContext context) {
-      final cs = Theme.of(context).colorScheme;
-      final hasActive = activeCount > 0;
-      return GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.only(right: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: hasActive
-                ? cs.primary.withValues(alpha: 0.15)
-                : cs.surfaceContainerHighest.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: hasActive ? cs.primary : cs.onSurface.withValues(alpha: 0.15),
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.tune_rounded, size: 14,
-                  color: hasActive ? cs.primary : cs.onSurface),
-              if (hasActive) ...[
-                const SizedBox(width: 4),
-                Text('$activeCount', style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600,
-                  color: cs.primary,
-                )),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-  }
 
 // ── Hero carousel ─────────────────────────────────────────────────────────────
 
@@ -1848,13 +1400,13 @@ class _RankedCard extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.only(right: 4),
         child: SizedBox(
-          width: 140,
+          width: 105,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Big rank number
               SizedBox(
-                width: 46,
+                width: 36,
                 child: Text(
                   '$rank',
                   textAlign: TextAlign.center,
