@@ -2036,9 +2036,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
 
   Widget _buildPanelEpisodes(BuildContext context) {
     final manga = widget.episode.manga.value;
-    final episodes = manga?.getFilteredChapterList() ??
-        manga?.chapters.toList().reversed.toList() ??
-        <dynamic>[];
+    final episodes = manga?.chapters.toList().reversed.toList() ?? <dynamic>[];
     final currentId = widget.episode.id;
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
