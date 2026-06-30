@@ -59,7 +59,7 @@ class PresentationListSection extends HookConsumerWidget {
                     ? context.l10n.no_tracks_added_yet
                     : context.l10n.no_tracks,
                 textAlign: TextAlign.center,
-              ).muted().small(),
+              ),
             ],
           ),
         ),

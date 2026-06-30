@@ -53,12 +53,10 @@ class StatsStreamFeesPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
+        appBar: TitleBar(
             title: Text(context.l10n.streaming_fees_hypothetical),
-          )
-        ],
-        child: CustomScrollView(
+          ),
+        body: CustomScrollView(
           slivers: [
             SliverCrossAxisConstrained(
               maxCrossAxisExtent: 600,
@@ -68,7 +66,7 @@ class StatsStreamFeesPage extends HookConsumerWidget {
                 sliver: SliverToBoxAdapter(
                   child: Text(
                     context.l10n.hipotetical_calculation,
-                  ).small().muted(),
+                  ),
                 ),
               ),
             ),
@@ -80,7 +78,7 @@ class StatsStreamFeesPage extends HookConsumerWidget {
                   children: [
                     Text(
                       context.l10n.total_money(usdFormatter.format(total)),
-                    ).large(),
+                    ),
                     Select<HistoryDuration>(
                       value: duration.value,
                       onChanged: (value) {

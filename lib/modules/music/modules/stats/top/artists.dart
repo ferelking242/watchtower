@@ -50,7 +50,7 @@ class TopArtists extends HookConsumerWidget {
               Text(
                 context.l10n.no_tracks_listened_yet,
                 textAlign: TextAlign.center,
-              ).muted().small(),
+              ),
             ],
           ),
         ),

@@ -28,14 +28,11 @@ class LastFMLoginPage extends HookConsumerWidget {
     final isLoading = useState(false);
 
     return Scaffold(
-      headers: const [
-        SafeArea(
-          bottom: false,
-          child: TitleBar(
+      appBar: TitleBar(
             leading: BackButton(),
           ),
         ),
-      ],
+      ,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

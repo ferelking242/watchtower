@@ -77,9 +77,9 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                   Text(context.l10n.choose_your_region),
                   Text(
                     context.l10n.choose_your_region_description,
-                  ).small().muted(),
+                  ),
                   SizedBox(height: 16),
-                  Text(context.l10n.market_place_region).small(),
+                  Text(context.l10n.market_place_region),
                   SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
@@ -128,7 +128,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                     context.l10n.choose_your_language,
                   ),
                   SizedBox(height: 16),
-                  Text(context.l10n.language).small(),
+                  Text(context.l10n.language),
                   SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,

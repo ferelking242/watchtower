@@ -95,12 +95,10 @@ class ConnectControlPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
+        appBar: TitleBar(
             title: Text(resolvedService?.name ?? ""),
-          )
-        ],
-        child: LayoutBuilder(builder: (context, constrains) {
+          ),
+        body: LayoutBuilder(builder: (context, constrains) {
           return Row(
             children: [
               Expanded(

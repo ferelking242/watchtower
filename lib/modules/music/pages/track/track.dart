@@ -56,13 +56,13 @@ class TrackPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: const [
+        appBar: 
           TitleBar(
             backgroundColor: Colors.transparent,
                       )
-        ],
+        ,
         floatingHeader: true,
-        child: Stack(
+        body: Stack(
           children: [
             Positioned.fill(
               child: Container(
@@ -133,7 +133,7 @@ class TrackPage extends HookConsumerWidget {
                               children: [
                                 Text(
                                   track.name,
-                                ).large(),
+                                ),
                                 SizedBox(height: 10),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,

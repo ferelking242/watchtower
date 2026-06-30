@@ -288,7 +288,6 @@ class PlaylistCreateDialogButton extends HookConsumerWidget {
   showPlaylistDialog(BuildContext context) {
     showDialog(
       context: context,
-      alignment: Alignment.center,
       builder: (context) => const ToastLayer(
         child: PlaylistCreateDialog(),
       ),

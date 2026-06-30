@@ -60,9 +60,6 @@ class PlaybuttonTile extends StatelessWidget {
                 child: image,
               ),
             ),
-.copyWith(
-        padding: (context, states, value) {
-          return (null.padding(context, states) as EdgeInsets)
               .copyWith(right: 0, left: 0);
         },
       ),
@@ -100,7 +97,7 @@ class PlaybuttonTile extends StatelessWidget {
               description!,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-            ).xSmall().muted(),
+            ).xSmall(),
         ],
       ),
     );

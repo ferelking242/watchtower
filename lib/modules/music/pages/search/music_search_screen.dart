@@ -184,7 +184,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
     return Container(
       color: _kBg,
       padding: EdgeInsets.only(top: top, left: 16, right: 16, bottom: 12),
-      child: Column(
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [

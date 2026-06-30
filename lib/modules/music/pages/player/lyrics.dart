@@ -41,15 +41,13 @@ class PlayerLyricsPage extends HookConsumerWidget {
     );
 
     return Scaffold(
-      headers: [
-        AppBar(
+      appBar: AppBar(
           leading: tabbar,
           trailing: const [
             BackButton(icon: SpotubeIcons.angleDown),
           ],
-        ),
-      ],
-      child: IndexedStack(
+        ),,
+      body: IndexedStack(
         index: selectedIndex.value,
         children: [
           SyncedLyrics(palette: palette, isModal: false),

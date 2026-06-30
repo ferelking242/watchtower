@@ -26,7 +26,7 @@ class GettingStartedPageGreetingSection extends HookConsumerWidget {
                   ? context.l10n.freedom_of_music_palm
                   : context.l10n.freedom_of_music,
               textAlign: TextAlign.center,
-            ).light().large().italic(),
+            ).light().italic(),
             SizedBox(height: 84),
             FilledButton(
               onPressed: onNext,

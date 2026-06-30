@@ -50,11 +50,6 @@ class LocalFolderItem extends HookConsumerWidget {
           ),
         );
       },
-.copyWith(
-        padding: (context, states, value) {
-          return const EdgeInsets.all(8);
-        },
-      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

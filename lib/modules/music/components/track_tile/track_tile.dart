@@ -242,10 +242,6 @@ class TrackTile extends HookConsumerWidget {
                         children: [
                           Flexible(
                 child: TextButton(
-.copyWith(
-                padding: (context, states, value) =>
-                  EdgeInsets.zero,
-                ),
                 onPressed: effectiveSelection
                   ? null
                   : () {

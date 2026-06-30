@@ -130,8 +130,7 @@ class LocalLibraryPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
+        appBar: TitleBar(
             padding: const EdgeInsets.symmetric(
               horizontal: 10,
               vertical: 0,
@@ -153,7 +152,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                   builder: (context, snapshot) {
                     return Text(
                       "${(snapshot.data ?? 0)} GB",
-                    ).xSmall().muted();
+                    ).xSmall();
                   },
                 )
               ],
@@ -181,7 +180,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                             onPressed: () {
                               Navigator.of(context).pop(false);
                             },
-                            child: Text(context.l10n.decline),
+                            body: Text(context.l10n.decline),
                           ),
                           ElevatedButton(
                             onPressed: () async {
@@ -243,11 +242,10 @@ class LocalLibraryPage extends HookConsumerWidget {
                     );
                   },
                 ),
-              ]
-            ],
+              ],
           ),
         ],
-        child: LayoutBuilder(
+        body: LayoutBuilder(
           builder: (context, constraints) => Column(
             children: [
               Padding(
@@ -403,7 +401,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                             Text(
                               context.l10n.nothing_found,
                               textAlign: TextAlign.center,
-                            ).muted().small()
+                            )
                           ],
                         ),
                       );

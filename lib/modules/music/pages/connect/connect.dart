@@ -25,10 +25,8 @@ class ConnectPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(title: Text(context.l10n.devices)),
-        ],
-        child: Padding(
+        appBar: TitleBar(title: Text(context.l10n.devices)),,
+        body: Padding(
           padding: const EdgeInsets.all(10.0),
           child: CustomScrollView(
             slivers: [

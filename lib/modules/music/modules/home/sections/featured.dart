@@ -26,7 +26,7 @@ class HomeFeaturedSection extends HookConsumerWidget {
     //         height: 200 * 1.0,
     //         color: Theme.of(context).colorScheme.primary,
     //       ),
-    //       Text(context.l10n.something_went_wrong).small().muted(),
+    //       Text(context.l10n.something_went_wrong),
     //       SizedBox(height: 8),
     //     ],
     //   );

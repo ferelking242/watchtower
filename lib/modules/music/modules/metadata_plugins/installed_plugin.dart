@@ -322,23 +322,6 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                       final mediaQuery = MediaQuery.sizeOf(context);
 
                       return TextButton(
-.copyWith(
-                          decoration: (context, states, value) {
-                            return value.copyWithIfBoxDecoration(
-                              color: bgColor,
-                            );
-                          },
-                          textStyle: (context, states, value) {
-                            return value.copyWith(
-                              color: textColor,
-                            );
-                          },
-                          iconTheme: (context, states, value) {
-                            return value.copyWith(
-                              color: textColor,
-                            );
-                          },
-                        ),
                         child: Text(context.l10n.support),
                         onPressed: () {
                           showDialog(

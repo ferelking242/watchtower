@@ -41,23 +41,6 @@ class SettingsAboutSection extends HookConsumerWidget {
               ),
             ),
             trailing: (context, update) => TextButton(
-.copyWith(
-                decoration: (context, states, value) {
-                  final decoration = null
-                      .decoration(context, states) as BoxDecoration;
-
-                  if (states.contains(WidgetState.hovered)) {
-                    return decoration.copyWith(color: Colors.pink[400]);
-                  } else if (states.contains(WidgetState.focused)) {
-                    return decoration.copyWith(color: Colors.pink[300]);
-                  } else if (states.isNotEmpty) {
-                    return decoration;
-                  }
-
-                  return decoration.copyWith(color: Colors.pink);
-                },
-                textStyle: (context, states, value) => null
-                    .textStyle(context, states)
                     .copyWith(color: Colors.white),
               ),
               onPressed: () {

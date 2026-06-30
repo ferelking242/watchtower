@@ -117,7 +117,7 @@ class PlayerActions extends HookConsumerWidget {
           ),
         if (!isLocalTrack)
           IconButton(
-            enabled: playlist.activeTrack != null,
+            // was: enabled: playlist.activeTrack != null
             icon: const Icon(SpotubeIcons.alternativeRoute),
             onPressed: () {
               final screenSize = MediaQuery.sizeOf(context);

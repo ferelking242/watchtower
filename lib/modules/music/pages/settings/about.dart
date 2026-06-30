@@ -32,13 +32,11 @@ class AboutSpotubePage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
+        appBar: TitleBar(
             leading: const [BackButton()],
             title: Text(context.l10n.about_spotube),
-          )
-        ],
-        child: SingleChildScrollView(
+          ),
+        body: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
@@ -50,7 +48,7 @@ class AboutSpotubePage extends HookConsumerWidget {
                 Center(
                   child: Column(
                     children: [
-                      Text(context.l10n.spotube_description).large(),
+                      Text(context.l10n.spotube_description),
                       const SizedBox(height: 20),
                       Table(
                         columnWidths: const {

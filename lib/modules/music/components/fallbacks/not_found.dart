@@ -19,7 +19,7 @@ class NotFound extends StatelessWidget {
         Text(
           context.l10n.nothing_found,
           textAlign: TextAlign.center,
-        ).muted().small()
+        )
       ],
     );
   }

@@ -25,12 +25,10 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
+        appBar: TitleBar(
             title: Text(title),
-          ),
-        ],
-        child: FormBuilder(
+          ),,
+        body: FormBuilder(
           key: formKey,
           child: Center(
             child: Container(

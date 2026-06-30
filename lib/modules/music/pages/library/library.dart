@@ -53,7 +53,7 @@ class LibraryPage extends HookConsumerWidget {
                   titleSpacing: 0,
                   title: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: Row(
+                    body: Row(
                       children: [
                         const SizedBox(width: 8),
                         for (final tile in sidebarLibraryTileList) ...[

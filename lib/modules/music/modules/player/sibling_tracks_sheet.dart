@@ -69,7 +69,7 @@ class SiblingTracksSheet extends HookConsumerWidget {
                       duration: const Duration(milliseconds: 300),
                       child: Text(
                         context.l10n.alternative_track_sources,
-                      ).bold()),
+                      )),
                 ],
               ),
             ),

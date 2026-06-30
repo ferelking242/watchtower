@@ -48,8 +48,8 @@ class TrackPresentation extends HookConsumerWidget {
       child: SafeArea(
         bottom: false,
         child: Scaffold(
-          headers: const [TitleBar()],
-          child: CustomScrollView(
+          appBar: TitleBar(),
+          body: CustomScrollView(
             controller: scrollController,
             slivers: [
               const TrackPresentationTopSection(),
@@ -80,7 +80,7 @@ class TrackPresentation extends HookConsumerWidget {
                           Text(context.l10n.duration),
                         ],
                       ),
-                    ).small().muted();
+                    );
                   }),
                 ],
               ),

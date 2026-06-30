@@ -55,12 +55,12 @@ class MetadataPlugin {
             .pushWidget(Builder(builder: (context) {
           pageContext = context;
           return Scaffold(
-            headers: const [
+            appBar: 
               TitleBar(
                 automaticallyImplyLeading: true,
               )
-            ],
-            child: route,
+            ,
+            body: route,
           );
         }));
       },

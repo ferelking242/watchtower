@@ -70,17 +70,15 @@ class LyricsPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         floatingHeader: true,
-        headers: [
-          !kIsMacOS
+        appBar: !kIsMacOS
               ? TitleBar(
                   backgroundColor: Colors.transparent,
                   title: tabbar,
                   height: 58 * 1.0,
                                     automaticallyImplyLeading: false,
                 )
-              : tabbar
-        ],
-        child: Container(
+              : tabbar,
+        body: Container(
           clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
             image: DecorationImage(

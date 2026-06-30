@@ -32,12 +32,10 @@ class StatsArtistsPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
+        appBar: TitleBar(
             title: Text(context.l10n.artists),
-          )
-        ],
-        child: Opacity(opacity: 1.0, 
+          ),
+        body: Opacity(opacity: 1.0, 
           enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
           child: InfiniteList(
             onFetchData: () async {

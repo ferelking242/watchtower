@@ -91,10 +91,7 @@ class PlayerView extends HookConsumerWidget {
       child: Card(
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          headers: [
-            SafeArea(
-              bottom: false,
-              child: TitleBar(
+          appBar: TitleBar(
                                                 leading: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(
                     icon: const Icon(SpotubeIcons.angleDown),
                     onPressed: panelController.close,
@@ -118,8 +115,7 @@ class PlayerView extends HookConsumerWidget {
                     )
                 ],
               ),
-            ),
-          ],
+            ),,
           child: SingleChildScrollView(
             controller: scrollController,
             child: Padding(

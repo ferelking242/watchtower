@@ -111,7 +111,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                     child: Text(
                       context.l10n
                           .copied_shareurl_to_clipboard(options.shareUrl!),
-                    ).small(),
+                    ),
                   );
                 },
               );
@@ -211,7 +211,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                                           options.owner!,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                        ).small(),
+                                        ),
                                       ),
                                     additionalActions,
                                   ],

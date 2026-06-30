@@ -160,12 +160,12 @@ class ArtistPageHeader extends HookConsumerWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Chip(label: child:
-                                    Text(context.l10n.artist).small().muted(),
+                                    Text(context.l10n.artist),
                               ),
                               if (isBlackListed) ...[
                                 SizedBox(height: 5),
                                 DestructiveBadge(
-                                  child: Text(context.l10n.blacklisted).small(),
+                                  child: Text(context.l10n.blacklisted),
                                 ),
                               ]
                             ],
@@ -195,7 +195,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               minFontSize: 12,
-                            ).muted(),
+                            ),
                           ),
                           if (constrains.mdAndUp) ...[
                             SizedBox(height: 20),

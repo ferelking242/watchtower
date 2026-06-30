@@ -75,7 +75,7 @@ class ColorSchemePickerDialog extends HookConsumerWidget {
       title: Text(
         context.l10n.pick_color_scheme,
         style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-      ).large(),
+      ),
       actions: [
         OutlinedButton(
           child: Text(context.l10n.cancel),

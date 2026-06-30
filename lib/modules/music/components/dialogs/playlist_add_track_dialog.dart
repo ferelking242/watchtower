@@ -102,11 +102,6 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
                   itemBuilder: (context, index) {
                     final playlist = filteredPlaylists.elementAt(index);
                     return TextButton(
-.copyWith(
-                        padding: (context, _, __) {
-                          return const EdgeInsets.symmetric(vertical: 8);
-                        },
-                      ),
                       leading: Avatar(
                         initials: Avatar.getInitials(playlist.name),
                         provider: UniversalImage.imageProvider(

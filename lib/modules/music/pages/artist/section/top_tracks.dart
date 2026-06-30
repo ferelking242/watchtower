@@ -129,7 +129,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                 ),
               const SizedBox(width: 5),
               IconButton(
-                enabled: !isPlaylistPlaying && !isLoading.value,
+                // was: enabled: !isPlaylistPlaying && !isLoading.value
                 icon: isLoading.value
                     ? CircularProgressIndicator(
                         size: 20 * 1.0,

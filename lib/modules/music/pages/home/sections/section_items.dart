@@ -53,12 +53,10 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
       child: Opacity(opacity: 1.0, 
         enabled: sectionItems.isLoading,
         child: Scaffold(
-          headers: [
-            TitleBar(
+          appBar: TitleBar(
               title: Text(section.title),
-            )
-          ],
-          child: Padding(
+            ),
+          body: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: CustomScrollView(
               controller: controller,

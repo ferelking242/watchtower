@@ -33,7 +33,7 @@ class SearchPlaceholder extends HookConsumerWidget {
               height: 200 * theme.scaling,
             ),
             const SizedBox(height: 20),
-            Text(context.l10n.search_to_get_results).large(),
+            Text(context.l10n.search_to_get_results),
           ],
         ),
       (false, true) => Container(

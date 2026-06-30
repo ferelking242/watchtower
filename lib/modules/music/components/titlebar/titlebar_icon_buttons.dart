@@ -19,25 +19,14 @@ class ShadcnWindowButton extends StatelessWidget {
     return SizedBox(
       width: 45,
       height: 32,
-      child: IconButton(.copyWith(
-          decoration: (context, states, value) {
-            final decoration = null.decoration(context, states)
-                as BoxDecoration;
-            if (hoverBackgroundColor != null &&
-                states.contains(WidgetState.hovered)) {
-              return decoration.copyWith(
-                borderRadius: BorderRadius.zero,
-                color: hoverBackgroundColor,
-              );
-            }
-
-            return decoration.copyWith(
-              borderRadius: BorderRadius.zero,
-            );
-          },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.zero,
+          hoverColor: hoverBackgroundColor,
+          onTap: onPressed,
+          child: Center(child: icon),
         ),
-        icon: icon,
-        onPressed: onPressed,
       ),
     );
   }
@@ -51,15 +40,12 @@ class CloseIcon extends StatelessWidget {
   Widget build(BuildContext context) => Align(
         alignment: Alignment.topLeft,
         child: Stack(children: [
-          // Use rotated containers instead of a painter because it renders slightly crisper than a painter for some reason.
           Transform.rotate(
               angle: pi * .25,
-              child:
-                  Center(child: Container(width: 14, height: 1, color: color))),
+              child: Center(child: Container(width: 14, height: 1, color: color))),
           Transform.rotate(
               angle: pi * -.25,
-              child:
-                  Center(child: Container(width: 14, height: 1, color: color))),
+              child: Center(child: Container(width: 14, height: 1, color: color))),
         ]),
       );
 }
@@ -84,10 +70,7 @@ class _MaximizePainter extends _IconPainter {
 /// Restore
 class RestoreIcon extends StatelessWidget {
   final Color color;
-  const RestoreIcon({
-    super.key,
-    required this.color,
-  });
+  const RestoreIcon({super.key, required this.color});
   @override
   Widget build(BuildContext context) => _AlignedPaint(_RestorePainter(color));
 }
@@ -100,8 +83,7 @@ class _RestorePainter extends _IconPainter {
     canvas.drawRect(Rect.fromLTRB(0, 2, size.width - 2, size.height), p);
     canvas.drawLine(const Offset(2, 2), const Offset(2, 0), p);
     canvas.drawLine(const Offset(2, 0), Offset(size.width, 0), p);
-    canvas.drawLine(
-        Offset(size.width, 0), Offset(size.width, size.height - 2), p);
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, size.height - 2), p);
     canvas.drawLine(Offset(size.width, size.height - 2),
         Offset(size.width - 2, size.height - 2), p);
   }
@@ -129,7 +111,6 @@ class _MinimizePainter extends _IconPainter {
 abstract class _IconPainter extends CustomPainter {
   _IconPainter(this.color);
   final Color color;
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -137,7 +118,6 @@ abstract class _IconPainter extends CustomPainter {
 class _AlignedPaint extends StatelessWidget {
   const _AlignedPaint(this.painter);
   final CustomPainter painter;
-
   @override
   Widget build(BuildContext context) {
     return Align(

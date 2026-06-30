@@ -33,9 +33,7 @@ class GettingStartedPage extends HookConsumerWidget {
     }, [pageController]);
 
     return Scaffold(
-      headers: [
-        SafeArea(
-          child: TitleBar(
+      appBar: TitleBar(
             backgroundColor: Colors.transparent,
                         actions: [
               ListenableBuilder(
@@ -43,7 +41,7 @@ class GettingStartedPage extends HookConsumerWidget {
                 builder: (context, _) {
                   return AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    child: pageController.hasClients &&
+                    body: pageController.hasClients &&
                             (pageController.page == 0 ||
                                 pageController.page == 3)
                         ? const SizedBox()
@@ -62,10 +60,9 @@ class GettingStartedPage extends HookConsumerWidget {
               ),
             ],
           ),
-        ),
-      ],
+        ),,
       floatingHeader: true,
-      child: DecoratedBox(
+      body: DecoratedBox(
         decoration: BoxDecoration(
           image: DecorationImage(
             image: Assets.images.bengaliPatternsBg.provider(),

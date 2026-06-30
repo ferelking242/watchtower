@@ -57,10 +57,9 @@ class MiniLyricsPage extends HookConsumerWidget {
             },
       child: Scaffold(
         backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.4),
-        headers: [
-          Padding(
+        appBar: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: AnimatedCrossFade(
+            body: AnimatedCrossFade(
               duration: const Duration(milliseconds: 200),
               crossFadeState: areaActive.value
                   ? CrossFadeState.showFirst
@@ -139,9 +138,8 @@ class MiniLyricsPage extends HookConsumerWidget {
                 ),
               ),
             ),
-          ),
-        ],
-        child: Column(
+          ),,
+        body: Column(
           children: [
             if (playlistQueue.activeTrack != null)
               Text(playlistQueue.activeTrack!.name!),

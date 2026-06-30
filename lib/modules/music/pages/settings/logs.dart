@@ -23,10 +23,7 @@ class LogsPage extends HookConsumerWidget {
     final logsQuery = ref.watch(logsProvider);
 
     return Scaffold(
-      headers: [
-        SafeArea(
-          bottom: false,
-          child: TitleBar(
+      appBar: TitleBar(
             title: Text(context.l10n.logs),
             leading: const [BackButton()],
             actions: [
@@ -42,7 +39,7 @@ class LogsPage extends HookConsumerWidget {
                       location: ToastLocation.topRight,
                       builder: (context, overlay) {
                         return Card(
-                          child: ListTile(
+                          body: ListTile(
                             title: Text(context.l10n.copied_to_clipboard("")),
                           ),
                         );
@@ -66,8 +63,7 @@ class LogsPage extends HookConsumerWidget {
               )
             ],
           ),
-        )
-      ],
+        ),
       child: SafeArea(
         child: switch (logsQuery) {
           AsyncData(:final value) => InterScrollbar(
@@ -88,7 +84,7 @@ class LogsPage extends HookConsumerWidget {
                       width: 200 * 1.0,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                    Text(context.l10n.no_logs_found).muted().small(),
+                    Text(context.l10n.no_logs_found),
                   ],
                 ),
               _ => Center(child: Text(error.toString())),

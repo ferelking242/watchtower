@@ -29,12 +29,10 @@ class StatsStreamsPage extends HookConsumerWidget {
     return SafeArea(
       bottom: false,
       child: Scaffold(
-        headers: [
-          TitleBar(
+        appBar: TitleBar(
             title: Text(context.l10n.streamed_songs),
-          )
-        ],
-        child: Opacity(opacity: 1.0, 
+          ),
+        body: Opacity(opacity: 1.0, 
           enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
           child: InfiniteList(
             separatorBuilder: (context, index) => SizedBox(height: 8),

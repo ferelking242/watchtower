@@ -44,13 +44,13 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
               children: [
                 const Icon(SpotubeIcons.album, size: 16),
                 SizedBox(height: 8),
-                Text(context.l10n.playback).large(),
+                Text(context.l10n.playback),
               ],
             ),
             SizedBox(height: 16),
             // Align(
             //   alignment: Alignment.centerLeft,
-            //   child: Text(context.l10n.select_audio_source).large(),
+            //   child: Text(context.l10n.select_audio_source),
             // ),
             // SizedBox(height: 16),
             // RadioGroup<AudioSource>(
@@ -85,12 +85,12 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
             // SizedBox(height: 16),
             // Text(
             //   audioSourceToDescription[preferences.audioSource]!,
-            // ).small().muted(),
+            // ),
             SizedBox(height: 16),
             ButtonTile(
               title: Text(context.l10n.endless_playback),
                 context.l10n.endless_playback_description,
-              ).small().muted(),
+              ),
               onPressed: () {
                 preferencesNotifier
                     .setEndlessPlayback(!preferences.endlessPlayback);
