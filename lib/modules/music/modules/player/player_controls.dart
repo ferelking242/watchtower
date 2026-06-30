@@ -120,7 +120,7 @@ class PlayerControls extends HookConsumerWidget {
                       icon: Icon(
                         SpotubeIcons.shuffle,
                         color: shuffled ? theme.colorScheme.primary : null,
-                        iconSize: iconSize,
+                        size: iconSize,
                       ),
                       style: shuffled
                           ? IconButton.styleFrom(
