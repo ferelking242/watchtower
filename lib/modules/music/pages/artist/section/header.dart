@@ -1,7 +1,6 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide Consumer;
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -54,7 +53,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                   AsyncData(value: final following) => Builder(
                       builder: (context) {
                         if (following) {
-                          return Button.outline(
+                          return OutlinedButton(
                             onPressed: () async {
                               await followingArtistNotifier
                                   .removeFavorite([artist]);
@@ -63,7 +62,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                           );
                         }
 
-                        return Button.primary(
+                        return FilledButton(
                           onPressed: () async {
                             await followingArtistNotifier.addFavorite([artist]);
                           },
@@ -84,10 +83,8 @@ class ArtistPageHeader extends HookConsumerWidget {
             icon: Icon(
               SpotubeIcons.userRemove,
               color: !isBlackListed ? Colors.red[400] : null,
-            ),
-            variance: isBlackListed
-                ? ButtonVariance.destructive
-                : ButtonVariance.ghost,
+            )
+                ? null : null,
             onPressed: () async {
               if (isBlackListed) {
                 await ref.read(blacklistProvider.notifier).remove(artist.id);
@@ -102,7 +99,7 @@ class ArtistPageHeader extends HookConsumerWidget {
               }
             },
           ),
-          IconButton.ghost(
+          IconButton(
             icon: const Icon(SpotubeIcons.share),
             onPressed: () async {
               await Clipboard.setData(
@@ -118,7 +115,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                 location: ToastLocation.topRight,
                 dismissible: true,
                 builder: (context, overlay) {
-                  return SurfaceCard(
+                  return Card(
                     child: Text(
                       context.l10n.artist_url_copied,
                       textAlign: TextAlign.center,
@@ -153,7 +150,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                         fit: BoxFit.cover,
                       ),
                     ),
-                    const Gap(20),
+                    SizedBox(height: 20),
                     Flexible(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -162,19 +159,18 @@ class ArtistPageHeader extends HookConsumerWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              OutlineBadge(
-                                child:
+                              Chip(label: child:
                                     Text(context.l10n.artist).small().muted(),
                               ),
                               if (isBlackListed) ...[
-                                const Gap(5),
+                                SizedBox(height: 5),
                                 DestructiveBadge(
                                   child: Text(context.l10n.blacklisted).small(),
                                 ),
                               ]
                             ],
                           ),
-                          const Gap(10),
+                          SizedBox(height: 10),
                           Flexible(
                             child: AutoSizeText(
                               artist.name,
@@ -186,7 +182,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                               minFontSize: 14,
                             ),
                           ),
-                          const Gap(5),
+                          SizedBox(height: 5),
                           Flexible(
                             child: AutoSizeText(
                               context.l10n.followers(
@@ -202,7 +198,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                             ).muted(),
                           ),
                           if (constrains.mdAndUp) ...[
-                            const Gap(20),
+                            SizedBox(height: 20),
                             actions,
                           ]
                         ],
@@ -211,7 +207,7 @@ class ArtistPageHeader extends HookConsumerWidget {
                   ],
                 ),
                 if (constrains.smAndDown) ...[
-                  const Gap(20),
+                  SizedBox(height: 20),
                   actions,
                 ]
               ],

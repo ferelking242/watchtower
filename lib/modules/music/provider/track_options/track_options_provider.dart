@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/dialogs/playlist_add_track_dialog.dart';
@@ -60,7 +60,7 @@ class TrackOptionsActions {
           context: rootNavigatorKey.currentContext!,
           location: ToastLocation.topRight,
           builder: (context, overlay) {
-            return SurfaceCard(
+            return Card(
               child: Text(
                 context.l10n.copied_to_clipboard(track.externalUri),
                 textAlign: TextAlign.center,
@@ -153,7 +153,7 @@ class TrackOptionsActions {
             context: context,
             location: ToastLocation.topRight,
             builder: (context, overlay) {
-              return SurfaceCard(
+              return Card(
                 child: Text(
                   context.l10n.added_track_to_queue(track.name),
                   textAlign: TextAlign.center,
@@ -171,7 +171,7 @@ class TrackOptionsActions {
             context: context,
             location: ToastLocation.topRight,
             builder: (context, overlay) {
-              return SurfaceCard(
+              return Card(
                 child: Text(
                   context.l10n.track_will_play_next(track.name),
                   textAlign: TextAlign.center,
@@ -189,7 +189,7 @@ class TrackOptionsActions {
             context: context,
             location: ToastLocation.topRight,
             builder: (context, overlay) {
-              return SurfaceCard(
+              return Card(
                 child: Text(
                   context.l10n.removed_track_from_queue(
                     track.name,

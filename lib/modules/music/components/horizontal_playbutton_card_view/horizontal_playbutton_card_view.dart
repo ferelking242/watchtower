@@ -1,8 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -42,7 +41,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
   Widget build(BuildContext context) {
     final scrollController = useScrollController();
     final isArtist = items.every((s) => s is SpotubeFullArtistObject);
-    final scale = context.theme.scaling;
+    final scale = 1.0;
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -55,8 +54,8 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
             children: [
               Flexible(
                 child: DefaultTextStyle(
-                  style: context.theme.typography.h4.copyWith(
-                    color: context.theme.colorScheme.foreground,
+                  style: context.Theme.of(context).textTheme.titleLarge!.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -92,7 +91,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           itemCount: items.length,
                           onFetchData: onFetchMore,
-                          loadingBuilder: (context) => Skeletonizer(
+                          loadingBuilder: (context) => Opacity(opacity: 1.0, 
                                 enabled: true,
                                 child: isArtist
                                     ? ArtistCard(FakeData.artist)
@@ -100,7 +99,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                               ),
                           isLoading: isLoadingNextPage,
                           hasReachedMax: !hasNextPage,
-                          separatorBuilder: (context, index) => Gap(12 * scale),
+                          separatorBuilder: (context, index) => SizedBox(height: 12 * scale),
                           itemBuilder: (context, index) {
                             final item = items[index];
 

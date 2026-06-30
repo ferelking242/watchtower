@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
@@ -71,13 +71,13 @@ class ServerConnectRoutes {
                       context.l10n.connect_request(origin),
                     ),
                     actions: [
-                      Button.secondary(
+                      ElevatedButton(
                         onPressed: () {
                           Navigator.of(context).pop(false);
                         },
                         child: Text(context.l10n.decline),
                       ),
-                      Button.primary(
+                      FilledButton(
                         onPressed: () {
                           Navigator.of(context).pop(true);
                         },

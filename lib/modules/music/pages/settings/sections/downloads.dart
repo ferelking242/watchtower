@@ -37,9 +37,7 @@ class SettingsDownloadsSection extends HookConsumerWidget {
       heading: context.l10n.downloads,
       children: [
         ListTile(
-          leading: const Icon(SpotubeIcons.download),
           title: Text(context.l10n.download_location),
-          subtitle: Text(preferences.downloadLocation),
           trailing: IconButton.outlined(
             onPressed: pickDownloadLocation,
             icon: const Icon(SpotubeIcons.folder),

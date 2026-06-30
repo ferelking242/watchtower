@@ -1,7 +1,7 @@
 import 'package:collection/collection.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
 import 'package:watchtower/modules/music/components/dialogs/select_device_dialog.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_tile.dart';
@@ -35,7 +35,7 @@ class SearchTracksSection extends HookConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               context.l10n.songs,
-              style: theme.typography.h4,
+              style: Theme.of(context).textTheme.titleLarge!,
             ),
           ),
         if (search.isLoading)

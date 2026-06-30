@@ -11,7 +11,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:auto_route/auto_route.dart' as _i41;
 import 'package:flutter/material.dart' as _i42;
-import 'package:shadcn_flutter/shadcn_flutter.dart' as _i44;
+import 'package:flutter/material.dart' as _i44;
 import 'package:watchtower/modules/music/models/metadata/metadata.dart' as _i43;
 import 'package:watchtower/modules/music/pages/album/album.dart' as _i2;
 import 'package:watchtower/modules/music/pages/artist/artist.dart' as _i3;

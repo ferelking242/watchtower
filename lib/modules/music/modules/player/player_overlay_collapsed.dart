@@ -1,6 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:watchtower/modules/music/collections/intents.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -39,7 +39,7 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
       child: canShow && shouldShow.value
           ? Padding(
               padding: const EdgeInsets.all(5),
-              child: SurfaceCard(
+              child: Card(
                 surfaceBlur: theme.surfaceBlur,
                 surfaceOpacity: theme.surfaceOpacity,
                 padding: EdgeInsets.zero,
@@ -61,20 +61,20 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
                                 color: Colors.transparent,
                                 child: PlayerTrackDetails(
                                   track: playlist.activeTrack,
-                                  color: theme.colorScheme.foreground,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ),
                           ),
                           Row(
                             children: [
-                              IconButton.ghost(
+                              IconButton(
                                 icon: const Icon(SpotubeIcons.skipBack),
                                 onPressed: isFetchingActiveTrack
                                     ? null
                                     : audioPlayer.skipToPrevious,
                               ),
-                              IconButton.ghost(
+                              IconButton(
                                 icon: isFetchingActiveTrack
                                     ? const SizedBox(
                                         height: 20,
@@ -94,13 +94,13 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
                                   }
                                 },
                               ),
-                              IconButton.ghost(
+                              IconButton(
                                 icon: const Icon(SpotubeIcons.skipForward),
                                 onPressed: isFetchingActiveTrack
                                     ? null
                                     : audioPlayer.skipToNext,
                               ),
-                              const Gap(5),
+                              SizedBox(height: 5),
                             ],
                           ),
                         ],

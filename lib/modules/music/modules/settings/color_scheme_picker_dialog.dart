@@ -1,8 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
@@ -75,16 +74,16 @@ class ColorSchemePickerDialog extends HookConsumerWidget {
     return AlertDialog(
       title: Text(
         context.l10n.pick_color_scheme,
-        style: TextStyle(color: context.theme.colorScheme.foreground),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       ).large(),
       actions: [
-        Button.outline(
+        OutlinedButton(
           child: Text(context.l10n.cancel),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        Button.primary(
+        FilledButton(
           onPressed: () {
             Navigator.pop(context);
           },
@@ -147,7 +146,7 @@ class ColorChip extends StatelessWidget {
         ),
       ),
       onPressed: onPressed,
-      style: isActive ? ButtonVariance.primary : ButtonVariance.outline,
+      style: isActive ? null : null,
       child: Text(name),
     );
   }

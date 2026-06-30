@@ -530,7 +530,6 @@ class _QueueView extends ConsumerWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          subtitle: Text(
             t.artistNames,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),

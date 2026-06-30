@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/lyrics/zoom_controls.dart';
@@ -74,7 +74,7 @@ class SyncedLyrics extends HookConsumerWidget {
       color: palette.titleTextColor,
     );
 
-    final bodyTextTheme = typography.large.copyWith(
+    final bodyTextTheme = Theme.of(context).textTheme.bodyLarge!.copyWith(
       color: palette.bodyTextColor,
     );
 
@@ -159,7 +159,7 @@ class SyncedLyrics extends HookConsumerWidget {
                                 duration: const Duration(milliseconds: 250),
                                 style: TextStyle(
                                   color: isActive
-                                      ? theme.colorScheme.foreground
+                                      ? theme.colorScheme.onSurface
                                       : theme.colorScheme.mutedForeground,
                                   fontWeight: isActive
                                       ? FontWeight.w500
@@ -207,7 +207,7 @@ class SyncedLyrics extends HookConsumerWidget {
                   ),
                 ),
               ),
-              const SliverGap(26),
+              const SliverToBoxAdapter(child: SizedBox(height: 26)),
               const SliverToBoxAdapter(
                 child: Icon(SpotubeIcons.noLyrics, size: 60),
               ),
@@ -224,7 +224,7 @@ class SyncedLyrics extends HookConsumerWidget {
                         ),
                         TextSpan(
                           text: " ${context.l10n.plain_lyrics} ",
-                          style: typography.large.copyWith(
+                          style: Theme.of(context).textTheme.bodyLarge!.copyWith(
                             color: palette.bodyTextColor,
                             fontWeight: FontWeight.bold,
                           ),

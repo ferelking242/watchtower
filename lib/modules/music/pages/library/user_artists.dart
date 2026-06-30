@@ -122,13 +122,13 @@ class UserArtistsPage extends HookConsumerWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: artistQueryNotifier.fetchMore,
-                            child: Skeletonizer(
+                            child: Opacity(opacity: 1.0, 
                               enabled: true,
                               child: ArtistCard(FakeData.artist),
                             ),
                           );
                         }
-                        return Skeletonizer(
+                        return Opacity(opacity: 1.0, 
                           enabled: artistQuery.isLoading,
                           child: ArtistCard(
                             filteredArtists.elementAtOrNull(index) ??

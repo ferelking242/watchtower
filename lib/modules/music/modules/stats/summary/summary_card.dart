@@ -1,7 +1,6 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/formatters.dart';
 
 class SummaryCard extends StatelessWidget {
@@ -41,8 +40,8 @@ class SummaryCard extends StatelessWidget {
       filled: true,
       borderColor: color,
       padding: EdgeInsets.zero,
-      borderRadius: context.theme.borderRadiusLg,
-      child: Button.ghost(
+      borderRadius: const BorderRadius.all(Radius.circular(8)),
+      child: TextButton(
         onPressed: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 15),
@@ -62,7 +61,7 @@ class SummaryCard extends StatelessWidget {
                     ),
                     TextSpan(
                       text: " $unit",
-                      style: typography.semiBold.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
                         color: color.shade900,
                       ),
                     ),
@@ -70,14 +69,14 @@ class SummaryCard extends StatelessWidget {
                 ),
                 maxLines: 1,
               ),
-              const Gap(5),
+              SizedBox(height: 5),
               AutoSizeText(
                 description,
                 maxLines: description.contains("\n")
                     ? descriptionNewLines.length + 1
                     : 1,
                 minFontSize: 9,
-                style: typography.small.copyWith(
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(
                   color: color.shade900,
                 ),
               ),

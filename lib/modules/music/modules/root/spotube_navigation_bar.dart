@@ -1,12 +1,10 @@
 import 'dart:math';
 
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/material.dart' show Badge;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/collections/side_bar_tiles.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
@@ -18,9 +16,7 @@ import 'package:watchtower/modules/music/provider/user_preferences/user_preferen
 final navigationPanelHeight = StateProvider<double>((ref) => 50);
 
 class SpotubeNavigationBar extends HookConsumerWidget {
-  const SpotubeNavigationBar({
-    super.key,
-  });
+  const SpotubeNavigationBar({super.key});
 
   @override
   Widget build(BuildContext context, ref) {
@@ -56,36 +52,33 @@ class SpotubeNavigationBar extends HookConsumerWidget {
       return const SizedBox();
     }
 
+    final safeIndex =
+        selectedIndex < navbarTileList.length ? selectedIndex : 0;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 100),
       height: panelHeight,
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const Divider(),
-            NavigationBar(
-              index: selectedIndex,
-              surfaceBlur: context.theme.surfaceBlur,
-              surfaceOpacity: context.theme.surfaceOpacity,
-              children: [
-                for (final tile in navbarTileList)
-                  NavigationButton(
-                    style: navbarTileList[selectedIndex] == tile
-                        ? const ButtonStyle.fixed(density: ButtonDensity.icon)
-                        : const ButtonStyle.muted(density: ButtonDensity.icon),
-                    child: Badge(
-                      isLabelVisible: tile.id == "library" && downloadCount > 0,
-                      label: Text(downloadCount.toString()),
-                      child: Icon(tile.icon),
-                    ),
-                    onPressed: () {
-                      context.navigateTo(tile.route);
-                    },
-                  )
-              ],
-            ),
-          ],
-        ),
+      child: Column(
+        children: [
+          const Divider(height: 1),
+          NavigationBar(
+            selectedIndex: safeIndex,
+            onDestinationSelected: (index) {
+              context.navigateTo(navbarTileList[index].route);
+            },
+            destinations: navbarTileList.map((tile) {
+              final isLibrary = tile.id == "library";
+              return NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: isLibrary && downloadCount > 0,
+                  label: Text(downloadCount.toString()),
+                  child: Icon(tile.icon),
+                ),
+                label: tile.title,
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

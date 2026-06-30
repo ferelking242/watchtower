@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/modules/getting_started/blur_card.dart';
@@ -43,16 +43,16 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
             Row(
               children: [
                 const Icon(SpotubeIcons.album, size: 16),
-                const Gap(8),
-                Text(context.l10n.playback).semiBold().large(),
+                SizedBox(height: 8),
+                Text(context.l10n.playback).large(),
               ],
             ),
-            const Gap(16),
+            SizedBox(height: 16),
             // Align(
             //   alignment: Alignment.centerLeft,
-            //   child: Text(context.l10n.select_audio_source).semiBold().large(),
+            //   child: Text(context.l10n.select_audio_source).large(),
             // ),
-            // const Gap(16),
+            // SizedBox(height: 16),
             // RadioGroup<AudioSource>(
             //   value: preferences.audioSource,
             //   onChanged: (value) {
@@ -82,14 +82,13 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
             //     ],
             //   ),
             // ),
-            // const Gap(16),
+            // SizedBox(height: 16),
             // Text(
             //   audioSourceToDescription[preferences.audioSource]!,
             // ).small().muted(),
-            const Gap(16),
+            SizedBox(height: 16),
             ButtonTile(
               title: Text(context.l10n.endless_playback),
-              subtitle: Text(
                 context.l10n.endless_playback_description,
               ).small().muted(),
               onPressed: () {
@@ -103,19 +102,17 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
                 },
               ),
             ),
-            const Gap(34),
+            SizedBox(height: 34),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Button.secondary(
-                  leading: const Icon(SpotubeIcons.angleLeft),
+                ElevatedButton(
                   onPressed: onPrevious,
                   child: Text(context.l10n.previous),
                 ),
                 Directionality(
                   textDirection: TextDirection.rtl,
-                  child: Button.primary(
-                    leading: const Icon(SpotubeIcons.angleRight),
+                  child: FilledButton(
                     onPressed: onNext,
                     child: Text(context.l10n.next),
                   ),

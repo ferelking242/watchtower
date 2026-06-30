@@ -1,11 +1,11 @@
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 class CheckboxFormBuilderField extends StatelessWidget {
   final String name;
   final FormFieldValidator<bool>? validator;
 
-  final ValueChanged<CheckboxState>? onChanged;
+  final ValueChanged<bool>? onChanged;
   final Widget? leading;
   final Widget? trailing;
   final bool tristate;
@@ -27,12 +27,12 @@ class CheckboxFormBuilderField extends StatelessWidget {
       builder: (field) {
         return Checkbox(
           state: tristate && field.value == null
-              ? CheckboxState.indeterminate
+              ? null
               : field.value == true
-                  ? CheckboxState.checked
-                  : CheckboxState.unchecked,
+                  ? true
+                  : false,
           onChanged: (state) {
-            field.didChange(state == CheckboxState.checked);
+            field.didChange(state == true);
             onChanged?.call(state);
           },
           leading: leading,

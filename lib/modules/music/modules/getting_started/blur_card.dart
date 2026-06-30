@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 class BlurCard extends HookConsumerWidget {
   final Widget child;
@@ -16,7 +16,7 @@ class BlurCard extends HookConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: double.infinity,
-        child: SurfaceCard(
+        child: Card(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: child,

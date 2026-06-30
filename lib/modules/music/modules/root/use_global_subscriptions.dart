@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/modules/metadata_plugins/plugin_update_available_dialog.dart';
@@ -89,22 +89,17 @@ void useGlobalSubscriptions(WidgetRef ref) {
           location: ToastLocation.bottomCenter,
           builder: (context, overlay) {
             if (connected) {
-              return SurfaceCard(
-                child: Basic(
-                  leading: const Icon(SpotubeIcons.wifi),
+              return Card(
+                child: ListTile(
                   title: Text(context.l10n.connection_restored),
                 ),
               );
             }
 
-            return SurfaceCard(
+            return Card(
               fillColor: theme.colorScheme.destructive,
               filled: true,
-              child: Basic(
-                leading: Icon(
-                  SpotubeIcons.noWifi,
-                  color: theme.colorScheme.destructiveForeground,
-                ),
+              child: ListTile(
                 trailing: Text(
                   context.l10n.you_are_offline,
                   style: TextStyle(
@@ -122,14 +117,10 @@ void useGlobalSubscriptions(WidgetRef ref) {
           context: context,
           location: ToastLocation.topRight,
           builder: (context, overlay) {
-            return SurfaceCard(
+            return Card(
               fillColor: Colors.yellow[600],
               filled: true,
-              child: Basic(
-                leading: const Icon(
-                  SpotubeIcons.error,
-                  color: Colors.black,
-                ),
+              child: ListTile(
                 title: Text(
                   context.l10n.connect_client_alert(clientOrigin),
                   style: const TextStyle(color: Colors.black),

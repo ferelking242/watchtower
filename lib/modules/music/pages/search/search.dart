@@ -170,8 +170,6 @@ class SearchPage extends HookConsumerWidget {
                             itemBuilder: (context, index) {
                               final option = options.elementAt(index);
                               return ListTile(
-                                leading: const Icon(Icons.history_rounded,
-                                    size: 18),
                                 title: Text(option),
                                 onTap: () => onSelected(option),
                               );

@@ -18,7 +18,7 @@
 
 library l10n;
 
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 export 'package:watchtower/modules/music/l10n/generated/app_localizations.dart';
 
 class L10n {

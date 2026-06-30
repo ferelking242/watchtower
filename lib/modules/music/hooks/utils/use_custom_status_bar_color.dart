@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -9,7 +9,7 @@ VoidCallback useCustomStatusBarColor(
   bool? automaticSystemUiAdjustment,
 }) {
   final context = useContext();
-  final backgroundColor = Theme.of(context).colorScheme.background;
+  final backgroundColor = Theme.of(context).colorScheme.surface;
   // ignore: invalid_use_of_visible_for_testing_member
   final previousState = SystemChrome.latestStyle;
 

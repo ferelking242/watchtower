@@ -1,5 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -38,15 +37,15 @@ class PlaybuttonTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cleanDescription = description?.unescapeHtml().cleanHtml() ?? "";
-    final scale = context.theme.scaling;
+    final scale = 1.0;
 
-    return Button(
+    return TextButton(
       leading: imageUrl != null
           ? Container(
               width: 50 * scale,
               height: 50 * scale,
               decoration: BoxDecoration(
-                borderRadius: context.theme.borderRadiusMd,
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
                 image: DecorationImage(
                   image: UniversalImage.imageProvider(imageUrl!),
                   fit: BoxFit.cover,
@@ -57,26 +56,26 @@ class PlaybuttonTile extends StatelessWidget {
               width: 50 * scale,
               height: 50 * scale,
               child: ClipRRect(
-                borderRadius: context.theme.borderRadiusMd,
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
                 child: image,
               ),
             ),
-      style: ButtonVariance.ghost.copyWith(
+.copyWith(
         padding: (context, states, value) {
-          return (ButtonVariance.ghost.padding(context, states) as EdgeInsets)
+          return (null.padding(context, states) as EdgeInsets)
               .copyWith(right: 0, left: 0);
         },
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton.outline(
+          IconButton(
             icon: const Icon(SpotubeIcons.queueAdd),
             onPressed: onAddToQueuePressed,
             enabled: !isLoading,
           ),
-          const Gap(8),
-          IconButton.secondary(
+          SizedBox(height: 8),
+          IconButton(
             icon: switch ((isLoading, isPlaying)) {
               (true, _) => const CircularProgressIndicator(
                   size: 22,

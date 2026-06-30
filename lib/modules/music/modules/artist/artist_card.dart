@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -44,7 +44,7 @@ class ArtistCard extends HookConsumerWidget {
               provider: backgroundImage,
               size: 130,
             ),
-            const Gap(10),
+            SizedBox(height: 10),
             AutoSizeText(
               artist.name,
               maxLines: 2,
@@ -60,7 +60,7 @@ class ArtistCard extends HookConsumerWidget {
                   DestructiveBadge(
                     child: Text(context.l10n.blacklisted.toUpperCase()),
                   ),
-                  const Gap(5),
+                  SizedBox(height: 5),
                 ],
                 SecondaryBadge(
                   child: Text(context.l10n.artist.toUpperCase()),

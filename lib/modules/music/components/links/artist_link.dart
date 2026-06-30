@@ -1,5 +1,5 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/links/anchor_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';

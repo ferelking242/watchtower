@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -27,12 +27,12 @@ class ReplaceDownloadedDialog extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(context.l10n.do_you_want_to_replace),
-            const Gap(16),
+            SizedBox(height: 16),
             RadioItem<bool>(
               value: true,
               trailing: Text(context.l10n.replace_downloaded_tracks),
             ),
-            const Gap(8),
+            SizedBox(height: 8),
             RadioItem<bool>(
               value: false,
               trailing: Text(context.l10n.skip_download_tracks),
@@ -41,7 +41,7 @@ class ReplaceDownloadedDialog extends ConsumerWidget {
         ),
       ),
       actions: [
-        Button.outline(
+        OutlinedButton(
           onPressed: replaceAll == true
               ? null
               : () {
@@ -49,7 +49,7 @@ class ReplaceDownloadedDialog extends ConsumerWidget {
                 },
           child: Text(context.l10n.skip),
         ),
-        Button.primary(
+        FilledButton(
           onPressed: replaceAll == false
               ? null
               : () {

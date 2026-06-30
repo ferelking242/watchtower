@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
@@ -20,7 +20,7 @@ class HomeRecentlyPlayedSection extends HookConsumerWidget {
       return const SizedBox();
     }
 
-    return Skeletonizer(
+    return Opacity(opacity: 1.0, 
       enabled: history.isLoading,
       child: HorizontalPlaybuttonCardView(
         title: Text(context.l10n.recently_played),

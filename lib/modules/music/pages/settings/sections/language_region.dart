@@ -54,7 +54,6 @@ class SettingsLanguageRegionSection extends HookConsumerWidget {
           breakLayout: mediaQuery.lgAndUp,
           secondary: const Icon(SpotubeIcons.shoppingBag),
           title: Text(context.l10n.market_place_region),
-          subtitle: Text(context.l10n.recommendation_country),
           value: preferences.market,
           onChanged: (value) {
             if (value == null) return;

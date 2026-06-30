@@ -1,5 +1,5 @@
 import 'package:audio_service/audio_service.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/collections/env.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';

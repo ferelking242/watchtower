@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/components/heart_button/use_track_toggle_like.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -14,46 +14,41 @@ class HeartButton extends HookConsumerWidget {
   final IconData? icon;
   final Color? color;
   final String? tooltip;
-  final AbstractButtonStyle variance;
-  final ButtonSize size;
+  final double? size;
+
   const HeartButton({
     required this.isLiked,
     required this.onPressed,
     this.color,
     this.tooltip,
     this.icon,
-    this.variance = ButtonVariance.ghost,
-    this.size = ButtonSize.normal,
+    this.size,
     super.key,
+    // compat params (ignored)
+    dynamic variance,
   });
 
   @override
   Widget build(BuildContext context, ref) {
     final authenticated = ref.watch(metadataPluginAuthenticatedProvider);
-
     if (authenticated.asData?.value != true) return const SizedBox.shrink();
 
     return IconButton(
-      variance: variance,
-      size: size,
-      enabled: onPressed != null,
+      iconSize: size,
+      tooltip: tooltip,
       icon: AnimatedSwitcher(
         switchInCurve: Curves.fastOutSlowIn,
         switchOutCurve: Curves.fastOutSlowIn,
         duration: const Duration(milliseconds: 300),
-        transitionBuilder: (child, animation) {
-          return ScaleTransition(
-            scale: animation,
-            child: child,
-          );
-        },
+        transitionBuilder: (child, animation) =>
+            ScaleTransition(scale: animation, child: child),
         child: Icon(
           icon ??
               (isLiked
                   ? Icons.favorite_rounded
                   : Icons.favorite_outline_rounded),
           key: ValueKey(isLiked),
-          color: color ?? (isLiked ? color ?? Colors.red : null),
+          color: color ?? (isLiked ? Colors.red : null),
         ),
       ),
       onPressed: onPressed,
@@ -63,10 +58,7 @@ class HeartButton extends HookConsumerWidget {
 
 class TrackHeartButton extends HookConsumerWidget {
   final SpotubeTrackObject track;
-  const TrackHeartButton({
-    super.key,
-    required this.track,
-  });
+  const TrackHeartButton({super.key, required this.track});
 
   @override
   Widget build(BuildContext context, ref) {
@@ -75,9 +67,7 @@ class TrackHeartButton extends HookConsumerWidget {
     final (:isLiked, :isLoading, :toggleTrackLike) =
         useTrackToggleLike(track, ref);
 
-    if (me.isLoading) {
-      return const CircularProgressIndicator();
-    }
+    if (me.isLoading) return const CircularProgressIndicator();
 
     return HeartButton(
       tooltip: isLiked
@@ -86,9 +76,7 @@ class TrackHeartButton extends HookConsumerWidget {
       isLiked: isLiked,
       onPressed: savedTracks.asData?.value == null || isLoading
           ? null
-          : () {
-              toggleTrackLike(track);
-            },
+          : () => toggleTrackLike(track),
     );
   }
 }

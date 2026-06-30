@@ -1,6 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/markdown/markdown.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -24,13 +24,11 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
         showToast(
             context: context,
             builder: (context, overlay) {
-              return SurfaceCard(
-                child: Basic(
-                  leading: const Icon(SpotubeIcons.error, color: Colors.red),
+              return Card(
+                child: ListTile(
                   title: Text(message),
-                  leadingAlignment: Alignment.center,
-                  trailing: IconButton.ghost(
-                    size: ButtonSize.small,
+                  trailing: IconButton(
+                    size: 20.0,
                     icon: const Icon(SpotubeIcons.close),
                     onPressed: () {
                       overlay.close();

@@ -1,7 +1,6 @@
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/pages/search/search.dart';
@@ -17,7 +16,7 @@ class SearchPlaceholder extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final theme = context.theme;
+    final theme = Theme.of(context);
     final mediaQuery = MediaQuery.sizeOf(context);
 
     final searchTerm = ref.watch(searchTermStateProvider);
@@ -54,7 +53,7 @@ class SearchPlaceholder extends HookConsumerWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  color: theme.colorScheme.foreground.withValues(alpha: 0.7),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 20),

@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
@@ -50,14 +50,14 @@ class PlayerTrackDetails extends HookConsumerWidget {
                 Text(
                   playback.activeTrack?.name ?? "",
                   overflow: TextOverflow.ellipsis,
-                  style: theme.typography.normal.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     color: color,
                   ),
                 ),
                 Text(
                   playback.activeTrack?.artists.asString() ?? "",
                   overflow: TextOverflow.ellipsis,
-                  style: theme.typography.small.copyWith(color: color),
+                  style: Theme.of(context).textTheme.bodySmall!.copyWith(color: color),
                 )
               ],
             ),

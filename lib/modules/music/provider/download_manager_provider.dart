@@ -6,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide join;
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/components/dialogs/replace_downloaded_dialog.dart';
 import 'package:watchtower/modules/music/extensions/dio.dart';

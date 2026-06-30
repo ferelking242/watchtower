@@ -3,7 +3,6 @@ import 'package:drift/drift.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart' as paths;
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide join;
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/models/metadata/market.dart';
 import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';

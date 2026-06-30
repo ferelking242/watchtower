@@ -49,7 +49,7 @@ class SearchPageTracksTab extends HookConsumerWidget {
         isLoading: searchTracksSnapshot.isLoading &&
             !searchTracksSnapshot.isLoadingNextPage,
         loadingBuilder: (context) {
-          return Skeletonizer(
+          return Opacity(opacity: 1.0, 
             enabled: true,
             child: TrackTile(track: FakeData.track, playlist: playlist),
           );

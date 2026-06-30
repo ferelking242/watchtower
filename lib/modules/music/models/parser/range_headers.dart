@@ -7,22 +7,22 @@ class ContentRangeHeader {
 
   factory ContentRangeHeader.parse(String value) {
     if (value.isEmpty) {
-      throw FormatException('Invalid Content-Range header: $value');
+      throw FormatException('Invalid Content-Range
     }
 
     final parts = value.split(' ');
     if (parts.length != 2) {
-      throw FormatException('Invalid Content-Range header: $value');
+      throw FormatException('Invalid Content-Range
     }
 
     final rangeParts = parts[1].split('/');
     if (rangeParts.length != 2) {
-      throw FormatException('Invalid Content-Range header: $value');
+      throw FormatException('Invalid Content-Range
     }
 
     final range = rangeParts[0].split('-');
     if (range.length != 2) {
-      throw FormatException('Invalid Content-Range header: $value');
+      throw FormatException('Invalid Content-Range
     }
 
     return ContentRangeHeader(
@@ -51,7 +51,7 @@ class RangeHeader {
 
     final parts = value.split('=');
     if (parts.length != 2) {
-      throw FormatException('Invalid Range header: $value');
+      throw FormatException('Invalid Range
     }
 
     final ranges = parts[1].split('-');

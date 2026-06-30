@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 class ShadcnWindowButton extends StatelessWidget {
   final Widget icon;
@@ -19,10 +19,9 @@ class ShadcnWindowButton extends StatelessWidget {
     return SizedBox(
       width: 45,
       height: 32,
-      child: IconButton(
-        variance: ButtonVariance.ghost.copyWith(
+      child: IconButton(.copyWith(
           decoration: (context, states, value) {
-            final decoration = ButtonVariance.ghost.decoration(context, states)
+            final decoration = null.decoration(context, states)
                 as BoxDecoration;
             if (hoverBackgroundColor != null &&
                 states.contains(WidgetState.hovered)) {

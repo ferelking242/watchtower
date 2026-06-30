@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/fallbacks/no_default_metadata_plugin.dart';
@@ -40,7 +40,7 @@ class HomePageBrowseSection extends HookConsumerWidget {
                 Text(context.l10n.building_your_timeline).muted,
               ],
             ),
-            const Gap(16),
+            SizedBox(height: 16),
           ],
         ),
       );
@@ -87,7 +87,7 @@ class HomePageBrowseSection extends HookConsumerWidget {
           isLoadingNextPage: false,
           onFetchMore: () {},
           titleTrailing: section.browseMore
-              ? Button.text(
+              ? TextButton(
                   child: Text(context.l10n.browse_all),
                   onPressed: () {
                     context.navigateTo(

@@ -1,7 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/modules/stats/top/albums.dart';
 import 'package:watchtower/modules/music/modules/stats/top/artists.dart';
@@ -61,7 +60,7 @@ class StatsPageTopSection extends HookConsumerWidget {
           SliverAppBar(
             floating: true,
             elevation: 0,
-            backgroundColor: context.theme.colorScheme.background,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             automaticallyImplyLeading: false,
             flexibleSpace: Padding(
               padding: const EdgeInsets.all(8.0),

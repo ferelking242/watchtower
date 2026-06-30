@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'dart:ui';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
@@ -59,8 +59,7 @@ class TrackPage extends HookConsumerWidget {
         headers: const [
           TitleBar(
             backgroundColor: Colors.transparent,
-            surfaceBlur: 0,
-          )
+                      )
         ],
         floatingHeader: true,
         child: Stack(
@@ -76,7 +75,7 @@ class TrackPage extends HookConsumerWidget {
                     ),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
-                      colorScheme.background.withValues(alpha: 0.5),
+                      colorScheme.surface.withValues(alpha: 0.5),
                       BlendMode.srcOver,
                     ),
                     alignment: Alignment.topCenter,
@@ -87,14 +86,14 @@ class TrackPage extends HookConsumerWidget {
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Skeletonizer(
+                child: Opacity(opacity: 1.0, 
                   enabled: trackQuery.isLoading,
                   child: Container(
                     alignment: Alignment.topCenter,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          colorScheme.background,
+                          colorScheme.surface,
                           Colors.transparent,
                         ],
                         begin: Alignment.topCenter,
@@ -134,13 +133,13 @@ class TrackPage extends HookConsumerWidget {
                               children: [
                                 Text(
                                   track.name,
-                                ).large().semiBold(),
-                                const Gap(10),
+                                ).large(),
+                                SizedBox(height: 10),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Icon(SpotubeIcons.album),
-                                    const Gap(5),
+                                    SizedBox(height: 5),
                                     Flexible(
                                       child: LinkText(
                                         track.album.name,
@@ -153,12 +152,12 @@ class TrackPage extends HookConsumerWidget {
                                     ),
                                   ],
                                 ),
-                                const Gap(10),
+                                SizedBox(height: 10),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Icon(SpotubeIcons.artist),
-                                    const Gap(5),
+                                    SizedBox(height: 5),
                                     Flexible(
                                       child: ArtistLink(
                                         artists: track.artists,
@@ -167,7 +166,7 @@ class TrackPage extends HookConsumerWidget {
                                     ),
                                   ],
                                 ),
-                                const Gap(10),
+                                SizedBox(height: 10),
                                 ConstrainedBox(
                                   constraints:
                                       const BoxConstraints(maxWidth: 350),
@@ -176,23 +175,21 @@ class TrackPage extends HookConsumerWidget {
                                         ? MainAxisSize.max
                                         : MainAxisSize.min,
                                     children: [
-                                      const Gap(5),
+                                      SizedBox(height: 5),
                                       if (!isActive &&
                                           !playlist.tracks
                                               .containsBy(track, (t) => t.id))
-                                        Button.outline(
-                                          leading:
-                                              const Icon(SpotubeIcons.queueAdd),
+                                        OutlinedButton(
                                           child: Text(context.l10n.queue),
                                           onPressed: () {
                                             playlistNotifier.addTrack(track);
                                           },
                                         ),
-                                      const Gap(5),
+                                      SizedBox(height: 5),
                                       if (!isActive &&
                                           !playlist.tracks
                                               .containsBy(track, (t) => t.id))
-                                        IconButton.outline(
+                                        IconButton(
                                           icon: const Icon(
                                               SpotubeIcons.lightning),
                                           onPressed: () {
@@ -200,9 +197,8 @@ class TrackPage extends HookConsumerWidget {
                                                 .addTracksAtFirst([track]);
                                           },
                                         ),
-                                      const Gap(5),
-                                      IconButton.primary(
-                                        shape: ButtonShape.circle,
+                                      SizedBox(height: 5),
+                                      IconButton(
                                         icon: Icon(
                                           isActive
                                               ? SpotubeIcons.pause
@@ -210,17 +206,17 @@ class TrackPage extends HookConsumerWidget {
                                         ),
                                         onPressed: onPlay,
                                       ),
-                                      const Gap(5),
+                                      SizedBox(height: 5),
                                       if (mediaQuery.smAndDown)
                                         const Spacer()
                                       else
-                                        const Gap(20),
+                                        SizedBox(height: 20),
                                       TrackHeartButton(track: track),
                                       TrackOptionsButton(
                                         track: track,
                                         userPlaylist: false,
                                       ),
-                                      const Gap(5),
+                                      SizedBox(height: 5),
                                     ],
                                   ),
                                 ),

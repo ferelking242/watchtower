@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/links/anchor_button.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -19,7 +19,7 @@ class RootAppUpdateDialog extends StatelessWidget {
     return AlertDialog(
       title: Text(context.l10n.spotube_has_an_update),
       actions: [
-        Button.primary(
+        FilledButton(
           child: Text(context.l10n.download_now),
           onPressed: () => launchUrlString(
             nightlyBuildNum != null ? nightlyUrl : url,

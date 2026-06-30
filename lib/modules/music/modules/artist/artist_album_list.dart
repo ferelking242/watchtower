@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -31,7 +31,7 @@ class ArtistAlbumList extends HookConsumerWidget {
       onFetchMore: albumsQueryNotifier.fetchMore,
       title: Text(
         context.l10n.albums,
-        style: theme.typography.h4,
+        style: Theme.of(context).textTheme.titleLarge!,
       ),
     );
   }

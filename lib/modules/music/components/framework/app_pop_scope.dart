@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 /// A temporary workaround for [WillPopScope] and [PopScope] not working in GoRouter
 /// https://github.com/flutter/flutter/issues/140869#issuecomment-2247181468

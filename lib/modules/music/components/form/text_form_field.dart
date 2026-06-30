@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 
 class TextFormBuilderField extends StatelessWidget {
   final String name;
@@ -112,10 +111,10 @@ class TextFormBuilderField extends StatelessWidget {
         children: [
           if (label != null)
             DefaultTextStyle(
-              style: context.theme.typography.semiBold.copyWith(
+              style: context.Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
                 color: field.hasError
-                    ? context.theme.colorScheme.destructive
-                    : context.theme.colorScheme.foreground,
+                    ? Theme.of(context).colorScheme.destructive
+                    : Theme.of(context).colorScheme.onSurface,
               ),
               child: label!,
             ),
@@ -174,7 +173,7 @@ class TextFormBuilderField extends StatelessWidget {
             Text(
               field.errorText ?? "",
               style: TextStyle(
-                color: context.theme.colorScheme.destructive,
+                color: Theme.of(context).colorScheme.destructive,
               ),
             ),
         ],

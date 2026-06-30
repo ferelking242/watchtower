@@ -1,7 +1,6 @@
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/formatters.dart';
 import 'package:watchtower/modules/music/modules/stats/common/album_item.dart';
@@ -38,11 +37,11 @@ class TopAlbums extends HookConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Gap(50),
+              SizedBox(height: 50),
               Undraw(
                 illustration: UndrawIllustration.happyMusic,
-                color: context.theme.colorScheme.primary,
-                height: 200 * context.theme.scaling,
+                color: Theme.of(context).colorScheme.primary,
+                height: 200 * 1.0,
               ),
               Text(
                 context.l10n.no_tracks_listened_yet,

@@ -1,6 +1,5 @@
 import 'package:flutter_undraw/flutter_undraw.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
 class NotFound extends StatelessWidget {
@@ -13,10 +12,10 @@ class NotFound extends StatelessWidget {
       children: [
         Undraw(
           illustration: UndrawIllustration.empty,
-          height: 200 * context.theme.scaling,
-          color: context.theme.colorScheme.primary,
+          height: 200 * 1.0,
+          color: Theme.of(context).colorScheme.primary,
         ),
-        const Gap(10),
+        SizedBox(height: 10),
         Text(
           context.l10n.nothing_found,
           textAlign: TextAlign.center,

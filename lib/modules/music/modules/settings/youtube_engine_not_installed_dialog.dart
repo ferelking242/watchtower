@@ -3,8 +3,7 @@ import 'dart:io';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/form/text_form_field.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -68,13 +67,13 @@ class YouTubeEngineNotInstalledDialog extends HookConsumerWidget {
                 ],
               ),
             Text(context.l10n.youtube_engine_set_path(engine.label)),
-            const Gap(8),
+            SizedBox(height: 8),
             FormBuilder(
               key: formKey,
               child: TextFormBuilderField(
                 name: "path",
                 controller: controller,
-                placeholder: Text(switch (context.theme.platform) {
+                placeholder: Text(switch (Theme.of(context).platform) {
                   TargetPlatform.macOS => "e.g. /opt/homebrew/bin/yt-dlp",
                   TargetPlatform.windows =>
                     r"e.g. C:\Program Files\yt-dlp\yt-dlp.exe",
@@ -88,14 +87,14 @@ class YouTubeEngineNotInstalledDialog extends HookConsumerWidget {
         ),
       ),
       actions: [
-        Button.text(
+        TextButton(
           onPressed: () {
             if (!context.mounted) return;
             Navigator.of(context).pop(false);
           },
           child: Text(context.l10n.cancel),
         ),
-        Button.secondary(
+        ElevatedButton(
           onPressed: () async {
             if (controller.text.isNotEmpty) {
               if (!await File(controller.text).exists() && context.mounted) {

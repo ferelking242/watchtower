@@ -19,9 +19,7 @@ class SettingsAccountSection extends HookConsumerWidget {
       heading: context.l10n.account,
       children: [
         ListTile(
-          leading: const Icon(SpotubeIcons.extensions),
           title: Text(context.l10n.plugins),
-          subtitle: Text(context.l10n.configure_plugins),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () {
             context.pushRoute(const SettingsMetadataProviderRoute());
@@ -29,7 +27,6 @@ class SettingsAccountSection extends HookConsumerWidget {
         ),
         if (scrobbler.asData?.value == null)
           ListTile(
-            leading: const Icon(SpotubeIcons.music),
             title: Text(context.l10n.audio_scrobblers),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () {
@@ -38,7 +35,6 @@ class SettingsAccountSection extends HookConsumerWidget {
           )
         else
           ListTile(
-            leading: const Icon(SpotubeIcons.lastFm),
             title: Text(context.l10n.disconnect_lastfm),
             trailing: FilledButton.tonal(
               style: FilledButton.styleFrom(

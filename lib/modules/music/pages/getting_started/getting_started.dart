@@ -1,6 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -37,8 +37,7 @@ class GettingStartedPage extends HookConsumerWidget {
         SafeArea(
           child: TitleBar(
             backgroundColor: Colors.transparent,
-            surfaceBlur: 0,
-            trailing: [
+                        actions: [
               ListenableBuilder(
                 listenable: pageController,
                 builder: (context, _) {
@@ -48,7 +47,7 @@ class GettingStartedPage extends HookConsumerWidget {
                             (pageController.page == 0 ||
                                 pageController.page == 3)
                         ? const SizedBox()
-                        : Button.secondary(
+                        : ElevatedButton(
                             onPressed: () {
                               pageController.animateToPage(
                                 3,

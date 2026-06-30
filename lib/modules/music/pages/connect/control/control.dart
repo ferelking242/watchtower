@@ -3,8 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
@@ -21,7 +20,6 @@ import 'package:watchtower/modules/music/extensions/duration.dart';
 import 'package:watchtower/modules/music/provider/connect/clients.dart';
 import 'package:watchtower/modules/music/provider/connect/connect.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
-import 'package:flutter/material.dart' show Material, MaterialType;
 
 class RemotePlayerQueue extends ConsumerWidget {
   const RemotePlayerQueue({super.key});
@@ -148,7 +146,7 @@ class ConnectControlPage extends HookConsumerWidget {
                           SliverToBoxAdapter(
                             child: ArtistLink(
                               artists: playlist.activeTrack?.artists ?? [],
-                              textStyle: typography.normal,
+                              textStyle: Theme.of(context).textTheme.bodyMedium!,
                               mainAxisAlignment: WrapAlignment.start,
                               onOverflowArtistClick: () => context.navigateTo(
                                 TrackRoute(trackId: playlist.activeTrack!.id),
@@ -158,7 +156,7 @@ class ConnectControlPage extends HookConsumerWidget {
                         ],
                       ),
                     ),
-                    const SliverGap(30),
+                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
                     SliverToBoxAdapter(
                       child: Consumer(
                         builder: (context, ref, _) {
@@ -175,12 +173,12 @@ class ConnectControlPage extends HookConsumerWidget {
                               children: [
                                 Slider(
                                   value:
-                                      SliderValue.single(progress.toDouble()),
+                                      progress.toDouble(),
                                   onChanged: (value) {
                                     connectNotifier.seek(
                                       Duration(
                                         seconds:
-                                            (value.value * duration.inSeconds)
+                                            (value * duration.inSeconds)
                                                 .toInt(),
                                       ),
                                     );
@@ -206,24 +204,21 @@ class ConnectControlPage extends HookConsumerWidget {
                         spacing: 20,
                         children: [
                           IconButton(
-                            icon: const Icon(SpotubeIcons.shuffle),
-                            variance: shuffled
-                                ? ButtonVariance.secondary
-                                : ButtonVariance.ghost,
+                            icon: const Icon(SpotubeIcons.shuffle)
+                                ? null : null,
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : () {
                                     connectNotifier.setShuffle(!shuffled);
                                   },
                           ),
-                          IconButton.ghost(
+                          IconButton(
                             icon: const Icon(SpotubeIcons.skipBack),
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : connectNotifier.previous,
                           ),
-                          IconButton.primary(
-                            shape: ButtonShape.circle,
+                          IconButton(
                             icon: playlist.activeTrack == null
                                 ? const SizedBox(
                                     height: 20,
@@ -246,7 +241,7 @@ class ConnectControlPage extends HookConsumerWidget {
                                     }
                                   },
                           ),
-                          IconButton.ghost(
+                          IconButton(
                             icon: const Icon(SpotubeIcons.skipForward),
                             onPressed: playlist.activeTrack == null
                                 ? null
@@ -257,11 +252,9 @@ class ConnectControlPage extends HookConsumerWidget {
                               loopMode == PlaylistMode.single
                                   ? SpotubeIcons.repeatOne
                                   : SpotubeIcons.repeat,
-                            ),
-                            variance: loopMode == PlaylistMode.single ||
+                            ) == PlaylistMode.single ||
                                     loopMode == PlaylistMode.loop
-                                ? ButtonVariance.secondary
-                                : ButtonVariance.ghost,
+                                ? null : null,
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : () async {
@@ -280,27 +273,21 @@ class ConnectControlPage extends HookConsumerWidget {
                         ],
                       ),
                     ),
-                    const SliverGap(30),
+                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
                     if (constrains.mdAndDown)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         sliver: SliverToBoxAdapter(
-                          child: Button.outline(
-                            leading: const Icon(SpotubeIcons.queue),
+                          child: OutlinedButton(
                             child: Text(context.l10n.queue),
                             onPressed: () {
                               final capturedTheme = Theme.of(context);
-                              openDrawer(
+                              showModalBottomSheet(
                                 context: context,
                                 barrierDismissible: true,
-                                draggable: true,
-                                barrierColor: Colors.black.withAlpha(100),
+                                                                barrierColor: Colors.black.withAlpha(100),
                                 borderRadius: BorderRadius.circular(10),
-                                transformBackdrop: false,
-                                position: OverlayPosition.bottom,
-                                surfaceBlur: context.theme.surfaceBlur,
-                                surfaceOpacity: 0.7,
-                                expands: true,
+                                                                                                                                                                expands: true,
                                 builder: (context) {
                                   return Theme(
                                     data: capturedTheme,
@@ -323,7 +310,7 @@ class ConnectControlPage extends HookConsumerWidget {
                           ),
                         ),
                       ),
-                    const SliverGap(30),
+                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
                     SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       sliver: SliverToBoxAdapter(
@@ -340,7 +327,7 @@ class ConnectControlPage extends HookConsumerWidget {
                         }),
                       ),
                     ),
-                    const SliverSafeArea(sliver: SliverGap(10)),
+                    const SliverSafeArea(sliver: SliverToBoxAdapter(child: SizedBox(height: 10))),
                   ],
                 ),
               ),

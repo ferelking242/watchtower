@@ -1,8 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -19,17 +18,16 @@ class NoDefaultMetadataPlugin extends StatelessWidget {
         spacing: 10,
         children: [
           Undraw(
-            height: 200 * context.theme.scaling,
+            height: 200 * 1.0,
             illustration: UndrawIllustration.stars,
-            color: context.theme.colorScheme.primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
           AutoSizeText(
             context.l10n.no_default_metadata_provider_selected,
-            style: context.theme.typography.h4,
+            style: context.Theme.of(context).textTheme.titleLarge!,
             maxLines: 1,
           ),
-          Button.primary(
-            leading: const Icon(SpotubeIcons.extensions),
+          FilledButton(
             child: Text(context.l10n.manage_metadata_providers),
             onPressed: () {
               context.pushRoute(const SettingsMetadataProviderRoute());

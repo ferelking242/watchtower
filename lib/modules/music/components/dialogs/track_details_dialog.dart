@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/links/hyper_link.dart';
@@ -65,15 +65,13 @@ class TrackDetailsDialog extends HookConsumerWidget {
           };
 
     return AlertDialog(
-      surfaceBlur: 0,
-      surfaceOpacity: 1,
-      title: Row(
+                  title: Row(
         spacing: 8,
         children: [
           const Icon(SpotubeIcons.info),
           Text(
             context.l10n.details,
-            style: theme.typography.h4,
+            style: Theme.of(context).textTheme.titleLarge!,
           ),
         ],
       ),
@@ -111,7 +109,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
                         : (entry.value is String)
                             ? Text(
                                 entry.value as String,
-                                style: theme.typography.normal,
+                                style: Theme.of(context).textTheme.bodyMedium!,
                               )
                             : const Text(""),
                   ),
@@ -136,7 +134,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
                             entry.value,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.typography.normal,
+                            style: Theme.of(context).textTheme.bodyMedium!,
                           ),
                   ),
                 ],

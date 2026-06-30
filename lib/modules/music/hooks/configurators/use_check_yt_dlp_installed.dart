@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/modules/settings/youtube_engine_not_installed_dialog.dart';
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';

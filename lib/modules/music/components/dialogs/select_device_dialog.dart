@@ -1,6 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/connect/clients.dart';
 
@@ -26,12 +26,12 @@ class SelectDeviceDialog extends HookConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(context.l10n.multiple_device_connected),
-            const Gap(16),
+            SizedBox(height: 16),
             RadioItem(
               trailing: Text(remoteService.name),
               value: true,
             ),
-            const Gap(8),
+            SizedBox(height: 8),
             RadioItem(
               trailing: Text(context.l10n.this_device),
               value: false,
@@ -40,7 +40,7 @@ class SelectDeviceDialog extends HookConsumerWidget {
         ),
       ),
       actions: [
-        Button.primary(
+        FilledButton(
           onPressed: () {
             Navigator.of(context).pop(isRemoteService.value);
           },

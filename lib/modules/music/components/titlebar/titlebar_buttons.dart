@@ -1,7 +1,6 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/components/hover_builder.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar_icon_buttons.dart';
@@ -56,12 +55,12 @@ class WindowTitleBarButtons extends HookConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ShadcnWindowButton(
-            icon: MinimizeIcon(color: context.theme.colorScheme.foreground),
+            icon: MinimizeIcon(color: Theme.of(context).colorScheme.onSurface),
             onPressed: windowManager.minimize,
           ),
           if (isMaximized.value != true)
             ShadcnWindowButton(
-              icon: MaximizeIcon(color: context.theme.colorScheme.foreground),
+              icon: MaximizeIcon(color: Theme.of(context).colorScheme.onSurface),
               onPressed: () {
                 windowManager.maximize();
                 isMaximized.value = true;
@@ -69,7 +68,7 @@ class WindowTitleBarButtons extends HookConsumerWidget {
             )
           else
             ShadcnWindowButton(
-              icon: RestoreIcon(color: context.theme.colorScheme.foreground),
+              icon: RestoreIcon(color: Theme.of(context).colorScheme.onSurface),
               onPressed: () {
                 windowManager.unmaximize();
                 isMaximized.value = false;
@@ -80,7 +79,7 @@ class WindowTitleBarButtons extends HookConsumerWidget {
               icon: CloseIcon(
                 color: isHovered
                     ? Colors.white
-                    : context.theme.colorScheme.foreground,
+                    : Theme.of(context).colorScheme.onSurface,
               ),
               onPressed: onClose,
               hoverBackgroundColor: const Color(0xFFD32F2F),

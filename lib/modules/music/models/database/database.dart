@@ -9,7 +9,6 @@ import 'package:encrypt/encrypt.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' show ThemeMode, Colors;
 import 'package:watchtower/modules/music/models/database/database.steps.dart';
 import 'package:watchtower/modules/music/models/lyrics.dart';
 import 'package:watchtower/modules/music/models/metadata/market.dart';

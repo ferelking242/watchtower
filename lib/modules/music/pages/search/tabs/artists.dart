@@ -86,14 +86,14 @@ class SearchPageArtistsTab extends HookConsumerWidget {
                   controller: controller,
                   isGrid: true,
                   onTouchEdge: searchArtistsNotifier.fetchMore,
-                  child: Skeletonizer(
+                  child: Opacity(opacity: 1.0, 
                     enabled: true,
                     child: ArtistCard(FakeData.artist),
                   ),
                 );
               }
 
-              return Skeletonizer(
+              return Opacity(opacity: 1.0, 
                 enabled: searchArtistsSnapshot.isLoading,
                 child: ArtistCard(
                   searchArtists.elementAtOrNull(index) ?? FakeData.artist,

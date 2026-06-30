@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
@@ -32,7 +32,7 @@ class LastFMLoginPage extends HookConsumerWidget {
         SafeArea(
           bottom: false,
           child: TitleBar(
-            leading: [BackButton()],
+            leading: BackButton(),
           ),
         ),
       ],
@@ -45,7 +45,6 @@ class LastFMLoginPage extends HookConsumerWidget {
               alignment: Alignment.center,
               padding: const EdgeInsets.all(16),
               child: Card(
-                padding: const EdgeInsets.all(16.0),
                 child: Form(
                   onSubmit: (context, values) async {
                     try {
@@ -120,7 +119,7 @@ class LastFMLoginPage extends HookConsumerWidget {
                                 placeholder: Text(context.l10n.password),
                                 features: [
                                   InputFeature.trailing(
-                                    IconButton.ghost(
+                                    IconButton(
                                       icon: Icon(
                                         passwordVisible.value
                                             ? SpotubeIcons.eye
@@ -137,7 +136,7 @@ class LastFMLoginPage extends HookConsumerWidget {
                         ),
                       ),
                       FormErrorBuilder(builder: (context, errors, child) {
-                        return Button.primary(
+                        return FilledButton(
                           onPressed: () => context.submitForm(),
                           enabled: errors.isEmpty && !isLoading.value,
                           child: Text(context.l10n.login),

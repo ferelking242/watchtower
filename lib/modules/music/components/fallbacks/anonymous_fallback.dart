@@ -1,8 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart' as mat;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
@@ -24,8 +23,8 @@ class AnonymousFallback extends ConsumerWidget {
 
     if (isLoggedIn.asData?.value == true && child != null) return child!;
 
-    final scaling = context.theme.scaling;
-    final primaryColor = context.theme.colorScheme.primary;
+    final scaling = 1.0;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Center(
       child: Column(
@@ -38,7 +37,7 @@ class AnonymousFallback extends ConsumerWidget {
             color: primaryColor,
           ),
           Text(context.l10n.not_logged_in),
-          Button.primary(
+          FilledButton(
             child: Text(context.l10n.login),
             onPressed: () => context.pushRoute(const SettingsRoute()),
           )

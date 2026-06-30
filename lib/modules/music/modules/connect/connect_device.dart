@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
@@ -23,7 +23,7 @@ class ConnectDeviceButton extends HookConsumerWidget {
       final mediaQuery = MediaQuery.sizeOf(context);
 
       if (mediaQuery.mdAndDown) {
-        return IconButton.ghost(
+        return IconButton(
           icon: const Icon(SpotubeIcons.speaker),
           onPressed: () {
             context.navigateTo(const ConnectRoute());
@@ -33,7 +33,7 @@ class ConnectDeviceButton extends HookConsumerWidget {
 
       return SizedBox(
         width: double.infinity,
-        child: Button.primary(
+        child: FilledButton(
           onPressed: () {
             context.navigateTo(const ConnectRoute());
           },
@@ -52,7 +52,6 @@ class ConnectDeviceButton extends HookConsumerWidget {
           onPressed: () {
             context.navigateTo(const ConnectRoute());
           },
-          style: const ButtonStyle.secondary(size: ButtonSize(.8)),
           leading: connectClients.asData?.value.resolvedService != null
               ? const Center(
                   child: DotItem(
@@ -67,7 +66,7 @@ class ConnectDeviceButton extends HookConsumerWidget {
             "${hasServices ? " (${connectClients.asData?.value.services.length})" : ""}",
           ),
         ),
-        IconButton.primary(
+        IconButton(
           icon: const Icon(SpotubeIcons.speaker),
           onPressed: () {
             context.navigateTo(const ConnectRoute());

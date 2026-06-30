@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -18,17 +18,17 @@ class GettingStartedPageGreetingSection extends HookConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Assets.branding.spotubeLogoPng.image(height: 200),
-            const Gap(24),
-            const Text("Spotube").semiBold().h4(),
-            const Gap(4),
+            SizedBox(height: 24),
+            const Text("Spotube").h4(),
+            SizedBox(height: 4),
             Text(
               kIsMobile
                   ? context.l10n.freedom_of_music_palm
                   : context.l10n.freedom_of_music,
               textAlign: TextAlign.center,
             ).light().large().italic(),
-            const Gap(84),
-            Button.primary(
+            SizedBox(height: 84),
+            FilledButton(
               onPressed: onNext,
               trailing: const Icon(SpotubeIcons.angleRight),
               child: Text(context.l10n.get_started),

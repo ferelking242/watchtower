@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -37,11 +37,11 @@ class LinkOpenPermissionDialog extends StatelessWidget {
           ),
         ),
         actions: [
-          Button.ghost(
+          TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(context.l10n.cancel),
           ),
-          Button.ghost(
+          TextButton(
             onPressed: () {
               if (href != null) {
                 Clipboard.setData(ClipboardData(text: href!));
@@ -50,7 +50,7 @@ class LinkOpenPermissionDialog extends StatelessWidget {
             },
             child: Text(context.l10n.copy_link),
           ),
-          Button.destructive(
+          ElevatedButton(
             onPressed: () {
               if (href != null) {
                 launchUrlString(

@@ -2,8 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/lyrics/zoom_controls.dart';
@@ -53,7 +52,7 @@ class PlainLyrics extends HookConsumerWidget {
               Center(
                 child: Text(
                   playlist.activeTrack?.artists.asString() ?? "",
-                  style: (mediaQuery.mdAndUp ? typography.h4 : typography.large)
+                  style: (mediaQuery.mdAndUp ? typography.h4 : Theme.of(context).textTheme.bodyLarge!)
                       .copyWith(
                     color: palette.bodyTextColor,
                   ),
@@ -78,12 +77,12 @@ class PlainLyrics extends HookConsumerWidget {
                               children: [
                                 Text(
                                   context.l10n.no_lyrics_available,
-                                  style: typography.large.copyWith(
+                                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(
                                     color: palette.bodyTextColor,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
-                                const Gap(26),
+                                SizedBox(height: 26),
                                 const Icon(SpotubeIcons.noLyrics, size: 60),
                               ],
                             ),
@@ -107,7 +106,7 @@ class PlainLyrics extends HookConsumerWidget {
                           duration: const Duration(milliseconds: 200),
                           style: TextStyle(
                             color: isModal == true
-                                ? context.theme.colorScheme.foreground
+                                ? Theme.of(context).colorScheme.onSurface
                                 : palette.bodyTextColor,
                             fontSize: 24 * textZoomLevel.value / 100,
                             height: textZoomLevel.value < 70

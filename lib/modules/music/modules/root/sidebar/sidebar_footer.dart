@@ -1,7 +1,6 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/material.dart' show Badge;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -48,17 +47,14 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
           Badge(
             isLabelVisible: downloadCount > 0,
             label: Text(downloadCount.toString()),
-            child: IconButton(
-              variance: router.topRoute.name == UserDownloadsRoute.name
-                  ? ButtonVariance.secondary
-                  : ButtonVariance.ghost,
+            child: IconButton(.topRoute.name == UserDownloadsRoute.name
+                  ? null : null,
               icon: const Icon(SpotubeIcons.download),
               onPressed: () => context.navigateTo(const UserDownloadsRoute()),
             ),
           ),
           const ConnectDeviceButton.sidebar(),
           IconButton(
-            variance: ButtonVariance.ghost,
             icon: const Icon(SpotubeIcons.settings),
             onPressed: () => context.navigateTo(const SettingsRoute()),
           ),
@@ -75,14 +71,12 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
         children: [
           SizedBox(
             width: double.infinity,
-            child: Button(
+            child: TextButton(
               style: router.topRoute.name == UserDownloadsRoute.name
-                  ? ButtonVariance.secondary
-                  : ButtonVariance.outline,
+                  ? null : null,
               onPressed: () {
                 context.navigateTo(const UserDownloadsRoute());
               },
-              leading: const Icon(SpotubeIcons.download),
               trailing: downloadCount > 0
                   ? PrimaryBadge(
                       child: Text(downloadCount.toString()),
@@ -117,7 +111,7 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
                             maxLines: 1,
                             softWrap: false,
                             overflow: TextOverflow.fade,
-                            style: theme.typography.normal
+                            style: Theme.of(context).textTheme.bodyMedium!
                                 .copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -126,7 +120,6 @@ class SidebarFooter extends HookConsumerWidget implements NavigationBarItem {
                   ),
                 ),
               IconButton(
-                variance: ButtonVariance.ghost,
                 icon: const Icon(SpotubeIcons.settings),
                 onPressed: () {
                   context.navigateTo(const SettingsRoute());

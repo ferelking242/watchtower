@@ -1,7 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -22,7 +22,6 @@ class DownloadItem extends HookConsumerWidget {
     final downloadManager = ref.watch(downloadManagerProvider.notifier);
 
     return ButtonTile(
-      style: ButtonVariance.ghost,
       leading: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 5),
         child: ClipRRect(
@@ -37,7 +36,6 @@ class DownloadItem extends HookConsumerWidget {
         ),
       ),
       title: Text(task.track.name),
-      subtitle: ArtistLink(
         artists: task.track.artists,
         mainAxisAlignment: WrapAlignment.start,
         onOverflowArtistClick: () {
@@ -61,7 +59,7 @@ class DownloadItem extends HookConsumerWidget {
                       ),
                       const SizedBox(width: 10),
                       const SizedBox(width: 10),
-                      IconButton.ghost(
+                      IconButton(
                           icon: const Icon(SpotubeIcons.close),
                           onPressed: () {
                             downloadManager.cancel(task.track);
@@ -79,7 +77,7 @@ class DownloadItem extends HookConsumerWidget {
                   color: Colors.red[400],
                 ),
                 const SizedBox(width: 10),
-                IconButton.ghost(
+                IconButton(
                   icon: const Icon(SpotubeIcons.refresh),
                   onPressed: () {
                     downloadManager.retry(task.track);
@@ -90,7 +88,7 @@ class DownloadItem extends HookConsumerWidget {
           ),
         DownloadStatus.completed =>
           Icon(SpotubeIcons.done, color: Colors.green[400]),
-        DownloadStatus.queued => IconButton.ghost(
+        DownloadStatus.queued => IconButton(
             icon: const Icon(SpotubeIcons.close),
             onPressed: () {
               downloadManager.cancel(task.track);

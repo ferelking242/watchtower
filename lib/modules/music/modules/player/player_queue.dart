@@ -6,7 +6,7 @@ import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:scroll_to_index/scroll_to_index.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/dialogs/playlist_add_track_dialog.dart';
@@ -121,9 +121,8 @@ class PlayerQueue extends HookConsumerWidget {
                   if (isSearching.value && mediaQuery.smAndDown)
                     AppBar(
                       backgroundColor: Colors.transparent,
-                      leading: [
-                        if (mediaQuery.smAndDown)
-                          IconButton.ghost(
+                      leading: Row(mainAxisSize: MainAxisSize.min, children: [if (mediaQuery.smAndDown)
+                          IconButton(
                             icon: const Icon(
                               Icons.arrow_back_ios_new_outlined,
                             ),
@@ -131,26 +130,19 @@ class PlayerQueue extends HookConsumerWidget {
                               isSearching.value = false;
                               searchText.value = '';
                             },
-                          )
-                      ],
-                      surfaceBlur: 0,
-                      surfaceOpacity: 0,
-                      child: searchBar,
+                          )]),
+                                                                  child: searchBar,
                     )
                   else if (selectionMode.value)
                     AppBar(
                       backgroundColor: Colors.transparent,
-                      surfaceBlur: 0,
-                      surfaceOpacity: 0,
-                      leading: [
-                        IconButton.ghost(
+                                                                  leading: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(
                           icon: const Icon(SpotubeIcons.close),
                           onPressed: () {
                             selectedTrackIds.value = {};
                             selectionMode.value = false;
                           },
-                        )
-                      ],
+                        )]),
                       title: SizedBox(
                         height: 30,
                         child: AutoSizeText(
@@ -158,16 +150,13 @@ class PlayerQueue extends HookConsumerWidget {
                           maxLines: 1,
                         ),
                       ),
-                      trailing: [
+                      actions: [
                         PlayerQueueActionButton(
                           builder: (context, close) => Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Gap(12),
+                              SizedBox(height: 12),
                               ButtonTile(
-                                style: const ButtonStyle.ghost(),
-                                leading:
-                                    const Icon(SpotubeIcons.selectionCheck),
                                 title: Text(context.l10n.select_all),
                                 onPressed: () {
                                   selectedTrackIds.value =
@@ -176,8 +165,6 @@ class PlayerQueue extends HookConsumerWidget {
                                 },
                               ),
                               ButtonTile(
-                                style: const ButtonStyle.ghost(),
-                                leading: const Icon(SpotubeIcons.playlistAdd),
                                 title: Text(context.l10n.add_to_playlist),
                                 onPressed: () async {
                                   final selected = filteredTracks
@@ -201,8 +188,6 @@ class PlayerQueue extends HookConsumerWidget {
                                 },
                               ),
                               ButtonTile(
-                                style: const ButtonStyle.ghost(),
-                                leading: const Icon(SpotubeIcons.trash),
                                 title: Text(context.l10n.remove_from_queue),
                                 onPressed: () async {
                                   final ids = selectedTrackIds.value.toList();
@@ -216,7 +201,7 @@ class PlayerQueue extends HookConsumerWidget {
                                   }
                                 },
                               ),
-                              const Gap(12),
+                              SizedBox(height: 12),
                             ],
                           ),
                         ),
@@ -226,9 +211,7 @@ class PlayerQueue extends HookConsumerWidget {
                     AppBar(
                       trailingGap: 0,
                       backgroundColor: Colors.transparent,
-                      surfaceBlur: 0,
-                      surfaceOpacity: 0,
-                      title: mediaQuery.mdAndUp || !isSearching.value
+                                                                  title: mediaQuery.mdAndUp || !isSearching.value
                           ? SizedBox(
                               height: 30,
                               child: AutoSizeText(
@@ -237,11 +220,11 @@ class PlayerQueue extends HookConsumerWidget {
                               ),
                             )
                           : null,
-                      trailing: [
+                      actions: [
                         if (mediaQuery.mdAndUp)
                           searchBar
                         else
-                          IconButton.ghost(
+                          IconButton(
                             icon: const Icon(SpotubeIcons.filter),
                             onPressed: () {
                               isSearching.value = !isSearching.value;
@@ -249,14 +232,14 @@ class PlayerQueue extends HookConsumerWidget {
                           ),
                         if (!isSearching.value) ...[
                           const SizedBox(width: 10),
-                          IconButton.outline(
+                          IconButton(
                             icon: const Icon(SpotubeIcons.playlistRemove),
                             onPressed: () {
                               onStop();
-                              closeDrawer(context);
+                              Navigator.pop(context);
                             },
                           ),
-                          const Gap(5),
+                          SizedBox(height: 5),
                           if (mediaQuery.smAndDown)
                             const BackButton(icon: SpotubeIcons.angleDown),
                         ],
@@ -269,7 +252,7 @@ class PlayerQueue extends HookConsumerWidget {
                       child: CustomScrollView(
                         controller: controller,
                         slivers: [
-                          const SliverGap(10),
+                          const SliverToBoxAdapter(child: SizedBox(height: 10)),
                           SliverReorderableList(
                             onReorder: onReorder,
                             itemCount: filteredTracks.length,
@@ -346,7 +329,7 @@ class PlayerQueue extends HookConsumerWidget {
                               );
                             },
                           ),
-                          const SliverSafeArea(sliver: SliverGap(100)),
+                          const SliverSafeArea(sliver: SliverToBoxAdapter(child: SizedBox(height: 100))),
                         ],
                       ),
                     ),
@@ -359,7 +342,7 @@ class PlayerQueue extends HookConsumerWidget {
         Positioned(
           right: 20,
           bottom: 20,
-          child: IconButton.secondary(
+          child: IconButton(
             icon: const Icon(SpotubeIcons.angleDown),
             onPressed: () {
               controller.scrollToIndex(

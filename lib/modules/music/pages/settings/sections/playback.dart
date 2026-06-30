@@ -147,23 +147,19 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                     ],
                   ),
                 ),
-          leading: const Icon(SpotubeIcons.cache),
           trailing: Switch(
             value: preferences.cacheMusic,
             onChanged: preferencesNotifier.setCacheMusic,
           ),
         ),
         ListTile(
-          leading: const Icon(SpotubeIcons.playlistRemove),
           title: Text(context.l10n.blacklist),
-          subtitle: Text(context.l10n.blacklist_description),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () {
             context.navigateTo(const BlackListRoute());
           },
         ),
         ListTile(
-          leading: const Icon(SpotubeIcons.normalize),
           title: Text(context.l10n.normalize_audio),
           trailing: Switch(
             value: preferences.normalizeAudio,
@@ -171,7 +167,6 @@ class SettingsPlaybackSection extends HookConsumerWidget {
           ),
         ),
         ListTile(
-          leading: const Icon(SpotubeIcons.repeat),
           title: Text(context.l10n.endless_playback),
           trailing: Switch(
             value: preferences.endlessPlayback,
@@ -180,8 +175,6 @@ class SettingsPlaybackSection extends HookConsumerWidget {
         ),
         ListTile(
           title: Text(context.l10n.enable_connect),
-          subtitle: Text(context.l10n.enable_connect_description),
-          leading: const Icon(SpotubeIcons.connect),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

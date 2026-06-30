@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 
 class PaginationProps {

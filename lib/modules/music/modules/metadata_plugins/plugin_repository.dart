@@ -1,8 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/markdown/markdown.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -38,7 +37,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 8,
         children: [
-          Basic(
+          ListTile(
             title: Text(
               pluginRepo.name.startsWith("spotube-plugin")
                   ? pluginRepo.name
@@ -47,8 +46,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                       .toCapitalCase()
                   : pluginRepo.name.toCapitalCase(),
             ),
-            subtitle: Text(pluginRepo.description),
-            trailing: Button.primary(
+            trailing: FilledButton(
               enabled: !isInstalling.value,
               onPressed: () async {
                 try {
@@ -79,12 +77,12 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(context.l10n.third_party_plugin_warning),
-                                  const Gap(8),
+                                  SizedBox(height: 8),
                                   FutureBuilder(
                                     future: pluginsNotifier
                                         .getLogoPath(pluginConfig),
                                     builder: (context, snapshot) {
-                                      return Basic(
+                                      return ListTile(
                                         leading: snapshot.hasData
                                             ? Image.file(
                                                 snapshot.data!,
@@ -96,7 +94,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                                                 width: 36,
                                                 alignment: Alignment.center,
                                                 decoration: BoxDecoration(
-                                                  color: context.theme
+                                                  color: Theme.of(context)
                                                       .colorScheme.secondary,
                                                   borderRadius:
                                                       BorderRadius.circular(8),
@@ -105,12 +103,10 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                                                     SpotubeIcons.plugin),
                                               ),
                                         title: Text(pluginConfig.name),
-                                        subtitle:
-                                            Text(pluginConfig.description),
                                       );
                                     },
                                   ),
-                                  const Gap(8),
+                                  SizedBox(height: 8),
                                   AppMarkdown(
                                     data:
                                         "**${context.l10n.author}**: ${pluginConfig.author}\n\n"
@@ -121,13 +117,13 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                                 ],
                               ),
                               actions: [
-                                Button.secondary(
+                                ElevatedButton(
                                   onPressed: () {
                                     Navigator.of(context).pop(false);
                                   },
                                   child: Text(context.l10n.decline),
                                 ),
-                                Button.primary(
+                                FilledButton(
                                   onPressed: () {
                                     Navigator.of(context).pop(true);
                                   },
@@ -150,7 +146,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                   ? SizedBox.square(
                       dimension: 20,
                       child: CircularProgressIndicator(
-                        color: context.theme.colorScheme.primaryForeground,
+                        color: Theme.of(context).colorScheme.primaryForeground,
                       ),
                     )
                   : const Icon(SpotubeIcons.add),
@@ -175,7 +171,7 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
                   ),
                 ],
               ),
-              style: context.theme.typography.xSmall,
+              style: context.Theme.of(context).textTheme.labelSmall!,
             ),
           Wrap(
             spacing: 8,
@@ -183,13 +179,12 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
             children: [
               if (pluginRepo.owner == "KRTirtho")
                 PrimaryBadge(
-                  leading: const Icon(SpotubeIcons.done),
                   child: Text(context.l10n.official),
                 )
               else ...[
                 Text(
                   context.l10n.author_name(pluginRepo.owner),
-                  style: context.theme.typography.xSmall,
+                  style: context.Theme.of(context).textTheme.labelSmall!,
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -216,7 +211,6 @@ class MetadataPluginRepositoryItem extends HookConsumerWidget {
               for (final topic in pluginRepo.topics)
                 if (validTopics.keys.contains(topic))
                   SecondaryBadge(
-                    leading: Icon(validTopics[topic]!.$2),
                     child: Text(validTopics[topic]!.$1),
                   ),
               SecondaryBadge(

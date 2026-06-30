@@ -3,7 +3,6 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart' show ListTile;
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide ButtonStyle;
 import 'package:watchtower/modules/music/collections/env.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -26,10 +25,6 @@ class SettingsAboutSection extends HookConsumerWidget {
       children: [
         if (!Env.hideDonations)
           AdaptiveListTile(
-            leading: const Icon(
-              SpotubeIcons.heart,
-              color: Colors.pink,
-            ),
             title: SizedBox(
               height: 50,
               width: 200,
@@ -45,10 +40,10 @@ class SettingsAboutSection extends HookConsumerWidget {
                 ),
               ),
             ),
-            trailing: (context, update) => Button(
-              style: ButtonVariance.primary.copyWith(
+            trailing: (context, update) => TextButton(
+.copyWith(
                 decoration: (context, states, value) {
-                  final decoration = ButtonVariance.primary
+                  final decoration = null
                       .decoration(context, states) as BoxDecoration;
 
                   if (states.contains(WidgetState.hovered)) {
@@ -61,7 +56,7 @@ class SettingsAboutSection extends HookConsumerWidget {
 
                   return decoration.copyWith(color: Colors.pink);
                 },
-                textStyle: (context, states, value) => ButtonVariance.primary
+                textStyle: (context, states, value) => null
                     .textStyle(context, states)
                     .copyWith(color: Colors.white),
               ),
@@ -71,13 +66,11 @@ class SettingsAboutSection extends HookConsumerWidget {
                   mode: LaunchMode.externalApplication,
                 );
               },
-              leading: const Icon(SpotubeIcons.heart),
               child: Text(context.l10n.please_sponsor),
             ),
           ),
         if (Env.enableUpdateChecker)
           ListTile(
-            leading: const Icon(SpotubeIcons.update),
             title: Text(context.l10n.check_for_updates),
             trailing: Switch(
               value: preferences.checkUpdate,
@@ -86,7 +79,6 @@ class SettingsAboutSection extends HookConsumerWidget {
             ),
           ),
         ListTile(
-          leading: const Icon(SpotubeIcons.info),
           title: Text(context.l10n.about_spotube),
           trailing: const Icon(SpotubeIcons.angleRight),
           onTap: () {

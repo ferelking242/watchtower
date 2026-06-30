@@ -2,8 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
@@ -30,8 +29,8 @@ class LogsPage extends HookConsumerWidget {
           child: TitleBar(
             title: Text(context.l10n.logs),
             leading: const [BackButton()],
-            trailing: [
-              IconButton.ghost(
+            actions: [
+              IconButton(
                 icon: const Icon(SpotubeIcons.clipboard, size: 16),
                 onPressed: () async {
                   final logsSnapshot = await ref.read(logsProvider.future);
@@ -42,8 +41,8 @@ class LogsPage extends HookConsumerWidget {
                       context: context,
                       location: ToastLocation.topRight,
                       builder: (context, overlay) {
-                        return SurfaceCard(
-                          child: Basic(
+                        return Card(
+                          child: ListTile(
                             title: Text(context.l10n.copied_to_clipboard("")),
                           ),
                         );
@@ -52,7 +51,7 @@ class LogsPage extends HookConsumerWidget {
                   }
                 },
               ),
-              IconButton.ghost(
+              IconButton(
                 icon: const Icon(
                   SpotubeIcons.trash,
                   size: 16,
@@ -85,9 +84,9 @@ class LogsPage extends HookConsumerWidget {
                   children: [
                     Undraw(
                       illustration: UndrawIllustration.noData,
-                      height: 200 * context.theme.scaling,
-                      width: 200 * context.theme.scaling,
-                      color: context.theme.colorScheme.primary,
+                      height: 200 * 1.0,
+                      width: 200 * 1.0,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                     Text(context.l10n.no_logs_found).muted().small(),
                   ],

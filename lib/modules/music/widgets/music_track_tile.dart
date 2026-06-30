@@ -30,8 +30,7 @@ class MusicTrackTile extends ConsumerWidget {
       musicLikedTracksProvider.select((s) => s.contains(track.id)),
     );
 
-    // InkWell requires a Material ancestor. Watchtower uses shadcn_flutter which
-    // does not inject one at the root, so we wrap explicitly.
+    // InkWell requires a Material ancestor — wrap explicitly.
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
@@ -287,7 +286,6 @@ class _Option extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return ListTile(
-      leading: Icon(icon, color: color ?? cs.onSurface, size: 22),
       title: Text(label, style: TextStyle(color: color ?? cs.onSurface)),
       onTap: onTap,
       dense: true,

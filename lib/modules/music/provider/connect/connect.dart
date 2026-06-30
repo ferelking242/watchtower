@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:media_kit/media_kit.dart' hide Track;
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -125,19 +125,17 @@ class ConnectNotifier extends AsyncNotifier<ConnectState?> {
                   location: ToastLocation.topRight,
                   dismissible: true,
                   builder: (context, overlay) {
-                    return SurfaceCard(
+                    return Card(
                       fillColor: theme.colorScheme.destructive,
                       filled: true,
-                      child: Basic(
-                        leading: const Icon(SpotubeIcons.error),
+                      child: ListTile(
                         title: Text(
                           context.l10n.connection_request_denied,
-                          style: theme.typography.normal.copyWith(
+                          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                             color: theme.colorScheme.destructiveForeground,
                           ),
                         ),
-                        leadingAlignment: Alignment.center,
-                      ),
+                        ),
                     );
                   },
                 );

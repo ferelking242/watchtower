@@ -32,7 +32,6 @@ class MusicLikedPlaylistTile extends ConsumerWidget {
       ),
       title: Text('Liked Songs',
           style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-      subtitle: Text('${liked.length} tracks',
           style: tt.bodySmall?.copyWith(
               color: cs.onSurface.withValues(alpha: 0.55))),
       trailing: Icon(Icons.chevron_right_rounded,
@@ -141,7 +140,6 @@ class _PlaylistTile extends StatelessWidget {
           style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
-      subtitle: Row(
         children: [
           if (!playlist.isPublic)
             Padding(

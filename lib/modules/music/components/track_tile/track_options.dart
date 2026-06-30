@@ -1,7 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -53,7 +52,6 @@ class TrackOptions extends HookConsumerWidget {
       children: [
         if (isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -62,12 +60,10 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.trash),
             title: Text(context.l10n.delete),
           ),
         if (mediaQuery.smAndDown && !isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -76,7 +72,6 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.album),
             title: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,14 +79,13 @@ class TrackOptions extends HookConsumerWidget {
                 Text(context.l10n.go_to_album),
                 Text(
                   track.album.name,
-                  style: context.theme.typography.xSmall,
+                  style: context.Theme.of(context).textTheme.labelSmall!,
                 ),
               ],
             ),
           ),
         if (!isInQueue) ...[
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -100,11 +94,9 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.queueAdd),
             title: Text(context.l10n.add_to_queue),
           ),
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -113,12 +105,10 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.lightning),
             title: Text(context.l10n.play_next),
           ),
         ] else
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -128,12 +118,10 @@ class TrackOptions extends HookConsumerWidget {
               onTapItem?.call();
             },
             enabled: !isActiveTrack,
-            leading: const Icon(SpotubeIcons.queueRemove),
             title: Text(context.l10n.remove_from_queue),
           ),
         if (isAuthenticated && !isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -156,7 +144,6 @@ class TrackOptions extends HookConsumerWidget {
           ),
         if (isAuthenticated && !isLocalTrack) ...[
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -165,11 +152,9 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.radio),
             title: Text(context.l10n.start_a_radio),
           ),
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -178,13 +163,11 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.playlistAdd),
             title: Text(context.l10n.add_to_playlist),
           ),
         ],
         if (userPlaylist && isAuthenticated && !isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -193,12 +176,10 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.removeFilled),
             title: Text(context.l10n.remove_from_playlist),
           ),
         if (!isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -227,7 +208,6 @@ class TrackOptions extends HookConsumerWidget {
           ),
         if (!isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -236,10 +216,6 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: Icon(
-              SpotubeIcons.playlistRemove,
-              color: isBlacklisted != true ? Colors.red[400] : null,
-            ),
             title: Text(
               isBlacklisted == true
                   ? context.l10n.remove_from_blacklist
@@ -251,7 +227,6 @@ class TrackOptions extends HookConsumerWidget {
           ),
         if (!isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -260,12 +235,10 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.share),
             title: Text(context.l10n.share),
           ),
         if (!isLocalTrack)
           ButtonTile(
-            style: ButtonVariance.menu,
             onPressed: () async {
               await trackOptionActions.action(
                 rootNavigatorKey.currentContext!,
@@ -274,7 +247,6 @@ class TrackOptions extends HookConsumerWidget {
               );
               onTapItem?.call();
             },
-            leading: const Icon(SpotubeIcons.info),
             title: Text(context.l10n.details),
           ),
       ],

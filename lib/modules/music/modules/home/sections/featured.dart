@@ -1,7 +1,6 @@
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -24,16 +23,16 @@ class HomeFeaturedSection extends HookConsumerWidget {
     //     children: [
     //       Undraw(
     //         illustration: UndrawIllustration.fixingBugs,
-    //         height: 200 * context.theme.scaling,
-    //         color: context.theme.colorScheme.primary,
+    //         height: 200 * 1.0,
+    //         color: Theme.of(context).colorScheme.primary,
     //       ),
     //       Text(context.l10n.something_went_wrong).small().muted(),
-    //       const Gap(8),
+    //       SizedBox(height: 8),
     //     ],
     //   );
     // }
 
-    // return Skeletonizer(
+    // return Opacity(opacity: 1.0, 
     //   enabled: featuredPlaylists.isLoading,
     //   child: HorizontalPlaybuttonCardView<PlaylistSimple>(
     //     items: featuredPlaylists.asData?.value.items ?? [],

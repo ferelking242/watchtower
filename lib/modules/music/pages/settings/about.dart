@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/env.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
@@ -50,7 +50,7 @@ class AboutSpotubePage extends HookConsumerWidget {
                 Center(
                   child: Column(
                     children: [
-                      Text(context.l10n.spotube_description).semiBold().large(),
+                      Text(context.l10n.spotube_description).large(),
                       const SizedBox(height: 20),
                       Table(
                         columnWidths: const {
@@ -167,12 +167,12 @@ class AboutSpotubePage extends HookConsumerWidget {
                 Text(
                   context.l10n.made_with,
                   textAlign: TextAlign.center,
-                  style: theme.typography.small,
+                  style: Theme.of(context).textTheme.bodySmall!,
                 ),
                 Text(
                   context.l10n.copyright(DateTime.now().year),
                   textAlign: TextAlign.center,
-                  style: theme.typography.small,
+                  style: Theme.of(context).textTheme.bodySmall!,
                 ),
                 const SizedBox(height: 20),
                 ConstrainedBox(
@@ -182,7 +182,7 @@ class AboutSpotubePage extends HookConsumerWidget {
                       data: (data) {
                         return Text(
                           data,
-                          style: theme.typography.small,
+                          style: Theme.of(context).textTheme.bodySmall!,
                         );
                       },
                       loading: () {
@@ -193,7 +193,7 @@ class AboutSpotubePage extends HookConsumerWidget {
                       error: (e, s) {
                         return Text(
                           e.toString(),
-                          style: theme.typography.small,
+                          style: Theme.of(context).textTheme.bodySmall!,
                         );
                       },
                     ),

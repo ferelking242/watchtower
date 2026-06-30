@@ -2,8 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -20,7 +19,6 @@ import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart
 import 'package:watchtower/modules/music/provider/local_tracks/local_tracks_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
 import 'package:watchtower/modules/music/provider/sleep_timer_provider.dart';
-import 'package:flutter/material.dart' show Material, MaterialType;
 
 class PlayerActions extends HookConsumerWidget {
   final MainAxisAlignment mainAxisAlignment;
@@ -87,24 +85,17 @@ class PlayerActions extends HookConsumerWidget {
       mainAxisAlignment: mainAxisAlignment,
       children: [
         if (showQueue)
-          IconButton.ghost(
+          IconButton(
             icon: const Icon(SpotubeIcons.queue),
             enabled: playlist.activeTrack != null,
             onPressed: () {
-              final capturedTheme = Theme.of(context);
-              openDrawer(
-                context: context,
-                position: OverlayPosition.right,
-                transformBackdrop: false,
-                draggable: false,
-                surfaceBlur: context.theme.surfaceBlur,
-                surfaceOpacity: 0.7,
-                builder: (context) {
-                  return Theme(
-                    data: capturedTheme,
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Container(
+              showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            showDragHandle: true,
+            constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
+            builder: (context) {
+              return Container(
                         constraints: const BoxConstraints(maxWidth: 800),
                         child: Consumer(
                           builder: (context, ref, _) {
@@ -119,26 +110,22 @@ class PlayerActions extends HookConsumerWidget {
                             );
                           },
                         ),
-                      ),
-                    ),
-                  );
-                },
-              );
+                      );
+            },
+          );
             },
           ),
         if (!isLocalTrack)
-          IconButton.ghost(
+          IconButton(
             enabled: playlist.activeTrack != null,
             icon: const Icon(SpotubeIcons.alternativeRoute),
             onPressed: () {
               final screenSize = MediaQuery.sizeOf(context);
               if (screenSize.mdAndUp) {
-                showPopover(
-                  alignment: Alignment.bottomCenter,
+                showDialog(
                   context: context,
                   builder: (context) {
-                    return SurfaceCard(
-                      padding: EdgeInsets.zero,
+                    return Card(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(
                           maxHeight: 600,
@@ -164,7 +151,7 @@ class PlayerActions extends HookConsumerWidget {
               ),
             )
           else
-            IconButton.ghost(
+            IconButton(
               icon: Icon(
                 isDownloaded ? SpotubeIcons.done : SpotubeIcons.download,
               ),
@@ -210,25 +197,21 @@ class PlayerActions extends HookConsumerWidget {
                   builder: (context) => HookBuilder(builder: (context) {
                     final timeRef = useRef<TimeOfDay?>(null);
                     return AlertDialog(
-                      trailing: IconButton.ghost(
-                        size: ButtonSize.xSmall,
-                        icon: const Icon(SpotubeIcons.close),
-                        onPressed: () {
+                                              onPressed: () {
                           Navigator.of(context).pop();
                         },
                       ),
                       title: Text(
-                        ShadcnLocalizations.of(context).placeholderTimePicker,
+                        "Select Time",
                       ),
-                      content: TimePickerDialog(
-                        use24HourFormat: false,
+                      content: const Text("Time picker not available"),
                         initialValue: TimeOfDay.fromDateTime(
                           DateTime.now().add(sleepTimer ?? Duration.zero),
                         ),
                         onChanged: (value) => timeRef.value = value,
                       ),
                       actions: [
-                        Button.primary(
+                        FilledButton(
                           onPressed: () {
                             Navigator.of(context).pop(timeRef.value);
                           },

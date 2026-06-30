@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/env.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -30,22 +30,21 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
                     Text(
                       context.l10n.help_project_grow,
                       style: const TextStyle(color: Colors.pink),
-                    ).semiBold(),
+                    ),
                   ],
                 ),
-                const Gap(16),
+                SizedBox(height: 16),
                 Text(context.l10n.help_project_grow_description),
-                const Gap(16),
+                SizedBox(height: 16),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Button(
-                      leading: const Icon(SpotubeIcons.github),
-                      style: ButtonVariance.primary.copyWith(
+                    TextButton(
+                      .copyWith(
                           decoration: (context, states, value) {
                         if (states.isNotEmpty) {
-                          return ButtonVariance.primary
+                          return null
                               .decoration(context, states);
                         }
 
@@ -66,13 +65,12 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
                       ),
                     ),
                     if (!Env.hideDonations) ...[
-                      const Gap(16),
-                      Button(
-                        leading: const Icon(SpotubeIcons.openCollective),
-                        style: ButtonVariance.primary.copyWith(
+                      SizedBox(height: 16),
+                      TextButton(
+                        .copyWith(
                             decoration: (context, states, value) {
                           if (states.isNotEmpty) {
-                            return ButtonVariance.primary
+                            return null
                                 .decoration(context, states);
                           }
 
@@ -98,14 +96,13 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
               ],
             ),
           ),
-          const Gap(48),
+          SizedBox(height: 48),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 250),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Button.primary(
-                  leading: const Icon(SpotubeIcons.extensions),
+                FilledButton(
                   onPressed: () async {
                     await KVStoreService.setDoneGettingStarted(true);
                     if (context.mounted) {

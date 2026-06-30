@@ -1,8 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
@@ -28,21 +27,19 @@ class ErrorBox extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             spacing: 12,
             children: [
-              Basic(
-                leading: const Icon(SpotubeIcons.error),
+              ListTile(
                 contentSpacing: 8,
                 title: Text(context.l10n.an_error_occurred),
               ),
               Card(
-                padding: const EdgeInsets.all(8.0),
                 filled: true,
-                fillColor: context.theme.colorScheme.muted,
+                fillColor: Theme.of(context).colorScheme.muted,
                 child: Text(
                   error.toString(),
                   style: TextStyle(
                     // Use monospace
                     fontFamily: 'Ubuntu Mono',
-                    color: context.theme.colorScheme.mutedForeground,
+                    color: Theme.of(context).colorScheme.mutedForeground,
                     fontSize: 14,
                   ),
                   maxLines: 6,
@@ -53,8 +50,7 @@ class ErrorBox extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Button.text(
-                    leading: const Icon(SpotubeIcons.logs),
+                  TextButton(
                     onPressed: () {
                       showDialog(
                         context: context,
@@ -73,7 +69,7 @@ class ErrorBox extends StatelessWidget {
                                   const Icon(SpotubeIcons.logs),
                                   Text(context.l10n.logs),
                                   const Spacer(),
-                                  IconButton.ghost(
+                                  IconButton(
                                     icon: const Icon(SpotubeIcons.close),
                                     onPressed: () => context.maybePop(),
                                   )
@@ -83,7 +79,7 @@ class ErrorBox extends StatelessWidget {
                                 HookBuilder(builder: (context) {
                                   final copied = useState(false);
 
-                                  return Button.ghost(
+                                  return TextButton(
                                     leading: copied.value
                                         ? const Icon(SpotubeIcons.done)
                                         : const Icon(SpotubeIcons.clipboard),
@@ -99,9 +95,8 @@ class ErrorBox extends StatelessWidget {
                               ],
                               content: SingleChildScrollView(
                                 child: Card(
-                                  padding: const EdgeInsets.all(8.0),
                                   filled: true,
-                                  fillColor: context.theme.colorScheme.muted,
+                                  fillColor: Theme.of(context).colorScheme.muted,
                                   child: SelectableText(
                                     error.toString(),
                                     style: TextStyle(
@@ -122,8 +117,7 @@ class ErrorBox extends StatelessWidget {
                     child: Text(context.l10n.view_logs),
                   ),
                   if (onRetry != null)
-                    Button.text(
-                      leading: const Icon(SpotubeIcons.refresh),
+                    TextButton(
                       onPressed: onRetry,
                       child: Text(context.l10n.retry),
                     ),

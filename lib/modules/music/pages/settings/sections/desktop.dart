@@ -37,7 +37,6 @@ class SettingsDesktopSection extends HookConsumerWidget {
           },
         ),
         ListTile(
-          leading: const Icon(SpotubeIcons.tray),
           title: Text(context.l10n.show_tray_icon),
           trailing: Switch(
             value: preferences.showSystemTrayIcon,
@@ -45,7 +44,6 @@ class SettingsDesktopSection extends HookConsumerWidget {
           ),
         ),
         ListTile(
-          leading: const Icon(SpotubeIcons.window),
           title: Text(context.l10n.use_system_title_bar),
           trailing: Switch(
             value: preferences.systemTitleBar,
@@ -53,7 +51,6 @@ class SettingsDesktopSection extends HookConsumerWidget {
           ),
         ),
         ListTile(
-          leading: const Icon(SpotubeIcons.discord),
           title: Text(context.l10n.discord_rich_presence),
           trailing: Switch(
             value: preferences.discordPresence,

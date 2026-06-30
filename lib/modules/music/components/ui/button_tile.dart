@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 
 class ButtonTile extends StatelessWidget {
   final Widget? title;
@@ -9,7 +9,6 @@ class ButtonTile extends StatelessWidget {
   final VoidCallback? onPressed;
   final VoidCallback? onLongPress;
   final bool selected;
-  final AbstractButtonStyle style;
   final EdgeInsets? padding;
 
   const ButtonTile({
@@ -23,85 +22,56 @@ class ButtonTile extends StatelessWidget {
     this.onLongPress,
     this.selected = false,
     this.padding,
-    this.style = ButtonVariance.outline,
+    // ignore unused style param for compat
+    dynamic style,
   });
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData(:colorScheme, :typography) = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
+    return InkWell(
+      onTap: enabled ? onPressed : null,
       onLongPress: onLongPress,
-      child: Button(
-        enabled: enabled,
-        onPressed: onPressed,
-        style: style.copyWith(
-          padding:
-              padding != null ? (context, states, value) => padding! : null,
-          decoration: (context, states, value) {
-            final decoration =
-                style.decoration(context, states) as BoxDecoration;
-
-            if (selected) {
-              return switch (style) {
-                ButtonVariance.outline => decoration.copyWith(
-                    border: Border.all(
-                      color: colorScheme.primary,
-                      width: 1.0,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: selected
+            ? BoxDecoration(
+                color: colorScheme.primary.withAlpha(25),
+                border: Border.all(color: colorScheme.primary, width: 1.0),
+                borderRadius: BorderRadius.circular(8),
+              )
+            : null,
+        width: double.infinity,
+        child: Row(
+          children: [
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (title != null)
+                    DefaultTextStyle.merge(
+                      style: selected ? TextStyle(color: colorScheme.primary) : null,
+                      child: title!,
                     ),
-                    color: colorScheme.primary.withAlpha(25),
-                  ),
-                ButtonVariance.ghost || _ => decoration.copyWith(
-                    color: colorScheme.primary.withAlpha(25),
-                  ),
-              };
-            }
-
-            return decoration;
-          },
-          iconTheme: (context, states, value) {
-            final iconTheme = style.iconTheme(context, states);
-
-            if (selected && style == ButtonVariance.outline) {
-              return iconTheme.copyWith(
-                color: colorScheme.primary,
-              );
-            }
-
-            return iconTheme;
-          },
-          textStyle: (context, states, value) {
-            final textStyle = style.textStyle(context, states);
-
-            if (selected && style == ButtonVariance.outline) {
-              return textStyle.copyWith(
-                color: colorScheme.primary,
-              );
-            }
-
-            return textStyle;
-          },
-        ),
-        alignment: Alignment.centerLeft,
-        child: SizedBox(
-          width: double.infinity,
-          child: Basic(
-            padding: EdgeInsets.zero,
-            leadingAlignment: Alignment.center,
-            trailingAlignment: Alignment.center,
-            leading: leading,
-            title: title,
-            subtitle:
-                style == ButtonVariance.outline && selected && subtitle != null
-                    ? DefaultTextStyle(
-                        style: typography.xSmall.copyWith(
-                          color: colorScheme.primary,
-                        ),
-                        child: subtitle!,
-                      )
-                    : subtitle,
-            trailing: trailing,
-          ),
+                  if (subtitle != null)
+                    DefaultTextStyle.merge(
+                      style: selected
+                          ? TextStyle(color: colorScheme.primary, fontSize: 11)
+                          : const TextStyle(fontSize: 11),
+                      child: subtitle!,
+                    ),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
+          ],
         ),
       ),
     );

@@ -1,5 +1,5 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -17,7 +17,6 @@ class StatsArtistItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ButtonTile(
-      style: ButtonVariance.ghost,
       title: Text(artist.name),
       leading: Avatar(
         initials: artist.name.substring(0, 1),

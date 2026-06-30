@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -60,13 +60,13 @@ class ConfirmDownloadDialog extends StatelessWidget {
           ),
         ),
         actions: [
-          Button.outline(
+          OutlinedButton(
             child: Text(context.l10n.decline),
             onPressed: () {
               Navigator.pop(context, false);
             },
           ),
-          Button.destructive(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(context.l10n.accept),
           ),

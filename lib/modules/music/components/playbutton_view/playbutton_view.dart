@@ -1,7 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_card.dart';
@@ -56,7 +55,7 @@ class PlaybuttonView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scale = context.theme.scaling;
+    final scale = 1.0;
 
     return SliverLayoutBuilder(
       builder: (context, constrains) => HookBuilder(builder: (context) {
@@ -80,8 +79,6 @@ class PlaybuttonView extends StatelessWidget {
                   if (leading != null) leading!,
                   Toggle(
                     value: isGrid.value,
-                    style:
-                        const ButtonStyle.outline(density: ButtonDensity.icon),
                     onChanged: (value) {
                       isGrid.value = value;
                       hasUserInteracted.value = true;
@@ -91,8 +88,6 @@ class PlaybuttonView extends StatelessWidget {
                   const SizedBox(width: 8),
                   Toggle(
                     value: !isGrid.value,
-                    style:
-                        const ButtonStyle.outline(density: ButtonDensity.icon),
                     onChanged: (value) {
                       isGrid.value = !value;
                       hasUserInteracted.value = true;
@@ -102,7 +97,7 @@ class PlaybuttonView extends StatelessWidget {
                 ],
               ),
             ),
-            const SliverGap(10),
+            const SliverToBoxAdapter(child: SizedBox(height: 10)),
             // Toggle between grid and list view
             switch ((isGrid.value, isLoading)) {
               (true, _) => !isLoading && itemCount == 0
@@ -114,7 +109,7 @@ class PlaybuttonView extends StatelessWidget {
                           spacing: 10,
                           children: [
                             Undraw(
-                              height: 200 * context.theme.scaling,
+                              height: 200 * 1.0,
                               illustration: UndrawIllustration.taken,
                               color: Theme.of(context).colorScheme.primary,
                             ),
@@ -136,7 +131,7 @@ class PlaybuttonView extends StatelessWidget {
                       ),
                       itemBuilder: (context, index) {
                         if (isLoading) {
-                          return const Skeletonizer(
+                          return const Opacity(opacity: 1.0, 
                             enabled: true,
                             child: _dummyPlaybuttonCard,
                           );
@@ -148,7 +143,7 @@ class PlaybuttonView extends StatelessWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: onRequestMore,
-                            child: const Skeletonizer(
+                            child: const Opacity(opacity: 1.0, 
                               enabled: true,
                               child: _dummyPlaybuttonCard,
                             ),
@@ -169,7 +164,7 @@ class PlaybuttonView extends StatelessWidget {
                 ),
               (false, false) => SliverInfiniteList(
                   itemCount: itemCount,
-                  loadingBuilder: (context) => const Skeletonizer(
+                  loadingBuilder: (context) => const Opacity(opacity: 1.0, 
                     enabled: true,
                     child: _dummyPlaybuttonTile,
                   ),
@@ -183,7 +178,7 @@ class PlaybuttonView extends StatelessWidget {
                       spacing: 10,
                       children: [
                         Undraw(
-                          height: 200 * context.theme.scaling,
+                          height: 200 * 1.0,
                           illustration: UndrawIllustration.taken,
                           color: Theme.of(context).colorScheme.primary,
                         ),

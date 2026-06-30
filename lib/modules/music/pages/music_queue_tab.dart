@@ -167,7 +167,6 @@ class MusicQueueTab extends ConsumerWidget {
                         ?.copyWith(fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
-                subtitle: Text(t.artistNames,
                     style: tt.bodySmall?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.55)),
                     maxLines: 1,

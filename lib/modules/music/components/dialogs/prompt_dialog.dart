@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
 Future<bool> showPromptDialog({
@@ -16,13 +16,13 @@ Future<bool> showPromptDialog({
         content: Text(message),
         actions: [
           if (cancelText != null)
-            Button.outline(
+            OutlinedButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(
                 cancelText == "Cancel" ? context.l10n.cancel : cancelText,
               ),
             ),
-          Button.primary(
+          FilledButton(
             child: Text(okText == "Ok" ? context.l10n.ok : okText),
             onPressed: () => Navigator.of(context).pop(true),
           ),

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path/path.dart' as path;
@@ -66,7 +66,7 @@ class LocalFolderCacheExportDialog extends HookConsumerWidget {
                   Text(
                     context.l10n.found_n_files(files.value.length.toString()),
                   ),
-                  const Gap(10),
+                  SizedBox(height: 10),
                   Text.rich(
                     TextSpan(
                       children: [
@@ -75,7 +75,7 @@ class LocalFolderCacheExportDialog extends HookConsumerWidget {
                         ),
                         TextSpan(
                           text: "\n${exportDir.path}?",
-                          style: typography.small.copyWith(
+                          style: Theme.of(context).textTheme.bodySmall!.copyWith(
                             color: colorScheme.mutedForeground,
                           ),
                         ),
@@ -93,7 +93,7 @@ class LocalFolderCacheExportDialog extends HookConsumerWidget {
                       filesExported.value.toString(),
                     ),
                   ),
-                  const Gap(10),
+                  SizedBox(height: 10),
                   LinearProgressIndicator(
                     value: filesExported.value / files.value.length,
                   ),
@@ -101,7 +101,7 @@ class LocalFolderCacheExportDialog extends HookConsumerWidget {
               ),
       ),
       actions: [
-        Button.outline(
+        OutlinedButton(
           onPressed: isExportInProgress
               ? null
               : () {
@@ -109,7 +109,7 @@ class LocalFolderCacheExportDialog extends HookConsumerWidget {
                 },
           child: Text(context.l10n.cancel),
         ),
-        Button.primary(
+        FilledButton(
           onPressed: isExportInProgress
               ? null
               : () async {

@@ -73,7 +73,6 @@ class MusicAlbumsTab extends ConsumerWidget {
                 style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
-            subtitle: Text(
               '${a.artistNames}${a.releaseDate != null ? ' · ${a.releaseDate!.substring(0, 4)}' : ''}',
               style: tt.bodySmall?.copyWith(
                   color: cs.onSurface.withValues(alpha: 0.55)),

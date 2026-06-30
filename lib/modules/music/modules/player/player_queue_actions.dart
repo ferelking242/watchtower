@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart' show Material, MaterialType;
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 
@@ -14,7 +12,7 @@ class PlayerQueueActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton.ghost(
+    return IconButton(
       onPressed: () {
         final mediaQuery = MediaQuery.sizeOf(context);
         // Capture shadcn theme before entering the overlay.
@@ -23,18 +21,15 @@ class PlayerQueueActionButton extends StatelessWidget {
         final capturedTheme = Theme.of(context);
 
         if (mediaQuery.lgAndUp) {
-          showDropdown(
-            context: context,
-            builder: (context) {
+           {
               return Theme(
                 data: capturedTheme,
                 child: Material(
                   type: MaterialType.transparency,
                   child: SizedBox(
-                    width: 220 * context.theme.scaling,
+                    width: 220 * 1.0,
                     child: Card(
-                      padding: EdgeInsets.zero,
-                      child: builder(context, () => closeOverlay(context)),
+                      child: builder(context, () => Navigator.pop(context)),
                     ),
                   ),
                 ),
@@ -42,17 +37,14 @@ class PlayerQueueActionButton extends StatelessWidget {
             },
           );
         } else {
-          openSheet(
-            context: context,
-            builder: (context) => Theme(
+           => Theme(
               data: capturedTheme,
               child: Material(
                 type: MaterialType.transparency,
-                child: builder(context, () => closeSheet(context)),
+                child: builder(context, () => Navigator.pop(context)),
               ),
             ),
-            position: OverlayPosition.bottom,
-          );
+            );
         }
       },
       icon: const Icon(SpotubeIcons.moreHorizontal),

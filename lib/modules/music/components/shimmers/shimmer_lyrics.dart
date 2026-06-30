@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:skeletonizer/skeletonizer.dart';
@@ -8,7 +8,7 @@ class ShimmerLyrics extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Skeletonizer(
+    return Opacity(opacity: 1.0, 
       enabled: true,
       child: ListView.builder(
         itemCount: 30,
@@ -26,7 +26,7 @@ class ShimmerLyrics extends HookWidget {
             children: [
               for (final text in texts) ...[
                 Text(text),
-                if (text != texts.last) const Gap(10),
+                if (text != texts.last) SizedBox(height: 10),
               ],
             ],
           );

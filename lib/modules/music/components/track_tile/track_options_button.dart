@@ -1,8 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -10,7 +9,6 @@ import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_options.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
-import 'package:flutter/material.dart' show Material, MaterialType;
 
 class TrackOptionsButton extends HookConsumerWidget {
   final SpotubeTrackObject track;
@@ -23,28 +21,25 @@ class TrackOptionsButton extends HookConsumerWidget {
     this.playlistId,
   });
 
-  static OverlayCompleter<dynamic> showOptions(
+  static Future<dynamic> showOptions(
     BuildContext context,
     Offset offset,
     SpotubeTrackObject track, {
     bool userPlaylist = false,
     String? playlistId,
   }) {
-    return showPopover(
+    return showDialog(
       context: context,
-      position: offset,
-      alignment: Alignment.bottomRight,
       builder: (context) {
         return SizedBox(
-          width: 220 * context.theme.scaling,
+          width: 220 * 1.0,
           child: Card(
-            padding: const EdgeInsets.all(8),
             child: TrackOptions(
               track: track,
               playlistId: playlistId,
               userPlaylist: userPlaylist,
               onTapItem: () {
-                closeOverlay(context);
+                Navigator.pop(context);
               },
             ),
           ),
@@ -62,7 +57,7 @@ class TrackOptionsButton extends HookConsumerWidget {
       [track.album.images],
     );
 
-    return IconButton.ghost(
+    return IconButton(
       icon: const Icon(SpotubeIcons.moreHorizontal),
       onPressed: () {
         final mediaQuery = MediaQuery.sizeOf(context);
@@ -87,15 +82,11 @@ class TrackOptionsButton extends HookConsumerWidget {
             playlistId: playlistId,
           );
         } else {
-          final capturedTheme = Theme.of(context);
-          openDrawer(
-            context: context,
-            position: OverlayPosition.bottom,
-            draggable: true,
-            showDragHandle: true,
-            borderRadius: context.theme.borderRadiusMd,
-            transformBackdrop: false,
-            builder: (context) {
+          showModalBottomSheet(
+                context: context,
+                                isScrollControlled: true,
+                builder: (context) {
+                  return SafeArea(
               return Theme(
                 data: capturedTheme,
                 child: Material(
@@ -108,34 +99,25 @@ class TrackOptionsButton extends HookConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 8,
-                      children: [
-                        Basic(
+                                            children: [
+                        ListTile(
                           leading: Container(
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              borderRadius: context.theme.borderRadiusMd,
-                              image: DecorationImage(
+                                                            image: DecorationImage(
                                 fit: BoxFit.cover,
                                 image: imageProvider,
                               ),
                             ),
                           ),
-                          title: Text(
-                            track.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ).semiBold(),
-                          subtitle: Align(
-                            alignment: Alignment.centerLeft,
-                            child: ArtistLink(
+                          title: Text(track.name, maxLines: 1, overflow: TextOverflow.ellipsis,),
+                          subtitle: ArtistLink(
                               artists: track.artists,
                               onOverflowArtistClick: () => context.navigateTo(
                                 TrackRoute(trackId: track.id),
                               ),
                             ),
-                          ),
                         ),
                         const Divider(),
                         TrackOptions(
@@ -143,7 +125,7 @@ class TrackOptionsButton extends HookConsumerWidget {
                           userPlaylist: userPlaylist,
                           playlistId: playlistId,
                           onTapItem: () {
-                            closeDrawer(context);
+                            Navigator.pop(context);
                           },
                         ),
                       ],
@@ -151,8 +133,9 @@ class TrackOptionsButton extends HookConsumerWidget {
                   ),
                 ),
               );
-            },
-          );
+            );
+                },
+              );
         }
       },
     );

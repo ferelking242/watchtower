@@ -127,7 +127,6 @@ dependencies:
 
   # --- Spotube Music Integration ---
   auto_route: ^9.2.0
-  shadcn_flutter: 0.0.47
   flutter_hooks: ^0.21.0
   hooks_riverpod: ^3.1.0
   fluentui_system_icons: ^1.1.234
@@ -313,12 +312,6 @@ flutter:
     - packages/flutter_undraw/assets/undraw/stars.svg
 
   fonts:
-    - family: RadixIcons
-      fonts:
-        - asset: packages/shadcn_flutter/icons/RadixIcons.otf
-    - family: BootstrapIcons
-      fonts:
-        - asset: packages/shadcn_flutter/icons/BootstrapIcons.otf
     - family: Cookie
       fonts:
         - asset: assets/fonts/Cookie-Regular.ttf

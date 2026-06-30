@@ -1,6 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:watchtower/modules/music/modules/player/player_overlay_collapsed.dart';
 
@@ -41,7 +41,6 @@ class PlayerOverlay extends HookConsumerWidget {
       color: Colors.transparent,
       parallaxEnabled: true,
       renderPanelSheet: false,
-      header: SizedBox(
         height: 63,
         width: screenSize.width,
         child: PlayerOverlayCollapsedSection(panelController: panelController),

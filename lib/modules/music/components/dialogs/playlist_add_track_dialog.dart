@@ -1,6 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 
 import 'package:watchtower/modules/music/modules/playlist/playlist_create_dialog.dart';
@@ -74,14 +74,14 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
           children: [
             Text(
               context.l10n.add_to_playlist,
-              style: typography.large,
+              style: Theme.of(context).textTheme.bodyLarge!,
             ),
             const Spacer(),
             const PlaylistCreateDialogButton(),
           ],
         ),
         actions: [
-          OutlineButton(
+          OutlinedButton(
             child: Text(context.l10n.cancel),
             onPressed: () {
               Navigator.pop(context, false);
@@ -101,8 +101,8 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
                   itemCount: filteredPlaylists.length,
                   itemBuilder: (context, index) {
                     final playlist = filteredPlaylists.elementAt(index);
-                    return Button.ghost(
-                      style: ButtonVariance.ghost.copyWith(
+                    return TextButton(
+.copyWith(
                         padding: (context, _, __) {
                           return const EdgeInsets.symmetric(vertical: 8);
                         },
@@ -117,12 +117,12 @@ class PlaylistAddTrackDialog extends HookConsumerWidget {
                       ),
                       trailing: Checkbox(
                         state: (playlistsCheck.value[playlist.id] ?? false)
-                            ? CheckboxState.checked
-                            : CheckboxState.unchecked,
+                            ? true
+                            : false,
                         onChanged: (val) {
                           playlistsCheck.value = {
                             ...playlistsCheck.value,
-                            playlist.id: val == CheckboxState.checked,
+                            playlist.id: val == true,
                           };
                         },
                       ),

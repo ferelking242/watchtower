@@ -8,7 +8,7 @@ import 'package:hetu_spotube_plugin/hetu_spotube_plugin.dart'
     hide YouTubeEngine;
 import 'package:hetu_std/hetu_std.dart';
 import 'package:pub_semver/pub_semver.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';

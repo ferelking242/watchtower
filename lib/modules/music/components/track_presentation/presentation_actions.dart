@@ -1,6 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_pop_sheet_list.dart';
 import 'package:watchtower/modules/music/components/dialogs/confirm_download_dialog.dart';
@@ -39,13 +38,11 @@ ToastOverlay showToastForAction(
     context: context,
     location: ToastLocation.topRight,
     builder: (context, overlay) {
-      return SurfaceCard(
-        child: Basic(
-          leading: Icon(message.$2),
+      return Card(
+        child: ListTile(
           title: Text(message.$1),
-          leadingAlignment: Alignment.center,
-          trailing: IconButton.ghost(
-            size: ButtonSize.small,
+          trailing: IconButton(
+            size: 20.0,
             icon: const Icon(SpotubeIcons.close),
             onPressed: () {
               overlay.close();
@@ -100,7 +97,7 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
       headings: [
         Text(
           context.l10n.more_actions,
-          style: context.theme.typography.large,
+          style: context.Theme.of(context).textTheme.bodyLarge!,
         ),
       ],
       onSelected: (action) async {
@@ -177,12 +174,10 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
 
         if (!context.mounted) return;
       },
-      icon: const Icon(SpotubeIcons.moreVertical),
-      variance: ButtonVariance.outline,
+      icon: const Icon(SpotubeIcons.moreVertical)
       items: (context) => [
         AdaptiveMenuButton(
           value: "download",
-          leading: const Icon(SpotubeIcons.download),
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
               ? Text(
@@ -194,7 +189,6 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
         ),
         AdaptiveMenuButton(
           value: "add-to-playlist",
-          leading: const Icon(SpotubeIcons.playlistAdd),
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
               ? Text(
@@ -206,7 +200,6 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
         ),
         AdaptiveMenuButton(
           value: "add-to-queue",
-          leading: const Icon(SpotubeIcons.queueAdd),
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
               ? Text(
@@ -218,7 +211,6 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
         ),
         AdaptiveMenuButton(
           value: "play-next",
-          leading: const Icon(SpotubeIcons.lightning),
           child: selectedTracks.isEmpty ||
                   selectedTracks.length == options.tracks.length
               ? Text(

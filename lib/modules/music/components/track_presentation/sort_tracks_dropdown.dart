@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/pages/library/user_local_tracks/user_local_tracks.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_pop_sheet_list.dart';
@@ -16,7 +16,6 @@ class SortTracksDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AdaptivePopSheetList<SortBy>(
-      variance: ButtonVariance.outline,
       headings: [
         Text(context.l10n.sort_tracks),
       ],

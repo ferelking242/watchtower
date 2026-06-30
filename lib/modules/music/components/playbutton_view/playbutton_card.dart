@@ -1,5 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/string.dart';
@@ -38,7 +37,7 @@ class PlaybuttonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unescapeHtml = description?.unescapeHtml().cleanHtml() ?? "";
-    final scale = context.theme.scaling;
+    final scale = 1.0;
 
     return SizedBox(
       width: 150 * scale,
@@ -50,7 +49,7 @@ class PlaybuttonCard extends StatelessWidget {
                 width: 150 * scale,
                 height: 150 * scale,
                 decoration: BoxDecoration(
-                  borderRadius: context.theme.borderRadiusMd,
+                  borderRadius: const BorderRadius.all(Radius.circular(16)),
                   image: DecorationImage(
                     image: UniversalImage.imageProvider(
                       imageUrl!,
@@ -66,7 +65,7 @@ class PlaybuttonCard extends StatelessWidget {
                 width: 150 * scale,
                 height: 150 * scale,
                 child: ClipRRect(
-                  borderRadius: context.theme.borderRadiusMd,
+                  borderRadius: const BorderRadius.all(Radius.circular(16)),
                   child: image!,
                 ),
               ),
@@ -92,14 +91,14 @@ class PlaybuttonCard extends StatelessWidget {
                                   !isLoading
                               ? 1
                               : 0,
-                          child: IconButton.secondary(
+                          child: IconButton(
                             icon: const Icon(SpotubeIcons.queueAdd),
                             onPressed: onAddToQueuePressed,
-                            size: ButtonSize.small,
+                            size: 20.0,
                           ),
                         ),
                       ),
-                      const Gap(5),
+                      SizedBox(height: 5),
                       AnimatedScale(
                         curve: Curves.easeOutBack,
                         duration: const Duration(milliseconds: 150),
@@ -117,7 +116,7 @@ class PlaybuttonCard extends StatelessWidget {
                                   isLoading
                               ? 1
                               : 0,
-                          child: IconButton.secondary(
+                          child: IconButton(
                             icon: switch ((isLoading, isPlaying)) {
                               (true, _) => const CircularProgressIndicator(
                                   size: 15,
@@ -127,7 +126,7 @@ class PlaybuttonCard extends StatelessWidget {
                             },
                             enabled: !isLoading,
                             onPressed: onPlaybuttonPressed,
-                            size: ButtonSize.small,
+                            size: 20.0,
                           ),
                         ),
                       ),
@@ -141,10 +140,6 @@ class PlaybuttonCard extends StatelessWidget {
                 right: 5,
                 top: 5,
                 child: SecondaryBadge(
-                  style: ButtonStyle.secondaryIcon(
-                    shape: ButtonShape.circle,
-                    size: ButtonSize.small,
-                  ),
                   child: Icon(SpotubeIcons.user),
                 ),
               ),
@@ -155,7 +150,6 @@ class PlaybuttonCard extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
           unescapeHtml.isEmpty ? "\n" : unescapeHtml,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,

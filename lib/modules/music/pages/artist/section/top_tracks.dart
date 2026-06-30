@@ -1,7 +1,6 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -103,11 +102,11 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
                   context.l10n.top_tracks,
-                  style: theme.typography.h4,
+                  style: Theme.of(context).textTheme.titleLarge!,
                 ),
               ),
               if (!isPlaylistPlaying)
-                IconButton.outline(
+                IconButton(
                   icon: const Icon(
                     SpotubeIcons.queueAdd,
                   ),
@@ -117,7 +116,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                       context: context,
                       location: ToastLocation.topRight,
                       builder: (context, overlay) {
-                        return SurfaceCard(
+                        return Card(
                           child: Text(
                             context.l10n.added_to_queue(
                               topTracks.length,
@@ -129,12 +128,11 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                   },
                 ),
               const SizedBox(width: 5),
-              IconButton.primary(
-                shape: ButtonShape.circle,
+              IconButton(
                 enabled: !isPlaylistPlaying && !isLoading.value,
                 icon: isLoading.value
                     ? CircularProgressIndicator(
-                        size: 20 * context.theme.scaling,
+                        size: 20 * 1.0,
                         color: theme.colorScheme.primaryForeground,
                       )
                     : Skeleton.keep(
@@ -149,7 +147,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
             ],
           ),
         ),
-        const SliverGap(10),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         SliverList.builder(
           itemCount: topTracks.length,
           itemBuilder: (context, index) {

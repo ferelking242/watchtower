@@ -1,7 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/dialogs/select_device_dialog.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_card.dart';
@@ -151,13 +151,13 @@ class PlaylistCard extends HookConsumerWidget {
           showToast(
             context: context,
             builder: (context, overlay) {
-              return SurfaceCard(
-                child: Basic(
+              return Card(
+                child: ListTile(
                   content: Text(
                     context.l10n
                         .added_num_tracks_to_queue(fetchedInitialTracks.length),
                   ),
-                  trailing: Button.outline(
+                  trailing: OutlinedButton(
                     child: Text(context.l10n.undo),
                     onPressed: () {
                       playlistNotifier

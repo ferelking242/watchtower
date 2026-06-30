@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -41,10 +41,10 @@ class ConnectPage extends HookConsumerWidget {
                   ),
                 ),
               ),
-              const SliverGap(10),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverList.separated(
                 itemCount: discoveredDevices?.length ?? 0,
-                separatorBuilder: (context, index) => const Gap(10),
+                separatorBuilder: (context, index) => SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final device = discoveredDevices![index];
                   final selected =
@@ -52,7 +52,6 @@ class ConnectPage extends HookConsumerWidget {
                           device.name;
                   return ButtonTile(
                     selected: selected,
-                    leading: const Icon(SpotubeIcons.monitor),
                     title: Text(device.name),
                     subtitle: selected
                         ? Text(
@@ -61,9 +60,9 @@ class ConnectPage extends HookConsumerWidget {
                           )
                         : null,
                     trailing: selected
-                        ? IconButton.outline(
+                        ? IconButton(
                             icon: const Icon(SpotubeIcons.power),
-                            size: ButtonSize.small,
+                            size: 20.0,
                             onPressed: () =>
                                 connectClientsNotifier.clearResolvedService(),
                           )

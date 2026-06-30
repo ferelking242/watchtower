@@ -3,8 +3,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide Consumer;
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/modules/player/player_controls.dart';
@@ -16,7 +14,6 @@ import 'package:watchtower/modules/music/pages/lyrics/synced_lyrics.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:flutter/material.dart' show Material, MaterialType;
 
 class MiniLyricsPage extends HookConsumerWidget {
   static const name = "mini_lyrics";
@@ -59,7 +56,7 @@ class MiniLyricsPage extends HookConsumerWidget {
               areaActive.value = false;
             },
       child: Scaffold(
-        backgroundColor: theme.colorScheme.background.withValues(alpha: 0.4),
+        backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.4),
         headers: [
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -73,7 +70,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                 child: Row(
                   spacing: 2,
                   children: [
-                    const Gap(10),
+                    SizedBox(height: 10),
                     if (kIsMacOS) const SizedBox(width: 65),
                     if (showLyrics.value)
                       Tabs(
@@ -87,10 +84,8 @@ class MiniLyricsPage extends HookConsumerWidget {
                         ],
                       ),
                     const Spacer(),
-                    IconButton(
-                      variance: showLyrics.value
-                          ? ButtonVariance.secondary
-                          : ButtonVariance.ghost,
+                    IconButton(.value
+                          ? null : null,
                       icon: showLyrics.value
                           ? const Icon(SpotubeIcons.lyrics)
                           : const Icon(SpotubeIcons.lyricsOff),
@@ -108,10 +103,8 @@ class MiniLyricsPage extends HookConsumerWidget {
                         }
                       },
                     ),
-                    IconButton(
-                      variance: hoverMode.value
-                          ? ButtonVariance.secondary
-                          : ButtonVariance.ghost,
+                    IconButton(.value
+                          ? null : null,
                       icon: hoverMode.value
                           ? const Icon(SpotubeIcons.hoverOn)
                           : const Icon(SpotubeIcons.hoverOff),
@@ -124,10 +117,8 @@ class MiniLyricsPage extends HookConsumerWidget {
                       FutureBuilder(
                         future: windowManager.isAlwaysOnTop(),
                         builder: (context, snapshot) {
-                          return IconButton(
-                            variance: snapshot.data == true
-                                ? ButtonVariance.secondary
-                                : ButtonVariance.ghost,
+                          return IconButton(.data == true
+                                ? null : null,
                             icon: Icon(
                               snapshot.data == true
                                   ? SpotubeIcons.pinOn
@@ -153,19 +144,19 @@ class MiniLyricsPage extends HookConsumerWidget {
         child: Column(
           children: [
             if (playlistQueue.activeTrack != null)
-              Text(playlistQueue.activeTrack!.name!).semiBold(),
+              Text(playlistQueue.activeTrack!.name!),
             if (showLyrics.value)
               Expanded(
                 child: IndexedStack(
                   index: index.value,
                   children: [
                     SyncedLyrics(
-                      palette: PaletteColor(theme.colorScheme.background, 0),
+                      palette: PaletteColor(theme.colorScheme.surface, 0),
                       isModal: true,
                       defaultTextZoom: 65,
                     ),
                     PlainLyrics(
-                      palette: PaletteColor(theme.colorScheme.background, 0),
+                      palette: PaletteColor(theme.colorScheme.surface, 0),
                       isModal: true,
                       defaultTextZoom: 65,
                     ),
@@ -173,7 +164,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                 ),
               )
             else
-              const Gap(20),
+              SizedBox(height: 20),
             AnimatedCrossFade(
               crossFadeState: areaActive.value
                   ? CrossFadeState.showFirst
@@ -182,22 +173,17 @@ class MiniLyricsPage extends HookConsumerWidget {
               secondChild: const SizedBox(),
               firstChild: Row(
                 children: [
-                  IconButton.ghost(
+                  IconButton(
                       icon: const Icon(SpotubeIcons.queue),
                       onPressed: playlistQueue.activeTrack != null
                           ? () {
                               final capturedTheme = Theme.of(context);
-                              openDrawer(
+                              showModalBottomSheet(
                                 context: context,
                                 barrierDismissible: true,
-                                draggable: true,
-                                barrierColor: Colors.black.withAlpha(100),
+                                                                barrierColor: Colors.black.withAlpha(100),
                                 borderRadius: BorderRadius.circular(10),
-                                transformBackdrop: false,
-                                position: OverlayPosition.bottom,
-                                surfaceBlur: context.theme.surfaceBlur,
-                                surfaceOpacity: 0.7,
-                                expands: true,
+                                                                                                                                                                expands: true,
                                 builder: (context) => Theme(
                                   data: capturedTheme,
                                   child: Material(
@@ -232,7 +218,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                           : null,
                     ),
                   const Flexible(child: PlayerControls(compact: true)),
-                  IconButton.ghost(
+                  IconButton(
                     icon: const Icon(SpotubeIcons.maximize),
                     onPressed: () async {
                       if (!kIsDesktop) return;

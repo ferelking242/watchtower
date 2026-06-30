@@ -1,45 +1,40 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
-import 'package:flutter/material.dart' show Material, MaterialType;
 
-class AdaptiveMenuButton<T> extends MenuButton {
+class AdaptiveMenuButton<T> {
   final T? value;
+  final Widget child;
+  final VoidCallback? onPressed;
+  final Widget? leading;
+  final Widget? trailing;
+  final bool enabled;
+  final Key? key;
+
   const AdaptiveMenuButton({
-    super.key,
+    this.key,
     this.value,
-    required super.child,
-    super.subMenu,
-    super.onPressed,
-    super.trailing,
-    super.leading,
-    super.enabled = true,
-    super.focusNode,
-    super.autoClose = true,
-    super.popoverController,
+    required this.child,
+    this.onPressed,
+    this.leading,
+    this.trailing,
+    this.enabled = true,
   }) : assert(
           value != null || onPressed != null,
           'Either value or onPressed must be provided',
         );
 }
 
-/// An adaptive widget that shows a [PopupMenuButton] when screen size is above
-/// or equal to 640px
-/// In smaller screen, a [IconButton] with a [openDrawer] is shown
 class AdaptivePopSheetList<T> extends StatelessWidget {
   final List<AdaptiveMenuButton<T>> Function(BuildContext context) items;
   final Widget? icon;
   final Widget? child;
   final bool useRootNavigator;
-
   final List<Widget>? headings;
   final String tooltip;
   final ValueChanged<T>? onSelected;
-
   final Offset offset;
-
-  final AbstractButtonStyle variance;
+  final ButtonStyle? variance;
 
   const AdaptivePopSheetList({
     super.key,
@@ -51,150 +46,118 @@ class AdaptivePopSheetList<T> extends StatelessWidget {
     this.onSelected,
     required this.tooltip,
     this.offset = Offset.zero,
-    this.variance = ButtonVariance.ghost,
+    this.variance,
   }) : assert(
           !(icon != null && child != null),
           'Either icon or child must be provided',
         );
 
-  Future<void> showDropdownMenu(BuildContext context, Offset position) async {
-    final mediaQuery = MediaQuery.of(context);
-    // Capture the shadcn theme BEFORE entering the overlay so the builder
-    // context (which comes from a new overlay entry) can re-inject it.
-    // Without this, openDrawer/showDropdown builders have no shadcn ancestor
-    // and shadcn widgets render as blank gray boxes.
-    final capturedTheme = Theme.of(context);
+  Future<void> _showPopupMenu(BuildContext context) async {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+            button.size.bottomRight(Offset.zero),
+            ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
 
-    List<MenuButton> childrenModified(BuildContext context) =>
-        items(context).map((s) {
-          if (s.onPressed == null) {
-            return MenuButton(
-              key: s.key,
-              autoClose: s.autoClose,
-              enabled: s.enabled,
-              leading: s.leading,
-              focusNode: s.focusNode,
-              onPressed: (context) {
-                if (s.value != null) {
-                  onSelected?.call(s.value as T);
-                }
-              },
-              popoverController: s.popoverController,
-              subMenu: s.subMenu,
-              trailing: s.trailing,
-              child: s.child,
-            );
-          }
-          return s;
-        }).toList();
-
-    if (mediaQuery.mdAndUp) {
-      await showDropdown<T?>(
-        context: context,
-        rootOverlay: useRootNavigator,
-        // heightConstraint: PopoverConstraint.anchorFixedSize,
-        // constraints: BoxConstraints(
-        //   maxHeight: mediaQuery.size.height * 0.6,
-        // ),
-        position: position,
-        builder: (context) {
-          return Theme(
-            data: capturedTheme,
-            child: WidgetStatesProvider.boundary(
-              child: DropdownMenu(
-                children: childrenModified(context),
-              ),
-            ),
-          );
-        },
-      ).future;
-      return;
-    }
-
-    await openDrawer(
+    final menuItems = items(context);
+    final result = await showMenu<T>(
       context: context,
-      draggable: true,
-      showDragHandle: true,
-      position: OverlayPosition.bottom,
-      borderRadius: context.theme.borderRadiusMd,
-      transformBackdrop: false,
-      builder: (context) {
-        final children = childrenModified(context);
-        return Theme(
-          data: capturedTheme,
-          // openDrawer creates a bare overlay entry with no Material ancestor.
-          // shadcn Button uses Flutter's Ink internally, which calls
-          // Material.of(context)! and crashes without this wrapper.
-          child: Material(
-            type: MaterialType.transparency,
-            child: ListView.builder(
-              itemCount: children.length,
-              shrinkWrap: true,
-              itemBuilder: (context, index) {
-                final data = children[index];
+      position: position,
+      useRootNavigator: useRootNavigator,
+      items: [
+        if (headings != null)
+          ...headings!.map((h) => PopupMenuItem<T>(
+                enabled: false,
+                child: h,
+              )),
+        ...menuItems.map((item) => PopupMenuItem<T>(
+              value: item.value,
+              enabled: item.enabled,
+              onTap: item.onPressed,
+              child: item.leading != null
+                  ? Row(
+                      children: [
+                        item.leading!,
+                        const SizedBox(width: 12),
+                        Expanded(child: item.child),
+                        if (item.trailing != null) item.trailing!,
+                      ],
+                    )
+                  : item.child,
+            )),
+      ],
+    );
+    if (result != null) {
+      onSelected?.call(result);
+    }
+  }
 
-                return Button(
-                  enabled: data.enabled,
-                  style: ButtonVariance.ghost.copyWith(
-                    padding: (context, state, value) =>
-                        const EdgeInsets.all(16),
-                  ),
-                  onPressed: () {
-                    data.onPressed?.call(context);
-                    if (data.autoClose) {
-                      closeDrawer(context);
+  Future<void> _showBottomSheet(BuildContext context) async {
+    final menuItems = items(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: useRootNavigator,
+      showDragHandle: true,
+      builder: (ctx) {
+        return ListView(
+          shrinkWrap: true,
+          children: [
+            if (headings != null)
+              ...headings!.map((h) => Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    child: h,
+                  )),
+            ...menuItems.map((item) => ListTile(
+                  enabled: item.enabled,
+                  leading: item.leading,
+                  trailing: item.trailing,
+                  title: item.child,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    if (item.onPressed != null) {
+                      item.onPressed!();
+                    } else if (item.value != null) {
+                      onSelected?.call(item.value as T);
                     }
                   },
-                  leading: data.leading,
-                  trailing: data.trailing,
-                  alignment: Alignment.centerLeft,
-                  child: data.child,
-                );
-              },
-            ),
-          ),
+                )),
+            const SizedBox(height: 16),
+          ],
         );
       },
     );
   }
 
+  void _show(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    if (mediaQuery.mdAndUp) {
+      _showPopupMenu(context);
+    } else {
+      _showBottomSheet(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-
-    if (mediaQuery.mdAndUp) {
-      return IconButton(
-        variance: variance,
-        icon: icon ?? const Icon(SpotubeIcons.moreVertical),
-        onPressed: () {
-          final renderBox = context.findRenderObject() as RenderBox;
-          final position = RelativeRect.fromRect(
-            Rect.fromPoints(
-              renderBox.localToGlobal(Offset.zero,
-                  ancestor: context.findRenderObject()),
-              renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero),
-                  ancestor: context.findRenderObject()),
-            ),
-            Offset.zero & mediaQuery.size,
-          );
-          final offset = Offset(position.left, position.top);
-          showDropdownMenu(context, offset);
-        },
-      );
-    }
-
     if (child != null) {
-      return Button(
-        onPressed: () => showDropdownMenu(context, Offset.zero),
-        style: variance,
-        child: IgnorePointer(child: child),
+      return GestureDetector(
+        onTap: () => _show(context),
+        child: child,
       );
     }
 
     return IconButton(
-      variance: variance,
+      tooltip: tooltip,
       icon: icon ?? const Icon(SpotubeIcons.moreVertical),
-      onPressed: () => showDropdownMenu(context, Offset.zero),
+      onPressed: () => _show(context),
     );
   }
 }

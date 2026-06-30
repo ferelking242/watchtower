@@ -1,5 +1,5 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -15,7 +15,6 @@ class StatsPlaylistItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ButtonTile(
-      style: ButtonVariance.ghost,
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: UniversalImage(
@@ -27,7 +26,6 @@ class StatsPlaylistItem extends StatelessWidget {
         ),
       ),
       title: Text(playlist.name),
-      subtitle: Text(
         playlist.description.unescapeHtml(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,

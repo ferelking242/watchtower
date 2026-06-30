@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/modules/stats/summary/summary.dart';
@@ -28,7 +28,7 @@ class StatsPage extends HookConsumerWidget {
           ],
           child: CustomScrollView(
             slivers: [
-              if (kIsMacOS) const SliverGap(20),
+              if (kIsMacOS) const SliverToBoxAdapter(child: SizedBox(height: 20)),
               const StatsPageSummarySection(),
               const StatsPageTopSection(),
               const SliverToBoxAdapter(

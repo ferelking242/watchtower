@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' hide ThemeMode;
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -34,7 +34,6 @@ class SettingsAppearanceSection extends HookConsumerWidget {
       AdaptiveSelectTile<LayoutMode>(
         secondary: const Icon(SpotubeIcons.dashboard),
         title: Text(context.l10n.layout_mode),
-        subtitle: Text(context.l10n.override_layout_settings),
         value: preferences.layoutMode,
         onChanged: (value) {
           if (value != null) preferencesNotifier.setLayoutMode(value);
@@ -77,7 +76,6 @@ class SettingsAppearanceSection extends HookConsumerWidget {
         },
       ),
       ListTile(
-        leading: const Icon(SpotubeIcons.palette),
         title: Text(context.l10n.accent_color),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 15, vertical: 5),

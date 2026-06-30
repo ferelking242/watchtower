@@ -1,7 +1,5 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide Consumer;
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -64,7 +62,7 @@ class LyricsPage extends HookConsumerWidget {
             );
           },
         ),
-        const Gap(5),
+        SizedBox(height: 5),
       ],
     );
 
@@ -77,9 +75,8 @@ class LyricsPage extends HookConsumerWidget {
               ? TitleBar(
                   backgroundColor: Colors.transparent,
                   title: tabbar,
-                  height: 58 * context.theme.scaling,
-                  surfaceBlur: 0,
-                  automaticallyImplyLeading: false,
+                  height: 58 * 1.0,
+                                    automaticallyImplyLeading: false,
                 )
               : tabbar
         ],
@@ -92,13 +89,9 @@ class LyricsPage extends HookConsumerWidget {
             ),
           ),
           margin: const EdgeInsets.only(bottom: 10),
-          child: SurfaceCard(
-            surfaceBlur: context.theme.surfaceBlur,
-            surfaceOpacity: context.theme.surfaceOpacity,
-            padding: EdgeInsets.zero,
+          child: Card(
             borderRadius: BorderRadius.zero,
-            borderWidth: 0,
-            child: ColoredBox(
+                        child: ColoredBox(
               color: palette.color.withValues(alpha: .7),
               child: SafeArea(
                 child: IndexedStack(

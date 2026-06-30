@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 
 class VolumeSlider extends HookConsumerWidget {
@@ -37,8 +37,8 @@ class VolumeSlider extends HookConsumerWidget {
         child: Slider(
           min: 0,
           max: 1,
-          value: SliderValue.single(value),
-          onChanged: (v) => onChanged(v.value),
+          value: value,
+          onChanged: (v) => onChanged(v),
         ),
       ),
     );
@@ -48,7 +48,6 @@ class VolumeSlider extends HookConsumerWidget {
           !fullWidth ? MainAxisAlignment.center : MainAxisAlignment.start,
       children: [
         IconButton(
-          variance: ButtonVariance.ghost,
           icon: Icon(
             value == 0
                 ? SpotubeIcons.volumeMute

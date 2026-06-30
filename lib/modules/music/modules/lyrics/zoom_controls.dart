@@ -1,6 +1,5 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
+import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 
@@ -33,7 +32,7 @@ class ZoomControls extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      IconButton.ghost(
+      IconButton(
         icon: decreaseIcon,
         onPressed: () {
           if (value == min) return;
@@ -41,7 +40,7 @@ class ZoomControls extends HookWidget {
         },
       ),
       Text("$value$unit"),
-      IconButton.ghost(
+      IconButton(
         icon: increaseIcon,
         onPressed: () {
           if (value == max) return;
@@ -56,10 +55,7 @@ class ZoomControls extends HookWidget {
         maxWidth: direction == Axis.vertical ? 50 : double.infinity,
       ),
       margin: const EdgeInsets.all(8),
-      child: SurfaceCard(
-        surfaceBlur: context.theme.surfaceBlur,
-        surfaceOpacity: context.theme.surfaceOpacity,
-        padding: EdgeInsets.zero,
+      child: Card(
         child: direction == Axis.horizontal
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.end,

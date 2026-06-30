@@ -1,5 +1,5 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -26,7 +26,7 @@ class ConnectPageLocalDevices extends HookWidget {
 
     return SliverMainAxisGroup(
       slivers: [
-        const SliverGap(10),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           sliver: SliverToBoxAdapter(
@@ -36,23 +36,21 @@ class ConnectPageLocalDevices extends HookWidget {
             ),
           ),
         ),
-        const SliverGap(10),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         SliverList.separated(
           itemCount: devices.length,
-          separatorBuilder: (context, index) => const Gap(10),
+          separatorBuilder: (context, index) => SizedBox(height: 10),
           itemBuilder: (context, index) {
             final device = devices[index];
 
             return ButtonTile(
               selected: selectedDevice == device,
               onPressed: () => audioPlayer.setAudioDevice(device),
-              leading: const Icon(SpotubeIcons.speaker),
               title: Text(device.description),
-              subtitle: Text(device.name),
             );
           },
         ),
-        const SliverGap(200)
+        const SliverToBoxAdapter(child: SizedBox(height: 200))
       ],
     );
   }

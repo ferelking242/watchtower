@@ -5,7 +5,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import 'package:html/dom.dart' hide Text;
-import 'package:shadcn_flutter/shadcn_flutter.dart' hide Element;
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/pages/library/user_local_tracks/user_local_tracks.dart';
 import 'package:watchtower/modules/music/modules/root/update_dialog.dart';

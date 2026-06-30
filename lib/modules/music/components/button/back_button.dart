@@ -1,4 +1,4 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 
 class BackButton extends StatelessWidget {
@@ -12,8 +12,7 @@ class BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton.ghost(
-      size: const ButtonSize(1.2),
+    return IconButton(
       icon: Icon(icon, color: color),
       onPressed: () => Navigator.of(context).pop(),
     );
