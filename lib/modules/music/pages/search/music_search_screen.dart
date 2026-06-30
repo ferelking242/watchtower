@@ -446,7 +446,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                   itemBuilder: (_, i) => _SectionGridCard(
                     section: sections[i],
                     color: _sectionColor(i),
-                    onTap: () => _toBrowseSection(sections[i]),
+                    onTap: () => _toBrowseSection(context, sections[i]),
                   ),
                 ),
               ),
