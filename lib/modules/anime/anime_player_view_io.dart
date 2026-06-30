@@ -2436,99 +2436,75 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
   }
 
   Widget _lockButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(24),
+    return IconButton(
+      icon: Icon(
+        _locked ? Icons.lock_outline : Icons.lock_open_outlined,
+        color: Colors.white,
+        size: 28,
       ),
-      child: IconButton(
-        icon: Icon(
-          _locked ? Icons.lock_outline : Icons.lock_open_outlined,
-          color: Colors.white,
-          size: 22,
-        ),
-        tooltip: _locked ? 'Déverrouiller' : 'Verrouiller',
-        onPressed: () => setState(() => _locked = !_locked),
-      ),
+      tooltip: _locked ? 'Déverrouiller' : 'Verrouiller',
+      onPressed: () => setState(() => _locked = !_locked),
     );
   }
 
   Widget _muteButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(24),
+    return IconButton(
+      icon: Icon(
+        _isMuted ? Icons.volume_off : Icons.volume_up,
+        color: Colors.white,
+        size: 28,
       ),
-      child: IconButton(
-        icon: Icon(
-          _isMuted ? Icons.volume_off_outlined : Icons.volume_up_outlined,
-          color: Colors.white,
-          size: 22,
-        ),
-        tooltip: _isMuted ? 'Réactiver le son' : 'Muet',
-        onPressed: () {
-          setState(() {
-            if (_isMuted) {
-              _isMuted = false;
-              _player.setVolume(_savedVolume * 100);
-            } else {
-              _savedVolume = _player.state.volume / 100;
-              _isMuted = true;
-              _player.setVolume(0);
-            }
-          });
-        },
-      ),
+      tooltip: _isMuted ? 'Réactiver le son' : 'Muet',
+      onPressed: () {
+        setState(() {
+          if (_isMuted) {
+            _isMuted = false;
+            _player.setVolume(_savedVolume * 100);
+          } else {
+            _savedVolume = _player.state.volume / 100;
+            _isMuted = true;
+            _player.setVolume(0);
+          }
+        });
+      },
     );
   }
 
   Widget _screenshotSideButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: btnToShowShareScreenshot(
-        widget.episode,
-        onChanged: (v) {
-          if (v) {
-            _player.play();
-          } else {
-            _player.pause();
-          }
-        },
-      ),
+    return btnToShowShareScreenshot(
+      widget.episode,
+      onChanged: (v) {
+        if (v) {
+          _player.play();
+        } else {
+          _player.pause();
+        }
+      },
     );
   }
 
   Widget _rotateSideButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(24),
+    return IconButton(
+      icon: const Icon(
+        Icons.screen_rotation_outlined,
+        color: Colors.white,
+        size: 28,
       ),
-      child: IconButton(
-        icon: const Icon(
-          Icons.screen_rotation_outlined,
-          color: Colors.white,
-          size: 22,
-        ),
-        tooltip: 'Rotation',
-        onPressed: () {
-          final orientation = MediaQuery.of(context).orientation;
-          if (orientation == Orientation.landscape) {
-            SystemChrome.setPreferredOrientations([
-              DeviceOrientation.portraitUp,
-              DeviceOrientation.portraitDown,
-            ]);
-          } else {
-            SystemChrome.setPreferredOrientations([
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]);
-          }
-        },
-      ),
+      tooltip: 'Rotation',
+      onPressed: () {
+        final orientation = MediaQuery.of(context).orientation;
+        if (orientation == Orientation.landscape) {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+          ]);
+        } else {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+        }
+      },
     );
   }
 
@@ -2693,16 +2669,16 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                   leftSideWidget: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _lockButton(),
-                      const SizedBox(height: 12),
                       _muteButton(),
+                      const SizedBox(height: 20),
+                      _lockButton(),
                     ],
                   ),
                   rightSideWidget: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _screenshotSideButton(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 20),
                       _rotateSideButton(),
                     ],
                   ),
