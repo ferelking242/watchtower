@@ -108,7 +108,12 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                     ),
                     HookBuilder(builder: (context) {
                       final isLoading = useState(false);
-                      return IconButton.outlined(
+                      return IconButton(
+                        style: IconButton.styleFrom(
+                          side: BorderSide(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
                         icon: isLoading.value
                             ? const SizedBox.square(
                                 dimension: 22,
