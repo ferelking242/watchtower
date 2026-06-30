@@ -141,8 +141,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
           },
         ),
         FilledButton(
-          onPressed: onCreate,
-          enabled: !playlist.isLoading & !isSubmitting.value,
+          onPressed: (!playlist.isLoading && !isSubmitting.value) ? onCreate : null,
           child: Text(
             isUpdatingPlaylist ? context.l10n.update : context.l10n.create,
           ),
@@ -191,9 +190,9 @@ class PlaylistCreateDialog extends HookConsumerWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          TextButton(
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.edit),
-                            child: Text(
+                          TextButton.icon(
+                            icon: const Icon(SpotubeIcons.edit),
+                            label: Text(
                               field.value?.path != null ||
                                       updatingPlaylist?.images != null
                                   ? context.l10n.change_cover
@@ -212,14 +211,16 @@ class PlaylistCreateDialog extends HookConsumerWidget {
                             },
                           ),
                           const SizedBox(width: 10),
-                          IconButton.destructive(
+                          IconButton(
                             icon: const Icon(SpotubeIcons.trash),
-                            enabled: field.value != null,
-                            onPressed: () {
-                              field.didChange(null);
-                              field.validate();
-                              field.save();
-                            },
+                            color: Theme.of(context).colorScheme.error,
+                            onPressed: field.value == null
+                                ? null
+                                : () {
+                                    field.didChange(null);
+                                    field.validate();
+                                    field.save();
+                                  },
                           ),
                         ],
                       ),
@@ -227,7 +228,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
                         Text(
                           field.errorText ?? "",
                           style: theme.textTheme.bodyMedium!.copyWith(
-                            color: theme.colorScheme.destructive,
+                            color: theme.colorScheme.error,
                           ),
                         )
                     ],
@@ -238,7 +239,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
               TextFormBuilderField(
                 name: 'playlistName',
                 label: Text(context.l10n.playlist_name),
-                decoration: InputDecoration(hintText: context.l10n.name_of_playlist),
+                placeholder: Text(context.l10n.name_of_playlist),
                 validator: FormBuilderValidators.required(),
               ),
               const SizedBox(height: 20, width: 20),
@@ -246,7 +247,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
                 name: 'description',
                 label: Text(context.l10n.description),
                 validator: FormBuilderValidators.required(),
-                decoration: InputDecoration(hintText: context.l10n.description),
+                placeholder: Text(context.l10n.description),
                 keyboardType: TextInputType.multiline,
                 maxLines: 5,
               ),
@@ -271,21 +272,18 @@ class PlaylistCreateDialog extends HookConsumerWidget {
 class PlaylistCreateDialogButton extends HookConsumerWidget {
   const PlaylistCreateDialogButton({super.key});
 
-  showPlaylistDialog(BuildContext context) {
+  void showPlaylistDialog(BuildContext context) {
     showDialog(
       context: context,
-      alignment: Alignment.center,
-      builder: (context) => const ToastLayer(
-        child: PlaylistCreateDialog(),
-      ),
+      builder: (context) => const PlaylistCreateDialog(),
     );
   }
 
   @override
   Widget build(BuildContext context, ref) {
-    return TextButton(
-      child: Row(mainAxisSize: MainAxisSize.min, children: [ const Icon(SpotubeIcons.addFilled),
-      child: Text(context.l10n.playlist),
+    return TextButton.icon(
+      icon: const Icon(SpotubeIcons.addFilled),
+      label: Text(context.l10n.playlist),
       onPressed: () => showPlaylistDialog(context),
     );
   }
