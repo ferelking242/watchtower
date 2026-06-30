@@ -79,28 +79,20 @@ class StatsStreamFeesPage extends HookConsumerWidget {
                     Text(
                       context.l10n.total_money(usdFormatter.format(total)),
                     ),
-                    Select<HistoryDuration>(
+                    DropdownButton<HistoryDuration>(
                       value: duration.value,
                       onChanged: (value) {
                         if (value == null) return;
                         duration.value = value;
                       },
-                      itemBuilder: (context, value) =>
-                          Text(translations[value]!),
-                      constraints: const BoxConstraints(maxWidth: 150),
-                      popupWidthConstraint: PopoverConstraint.anchorMaxSize,
-                      popup: SelectPopup(
-                        items: SelectItemBuilder(
-                          childCount: translations.length,
-                          builder: (context, index) {
-                            final entry = translations.entries.elementAt(index);
-                            return SelectItemButton(
+                      items: translations.entries
+                          .map(
+                            (entry) => DropdownMenuItem<HistoryDuration>(
                               value: entry.key,
                               child: Text(entry.value),
-                            );
-                          },
-                        ),
-                      ).call,
+                            ),
+                          )
+                          .toList(),
                     ),
                   ],
                 ),
