@@ -81,17 +81,40 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
       userPreferencesProvider.select((p) => p.locale),
     );
 
-    return Material(
-      color: Colors.transparent,
-      child: Builder(
-        builder: (locCtx) => Localizations.override(
-          context: locCtx,
-          locale: musicLocale,
-          child: Router(
-            routerDelegate: _router.delegate(),
-            backButtonDispatcher: parentDispatcher != null
-                ? ChildBackButtonDispatcher(parentDispatcher)
-                : RootBackButtonDispatcher(),
+    // Apply the music module's own accent colour so widgets inside always use
+    // the user-chosen colour (green by default) rather than the parent app's
+    // FlexColorScheme primary (which defaults to Material blue).
+    final accentColor = ref.watch(
+      userPreferencesProvider.select((p) => p.accentColorScheme),
+    );
+    final musicThemeMode = ref.watch(
+      userPreferencesProvider.select((p) => p.themeMode),
+    );
+    final systemBrightness = MediaQuery.of(context).platformBrightness;
+    final musicBrightness = switch (musicThemeMode) {
+      ThemeMode.dark => Brightness.dark,
+      ThemeMode.light => Brightness.light,
+      ThemeMode.system => systemBrightness,
+    };
+    final musicColorScheme = ColorScheme.fromSeed(
+      seedColor: accentColor,
+      brightness: musicBrightness,
+    );
+
+    return Theme(
+      data: Theme.of(context).copyWith(colorScheme: musicColorScheme),
+      child: Material(
+        color: Colors.transparent,
+        child: Builder(
+          builder: (locCtx) => Localizations.override(
+            context: locCtx,
+            locale: musicLocale,
+            child: Router(
+              routerDelegate: _router.delegate(),
+              backButtonDispatcher: parentDispatcher != null
+                  ? ChildBackButtonDispatcher(parentDispatcher)
+                  : RootBackButtonDispatcher(),
+            ),
           ),
         ),
       ),
