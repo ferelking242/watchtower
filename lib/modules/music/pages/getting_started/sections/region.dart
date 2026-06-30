@@ -14,44 +14,30 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
   const GettingStartedPageLanguageRegionSection(
       {super.key, required this.onNext});
 
-  bool filterMarkets(dynamic item, String query) {
-    final market =
-        marketsMap.firstWhere((element) => element.$1 == item).$2.toLowerCase();
-
-    return market.contains(query.toLowerCase());
-  }
-
-  bool filterLocale(Locale locale, String query) {
-    final language = LanguageLocals.getDisplayLanguage(
-      locale.languageCode,
-      locale.countryCode,
-    ).toString();
-
-    return language.toLowerCase().contains(query.toLowerCase());
-  }
-
   @override
   Widget build(BuildContext context, ref) {
     final preferences = ref.watch(userPreferencesProvider);
-      final preferencesNotifier = ref.read(userPreferencesProvider.notifier);
+    final preferencesNotifier = ref.read(userPreferencesProvider.notifier);
 
-      // Pre-fill Spotube's locale with Watchtower's active locale on first setup,
-      // so the language picker shows the same language as the host app by default.
-      final appLocale = Localizations.localeOf(context);
-      useEffect(() {
-        final current = preferences.locale;
-        if (current == null || current.languageCode == 'system') {
-          final match = L10n.all.where(
-            (l) => l.languageCode == appLocale.languageCode,
-          ).firstOrNull;
-          if (match != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              preferencesNotifier.setLocale(match);
-            });
-          }
+    // Pre-fill Spotube's locale with Watchtower's active locale on first setup,
+    // so the language picker shows the same language as the host app by default.
+    final appLocale = Localizations.localeOf(context);
+    useEffect(() {
+      final current = preferences.locale;
+      if (current == null || current.languageCode == 'system') {
+        final match = L10n.all
+            .where(
+              (l) => l.languageCode == appLocale.languageCode,
+            )
+            .firstOrNull;
+        if (match != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            preferencesNotifier.setLocale(match);
+          });
         }
-        return null;
-      }, const []);
+      }
+      return null;
+    }, const []);
 
     return SafeArea(
       child: Center(
@@ -69,140 +55,95 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                   Text(context.l10n.language_region),
                 ],
               ),
-              const SizedBox(height: 30, width: 30),
+              const SizedBox(height: 30),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(context.l10n.choose_your_region),
-                  Text(
-                    context.l10n.choose_your_region_description,
-                  ),
-                  const SizedBox(height: 16, width: 16),
+                  Text(context.l10n.choose_your_region_description),
+                  const SizedBox(height: 16),
                   Text(context.l10n.market_place_region),
-                  const SizedBox(height: 8, width: 8),
+                  const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
-                    child: Select(
+                    child: DropdownButtonFormField<dynamic>(
                       value: preferences.market,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        hintText: context.l10n.market_place_region,
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
                       onChanged: (value) {
                         if (value == null) return;
-                        ref
-                            .read(userPreferencesProvider.notifier)
-                            .setRecommendationMarket(value);
+                        preferencesNotifier.setRecommendationMarket(value);
                       },
-                      placeholder: Text(preferences.market.name),
-                      itemBuilder: (context, value) => Text(
-                        marketsMap
-                            .firstWhere((element) => element.$1 == value)
-                            .$2,
-                      ),
-                      popup: SelectPopup.builder(
-                        searchPlaceholder: Text(context.l10n.search),
-                        builder: (context, searchQuery) {
-                          final filteredMarkets = searchQuery == null ||
-                                  searchQuery.isEmpty
-                              ? marketsMap
-                              : marketsMap
-                                  .where(
-                                    (element) =>
-                                        filterMarkets(element.$1, searchQuery),
-                                  )
-                                  .toList();
-                          return SelectItemBuilder(
-                            childCount: filteredMarkets.length,
-                            builder: (context, index) {
-                              final market = filteredMarkets[index];
-                              return SelectItemButton(
-                                value: market.$1,
-                                child: Text(market.$2),
-                              );
-                            },
-                          );
-                        },
-                      ).call,
+                      items: marketsMap.map((entry) {
+                        return DropdownMenuItem<dynamic>(
+                          value: entry.$1,
+                          child: Text(
+                            entry.$2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
-                  const SizedBox(height: 36, width: 36),
-                  Text(
-                    context.l10n.choose_your_language,
-                  ),
-                  const SizedBox(height: 16, width: 16),
+                  const SizedBox(height: 36),
+                  Text(context.l10n.choose_your_language),
+                  const SizedBox(height: 16),
                   Text(context.l10n.language),
-                  const SizedBox(height: 8, width: 8),
+                  const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
-                    child: Select<Locale>(
+                    child: DropdownButtonFormField<Locale>(
                       value: preferences.locale,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        hintText: context.l10n.system_default,
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
                       onChanged: (locale) {
                         if (locale == null) return;
-                        ref
-                            .read(userPreferencesProvider.notifier)
-                            .setLocale(locale);
+                        preferencesNotifier.setLocale(locale);
                       },
-                      placeholder: Text(context.l10n.system_default),
-                      itemBuilder: (context, value) =>
-                          value.languageCode == "system"
-                              ? Text(context.l10n.system_default)
-                              : Text(
-                                  LanguageLocals.getDisplayLanguage(
-                                    value.languageCode,
-                                    value.countryCode,
-                                  ).toString(),
-                                ),
-                      popup: SelectPopup.builder(
-                        searchPlaceholder: Text(context.l10n.search),
-                        builder: (context, searchQuery) {
-                          final hasNotQueried =
-                              searchQuery == null || searchQuery.trim().isEmpty;
-                          final filteredLocale = hasNotQueried
-                              ? [
-                                  const Locale("system", "system"),
-                                  ...L10n.all,
-                                ]
-                              : L10n.all
-                                  .where(
-                                    (element) => filterLocale(
-                                      element,
-                                      searchQuery.trim(),
-                                    ),
-                                  )
-                                  .toList();
-
-                          return SelectItemBuilder(
-                            childCount: filteredLocale.length,
-                            builder: (context, index) {
-                              final locale = filteredLocale[index];
-                              if (locale == const Locale("system", "system")) {
-                                return SelectItemButton(
-                                  value: locale,
-                                  child: Text(context.l10n.system_default),
-                                );
-                              }
-                              return SelectItemButton(
-                                value: locale,
-                                child: Text(
-                                  LanguageLocals.getDisplayLanguage(
-                                    locale.languageCode,
-                                    locale.countryCode,
-                                  ).toString(),
-                                ),
-                              );
-                            },
+                      items: [
+                        DropdownMenuItem<Locale>(
+                          value: const Locale("system", "system"),
+                          child: Text(context.l10n.system_default),
+                        ),
+                        ...L10n.all.map((locale) {
+                          return DropdownMenuItem<Locale>(
+                            value: locale,
+                            child: Text(
+                              LanguageLocals.getDisplayLanguage(
+                                locale.languageCode,
+                                locale.countryCode,
+                              ).toString(),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           );
-                        },
-                      ).call,
+                        }),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 48, width: 48),
+              const SizedBox(height: 48),
               Align(
                 alignment: Alignment.centerRight,
-                child: FilledButton(
-                  trailing: const Icon(SpotubeIcons.angleRight),
+                child: FilledButton.icon(
+                  icon: const Icon(SpotubeIcons.angleRight),
                   onPressed: onNext,
-                  child: Text(context.l10n.next),
+                  label: Text(context.l10n.next),
                 ),
               ),
             ],
