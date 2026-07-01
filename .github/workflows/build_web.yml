@@ -163,6 +163,7 @@ jobs:
       - name: Deploy to Vercel
         run: |
           npm install -g vercel@latest
+          cp vercel.json build/web/vercel.json
           cd build/web
           vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tee /tmp/vout.txt
           grep -Eo 'https://[^ ]+\.vercel\.app' /tmp/vout.txt | tail -1 || true
