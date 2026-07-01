@@ -11,11 +11,9 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:watchtower/modules/library/providers/file_scanner.dart';
   import 'package:watchtower/modules/widgets/bottom_text_widget.dart';
   import 'package:watchtower/modules/widgets/cover_view_widget.dart';
-  import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
   import 'package:watchtower/modules/widgets/gridview_widget.dart';
   import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
   import 'package:watchtower/providers/storage_provider.dart';
-  import 'package:watchtower/utils/headers.dart';
 
   // Streams local mangas filtered by itemType
   final _localMangasByTypeProvider = StreamProvider.family<List<Manga>, ItemType>(
@@ -186,14 +184,10 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                 final manga = mangas[index];
                 final bool isLocalArchive = manga.isLocalArchive ?? false;
 
+                // Local mangas store their cover as bytes — no network URL needed
                 final ImageProvider? image = manga.customCoverImage != null
                     ? MemoryImage(manga.customCoverImage as Uint8List)
-                    : (manga.imageUrl?.isNotEmpty == true)
-                        ? CustomExtendedNetworkImageProvider(
-                            manga.imageUrl!,
-                            headers: getHeader(manga.imageUrl),
-                          )
-                        : null;
+                    : null;
 
                 return Padding(
                   padding: const EdgeInsets.all(2),
