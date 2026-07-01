@@ -181,6 +181,35 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                             ),
                           ),
                       ],
+
+                      // ── Source locale — toujours en bas ───────────────────
+                      SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                  left: 12, top: 10, bottom: 2),
+                              child: Text(
+                                l10n.other,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            SourceListTile(
+                              source: Source(
+                                name: "local",
+                                lang: "",
+                                itemType: widget.itemType,
+                              ),
+                              itemType: widget.itemType,
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 );

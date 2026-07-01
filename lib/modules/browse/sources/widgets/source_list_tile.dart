@@ -63,30 +63,55 @@ class SourceListTile extends StatelessWidget {
             context.push('/mangaHome', extra: (source, false));
           }
         },
-        leading: Container(
-          height: 37,
-          width: 37,
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).secondaryHeaderColor.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: (source.iconUrl?.isEmpty ?? true)
-              ? const Icon(Icons.extension_rounded)
-              : cachedNetworkImage(
-                  imageUrl: source.iconUrl ?? '',
-                  fit: BoxFit.contain,
-                  width: 37,
-                  height: 37,
-                  errorWidget: const SizedBox(
-                    width: 37,
-                    height: 37,
-                    child: Center(child: Icon(Icons.extension_rounded)),
+        leading: isLocal
+            ? Container(
+                height: 37,
+                width: 37,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFFCA28), Color(0xFFEF6C00)],
                   ),
-                  useCustomNetworkImage: false,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFEF6C00).withValues(alpha: 0.38),
+                      blurRadius: 7,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-        ),
+                child: const Icon(
+                  Icons.folder_special_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              )
+            : Container(
+                height: 37,
+                width: 37,
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).secondaryHeaderColor.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: (source.iconUrl?.isEmpty ?? true)
+                    ? const Icon(Icons.extension_rounded)
+                    : cachedNetworkImage(
+                        imageUrl: source.iconUrl ?? '',
+                        fit: BoxFit.contain,
+                        width: 37,
+                        height: 37,
+                        errorWidget: const SizedBox(
+                          width: 37,
+                          height: 37,
+                          child: Center(child: Icon(Icons.extension_rounded)),
+                        ),
+                        useCustomNetworkImage: false,
+                      ),
+              ),
         subtitle: Row(
           children: [
             Text(

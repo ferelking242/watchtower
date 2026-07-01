@@ -363,6 +363,12 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
 
   bool get hasNextEpisode => _streamController.getEpisodeIndex().$1 != 0;
 
+  bool get hasPrevEpisode =>
+      _streamController.getEpisodeIndex().$1 + 1 !=
+      _streamController.getEpisodesLength(
+        _streamController.getEpisodeIndex().$2,
+      );
+
   late final StreamSubscription<bool> _completed = _player.stream.completed
       .listen((val) {
         if (hasNextEpisode && val) {
@@ -1725,6 +1731,20 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
+                if (hasPrevEpisode)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.skip_previous,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    onPressed: () async {
+                      pushToNewEpisode(
+                        context,
+                        _streamController.getPrevEpisode(),
+                      );
+                    },
+                  ),
                 CustomPlayOrPauseButton(
                   controller: _controller,
                   isDesktop: false,
@@ -2236,21 +2256,71 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           icon: const Icon(Icons.video_settings, color: Colors.white),
         ),
         if (useMpvConfig) ..._buildMpvSettingsButton(context),
-        ArrowPopupMenuButton<double>(
-          tooltip: '', // Remove default tooltip "Show menu" for consistency
-          icon: const Icon(Icons.speed, color: Colors.white),
-          itemBuilder: (context) =>
-              [0.25, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0]
-                  .map(
-                    (speed) => PopupMenuItem<double>(
-                      value: speed,
-                      child: Text("${speed}x"),
-                      onTap: () {
-                        _setPlaybackSpeed(speed);
-                      },
+        ValueListenableBuilder<double>(
+          valueListenable: _playbackSpeed,
+          builder: (context, currentSpeed, _) => ArrowPopupMenuButton<double>(
+            tooltip: '',
+            icon: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(Icons.speed, color: Colors.white),
+                if (currentSpeed != 1.0)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 2, vertical: 0),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${currentSpeed}x',
+                        style: const TextStyle(
+                          fontSize: 7,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  )
-                  .toList(),
+                  ),
+              ],
+            ),
+            itemBuilder: (context) =>
+                [0.25, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0]
+                    .map(
+                      (speed) => PopupMenuItem<double>(
+                        value: speed,
+                        onTap: () => _setPlaybackSpeed(speed),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              child: currentSpeed == speed
+                                  ? Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                    )
+                                  : null,
+                            ),
+                            Text(
+                              '${speed}x',
+                              style: TextStyle(
+                                fontWeight: currentSpeed == speed
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+          ),
         ),
         // ── Fit / format picker ────────────────────────────────────────────
         ValueListenableBuilder<BoxFit>(
