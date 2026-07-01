@@ -37,7 +37,7 @@ name: Build Flutter Web
         - name: Patch pubspec — redirect non-web packages to stubs
           run: |
             python3 - << 'PYEOF'
-            import re, sys
+            import re
 
             with open('pubspec.yaml', 'r') as f:
                 content = f.read()
@@ -50,11 +50,11 @@ name: Build Flutter Web
                 'screen_brightness':          'web_stubs/screen_brightness',
                 'wakelock_plus':              'web_stubs/wakelock_plus',
                 'local_notifier':             'web_stubs/local_notifier',
-                'tray_manager':              'web_stubs/tray_manager',
+                'tray_manager':               'web_stubs/tray_manager',
                 'titlebar_buttons':           'web_stubs/titlebar_buttons',
-                'smtc_windows':              'web_stubs/smtc_windows',
-                'home_widget':               'web_stubs/home_widget',
-                'metadata_god':              'web_stubs/metadata_god',
+                'smtc_windows':               'web_stubs/smtc_windows',
+                'home_widget':                'web_stubs/home_widget',
+                'metadata_god':               'web_stubs/metadata_god',
                 'flutter_new_pipe_extractor': 'web_stubs/flutter_new_pipe_extractor',
                 'sqlite3_flutter_libs':       'web_stubs/sqlite3_flutter_libs',
                 'ffi':                        'web_stubs/ffi',
@@ -74,11 +74,9 @@ name: Build Flutter Web
                     'dependency_overrides:\n' + lines_to_add,
                     1,
                 )
-                print('Patched pubspec.yaml with stubs:')
-                for pkg in stubs:
-                    print(f'  → {pkg}')
+                print('Patched pubspec.yaml with stubs')
             else:
-                print('All stubs already present, skipping')
+                print('All stubs already present')
 
             with open('pubspec.yaml', 'w') as f:
                 f.write(content)
@@ -89,20 +87,16 @@ name: Build Flutter Web
 
         - name: Patch dart:ffi files in pub-cache (sqlite3, drift)
           run: |
-            python3 << 'PYEOF'
+            python3 - << 'PYEOF'
             import os, glob
 
             pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dev')
-
-            # Files to completely stub out (they import dart:ffi)
             patterns = [
                 f'{pub_cache}/sqlite3-*/lib/src/ffi/**/*.dart',
                 f'{pub_cache}/sqlite3-*/lib/open.dart',
                 f'{pub_cache}/drift-*/lib/src/sqlite3/database_tracker.dart',
             ]
-
             stub = '// Web build stub: dart:ffi not available on Flutter Web\n'
-
             count = 0
             for pattern in patterns:
                 for path in glob.glob(pattern, recursive=True):
@@ -110,7 +104,6 @@ name: Build Flutter Web
                         f.write(stub)
                     print(f'Stubbed: {os.path.basename(path)}')
                     count += 1
-
             print(f'Total stubbed: {count} files')
             PYEOF
 
@@ -139,7 +132,7 @@ name: Build Flutter Web
                 echo "Patched: $f"
               fi
             done
-            echo "Total files patched: $COUNT"
+            echo "Total .g.dart files patched: $COUNT"
 
         - name: Build Web
           run: flutter build web --no-tree-shake-icons --release --base-href /
