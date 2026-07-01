@@ -1,6 +1,6 @@
+library sqlite3_common;
 import 'dart:convert';
 import 'dart:typed_data';
-library sqlite3_common;
 
 class Database {
   void execute(String sql, [List<Object?> parameters = const []]) {}
