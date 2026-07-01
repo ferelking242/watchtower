@@ -62,17 +62,40 @@ class MangaHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<MangaHomeScreen> createState() => _MangaHomeScreenState();
 }
 
+// ── Icon map (same keys as Watch screen) ─────────────────────────────────────
+const _kIconMap = <String, IconData>{
+  'fiber_new':    Icons.fiber_new_rounded,
+  'trending_up':  Icons.trending_up_rounded,
+  'animation':    Icons.animation_rounded,
+  'theaters':     Icons.theaters_rounded,
+  'star':         Icons.star_rounded,
+  'bolt':         Icons.bolt_rounded,
+  'movie':        Icons.movie_rounded,
+  'live_tv':      Icons.live_tv_rounded,
+  'history':      Icons.history_rounded,
+  'category':     Icons.category_rounded,
+  'new_releases': Icons.new_releases_rounded,
+  'local_movies': Icons.local_movies_rounded,
+  'tv':           Icons.tv_rounded,
+  'sports':       Icons.sports_rounded,
+  'music_note':   Icons.music_note_rounded,
+  'home':         Icons.home_rounded,
+  'fire':         Icons.local_fire_department_rounded,
+  'filter':       Icons.tune_rounded,
+  'update':       Icons.update_rounded,
+};
+
 class TypeMangaSelector {
-  final IconData icon;
+  final IconData? icon;      // Material icon (null if emoji)
+  final String? emojiStr;    // emoji ou texte court
   final String title;
-  TypeMangaSelector(this.icon, this.title);
+  TypeMangaSelector(this.icon, this.title, {this.emojiStr});
 }
 
 class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   bool _isLoading = false;
   final ScrollController _scrollController = ScrollController();
   final _scrollOffsetNotifier = ValueNotifier<double>(0.0);
-  final _collapseRatioNotifier = ValueNotifier<double>(0.0);
   int _fullDataLength = 50;
   int _page = 1;
   bool _hasNextPage = true;
@@ -109,13 +132,15 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   List<TypeMangaSelector> _types(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     return [
-      TypeMangaSelector(Icons.home_rounded, 'Accueil'),
-      TypeMangaSelector(Icons.new_releases_outlined, l10n.latest),
-      TypeMangaSelector(Icons.filter_list_outlined, l10n.filter),
+      TypeMangaSelector(Icons.local_fire_department_rounded, 'Popular'),
+      TypeMangaSelector(Icons.update_rounded, l10n.latest),
+      TypeMangaSelector(Icons.tune_rounded, l10n.filter),
       ..._customLists.map((cl) {
-        String name = cl['name'] as String? ?? cl['id'] as String;
-        if (name.toLowerCase() == 'new titles') name = 'Popular';
-        return TypeMangaSelector(Icons.category_outlined, name);
+        final name = cl['name'] as String? ?? cl['id'] as String;
+        final icStr = cl['icon'] as String?;
+        final matIcon = icStr != null ? _kIconMap[icStr] : null;
+        final emoji = (icStr != null && matIcon == null) ? icStr : null;
+        return TypeMangaSelector(matIcon, name, emojiStr: emoji);
       }),
     ];
   }
@@ -206,7 +231,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     _scrollController.dispose();
     _textEditingController.dispose();
     _scrollOffsetNotifier.dispose();
-    _collapseRatioNotifier.dispose();
     super.dispose();
   }
 
@@ -1552,41 +1576,36 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             shadowColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
-            expandedHeight: 140,
-              automaticallyImplyLeading: false,
-              leadingWidth: 90,
-              centerTitle: true,
-              title: ValueListenableBuilder<double>(
-                  valueListenable: _collapseRatioNotifier,
-                  builder: (ctx2, ratio, _) {
-                    final opacity = ((ratio - 0.65) / 0.35).clamp(0.0, 1.0);
-                    return Opacity(
-                      opacity: opacity,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
-                              ExtensionIconWidget(
-                                sourceId: source.id,
-                                iconUrl: source.iconUrl,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                          Flexible(
-                            child: Text(
-                              sourceName,
-                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+            expandedHeight: 0,
+            automaticallyImplyLeading: false,
+            leadingWidth: 90,
+            centerTitle: true,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: Image.network(
+                      source.iconUrl!,
+                      width: 20, height: 20,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    sourceName,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              leading: GestureDetector(
+              ],
+            ),
+            leading: GestureDetector(
               onTap: () => context.pop(),
               behavior: HitTestBehavior.opaque,
               child: Padding(
@@ -1700,89 +1719,28 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               ),
             ),
             flexibleSpace: LayoutBuilder(
-                builder: (lbCtx, constraints) {
-                  // expandedHeight=140, toolbar=56, pills=40 → minHeight=96, range=44
-                  const expandedH = 140.0;
-                  const minH = 96.0;
-                  final collapseRatio = ((expandedH - constraints.maxHeight) /
-                      (expandedH - minH)).clamp(0.0, 1.0);
-                  // Sync to AppBar title (safe to set ValueNotifier during LayoutBuilder)
-                  _collapseRatioNotifier.value = collapseRatio;
-                  final isCollapsed = collapseRatio > 0.9;
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRect(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(
-                            sigmaX: 24 * collapseRatio,
-                            sigmaY: 24 * collapseRatio,
-                          ),
-                          child: Container(
-                            color: Theme.of(lbCtx).scaffoldBackgroundColor
-                                .withValues(alpha: collapseRatio * 0.92),
-                          ),
+                builder: (lbCtx, _) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                        child: Container(
+                          color: Theme.of(lbCtx).scaffoldBackgroundColor
+                              .withValues(alpha: 0.92),
                         ),
                       ),
-                      if (isCollapsed)
-                        Positioned(
-                          bottom: 0, left: 0, right: 0,
-                          child: Container(
-                            height: 0.5,
-                            color: Theme.of(lbCtx).dividerColor
-                                .withValues(alpha: 0.35),
-                          ),
-                        ),
-                      Positioned(
-                        top: lerpDouble(kToolbarHeight, 0.0, collapseRatio)!,
-                        left: 0,
-                        right: 0,
-                        height: lerpDouble(44.0, kToolbarHeight, collapseRatio)!,
-                        child: Align(
-                          alignment: Alignment(lerpDouble(-1.0, 0.0, collapseRatio)!, 0.0),
-                          child: Padding(
-                            padding: EdgeInsets.only(left: lerpDouble(20.0, 0.0, collapseRatio)!),
-                            child: Opacity(
-                              opacity: (1.0 - collapseRatio / 0.75).clamp(0.0, 1.0),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (!isLocal &&
-                                      (source.iconUrl?.isNotEmpty ?? false)) ...[
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(lerpDouble(9.0, 5.0, collapseRatio)!),
-                                      child: Image.network(
-                                        source.iconUrl!,
-                                        width: lerpDouble(36.0, 20.0, collapseRatio)!,
-                                        height: lerpDouble(36.0, 20.0, collapseRatio)!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const SizedBox.shrink(),
-                                      ),
-                                    ),
-                                    SizedBox(width: lerpDouble(10.0, 8.0, collapseRatio)!),
-                                  ],
-                                  Flexible(
-                                    child: Text(
-                                      sourceName,
-                                      style: TextStyle(
-                                        fontSize: lerpDouble(30.0, 17.0, collapseRatio)!,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: lerpDouble(-0.5, 0.0, collapseRatio)!,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                    ),
+                    Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: Container(
+                        height: 0.5,
+                        color: Theme.of(lbCtx).dividerColor
+                            .withValues(alpha: 0.25),
                       ),
-                    ],
-                  );
-                },
+                    ),
+                  ],
+                ),
               ),
           ),
         ],
@@ -1833,6 +1791,7 @@ class _TabPillsRow extends StatelessWidget {
             padding: const EdgeInsets.only(right: 8),
             child: MangasCardSelector(
               icon: types[index].icon,
+              emojiStr: types[index].emojiStr,
               selected: selectedIndex == index,
               text: types[index].title,
               onPressed: () => onSelect(index),
