@@ -1,0 +1,8 @@
+name: ffi
+  description: Web stub for package:ffi - no dart:ffi on web
+  version: 2.2.0
+  publish_to: none
+
+  environment:
+    sdk: '>=3.0.0 <4.0.0'
+  

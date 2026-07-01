@@ -94,7 +94,8 @@ class PlayerStream {
   final Stream<double> height = const Stream.empty();
   final Stream<List<int>> log = const Stream.empty();
   final Stream<List<String>> subtitle = const Stream.empty();
-}
+    final Stream<PlaylistMode> playlistMode = const Stream.empty();
+  }
 
 // Alias kept for backwards compat
 typedef PlayerStreams = PlayerStream;
@@ -131,7 +132,9 @@ class SubtitleTrack {
       SubtitleTrack(null, title: title, language: language);
 }
 
-abstract class PlatformPlayer {
+enum PlaylistMode { none, single, loop }
+
+  abstract class PlatformPlayer {
   Future<void> setProperty(String property, String value) async {}
   Future<void> command(List<String> cmd) async {}
 }
@@ -161,7 +164,8 @@ class Player {
   Future<void> setAudioTrack(AudioTrack track) async {}
   Future<void> setVideoTrack(VideoTrack track) async {}
   Future<void> setSubtitleTrack(SubtitleTrack track) async {}
-  Future<void> add(Media media) async {}
+  Future<void> setLoopMode(PlaylistMode playlistMode) async {}
+    Future<void> add(Media media) async {}
   Future<void> remove(int index) async {}
   Future<void> move(int from, int to) async {}
   Future<void> dispose() async {}

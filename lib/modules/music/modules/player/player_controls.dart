@@ -186,7 +186,7 @@ class PlayerControls extends HookConsumerWidget {
                           ? null
                           : () async {
                               await audioPlayer.setLoopMode(
-                                switch (loopMode) {
+                                switch (loopMode as PlaylistMode) {
                                   PlaylistMode.loop => PlaylistMode.single,
                                   PlaylistMode.single => PlaylistMode.none,
                                   PlaylistMode.none => PlaylistMode.loop,
