@@ -1,170 +1,143 @@
 name: Build Flutter Web
 
-  on:
-    push:
-      branches: [ main, master ]
-    workflow_dispatch:
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
-  permissions:
-    contents: read
+permissions:
+  contents: read
 
-  jobs:
-    build-web:
-      name: Build Web
-      runs-on: ubuntu-latest
+jobs:
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        - name: Set up Flutter
-          uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Cache pub packages
-          uses: actions/cache@v4
-          with:
-            path: |
-              ~/.pub-cache
-              .dart_tool
-            key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: |
-              ${{ runner.os }}-pub-web-
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-web-
 
-        - name: Patch pubspec with web stubs
-          run: |
-            python3 - << 'PYEOF'
-            import re
-            with open("pubspec.yaml", "r") as f:
-                lines = f.readlines()
-            stubs = {
-                "media_kit":                  "web_stubs/media_kit",
-                "media_kit_video":            "web_stubs/media_kit_video",
-                "media_kit_libs_video":       "web_stubs/media_kit_libs_video",
-                "volume_controller":          "web_stubs/volume_controller",
-                "screen_brightness":          "web_stubs/screen_brightness",
-                "wakelock_plus":              "web_stubs/wakelock_plus",
-                "local_notifier":             "web_stubs/local_notifier",
-                "tray_manager":               "web_stubs/tray_manager",
-                "titlebar_buttons":           "web_stubs/titlebar_buttons",
-                "smtc_windows":              "web_stubs/smtc_windows",
-                "home_widget":               "web_stubs/home_widget",
-                "metadata_god":              "web_stubs/metadata_god",
-                "flutter_new_pipe_extractor": "web_stubs/flutter_new_pipe_extractor",
-                "sqlite3_flutter_libs":      "web_stubs/sqlite3_flutter_libs",
-                "ffi":                       "web_stubs/ffi",
-                "sqlite3":                   "web_stubs/sqlite3",
-            }
-            # Find dependency_overrides section
-            dep_start = next((i for i, l in enumerate(lines) if l.rstrip() == "dependency_overrides:"), None)
-            if dep_start is None:
-                lines.append("\ndependency_overrides:\n")
-                dep_start = len(lines) - 1
-            # Remove simple "  pkg: version" entries for our stubs
-            i = dep_start + 1
-            while i < len(lines):
-                line = lines[i]
-                if line.strip() and not line.startswith(" ") and not line.startswith("\t"):
-                    break  # End of section
-                removed = False
-                for pkg in stubs:
-                    if re.match(rf"  {re.escape(pkg)}: \S", line):
-                        lines.pop(i)
-                        removed = True
-                        break
-                if not removed:
-                    i += 1
-            # Add path overrides for missing stubs
-            file_content = "".join(lines)
-            to_add = []
-            for pkg, stub_path in stubs.items():
-                if f"  {pkg}:\n    path: {stub_path}" not in file_content:
-                    to_add.append(f"  {pkg}:\n    path: {stub_path}\n")
-            for item in reversed(to_add):
-                lines.insert(dep_start + 1, item)
-            with open("pubspec.yaml", "w") as f:
-                f.writelines(lines)
-            print(f"Added {len(to_add)} stubs to dependency_overrides")
-            PYEOF
+      - name: Patch pubspec with web stubs
+        run: |
+          python3 - << 'PYEOF'
+          import re
+          with open('pubspec.yaml', 'r') as f:
+              lines = f.readlines()
+          stubs = {
+              'media_kit':                  'web_stubs/media_kit',
+              'media_kit_video':            'web_stubs/media_kit_video',
+              'media_kit_libs_video':       'web_stubs/media_kit_libs_video',
+              'volume_controller':          'web_stubs/volume_controller',
+              'screen_brightness':          'web_stubs/screen_brightness',
+              'wakelock_plus':              'web_stubs/wakelock_plus',
+              'local_notifier':             'web_stubs/local_notifier',
+              'tray_manager':               'web_stubs/tray_manager',
+              'titlebar_buttons':           'web_stubs/titlebar_buttons',
+              'smtc_windows':               'web_stubs/smtc_windows',
+              'home_widget':                'web_stubs/home_widget',
+              'metadata_god':               'web_stubs/metadata_god',
+              'flutter_new_pipe_extractor':  'web_stubs/flutter_new_pipe_extractor',
+              'sqlite3_flutter_libs':        'web_stubs/sqlite3_flutter_libs',
+              'ffi':                         'web_stubs/ffi',
+              'sqlite3':                     'web_stubs/sqlite3',
+          }
+          dep_start = next((i for i, l in enumerate(lines) if l.rstrip() == 'dependency_overrides:'), None)
+          if dep_start is None:
+              lines.append('\ndependency_overrides:\n')
+              dep_start = len(lines) - 1
+          i = dep_start + 1
+          while i < len(lines):
+              line = lines[i]
+              if line.strip() and not line.startswith(' ') and not line.startswith('\t'):
+                  break
+              removed = False
+              for pkg in stubs:
+                  import re as _re
+                  if _re.match(rf'  {_re.escape(pkg)}: \S', line):
+                      lines.pop(i)
+                      removed = True
+                      break
+              if not removed:
+                  i += 1
+          file_content = ''.join(lines)
+          to_add = []
+          for pkg, stub_path in stubs.items():
+              if f'  {pkg}:\n    path: {stub_path}' not in file_content:
+                  to_add.append(f'  {pkg}:\n    path: {stub_path}\n')
+          for item in reversed(to_add):
+              lines.insert(dep_start + 1, item)
+          with open('pubspec.yaml', 'w') as f:
+              f.writelines(lines)
+          print(f'Added {len(to_add)} stubs to dependency_overrides')
+          PYEOF
 
-        - name: Install dependencies
-          run: flutter pub get
+      - name: Install dependencies
+        run: flutter pub get
 
-        - name: Patch dart:ffi files in pub-cache
-          run: |
-            python3 - << 'PYEOF'
-            import os, glob
-            pub_cache = os.path.expanduser("~/.pub-cache/hosted/pub.dev")
-            # Stub FFI source files in sqlite3 and drift
-            patterns = [
-                f"{pub_cache}/sqlite3-*/lib/src/ffi/**/*.dart",
-                f"{pub_cache}/sqlite3-*/lib/open.dart",
-                f"{pub_cache}/drift-*/lib/src/sqlite3/database_tracker.dart",
-            ]
-            stub = "// Web build stub: dart:ffi not available on Flutter Web\n"
-            count = 0
-            for pattern in patterns:
-                for path in glob.glob(pattern, recursive=True):
-                    with open(path, "w") as f:
-                        f.write(stub)
-                    print(f"Stubbed: {os.path.basename(path)}")
-                    count += 1
-            # Replace drift's native.dart (uses FFI types from sqlite3)
-            drift_native_stub = """// Web build stub: dart:ffi not available on Flutter Web
-  // ignore_for_file: unused_import
-  import 'package:drift/drift.dart';
+      - name: Patch dart:ffi files in pub-cache
+        run: |
+          python3 - << 'PYEOF'
+          import os, glob
+          pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dev')
+          patterns = [
+              f'{pub_cache}/sqlite3-*/lib/src/ffi/**/*.dart',
+              f'{pub_cache}/sqlite3-*/lib/open.dart',
+              f'{pub_cache}/drift-*/lib/src/sqlite3/database_tracker.dart',
+          ]
+          stub = '// Web build stub\n'
+          count = 0
+          for pattern in patterns:
+              for path in glob.glob(pattern, recursive=True):
+                  with open(path, 'w') as f:
+                      f.write(stub)
+                  print(f'Stubbed: {os.path.basename(path)}')
+                  count += 1
+          drift_stub = '// Web stub\nimport \'package:drift/drift.dart\';\nclass NativeDatabase { static QueryExecutor open(dynamic f, {dynamic setup, bool logStatements=false}) => throw UnimplementedError(); static QueryExecutor inMemory({dynamic setup}) => throw UnimplementedError(); }\n'
+          for path in glob.glob(f'{pub_cache}/drift-*/lib/native.dart'):
+              with open(path, 'w') as f:
+                  f.write(drift_stub)
+              print(f'Stubbed drift native: {os.path.basename(path)}')
+              count += 1
+          print(f'Total stubbed: {count} files')
+          PYEOF
 
-  class NativeDatabase {
-    static QueryExecutor open(
-      dynamic file, {
-      dynamic setup,
-      bool logStatements = false,
-      bool cachePreparedStatements = true,
-    }) => throw UnimplementedError();
-    static QueryExecutor inMemory({
-      dynamic setup,
-      bool logStatements = false,
-    }) => throw UnimplementedError();
-    static DatabaseConnection createInBackground(
-      dynamic file, {
-      dynamic setup,
-      bool logStatements = false,
-      String? cacheName,
-    }) => throw UnimplementedError();
-  }
-  """
-            for path in glob.glob(f"{pub_cache}/drift-*/lib/native.dart"):
-                with open(path, "w") as f:
-                    f.write(drift_native_stub)
-                print(f"Stubbed drift native: {os.path.basename(path)}")
-                count += 1
-            print(f"Total stubbed: {count} files")
-            PYEOF
+      - name: Patch pseudom CSSParser for dart2js
+        run: |
+          FILE=$(find ~/.pub-cache -name 'CSSParser.dart' -path '*/pseudom*' 2>/dev/null | head -1)
+          if [ -n "$FILE" ]; then
+            sed -i 's/& -3765256679076942294/\& 0/g' "$FILE"
+            sed -i 's/& 4626330031550017026/\& 0/g' "$FILE"
+            sed -i 's/& 5779244251887978624/\& 0/g' "$FILE"
+            sed -i 's/& -4597022382133018102/\& 0/g' "$FILE"
+            sed -i 's/& -4022278413737085706/\& 0/g' "$FILE"
+            echo 'Patched CSSParser.dart'
+          fi
 
-        - name: Patch pseudom CSSParser for dart2js
-          run: |
-            FILE=$(find ~/.pub-cache -name "CSSParser.dart" -path "*/pseudom*" 2>/dev/null | head -1)
-            if [ -n "$FILE" ]; then
-              sed -i 's/& -3765256679076942294/\& 0/g' "$FILE"
-              sed -i 's/& 4626330031550017026/\& 0/g' "$FILE"
-              sed -i 's/& 5779244251887978624/\& 0/g' "$FILE"
-              sed -i 's/& -4597022382133018102/\& 0/g' "$FILE"
-              sed -i 's/& -4022278413737085706/\& 0/g' "$FILE"
-              echo "Patched CSSParser.dart"
-            fi
+      - name: Build Web
+        run: flutter build web --release --no-tree-shake-icons
 
-        - name: Build Web
-          run: flutter build web --release --no-tree-shake-icons
-
-        - name: Deploy to Vercel
-          uses: amondnet/vercel-action@v25
-          with:
-            vercel-token: ${{ secrets.VERCEL_TOKEN }}
-            vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-            vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-            working-directory: build/web
-            vercel-args: '--prod'
-  
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: build/web
+          vercel-args: '--prod'
