@@ -708,7 +708,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }) {
     final accentColor = accent ?? ctx.primaryColor;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 22, 14, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -764,10 +764,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     if (items.isEmpty) return const SizedBox(height: 4);
     final capped = items.take(15).toList();
     return SizedBox(
-      height: 190,
+      height: 210,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: capped.length,
         itemBuilder: (_, i) => _RankedCard(
           manga: capped[i], source: source, rank: i + 1,
@@ -816,16 +816,16 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Spotlight row (Derniers ajouts) ──────────────────────────────────────
+  // ── Spotlight / Carousel row ──────────────────────────────────────────────
 
   Widget _buildSpotlightRow(BuildContext ctx, List<MManga> items) {
     if (items.isEmpty) return const SizedBox(height: 4);
     final capped = items.take(10).toList();
     return SizedBox(
-      height: 155,
+      height: 210,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: capped.length,
         itemBuilder: (_, i) => _SpotlightCard(manga: capped[i], source: source),
       ),
@@ -838,10 +838,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     if (items.isEmpty) return const SizedBox(height: 4);
     final capped = items.take(12).toList();
     return SizedBox(
-      height: 142,
+      height: 168,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: capped.length,
         itemBuilder: (_, i) => _CompactCard(manga: capped[i], source: source),
       ),
@@ -1410,21 +1410,38 @@ class _HeroSlide extends ConsumerWidget {
 // ── Ranked card (Top 15 Tendances) ───────────────────────────────────────────
 // Big rank number on the left side, portrait image on the right
 
-class _RankedCard extends ConsumerWidget {
+class _RankedCard extends ConsumerStatefulWidget {
   final MManga manga;
   final Source source;
   final int rank;
   const _RankedCard({required this.manga, required this.source, required this.rank});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RankedCard> createState() => _RankedCardState();
+}
+
+class _RankedCardState extends ConsumerState<_RankedCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pressCtrl = AnimationController(
+    vsync: this, duration: const Duration(milliseconds: 100),
+    lowerBound: 0.0, upperBound: 1.0,
+  );
+  late final Animation<double> _scale = Tween<double>(begin: 1.0, end: 0.92)
+      .animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeInOut));
+
+  @override
+  void dispose() { _pressCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
     final headers = ref.watch(headersProvider(
-        source: source.name!, lang: source.lang!, sourceId: source.id));
-    final imgUrl = toImgUrl(manga.imageUrl ?? '');
+        source: widget.source.name!, lang: widget.source.lang!, sourceId: widget.source.id));
+    final imgUrl = toImgUrl(widget.manga.imageUrl ?? '');
     final ImageProvider<Object> cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
+    final rank = widget.rank;
     // Rank color: gold / silver / bronze / rest
     final rankColor = rank == 1
         ? const Color(0xFFFFD700)
@@ -1436,20 +1453,25 @@ class _RankedCard extends ConsumerWidget {
                     ?.withValues(alpha: 0.4) ?? Colors.grey.shade600;
 
     return GestureDetector(
-      onTap: () {
-        if (manga.link != null) {
+      onTapDown: (_) => _pressCtrl.forward(),
+      onTapUp: (_) async {
+        await _pressCtrl.reverse();
+        if (widget.manga.link != null && mounted) {
           pushToMangaReaderDetail(
-            ref: ref, context: context, getManga: manga,
-            lang: source.lang!, source: source.name!,
-            itemType: source.itemType, sourceId: source.id,
+            ref: ref, context: context, getManga: widget.manga,
+            lang: widget.source.lang!, source: widget.source.name!,
+            itemType: widget.source.itemType, sourceId: widget.source.id,
           );
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.only(right: 4),
-        child: SizedBox(
-          width: 105,
-          child: Row(
+      onTapCancel: () => _pressCtrl.reverse(),
+      child: ScaleTransition(
+        scale: _scale,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: SizedBox(
+            width: 112,
+            child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Big rank number
@@ -1499,7 +1521,7 @@ class _RankedCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(manga.name ?? '',
+                    Text(widget.manga.name ?? '',
                         style: const TextStyle(
                             fontSize: 10, fontWeight: FontWeight.w600, height: 1.25),
                         maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -1514,18 +1536,34 @@ class _RankedCard extends ConsumerWidget {
   }
 }
 
-// ── Spotlight card (Derniers ajouts) ─────────────────────────────────────────
+// ── Spotlight card (Derniers ajouts / Carousel) ───────────────────────────────
 
-class _SpotlightCard extends ConsumerWidget {
+class _SpotlightCard extends ConsumerStatefulWidget {
   final MManga manga;
   final Source source;
   const _SpotlightCard({required this.manga, required this.source});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SpotlightCard> createState() => _SpotlightCardState();
+}
+
+class _SpotlightCardState extends ConsumerState<_SpotlightCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pressCtrl = AnimationController(
+    vsync: this, duration: const Duration(milliseconds: 110),
+    lowerBound: 0.0, upperBound: 1.0,
+  );
+  late final Animation<double> _scale = Tween<double>(begin: 1.0, end: 0.93)
+      .animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeInOut));
+
+  @override
+  void dispose() { _pressCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
     final headers = ref.watch(headersProvider(
-        source: source.name!, lang: source.lang!, sourceId: source.id));
-    final imgUrl = toImgUrl(manga.imageUrl ?? '');
+        source: widget.source.name!, lang: widget.source.lang!, sourceId: widget.source.id));
+    final imgUrl = toImgUrl(widget.manga.imageUrl ?? '');
     final ImageProvider<Object> cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
@@ -1533,64 +1571,81 @@ class _SpotlightCard extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: GestureDetector(
-        onTap: () {
-          if (manga.link != null) {
+        onTapDown: (_) => _pressCtrl.forward(),
+        onTapUp: (_) async {
+          await _pressCtrl.reverse();
+          if (widget.manga.link != null && mounted) {
             pushToMangaReaderDetail(
-              ref: ref, context: context, getManga: manga,
-              lang: source.lang!, source: source.name!,
-              itemType: source.itemType, sourceId: source.id,
+              ref: ref, context: context, getManga: widget.manga,
+              lang: widget.source.lang!, source: widget.source.name!,
+              itemType: widget.source.itemType, sourceId: widget.source.id,
             );
           }
         },
-        child: SizedBox(
-          width: 230,
-          height: 130,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(11),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                imgUrl.isNotEmpty
-                    ? Image(image: cover, fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        errorBuilder: (_, __, ___) => Container(
+        onTapCancel: () => _pressCtrl.reverse(),
+        child: ScaleTransition(
+          scale: _scale,
+          child: SizedBox(
+            width: 248,
+            height: 185,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  imgUrl.isNotEmpty
+                      ? Image(image: cover, fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: const Icon(Icons.play_circle_outline_rounded,
+                                size: 42, color: Colors.white24),
+                          ))
+                      : Container(
                           color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           child: const Icon(Icons.play_circle_outline_rounded,
-                              size: 36, color: Colors.white24),
-                        ))
-                    : Container(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.play_circle_outline_rounded,
-                            size: 36, color: Colors.white24)),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.72),
-                        ],
-                        stops: const [0.3, 1.0],
+                              size: 42, color: Colors.white24)),
+                  // Top-to-bottom gradient for title legibility
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.78),
+                          ],
+                          stops: const [0.42, 1.0],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const Center(
-                  child: Icon(Icons.play_circle_fill_rounded,
-                      size: 34, color: Colors.white60),
-                ),
-                Positioned(
-                  bottom: 7, left: 9, right: 36,
-                  child: Text(manga.name ?? '',
-                      style: const TextStyle(
-                        color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700,
-                        height: 1.2,
-                        shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
+                  // Play button
+                  Positioned(
+                    top: 10, right: 10,
+                    child: Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.48),
+                        shape: BoxShape.circle,
                       ),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                ),
-              ],
+                      child: const Icon(Icons.play_arrow_rounded,
+                          size: 20, color: Colors.white),
+                    ),
+                  ),
+                  // Title at bottom
+                  Positioned(
+                    bottom: 9, left: 10, right: 10,
+                    child: Text(widget.manga.name ?? '',
+                        style: const TextStyle(
+                          color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700,
+                          height: 1.3,
+                          shadows: [Shadow(color: Colors.black87, blurRadius: 8)],
+                        ),
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1601,86 +1656,108 @@ class _SpotlightCard extends ConsumerWidget {
 
 // ── Compact card (Animations, Docs & Spectacles) ──────────────────────────────
 
-class _CompactCard extends ConsumerWidget {
+class _CompactCard extends ConsumerStatefulWidget {
   final MManga manga;
   final Source source;
   const _CompactCard({required this.manga, required this.source});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CompactCard> createState() => _CompactCardState();
+}
+
+class _CompactCardState extends ConsumerState<_CompactCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pressCtrl = AnimationController(
+    vsync: this, duration: const Duration(milliseconds: 100),
+    lowerBound: 0.0, upperBound: 1.0,
+  );
+  late final Animation<double> _scale = Tween<double>(begin: 1.0, end: 0.92)
+      .animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeInOut));
+
+  @override
+  void dispose() { _pressCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
     final headers = ref.watch(headersProvider(
-        source: source.name!, lang: source.lang!, sourceId: source.id));
-    final imgUrl = toImgUrl(manga.imageUrl ?? '');
+        source: widget.source.name!, lang: widget.source.lang!, sourceId: widget.source.id));
+    final imgUrl = toImgUrl(widget.manga.imageUrl ?? '');
     final ImageProvider<Object> cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 9),
+      padding: const EdgeInsets.only(right: 10),
       child: GestureDetector(
-        onTap: () {
-          if (manga.link != null) {
+        onTapDown: (_) => _pressCtrl.forward(),
+        onTapUp: (_) async {
+          await _pressCtrl.reverse();
+          if (widget.manga.link != null && mounted) {
             pushToMangaReaderDetail(
-              ref: ref, context: context, getManga: manga,
-              lang: source.lang!, source: source.name!,
-              itemType: source.itemType, sourceId: source.id,
+              ref: ref, context: context, getManga: widget.manga,
+              lang: widget.source.lang!, source: widget.source.name!,
+              itemType: widget.source.itemType, sourceId: widget.source.id,
             );
           }
         },
-        child: SizedBox(
-          width: 152,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      imgUrl.isNotEmpty
-                          ? Image(image: cover, fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                              errorBuilder: (_, __, ___) => Container(
+        onTapCancel: () => _pressCtrl.reverse(),
+        child: ScaleTransition(
+          scale: _scale,
+          child: SizedBox(
+            width: 164,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        imgUrl.isNotEmpty
+                            ? Image(image: cover, fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Theme.of(context).colorScheme
+                                      .surfaceContainerHighest,
+                                  child: const Icon(Icons.play_circle_outline_rounded,
+                                      size: 28, color: Colors.white38),
+                                ))
+                            : Container(
                                 color: Theme.of(context).colorScheme
                                     .surfaceContainerHighest,
                                 child: const Icon(Icons.play_circle_outline_rounded,
-                                    size: 26),
-                              ))
-                          : Container(
-                              color: Theme.of(context).colorScheme
-                                  .surfaceContainerHighest,
-                              child: const Icon(Icons.play_circle_outline_rounded,
-                                  size: 26)),
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.42),
-                              ],
-                              stops: const [0.5, 1.0],
+                                    size: 28, color: Colors.white38)),
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.55),
+                                ],
+                                stops: const [0.45, 1.0],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        bottom: 5, right: 6,
-                        child: Icon(Icons.play_circle_fill_rounded,
-                            size: 20, color: Colors.white.withValues(alpha: 0.82)),
-                      ),
-                    ],
+                        Positioned(
+                          bottom: 6, right: 7,
+                          child: Icon(Icons.play_circle_fill_rounded,
+                              size: 22, color: Colors.white.withValues(alpha: 0.85)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(manga.name ?? '',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                      height: 1.25),
-                  maxLines: 2, overflow: TextOverflow.ellipsis),
-            ],
+                const SizedBox(height: 5),
+                Text(widget.manga.name ?? '',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                        height: 1.25),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
         ),
       ),
