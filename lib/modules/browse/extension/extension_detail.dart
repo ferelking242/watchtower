@@ -451,19 +451,15 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     );
     if (confirmed != true) return;
 
-    // Tente de vider le cache HTTP de MClient pour ce domaine.
-    // MClient n'expose pas d'API publique de cache — l'erreur est ignorée.
-    try {
-      await MClient.cleanCacheForUrl(source.baseUrl ?? '');
-    } catch (_) {}
-
-    // Recharge les préférences persistées pour mettre à jour l'UI.
+    // MClient ne fournit pas d'API de vidage du cache HTTP (géré en mémoire
+    // par l'extension JS côté isolate). On recharge les préférences persistées,
+    // ce qui force un redémarrage propre de la configuration côté app.
     if (mounted) {
       setState(() {
         sourcePreference = _loadPreferences();
       });
     }
-    botToast('Cache effacé — rechargez la source pour des données fraîches.');
+    botToast('Préférences rechargées. Rouvrez la source pour actualiser le cache.');
   }
 
   Future<void> _viewHeaders() async {
