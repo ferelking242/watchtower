@@ -1,5 +1,5 @@
 name: sqlite3_flutter_libs
-  description: Web stub - no native sqlite3 libs on web
+  description: "Web stub - no native sqlite3 libs on web"
   version: 0.0.1
   publish_to: none
 

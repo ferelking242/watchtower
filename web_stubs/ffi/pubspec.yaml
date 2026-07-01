@@ -1,5 +1,5 @@
 name: ffi
-  description: Web stub for package:ffi - no dart:ffi on web
+  description: "Web stub for package ffi - no dart ffi on web"
   version: 2.2.0
   publish_to: none
 
