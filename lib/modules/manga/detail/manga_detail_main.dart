@@ -83,22 +83,31 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
             builder: (context, snapshot) {
               final sourceExist = snapshot.hasData && snapshot.data!.isNotEmpty;
 
-              // Cross-check the source's declared itemType (prevents manga-type
-              // extensions from opening in WatchDetailView due to a stale DB entry).
-              final sourceForType = isar.sources
-                  .filter()
-                  .nameContains(manga.source!, caseSensitive: false)
-                  .findFirstSync();
-              final effectiveType = sourceForType?.itemType ?? manga.itemType;
+              // For local archives (source='archive' or 'local'), trust the
+              // stored itemType directly — never look up in sources table,
+              // which would incorrectly match manga-type extensions.
+              final isLocalArchive = manga.isLocalArchive ?? false;
+              final ItemType effectiveType;
+              if (isLocalArchive) {
+                effectiveType = manga.itemType ?? ItemType.manga;
+              } else {
+                // Cross-check the source's declared itemType (prevents manga-type
+                // extensions from opening in WatchDetailView due to a stale DB entry).
+                final sourceForType = isar.sources
+                    .filter()
+                    .nameContains(manga.source!, caseSensitive: false)
+                    .findFirstSync();
+                effectiveType = sourceForType?.itemType ?? manga.itemType;
 
-              // Silently correct the stored type if it disagrees with the source
-              if (sourceForType != null &&
-                  sourceForType.itemType != manga.itemType) {
-                isar.writeTxnSync(() {
-                  isar.mangas.putSync(
-                    manga..itemType = sourceForType.itemType,
-                  );
-                });
+                // Silently correct the stored type if it disagrees with the source
+                if (sourceForType != null &&
+                    sourceForType.itemType != manga.itemType) {
+                  isar.writeTxnSync(() {
+                    isar.mangas.putSync(
+                      manga..itemType = sourceForType.itemType,
+                    );
+                  });
+                }
               }
 
               return RefreshIndicator(

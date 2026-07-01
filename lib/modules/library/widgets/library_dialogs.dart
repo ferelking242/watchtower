@@ -1,4 +1,5 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
@@ -9,6 +10,7 @@ import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/models/changed.dart';
+import 'package:watchtower/modules/library/providers/file_scanner.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/library/providers/local_archive.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
@@ -254,7 +256,7 @@ Future<String> _deleteDownload(Manga manga, String mangaDirectory) async {
   return mangaDirectory;
 }
 
-/// Shows a dialog for importing local files (zip, cbz, epub, video).
+/// Shows a dialog for importing local files (zip, cbz, epub, video) or a folder.
 void showImportLocalDialog(BuildContext context, ItemType itemType) {
   final l10n = l10nLocalizations(context)!;
   final filesText = switch (itemType) {
@@ -265,6 +267,10 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
   };
   bool isLoading = false;
   bool splitChapters = true;
+
+  // manga and anime support folder import; novel does not
+  final bool showFolderBtn = itemType == ItemType.manga || itemType == ItemType.anime;
+
   showDialog(
     context: context,
     barrierDismissible: !isLoading,
@@ -275,8 +281,14 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
           builder: (context, setState) {
             return Consumer(
               builder: (context, ref, child) {
+                // Height: novel = 150, manga/anime with folder btn = 150, else 100
+                final dialogHeight = itemType == ItemType.novel
+                    ? 150.0
+                    : showFolderBtn
+                        ? 150.0
+                        : 100.0;
                 return SizedBox(
-                  height: itemType == ItemType.novel ? 150 : 100,
+                  height: dialogHeight,
                   child: Stack(
                     children: [
                       Column(
@@ -300,6 +312,7 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
                           Expanded(
                             child: Row(
                               children: [
+                                // ── Bouton fichier(s) ──────────────────────
                                 Expanded(
                                   child: Padding(
                                     padding: const EdgeInsets.all(3),
@@ -344,6 +357,70 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
                                     ),
                                   ),
                                 ),
+                                // ── Bouton dossier (manga + anime seulement) ─
+                                if (showFolderBtn) ...[
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(3),
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                        onPressed: () async {
+                                          final dir =
+                                              await FilePicker.getDirectoryPath();
+                                          if (dir == null) return;
+                                          if (!context.mounted) return;
+                                          setState(() => isLoading = true);
+                                          // Add to custom folders and scan
+                                          final folders = [
+                                            ...ref.read(
+                                              localFoldersStateProvider,
+                                            ),
+                                          ];
+                                          if (!folders.contains(dir)) {
+                                            folders.add(dir);
+                                            ref
+                                                .read(
+                                                  localFoldersStateProvider
+                                                      .notifier,
+                                                )
+                                                .set(folders);
+                                          }
+                                          await ref.read(
+                                            scanLocalLibraryProvider.future,
+                                          );
+                                          setState(() => isLoading = false);
+                                          if (!context.mounted) return;
+                                          Navigator.pop(context);
+                                        },
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
+                                          children: [
+                                            const Icon(
+                                                Icons.folder_open_rounded),
+                                            Text(
+                                              itemType == ItemType.anime
+                                                  ? 'Dossier série'
+                                                  : 'Dossier manga',
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall!.color,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

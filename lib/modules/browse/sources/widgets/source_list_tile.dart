@@ -55,7 +55,9 @@ class SourceListTile extends StatelessWidget {
             '· type=${source.itemType.name} · id=${source.id}',
             tag: LogTag.extension_,
           );
-          if (source.itemType == ItemType.anime) {
+          if (isLocal) {
+            context.push('/localSources');
+          } else if (source.itemType == ItemType.anime) {
             context.push('/watchHome', extra: (source, false));
           } else if (source.itemType == ItemType.novel) {
             context.push('/novelHome', extra: (source, false));
