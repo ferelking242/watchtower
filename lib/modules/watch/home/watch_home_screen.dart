@@ -1612,6 +1612,7 @@ class _RankedCardState extends ConsumerState<_RankedCard>
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),
