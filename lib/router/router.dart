@@ -38,7 +38,7 @@ import 'package:watchtower/modules/tracker_library/tracker_library_screen.dart';
 import 'package:watchtower/modules/updates/updates_screen.dart';
 import 'package:watchtower/modules/more/categories/categories_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/downloads_screen.dart';
-  import 'package:watchtower/modules/more/settings/downloads/local_source_import_page.dart';
+import 'package:watchtower/modules/more/settings/downloads/local_source_import_page.dart';
 import 'package:watchtower/modules/more/settings/player/player_screen.dart';
 import 'package:watchtower/modules/more/settings/sync/sync.dart';
 import 'package:watchtower/modules/more/settings/track/track.dart';
@@ -368,7 +368,10 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) => WatchOrderScreen(name: data.$1, track: data.$2),
     ),
     _genericRoute(name: "onboarding", child: const OnboardingScreen()),
-      _genericRoute(name: "localSources", child: const LocalSourceImportPage()),
+      _genericRoute<ItemType>(
+      name: "localSources",
+      builder: (itemType) => LocalBrowserPage(itemType: itemType),
+    ),
     _genericRoute(name: "watchtowerSearch", child: const WatchtowerSearchScreen()),
     _genericRoute(name: "transfer", child: const TransferScreen()),
     _genericRoute<ItemType>(
