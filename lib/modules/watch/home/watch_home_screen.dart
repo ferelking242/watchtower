@@ -26,6 +26,10 @@ import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
+
+// ── 3-dot menu actions ────────────────────────────────────────────────────────
+enum _HomeMenuAction { openBrowser, settings, diagnostic }
 
 // ── WatchHomeScreen ──────────────────────────────────────────────────────────
 
@@ -43,7 +47,8 @@ class WatchHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
-  Source get source => widget.source;
+  late Source _source = widget.source;
+  Source get source => _source;
   bool get isLocal => source.name == 'local' && source.lang == '';
 
   static const _kHomeIdx    = 0;
@@ -51,7 +56,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   static const _kLatestIdx  = 2;
   static const _kFilterIdx  = 3;
 
-  late int _selectedIdx = widget.isLatest ? _kLatestIdx : _kHomeIdx;
+  // _selectedIdx: start on Home only when custom lists exist
+  late int _selectedIdx = widget.isLatest
+      ? _kLatestIdx
+      : (_customLists.isNotEmpty ? _kHomeIdx : _kPopularIdx);
 
   bool _isSearching = false;
   String _query = '';
@@ -97,6 +105,25 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
   bool get supportsLatest =>
       isLocal ? true : ref.watch(supportsLatestProvider(source: source));
+
+  // ── 3-dot menu ───────────────────────────────────────────────────────────
+
+  Future<void> _handleHomeMenuAction(BuildContext ctx, _HomeMenuAction action) async {
+    switch (action) {
+      case _HomeMenuAction.openBrowser:
+        final baseUrl = ref.read(sourceBaseUrlProvider(source: source));
+        ctx.push('/mangawebview', extra: {
+          'url': baseUrl,
+          'sourceId': source.id.toString(),
+          'title': '',
+        });
+      case _HomeMenuAction.settings:
+        final res = await ctx.push('/extension_detail', extra: source);
+        if (res != null && mounted) setState(() => _source = res as Source);
+      case _HomeMenuAction.diagnostic:
+        ctx.push('/extensionDiagnostic', extra: source.itemType);
+    }
+  }
 
   // ── Filter ──────────────────────────────────────────────────────────────
 
@@ -311,6 +338,53 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           onPressed: () => setState(() => _isSearching = true),
           icon: Icon(Icons.search, color: ctx.primaryColor),
         ),
+        if (!isLocal)
+          Builder(
+            builder: (actCtx) => ArrowPopupMenuButton<_HomeMenuAction>(
+              padding: const EdgeInsets.all(4),
+              icon: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Theme.of(actCtx).colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.75),
+                ),
+                child: Icon(Icons.more_horiz,
+                    size: 18, color: Theme.of(actCtx).hintColor),
+              ),
+              onSelected: (action) => _handleHomeMenuAction(actCtx, action),
+              itemBuilder: (menuCtx) => [
+                PopupMenuItem(
+                  value: _HomeMenuAction.openBrowser,
+                  child: Row(children: [
+                    const Icon(Icons.open_in_browser_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    const Text('Ouvrir dans le navigateur',
+                        style: TextStyle(fontSize: 14)),
+                  ]),
+                ),
+                PopupMenuItem(
+                  value: _HomeMenuAction.diagnostic,
+                  child: Row(children: [
+                    const Icon(Icons.bug_report_outlined, size: 20),
+                    const SizedBox(width: 12),
+                    const Text('Diagnostic',
+                        style: TextStyle(fontSize: 14)),
+                  ]),
+                ),
+                PopupMenuItem(
+                  value: _HomeMenuAction.settings,
+                  child: Row(children: [
+                    const Icon(Icons.settings_outlined, size: 20),
+                    const SizedBox(width: 12),
+                    const Text('Paramètres',
+                        style: TextStyle(fontSize: 14)),
+                  ]),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(width: 4),
       ],
       bottom: PreferredSize(
@@ -339,11 +413,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Tab bar: Accueil · Popular · Latest · [Filter] ───────────────────────
+  // ── Tab bar: [Accueil] · Popular · Latest · [Filter] ────────────────────
+  // Home tab appears only when getCustomLists() returns at least one section.
 
   Widget _buildTabBar(BuildContext ctx) {
     final tabs = <_WatchTab>[
-      const _WatchTab(Icons.home_rounded,         'Accueil',  _kHomeIdx),
+      if (_customLists.isNotEmpty)
+        const _WatchTab(Icons.home_rounded,         'Accueil',  _kHomeIdx),
       const _WatchTab(Icons.local_fire_department_rounded, 'Popular', _kPopularIdx),
       if (supportsLatest)
         const _WatchTab(Icons.update_rounded,     'Latest',   _kLatestIdx),
@@ -402,10 +478,16 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(tab.icon, size: 13,
-                        color: isActive ? Colors.white
-                            : Theme.of(ctx).textTheme.bodyMedium?.color),
-                    const SizedBox(width: 5),
+                    if (tab.icon != null) ...[
+                      Icon(tab.icon!, size: 13,
+                          color: isActive ? Colors.white
+                              : Theme.of(ctx).textTheme.bodyMedium?.color),
+                      const SizedBox(width: 5),
+                    ] else if (tab.emojiStr != null) ...[
+                      Text(tab.emojiStr!,
+                          style: const TextStyle(fontSize: 11, height: 1.0)),
+                      const SizedBox(width: 4),
+                    ],
                     Text(tab.label,
                         style: TextStyle(
                           fontSize: 12,
@@ -1141,10 +1223,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 // ── Tab data ──────────────────────────────────────────────────────────────────
 
 class _WatchTab {
-  final IconData icon;
+  final IconData? icon;     // Material icon (null if using emoji)
+  final String? emojiStr;   // emoji / texte court (null si icône Material)
   final String label;
   final int idx;
-  const _WatchTab(this.icon, this.label, this.idx);
+  const _WatchTab(this.icon, this.label, this.idx, {this.emojiStr});
 }
 
 // ── Hero carousel ─────────────────────────────────────────────────────────────
@@ -1529,7 +1612,6 @@ class _RankedCardState extends ConsumerState<_RankedCard>
                 ),
               ),
             ],
-            ),
           ),
         ),
       ),
