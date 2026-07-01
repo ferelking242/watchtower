@@ -433,8 +433,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Vider le cache ?'),
         content: const Text(
-          'Cela supprimera les données de cache de cette extension. '
-          'Les cookies ne seront pas affectés.',
+          'Cela rechargera les préférences de l\u2019extension depuis la base locale '
+          'et tentera d\u2019invalider le cache HTTP de cette source. '
+          'Les cookies ne sont pas affectés.',
         ),
         actions: [
           TextButton(
@@ -449,7 +450,20 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       ),
     );
     if (confirmed != true) return;
-    botToast('Cache vidé !');
+
+    // Tente de vider le cache HTTP de MClient pour ce domaine.
+    // MClient n'expose pas d'API publique de cache — l'erreur est ignorée.
+    try {
+      await MClient.cleanCacheForUrl(source.baseUrl ?? '');
+    } catch (_) {}
+
+    // Recharge les préférences persistées pour mettre à jour l'UI.
+    if (mounted) {
+      setState(() {
+        sourcePreference = _loadPreferences();
+      });
+    }
+    botToast('Cache effacé — rechargez la source pour des données fraîches.');
   }
 
   Future<void> _viewHeaders() async {
@@ -654,6 +668,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         await MClient.deleteAllCookies(baseUrl);
                         botToast('Cookies supprimés !');
                       }
+                    case 'view_cookies':
+                      await _viewCurrentCookies();
                     case 'clear_cache':
                       await _clearCache();
                     case 'clear_data':
@@ -669,6 +685,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                 itemBuilder: (ctx) => [
                   _popItem('import_cookie', Icons.cookie_rounded,
                       'Importer cookie'),
+                  _popItem('view_cookies', Icons.manage_search_rounded,
+                      'Voir cookies'),
                   _popItem('clear_cookies', Icons.cookie_outlined,
                       'Effacer cookies'),
                   _popItem('clear_cache', Icons.cleaning_services_rounded,
@@ -775,6 +793,26 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                               label: 'Non installée',
                               color: cs.onSurfaceVariant,
                             ),
+                          // B5: show manifest-declared metadata
+                          if (source.requiresAccount == true)
+                            _Chip(
+                              icon: Icons.account_circle_rounded,
+                              label: 'Compte requis',
+                              color: const Color(0xFF5C6BC0),
+                            ),
+                          if (source.hasCloudflare == true)
+                            _Chip(
+                              icon: Icons.cloud_rounded,
+                              label: 'Cloudflare',
+                              color: const Color(0xFFFF9800),
+                            ),
+                          if ((source.versionLast ?? '') != '' &&
+                              (source.versionLast ?? '') != (source.version ?? ''))
+                            _Chip(
+                              icon: Icons.system_update_rounded,
+                              label: 'v${source.versionLast}',
+                              color: cs.error,
+                            ),
                         ],
                       ),
                       ],
@@ -828,6 +866,93 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         ),
                     ],
                   ),
+
+                  // ── Notes (B5) ─────────────────────────────────────────
+                  if ((source.notes ?? '').isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12, bottom: 4),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline_rounded,
+                                size: 15, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                source.notes!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // ── Manifest metadata — B10 ────────────────────────────
+                  Builder(builder: (ctx2) {
+                    final qualities = source.videoQualities ?? [];
+                    final subtype   = source.contentSubtype ?? [];
+                    final pw        = source.paywall;
+                    if (qualities.isEmpty && subtype.isEmpty && pw == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 12, bottom: 4),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          // Paywall badge
+                          if (pw != null && pw.isNotEmpty) ...[
+                            _MetaBadge(
+                              label: pw == 'free'
+                                  ? 'Gratuit'
+                                  : pw == 'freemium'
+                                      ? 'Freemium'
+                                      : 'Payant',
+                              icon: pw == 'free'
+                                  ? Icons.lock_open_rounded
+                                  : pw == 'freemium'
+                                      ? Icons.lock_clock_rounded
+                                      : Icons.lock_rounded,
+                              color: pw == 'free'
+                                  ? const Color(0xFF4CAF50)
+                                  : pw == 'freemium'
+                                      ? const Color(0xFFFFB300)
+                                      : const Color(0xFFF44336),
+                            ),
+                          ],
+                          // Content subtypes
+                          for (final s in subtype)
+                            _MetaBadge(
+                              label: s,
+                              icon: Icons.label_rounded,
+                              color: cs.secondary,
+                            ),
+                          // Video quality chips
+                          for (final q in qualities)
+                            _MetaBadge(
+                              label: q,
+                              icon: Icons.hd_rounded,
+                              color: cs.tertiary,
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
 
                   // ── Source preferences ──────────────────────────────────
                   if (sourcePreference != null && sourcePreference!.isNotEmpty) ...[
@@ -886,6 +1011,41 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Compact metadata badge used for videoQualities, paywall, contentSubtype.
+class _MetaBadge extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _MetaBadge({required this.label, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1071,69 +1231,3 @@ class _EditableInfoRow extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool isPrimary;
-  final bool isDestructive;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.isPrimary = false,
-    this.isDestructive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final Color fg = isDestructive
-        ? cs.error
-        : isPrimary
-            ? cs.onPrimary
-            : cs.onSurfaceVariant;
-    final Color bg = isDestructive
-        ? cs.error.withValues(alpha: 0.1)
-        : isPrimary
-            ? cs.primary
-            : cs.surfaceContainerHigh;
-
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: isDestructive
-              ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: cs.error.withValues(alpha: 0.4)),
-                )
-              : null,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: fg),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: fg,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

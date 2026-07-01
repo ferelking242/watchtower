@@ -36,7 +36,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
   // ── Lazy loading for the "Available" section ──────────────────────────────
   static const _kPageSize = 20;
-  int _visibleInstalled = 10000;
+  int _visibleInstalled = 20;
   int _visibleAvailLangs = 8; // number of language groups shown
 
   @override
@@ -51,7 +51,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
     // Load more when within 300 px of the bottom
     if (pos.pixels >= pos.maxScrollExtent - 300) {
       bool changed = false;
-      if (_visibleInstalled < 10000) {
+      if (_visibleInstalled < 1000000) {
         _visibleInstalled += _kPageSize;
         changed = true;
       }
@@ -173,7 +173,8 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
             final Map<String, Source> _deduped = {};
             for (final src in rawFiltered) {
-              final key = '${(src.name ?? '').toLowerCase()}_${(src.lang ?? '').toLowerCase()}_${src.itemType.name}';
+              // Include pkgPath so same-named extensions from different repos stay distinct.
+              final key = '${(src.name ?? '').toLowerCase()}_${(src.lang ?? '').toLowerCase()}_${src.itemType.name}_${(src.pkgPath ?? '').isNotEmpty ? src.pkgPath! : (src.repo?.name ?? '')}';
               final prev = _deduped[key];
               if (prev == null) {
                 _deduped[key] = src;

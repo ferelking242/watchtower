@@ -32,10 +32,15 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
               Widget? w;
               if (preference.editTextPreference != null) {
                 final pref = preference.editTextPreference!;
+                // Show the configured value as subtitle so the user can
+                // see what they last entered without reopening the dialog.
+                final etSubtitle = (pref.value != null && pref.value!.isNotEmpty)
+                    ? pref.value!
+                    : pref.summary!;
                 w = ListTile(
                   title: Text(pref.title!),
                   subtitle: Text(
-                    pref.summary!,
+                    etSubtitle,
                     style: TextStyle(
                       fontSize: 11,
                       color: context.secondaryColor,
@@ -176,10 +181,26 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
                 );
               } else if (preference.multiSelectListPreference != null) {
                 final pref = preference.multiSelectListPreference!;
+                // Build a readable subtitle from the currently selected entries.
+                String multiSubtitle;
+                if (pref.values != null && pref.values!.isNotEmpty &&
+                    pref.entries != null && pref.entryValues != null) {
+                  final selected = <String>[];
+                  for (int i = 0; i < pref.entryValues!.length; i++) {
+                    if (pref.values!.contains(pref.entryValues![i])) {
+                      selected.add(pref.entries![i]);
+                    }
+                  }
+                  multiSubtitle = selected.isNotEmpty
+                      ? selected.join(', ')
+                      : pref.summary!;
+                } else {
+                  multiSubtitle = pref.summary!;
+                }
                 w = ListTile(
                   title: Text(pref.title!),
                   subtitle: Text(
-                    pref.summary!,
+                    multiSubtitle,
                     style: TextStyle(
                       fontSize: 11,
                       color: context.secondaryColor,

@@ -460,8 +460,43 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           final cl = entry.value;
           final listId = cl['id'] as String;
           final listName = cl['name'] as String? ?? listId;
-          final isDerniers = sectionIdx == 0;   // → Latest tab
-          final isTop15    = sectionIdx == 1;   // → ranked cards, no voir tout
+
+          // ── Declarative fields — fallback to legacy index-based values ──
+          final String layout  = cl['layout'] as String? ?? '';
+          final Color accent   = _parseHexColor(cl['color'] as String?, _sectionAccent(sectionIdx));
+          final IconData icon  = _kIconMap[cl['icon'] as String?] ?? _sectionIcon(sectionIdx);
+          final dynamic seeAll = cl['seeAll'];
+
+          final bool isRanked    = layout == 'ranked'    || (layout.isEmpty && sectionIdx == 1);
+          final bool isSpotlight = layout == 'spotlight' || (layout.isEmpty && sectionIdx == 0);
+
+          VoidCallback? onSeeAllCb;
+          if (seeAll == false || (seeAll == null && isRanked)) {
+            onSeeAllCb = null;
+          } else if (seeAll == 'latest' || (seeAll == null && sectionIdx == 0)) {
+            onSeeAllCb = () => setState(() {
+                  _selectedIdx = _kLatestIdx;
+                  _mangaList.clear();
+                  _page = 1;
+                  _hasNextPage = true;
+                });
+          } else if (seeAll == 'popular') {
+            onSeeAllCb = () => setState(() {
+                  _selectedIdx = _kPopularIdx;
+                  _mangaList.clear();
+                  _page = 1;
+                  _hasNextPage = true;
+                });
+          } else {
+            onSeeAllCb = () => Navigator.of(ctx).push(MaterialPageRoute(
+                  builder: (_) => _WatchSectionPage(
+                    source: source,
+                    title: listName,
+                    type: _SectionKind.custom,
+                    customListId: listId,
+                  ),
+                ));
+          }
 
           return SliverToBoxAdapter(
             child: Column(
@@ -469,28 +504,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               children: [
                 _buildSectionHeader(ctx,
                   title: listName,
-                  accent: _sectionAccent(sectionIdx),
-                  icon:   _sectionIcon(sectionIdx),
-                  onSeeAll: isTop15 ? null : () {
-                    if (isDerniers) {
-                      // "Voir tout" → Latest tab
-                      setState(() {
-                        _selectedIdx = _kLatestIdx;
-                        _mangaList.clear();
-                        _page = 1;
-                        _hasNextPage = true;
-                      });
-                    } else {
-                      Navigator.of(ctx).push(MaterialPageRoute(
-                        builder: (_) => _WatchSectionPage(
-                          source: source,
-                          title: listName,
-                          type: _SectionKind.custom,
-                          customListId: listId,
-                        ),
-                      ));
-                    }
-                  },
+                  accent: accent,
+                  icon: icon,
+                  onSeeAll: onSeeAllCb,
                 ),
                 Consumer(builder: (c, ref, _) {
                   final data = ref.watch(getCustomListProvider(
@@ -499,11 +515,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                   return data.when(
                     data: (d) {
                       final items = d?.list ?? [];
-                      if (isTop15) return _buildRankedRow(ctx, items);
-                      if (isDerniers) return _buildSpotlightRow(ctx, items);
+                      if (layout == 'carousel') return _buildSpotlightRow(ctx, items);
+                      if (layout == 'grid')     return _buildCompactRow(ctx, items);
+                      if (isRanked)             return _buildRankedRow(ctx, items);
+                      if (isSpotlight)          return _buildSpotlightRow(ctx, items);
                       return _buildCompactRow(ctx, items);
                     },
-                    loading: () => isTop15
+                    loading: () => isRanked
                         ? _buildRankedRowSkeleton(ctx)
                         : _buildCompactRowSkeleton(ctx),
                     error: (_, __) => const SizedBox(height: 8),
@@ -628,7 +646,37 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Section accent + icon helpers ────────────────────────────────────────
+  // ── Section accent + icon helpers (index fallbacks kept for retro-compat) ──
+
+  static const _kIconMap = <String, IconData>{
+    'fiber_new':    Icons.fiber_new_rounded,
+    'trending_up':  Icons.trending_up_rounded,
+    'animation':    Icons.animation_rounded,
+    'theaters':     Icons.theaters_rounded,
+    'star':         Icons.star_rounded,
+    'bolt':         Icons.bolt_rounded,
+    'movie':        Icons.movie_rounded,
+    'live_tv':      Icons.live_tv_rounded,
+    'history':      Icons.history_rounded,
+    'category':     Icons.category_rounded,
+    'new_releases': Icons.new_releases_rounded,
+    'local_movies': Icons.local_movies_rounded,
+    'tv':           Icons.tv_rounded,
+    'sports':       Icons.sports_rounded,
+    'music_note':   Icons.music_note_rounded,
+  };
+
+  /// Parse a CSS hex color string like "#FF0000" → Color.
+  /// Falls back to [fallback] if parsing fails.
+  Color _parseHexColor(String? hex, Color fallback) {
+    if (hex == null || hex.isEmpty) return fallback;
+    try {
+      final h = hex.replaceAll('#', '');
+      if (h.length == 6) return Color(int.parse('FF$h', radix: 16));
+      if (h.length == 8) return Color(int.parse(h, radix: 16));
+    } catch (_) {}
+    return fallback;
+  }
 
   Color _sectionAccent(int idx) {
     const colors = [

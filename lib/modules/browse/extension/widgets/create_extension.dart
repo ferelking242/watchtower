@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +23,8 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
   String _apiUrl = "";
   String _iconUrl = "";
   String _notes = "";
+  String _iconPreviewUrl = "";
+  Timer? _iconDebounce;
   int _sourceTypeIndex = 0;
   int _itemTypeIndex = 0;
   SourceCodeLanguage _sourceCodeLanguage = SourceCodeLanguage.dart;
@@ -83,6 +86,24 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
   }
 
   @override
+  void dispose() {
+    _iconDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onIconUrlChanged(String v) {
+    setState(() => _iconUrl = v);
+    _iconDebounce?.cancel();
+    if (v.isEmpty) {
+      setState(() => _iconPreviewUrl = '');
+      return;
+    }
+    _iconDebounce = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _iconPreviewUrl = v);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
@@ -137,7 +158,56 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
               const SizedBox(height: 10),
               _FieldRow(label: 'API URL (optionnel)', hint: 'https://api.exemple.com', onChanged: (v) => setState(() => _apiUrl = v)),
               const SizedBox(height: 10),
-              _FieldRow(label: 'URL icône', hint: 'https://exemple.com/icon.png', onChanged: (v) => setState(() => _iconUrl = v)),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FieldRow(
+                      label: 'URL icône',
+                      hint: 'https://exemple.com/icon.png',
+                      onChanged: _onIconUrlChanged,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Live preview with 800ms debounce
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: _iconPreviewUrl.isNotEmpty
+                        ? ClipRRect(
+                            key: ValueKey(_iconPreviewUrl),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              _iconPreviewUrl,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: cs.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(Icons.broken_image_rounded,
+                                    size: 20, color: cs.error),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            key: const ValueKey('empty'),
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: cs.outlineVariant.withValues(alpha: 0.4)),
+                            ),
+                            child: Icon(Icons.image_outlined,
+                                size: 20, color: cs.onSurfaceVariant),
+                          ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
               _FieldRow(label: 'Notes', hint: 'ex: nécessite une connexion', onChanged: (v) => setState(() => _notes = v)),
               const SizedBox(height: 20),
