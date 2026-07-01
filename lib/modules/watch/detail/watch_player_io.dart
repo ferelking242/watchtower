@@ -1039,7 +1039,7 @@ class _FullscreenControlsOverlayState
                       child: _buildSeekSwipeHUD(),
                     ),
                   ),
-                ),,
+                ),
         ],
       ),
     );
