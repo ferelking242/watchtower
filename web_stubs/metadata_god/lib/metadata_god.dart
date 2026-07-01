@@ -19,8 +19,9 @@ class Picture {
     final int? bitrate;
     final int? sampleRate;
     final int? channels;
+    final int? fileSize;
     final Picture? picture;
-    const Metadata({this.title, this.artist, this.albumArtist, this.album, this.trackNumber, this.trackTotal, this.discNumber, this.discTotal, this.year, this.genre, this.comment, this.durationMs, this.bitrate, this.sampleRate, this.channels, this.picture});
+    const Metadata({this.title, this.artist, this.albumArtist, this.album, this.trackNumber, this.trackTotal, this.discNumber, this.discTotal, this.year, this.genre, this.comment, this.durationMs, this.bitrate, this.sampleRate, this.channels, this.fileSize, this.picture});
   }
   class MetadataGod {
     static Future<void> initialize() async {}

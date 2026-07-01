@@ -36,7 +36,7 @@ jobs:
 
       - name: Patch pubspec with web stubs
         run: |
-          python3 - << 'PYEOF'
+          python3 << 'PYEOF'
           import re
           with open('pubspec.yaml', 'r') as f:
               lines = f.readlines()
@@ -91,9 +91,30 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Patch isar integer literals for dart2js
+        run: |
+          python3 << 'PYEOF'
+          import re, glob
+          pattern = re.compile(r'\b\d{16,}\b')
+          count = 0
+          for path in glob.glob('lib/**/*.dart', recursive=True):
+              try:
+                  with open(path) as f:
+                      content = f.read()
+                  if pattern.search(content):
+                      new_content = pattern.sub('0', content)
+                      with open(path, 'w') as f:
+                          f.write(new_content)
+                      print(f'Patched: {path}')
+                      count += 1
+              except Exception as e:
+                  print(f'Error: {path}: {e}')
+          print(f'Total isar files patched: {count}')
+          PYEOF
+
       - name: Patch dart:ffi files in pub-cache
         run: |
-          python3 - << 'PYEOF'
+          python3 << 'PYEOF'
           import os, glob
           pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dev')
           patterns = [
@@ -109,11 +130,17 @@ jobs:
                       f.write(stub)
                   print(f'Stubbed: {os.path.basename(path)}')
                   count += 1
-          drift_stub = '// Web stub\nimport \'package:drift/drift.dart\';\nclass NativeDatabase { static QueryExecutor open(dynamic f, {dynamic setup, bool logStatements=false}) => throw UnimplementedError(); static QueryExecutor inMemory({dynamic setup}) => throw UnimplementedError(); }\n'
+          drift_stub = ('// Web stub\n'
+              'import \'package:drift/drift.dart\';\n'
+              'class NativeDatabase {\n'
+              '  static dynamic open(dynamic f, {dynamic setup, bool logStatements=false}) => throw UnimplementedError();\n'
+              '  static dynamic inMemory({dynamic setup}) => throw UnimplementedError();\n'
+              '  static dynamic createInBackground(dynamic f, {dynamic setup, bool logStatements=false, String? cacheName}) => throw UnimplementedError();\n'
+              '}\n')
           for path in glob.glob(f'{pub_cache}/drift-*/lib/native.dart'):
               with open(path, 'w') as f:
                   f.write(drift_stub)
-              print(f'Stubbed drift native: {os.path.basename(path)}')
+              print(f'Stubbed drift: {os.path.basename(path)}')
               count += 1
           print(f'Total stubbed: {count} files')
           PYEOF
@@ -122,11 +149,11 @@ jobs:
         run: |
           FILE=$(find ~/.pub-cache -name 'CSSParser.dart' -path '*/pseudom*' 2>/dev/null | head -1)
           if [ -n "$FILE" ]; then
-            sed -i 's/& -3765256679076942294/\& 0/g' "$FILE"
-            sed -i 's/& 4626330031550017026/\& 0/g' "$FILE"
-            sed -i 's/& 5779244251887978624/\& 0/g' "$FILE"
-            sed -i 's/& -4597022382133018102/\& 0/g' "$FILE"
-            sed -i 's/& -4022278413737085706/\& 0/g' "$FILE"
+            sed -i 's/& -3765256679076942294/& 0/g' "$FILE"
+            sed -i 's/& 4626330031550017026/& 0/g' "$FILE"
+            sed -i 's/& 5779244251887978624/& 0/g' "$FILE"
+            sed -i 's/& -4597022382133018102/& 0/g' "$FILE"
+            sed -i 's/& -4022278413737085706/& 0/g' "$FILE"
             echo 'Patched CSSParser.dart'
           fi
 

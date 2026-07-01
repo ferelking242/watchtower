@@ -25,18 +25,18 @@ class MediaFormat {
     final int itag;
     final String content;
     final int bitrate;
-    final String? codec;
+    final String codec;
     final MediaFormat? mediaFormat;
-    const AudioStream({required this.itag, required this.content, required this.bitrate, this.codec, this.mediaFormat});
+    const AudioStream({required this.itag, required this.content, required this.bitrate, this.codec = '', this.mediaFormat});
   }
 
   class VideoStream {
     final int itag;
     final String content;
     final int bitrate;
-    final String? codec;
+    final String codec;
     final MediaFormat? mediaFormat;
-    const VideoStream({required this.itag, required this.content, required this.bitrate, this.codec, this.mediaFormat});
+    const VideoStream({required this.itag, required this.content, required this.bitrate, this.codec = '', this.mediaFormat});
   }
 
   class VideoInfo {
@@ -92,7 +92,8 @@ class MediaFormat {
   class NewPipeExtractor {
     static Future<dynamic> getStream(String url) async => null;
     static Future<List<dynamic>> getRelatedStreams(String url) async => [];
-    static Future<VideoInfo?> getVideoInfo(String videoId) async => null;
+    static Future<VideoInfo> getVideoInfo(String videoId) async =>
+        throw UnimplementedError('NewPipeExtractor not available on web');
     static Future<List<dynamic>> search(String query, {List<SearchContentFilters> contentFilters = const []}) async => [];
     static Future<List<dynamic>> getChannelVideos(String channelUrl) async => [];
   }
