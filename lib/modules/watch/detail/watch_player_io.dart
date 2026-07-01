@@ -2577,6 +2577,9 @@ class _InlineControls extends StatefulWidget {
 }
 
 class _InlineControlsState extends State<_InlineControls> {
+  bool _dragActive = false;
+  double _dragValue = 0.0;
+
   Player get _p => widget.player;
   VideoController get _c => widget.controller;
 
@@ -2678,16 +2681,18 @@ class _InlineControlsState extends State<_InlineControls> {
                     overlayColor: Colors.white24,
                   ),
                   child: Slider(
-                    value: progress,
-                    onChangeStart: (_) {
+                    value: _dragActive ? _dragValue : progress,
+                    onChangeStart: (v) {
+                      setState(() { _dragActive = true; _dragValue = v; });
                       widget.seekingNotifier.value = true;
                     },
-                    onChanged: (_) {},
+                    onChanged: (v) => setState(() => _dragValue = v),
                     onChangeEnd: (v) {
                       if (dur.inMilliseconds > 0) {
                         _p.seek(Duration(
                             milliseconds: (v * dur.inMilliseconds).round()));
                       }
+                      setState(() => _dragActive = false);
                       widget.seekingNotifier.value = false;
                     },
                   ),
