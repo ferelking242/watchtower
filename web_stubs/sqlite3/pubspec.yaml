@@ -1,0 +1,8 @@
+name: sqlite3
+  description: Web stub for sqlite3 package
+  version: 2.9.4
+  publish_to: none
+
+  environment:
+    sdk: '>=3.0.0 <4.0.0'
+  
