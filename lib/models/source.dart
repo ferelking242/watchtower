@@ -93,6 +93,8 @@ class Source {
   bool? isAggregator;
   String? paywall;
   String? upstream;
+  List<String>? videoQualities;
+  List<String>? contentSubtype;
 
   Source({
     this.id = 0,
@@ -136,6 +138,8 @@ class Source {
     this.isAggregator,
     this.paywall,
     this.upstream,
+    this.videoQualities,
+    this.contentSubtype,
   });
 
   FilterList? getFilterList() => filterList != null
@@ -186,6 +190,8 @@ class Source {
     isAggregator = json['isAggregator'] as bool?;
     paywall = json['paywall'] as String?;
     upstream = json['upstream'] as String?;
+    videoQualities = (json['videoQualities'] as List<dynamic>?)?.cast<String>();
+    contentSubtype = (json['contentSubtype'] as List<dynamic>?)?.cast<String>();
   }
 
   Map<String, dynamic> toJson() => {
@@ -231,6 +237,8 @@ class Source {
     'isAggregator': isAggregator,
     'paywall': paywall,
     'upstream': upstream,
+    'videoQualities': videoQualities,
+    'contentSubtype': contentSubtype,
   };
 
   bool get isTorrent => (typeSource?.toLowerCase() ?? "") == "torrent";
