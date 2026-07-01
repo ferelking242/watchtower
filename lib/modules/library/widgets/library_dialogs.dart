@@ -1,5 +1,4 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
@@ -10,7 +9,6 @@ import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/models/changed.dart';
-import 'package:watchtower/modules/library/providers/file_scanner.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/library/providers/local_archive.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
@@ -267,11 +265,6 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
   };
   bool isLoading = false;
   bool splitChapters = true;
-
-  // manga and anime support folder scanning; novel does not
-  final bool hasFolderBtn =
-      itemType == ItemType.manga || itemType == ItemType.anime;
-
   showDialog(
     context: context,
     barrierDismissible: !isLoading,
@@ -282,13 +275,8 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
           builder: (context, setState) {
             return Consumer(
               builder: (context, ref, child) {
-                // novel needs extra height for the SwitchListTile;
-                // manga/anime need extra height for the second button row
-                final double dialogHeight =
-                    itemType == ItemType.novel || hasFolderBtn ? 150 : 100;
-
                 return SizedBox(
-                  height: dialogHeight,
+                  height: itemType == ItemType.novel ? 150 : 100,
                   child: Stack(
                     children: [
                       Column(
@@ -312,15 +300,15 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
                           Expanded(
                             child: Row(
                               children: [
-                                // ── Bouton fichier(s) ─────────────────────
                                 Expanded(
                                   child: Padding(
                                     padding: const EdgeInsets.all(3),
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                       ),
                                       onPressed: () async {
@@ -345,10 +333,9 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
                                           Text(
                                             "${l10n.import_files} ( $filesText )",
                                             style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall!
-                                                  .color,
+                                              color: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall!.color,
                                               fontSize: 10,
                                             ),
                                           ),
@@ -357,76 +344,6 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
                                     ),
                                   ),
                                 ),
-
-                                // ── Bouton dossier (manga + anime seulement) ─
-                                if (hasFolderBtn)
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(3),
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
-                                        ),
-                                        onPressed: () async {
-                                          // FilePicker.platform is the correct
-                                          // public API for directory picking
-                                          final dir = await FilePicker.platform
-                                              .getDirectoryPath();
-                                          if (dir == null ||
-                                              !context.mounted) return;
-                                          setState(() => isLoading = true);
-
-                                          // Persist the new folder in Settings
-                                          // (localFoldersStateProvider reads/writes
-                                          // Settings.localFolders via Isar)
-                                          final folders = [
-                                            ...ref.read(
-                                                localFoldersStateProvider),
-                                          ];
-                                          if (!folders.contains(dir)) {
-                                            folders.add(dir);
-                                            ref
-                                                .read(localFoldersStateProvider
-                                                    .notifier)
-                                                .set(folders);
-                                          }
-
-                                          // scanLocalLibraryProvider scans both
-                                          // Watchtower/local/ and all custom folders
-                                          await ref
-                                              .read(scanLocalLibraryProvider
-                                                  .future);
-
-                                          setState(() => isLoading = false);
-                                          if (!context.mounted) return;
-                                          Navigator.pop(context);
-                                        },
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceEvenly,
-                                          children: [
-                                            const Icon(
-                                                Icons.folder_open_rounded),
-                                            Text(
-                                              itemType == ItemType.anime
-                                                  ? 'Import dossier série'
-                                                  : 'Import dossier manga',
-                                              style: TextStyle(
-                                                color: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall!
-                                                    .color,
-                                                fontSize: 10,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
                               ],
                             ),
                           ),
@@ -441,7 +358,9 @@ void showImportLocalDialog(BuildContext context, ItemType itemType) {
                             child: Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(20),
-                                color: Theme.of(context).scaffoldBackgroundColor,
+                                color: Theme.of(
+                                  context,
+                                ).scaffoldBackgroundColor,
                               ),
                               height: 50,
                               width: 50,
