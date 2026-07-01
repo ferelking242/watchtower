@@ -242,58 +242,15 @@ class WatchInlinePlayer {
   Widget buildBannerOverlay({required BuildContext context}) {
     if (!hasVideoUrl) return const SizedBox.shrink();
     final accent = Theme.of(context).primaryColor;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        IgnorePointer(
-          child: Video(
-            controller: _controller,
-            fit: BoxFit.contain,
-            controls: NoVideoControls,
-          ),
-        ),
-        // Bottom gradient
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: IgnorePointer(
-            child: Container(
-              height: 80,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Color(0xEE000000), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Loading / buffering overlay
-        Positioned.fill(
-          child: _PlayerStateOverlay(
-            player: _player,
-            seekingNotifier: _seekingNotifier,
-          ),
-        ),
-        // Inline controls bar — MovieBox layout: [▶ | ─●─ time | PiP | ⛶]
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _InlineControls(
-            player: _player,
-            controller: _controller,
-            accent: accent,
-            title: title,
-            seekingNotifier: _seekingNotifier,
-            loadedVideos: loadedVideos,
-            onSwitchQuality: switchQuality,
-            selectedQuality: selectedQuality,
-          ),
-        ),
-      ],
+    return _PortraitPlayerOverlay(
+      player: _player,
+      controller: _controller,
+      accent: accent,
+      title: title,
+      seekingNotifier: _seekingNotifier,
+      loadedVideos: loadedVideos,
+      onSwitchQuality: switchQuality,
+      selectedQuality: selectedQuality,
     );
   }
 
@@ -349,6 +306,8 @@ class _FullscreenPlayerPage extends StatefulWidget {
 }
 
 class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
+  final _fitNotifier = ValueNotifier<BoxFit>(BoxFit.contain);
+
   @override
   void initState() {
     super.initState();
@@ -361,6 +320,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
 
   @override
   void dispose() {
+    _fitNotifier.dispose();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
@@ -376,10 +336,13 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
       body: Stack(
         children: [
           SizedBox.expand(
-            child: Video(
-              controller: widget.controller,
-              fit: BoxFit.contain,
-              controls: NoVideoControls,
+            child: ValueListenableBuilder<BoxFit>(
+              valueListenable: _fitNotifier,
+              builder: (_, fit, __) => Video(
+                controller: widget.controller,
+                fit: fit,
+                controls: NoVideoControls,
+              ),
             ),
           ),
           Positioned.fill(
@@ -388,6 +351,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
               controller: widget.controller,
               title: widget.title,
               showBackButton: true,
+              fitNotifier: _fitNotifier,
               loadedVideos: widget.loadedVideos,
               onSwitchQuality: widget.onSwitchQuality,
               selectedQuality: widget.selectedQuality,
@@ -409,6 +373,7 @@ class _FullscreenControlsOverlay extends StatefulWidget {
   final List<wt.Video> loadedVideos;
   final Future<void> Function(wt.Video)? onSwitchQuality;
   final String? selectedQuality;
+  final ValueNotifier<BoxFit>? fitNotifier;
 
   const _FullscreenControlsOverlay({
     required this.player,
@@ -418,6 +383,7 @@ class _FullscreenControlsOverlay extends StatefulWidget {
     this.loadedVideos = const [],
     this.onSwitchQuality,
     this.selectedQuality,
+    this.fitNotifier,
   });
 
   @override
@@ -455,7 +421,7 @@ class _FullscreenControlsOverlayState
     bool _showSpeedBoostHUD     = false;
 
     // ── Seek + mute + orientation + audio-only ────────────────────────────────
-    int _seekSeconds = 10;
+    int _seekSeconds = 15;
     bool _muted = false;
     bool _landscapeIsLeft = true;
     bool _audioOnly = false;
@@ -472,6 +438,15 @@ class _FullscreenControlsOverlayState
 
     // ── Current quality (synced with loadedVideos) ────────────────────────────
     String? _currentQuality;
+
+    // ── Seekbar drag state (smooth preview without seeking on every frame) ─────
+    bool _seekDragging = false;
+    double _seekDragValue = 0.0;
+
+    // ── Horizontal swipe → seek ───────────────────────────────────────────────
+    Duration _horizSeekStartPos = Duration.zero;
+    int _horizSeekDelta = 0;
+    bool _showSeekSwipeHUD = false;
 
   @override
   void initState() {
@@ -512,7 +487,7 @@ class _FullscreenControlsOverlayState
     _doubleTapRight = isRight;
     _doubleTapCount++;
 
-    final seconds = _doubleTapCount == 1 ? 10 : _doubleTapCount == 2 ? 30 : 60;
+    final seconds = 15 * (1 << (_doubleTapCount - 1)); // 15, 30, 60, 120, 240...
     _skipHudSeconds = seconds;
     _seek(isRight ? seconds : -seconds);
 
@@ -562,6 +537,7 @@ class _FullscreenControlsOverlayState
   void _toggleFit() {
     setState(() =>
         _fit = _fit == BoxFit.contain ? BoxFit.fill : BoxFit.contain);
+    widget.fitNotifier?.value = _fit;
     _resetHideTimer();
   }
 
@@ -715,26 +691,31 @@ class _FullscreenControlsOverlayState
           }
         },
         onHorizontalDragStart: (d) {
+          if (_holdSpeedActive) return;
           _horizDragStartX = d.globalPosition.dx;
-          _horizDragStartSpeed = _speed;
+          _horizSeekStartPos = widget.player.state.position;
+          _horizSeekDelta = 0;
           _hideTimer?.cancel();
         },
         onHorizontalDragUpdate: (d) {
           if (_horizDragStartX == null || _holdSpeedActive) return;
-          final delta = (d.globalPosition.dx - _horizDragStartX!) / size.width;
-          final speeds = _kAllSpeeds;
-          final baseIdx = speeds.indexWhere((s) => s >= _horizDragStartSpeed).clamp(0, speeds.length - 1);
-          final shift = (delta * 8).round();
-          final newIdx = (baseIdx + shift).clamp(0, speeds.length - 1);
-          final newSpeed = speeds[newIdx];
-          if (newSpeed != _speed) {
-            _speed = newSpeed;
-            widget.player.setRate(_speed);
-            setState(() {});
-          }
+          final dx = d.globalPosition.dx - _horizDragStartX!;
+          final dur = widget.player.state.duration.inSeconds;
+          if (dur <= 0) return;
+          // ~60s per full screen width
+          _horizSeekDelta = (dx / size.width * 90).round();
+          setState(() => _showSeekSwipeHUD = true);
         },
         onHorizontalDragEnd: (_) {
+          if (_horizDragStartX != null && !_holdSpeedActive && _horizSeekDelta != 0) {
+            final dur = widget.player.state.duration;
+            final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+            final clamped = next < Duration.zero ? Duration.zero : (next > dur ? dur : next);
+            widget.player.seek(clamped);
+          }
           _horizDragStartX = null;
+          _horizSeekDelta = 0;
+          setState(() => _showSeekSwipeHUD = false);
           _resetHideTimer();
         },
         onVerticalDragStart: (d) {
@@ -1002,34 +983,63 @@ class _FullscreenControlsOverlayState
               ),
 
             // Speed boost HUD — center top
-            if (_showSpeedBoostHUD)
-              Positioned(
-                top: 40, left: 0, right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.72),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
-                          const SizedBox(width: 6),
-                          Text(
-                            _holdBoostSpeed == _holdBoostSpeed.roundToDouble()
-                                ? '${_holdBoostSpeed.toInt()}x'
-                                : '${_holdBoostSpeed}x',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                        ],
+              if (_showSpeedBoostHUD)
+                Positioned(
+                  top: 40, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _holdBoostSpeed == _holdBoostSpeed.roundToDouble()
+                                      ? '${_holdBoostSpeed.toInt()}x'
+                                      : '${_holdBoostSpeed}x',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: 120,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: ((_kAllSpeeds.indexOf(_holdBoostSpeed) + 1) / _kAllSpeeds.length).clamp(0.0, 1.0),
+                                  backgroundColor: Colors.white24,
+                                  valueColor: const AlwaysStoppedAnimation(Colors.white),
+                                  minHeight: 3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+
+              // Seek swipe HUD — center
+              if (_showSeekSwipeHUD)
+                Positioned(
+                  top: 0, bottom: 0, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: _buildSeekSwipeHUD(),
+                    ),
+                  ),
+                ),,
         ],
       ),
     );
@@ -1066,37 +1076,35 @@ class _FullscreenControlsOverlayState
 
   // ── Skip HUD (YouTube-style double-tap indicator) ─────────────────────────
   Widget _buildSkipHUD({required bool isRight, required int seconds}) {
-    return AnimatedOpacity(
-      opacity: 1.0,
-      duration: const Duration(milliseconds: 120),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.52),
-          borderRadius: BorderRadius.circular(50),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: isRight
-                  ? [
-                      const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 22),
-                      const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 22),
-                    ]
-                  : [
-                      const Icon(Icons.fast_rewind_rounded, color: Colors.white, size: 22),
-                      const Icon(Icons.fast_rewind_rounded, color: Colors.white, size: 22),
-                    ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              isRight ? '+${seconds}s' : '-${seconds}s',
-              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+    final arrows = (seconds >= 60 ? 3 : seconds >= 30 ? 2 : 1);
+    final label = isRight ? '+${seconds}s' : '-${seconds}s';
+    return Container(
+      width: 120,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(64),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int i = 0; i < arrows; i++)
+                Icon(
+                  isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                  color: Colors.white.withValues(alpha: 0.5 + i * 0.2),
+                  size: 20,
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
     );
   }
@@ -1139,6 +1147,40 @@ class _FullscreenControlsOverlayState
       );
     }
   
+
+  Widget _buildSeekSwipeHUD() {
+    final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+    final dur = widget.player.state.duration;
+    final clamped = pos < Duration.zero ? Duration.zero : (pos > dur ? dur : pos);
+    final sign = _horizSeekDelta >= 0 ? '+' : '';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _horizSeekDelta >= 0 ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+            color: Colors.white,
+            size: 26,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${sign}${_horizSeekDelta}s',
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _fmt(clamped),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildControlsOverlay() {
     final safeArea = MediaQuery.of(context).padding;
     return Stack(
@@ -1349,13 +1391,18 @@ class _FullscreenControlsOverlayState
                   overlayColor: Colors.white24,
                 ),
                 child: Slider(
-                  value: progress,
-                  onChanged: (v) {
+                  value: _seekDragging ? _seekDragValue : progress,
+                  onChangeStart: (_) {
+                    setState(() => _seekDragging = true);
+                    _hideTimer?.cancel();
+                  },
+                  onChanged: (v) => setState(() => _seekDragValue = v),
+                  onChangeEnd: (v) {
                     if (dur.inMilliseconds > 0) {
                       widget.player.seek(Duration(
-                          milliseconds:
-                              (v * dur.inMilliseconds).round()));
+                          milliseconds: (v * dur.inMilliseconds).round()));
                     }
+                    setState(() => _seekDragging = false);
                     _resetHideTimer();
                   },
                 ),
@@ -1664,7 +1711,7 @@ class _FullscreenControlsOverlayState
         seekSeconds: _seekSeconds,
         onSeekSeconds: (s) => setState(() => _seekSeconds = s),
         fit: _fit,
-        onFit: (f) => setState(() => _fit = f),
+        onFit: (f) { setState(() => _fit = f); widget.fitNotifier?.value = f; },
       ),
     ).then((_) => _resetHideTimer());
   }
@@ -1736,11 +1783,11 @@ class _ToolbarChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
         decoration: BoxDecoration(
           color: active
-              ? accent.withValues(alpha: 0.20)
-              : const Color(0xFF1a1a1a),
+              ? accent.withValues(alpha: 0.18)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(5),
           border: Border.all(
-            color: active ? accent.withValues(alpha: 0.65) : Colors.white12,
+            color: active ? accent.withValues(alpha: 0.65) : Colors.transparent,
             width: 0.7,
           ),
         ),
@@ -2064,9 +2111,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         color: Colors.transparent,
         alignment: Alignment.topRight,
         padding: EdgeInsets.only(
-          top: safeArea.top + 48,
-          right: safeArea.right + 8,
-          bottom: safeArea.bottom + 56,
+          top: safeArea.top + 4,
+          right: safeArea.right,
+          bottom: safeArea.bottom + 4,
         ),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -2083,16 +2130,21 @@ class _SettingsPanelState extends State<_SettingsPanel> {
               child: child,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+              ),
               child: Container(
                 width: panelW,
                 constraints: BoxConstraints(
-                  maxHeight: screenH * 0.70,
+                  maxHeight: screenH * 0.90,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white12, width: 0.7),
+                decoration: const BoxDecoration(
+                  color: Color(0xD1000000),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                  ),
                 ),
             child: SafeArea(
               child: Column(
@@ -2379,6 +2431,126 @@ class _TrackTile extends StatelessWidget {
 // ─── Inline controls (portrait banner) — MovieBox layout ─────────────────────
 // Layout: [▶ | ─────●───── time | PiP | ⛶]
 
+  // ─── Portrait player overlay (with tap-to-toggle controls) ───────────────────
+
+  class _PortraitPlayerOverlay extends StatefulWidget {
+    final Player player;
+    final VideoController controller;
+    final Color accent;
+    final String title;
+    final ValueNotifier<bool> seekingNotifier;
+    final List<wt.Video> loadedVideos;
+    final Future<void> Function(wt.Video)? onSwitchQuality;
+    final String? selectedQuality;
+
+    const _PortraitPlayerOverlay({
+      required this.player,
+      required this.controller,
+      required this.accent,
+      required this.title,
+      required this.seekingNotifier,
+      this.loadedVideos = const [],
+      this.onSwitchQuality,
+      this.selectedQuality,
+    });
+
+    @override
+    State<_PortraitPlayerOverlay> createState() => _PortraitPlayerOverlayState();
+  }
+
+  class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
+    bool _showControls = true;
+    Timer? _hideTimer;
+
+    @override
+    void initState() {
+      super.initState();
+      _resetHideTimer();
+    }
+
+    @override
+    void dispose() {
+      _hideTimer?.cancel();
+      super.dispose();
+    }
+
+    void _resetHideTimer() {
+      _hideTimer?.cancel();
+      _hideTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _showControls = false);
+      });
+    }
+
+    void _onTap() {
+      setState(() => _showControls = !_showControls);
+      if (_showControls) _resetHideTimer();
+      else _hideTimer?.cancel();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _onTap,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            IgnorePointer(
+              child: Video(
+                controller: widget.controller,
+                fit: BoxFit.contain,
+                controls: NoVideoControls,
+              ),
+            ),
+            // Bottom gradient
+            Positioned(
+              left: 0, right: 0, bottom: 0,
+              child: IgnorePointer(
+                child: Container(
+                  height: 80,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Color(0xEE000000), Colors.transparent],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Loading / buffering overlay
+            Positioned.fill(
+              child: _PlayerStateOverlay(
+                player: widget.player,
+                seekingNotifier: widget.seekingNotifier,
+              ),
+            ),
+            // Inline controls — visible only when _showControls
+            if (_showControls)
+              Positioned(
+                left: 0, right: 0, bottom: 0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {}, // absorb taps on controls area
+                  child: _InlineControls(
+                    player: widget.player,
+                    controller: widget.controller,
+                    accent: widget.accent,
+                    title: widget.title,
+                    seekingNotifier: widget.seekingNotifier,
+                    loadedVideos: widget.loadedVideos,
+                    onSwitchQuality: widget.onSwitchQuality,
+                    selectedQuality: widget.selectedQuality,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+  }
+
+  
 class _InlineControls extends StatefulWidget {
   final Player player;
   final VideoController controller;
@@ -2507,17 +2679,17 @@ class _InlineControlsState extends State<_InlineControls> {
                   ),
                   child: Slider(
                     value: progress,
-                    onChangeStart: (_) =>
-                        widget.seekingNotifier.value = true,
-                    onChanged: (v) {
+                    onChangeStart: (_) {
+                      widget.seekingNotifier.value = true;
+                    },
+                    onChanged: (_) {},
+                    onChangeEnd: (v) {
                       if (dur.inMilliseconds > 0) {
                         _p.seek(Duration(
-                            milliseconds:
-                                (v * dur.inMilliseconds).round()));
+                            milliseconds: (v * dur.inMilliseconds).round()));
                       }
+                      widget.seekingNotifier.value = false;
                     },
-                    onChangeEnd: (_) =>
-                        widget.seekingNotifier.value = false,
                   ),
                 );
               },
