@@ -1167,7 +1167,7 @@ List<Widget> mobilePrimaryButtonBar(
           : null,
       icon: Icon(
         Icons.skip_previous,
-        size: 35,
+        size: 44,
         color: hasPrevEpisode ? Colors.white : Colors.grey,
       ),
     ),
@@ -1194,8 +1194,8 @@ List<Widget> mobilePrimaryButtonBar(
           : null,
       icon: Icon(
         Icons.skip_next,
-        size: 35,
-        color: hasPrevEpisode ? Colors.white : Colors.grey,
+        size: 44,
+        color: hasNextEpisode ? Colors.white : Colors.grey,
       ),
     ),
     const Spacer(flex: 2),
@@ -1248,8 +1248,8 @@ class _SkipSecondsButtonState extends State<_SkipSecondsButton>
           child: child,
         ),
         child: Container(
-          width: 44,
-          height: 44,
+          width: 54,
+          height: 54,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.14),
             shape: BoxShape.circle,
@@ -1266,13 +1266,13 @@ class _SkipSecondsButtonState extends State<_SkipSecondsButton>
                     ? Icons.replay_rounded
                     : Icons.forward_rounded,
                 color: Colors.white,
-                size: 17,
+                size: 21,
               ),
               Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 8.5,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.bold,
                   height: 1.1,
                 ),
