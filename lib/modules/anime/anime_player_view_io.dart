@@ -2453,7 +2453,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
         return ArrowPopupMenuButton<String>(
           tooltip: '',
           icon: const Icon(Icons.closed_caption_outlined, color: Colors.white),
-          iconSize: 26,
+          iconSize: 30,
           menuWidth: 220,
           itemBuilder: (context) => items,
         );
@@ -2521,7 +2521,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     return ArrowPopupMenuButton<String>(
       tooltip: 'HDR',
       icon: const Icon(Icons.hdr_on_outlined, color: Colors.white),
-      iconSize: 26,
+      iconSize: 30,
       menuWidth: 180,
       itemBuilder: (context) => modes
           .map(
@@ -2718,12 +2718,11 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                   }
                 },
                 iconColor: Colors.white,
-                iconSize: 26,
+                iconSize: 30,
               ),
-              _helpTopButton(context),
               IconButton(
                 padding: const EdgeInsets.all(5),
-                icon: const Icon(Icons.more_vert, color: Colors.white, size: 26),
+                icon: const Icon(Icons.more_vert, color: Colors.white, size: 30),
                 onPressed: () => _showSettingsPanel(context),
               ),
             ],
