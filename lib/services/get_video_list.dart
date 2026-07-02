@@ -35,10 +35,33 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
   );
 
   try {
+    if (epManga == null) throw StateError('Episode has no linked manga');
+
+    // ── Local/demo source — episode.url IS the direct video URL ──────────
+    // Sources flagged isLocal=true (e.g. the FrenchStream Démo web demo
+    // source) have no extension code to run and no filesystem to touch.
+    // Return the chapter URL directly, exactly like webview_intercept.
+    final localSource =
+        getSource(epManga.lang!, epManga.source!, epManga.sourceId);
+    if (localSource?.isLocal == true) {
+      final videoUrl = episode.url ?? '';
+      AppLogger.log(
+        '[$epLabel] getVideoList LOCAL_SOURCE  url=$videoUrl',
+        logLevel: LogLevel.info,
+        tag: LogTag.watch,
+      );
+      keepAlive.close();
+      return (
+        [Video(videoUrl, episode.name ?? 'Vidéo', videoUrl)],
+        false,
+        <String>[],
+        null,
+      );
+    }
+
     final storageProvider = StorageProvider();
     final mpvDirectory = await storageProvider.getMpvDirectory();
     final mangaDirectory = await storageProvider.getMangaMainDirectory(episode);
-    if (epManga == null) throw StateError('Episode has no linked manga');
     final isLocalArchive =
         (epManga.isLocalArchive ?? false) &&
         epManga.source != "torrent";
