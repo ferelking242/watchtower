@@ -81,7 +81,7 @@ jobs:
           path: |
             .dart_tool
             build/flutter_build
-          key: flutter-build-android-arm64-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          key: flutter-build-android-arm64-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'lib/**/*.dart') }}
           restore-keys: flutter-build-android-arm64-${{ runner.os }}-
 
       # Pre-install Rust Android target pour eviter le download live dans Gradle
