@@ -2507,6 +2507,58 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
     );
   }
 
+  Widget _hdrTopButton(BuildContext context) {
+    const modes = <(String, String)>[
+      ('Auto', 'auto'),
+      ('BT.2390', 'bt.2390'),
+      ('Reinhard', 'reinhard'),
+      ('Hable', 'hable'),
+      ('Gamma', 'gamma'),
+      ('Linear', 'linear'),
+      ('Mobius', 'mobius'),
+      ('Clip', 'clip'),
+    ];
+    return ArrowPopupMenuButton<String>(
+      tooltip: 'HDR',
+      icon: const Icon(Icons.hdr_on_outlined, color: Colors.white),
+      iconSize: 26,
+      menuWidth: 180,
+      itemBuilder: (context) => modes
+          .map(
+            (m) => PopupMenuItem<String>(
+              value: m.$2,
+              onTap: () {
+                try {
+                  (_player.platform as NativePlayer).command([
+                    'set',
+                    'tone-mapping',
+                    m.$2,
+                  ]);
+                } catch (_) {}
+              },
+              child: textWidget(m.$1, false),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _helpTopButton(BuildContext context) {
+    return IconButton(
+      padding: const EdgeInsets.all(5),
+      tooltip: 'Aide',
+      icon: const Icon(
+        Icons.help_outline_rounded,
+        color: Colors.white,
+        size: 26,
+      ),
+      onPressed: () => showDialog(
+        context: context,
+        builder: (_) => const PlayerHelpPage(),
+      ),
+    );
+  }
+
   Widget _lockButton() {
     return IconButton(
       icon: Icon(
@@ -2652,8 +2704,8 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                     windowManager.setAlwaysOnTop(_alwaysOnTop);
                   },
                 ),
+              _hdrTopButton(context),
               _subtitleTopButton(context),
-              _audioTopButton(context),
               btnToShowChapterListDialog(
                 context,
                 context.l10n.episodes,
@@ -2668,6 +2720,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
                 iconColor: Colors.white,
                 iconSize: 26,
               ),
+              _helpTopButton(context),
               IconButton(
                 padding: const EdgeInsets.all(5),
                 icon: const Icon(Icons.more_vert, color: Colors.white, size: 26),
