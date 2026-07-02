@@ -455,7 +455,11 @@ class _MobileControllerWidgetState
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            widget.topButtonBarWidget,
+                            AnimatedOpacity(
+                              opacity: visible ? 1.0 : 0.0,
+                              duration: Duration.zero,
+                              child: widget.topButtonBarWidget,
+                            ),
                             // Only display [primaryButtonBar] if [buffering] is false.
                             Expanded(
                               child: AnimatedOpacity(
