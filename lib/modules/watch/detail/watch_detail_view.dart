@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -105,6 +106,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── VIDEO TRIGGER ──────────────────────────────────────────────────────────
 
   void _maybeStartVideo(List<Chapter> chapters) {
+    // On web the inline stub is replaced by AnimePlayerView — no auto-play.
+    if (kIsWeb) return;
     if (chapters.isEmpty) return;
     _player.title = widget.manga.name ?? '';
     // Only auto-load E01 the very first time (loadedChapterId == null).
@@ -119,6 +122,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   void _loadEpisodeInBanner(Chapter chapter) {
+    // On web, open the real full-screen player (AnimePlayerView) instead
+    // of the HTML5 inline stub.  AnimePlayerView reads chapter.url directly
+    // from Isar — no extension call, no manga link needed.
+    if (kIsWeb) {
+      context.push('/animePlayerView', extra: chapter.id!);
+      return;
+    }
     _player.title = widget.manga.name ?? '';
     _player.reset();
     _player.loadedChapterId = chapter.id;
