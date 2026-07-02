@@ -30,7 +30,7 @@ jobs:
           path: |
             ~/.pub-cache
             .dart_tool
-          key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock') }}
+          key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock', 'lib/**/*.dart', 'web_stubs/**/*.dart') }}
           restore-keys: |
             ${{ runner.os }}-pub-web-
 
