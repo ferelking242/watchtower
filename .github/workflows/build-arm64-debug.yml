@@ -75,14 +75,17 @@ jobs:
           key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
 
       # Cache Flutter Dart kernel / build intermediates
+      # Prefix flutter-v2- to bust all stale caches from the flutter-build- era
+      # (restore-keys on the old prefix was restoring stale .dart_tool even when
+      # lib/**/*.dart changed, causing the APK to silently keep the old Dart code).
       - name: Cache Flutter build intermediates
         uses: actions/cache@v4
         with:
           path: |
             .dart_tool
             build/flutter_build
-          key: flutter-build-android-arm64-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'lib/**/*.dart') }}
-          restore-keys: flutter-build-android-arm64-${{ runner.os }}-
+          key: flutter-v2-android-arm64-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'lib/**/*.dart') }}
+          restore-keys: flutter-v2-android-arm64-${{ runner.os }}-
 
       # Pre-install Rust Android target pour eviter le download live dans Gradle
       - name: Install Rust Android target
