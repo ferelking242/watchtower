@@ -724,6 +724,9 @@ class _FullscreenControlsOverlayState
       _brightness = await ScreenBrightness().current;
     } catch (_) {}
     try {
+      // Hide the native OS volume overlay (Android/iOS) — we draw our own
+      // in-app volume HUD, so the system one must not appear on top of it.
+      VolumeController.instance.showSystemUI = false;
       _volume = await VolumeController.instance.getVolume();
     } catch (_) {}
     _startSaveProgressTimer();
@@ -3286,7 +3289,12 @@ class _TrackTile extends StatelessWidget {
 
     Future<void> _initMedia() async {
       try { _brightness = await ScreenBrightness().current; } catch (_) {}
-      try { _volume = await VolumeController.instance.getVolume(); } catch (_) {}
+      try {
+        // Hide the native OS volume overlay (Android/iOS) — we draw our own
+        // in-app volume HUD, so the system one must not appear on top of it.
+        VolumeController.instance.showSystemUI = false;
+        _volume = await VolumeController.instance.getVolume();
+      } catch (_) {}
     }
 
     @override
