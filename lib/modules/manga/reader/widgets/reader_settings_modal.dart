@@ -206,6 +206,9 @@ class _ReadingModeTab extends ConsumerWidget {
               },
             ),
 
+            // Volume Button Navigation
+            _VolumeButtonSection(),
+
             // Show Page Gaps (only for continuous modes)
             if (isContinuousMode)
               SwitchListTile(
@@ -693,6 +696,65 @@ class _CustomFilterTab extends ConsumerWidget {
             const SizedBox(width: 32),
         ],
       ),
+    );
+  }
+}
+
+/// Volume button navigation toggles shown in the Reading Mode tab.
+class _VolumeButtonSection extends ConsumerWidget {
+  const _VolumeButtonSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(volumeButtonNavigationStateProvider);
+    final inverted = ref.watch(invertVolumeButtonNavigationStateProvider);
+    final textStyle = TextStyle(
+      color: Theme.of(context).textTheme.bodyLarge!.color!.withValues(alpha: 0.9),
+      fontSize: 14,
+    );
+
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.volume_up_outlined),
+          value: enabled,
+          title: Text('Volume buttons navigation', style: textStyle),
+          subtitle: Text(
+            'Use ▲/▼ volume keys to turn pages',
+            style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+          ),
+          onChanged: (value) {
+            ref.read(volumeButtonNavigationStateProvider.notifier).set(value);
+          },
+        ),
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 220),
+          crossFadeState: enabled ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          firstChild: const SizedBox.shrink(),
+          secondChild: SwitchListTile(
+            secondary: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, anim) =>
+                  RotationTransition(turns: anim, child: child),
+              child: Icon(
+                inverted ? Icons.swap_vert : Icons.swap_vert_outlined,
+                key: ValueKey(inverted),
+              ),
+            ),
+            value: inverted,
+            title: Text('Invert volume buttons', style: textStyle),
+            subtitle: Text(
+              inverted
+                  ? '▲ → next page  •  ▼ → previous page'
+                  : '▲ → previous page  •  ▼ → next page',
+              style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+            ),
+            onChanged: (value) {
+              ref.read(invertVolumeButtonNavigationStateProvider.notifier).set(value);
+            },
+          ),
+        ),
+      ],
     );
   }
 }
