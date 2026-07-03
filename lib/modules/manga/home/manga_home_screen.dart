@@ -214,12 +214,15 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           !(_getManga?.isLoading ?? false)) {
         setState(() => _isLoading = true);
         _loadMore().then((value) {
-          if (mounted && value != null) {
-            setState(() {
+          if (!mounted) return;
+          setState(() {
+            if (value != null && value.list.isNotEmpty) {
               _mangaList.addAll(value.list);
-              _isLoading = false;
-            });
-          }
+            }
+            _isLoading = false; // always reset — no deadlock if null/empty
+          });
+        }).catchError((_) {
+          if (mounted) setState(() => _isLoading = false);
         });
       }
     }
