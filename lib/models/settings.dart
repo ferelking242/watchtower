@@ -340,6 +340,10 @@ class Settings {
 
   bool? showPageGaps;
 
+  bool? volumeButtonNavigation;
+
+  bool? invertVolumeButtonNavigation;
+
   bool? autoReadDuplicateChapters;
 
   bool? invertColors;
@@ -521,6 +525,8 @@ class Settings {
     this.keepScreenOnReader = true,
     this.webtoonSidePadding = 0,
     this.showPageGaps = true,
+    this.volumeButtonNavigation = false,
+    this.invertVolumeButtonNavigation = false,
     this.autoReadDuplicateChapters = false,
     this.invertColors = false,
     this.grayscale = false,
@@ -819,6 +825,8 @@ class Settings {
     keepScreenOnReader = json['keepScreenOnReader'];
     webtoonSidePadding = json['webtoonSidePadding'];
     showPageGaps = json['showPageGaps'];
+    volumeButtonNavigation = json['volumeButtonNavigation'];
+    invertVolumeButtonNavigation = json['invertVolumeButtonNavigation'];
     autoReadDuplicateChapters = json['autoReadDuplicateChapters'];
     invertColors = json['invertColors'];
     grayscale = json['grayscale'];
@@ -1011,6 +1019,8 @@ class Settings {
     'keepScreenOnReader': keepScreenOnReader,
     'webtoonSidePadding': webtoonSidePadding,
     'showPageGaps': showPageGaps,
+    'volumeButtonNavigation': volumeButtonNavigation,
+    'invertVolumeButtonNavigation': invertVolumeButtonNavigation,
     'autoReadDuplicateChapters': autoReadDuplicateChapters,
     'invertColors': invertColors,
     'grayscale': grayscale,
