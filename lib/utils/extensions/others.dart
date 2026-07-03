@@ -128,7 +128,7 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
                   : CustomExtendedNetworkImageProvider(
                       data.pageUrl!.url.trim(),
                       cache: true,
-                      cacheMaxAge: const Duration(days: 7),
+                      cacheMaxAge: const Duration(days: 3650),
                       showCloudFlareError: showCloudFlareError,
                       imageCacheFolderName: "cacheimagemanga",
                       headers: {
