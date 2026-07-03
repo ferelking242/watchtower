@@ -116,7 +116,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 
   static const _kPopularIdx = 0;
   static const _kLatestIdx = 1;
-  static const _kCustomBase = 2;
+  static const _kFilterIdx = 2;
+  static const _kCustomBase = 3;
 
   String? get _activeCustomListId {
     if (_selectedIndex >= _kCustomBase && !isLocal) {
@@ -133,6 +134,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     return [
       TypeMangaSelector(Icons.local_fire_department_rounded, 'Popular'),
       TypeMangaSelector(Icons.update_rounded, l10n.latest),
+      TypeMangaSelector(Icons.tune_rounded, l10n.filter),
       ..._customLists.map((cl) {
         final name = cl['name'] as String? ?? cl['id'] as String;
         final icStr = cl['icon'] as String?;
@@ -161,7 +163,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           mangaRes = await ref.watch(
             getLatestUpdatesProvider(source: source, page: _page + 1).future,
           );
-        } else if (_isFiltering) {
+        } else if (_selectedIndex == _kFilterIdx &&
+                (_isSearch && _query.isNotEmpty) ||
+            _isFiltering) {
           mangaRes = await ref.watch(
             searchProvider(
               source: source,
@@ -307,6 +311,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                                 _mangaList.clear();
                                 setState(() {
                                   if (submit.isNotEmpty) {
+                                    _selectedIndex = _kFilterIdx;
                                     _query = submit;
                                     _isFiltering = true;
                                   } else {
@@ -786,6 +791,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       _mangaList.clear();
       if (mounted) {
         setState(() {
+          _selectedIndex = _kFilterIdx;
           _isFiltering = true;
           _page = 1;
           _isLoading = false;
@@ -1367,7 +1373,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 
   Widget _buildError(BuildContext context, Object error) {
     void retry() {
-      if (_isFiltering) {
+      if ((_selectedIndex == _kFilterIdx &&
+              (_isSearch && _query.isNotEmpty)) ||
+          _isFiltering) {
         ref.invalidate(searchProvider(
             source: source,
             query: _query,
@@ -1522,7 +1530,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     final l10n = context.l10n;
 
     final activeId = _activeCustomListId;
-    if (_isFiltering) {
+    if ((_selectedIndex == _kFilterIdx &&
+            (_isSearch && _query.isNotEmpty)) ||
+        _isFiltering) {
       _getManga = ref.watch(searchProvider(
         source: source,
         query: _query,
@@ -1686,20 +1696,25 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               child: _TabPillsRow(
                 types: _types(context),
                 selectedIndex: _selectedIndex,
+                filterList: filterList,
                 supportsLatest: supportsLatest,
                 hasCustomLists: _customLists.isNotEmpty,
                 onSelect: (index) async {
                   if (filters.isEmpty) filters = filterList;
-                  _mangaList.clear();
-                  setState(() {
-                    _selectedIndex = index;
-                    _isFiltering = false;
-                    _isSearch = false;
-                    _query = "";
-                    _textEditingController.clear();
-                    _page = 1;
-                    _isLoading = false;
-                  });
+                  if (index == _kFilterIdx) {
+                    await _openFilterSheet(context);
+                  } else {
+                    _mangaList.clear();
+                    setState(() {
+                      _selectedIndex = index;
+                      _isFiltering = false;
+                      _isSearch = false;
+                      _query = "";
+                      _textEditingController.clear();
+                      _page = 1;
+                      _isLoading = false;
+                    });
+                  }
                 },
               ),
             ),
@@ -1740,6 +1755,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 class _TabPillsRow extends StatelessWidget {
   final List<TypeMangaSelector> types;
   final int selectedIndex;
+  final List<dynamic> filterList;
   final bool supportsLatest;
   final bool hasCustomLists;
   final void Function(int) onSelect;
@@ -1747,6 +1763,7 @@ class _TabPillsRow extends StatelessWidget {
   const _TabPillsRow({
     required this.types,
     required this.selectedIndex,
+    required this.filterList,
     required this.supportsLatest,
     required this.hasCustomLists,
     required this.onSelect,
@@ -1762,9 +1779,6 @@ class _TabPillsRow extends StatelessWidget {
         itemCount: types.length,
         itemBuilder: (context, index) {
           if (hasCustomLists && index == 2) {
-            return const SizedBox.shrink();
-          }
-          if (filterList.isEmpty && index == 2) {
             return const SizedBox.shrink();
           }
           if (!supportsLatest && index == 1) {
