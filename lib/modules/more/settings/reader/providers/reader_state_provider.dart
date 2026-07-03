@@ -738,3 +738,43 @@ class TtsVoiceState extends _$TtsVoiceState {
     );
   }
 }
+
+@riverpod
+class VolumeButtonNavigationState extends _$VolumeButtonNavigationState {
+  @override
+  bool build() {
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).volumeButtonNavigation ?? false;
+  }
+
+  void set(bool value) {
+    final settings = isar.settings.getSync(kSettingsId);
+    state = value;
+    isar.writeTxnSync(
+      () => isar.settings.putSync(
+        settings!
+          ..volumeButtonNavigation = value
+          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+  }
+}
+
+@riverpod
+class InvertVolumeButtonNavigationState extends _$InvertVolumeButtonNavigationState {
+  @override
+  bool build() {
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).invertVolumeButtonNavigation ?? false;
+  }
+
+  void set(bool value) {
+    final settings = isar.settings.getSync(kSettingsId);
+    state = value;
+    isar.writeTxnSync(
+      () => isar.settings.putSync(
+        settings!
+          ..invertVolumeButtonNavigation = value
+          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+  }
+}
