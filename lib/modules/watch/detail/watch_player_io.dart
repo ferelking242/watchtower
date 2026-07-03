@@ -159,6 +159,7 @@ class WatchInlinePlayer {
           if (completer.isCompleted || dur <= Duration.zero) return;
           watchdog.cancel();
           errSub?.cancel();
+          durSub?.cancel(); // cancel self to avoid accumulating listeners across loads
           hasVideoUrl = true;
           selectedQuality = v.quality;
           AppLogger.log(
@@ -2596,6 +2597,8 @@ class _TrackTile extends StatelessWidget {
     @override
     void initState() {
       super.initState();
+      // Immediately sync external notifier so back/aide buttons match initial state
+      widget.controlsNotifier?.value = _showControls;
       _resetHideTimer();
       _initMedia();
     }
