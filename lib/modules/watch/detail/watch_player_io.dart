@@ -347,6 +347,11 @@ class _FullscreenPlayerPage extends StatefulWidget {
 
 class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
   final _fitNotifier = ValueNotifier<BoxFit>(BoxFit.contain);
+  double _pinchScale = 1.0;
+  double _pinchBase  = 1.0;
+  Offset _pinchOffset = Offset.zero;
+  Offset _panFocalStart = Offset.zero;
+  Offset _panOffsetStart = Offset.zero;
 
   @override
   void initState() {
@@ -373,15 +378,43 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
+      body: GestureDetector(
+        onScaleStart: (d) {
+          _pinchBase = _pinchScale;
+          _panFocalStart = d.focalPoint;
+          _panOffsetStart = _pinchOffset;
+        },
+        onScaleUpdate: (d) {
+          setState(() {
+            _pinchScale = (_pinchBase * d.scale).clamp(1.0, 5.0);
+            if (_pinchScale > 1.0) {
+              final delta = d.focalPoint - _panFocalStart;
+              _pinchOffset = _panOffsetStart + delta;
+            } else {
+              _pinchOffset = Offset.zero;
+            }
+          });
+        },
+        onScaleEnd: (_) {
+          if (_pinchScale < 1.05) {
+            setState(() { _pinchScale = 1.0; _pinchOffset = Offset.zero; });
+          }
+        },
+        child: Stack(
         children: [
           SizedBox.expand(
             child: ValueListenableBuilder<BoxFit>(
               valueListenable: _fitNotifier,
-              builder: (_, fit, __) => Video(
-                controller: widget.controller,
-                fit: fit,
-                controls: NoVideoControls,
+              builder: (_, fit, __) => Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..scale(_pinchScale)
+                  ..translate(_pinchOffset.dx / _pinchScale, _pinchOffset.dy / _pinchScale),
+                child: Video(
+                  controller: widget.controller,
+                  fit: fit,
+                  controls: NoVideoControls,
+                ),
               ),
             ),
           ),
@@ -402,8 +435,9 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
             ),
           ),
         ],
-      ),
-    );
+        ),   // Stack
+      ),     // GestureDetector
+    );       // Scaffold
   }
 }
 
@@ -507,6 +541,15 @@ class _FullscreenControlsOverlayState
     bool _seekDragging = false;
     double _seekDragValue = 0.0;
 
+    // ── Buffer fraction (updated from stream) ─────────────────────────────────
+    double _bufferFrac = 0.0;
+    StreamSubscription<Duration>? _bufSub;
+
+    // ── Buffering indicator debounce ──────────────────────────────────────────
+    bool _showBuffering = false;
+    Timer? _bufDebounce;
+    StreamSubscription<bool>? _bufferingSub;
+
     // ── Horizontal swipe → seek ───────────────────────────────────────────────
     Duration _horizSeekStartPos = Duration.zero;
     int _horizSeekDelta = 0;
@@ -548,6 +591,26 @@ class _FullscreenControlsOverlayState
     _startPositionWatcher();
     _loadSavedProgress();
     _checkGestureHint();
+    // Buffer fraction stream
+    _bufSub = widget.player.stream.buffer.listen((buf) {
+      if (!mounted) return;
+      final dur = widget.player.state.duration;
+      if (dur.inMilliseconds > 0) {
+        setState(() => _bufferFrac = (buf.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0));
+      }
+    });
+    // Buffering dots — debounced 600ms so brief seeks don't trigger it
+    _bufferingSub = widget.player.stream.buffering.listen((buf) {
+      if (!mounted) return;
+      _bufDebounce?.cancel();
+      if (buf) {
+        _bufDebounce = Timer(const Duration(milliseconds: 600), () {
+          if (mounted && widget.player.state.buffering) setState(() => _showBuffering = true);
+        });
+      } else {
+        setState(() => _showBuffering = false);
+      }
+    });
   }
 
   // ── Position watcher: auto-next + save progress ───────────────────────────
@@ -662,6 +725,9 @@ class _FullscreenControlsOverlayState
     _nextEpTimer?.cancel();
     _saveProgressTimer?.cancel();
     _posSub?.cancel();
+    _bufSub?.cancel();
+    _bufferingSub?.cancel();
+    _bufDebounce?.cancel();
     super.dispose();
   }
 
@@ -1060,17 +1126,13 @@ class _FullscreenControlsOverlayState
               ),
             ),
 
-          // Buffering indicator
+          // Buffering indicator — debounced 600ms, hidden when seeking
           IgnorePointer(
             child: Center(
-              child: StreamBuilder<bool>(
-                stream: widget.player.stream.buffering,
-                initialData: widget.player.state.buffering,
-                builder: (_, snap) => AnimatedOpacity(
-                  opacity: snap.data == true ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: const JumpingDotsLoader(),
-                ),
+              child: AnimatedOpacity(
+                opacity: (_showBuffering && !_seekDragging && !_showSeekSwipeHUD) ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 250),
+                child: const _BufferingDotsIndicator(),
               ),
             ),
           ),
@@ -1744,12 +1806,14 @@ class _FullscreenControlsOverlayState
                           overlayShape:
                               const RoundSliderOverlayShape(overlayRadius: 14),
                           activeTrackColor: Theme.of(context).primaryColor,
-                          inactiveTrackColor: Colors.white30,
+                          inactiveTrackColor: Colors.white24,
+                          secondaryActiveTrackColor: Colors.white54,
                           thumbColor: Colors.white,
                           overlayColor: Colors.white24,
                         ),
                         child: Slider(
                           value: displayValue,
+                          secondaryTrackValue: _bufferFrac,
                           onChangeStart: (_) {
                             setState(() => _seekDragging = true);
                             _hideTimer?.cancel();
@@ -3485,6 +3549,9 @@ class _InlineControlsState extends State<_InlineControls> {
                     ? (pos.inMilliseconds / dur.inMilliseconds)
                         .clamp(0.0, 1.0)
                     : 0.0;
+                final bufFrac = dur.inMilliseconds > 0
+                    ? (_p.state.buffer.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
+                    : 0.0;
                 return SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 2.5,
@@ -3493,12 +3560,14 @@ class _InlineControlsState extends State<_InlineControls> {
                     overlayShape: const RoundSliderOverlayShape(
                         overlayRadius: 11),
                     activeTrackColor: widget.accent,
-                    inactiveTrackColor: Colors.white30,
+                    inactiveTrackColor: Colors.white24,
+                    secondaryActiveTrackColor: Colors.white54,
                     thumbColor: Colors.white,
                     overlayColor: Colors.white24,
                   ),
                   child: Slider(
                     value: _dragActive ? _dragValue : progress,
+                    secondaryTrackValue: bufFrac,
                     onChangeStart: (v) {
                       setState(() { _dragActive = true; _dragValue = v; });
                       widget.seekingNotifier.value = true;
@@ -4227,56 +4296,55 @@ class _GestureHintOverlay extends StatelessWidget {
   }
 }
 
-  // ─── 3-dots buffering indicator ───────────────────────────────────────────────
-  class _BufferingDotsIndicator extends StatefulWidget {
-    const _BufferingDotsIndicator();
+// ─── 3-dots buffering indicator ───────────────────────────────────────────────
+class _BufferingDotsIndicator extends StatefulWidget {
+  const _BufferingDotsIndicator();
 
-    @override
-    State<_BufferingDotsIndicator> createState() => _BufferingDotsIndicatorState();
+  @override
+  State<_BufferingDotsIndicator> createState() => _BufferingDotsIndicatorState();
+}
+
+class _BufferingDotsIndicatorState extends State<_BufferingDotsIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
   }
 
-  class _BufferingDotsIndicatorState extends State<_BufferingDotsIndicator>
-      with SingleTickerProviderStateMixin {
-    late final AnimationController _ctrl;
-
-    @override
-    void initState() {
-      super.initState();
-      _ctrl = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 900),
-      )..repeat();
-    }
-
-    @override
-    void dispose() {
-      _ctrl.dispose();
-      super.dispose();
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      return AnimatedBuilder(
-        animation: _ctrl,
-        builder: (_, __) {
-          final step = (_ctrl.value * 3).floor();
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(3, (i) {
-              final active = i <= step;
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: active ? 0.9 : 0.3),
-                ),
-              );
-            }),
-          );
-        },
-      );
-    }
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
   }
-  
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final step = (_ctrl.value * 3).floor();
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final active = i <= step;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: active ? 0.9 : 0.3),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
