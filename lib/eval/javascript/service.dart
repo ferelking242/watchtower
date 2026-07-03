@@ -117,6 +117,43 @@ class MProvider {
     async getCustomList(id, page) {
         throw new Error("getCustomList not implemented for id: " + id);
     }
+    // ── Generic search/filter fallback helpers ──────────────────────────────
+    // Available on every extension via `this.fallbackSearch(...)` and
+    // `this.safeApplyFilters(...)` so extensions that have no native search
+    // or filter support (or only partial support) can still behave
+    // correctly instead of ignoring the query or crashing.
+    _normalizeForSearch(s) {
+        return String(s || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\\u0300-\\u036f]/g, "");
+    }
+    fallbackSearch(list, query, keys) {
+        const q = this._normalizeForSearch(query).trim();
+        if (!Array.isArray(list) || !q) return list || [];
+        const fields = Array.isArray(keys) && keys.length ? keys : ["name", "title"];
+        return list.filter((item) => {
+            if (!item) return false;
+            return fields.some((k) => this._normalizeForSearch(item[k]).includes(q));
+        });
+    }
+    // Applies a list of {type, values/filterList} style filters to a list of
+    // items, skipping any filter whose shape/predicate isn't understood or
+    // whose accessor throws — so one unsupported filter never blocks or
+    // crashes the whole search.
+    safeApplyFilters(list, filters, predicate) {
+        if (!Array.isArray(list)) return [];
+        if (!Array.isArray(filters) || !filters.length || typeof predicate !== "function") {
+            return list;
+        }
+        return list.filter((item) => {
+            try {
+                return predicate(item, filters);
+            } catch (e) {
+                return true;
+            }
+        });
+    }
 }
 async function jsonStringify(fn) {
     return JSON.stringify(await fn());
