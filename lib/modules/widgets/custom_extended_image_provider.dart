@@ -160,7 +160,7 @@ class CustomExtendedNetworkImageProvider
     this.cancelToken,
     this.imageCacheName,
     this.imageCacheFolderName,
-    this.cacheMaxAge = const Duration(days: 30),
+    this.cacheMaxAge = const Duration(days: 3650),
     this.showCloudFlareError = false,
   });
 
