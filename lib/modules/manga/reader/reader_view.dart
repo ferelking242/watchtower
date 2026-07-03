@@ -328,13 +328,17 @@ class _MangaChapterPageGalleryState
 
       final volUp = newVolume > _lastVolume;
       final volDown = newVolume < _lastVolume;
+      // Capture the baseline BEFORE updating, so restore targets the right level
+      final previousVolume = _lastVolume;
       _lastVolume = newVolume;
 
-      // Restore volume so the actual system level doesn't change
+      // Restore to previous level so the actual system volume doesn't change.
+      // Guard with _volumeListenerActive to cancel if dispose() ran meanwhile.
       Future.delayed(const Duration(milliseconds: 80), () {
+        if (!_volumeListenerActive) return;
         try {
           VolumeController.instance.setVolume(
-            _lastVolume.clamp(0.0, 1.0),
+            previousVolume.clamp(0.0, 1.0),
             showSystemUI: false,
           );
         } catch (_) {}
