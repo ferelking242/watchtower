@@ -17,6 +17,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:watchtower/models/chapter.dart';
   import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/services/get_video_list.dart';
@@ -28,14 +29,30 @@ import 'package:watchtower/utils/log/logger.dart';
 const _kAllSpeeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0];
 
 // ─── Aspect-ratio / fit cycle ─────────────────────────────────────────────────
+// "Plein écran" (Fullscreen) = BoxFit.cover: the video is scaled up just
+// enough to cover the whole surface with zero black bars/margins on any
+// side (cropping overflow instead of letterboxing it).
 const _kFitCycle = <BoxFit>[BoxFit.contain, BoxFit.cover, BoxFit.fill, BoxFit.fitWidth, BoxFit.fitHeight];
 const _kFitNames = <BoxFit, String>{
   BoxFit.contain:   'Ajuster',
-  BoxFit.cover:     'Recadrer',
+  BoxFit.cover:     'Plein écran',
   BoxFit.fill:      'Remplir',
   BoxFit.fitWidth:  '16:9 →',
   BoxFit.fitHeight: '↕ Hauteur',
 };
+
+// ─── Native-style toast (used app-wide inside the player, replaces the old
+// custom purple toasts / SnackBars) ─────────────────────────────────────────
+void _playerToast(String message) {
+  Fluttertoast.showToast(
+    msg: message,
+    toastLength: Toast.LENGTH_SHORT,
+    gravity: ToastGravity.BOTTOM,
+    backgroundColor: const Color(0xE6212121),
+    textColor: Colors.white,
+    fontSize: 14,
+  );
+}
 
 // ─── Public API ────────────────────────────────────────────────────────────────
 
@@ -667,13 +684,7 @@ class _FullscreenControlsOverlayState
           if (!mounted) return;
           try { await widget.player.seek(Duration(milliseconds: ms)); } catch (_) {}
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Reprise à ${_fmt(Duration(milliseconds: ms))}'),
-                duration: const Duration(seconds: 3),
-                action: SnackBarAction(label: 'Début', onPressed: () => widget.player.seek(Duration.zero)),
-              ),
-            );
+            _playerToast('Reprise à ${_fmt(Duration(milliseconds: ms))}');
           }
         });
       }
@@ -772,6 +783,7 @@ class _FullscreenControlsOverlayState
         SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeRight]);
         break;
     }
+    _playerToast('Rotation : ${_rotationModeLabel()}');
     _resetHideTimer();
   }
 
@@ -785,6 +797,7 @@ class _FullscreenControlsOverlayState
 
   // ── Double-tap seek with escalating amounts ──────────────────────────────────
   void _handleDoubleTap({required bool isRight}) {
+    if (_locked) return;
     _doubleTapResetTimer?.cancel();
 
     // Reset count if side changed
@@ -823,6 +836,7 @@ class _FullscreenControlsOverlayState
   }
 
   void _onTap() {
+    if (_locked) return;
     if (_showSettings) {
       setState(() => _showSettings = false);
       _resetHideTimer();
@@ -845,6 +859,7 @@ class _FullscreenControlsOverlayState
     final idx = _kFitCycle.indexOf(_fit);
     setState(() => _fit = _kFitCycle[(idx + 1) % _kFitCycle.length]);
     widget.fitNotifier?.value = _fit;
+    _playerToast(_kFitNames[_fit] ?? 'Ajuster');
     _resetHideTimer();
   }
 
@@ -961,7 +976,13 @@ class _FullscreenControlsOverlayState
     final size = MediaQuery.of(context).size;
     return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _onTap,
+        // NOTE: no onTap here — single tap is handled exclusively by the
+        // left/right half-screen zones below (which also own onDoubleTap).
+        // Having onTap on this outer wrapper AND on the inner zones created
+        // a gesture-arena race: the outer tap fired instantly while the
+        // inner tap waited for the double-tap timeout, causing controls to
+        // flicker open/close and double-taps to sometimes register as two
+        // single taps.
         onLongPressStart: (d) {
           if (_locked) return;
           if (d.globalPosition.dx > size.width / 2) {
@@ -1039,47 +1060,49 @@ class _FullscreenControlsOverlayState
         },
       child: Stack(
         children: [
-          // ── Left-third invisible double-tap zone (seek back) ─────────────────
+          // ── Left-half double-tap zone (seek back) — also single-tap toggles controls
           Positioned(
             left: 0, top: 0, bottom: 0,
-            width: size.width * 0.33,
+            width: size.width * 0.5,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onDoubleTap: () => _handleDoubleTap(isRight: false),
+              onDoubleTap: () {
+                if (_locked) return;
+                _handleDoubleTap(isRight: false);
+              },
               onTap: _onTap,
             ),
           ),
-          // ── Right-third invisible double-tap zone (seek forward) ─────────────
+          // ── Right-half double-tap zone (seek forward) — also single-tap toggles controls
           Positioned(
             right: 0, top: 0, bottom: 0,
-            width: size.width * 0.33,
+            width: size.width * 0.5,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onDoubleTap: () => _handleDoubleTap(isRight: true),
+              onDoubleTap: () {
+                if (_locked) return;
+                _handleDoubleTap(isRight: true);
+              },
               onTap: _onTap,
             ),
           ),
 
-          // ── Skip HUD — left ───────────────────────────────────────────────────
+          // ── Skip ripple — left half of screen ───────────────────────────────
           if (_showLeftSkipHUD)
             Positioned(
-              left: size.width * 0.04,
-              top: 0, bottom: 0,
+              left: 0, top: 0, bottom: 0,
+              width: size.width * 0.5,
               child: IgnorePointer(
-                child: Center(
-                  child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds),
-                ),
+                child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds),
               ),
             ),
-          // ── Skip HUD — right ──────────────────────────────────────────────────
+          // ── Skip ripple — right half of screen ──────────────────────────────
           if (_showRightSkipHUD)
             Positioned(
-              right: size.width * 0.04,
-              top: 0, bottom: 0,
+              right: 0, top: 0, bottom: 0,
+              width: size.width * 0.5,
               child: IgnorePointer(
-                child: Center(
-                  child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
-                ),
+                child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
               ),
             ),
 
@@ -1139,9 +1162,18 @@ class _FullscreenControlsOverlayState
             ),
           ),
 
-          // Main controls overlay (auto-hides)
-          if (_showControls && !_locked)
-            _buildControlsOverlay(),
+          // Main controls overlay (auto-hides) — fades in/out instead of
+          // popping instantly, and stays mounted so it can animate.
+          if (!_locked)
+            IgnorePointer(
+              ignoring: !_showControls,
+              child: AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                child: _buildControlsOverlay(),
+              ),
+            ),
 
           // Lock icon — always visible when locked, icon only (no text)
           if (_locked)
@@ -1205,12 +1237,7 @@ class _FullscreenControlsOverlayState
                             final path = '${dir.path}/wt_${DateTime.now().millisecondsSinceEpoch}.jpg';
                             await File(path).writeAsBytes(bytes);
                             if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Capture sauvegardée'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
+                              _playerToast('Capture sauvegardée');
                             }
                           }
                         } catch (_) {}
@@ -1268,14 +1295,7 @@ class _FullscreenControlsOverlayState
                 bottom: 0,
                 child: IgnorePointer(
                   child: Center(
-                    child: _buildSideHUD(
-                      icon: _volume <= 0
-                          ? Icons.volume_off_rounded
-                          : _volume < 0.5
-                              ? Icons.volume_down_rounded
-                              : Icons.volume_up_rounded,
-                      value: _volume,
-                    ),
+                    child: _buildVolumeHUD(value: _volume),
                   ),
                 ),
               ),
@@ -1359,10 +1379,10 @@ class _FullscreenControlsOverlayState
         if (mounted) setState(() => _showBrightnessHUD = false);
       });
     } else {
-      // ── Volume ───────────────────────────────────────────────────────────
-      final next = (_volume - dy / size.height * 2.5).clamp(0.0, 1.0);
+      // ── Volume — up to 200% (extra gain via player, hardware caps at 100%)
+      final next = (_volume - dy / size.height * 2.5).clamp(0.0, 2.0);
       _volume = next;
-      try { VolumeController.instance.setVolume(next); } catch (_) {}
+      try { VolumeController.instance.setVolume(next.clamp(0.0, 1.0)); } catch (_) {}
       widget.player.setVolume(next * 100);
       _hudTimer?.cancel();
       setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
@@ -1372,37 +1392,45 @@ class _FullscreenControlsOverlayState
     }
   }
 
-  // ── Skip HUD (YouTube-style double-tap indicator) ─────────────────────────
+  // ── Skip ripple — YouTube-style half-screen double-tap indicator ───────────
   Widget _buildSkipHUD({required bool isRight, required int seconds}) {
     final arrows = (seconds >= 60 ? 3 : seconds >= 30 ? 2 : 1);
-    final label = isRight ? '+${seconds}s' : '-${seconds}s';
-    return Container(
-      width: 120,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(64),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (int i = 0; i < arrows; i++)
-                Icon(
-                  isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
-                  color: Colors.white.withValues(alpha: 0.5 + i * 0.2),
-                  size: 20,
-                ),
-            ],
+    final label = '$seconds secondes';
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('skip_${isRight}_$seconds'),
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      builder: (_, t, child) => Opacity(opacity: t, child: child),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.horizontal(
+            left: isRight ? Radius.zero : const Radius.circular(400),
+            right: isRight ? const Radius.circular(400) : Radius.zero,
           ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-          ),
-        ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < arrows; i++)
+                  Icon(
+                    isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                    color: Colors.white.withValues(alpha: 0.55 + i * 0.15),
+                    size: 40,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1444,7 +1472,72 @@ class _FullscreenControlsOverlayState
         ),
       );
     }
-  
+
+  // Volume-specific HUD — PLAYit-style two-tone bar: white 0-100%,
+  // accent-colored 100-200% (boost zone), up to 200%.
+  Widget _buildVolumeHUD({required double value}) {
+    final base  = value.clamp(0.0, 1.0) / 1.0;      // fraction of the 0-100% segment
+    final boost = ((value - 1.0).clamp(0.0, 1.0));  // fraction of the 100-200% segment
+    final icon  = value <= 0
+        ? Icons.volume_off_rounded
+        : value <= 1.0
+            ? (value < 0.5 ? Icons.volume_down_rounded : Icons.volume_up_rounded)
+            : Icons.volume_up_rounded;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.70),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: value > 1.0 ? Colors.orangeAccent : Colors.white, size: 22),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 80,
+            width: 6,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  Container(color: Colors.white24),
+                  // 0-100% segment (white)
+                  FractionallySizedBox(
+                    heightFactor: (base * 0.5).clamp(0.0, 0.5),
+                    alignment: Alignment.bottomCenter,
+                    child: Container(color: Colors.white),
+                  ),
+                  // 100-200% segment (accent boost color)
+                  if (value > 1.0)
+                    FractionallySizedBox(
+                      heightFactor: (0.5 + boost * 0.5).clamp(0.0, 1.0),
+                      alignment: Alignment.bottomCenter,
+                      child: Container(color: Colors.orangeAccent),
+                    ),
+                  // Mid-line marker at the 100% boundary
+                  const Align(
+                    alignment: Alignment(0, 0),
+                    child: SizedBox(height: 1),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${(value * 100).round()}%',
+            style: TextStyle(
+              color: value > 1.0 ? Colors.orangeAccent : Colors.white70,
+              fontSize: 11,
+              fontWeight: value > 1.0 ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSeekSwipeHUD() {
     final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
@@ -1695,11 +1788,20 @@ class _FullscreenControlsOverlayState
 
   Widget _buildCenterRow() {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(width: 80),
-        const Spacer(),
-        // Center: play/pause only — seek handled by edge double-tap zones
+        GestureDetector(
+          onTap: () {
+            if (_locked) return;
+            _seek(-15);
+          },
+          child: const Padding(
+            padding: EdgeInsets.all(16),
+            child: Icon(Icons.replay_15_rounded, color: Colors.white, size: 34),
+          ),
+        ),
+        const SizedBox(width: 30),
         StreamBuilder<bool>(
           stream: widget.player.stream.playing,
           initialData: widget.player.state.playing,
@@ -1708,22 +1810,24 @@ class _FullscreenControlsOverlayState
               widget.player.playOrPause();
               _resetHideTimer();
             },
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: const BoxDecoration(
-                color: Color(0x55000000),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 54,
-              ),
+            child: Icon(
+              (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 58,
             ),
           ),
         ),
-        const Spacer(),
-        const SizedBox(width: 80),
+        const SizedBox(width: 30),
+        GestureDetector(
+          onTap: () {
+            if (_locked) return;
+            _seek(15);
+          },
+          child: const Padding(
+            padding: EdgeInsets.all(16),
+            child: Icon(Icons.forward_15_rounded, color: Colors.white, size: 34),
+          ),
+        ),
       ],
     );
   }
@@ -2153,6 +2257,7 @@ class _FullscreenControlsOverlayState
                             setState(() => _showQualityPicker = false);
                             _resetHideTimer();
                             if (widget.onSwitchQuality != null) await widget.onSwitchQuality!(v);
+                            _playerToast('Qualité : ${v.quality}');
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 120),
@@ -2556,6 +2661,7 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                             onTap: () {
                               setState(() => _fit = f);
                               widget.onFit(f);
+                              _playerToast(lbl);
                             },
                           );
                         }).toList(),
@@ -3249,9 +3355,10 @@ class _TrackTile extends StatelessWidget {
           if (mounted) setState(() => _showBrightnessHUD = false);
         });
       } else {
-        final next = (_volume - dy / size.height * 2.5).clamp(0.0, 1.0);
+        // Volume — up to 200% (extra gain via player, hardware caps at 100%)
+        final next = (_volume - dy / size.height * 2.5).clamp(0.0, 2.0);
         _volume = next;
-        try { VolumeController.instance.setVolume(next); } catch (_) {}
+        try { VolumeController.instance.setVolume(next.clamp(0.0, 1.0)); } catch (_) {}
         widget.player.setVolume(next * 100);
         _hudTimer?.cancel();
         setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
@@ -3284,21 +3391,118 @@ class _TrackTile extends StatelessWidget {
       );
     }
 
+    // Volume-specific HUD — PLAYit-style two-tone bar: white 0-100%,
+    // accent-colored 100-200% (boost zone), up to 200%.
+    Widget _buildVolumeHUD({required double value}) {
+      final base  = value.clamp(0.0, 1.0);
+      final boost = (value - 1.0).clamp(0.0, 1.0);
+      final icon  = value <= 0
+          ? Icons.volume_off_rounded
+          : value <= 1.0
+              ? (value < 0.5 ? Icons.volume_down_rounded : Icons.volume_up_rounded)
+              : Icons.volume_up_rounded;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.70), borderRadius: BorderRadius.circular(12)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: value > 1.0 ? Colors.orangeAccent : Colors.white, size: 18),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 60, width: 4,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: Stack(alignment: Alignment.bottomCenter, children: [
+                Container(color: Colors.white24),
+                FractionallySizedBox(
+                  heightFactor: (base * 0.5).clamp(0.0, 0.5),
+                  alignment: Alignment.bottomCenter,
+                  child: Container(color: Colors.white),
+                ),
+                if (value > 1.0)
+                  FractionallySizedBox(
+                    heightFactor: (0.5 + boost * 0.5).clamp(0.0, 1.0),
+                    alignment: Alignment.bottomCenter,
+                    child: Container(color: Colors.orangeAccent),
+                  ),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text('${(value * 100).round()}%',
+              style: TextStyle(color: value > 1.0 ? Colors.orangeAccent : Colors.white70, fontSize: 9,
+                  fontWeight: value > 1.0 ? FontWeight.bold : FontWeight.normal)),
+        ]),
+      );
+    }
+
+    // Skip ripple — YouTube-style half-screen double-tap indicator
     Widget _buildSkipHUD({required bool isRight, required int seconds}) {
       final arrows = seconds >= 60 ? 3 : seconds >= 30 ? 2 : 1;
-      final label  = isRight ? '+${seconds}s' : '-${seconds}s';
-      return Container(
-        width: 90, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(52)),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            for (int i = 0; i < arrows; i++)
-              Icon(isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
-                   color: Colors.white.withValues(alpha: 0.5 + i * 0.2), size: 16),
+      final label  = '$seconds secondes';
+      return TweenAnimationBuilder<double>(
+        key: ValueKey('fs_skip_${isRight}_$seconds'),
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        builder: (_, t, child) => Opacity(opacity: t, child: child),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.horizontal(
+              left: isRight ? Radius.zero : const Radius.circular(400),
+              right: isRight ? const Radius.circular(400) : Radius.zero,
+            ),
+          ),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              for (int i = 0; i < arrows; i++)
+                Icon(isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                     color: Colors.white.withValues(alpha: 0.55 + i * 0.15), size: 36),
+            ]),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
           ]),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-        ]),
+        ),
+      );
+    }
+
+    Widget _buildCenterRow() {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: () => _seek(-15),
+            child: const Padding(
+              padding: EdgeInsets.all(16),
+              child: Icon(Icons.replay_15_rounded, color: Colors.white, size: 34),
+            ),
+          ),
+          const SizedBox(width: 30),
+          StreamBuilder<bool>(
+            stream: widget.player.stream.playing,
+            initialData: widget.player.state.playing,
+            builder: (_, snap) => GestureDetector(
+              onTap: () {
+                widget.player.playOrPause();
+                _resetHideTimer();
+              },
+              child: Icon(
+                (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 58,
+              ),
+            ),
+          ),
+          const SizedBox(width: 30),
+          GestureDetector(
+            onTap: () => _seek(15),
+            child: const Padding(
+              padding: EdgeInsets.all(16),
+              child: Icon(Icons.forward_15_rounded, color: Colors.white, size: 34),
+            ),
+          ),
+        ],
       );
     }
 
@@ -3307,7 +3511,8 @@ class _TrackTile extends StatelessWidget {
       final size = MediaQuery.of(context).size;
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _onTap,
+        // NOTE: no onTap here — single tap is owned exclusively by the
+        // left/right half-screen zones below (see portrait overlay for why).
         onVerticalDragStart: (d) {
           _dragStartPos = d.globalPosition;
           _hideTimer?.cancel();
@@ -3347,37 +3552,39 @@ class _TrackTile extends StatelessWidget {
                 seekingNotifier: widget.seekingNotifier,
               ),
             ),
-            // ── Left double-tap zone (seek back) ────────────────────────────────
+            // ── Left-half double-tap zone (seek back) ───────────────────────────
             Positioned(
               left: 0, top: 0, bottom: 0,
-              width: size.width * 0.35,
+              width: size.width * 0.5,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTap: () => _handleDoubleTap(isRight: false),
                 onTap: _onTap,
               ),
             ),
-            // ── Right double-tap zone (seek forward) ────────────────────────────
+            // ── Right-half double-tap zone (seek forward) ───────────────────────
             Positioned(
               right: 0, top: 0, bottom: 0,
-              width: size.width * 0.35,
+              width: size.width * 0.5,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTap: () => _handleDoubleTap(isRight: true),
                 onTap: _onTap,
               ),
             ),
-            // ── Skip HUD left ──────────────────────────────────────────────────
+            // ── Skip ripple — left half of screen ───────────────────────────────
             if (_showLeftSkipHUD)
               Positioned(
-                left: size.width * 0.04, top: 0, bottom: 40,
-                child: IgnorePointer(child: Center(child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds))),
+                left: 0, top: 0, bottom: 0,
+                width: size.width * 0.5,
+                child: IgnorePointer(child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds)),
               ),
-            // ── Skip HUD right ─────────────────────────────────────────────────
+            // ── Skip ripple — right half of screen ──────────────────────────────
             if (_showRightSkipHUD)
               Positioned(
-                right: size.width * 0.04, top: 0, bottom: 40,
-                child: IgnorePointer(child: Center(child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds))),
+                right: 0, top: 0, bottom: 0,
+                width: size.width * 0.5,
+                child: IgnorePointer(child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds)),
               ),
             // ── Brightness HUD ─────────────────────────────────────────────────
             if (_showBrightnessHUD)
@@ -3392,12 +3599,19 @@ class _TrackTile extends StatelessWidget {
               Positioned(
                 right: 14, top: 0, bottom: 40,
                 child: IgnorePointer(
-                  child: Center(child: _buildSideHUD(
-                    icon: _volume <= 0 ? Icons.volume_off_rounded : _volume < 0.5 ? Icons.volume_down_rounded : Icons.volume_up_rounded,
-                    value: _volume,
-                  )),
+                  child: Center(child: _buildVolumeHUD(value: _volume)),
                 ),
               ),
+            // Center controls (-15 / play-pause / +15) — fades with the overlay
+            IgnorePointer(
+              ignoring: !_showControls,
+              child: AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                child: Center(child: _buildCenterRow()),
+              ),
+            ),
             // Inline controls — visible only when _showControls
             if (_showControls)
               Positioned(
@@ -3564,36 +3778,71 @@ class _InlineControlsState extends State<_InlineControls> {
                 final bufFrac = dur.inMilliseconds > 0
                     ? (_p.state.buffer.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
                     : 0.0;
-                return SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 2.5,
-                    thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 5),
-                    overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 11),
-                    activeTrackColor: widget.accent,
-                    inactiveTrackColor: Colors.white24,
-                    secondaryActiveTrackColor: Colors.white54,
-                    thumbColor: Colors.white,
-                    overlayColor: Colors.white24,
-                  ),
-                  child: Slider(
-                    value: _dragActive ? _dragValue : progress,
-                    secondaryTrackValue: bufFrac,
-                    onChangeStart: (v) {
-                      setState(() { _dragActive = true; _dragValue = v; });
-                      widget.seekingNotifier.value = true;
-                    },
-                    onChanged: (v) => setState(() => _dragValue = v),
-                    onChangeEnd: (v) {
-                      if (dur.inMilliseconds > 0) {
-                        _p.seek(Duration(
-                            milliseconds: (v * dur.inMilliseconds).round()));
-                      }
-                      setState(() => _dragActive = false);
-                      widget.seekingNotifier.value = false;
-                    },
-                  ),
+                final displayValue = _dragActive ? _dragValue : progress;
+                final previewDur = dur.inMilliseconds > 0
+                    ? Duration(milliseconds: (displayValue * dur.inMilliseconds).round())
+                    : Duration.zero;
+                return LayoutBuilder(
+                  builder: (_, constraints) {
+                    final thumbX = displayValue * constraints.maxWidth;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 2.5,
+                            thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 5),
+                            overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 11),
+                            activeTrackColor: widget.accent,
+                            inactiveTrackColor: Colors.white24,
+                            secondaryActiveTrackColor: Colors.white54,
+                            thumbColor: Colors.white,
+                            overlayColor: Colors.white24,
+                          ),
+                          child: Slider(
+                            value: displayValue,
+                            secondaryTrackValue: bufFrac,
+                            onChangeStart: (v) {
+                              setState(() { _dragActive = true; _dragValue = v; });
+                              widget.seekingNotifier.value = true;
+                            },
+                            onChanged: (v) => setState(() => _dragValue = v),
+                            onChangeEnd: (v) {
+                              if (dur.inMilliseconds > 0) {
+                                _p.seek(Duration(
+                                    milliseconds: (v * dur.inMilliseconds).round()));
+                              }
+                              setState(() => _dragActive = false);
+                              widget.seekingNotifier.value = false;
+                            },
+                          ),
+                        ),
+                        if (_dragActive)
+                          Positioned(
+                            left: (thumbX - 26).clamp(0.0, constraints.maxWidth - 52),
+                            bottom: 30,
+                            child: IgnorePointer(
+                              child: Container(
+                                width: 52,
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.85),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _fmt(previewDur),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 );
               },
             ),
