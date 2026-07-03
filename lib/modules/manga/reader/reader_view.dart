@@ -1,6 +1,7 @@
 import 'package:watchtower/utils/log/logger.dart';
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:volume_controller/volume_controller.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
@@ -174,6 +175,10 @@ class _MangaChapterPageGalleryState
 
   final Stopwatch _readingStopwatch = Stopwatch();
 
+  // ── Volume-button navigation ───────────────────────────────────────────
+  double _lastVolume = 0.5;
+  bool _volumeListenerActive = false;
+
   /// Flag to prevent fullscreen from being disabled when navigating between
   /// chapters via pushReplacement. The old widget's dispose runs after the new
   /// widget is created, which would clobber the new reader's fullscreen state.
@@ -207,6 +212,14 @@ class _MangaChapterPageGalleryState
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
+    }
+    // Tear down volume listener and restore system volume UI
+    if (_volumeListenerActive) {
+      _volumeListenerActive = false;
+      try {
+        VolumeController.instance.removeListener();
+        VolumeController.instance.showSystemUI = true;
+      } catch (_) {}
     }
     discordRpc?.showIdleText();
     final actualIdx = _pageViewToActualIndex(_currentIndex!);
@@ -291,6 +304,74 @@ class _MangaChapterPageGalleryState
     discordRpc?.showChapterDetails(ref, chapter);
     WidgetsBinding.instance.addObserver(this);
     _initWakelock();
+    _initVolumeButtonNavigation();
+  }
+
+  /// Wires volume-up/down key events to page navigation.
+  /// Works on Android and iOS; no-op on desktop/web.
+  /// Direction: Vol↑ = previous page, Vol↓ = next page (inverted when setting is on).
+  Future<void> _initVolumeButtonNavigation() async {
+    if (isDesktop || kIsWeb) return;
+    final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+    if (!(settings.volumeButtonNavigation ?? false)) return;
+
+    _lastVolume = await VolumeController.instance.getVolume();
+    VolumeController.instance.showSystemUI = false;
+    _volumeListenerActive = true;
+
+    VolumeController.instance.listener((newVolume) {
+      if (!mounted || !_volumeListenerActive) return;
+      final invert =
+          (isar.settings.getSync(kSettingsId) ?? Settings()).invertVolumeButtonNavigation ?? false;
+      final readerMode = ref.read(_currentReaderMode);
+      if (readerMode == null) return;
+
+      final volUp = newVolume > _lastVolume;
+      final volDown = newVolume < _lastVolume;
+      _lastVolume = newVolume;
+
+      // Restore volume so the actual system level doesn't change
+      Future.delayed(const Duration(milliseconds: 80), () {
+        try {
+          VolumeController.instance.setVolume(
+            _lastVolume.clamp(0.0, 1.0),
+            showSystemUI: false,
+          );
+        } catch (_) {}
+      });
+
+      if (volUp) {
+        if (invert) {
+          navigationService.nextPage(
+            readerMode: readerMode,
+            currentIndex: _currentIndex!,
+            maxPages: _pageViewPageCount,
+            animate: true,
+          );
+        } else {
+          navigationService.previousPage(
+            readerMode: readerMode,
+            currentIndex: _currentIndex!,
+            animate: true,
+          );
+        }
+      } else if (volDown) {
+        if (invert) {
+          navigationService.previousPage(
+            readerMode: readerMode,
+            currentIndex: _currentIndex!,
+            animate: true,
+          );
+        } else {
+          navigationService.nextPage(
+            readerMode: readerMode,
+            currentIndex: _currentIndex!,
+            maxPages: _pageViewPageCount,
+            animate: true,
+          );
+        }
+      }
+    });
   }
 
   void _initWakelock() {
