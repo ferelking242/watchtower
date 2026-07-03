@@ -5,10 +5,13 @@
 
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -54,6 +57,10 @@ class WatchInlinePlayer {
   /// Callbacks for episode navigation (set by the parent page in build()).
   VoidCallback? onPrevEpisode;
   VoidCallback? onNextEpisode;
+
+  /// Episode list + tap callback (set by the parent page in build()).
+  List<Chapter> chapters = [];
+  void Function(Chapter)? onEpisodeTap;
 
   WatchInlinePlayer() {
     _player = Player();
@@ -298,6 +305,8 @@ class WatchInlinePlayer {
             selectedQuality: selectedQuality,
             onPrevEpisode: onPrevEpisode,
             onNextEpisode: onNextEpisode,
+            chapters: chapters,
+            onEpisodeTap: onEpisodeTap,
           ),
         ),
       ],
@@ -316,6 +325,8 @@ class _FullscreenPlayerPage extends StatefulWidget {
   final String? selectedQuality;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+  final List<Chapter> chapters;
+  final void Function(Chapter)? onEpisodeTap;
 
   const _FullscreenPlayerPage({
     required this.controller,
@@ -326,6 +337,8 @@ class _FullscreenPlayerPage extends StatefulWidget {
     this.selectedQuality,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.chapters = const [],
+    this.onEpisodeTap,
   });
 
   @override
@@ -384,6 +397,8 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
               selectedQuality: widget.selectedQuality,
               onPrevEpisode: widget.onPrevEpisode,
               onNextEpisode: widget.onNextEpisode,
+              chapters: widget.chapters,
+              onEpisodeTap: widget.onEpisodeTap,
             ),
           ),
         ],
@@ -405,6 +420,8 @@ class _FullscreenControlsOverlay extends StatefulWidget {
   final ValueNotifier<BoxFit>? fitNotifier;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+  final List<Chapter> chapters;
+  final void Function(Chapter)? onEpisodeTap;
 
   const _FullscreenControlsOverlay({
     required this.player,
@@ -417,6 +434,8 @@ class _FullscreenControlsOverlay extends StatefulWidget {
     this.fitNotifier,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.chapters = const [],
+    this.onEpisodeTap,
   });
 
   @override
@@ -433,9 +452,21 @@ class _FullscreenControlsOverlayState
   BoxFit _fit = BoxFit.contain;
   Timer? _hideTimer;
 
-  // ── Speed / Quality inline pickers ────────────────────────────────────────
+  // ── Speed / Quality / Language / More inline pickers ──────────────────────
   bool _showSpeedPicker   = false;
   bool _showQualityPicker = false;
+  bool _showLangPicker    = false;
+  bool _showMorePanel     = false;
+  bool _showEpPanel       = false;
+
+  // ── More panel state ───────────────────────────────────────────────────────
+  bool _loopOne           = false;
+  bool _loopAll           = false;
+  bool _mirrorMode        = false;
+  bool _nightMode         = false;
+  bool _abRepeatOn        = false;
+  Duration? _abStart;
+  Duration? _abEnd;
 
   // ── Brightness / Volume swipe ─────────────────────────────────────────────
     double _brightness       = 0.5;
@@ -507,6 +538,14 @@ class _FullscreenControlsOverlayState
     _doubleTapResetTimer?.cancel();
     _skipHudTimer?.cancel();
     super.dispose();
+  }
+
+  // ── PiP (Picture-in-Picture) ─────────────────────────────────────────────
+  Future<void> _enterPiP() async {
+    const ch = MethodChannel('com.watchtower.app.pip');
+    try {
+      await ch.invokeMethod('enterPiP');
+    } catch (_) {}
   }
 
   // ── Double-tap seek with escalating amounts ──────────────────────────────────
@@ -1248,6 +1287,80 @@ class _FullscreenControlsOverlayState
             right: safeArea.right + 130,
             child: _buildQualityPickerOverlay(),
           ),
+        // Language picker — expands upward from bottom-right
+        if (_showLangPicker)
+          Positioned(
+            bottom: safeArea.bottom + 52,
+            right: safeArea.right + 210,
+            child: _buildLangPickerOverlay(),
+          ),
+        // Episode list panel — right side
+        if (_showEpPanel)
+          Positioned.fill(
+            child: _EpisodePanel(
+              chapters: widget.chapters,
+              currentChapterId: null,
+              accent: Theme.of(context).primaryColor,
+              onTap: (ch) {
+                setState(() => _showEpPanel = false);
+                widget.onEpisodeTap?.call(ch);
+                _resetHideTimer();
+              },
+              onClose: () {
+                setState(() => _showEpPanel = false);
+                _resetHideTimer();
+              },
+            ),
+          ),
+        // More panel (PLAYit-style) — right side
+        if (_showMorePanel)
+          Positioned.fill(
+            child: _MorePanel(
+              player: widget.player,
+              accent: Theme.of(context).primaryColor,
+              loopOne: _loopOne,
+              loopAll: _loopAll,
+              mirrorMode: _mirrorMode,
+              nightMode: _nightMode,
+              abRepeatOn: _abRepeatOn,
+              abStart: _abStart,
+              abEnd: _abEnd,
+              audioOnly: _audioOnly,
+              onLoopOne: (v) { setState(() { _loopOne = v; _loopAll = false; }); if (v) widget.player.setPlaylistMode(PlaylistMode.single); else widget.player.setPlaylistMode(PlaylistMode.none); },
+              onLoopAll: (v) { setState(() { _loopAll = v; _loopOne = false; }); if (v) widget.player.setPlaylistMode(PlaylistMode.loop); else widget.player.setPlaylistMode(PlaylistMode.none); },
+              onMirror: (v) => setState(() => _mirrorMode = v),
+              onNight: (v) => setState(() => _nightMode = v),
+              onAbRepeat: (v) => setState(() => _abRepeatOn = v),
+              onAbStartSet: () => setState(() => _abStart = widget.player.state.position),
+              onAbEndSet: () => setState(() => _abEnd = widget.player.state.position),
+              onAudioOnly: (v) {
+                setState(() => _audioOnly = v);
+                if (v) widget.player.setVideoTrack(VideoTrack.no());
+                else {
+                  final vt = widget.player.state.tracks.video;
+                  if (vt.isNotEmpty) widget.player.setVideoTrack(vt.first);
+                }
+              },
+              onClose: () {
+                setState(() => _showMorePanel = false);
+                _resetHideTimer();
+              },
+            ),
+          ),
+        // Night mode overlay
+        if (_nightMode)
+          IgnorePointer(
+            child: Container(color: Colors.orange.withValues(alpha: 0.18)),
+          ),
+        // Mirror mode
+        if (_mirrorMode)
+          IgnorePointer(
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()..scale(-1.0, 1.0),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
       ],
     );
   }
@@ -1288,34 +1401,47 @@ class _FullscreenControlsOverlayState
             },
             padding: const EdgeInsets.all(8),
           ),
+          // PiP button
+          IconButton(
+            icon: const Icon(Icons.picture_in_picture_alt_outlined, color: Colors.white70, size: 20),
+            onPressed: () { _enterPiP(); _resetHideTimer(); },
+            padding: const EdgeInsets.all(8),
+          ),
+          // Episode list
           IconButton(
             icon: Icon(
-              _audioOnly ? Icons.audiotrack_rounded : Icons.audiotrack_outlined,
-              color: _audioOnly ? Theme.of(context).primaryColor : Colors.white70,
-              size: 20,
+              Icons.playlist_play_rounded,
+              color: _showEpPanel ? Theme.of(context).primaryColor : Colors.white70,
+              size: 22,
             ),
             onPressed: () {
-              setState(() => _audioOnly = !_audioOnly);
-              if (_audioOnly) {
-                widget.player.setVideoTrack(VideoTrack.no());
-              } else {
-                final tracks = widget.player.state.tracks.video;
-                if (tracks.isNotEmpty) widget.player.setVideoTrack(tracks.first);
-              }
-              _resetHideTimer();
+              _hideTimer?.cancel();
+              setState(() {
+                _showEpPanel       = !_showEpPanel;
+                _showSpeedPicker   = false;
+                _showQualityPicker = false;
+                _showLangPicker    = false;
+                _showMorePanel     = false;
+              });
             },
             padding: const EdgeInsets.all(8),
           ),
+          // More (PLAYit-style panel)
           IconButton(
-            icon: const Icon(Icons.playlist_play_rounded, color: Colors.white70, size: 22),
-            onPressed: () {},
-            padding: const EdgeInsets.all(8),
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 22),
+            icon: Icon(
+              Icons.more_vert_rounded,
+              color: _showMorePanel ? Theme.of(context).primaryColor : Colors.white,
+              size: 22,
+            ),
             onPressed: () {
               _hideTimer?.cancel();
-              _openSettings(0);
+              setState(() {
+                _showMorePanel     = !_showMorePanel;
+                _showSpeedPicker   = false;
+                _showQualityPicker = false;
+                _showLangPicker    = false;
+                _showEpPanel       = false;
+              });
             },
             padding: const EdgeInsets.all(8),
           ),
@@ -1562,30 +1688,32 @@ class _FullscreenControlsOverlayState
             onTap: _toggleFit,
           ),
           const SizedBox(width: 8),
-          // Langue (audio / subtitle)
+          // Langue (audio tracks inline picker)
           _ToolbarChip(
-            icon: Icons.subtitles_outlined,
-            label: 'Langue',
+            icon: Icons.language_outlined,
+            label: _langLabel(),
+            active: _showLangPicker,
             onTap: () {
               _hideTimer?.cancel();
               setState(() {
+                _showLangPicker    = !_showLangPicker;
                 _showSpeedPicker   = false;
                 _showQualityPicker = false;
               });
-              _openSettings(2);
             },
           ),
           const SizedBox(width: 8),
           // Quality picker chip
           _ToolbarChip(
             icon: Icons.hd_outlined,
-            label: 'Qualité',
+            label: _qualityLabel(),
             active: _showQualityPicker,
             onTap: () {
               _hideTimer?.cancel();
               setState(() {
                 _showQualityPicker = !_showQualityPicker;
                 _showSpeedPicker   = false;
+                _showLangPicker    = false;
               });
             },
           ),
@@ -1599,6 +1727,7 @@ class _FullscreenControlsOverlayState
               setState(() {
                 _showSpeedPicker   = !_showSpeedPicker;
                 _showQualityPicker = false;
+                _showLangPicker    = false;
               });
             },
           ),
@@ -1717,84 +1846,189 @@ class _FullscreenControlsOverlayState
     );
   }
 
+  // ─── Quality label for chip ────────────────────────────────────────────────
+  String _qualityLabel() {
+    if (_currentQuality != null && _currentQuality!.isNotEmpty) return _currentQuality!;
+    if (widget.loadedVideos.isNotEmpty) return widget.loadedVideos.first.quality;
+    return 'Qualité';
+  }
+
+  // ─── Lang label for chip ────────────────────────────────────────────────────
+  String _langLabel() {
+    final tracks = widget.player.state.tracks.audio;
+    final cur    = widget.player.state.track.audio;
+    if (tracks.isEmpty) return 'Audio';
+    final match = tracks.firstWhere((t) => t.id == cur.id, orElse: () => tracks.first);
+    return _audioTrackLabel(match, tracks.indexOf(match));
+  }
+
   // ─── Quality picker — uses loadedVideos from parent ────────────────────────
   Widget _buildQualityPickerOverlay() {
     final videos = widget.loadedVideos;
-    // Build ordered list preserving original order in loadedVideos
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       builder: (_, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, 12 * (1 - t)),
-          child: child,
-        ),
+        child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white12, width: 0.7),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(14, 10, 14, 6),
-              child: Text(
-                'Qualité',
-                style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600),
-              ),
-            ),
-            const Divider(height: 1, color: Colors.white12),
-            if (videos.isEmpty)
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 320),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white12, width: 0.7),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                child: Text('Aucune qualité', style: TextStyle(color: Colors.white54, fontSize: 13)),
-              )
-            else
-              ...videos.map((v) {
-                final isCurrent = _currentQuality == v.quality;
-                return GestureDetector(
-                  onTap: () async {
-                    _currentQuality = v.quality;
-                    setState(() => _showQualityPicker = false);
-                    _resetHideTimer();
-                    if (widget.onSwitchQuality != null) {
-                      await widget.onSwitchQuality!(v);
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
-                    child: Row(
+                padding: EdgeInsets.fromLTRB(14, 10, 14, 6),
+                child: Text('Qualité',
+                    style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+              const Divider(height: 1, color: Colors.white12),
+              if (videos.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  child: Text('Aucune qualité', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 72,
-                          child: Text(
-                            v.quality,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: isCurrent ? Theme.of(context).primaryColor : Colors.white,
-                              fontSize: 14,
-                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                      children: videos.map((v) {
+                        final isCurrent = _currentQuality == v.quality;
+                        return GestureDetector(
+                          onTap: () async {
+                            _currentQuality = v.quality;
+                            setState(() => _showQualityPicker = false);
+                            _resetHideTimer();
+                            if (widget.onSwitchQuality != null) await widget.onSwitchQuality!(v);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 120),
+                            color: isCurrent ? Colors.white.withValues(alpha: 0.10) : Colors.transparent,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 80,
+                                  child: Text(
+                                    v.quality,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: isCurrent ? Theme.of(context).primaryColor : Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                if (isCurrent)
+                                  Icon(Icons.check_rounded, color: Theme.of(context).primaryColor, size: 14),
+                              ],
                             ),
                           ),
-                        ),
-                        if (isCurrent)
-                          Icon(Icons.check_rounded, color: Theme.of(context).primaryColor, size: 14),
-                      ],
+                        );
+                      }).toList(),
                     ),
                   ),
-                );
-              }),
-            const SizedBox(height: 4),
-          ],
+                ),
+              const SizedBox(height: 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Language picker — lists audio tracks from player ──────────────────────
+  Widget _buildLangPickerOverlay() {
+    final tracks = widget.player.state.tracks.audio;
+    final cur    = widget.player.state.track.audio;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 320),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white12, width: 0.7),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(14, 10, 14, 6),
+                child: Text('Langue / Audio',
+                    style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+              const Divider(height: 1, color: Colors.white12),
+              if (tracks.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  child: Text('Aucune piste', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: tracks.asMap().entries.map((e) {
+                        final i = e.key;
+                        final t = e.value;
+                        final sel = t.id == cur.id;
+                        final label = _audioTrackLabel(t, i);
+                        return GestureDetector(
+                          onTap: () {
+                            widget.player.setAudioTrack(t);
+                            setState(() => _showLangPicker = false);
+                            _resetHideTimer();
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 120),
+                            color: sel ? Colors.white.withValues(alpha: 0.10) : Colors.transparent,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 110,
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      color: sel ? Theme.of(context).primaryColor : Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                                if (sel) ...[
+                                  const SizedBox(width: 8),
+                                  Icon(Icons.check_rounded, color: Theme.of(context).primaryColor, size: 14),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 4),
+            ],
+          ),
         ),
       ),
     );
@@ -1861,6 +2095,24 @@ class _FullscreenControlsOverlayState
       ),
     );
   }
+}
+
+// ─── Audio track label helper ─────────────────────────────────────────────────
+
+String _audioTrackLabel(AudioTrack t, int index) {
+  if (t.id == 'no' || t.id == '-1') return 'Aucune';
+  if (t.title?.isNotEmpty == true) return t.title!;
+  final langMap = {
+    'fr': 'Français', 'ja': 'Japonais', 'jp': 'Japonais',
+    'en': 'Anglais',  'de': 'Allemand', 'es': 'Espagnol',
+    'pt': 'Portugais','it': 'Italien',  'ar': 'Arabe',
+    'zh': 'Chinois',  'ko': 'Coréen',   'ru': 'Russe',
+  };
+  final lang = t.language?.toLowerCase() ?? '';
+  final mapped = langMap[lang];
+  if (mapped != null) return mapped;
+  if (lang.isNotEmpty) return lang.toUpperCase();
+  return 'Piste ${index + 1}';
 }
 
 // ─── Toolbar chip button ───────────────────────────────────────────────────────
@@ -2319,7 +2571,16 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                       }
                                       setState(() {});
                                     },
-                                    activeColor: widget.accent,
+                                    thumbColor: WidgetStateProperty.resolveWith(
+                                        (states) => states.contains(WidgetState.selected)
+                                            ? widget.accent
+                                            : Colors.white70),
+                                    trackColor: WidgetStateProperty.resolveWith(
+                                        (states) => states.contains(WidgetState.selected)
+                                            ? widget.accent.withValues(alpha: 0.45)
+                                            : Colors.white24),
+                                    overlayColor:
+                                        WidgetStateProperty.all(Colors.transparent),
                                     materialTapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
                                   ),
@@ -2912,6 +3173,8 @@ class _InlineControlsState extends State<_InlineControls> {
               selectedQuality: widget.selectedQuality,
               onPrevEpisode: widget.onPrevEpisode,
               onNextEpisode: widget.onNextEpisode,
+              chapters: widget.chapters,
+              onEpisodeTap: widget.onEpisodeTap,
             ),
           ),
         );
@@ -2932,6 +3195,8 @@ class _InlineControlsState extends State<_InlineControls> {
           selectedQuality: widget.selectedQuality,
           onPrevEpisode: widget.onPrevEpisode,
           onNextEpisode: widget.onNextEpisode,
+          chapters: widget.chapters,
+          onEpisodeTap: widget.onEpisodeTap,
         ),
       ),
     );
@@ -3149,6 +3414,404 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       );
     }
     return const SizedBox.shrink();
+  }
+}
+
+// ─── PLAYit-style More Panel ──────────────────────────────────────────────────
+
+class _MorePanel extends StatefulWidget {
+  final Player player;
+  final Color accent;
+  final bool loopOne, loopAll, mirrorMode, nightMode, abRepeatOn, audioOnly;
+  final Duration? abStart, abEnd;
+  final ValueChanged<bool> onLoopOne, onLoopAll, onMirror, onNight, onAbRepeat, onAudioOnly;
+  final VoidCallback onAbStartSet, onAbEndSet, onClose;
+
+  const _MorePanel({
+    required this.player,
+    required this.accent,
+    required this.loopOne,
+    required this.loopAll,
+    required this.mirrorMode,
+    required this.nightMode,
+    required this.abRepeatOn,
+    required this.abStart,
+    required this.abEnd,
+    required this.audioOnly,
+    required this.onLoopOne,
+    required this.onLoopAll,
+    required this.onMirror,
+    required this.onNight,
+    required this.onAbRepeat,
+    required this.onAudioOnly,
+    required this.onAbStartSet,
+    required this.onAbEndSet,
+    required this.onClose,
+  });
+
+  @override
+  State<_MorePanel> createState() => _MorePanelState();
+}
+
+class _MorePanelState extends State<_MorePanel> {
+  double _brightness = 0.5;
+
+  @override
+  void initState() {
+    super.initState();
+    ScreenBrightness.instance.current.then((v) { if (mounted) setState(() => _brightness = v); }).catchError((_) {});
+  }
+
+  Widget _iconBtn(IconData icon, String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            width: 52, height: 52,
+            decoration: BoxDecoration(
+              color: active ? widget.accent.withValues(alpha: 0.22) : Colors.white12,
+              borderRadius: BorderRadius.circular(14),
+              border: active ? Border.all(color: widget.accent, width: 1.2) : null,
+            ),
+            child: Icon(icon, color: active ? widget.accent : Colors.white70, size: 22),
+          ),
+          const SizedBox(height: 5),
+          Text(label,
+              style: TextStyle(color: active ? widget.accent : Colors.white60, fontSize: 10),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safeArea = MediaQuery.of(context).padding;
+    final panelW   = MediaQuery.of(context).size.width * 0.58;
+    final audioTracks = widget.player.state.tracks.audio;
+    final curAudio    = widget.player.state.track.audio;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onClose,
+      child: Container(
+        color: Colors.black38,
+        alignment: Alignment.centerRight,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: TweenAnimationBuilder<Offset>(
+            tween: Tween(begin: const Offset(1, 0), end: Offset.zero),
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            builder: (_, off, child) => Transform.translate(
+              offset: Offset(off.dx * panelW, 0),
+              child: child,
+            ),
+            child: Container(
+              width: panelW,
+              height: double.infinity,
+              color: const Color(0xEE1A1A1A),
+              padding: EdgeInsets.fromLTRB(14, safeArea.top + 10, 14, safeArea.bottom + 10),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Text('Plus', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: widget.onClose,
+                          child: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: Colors.white12, height: 1),
+                    const SizedBox(height: 14),
+                    // Row 1: Audio tracks + Mirror + Night + Minuteur
+                    Wrap(
+                      spacing: 10, runSpacing: 12,
+                      children: [
+                        _iconBtn(Icons.audiotrack_outlined, 'Audio seul', widget.audioOnly,
+                            () => widget.onAudioOnly(!widget.audioOnly)),
+                        _iconBtn(Icons.flip_outlined, 'Miroir', widget.mirrorMode,
+                            () => widget.onMirror(!widget.mirrorMode)),
+                        _iconBtn(Icons.nights_stay_outlined, 'Nuit', widget.nightMode,
+                            () => widget.onNight(!widget.nightMode)),
+                        _iconBtn(Icons.picture_in_picture_alt_outlined, 'PiP', false, () {
+                          widget.onClose();
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(color: Colors.white12, height: 1),
+                    const SizedBox(height: 10),
+                    // Loop section
+                    const Text('Boucle', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        _iconBtn(Icons.repeat_one_rounded, 'Épisode', widget.loopOne,
+                            () => widget.onLoopOne(!widget.loopOne)),
+                        _iconBtn(Icons.repeat_rounded, 'Tout', widget.loopAll,
+                            () => widget.onLoopAll(!widget.loopAll)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(color: Colors.white12, height: 1),
+                    const SizedBox(height: 10),
+                    // AB Repeat section
+                    const Text('AB Répétition', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: widget.onAbStartSet,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 120),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: widget.abStart != null ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
+                                borderRadius: BorderRadius.circular(10),
+                                border: widget.abStart != null ? Border.all(color: widget.accent, width: 1) : null,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                widget.abStart != null
+                                    ? 'A: ${_fmtDur(widget.abStart!)}'
+                                    : 'Déf. A',
+                                style: TextStyle(color: widget.abStart != null ? widget.accent : Colors.white60, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: widget.onAbEndSet,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 120),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: widget.abEnd != null ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
+                                borderRadius: BorderRadius.circular(10),
+                                border: widget.abEnd != null ? Border.all(color: widget.accent, width: 1) : null,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                widget.abEnd != null
+                                    ? 'B: ${_fmtDur(widget.abEnd!)}'
+                                    : 'Déf. B',
+                                style: TextStyle(color: widget.abEnd != null ? widget.accent : Colors.white60, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => widget.onAbRepeat(!widget.abRepeatOn),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 120),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: widget.abRepeatOn ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
+                              borderRadius: BorderRadius.circular(10),
+                              border: widget.abRepeatOn ? Border.all(color: widget.accent, width: 1) : null,
+                            ),
+                            child: Icon(Icons.repeat_rounded,
+                                color: widget.abRepeatOn ? widget.accent : Colors.white60, size: 18),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(color: Colors.white12, height: 1),
+                    const SizedBox(height: 10),
+                    // Audio track
+                    const Text('Piste audio', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    if (audioTracks.isEmpty)
+                      const Text('Aucune piste', style: TextStyle(color: Colors.white38, fontSize: 12))
+                    else
+                      Wrap(
+                        spacing: 8, runSpacing: 8,
+                        children: audioTracks.asMap().entries.map((e) {
+                          final i = e.key; final t = e.value;
+                          final sel = t.id == curAudio.id;
+                          return GestureDetector(
+                            onTap: () { widget.player.setAudioTrack(t); setState(() {}); },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 120),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: sel ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
+                                borderRadius: BorderRadius.circular(20),
+                                border: sel ? Border.all(color: widget.accent) : null,
+                              ),
+                              child: Text(_audioTrackLabel(t, i),
+                                  style: TextStyle(color: sel ? widget.accent : Colors.white70, fontSize: 12)),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    const SizedBox(height: 14),
+                    const Divider(color: Colors.white12, height: 1),
+                    const SizedBox(height: 10),
+                    // Brightness slider
+                    const Text('Luminosité', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.brightness_low_rounded, color: Colors.white38, size: 16),
+                        Expanded(
+                          child: Slider(
+                            value: _brightness,
+                            min: 0.0, max: 1.0,
+                            activeColor: widget.accent,
+                            inactiveColor: Colors.white24,
+                            onChanged: (v) {
+                              setState(() => _brightness = v);
+                              ScreenBrightness.instance.setApplicationScreenBrightness(v).catchError((_) {});
+                            },
+                          ),
+                        ),
+                        const Icon(Icons.brightness_high_rounded, color: Colors.white70, size: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _fmtDur(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+}
+
+// ─── Episode list panel ───────────────────────────────────────────────────────
+
+class _EpisodePanel extends StatelessWidget {
+  final List<Chapter> chapters;
+  final int? currentChapterId;
+  final Color accent;
+  final void Function(Chapter) onTap;
+  final VoidCallback onClose;
+
+  const _EpisodePanel({
+    required this.chapters,
+    required this.currentChapterId,
+    required this.accent,
+    required this.onTap,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeArea = MediaQuery.of(context).padding;
+    final panelW   = MediaQuery.of(context).size.width * 0.55;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onClose,
+      child: Container(
+        color: Colors.black38,
+        alignment: Alignment.centerRight,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: TweenAnimationBuilder<Offset>(
+            tween: Tween(begin: const Offset(1, 0), end: Offset.zero),
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            builder: (_, off, child) => Transform.translate(
+              offset: Offset(off.dx * panelW, 0), child: child),
+            child: Container(
+              width: panelW,
+              height: double.infinity,
+              color: const Color(0xEE1A1A1A),
+              child: Column(
+                children: [
+                  SizedBox(height: safeArea.top + 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        const Text('Épisodes',
+                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: onClose,
+                          child: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Divider(color: Colors.white12, height: 1),
+                  Expanded(
+                    child: chapters.isEmpty
+                        ? const Center(child: Text('Aucun épisode', style: TextStyle(color: Colors.white38)))
+                        : ListView.builder(
+                            padding: EdgeInsets.only(bottom: safeArea.bottom + 8),
+                            itemCount: chapters.length,
+                            itemBuilder: (_, i) {
+                              final ch = chapters[i];
+                              final isCur = ch.id == currentChapterId;
+                              return GestureDetector(
+                                onTap: () => onTap(ch),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 120),
+                                  color: isCur ? accent.withValues(alpha: 0.14) : Colors.transparent,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      if (isCur) ...[
+                                        Icon(Icons.play_arrow_rounded, color: accent, size: 16),
+                                        const SizedBox(width: 4),
+                                      ] else
+                                        const SizedBox(width: 20),
+                                      Expanded(
+                                        child: Text(
+                                          ch.name ?? 'Épisode ${i + 1}',
+                                          style: TextStyle(
+                                            color: isCur ? accent : Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

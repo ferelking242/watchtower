@@ -193,6 +193,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     _player.onNextEpisode = (curIdx >= 0 && curIdx < sorted.length - 1)
         ? () => _loadEpisodeInBanner(sorted[curIdx + 1])
         : null;
+    _player.chapters     = sorted;
+    _player.onEpisodeTap = _loadEpisodeInBanner;
 
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
