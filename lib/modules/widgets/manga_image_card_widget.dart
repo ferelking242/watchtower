@@ -89,7 +89,7 @@ class MangaImageCardWidget extends ConsumerWidget {
                     ),
                   ),
                   cache: true,
-                  cacheMaxAge: const Duration(days: 90),
+                  cacheMaxAge: const Duration(days: 3650),
                 ),
           onTap: () {
             pushToMangaReaderDetail(
