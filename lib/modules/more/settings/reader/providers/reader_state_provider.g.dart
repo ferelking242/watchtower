@@ -1863,3 +1863,110 @@ abstract class _$TtsVoiceState extends $Notifier<String?> {
     element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(VolumeButtonNavigationState)
+final volumeButtonNavigationStateProvider = VolumeButtonNavigationStateProvider._();
+
+final class VolumeButtonNavigationStateProvider
+    extends $NotifierProvider<VolumeButtonNavigationState, bool> {
+  VolumeButtonNavigationStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'volumeButtonNavigationStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$volumeButtonNavigationStateHash();
+
+  @$internal
+  @override
+  VolumeButtonNavigationState create() => VolumeButtonNavigationState();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$volumeButtonNavigationStateHash() =>
+    r'b3e4f1a2c9d87654e0f1a2b3c4d5e6f7a8b9c0d1';
+
+abstract class _$VolumeButtonNavigationState extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(InvertVolumeButtonNavigationState)
+final invertVolumeButtonNavigationStateProvider =
+    InvertVolumeButtonNavigationStateProvider._();
+
+final class InvertVolumeButtonNavigationStateProvider
+    extends $NotifierProvider<InvertVolumeButtonNavigationState, bool> {
+  InvertVolumeButtonNavigationStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'invertVolumeButtonNavigationStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$invertVolumeButtonNavigationStateHash();
+
+  @$internal
+  @override
+  InvertVolumeButtonNavigationState create() => InvertVolumeButtonNavigationState();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$invertVolumeButtonNavigationStateHash() =>
+    r'e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1';
+
+abstract class _$InvertVolumeButtonNavigationState extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
