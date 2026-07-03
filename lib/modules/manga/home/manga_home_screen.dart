@@ -382,6 +382,39 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                           filters.isEmpty ? filterList : filters),
                       onTap: () => _openFilterSheet(context),
                     ),
+                    // ── Grid / list toggle ──────────────────────────────
+                    Consumer(
+                      builder: (ctx, r, _) {
+                        final dt = r.watch(mangaHomeDisplayTypeStateProvider);
+                        final isList = dt == DisplayType.list ||
+                            dt == DisplayType.wideList;
+                        return GestureDetector(
+                          onTap: () => r
+                              .read(mangaHomeDisplayTypeStateProvider.notifier)
+                              .setMangaHomeDisplayType(isList
+                                  ? DisplayType.comfortableGrid
+                                  : DisplayType.list),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(ctx)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              isList
+                                  ? Icons.grid_view_rounded
+                                  : Icons.view_list_rounded,
+                              size: 18,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     if (filterList.isNotEmpty)
                       ..._buildFilterChips(
                           context, filters.isEmpty ? filterList : filters),
@@ -1294,37 +1327,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
           ),
         );
       }
-      return Padding(
-        padding: const EdgeInsets.all(4),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5)),
-          ),
-          onPressed: () {
-            if (!(_getManga?.isLoading ?? false)) {
-              setState(() => _isLoading = true);
-              _loadMore().then((value) {
-                if (mounted && value != null) {
-                  setState(() {
-                    _mangaList.addAll(value.list);
-                    _isLoading = false;
-                  });
-                }
-              });
-            }
-          },
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Charger plus',
-                  style: TextStyle(overflow: TextOverflow.ellipsis),
-                  maxLines: 2),
-              Icon(Icons.arrow_forward_outlined),
-            ],
-          ),
-        ),
-      );
+      // Auto-scroll trigger in _onScroll() handles loading — no manual button needed.
+      return const SizedBox.shrink();
     }
 
     if (isListMode) {
