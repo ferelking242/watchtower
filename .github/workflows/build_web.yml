@@ -24,15 +24,15 @@ jobs:
           channel: stable
           cache: true
 
+      # NOTE: .dart_tool intentionally excluded from cache.
+      # Caching it (even with a content-hash key) caused stale kernel/snapshot reuse
+      # on restore-keys partial matches, silently keeping old Dart code in the web bundle.
       - name: Cache pub packages
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-          key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock', 'lib/**/*.dart', 'web_stubs/**/*.dart') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-web-
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-web-
 
       - name: Patch pubspec with web stubs
         run: |

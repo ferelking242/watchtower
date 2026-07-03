@@ -49,15 +49,15 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      # No restore-keys: exact key match or clean Gradle build to avoid stale task outputs.
+      # build-cache-N sub-path removed — it is already inside ~/.gradle/caches.
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-            ~/.gradle/caches/build-cache-2
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
-          restore-keys: gradle-${{ runner.os }}-
 
       - name: Cache Android SDK extras (NDK, CMake)
         uses: actions/cache@v4
@@ -77,7 +77,8 @@ jobs:
 
       - name: Build APK — ${{ matrix.label }}
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
+          # gradle.caching=false: Gradle local build cache disabled — prevents stale Flutter task output replay.
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Dhttp.keepAlive=false"
         run: |
           flutter build apk \
             --profile \
@@ -142,15 +143,14 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
+      # No restore-keys: exact key match or clean Gradle build to avoid stale task outputs.
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-            ~/.gradle/caches/build-cache-2
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
-          restore-keys: gradle-${{ runner.os }}-
 
       - name: Cache Android SDK extras (NDK, CMake)
         uses: actions/cache@v4
@@ -170,7 +170,8 @@ jobs:
 
       - name: Build Universal APK
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.keepAlive=false"
+          # gradle.caching=false: Gradle local build cache disabled — prevents stale Flutter task output replay.
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Dhttp.keepAlive=false"
         run: flutter build apk --profile
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
