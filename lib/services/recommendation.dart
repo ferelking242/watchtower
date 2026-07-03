@@ -63,7 +63,15 @@ query ($id: Int, $page: Int, $type: MediaType) {
       },
     }),
   );
-  final data = json.decode(res.body) as Map<String, dynamic>;
+  // Même quirk AniList que _getSuggest : 404 réel quand le média n'existe
+  // pas côté AniList (titres non-anime de MovieBox notamment).
+  if (res.statusCode != 200) return null;
+  Map<String, dynamic> data;
+  try {
+    data = json.decode(res.body) as Map<String, dynamic>;
+  } catch (_) {
+    return null;
+  }
   final nodes =
       data["data"]?["Media"]?["recommendations"]?["nodes"] as List?;
   if (nodes == null) return null;
@@ -103,7 +111,20 @@ query ($search: String, $type: MediaType) {
       },
     }),
   );
-  final data = json.decode(res.body) as Map<String, dynamic>;
+  // AniList renvoie un vrai statut HTTP 404 (pas un 200 avec data:null)
+  // quand aucun média ne correspond à la recherche. C'est le cas pour
+  // la quasi-totalité des films/séries occidentaux de MovieBox, qui ne
+  // sont simplement pas référencés sur AniList (base anime/manga only).
+  // Sans ce garde, chaque titre non-anime déclenchait un 404 silencieux
+  // qui faisait disparaître la section recommandations ("auto-delete").
+  if (res.statusCode == 404) return null;
+  if (res.statusCode != 200) return null;
+  Map<String, dynamic> data;
+  try {
+    data = json.decode(res.body) as Map<String, dynamic>;
+  } catch (_) {
+    return null;
+  }
   final id = data["data"]?["Media"]?["id"];
   return id?.toString();
 }
