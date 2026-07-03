@@ -1320,11 +1320,38 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         return const SizedBox.shrink();
       }
       if (_isLoading) {
-        return const Center(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: CircularProgressIndicator(),
-          ),
+        // Skeleton rows/cells instead of spinner for seamless infinite scroll
+        final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
+        final high = Theme.of(context).colorScheme.surface.withValues(alpha: 0.9);
+        if (isListMode) {
+          return Skeletonizer(
+            enabled: true,
+            effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
+            child: Column(children: List.generate(3, (_) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(width: 72, height: 100, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8))),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(height: 14, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                  const SizedBox(height: 6),
+                  Container(width: 120, height: 12, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                ])),
+              ]),
+            ))),
+          );
+        }
+        return Skeletonizer(
+          enabled: true,
+          effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
+          child: Row(children: List.generate(3, (_) => Expanded(child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              AspectRatio(aspectRatio: 0.69, child: Container(decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)))),
+              const SizedBox(height: 4),
+              Container(height: 12, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+            ]),
+          )))),
         );
       }
       // Auto-scroll trigger in _onScroll() handles loading — no manual button needed.
