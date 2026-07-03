@@ -24,6 +24,16 @@ import 'package:watchtower/utils/log/logger.dart';
 // ─── Speed levels ─────────────────────────────────────────────────────────────
 const _kAllSpeeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0];
 
+// ─── Aspect-ratio / fit cycle ─────────────────────────────────────────────────
+const _kFitCycle = <BoxFit>[BoxFit.contain, BoxFit.cover, BoxFit.fill, BoxFit.fitWidth, BoxFit.fitHeight];
+const _kFitNames = <BoxFit, String>{
+  BoxFit.contain:   'Ajuster',
+  BoxFit.cover:     'Recadrer',
+  BoxFit.fill:      'Remplir',
+  BoxFit.fitWidth:  '16:9 →',
+  BoxFit.fitHeight: '↕ Hauteur',
+};
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 class WatchInlinePlayer {
@@ -38,6 +48,13 @@ class WatchInlinePlayer {
   List<wt.Video> loadedVideos = [];
   String? selectedQuality;
 
+  /// Notifier for portrait overlay controls visibility (back/aide buttons sync).
+  final ValueNotifier<bool> controlsVisible = ValueNotifier(true);
+
+  /// Callbacks for episode navigation (set by the parent page in build()).
+  VoidCallback? onPrevEpisode;
+  VoidCallback? onNextEpisode;
+
   WatchInlinePlayer() {
     _player = Player();
     _controller = VideoController(_player);
@@ -46,6 +63,7 @@ class WatchInlinePlayer {
   void dispose() {
     _player.dispose();
     _seekingNotifier.dispose();
+    controlsVisible.dispose();
   }
 
   /// Callback fired when quality changes (so the page UI can rebuild).
@@ -251,11 +269,13 @@ class WatchInlinePlayer {
       loadedVideos: loadedVideos,
       onSwitchQuality: switchQuality,
       selectedQuality: selectedQuality,
+      controlsNotifier: controlsVisible,
+      onPrevEpisode: onPrevEpisode,
+      onNextEpisode: onNextEpisode,
     );
   }
 
   // Fullscreen video + controls (used when device auto-rotates to landscape)
-  // The back button is provided by watch_detail_view._buildLandscape above this widget.
   Widget buildFullscreenPlayer() {
     return Stack(
       children: [
@@ -275,6 +295,8 @@ class WatchInlinePlayer {
             loadedVideos: loadedVideos,
             onSwitchQuality: switchQuality,
             selectedQuality: selectedQuality,
+            onPrevEpisode: onPrevEpisode,
+            onNextEpisode: onNextEpisode,
           ),
         ),
       ],
@@ -291,6 +313,8 @@ class _FullscreenPlayerPage extends StatefulWidget {
   final List<wt.Video> loadedVideos;
   final Future<void> Function(wt.Video)? onSwitchQuality;
   final String? selectedQuality;
+  final VoidCallback? onPrevEpisode;
+  final VoidCallback? onNextEpisode;
 
   const _FullscreenPlayerPage({
     required this.controller,
@@ -299,6 +323,8 @@ class _FullscreenPlayerPage extends StatefulWidget {
     this.loadedVideos = const [],
     this.onSwitchQuality,
     this.selectedQuality,
+    this.onPrevEpisode,
+    this.onNextEpisode,
   });
 
   @override
@@ -355,6 +381,8 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
               loadedVideos: widget.loadedVideos,
               onSwitchQuality: widget.onSwitchQuality,
               selectedQuality: widget.selectedQuality,
+              onPrevEpisode: widget.onPrevEpisode,
+              onNextEpisode: widget.onNextEpisode,
             ),
           ),
         ],
@@ -374,6 +402,8 @@ class _FullscreenControlsOverlay extends StatefulWidget {
   final Future<void> Function(wt.Video)? onSwitchQuality;
   final String? selectedQuality;
   final ValueNotifier<BoxFit>? fitNotifier;
+  final VoidCallback? onPrevEpisode;
+  final VoidCallback? onNextEpisode;
 
   const _FullscreenControlsOverlay({
     required this.player,
@@ -384,6 +414,8 @@ class _FullscreenControlsOverlay extends StatefulWidget {
     this.onSwitchQuality,
     this.selectedQuality,
     this.fitNotifier,
+    this.onPrevEpisode,
+    this.onNextEpisode,
   });
 
   @override
@@ -535,8 +567,8 @@ class _FullscreenControlsOverlayState
   }
 
   void _toggleFit() {
-    setState(() =>
-        _fit = _fit == BoxFit.contain ? BoxFit.fill : BoxFit.contain);
+    final idx = _kFitCycle.indexOf(_fit);
+    setState(() => _fit = _kFitCycle[(idx + 1) % _kFitCycle.length]);
     widget.fitNotifier?.value = _fit;
     _resetHideTimer();
   }
@@ -1368,54 +1400,102 @@ class _FullscreenControlsOverlayState
         final progress = dur.inMilliseconds > 0
             ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
             : 0.0;
-        return Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                _fmt(pos),
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
-              ),
-            ),
-            Expanded(
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 2.5,
-                  thumbShape:
-                      const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  overlayShape:
-                      const RoundSliderOverlayShape(overlayRadius: 14),
-                  activeTrackColor: Theme.of(context).primaryColor,
-                  inactiveTrackColor: Colors.white30,
-                  thumbColor: Colors.white,
-                  overlayColor: Colors.white24,
+        // Seek-preview: target position while dragging
+        final previewDur = dur.inMilliseconds > 0
+            ? Duration(milliseconds: (_seekDragValue * dur.inMilliseconds).round())
+            : Duration.zero;
+
+        return LayoutBuilder(
+          builder: (_, constraints) {
+            // Approx x position of slider thumb (between time labels ~40px each + 12px padding)
+            const timeLabelW = 46.0;
+            const hPad = 12.0;
+            final sliderW = constraints.maxWidth - timeLabelW * 2 - hPad * 2;
+            final displayValue = _seekDragging ? _seekDragValue : progress;
+            final thumbX = hPad + timeLabelW + displayValue * sliderW;
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: hPad),
+                      child: SizedBox(
+                        width: timeLabelW - hPad,
+                        child: Text(
+                          _fmt(pos),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 2.5,
+                          thumbShape:
+                              const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          overlayShape:
+                              const RoundSliderOverlayShape(overlayRadius: 14),
+                          activeTrackColor: Theme.of(context).primaryColor,
+                          inactiveTrackColor: Colors.white30,
+                          thumbColor: Colors.white,
+                          overlayColor: Colors.white24,
+                        ),
+                        child: Slider(
+                          value: displayValue,
+                          onChangeStart: (_) {
+                            setState(() => _seekDragging = true);
+                            _hideTimer?.cancel();
+                          },
+                          onChanged: (v) => setState(() => _seekDragValue = v),
+                          onChangeEnd: (v) {
+                            if (dur.inMilliseconds > 0) {
+                              widget.player.seek(Duration(
+                                  milliseconds: (v * dur.inMilliseconds).round()));
+                            }
+                            setState(() => _seekDragging = false);
+                            _resetHideTimer();
+                          },
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: hPad),
+                      child: SizedBox(
+                        width: timeLabelW - hPad,
+                        child: Text(
+                          _fmt(dur),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Slider(
-                  value: _seekDragging ? _seekDragValue : progress,
-                  onChangeStart: (_) {
-                    setState(() => _seekDragging = true);
-                    _hideTimer?.cancel();
-                  },
-                  onChanged: (v) => setState(() => _seekDragValue = v),
-                  onChangeEnd: (v) {
-                    if (dur.inMilliseconds > 0) {
-                      widget.player.seek(Duration(
-                          milliseconds: (v * dur.inMilliseconds).round()));
-                    }
-                    setState(() => _seekDragging = false);
-                    _resetHideTimer();
-                  },
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                _fmt(dur),
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
-              ),
-            ),
-          ],
+                // ── Seek-time preview bubble ──────────────────────────────────
+                if (_seekDragging)
+                  Positioned(
+                    left: (thumbX - 30).clamp(0.0, constraints.maxWidth - 60),
+                    bottom: 26,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 60,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _fmt(previewDur),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
@@ -1425,6 +1505,7 @@ class _FullscreenControlsOverlayState
     final speedLabel = _speed == _speed.roundToDouble()
         ? '${_speed.toInt()}x'
         : '${_speed}x';
+    final fitLabel = _kFitNames[_fit] ?? 'Ajuster';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
@@ -1437,7 +1518,7 @@ class _FullscreenControlsOverlayState
               icon: Icon(
                 (snap.data ?? false) ? Icons.pause : Icons.play_arrow,
                 color: Colors.white,
-                size: 22,
+                size: 24,
               ),
               onPressed: () {
                 widget.player.playOrPause();
@@ -1445,23 +1526,38 @@ class _FullscreenControlsOverlayState
               },
               padding: const EdgeInsets.all(4),
               constraints:
-                  const BoxConstraints(minWidth: 32, minHeight: 32),
+                  const BoxConstraints(minWidth: 34, minHeight: 34),
             ),
           ),
-          // Next
+          // Previous episode
           IconButton(
-            icon: const Icon(Icons.skip_next,
-                color: Colors.white70, size: 22),
-            onPressed: () {},
+            icon: Icon(Icons.skip_previous,
+                color: widget.onPrevEpisode != null ? Colors.white70 : Colors.white24,
+                size: 24),
+            onPressed: widget.onPrevEpisode != null ? () {
+              widget.onPrevEpisode!();
+              _resetHideTimer();
+            } : null,
             padding: const EdgeInsets.all(4),
-            constraints:
-                const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+          ),
+          // Next episode
+          IconButton(
+            icon: Icon(Icons.skip_next,
+                color: widget.onNextEpisode != null ? Colors.white70 : Colors.white24,
+                size: 24),
+            onPressed: widget.onNextEpisode != null ? () {
+              widget.onNextEpisode!();
+              _resetHideTimer();
+            } : null,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
           ),
           const Spacer(),
-          // Ajuster (fit)
+          // Fit (cycle through modes)
           _ToolbarChip(
             icon: Icons.fit_screen_outlined,
-            label: _fit == BoxFit.contain ? 'Ajuster' : 'Remplir',
+            label: fitLabel,
             onTap: _toggleFit,
           ),
           const SizedBox(width: 8),
@@ -1536,6 +1632,7 @@ class _FullscreenControlsOverlayState
         ),
       ),
       child: Container(
+        constraints: const BoxConstraints(maxHeight: 320),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(14),
@@ -1555,7 +1652,11 @@ class _FullscreenControlsOverlayState
               ),
             ),
             const Divider(height: 1, color: Colors.white12),
-            ...speeds.map((s) {
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: speeds.map((s) {
               final sel = s == _speed;
               final label = s == s.roundToDouble()
                   ? '${s.toInt()}x'
@@ -1604,7 +1705,10 @@ class _FullscreenControlsOverlayState
                   ),
                 ),
               );
-            }),
+                }).toList(),
+                ),
+              ),
+            ),
             const SizedBox(height: 4),
           ],
         ),
@@ -1780,12 +1884,12 @@ class _ToolbarChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: active
               ? accent.withValues(alpha: 0.18)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(5),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: active ? accent.withValues(alpha: 0.65) : Colors.transparent,
             width: 0.7,
@@ -1796,14 +1900,14 @@ class _ToolbarChip extends StatelessWidget {
           children: [
             if (icon != null) ...[
               Icon(icon,
-                  color: active ? accent : Colors.white60, size: 12),
-              const SizedBox(width: 3),
+                  color: active ? accent : Colors.white60, size: 14),
+              const SizedBox(width: 4),
             ],
             Text(
               label,
               style: TextStyle(
                 color: active ? accent : Colors.white,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1941,18 +2045,22 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                         style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          _FitOption(label: 'Ajuster', fit: BoxFit.contain, currentFit: _fit, accent: widget.accent, onTap: () {
-                            setState(() => _fit = BoxFit.contain);
-                            widget.onFit(BoxFit.contain);
-                          }),
-                          const SizedBox(width: 8),
-                          _FitOption(label: 'Remplir', fit: BoxFit.fill, currentFit: _fit, accent: widget.accent, onTap: () {
-                            setState(() => _fit = BoxFit.fill);
-                            widget.onFit(BoxFit.fill);
-                          }),
-                        ],
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _kFitCycle.map((f) {
+                          final lbl = _kFitNames[f] ?? 'Ajuster';
+                          return _FitOption(
+                            label: lbl,
+                            fit: f,
+                            currentFit: _fit,
+                            accent: widget.accent,
+                            onTap: () {
+                              setState(() => _fit = f);
+                              widget.onFit(f);
+                            },
+                          );
+                        }).toList(),
                       ),
                     ],
                   ),
@@ -2442,6 +2550,9 @@ class _TrackTile extends StatelessWidget {
     final List<wt.Video> loadedVideos;
     final Future<void> Function(wt.Video)? onSwitchQuality;
     final String? selectedQuality;
+    final ValueNotifier<bool>? controlsNotifier;
+    final VoidCallback? onPrevEpisode;
+    final VoidCallback? onNextEpisode;
 
     const _PortraitPlayerOverlay({
       required this.player,
@@ -2452,6 +2563,9 @@ class _TrackTile extends StatelessWidget {
       this.loadedVideos = const [],
       this.onSwitchQuality,
       this.selectedQuality,
+      this.controlsNotifier,
+      this.onPrevEpisode,
+      this.onNextEpisode,
     });
 
     @override
@@ -2462,36 +2576,166 @@ class _TrackTile extends StatelessWidget {
     bool _showControls = true;
     Timer? _hideTimer;
 
+    // ── Brightness / Volume swipe ──────────────────────────────────────────────
+    double _brightness = 0.5;
+    double _volume     = 0.5;
+    bool _showBrightnessHUD = false;
+    bool _showVolumeHUD     = false;
+    Offset? _dragStartPos;
+    Timer? _hudTimer;
+
+    // ── Double-tap skip ────────────────────────────────────────────────────────
+    int   _doubleTapCount = 0;
+    bool? _doubleTapRight;
+    Timer? _doubleTapResetTimer;
+    bool _showLeftSkipHUD  = false;
+    bool _showRightSkipHUD = false;
+    int  _skipHudSeconds   = 15;
+    Timer? _skipHudTimer;
+
     @override
     void initState() {
       super.initState();
       _resetHideTimer();
+      _initMedia();
+    }
+
+    Future<void> _initMedia() async {
+      try { _brightness = await ScreenBrightness().current; } catch (_) {}
+      try { _volume = await VolumeController.instance.getVolume(); } catch (_) {}
     }
 
     @override
     void dispose() {
       _hideTimer?.cancel();
+      _hudTimer?.cancel();
+      _doubleTapResetTimer?.cancel();
+      _skipHudTimer?.cancel();
       super.dispose();
+    }
+
+    void _setVisible(bool v) {
+      setState(() => _showControls = v);
+      widget.controlsNotifier?.value = v;
     }
 
     void _resetHideTimer() {
       _hideTimer?.cancel();
       _hideTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) setState(() => _showControls = false);
+        if (mounted) _setVisible(false);
       });
     }
 
     void _onTap() {
-      setState(() => _showControls = !_showControls);
+      _setVisible(!_showControls);
       if (_showControls) _resetHideTimer();
       else _hideTimer?.cancel();
     }
 
+    void _seek(int deltaSeconds) {
+      final pos = widget.player.state.position;
+      final dur = widget.player.state.duration;
+      final next = pos + Duration(seconds: deltaSeconds);
+      widget.player.seek(next.isNegative ? Duration.zero : (next > dur ? dur : next));
+    }
+
+    void _handleDoubleTap({required bool isRight}) {
+      _doubleTapResetTimer?.cancel();
+      if (_doubleTapRight != null && _doubleTapRight != isRight) _doubleTapCount = 0;
+      _doubleTapRight = isRight;
+      _doubleTapCount++;
+      final seconds = 15 * (1 << (_doubleTapCount - 1));
+      _skipHudSeconds = seconds;
+      _seek(isRight ? seconds : -seconds);
+      _skipHudTimer?.cancel();
+      setState(() { _showLeftSkipHUD = !isRight; _showRightSkipHUD = isRight; });
+      _skipHudTimer = Timer(const Duration(milliseconds: 700), () {
+        if (mounted) setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
+      });
+      _doubleTapResetTimer = Timer(const Duration(milliseconds: 800), () {
+        _doubleTapCount = 0; _doubleTapRight = null;
+      });
+    }
+
+    void _handleSwipeDrag(DragUpdateDetails d, Size size) {
+      final startX = _dragStartPos?.dx ?? d.globalPosition.dx;
+      final dy     = d.delta.dy;
+      final isLeft = startX < size.width / 2;
+      if (isLeft) {
+        final next = (_brightness - dy / size.height * 2.5).clamp(0.0, 1.0);
+        _brightness = next;
+        try { ScreenBrightness().setScreenBrightness(next); } catch (_) {}
+        _hudTimer?.cancel();
+        setState(() { _showBrightnessHUD = true; _showVolumeHUD = false; });
+        _hudTimer = Timer(const Duration(milliseconds: 1200), () {
+          if (mounted) setState(() => _showBrightnessHUD = false);
+        });
+      } else {
+        final next = (_volume - dy / size.height * 2.5).clamp(0.0, 1.0);
+        _volume = next;
+        try { VolumeController.instance.setVolume(next); } catch (_) {}
+        widget.player.setVolume(next * 100);
+        _hudTimer?.cancel();
+        setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
+        _hudTimer = Timer(const Duration(milliseconds: 1200), () {
+          if (mounted) setState(() => _showVolumeHUD = false);
+        });
+      }
+    }
+
+    Widget _buildSideHUD({required IconData icon, required double value}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.70), borderRadius: BorderRadius.circular(12)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 60, width: 3,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: RotatedBox(
+                quarterTurns: 3,
+                child: LinearProgressIndicator(value: value, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation(Colors.white), minHeight: 3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text('${(value * 100).round()}%', style: const TextStyle(color: Colors.white70, fontSize: 9)),
+        ]),
+      );
+    }
+
+    Widget _buildSkipHUD({required bool isRight, required int seconds}) {
+      final arrows = seconds >= 60 ? 3 : seconds >= 30 ? 2 : 1;
+      final label  = isRight ? '+${seconds}s' : '-${seconds}s';
+      return Container(
+        width: 90, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(52)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            for (int i = 0; i < arrows; i++)
+              Icon(isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                   color: Colors.white.withValues(alpha: 0.5 + i * 0.2), size: 16),
+          ]),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+        ]),
+      );
+    }
+
     @override
     Widget build(BuildContext context) {
+      final size = MediaQuery.of(context).size;
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _onTap,
+        onVerticalDragStart: (d) {
+          _dragStartPos = d.globalPosition;
+          _hideTimer?.cancel();
+        },
+        onVerticalDragUpdate: (d) => _handleSwipeDrag(d, size),
+        onVerticalDragEnd: (_) { _dragStartPos = null; },
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -2525,6 +2769,57 @@ class _TrackTile extends StatelessWidget {
                 seekingNotifier: widget.seekingNotifier,
               ),
             ),
+            // ── Left double-tap zone (seek back) ────────────────────────────────
+            Positioned(
+              left: 0, top: 0, bottom: 0,
+              width: size.width * 0.35,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: () => _handleDoubleTap(isRight: false),
+                onTap: _onTap,
+              ),
+            ),
+            // ── Right double-tap zone (seek forward) ────────────────────────────
+            Positioned(
+              right: 0, top: 0, bottom: 0,
+              width: size.width * 0.35,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: () => _handleDoubleTap(isRight: true),
+                onTap: _onTap,
+              ),
+            ),
+            // ── Skip HUD left ──────────────────────────────────────────────────
+            if (_showLeftSkipHUD)
+              Positioned(
+                left: size.width * 0.04, top: 0, bottom: 40,
+                child: IgnorePointer(child: Center(child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds))),
+              ),
+            // ── Skip HUD right ─────────────────────────────────────────────────
+            if (_showRightSkipHUD)
+              Positioned(
+                right: size.width * 0.04, top: 0, bottom: 40,
+                child: IgnorePointer(child: Center(child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds))),
+              ),
+            // ── Brightness HUD ─────────────────────────────────────────────────
+            if (_showBrightnessHUD)
+              Positioned(
+                left: 14, top: 0, bottom: 40,
+                child: IgnorePointer(
+                  child: Center(child: _buildSideHUD(icon: Icons.brightness_6_rounded, value: _brightness)),
+                ),
+              ),
+            // ── Volume HUD ─────────────────────────────────────────────────────
+            if (_showVolumeHUD)
+              Positioned(
+                right: 14, top: 0, bottom: 40,
+                child: IgnorePointer(
+                  child: Center(child: _buildSideHUD(
+                    icon: _volume <= 0 ? Icons.volume_off_rounded : _volume < 0.5 ? Icons.volume_down_rounded : Icons.volume_up_rounded,
+                    value: _volume,
+                  )),
+                ),
+              ),
             // Inline controls — visible only when _showControls
             if (_showControls)
               Positioned(
@@ -2541,6 +2836,8 @@ class _TrackTile extends StatelessWidget {
                     loadedVideos: widget.loadedVideos,
                     onSwitchQuality: widget.onSwitchQuality,
                     selectedQuality: widget.selectedQuality,
+                    onPrevEpisode: widget.onPrevEpisode,
+                    onNextEpisode: widget.onNextEpisode,
                   ),
                 ),
               ),
@@ -2560,6 +2857,8 @@ class _InlineControls extends StatefulWidget {
   final List<wt.Video> loadedVideos;
   final Future<void> Function(wt.Video)? onSwitchQuality;
   final String? selectedQuality;
+  final VoidCallback? onPrevEpisode;
+  final VoidCallback? onNextEpisode;
 
   const _InlineControls({
     required this.player,
@@ -2570,6 +2869,8 @@ class _InlineControls extends StatefulWidget {
     this.loadedVideos = const [],
     this.onSwitchQuality,
     this.selectedQuality,
+    this.onPrevEpisode,
+    this.onNextEpisode,
   });
 
   @override
@@ -2606,6 +2907,8 @@ class _InlineControlsState extends State<_InlineControls> {
               loadedVideos: widget.loadedVideos,
               onSwitchQuality: widget.onSwitchQuality,
               selectedQuality: widget.selectedQuality,
+              onPrevEpisode: widget.onPrevEpisode,
+              onNextEpisode: widget.onNextEpisode,
             ),
           ),
         );
@@ -2624,6 +2927,8 @@ class _InlineControlsState extends State<_InlineControls> {
           loadedVideos: widget.loadedVideos,
           onSwitchQuality: widget.onSwitchQuality,
           selectedQuality: widget.selectedQuality,
+          onPrevEpisode: widget.onPrevEpisode,
+          onNextEpisode: widget.onNextEpisode,
         ),
       ),
     );

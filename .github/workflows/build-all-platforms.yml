@@ -55,7 +55,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-            ~/.gradle/caches/build-cache-1
+            ~/.gradle/caches/build-cache-2
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
           restore-keys: gradle-${{ runner.os }}-
 
@@ -148,7 +148,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-            ~/.gradle/caches/build-cache-1
+            ~/.gradle/caches/build-cache-2
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
           restore-keys: gradle-${{ runner.os }}-
 

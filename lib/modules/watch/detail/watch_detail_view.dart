@@ -184,6 +184,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     _maybeStartVideo(chapters);
 
+    // ── Update episode navigation callbacks on every build ────────────────────
+    final sorted = _sortedEpisodes(chapters);
+    final curIdx  = sorted.indexWhere((c) => c.id == _player.loadedChapterId);
+    _player.onPrevEpisode = (curIdx > 0)
+        ? () => _loadEpisodeInBanner(sorted[curIdx - 1])
+        : null;
+    _player.onNextEpisode = (curIdx >= 0 && curIdx < sorted.length - 1)
+        ? () => _loadEpisodeInBanner(sorted[curIdx + 1])
+        : null;
+
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
@@ -212,36 +222,46 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 top: topPad,
                 left: 0,
                 right: 0,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    Expanded(
-                      child: ValueListenableBuilder<double>(
-                        valueListenable: _headerTitleOpacity,
-                        builder: (_, opacity, __) => Opacity(
-                          opacity: opacity,
-                          child: Text(
-                            widget.manga.name ?? '',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _player.controlsVisible,
+                  builder: (_, controlsVis, __) => AnimatedOpacity(
+                    opacity: controlsVis ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: IgnorePointer(
+                      ignoring: !controlsVis,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: () => Navigator.of(context).pop(),
                           ),
-                        ),
+                          Expanded(
+                            child: ValueListenableBuilder<double>(
+                              valueListenable: _headerTitleOpacity,
+                              builder: (_, opacity, __) => Opacity(
+                                opacity: opacity,
+                                child: Text(
+                                  widget.manga.name ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                          _AideButton(
+                              onTap: () =>
+                                  _showOptionsSheet(context, chapters)),
+                          const SizedBox(width: 4),
+                        ],
                       ),
                     ),
-                    _AideButton(
-                        onTap: () =>
-                            _showOptionsSheet(context, chapters)),
-                    const SizedBox(width: 4),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -1039,6 +1059,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
+              // Skeleton pills during initial load
+              if (widget.isLoading && chapters.isEmpty) ...[
+                _SkeletonBox(radius: 8, w: 90, h: 36),
+                const SizedBox(width: 8),
+                _SkeletonBox(radius: 8, w: 70, h: 36),
+              ] else ...[
               if (!isMovie) ...[
                 _buildDropdownPill(
                   label: seasons.isNotEmpty
@@ -1081,13 +1107,27 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   ),
                 ),
               ],
+              ], // close else spread
             ],
           ),
         ),
         const SizedBox(height: 14),
 
         // ── Content ───────────────────────────────────────────────────────────
-        if (chapters.isEmpty)
+        if (widget.isLoading && chapters.isEmpty)
+          // Skeleton episode tiles — visible dès le début sans pop
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (int i = 0; i < 8; i++) ...[
+                  _SkeletonBox(radius: 6, w: 48, h: 48),
+                  if (i < 7) const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          )
+        else if (chapters.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Column(
@@ -1459,7 +1499,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     Widget _buildEpTile(Chapter chapter, {required int fallbackIndex}) {
       final isPlaying = _player.loadedChapterId == chapter.id;
-      final epNum     = _epNum(chapter.name, fallbackIndex).toString().padLeft(2, '0');
+      // Use fallbackIndex directly (sorted order) for display — avoids always showing "01"
+      final epNum = fallbackIndex.toString().padLeft(2, '0');
 
       return GestureDetector(
         onTap: () => _loadEpisodeInBanner(chapter),
@@ -2207,11 +2248,17 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       ),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: CircularProgressIndicator(strokeWidth: 2),
+          // Skeleton shimmer grid — visible dès le début, pas de pop
+          return GridView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 0.62,
             ),
+            itemCount: 9,
+            itemBuilder: (_, __) => _SkeletonBox(radius: 8, aspect: null),
           );
         }
         final recs = snap.data;
@@ -4348,6 +4395,67 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_TabBarDelegate old) =>
       old.tabBar != tabBar || old.color != color;
+}
+
+// ─── Generic shimmer skeleton box ─────────────────────────────────────────────
+
+class _SkeletonBox extends StatefulWidget {
+  final double radius;
+  final double? w;
+  final double? h;
+  final double? aspect;   // aspect ratio when w/h are null
+
+  const _SkeletonBox({this.radius = 8, this.w, this.h, this.aspect});
+
+  @override
+  State<_SkeletonBox> createState() => _SkeletonBoxState();
+}
+
+class _SkeletonBoxState extends State<_SkeletonBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.06, end: 0.18).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.white : Colors.black;
+
+    Widget box = AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        width: widget.w,
+        height: widget.h,
+        decoration: BoxDecoration(
+          color: baseColor.withValues(alpha: _anim.value),
+          borderRadius: BorderRadius.circular(widget.radius),
+        ),
+      ),
+    );
+
+    if (widget.aspect != null) {
+      box = AspectRatio(aspectRatio: widget.aspect!, child: box);
+    }
+    return box;
+  }
 }
 
 // ─── Pulsing loading overlay for the banner ────────────────────────────────────
