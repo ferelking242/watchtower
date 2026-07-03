@@ -280,6 +280,8 @@ class WatchInlinePlayer {
       controlsNotifier: controlsVisible,
       onPrevEpisode: onPrevEpisode,
       onNextEpisode: onNextEpisode,
+      chapters: chapters,
+      onEpisodeTap: onEpisodeTap,
     );
   }
 
@@ -3123,6 +3125,8 @@ class _TrackTile extends StatelessWidget {
     final ValueNotifier<bool>? controlsNotifier;
     final VoidCallback? onPrevEpisode;
     final VoidCallback? onNextEpisode;
+    final List<Chapter> chapters;
+    final void Function(Chapter)? onEpisodeTap;
 
     const _PortraitPlayerOverlay({
       required this.player,
@@ -3136,6 +3140,8 @@ class _TrackTile extends StatelessWidget {
       this.controlsNotifier,
       this.onPrevEpisode,
       this.onNextEpisode,
+      this.chapters = const [],
+      this.onEpisodeTap,
     });
 
     @override
@@ -3410,6 +3416,8 @@ class _TrackTile extends StatelessWidget {
                     selectedQuality: widget.selectedQuality,
                     onPrevEpisode: widget.onPrevEpisode,
                     onNextEpisode: widget.onNextEpisode,
+                    chapters: widget.chapters,
+                    onEpisodeTap: widget.onEpisodeTap,
                   ),
                 ),
               ),
@@ -3431,6 +3439,8 @@ class _InlineControls extends StatefulWidget {
   final String? selectedQuality;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+  final List<Chapter> chapters;
+  final void Function(Chapter)? onEpisodeTap;
 
   const _InlineControls({
     required this.player,
@@ -3443,6 +3453,8 @@ class _InlineControls extends StatefulWidget {
     this.selectedQuality,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.chapters = const [],
+    this.onEpisodeTap,
   });
 
   @override
