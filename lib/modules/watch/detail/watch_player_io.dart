@@ -512,14 +512,135 @@ class _FullscreenControlsOverlayState
     int _horizSeekDelta = 0;
     bool _showSeekSwipeHUD = false;
 
+    // ── Auto Next Episode (Netflix-style) ─────────────────────────────────────
+    bool _showNextEpCard = false;
+    int  _nextEpCountdown = 20;
+    Timer? _nextEpTimer;
+    bool _nextEpTriggered = false;
+
+    // ── Continue Watching ─────────────────────────────────────────────────────
+    Timer? _saveProgressTimer;
+
+    // ── Rotation lock mode: 0=auto 1=portrait 2=landscape-L 3=landscape-R ─────
+    int _rotationMode = 2;
+
+    // ── Pinch to zoom ─────────────────────────────────────────────────────────
+    double _pinchScale   = 1.0;
+    Offset _pinchOffset  = Offset.zero;
+    Offset? _panStart;
+
+    // ── Gesture hint (first launch) ───────────────────────────────────────────
+    bool _showGestureHint = false;
+
+    // ── Subtitle delay ────────────────────────────────────────────────────────
+    double _subDelaySec = 0.0;
+
+    // ── Adaptive hide: track recent taps ─────────────────────────────────────
+    DateTime _lastTapTime = DateTime.now();
+
   @override
   void initState() {
     super.initState();
     _resetHideTimer();
     _initMedia();
-    // Sync current quality from the passed-in selectedQuality or first video
     _currentQuality = widget.selectedQuality ??
         (widget.loadedVideos.isNotEmpty ? widget.loadedVideos.first.quality : null);
+    _startPositionWatcher();
+    _loadSavedProgress();
+    _checkGestureHint();
+  }
+
+  // ── Position watcher: auto-next + save progress ───────────────────────────
+  StreamSubscription<Duration>? _posSub;
+
+  void _startPositionWatcher() {
+    _posSub = widget.player.stream.position.listen((pos) {
+      if (!mounted) return;
+      final dur = widget.player.state.duration;
+      if (dur <= Duration.zero) return;
+
+      // Auto Next Episode: show card 20s before end
+      final remaining = dur - pos;
+      if (!_nextEpTriggered && remaining.inSeconds <= 20 && remaining.inSeconds > 0
+          && widget.onNextEpisode != null) {
+        _nextEpTriggered = true;
+        setState(() { _showNextEpCard = true; _nextEpCountdown = remaining.inSeconds.clamp(1, 20); });
+        _startNextEpCountdown();
+      } else if (remaining.inSeconds > 22) {
+        if (_nextEpTriggered) { _nextEpTriggered = false; _nextEpTimer?.cancel(); setState(() => _showNextEpCard = false); }
+      }
+    });
+  }
+
+  void _startNextEpCountdown() {
+    _nextEpTimer?.cancel();
+    _nextEpTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _nextEpCountdown--;
+        if (_nextEpCountdown <= 0) {
+          _nextEpTimer?.cancel();
+          _showNextEpCard = false;
+          widget.onNextEpisode?.call();
+        }
+      });
+    });
+  }
+
+  // ── Save/load progress ─────────────────────────────────────────────────────
+  Future<void> _loadSavedProgress() async {
+    try {
+      final dir  = await getTemporaryDirectory();
+      final id   = widget.title.hashCode;
+      final file = File('${dir.path}/wt_progress_$id.json');
+      if (!await file.exists()) return;
+      final raw  = json.decode(await file.readAsString()) as Map;
+      final ms   = (raw['ms'] as num?)?.toInt() ?? 0;
+      if (ms > 5000) {
+        // Wait for player to be ready then restore
+        Future.delayed(const Duration(milliseconds: 800), () async {
+          if (!mounted) return;
+          try { await widget.player.seek(Duration(milliseconds: ms)); } catch (_) {}
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Reprise à ${_fmt(Duration(milliseconds: ms))}'),
+                duration: const Duration(seconds: 3),
+                action: SnackBarAction(label: 'Début', onPressed: () => widget.player.seek(Duration.zero)),
+              ),
+            );
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _startSaveProgressTimer() {
+    _saveProgressTimer?.cancel();
+    _saveProgressTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted) return;
+      try {
+        final dir  = await getTemporaryDirectory();
+        final id   = widget.title.hashCode;
+        final ms   = widget.player.state.position.inMilliseconds;
+        await File('${dir.path}/wt_progress_$id.json').writeAsString(json.encode({'ms': ms}));
+      } catch (_) {}
+    });
+  }
+
+  // ── Gesture hint ──────────────────────────────────────────────────────────
+  Future<void> _checkGestureHint() async {
+    try {
+      final dir  = await getTemporaryDirectory();
+      final file = File('${dir.path}/wt_gesture_hint_shown');
+      if (!await file.exists()) {
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) setState(() => _showGestureHint = true);
+        await Future.delayed(const Duration(seconds: 5));
+        if (mounted) setState(() => _showGestureHint = false);
+        await file.writeAsString('1');
+      }
+    } catch (_) {}
   }
 
   Future<void> _initMedia() async {
@@ -529,6 +650,7 @@ class _FullscreenControlsOverlayState
     try {
       _volume = await VolumeController.instance.getVolume();
     } catch (_) {}
+    _startSaveProgressTimer();
   }
 
   @override
@@ -537,7 +659,52 @@ class _FullscreenControlsOverlayState
     _hudTimer?.cancel();
     _doubleTapResetTimer?.cancel();
     _skipHudTimer?.cancel();
+    _nextEpTimer?.cancel();
+    _saveProgressTimer?.cancel();
+    _posSub?.cancel();
     super.dispose();
+  }
+
+  // ── Rotation lock cycling ─────────────────────────────────────────────────
+  // 0=auto, 1=portrait, 2=landscape-L, 3=landscape-R
+  IconData _rotationModeIcon() {
+    switch (_rotationMode) {
+      case 0: return Icons.screen_rotation_rounded;
+      case 1: return Icons.stay_current_portrait_outlined;
+      case 2: return Icons.stay_current_landscape_outlined;
+      case 3: return Icons.screen_rotation_alt_outlined;
+      default: return Icons.screen_rotation_rounded;
+    }
+  }
+  String _rotationModeLabel() {
+    switch (_rotationMode) {
+      case 0: return 'Auto';
+      case 1: return 'Portrait';
+      case 2: return 'Paysage ←';
+      case 3: return 'Paysage →';
+      default: return 'Auto';
+    }
+  }
+  void _cycleRotationMode() {
+    setState(() => _rotationMode = (_rotationMode + 1) % 4);
+    switch (_rotationMode) {
+      case 0:
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp, DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight,
+        ]);
+        break;
+      case 1:
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+        break;
+      case 2:
+        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
+        break;
+      case 3:
+        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeRight]);
+        break;
+    }
+    _resetHideTimer();
   }
 
   // ── PiP (Picture-in-Picture) ─────────────────────────────────────────────
@@ -728,6 +895,7 @@ class _FullscreenControlsOverlayState
         behavior: HitTestBehavior.opaque,
         onTap: _onTap,
         onLongPressStart: (d) {
+          if (_locked) return;
           if (d.globalPosition.dx > size.width / 2) {
             _preHoldSpeed = _speed;
             _holdBoostSpeed = 2.0;
@@ -763,7 +931,7 @@ class _FullscreenControlsOverlayState
           }
         },
         onHorizontalDragStart: (d) {
-          if (_holdSpeedActive) return;
+          if (_locked || _holdSpeedActive) return;
           _horizDragStartX = d.globalPosition.dx;
           _horizSeekStartPos = widget.player.state.position;
           _horizSeekDelta = 0;
@@ -791,11 +959,13 @@ class _FullscreenControlsOverlayState
           _resetHideTimer();
         },
         onVerticalDragStart: (d) {
+          if (_locked) return;
           _dragStartPos = d.globalPosition;
           _hideTimer?.cancel();
         },
-        onVerticalDragUpdate: (d) => _handleSwipeDrag(d, size),
+        onVerticalDragUpdate: (d) { if (_locked) return; _handleSwipeDrag(d, size); },
         onVerticalDragEnd: (_) {
+          if (_locked) { return; }
           _dragStartPos = null;
           if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
         },
@@ -988,17 +1158,9 @@ class _FullscreenControlsOverlayState
                     ),
                     const SizedBox(height: 12),
                     _buildIconCircle(
-                      icon: Icons.screen_rotation_outlined,
-                      tooltip: 'Rotation',
-                      onTap: () {
-                        _landscapeIsLeft = !_landscapeIsLeft;
-                        SystemChrome.setPreferredOrientations([
-                          _landscapeIsLeft
-                              ? DeviceOrientation.landscapeLeft
-                              : DeviceOrientation.landscapeRight,
-                        ]);
-                        setState(() {});
-                      },
+                      icon: _rotationModeIcon(),
+                      tooltip: _rotationModeLabel(),
+                      onTap: _cycleRotationMode,
                     ),
                   ],
                 ),
@@ -1352,13 +1514,30 @@ class _FullscreenControlsOverlayState
           IgnorePointer(
             child: Container(color: Colors.orange.withValues(alpha: 0.18)),
           ),
-        // Mirror mode
-        if (_mirrorMode)
-          IgnorePointer(
-            child: Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()..scale(-1.0, 1.0),
-              child: Container(color: Colors.transparent),
+        // Auto Next Episode card (Netflix-style)
+        if (_showNextEpCard && widget.onNextEpisode != null)
+          Positioned(
+            bottom: 80, right: 20,
+            child: _NextEpCard(
+              countdown: _nextEpCountdown,
+              accent: Theme.of(context).primaryColor,
+              onNow: () {
+                _nextEpTimer?.cancel();
+                setState(() => _showNextEpCard = false);
+                widget.onNextEpisode?.call();
+              },
+              onCancel: () {
+                _nextEpTimer?.cancel();
+                setState(() { _showNextEpCard = false; _nextEpTriggered = true; });
+                _resetHideTimer();
+              },
+            ),
+          ),
+        // Gesture hint (first launch)
+        if (_showGestureHint)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _GestureHintOverlay(),
             ),
           ),
       ],
@@ -2453,6 +2632,7 @@ class _SettingsPanel extends StatefulWidget {
 
 class _SettingsPanelState extends State<_SettingsPanel> {
   bool _bilingual = false;
+  double _subDelay = 0.0;
 
   @override
   Widget build(BuildContext context) {
@@ -2719,25 +2899,89 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                   );
                                 }),
                               ],
-                              Container(
-                                  height: 0.6, color: Colors.white12),
+                              Container(height: 0.6, color: Colors.white12),
+                              // Subtitle delay control
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Décalage sous-titres',
+                                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () {
+                                            final newVal = (_subDelay - 0.5).clamp(-10.0, 10.0);
+                                            _subDelay = newVal;
+                                            setState(() {});
+                                            try {
+                                              final plat = widget.player.platform as dynamic;
+                                              plat.setProperty('sub-delay', newVal.toStringAsFixed(1));
+                                            } catch (_) {}
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white12,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: const Icon(Icons.remove_rounded, color: Colors.white, size: 14),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Center(
+                                            child: Text(
+                                              '${_subDelay >= 0 ? '+' : ''}${_subDelay.toStringAsFixed(1)}s',
+                                              style: TextStyle(
+                                                color: _subDelay != 0 ? widget.accent : Colors.white54,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () {
+                                            final newVal = (_subDelay + 0.5).clamp(-10.0, 10.0);
+                                            _subDelay = newVal;
+                                            setState(() {});
+                                            try {
+                                              final plat = widget.player.platform as dynamic;
+                                              plat.setProperty('sub-delay', newVal.toStringAsFixed(1));
+                                            } catch (_) {}
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white12,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: const Icon(Icons.add_rounded, color: Colors.white, size: 14),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(height: 0.6, color: Colors.white12),
                               InkWell(
                                 onTap: () {},
                                 child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 12),
+                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                   child: Row(
                                     children: [
                                       Expanded(
                                         child: Text(
                                           'Télécharger',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13),
+                                          style: TextStyle(color: Colors.white, fontSize: 13),
                                         ),
                                       ),
-                                      Icon(Icons.chevron_right_rounded,
-                                          color: Colors.white54, size: 16),
+                                      Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 16),
                                     ],
                                   ),
                                 ),
@@ -3808,6 +4052,174 @@ class _EpisodePanel extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Auto Next Episode Card (Netflix-style) ────────────────────────────────────
+
+class _NextEpCard extends StatelessWidget {
+  final int countdown;
+  final Color accent;
+  final VoidCallback onNow;
+  final VoidCallback onCancel;
+
+  const _NextEpCard({
+    required this.countdown,
+    required this.accent,
+    required this.onNow,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(offset: Offset(30 * (1 - t), 0), child: child),
+      ),
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xEE1A1A1A),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white12, width: 0.8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.skip_next_rounded, color: Colors.white70, size: 16),
+                const SizedBox(width: 6),
+                const Text(
+                  'Épisode suivant dans',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: accent, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$countdown',
+                    style: TextStyle(color: accent, fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GestureDetector(
+                        onTap: onNow,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: accent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Lire maintenant',
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      GestureDetector(
+                        onTap: onCancel,
+                        child: const Text(
+                          'Annuler',
+                          style: TextStyle(color: Colors.white38, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Gesture Hint Overlay (first launch) ──────────────────────────────────────
+
+class _GestureHintOverlay extends StatelessWidget {
+  const _GestureHintOverlay();
+
+  Widget _hint(IconData icon, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.white70, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.65),
+      child: Center(
+        child: Container(
+          width: 260,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xCC000000),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white12, width: 0.8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Gestes du lecteur',
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              _hint(Icons.touch_app_outlined,       'Double tap → avancer / reculer'),
+              _hint(Icons.swipe_right_alt_outlined,  'Swipe → seek (n\'importe où)'),
+              _hint(Icons.brightness_medium_outlined,'Swipe gauche → luminosité'),
+              _hint(Icons.volume_up_outlined,        'Swipe droite → volume'),
+              _hint(Icons.speed_outlined,            'Maintenir droite → vitesse ×2'),
+              _hint(Icons.lock_outline_rounded,      'Cadenas → verrouiller écran'),
+              const SizedBox(height: 8),
+              const Text(
+                'Ce tutoriel n\'apparaît qu\'une fois.',
+                style: TextStyle(color: Colors.white38, fontSize: 10),
+              ),
+            ],
           ),
         ),
       ),
