@@ -1,7 +1,7 @@
 import 'package:watchtower/utils/log/logger.dart';
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:volume_controller/volume_controller.dart';
+import 'package:watchtower/modules/manga/reader/services/vol_nav_helper.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
@@ -216,10 +216,7 @@ class _MangaChapterPageGalleryState
     // Tear down volume listener and restore system volume UI
     if (_volumeListenerActive) {
       _volumeListenerActive = false;
-      try {
-        VolumeController.instance.removeListener();
-        VolumeController.instance.showSystemUI = true;
-      } catch (_) {}
+      volNavDispose();
     }
     discordRpc?.showIdleText();
     final actualIdx = _pageViewToActualIndex(_currentIndex!);
@@ -311,37 +308,32 @@ class _MangaChapterPageGalleryState
   /// Works on Android and iOS; no-op on desktop/web.
   /// Direction: Vol↑ = previous page, Vol↓ = next page (inverted when setting is on).
   Future<void> _initVolumeButtonNavigation() async {
-    if (isDesktop || kIsWeb) return;
+    // kIsWeb check is runtime, but vol_nav_helper is a no-op on web at
+    // compile time thanks to conditional exports — safe to call always.
     final settings = isar.settings.getSync(kSettingsId) ?? Settings();
     if (!(settings.volumeButtonNavigation ?? false)) return;
 
-    _lastVolume = await VolumeController.instance.getVolume();
-    VolumeController.instance.showSystemUI = false;
+    _lastVolume = await volNavInit();
     _volumeListenerActive = true;
 
-    VolumeController.instance.listener((newVolume) {
+    volNavListenRaw((newVolume) {
       if (!mounted || !_volumeListenerActive) return;
       final invert =
           (isar.settings.getSync(kSettingsId) ?? Settings()).invertVolumeButtonNavigation ?? false;
       final readerMode = ref.read(_currentReaderMode);
-      if (readerMode == null) return;
+      if (readerMode == null || _currentIndex == null) return;
 
       final volUp = newVolume > _lastVolume;
       final volDown = newVolume < _lastVolume;
-      // Capture the baseline BEFORE updating, so restore targets the right level
+      // Capture baseline BEFORE updating so restore targets the right level
       final previousVolume = _lastVolume;
       _lastVolume = newVolume;
 
-      // Restore to previous level so the actual system volume doesn't change.
-      // Guard with _volumeListenerActive to cancel if dispose() ran meanwhile.
+      // Restore to previous level → system volume stays unchanged.
+      // Guard with _volumeListenerActive so cancelled future doesn't call setVolume after dispose.
       Future.delayed(const Duration(milliseconds: 80), () {
         if (!_volumeListenerActive) return;
-        try {
-          VolumeController.instance.setVolume(
-            previousVolume.clamp(0.0, 1.0),
-            showSystemUI: false,
-          );
-        } catch (_) {}
+        volNavRestore(previousVolume);
       });
 
       if (volUp) {
