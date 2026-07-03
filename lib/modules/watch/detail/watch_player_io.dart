@@ -1798,7 +1798,7 @@ class _FullscreenControlsOverlayState
           },
           child: const Padding(
             padding: EdgeInsets.all(16),
-            child: Icon(Icons.replay_15_rounded, color: Colors.white, size: 34),
+            child: Icon(Icons.replay_rounded, color: Colors.white, size: 34),
           ),
         ),
         const SizedBox(width: 30),
@@ -1825,7 +1825,7 @@ class _FullscreenControlsOverlayState
           },
           child: const Padding(
             padding: EdgeInsets.all(16),
-            child: Icon(Icons.forward_15_rounded, color: Colors.white, size: 34),
+            child: Icon(Icons.forward_rounded, color: Colors.white, size: 34),
           ),
         ),
       ],
@@ -3475,7 +3475,7 @@ class _TrackTile extends StatelessWidget {
             onTap: () => _seek(-15),
             child: const Padding(
               padding: EdgeInsets.all(16),
-              child: Icon(Icons.replay_15_rounded, color: Colors.white, size: 34),
+              child: Icon(Icons.replay_rounded, color: Colors.white, size: 34),
             ),
           ),
           const SizedBox(width: 30),
@@ -3499,7 +3499,7 @@ class _TrackTile extends StatelessWidget {
             onTap: () => _seek(15),
             child: const Padding(
               padding: EdgeInsets.all(16),
-              child: Icon(Icons.forward_15_rounded, color: Colors.white, size: 34),
+              child: Icon(Icons.forward_rounded, color: Colors.white, size: 34),
             ),
           ),
         ],
