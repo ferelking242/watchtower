@@ -17,6 +17,21 @@ class WatchInlinePlayer {
   List<Video> loadedVideos = [];
   String? selectedQuality;
 
+  // Navigation callbacks — no-op on web
+  // ignore: avoid_setters_without_getters
+  set onPrevEpisode(VoidCallback? _) {}
+  // ignore: avoid_setters_without_getters
+  set onNextEpisode(VoidCallback? _) {}
+
+  // Chapter list + tap — no-op on web
+  // ignore: avoid_setters_without_getters
+  set chapters(List<Chapter> _) {}
+  // ignore: avoid_setters_without_getters
+  set onEpisodeTap(void Function(Chapter)? _) {}
+
+  // Controls visibility notifier — stub returns a constant false notifier
+  final ValueNotifier<bool> controlsVisible = ValueNotifier(false);
+
   // Callback fired when the active quality changes.
   // No-op setter on web — quality switching is not supported in the HTML5 stub.
   // ignore: avoid_setters_without_getters
@@ -29,6 +44,7 @@ class WatchInlinePlayer {
   void dispose() {
     _videoUrl = null;
     _viewType = null;
+    controlsVisible.dispose();
   }
 
   /// No-op on web — quality switching is not supported in the HTML5 stub.
