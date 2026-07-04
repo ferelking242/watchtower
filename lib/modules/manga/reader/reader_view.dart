@@ -178,6 +178,11 @@ class _MangaChapterPageGalleryState
   // ── Volume-button navigation ───────────────────────────────────────────
   double _lastVolume = 0.5;
   bool _volumeListenerActive = false;
+  // Prevents the volNavRestore() call from re-triggering navigation.
+  // volNavRestore sets system volume back to baseline, which fires the listener
+  // again — without this flag, the restore looks like a button press in the
+  // opposite direction and cancels the navigation that just happened.
+  bool _isRestoringVolume = false;
 
   /// Flag to prevent fullscreen from being disabled when navigating between
   /// chapters via pushReplacement. The old widget's dispose runs after the new
@@ -318,6 +323,17 @@ class _MangaChapterPageGalleryState
 
     volNavListenRaw((newVolume) {
       if (!mounted || !_volumeListenerActive) return;
+
+      // This callback fires both on real button presses AND on our own
+      // volNavRestore() call. Without the guard, the restore (which lowers
+      // volume back to baseline) looks like a Vol↓ press and immediately
+      // cancels the navigation we just triggered. Skip it entirely.
+      if (_isRestoringVolume) {
+        _isRestoringVolume = false;
+        _lastVolume = newVolume;
+        return;
+      }
+
       final invert =
           (isar.settings.getSync(kSettingsId) ?? Settings()).invertVolumeButtonNavigation ?? false;
       final readerMode = ref.read(_currentReaderMode);
@@ -330,9 +346,13 @@ class _MangaChapterPageGalleryState
       _lastVolume = newVolume;
 
       // Restore to previous level → system volume stays unchanged.
-      // Guard with _volumeListenerActive so cancelled future doesn't call setVolume after dispose.
+      // Set _isRestoringVolume first so the listener skips the restore callback.
+      _isRestoringVolume = true;
       Future.delayed(const Duration(milliseconds: 80), () {
-        if (!_volumeListenerActive) return;
+        if (!_volumeListenerActive) {
+          _isRestoringVolume = false;
+          return;
+        }
         volNavRestore(previousVolume);
       });
 

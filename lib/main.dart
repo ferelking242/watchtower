@@ -62,6 +62,7 @@ import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
+import 'package:watchtower/services/device_capabilities.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:watchtower/modules/music/services/kv_store/encrypted_kv_store.dart';
 import 'package:watchtower/modules/music/l10n/generated/app_localizations.dart'
@@ -77,6 +78,11 @@ void main(List<String> args) async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      // Detect real device RAM and apply adaptive image-cache limits.
+      // Must run before any other init so the cache is sized correctly from
+      // the very first image load. Safe to await — it is a single fast
+      // platform-channel call (< 5 ms).
+      await DeviceCapabilities.initialize();
       if (!kIsWeb && Platform.isLinux && runWebViewTitleBarWidget(args)) return;
 
       // Widget-layer errors (build / layout / paint)

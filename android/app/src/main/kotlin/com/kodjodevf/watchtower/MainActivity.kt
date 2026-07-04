@@ -266,6 +266,24 @@ package com.watchtower.app
           }
 
           // ── 5. PiP ─────────────────────────────────────────────────────────
+          // ── Device capabilities (RAM detection) ───────────────────────────
+          // Queried once at startup by DeviceCapabilities.dart to select the
+          // correct image-cache tier for this device. No permissions required.
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.device_capabilities"
+          ).setMethodCallHandler { call, result ->
+              when (call.method) {
+                  "getPhysicalMemoryMB" -> {
+                      val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+                      val mi = android.app.ActivityManager.MemoryInfo()
+                      am.getMemoryInfo(mi)
+                      result.success((mi.totalMem / 1024 / 1024).toInt())
+                  }
+                  else -> result.notImplemented()
+              }
+          }
+
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.pip"

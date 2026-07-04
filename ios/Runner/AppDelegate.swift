@@ -109,6 +109,11 @@ import UIKit
           ]
           result(jbPaths.contains { FileManager.default.fileExists(atPath: $0) })
 
+        case "getPhysicalMemoryMB":
+          // Returns total physical RAM in megabytes.
+          // Used by DeviceCapabilities.dart to tier cache limits per device class.
+          result(Int(ProcessInfo.processInfo.physicalMemory / 1024 / 1024))
+
         case "getYtDlpPath":
           // Rootless (Dopamine/Fugu15): prefixe /var/jb
           // Rooted (Unc0ver/Checkra1n): chemins standards
