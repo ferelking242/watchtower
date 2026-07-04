@@ -32,6 +32,8 @@ class ReaderScreen extends ConsumerWidget {
     final showPageGaps = ref.watch(showPageGapsStateProvider);
     final webtoonSidePadding = ref.watch(webtoonSidePaddingStateProvider);
     final navigationLayout = ref.watch(readerNavigationLayoutStateProvider);
+    final volumeButtonNav = ref.watch(volumeButtonNavigationStateProvider);
+    final invertVolumeButtonNav = ref.watch(invertVolumeButtonNavigationStateProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.reader)),
       body: SingleChildScrollView(
@@ -405,6 +407,54 @@ class ReaderScreen extends ConsumerWidget {
                 ref.read(keepScreenOnReaderStateProvider.notifier).set(value);
               },
             ),
+            if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+              SwitchListTile(
+                secondary: const Icon(Icons.volume_up_outlined),
+                value: volumeButtonNav,
+                title: const Text('Volume buttons navigation'),
+                subtitle: const Text('Use ▲/▼ volume keys to turn pages'),
+                onChanged: (value) {
+                  ref
+                      .read(volumeButtonNavigationStateProvider.notifier)
+                      .set(value);
+                },
+              ),
+            if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 220),
+                crossFadeState: volumeButtonNav
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: const SizedBox.shrink(),
+                secondChild: SwitchListTile(
+                  secondary: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (child, anim) =>
+                        RotationTransition(turns: anim, child: child),
+                    child: Icon(
+                      invertVolumeButtonNav
+                          ? Icons.swap_vert
+                          : Icons.swap_vert_outlined,
+                      key: ValueKey(invertVolumeButtonNav),
+                    ),
+                  ),
+                  value: invertVolumeButtonNav,
+                  title: const Text('Invert volume buttons'),
+                  subtitle: Text(
+                    invertVolumeButtonNav
+                        ? '▲ → next page  •  ▼ → previous page'
+                        : '▲ → previous page  •  ▼ → next page',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  onChanged: (value) {
+                    ref
+                        .read(
+                          invertVolumeButtonNavigationStateProvider.notifier,
+                        )
+                        .set(value);
+                  },
+                ),
+              ),
             SwitchListTile(
               value: showPageGaps,
               title: Text(context.l10n.show_page_gaps),
