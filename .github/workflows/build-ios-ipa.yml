@@ -5,7 +5,6 @@ on:
   push:
     branches: [main]
 
-# Cancel in-progress runs on new push — only the latest commit matters
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -82,10 +81,10 @@ jobs:
         run: |
           cd ios
           if [ "${{ steps.pods-cache.outputs.cache-hit }}" = "true" ]; then
-            echo "Pods cache hit — running pod install (no repo-update)"
+            echo "Pods cache hit — pod install"
             pod install
           else
-            echo "Pods cache miss — running pod install --repo-update"
+            echo "Pods cache miss — pod install --repo-update"
             pod install --repo-update
           fi
 
@@ -98,7 +97,6 @@ jobs:
           sed -i '' 's/DEVELOPMENT_TEAM = [A-Za-z0-9][A-Za-z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
           sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = [^;]*;/PROVISIONING_PROFILE_SPECIFIER = "";/g' "$PBXPROJ"
           sed -i '' 's/PROVISIONING_PROFILE = [^;]*;/PROVISIONING_PROFILE = "";/g' "$PBXPROJ"
-          echo "=== CODE_SIGN après patch ==="
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
 
       - name: Build iOS (no codesign)
@@ -113,15 +111,13 @@ jobs:
           fi
           echo "=== App size: $(du -sh $APP) ==="
           ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0 frameworks"
-          codesign --force --sign - --deep "$APP" 2>/dev/null || true
-          codesign -dvvv "$APP" 2>&1 | head -8 || true
 
-      - name: Cleanup ldid residual files
-        run: |
-          APP="build/ios/iphoneos/Runner.app"
-          COUNT=$(find "$APP" -name ".ldid.*" 2>/dev/null | wc -l)
+          # Remove any _CodeSignature left by flutter/xcode — TrollStore signs everything
+          # itself during install. Pre-signing creates CodeResources files that make
+          # TrollStore ldid crash with "Unknown header magic".
+          find "$APP" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
+          echo "=== _CodeSignature dirs removed ==="
           find "$APP" -name ".ldid.*" -delete 2>/dev/null || true
-          echo "Cleaned $COUNT .ldid.* files"
 
       - name: Package IPA
         run: |
@@ -131,7 +127,7 @@ jobs:
           rm -rf Payload
           IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
           echo "=== IPA: $IPA_SIZE ==="
-          unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l || echo "0"
+          unzip -l Watchtower-iOS.ipa | grep "_CodeSignature" | wc -l && echo "CodeSignature entries (should be 0)"
           unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static ✓"
 
       - name: Upload IPA artifact
