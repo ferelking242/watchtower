@@ -93,7 +93,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   @override
   void initState() {
     super.initState();
-    _scrollCtrl.addListener(_onScroll);
     _homeScrollCtrl.addListener(_onHomeScroll);
   }
 
@@ -425,30 +424,19 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
         itemCount: tabs.length,
         itemBuilder: (_, i) {
           final tab = tabs[i];
-          final isFilterTab = tab.idx == _kFilterIdx;
-          final isActive = isFilterTab
-              ? _isFiltering
-              : _selectedIdx == tab.idx && !_isFiltering;
+          final isActive = _selectedIdx == tab.idx && !_isFiltering;
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
-              onTap: () async {
-                if (isFilterTab) {
-                  if (_isFiltering) {
-                    _resetFilters();
-                  } else {
-                    await _openFilterSheet(ctx);
-                  }
-                } else {
-                  setState(() {
-                    _selectedIdx = tab.idx;
-                    _isFiltering = false;
-                    _mangaList.clear();
-                    _page = 1;
-                    _hasNextPage = true;
-                  });
-                }
+              onTap: () {
+                setState(() {
+                  _selectedIdx = tab.idx;
+                  _isFiltering = false;
+                  _mangaList.clear();
+                  _page = 1;
+                  _hasNextPage = true;
+                });
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
@@ -1943,7 +1931,7 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
   final ScrollController _scrollCtrl = ScrollController();
 
   @override
-  void initState() { super.initState(); _scrollCtrl.addListener(_onScroll); }
+  void initState() { super.initState(); }
 
   @override
   void dispose() { _scrollCtrl.removeListener(_onScroll); _scrollCtrl.dispose(); super.dispose(); }
