@@ -368,91 +368,91 @@ const String _kActionInstall = 'action_install';
       }
       return 0;
     }
-  }
+  // ── Download complete notification ───────────────────────────────────────────
 
-  
-    /// Notification "Mise à jour prête à installer" — affiché quand le téléchargement
-    /// en arrière-plan se termine. L'action [Installer] déclenche l'installation.
-    Future<void> showDownloadComplete({
-      required String version,
-      required String filePath,
-    }) async {
-      if (!_supported) return;
-      if (!_initialized) await init();
-      _pendingInstallPath = filePath;
+  /// Notification "Mise à jour prête à installer" — affiché quand le téléchargement
+  /// en arrière-plan se termine. L'action [Installer] déclenche l'installation.
+  Future<void> showDownloadComplete({
+    required String version,
+    required String filePath,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    _pendingInstallPath = filePath;
 
-      // Cancel any lingering progress notification
-      try { await _plugin.cancel(_kProgressNotifId); } catch (_) {}
+    // Cancel any lingering progress notification
+    try { await _plugin.cancel(_kProgressNotifId); } catch (_) {}
 
-      try {
-        const androidDetails = AndroidNotificationDetails(
-          _kUpdateChannelId,
-          _kUpdateChannelName,
-          channelDescription: 'Notifications de mise à jour de Watchtower',
-          importance: Importance.high,
-          priority: Priority.high,
-          ticker: 'Mise à jour prête',
-          styleInformation: BigTextStyleInformation(
-            'Appuyez pour installer Watchtower $version',
-            contentTitle: 'Prêt à installer',
-          ),
-          actions: [
-            AndroidNotificationAction(
-              _kActionInstall,
-              'Installer maintenant',
-              showsUserInterface: true,
-              cancelNotification: true,
-            ),
-          ],
-        );
-        const iosDetails = DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        );
-        await _plugin.show(
-          _kUpdateNotifId,
-          'Watchtower $version prêt à installer',
-          'Appuyez pour installer',
-          const NotificationDetails(android: androidDetails, iOS: iosDetails),
-        );
-      } catch (e) {
-        AppLogger.log(
-          'showDownloadComplete failed: $e',
-          logLevel: LogLevel.warning,
-          tag: LogTag.network,
-        );
-      }
-    }
-
-    /// Met à jour la notification de progression du téléchargement.
-    Future<void> showDownloadProgress(int received, int total) async {
-      if (!_supported) return;
-      if (!_initialized) await init();
-      final pct = total > 0 ? ((received / total) * 100).round() : 0;
-      final details = AndroidNotificationDetails(
+    try {
+      // Note: NOT const — uses runtime `version` for string interpolation.
+      final androidDetails = AndroidNotificationDetails(
         _kUpdateChannelId,
         _kUpdateChannelName,
-        importance: Importance.low,
-        priority: Priority.low,
-        showProgress: true,
-        maxProgress: 100,
-        progress: pct,
-        onlyAlertOnce: true,
-        ongoing: true,
-        playSound: false,
-        enableVibration: false,
+        channelDescription: 'Notifications de mise à jour de Watchtower',
+        importance: Importance.high,
+        priority: Priority.high,
+        ticker: 'Mise à jour prête',
+        styleInformation: BigTextStyleInformation(
+          'Appuyez pour installer Watchtower $version',
+          contentTitle: 'Prêt à installer',
+        ),
+        actions: const [
+          AndroidNotificationAction(
+            _kActionInstall,
+            'Installer maintenant',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ],
       );
-      try {
-        await _plugin.show(
-          _kProgressNotifId,
-          'Téléchargement Watchtower…',
-          '$pct %',
-          NotificationDetails(android: details),
-        );
-      } catch (_) {}
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      await _plugin.show(
+        _kUpdateNotifId,
+        'Watchtower $version prêt à installer',
+        'Appuyez pour installer',
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showDownloadComplete failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
     }
+  }
 
-  @pragma('vm:entry-point')
-  void _handleBackgroundAction(NotificationResponse response) {}
-  
+  /// Met à jour la notification de progression du téléchargement.
+  Future<void> showDownloadProgress(int received, int total) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    final pct = total > 0 ? ((received / total) * 100).round() : 0;
+    final details = AndroidNotificationDetails(
+      _kUpdateChannelId,
+      _kUpdateChannelName,
+      importance: Importance.low,
+      priority: Priority.low,
+      showProgress: true,
+      maxProgress: 100,
+      progress: pct,
+      onlyAlertOnce: true,
+      ongoing: true,
+      playSound: false,
+      enableVibration: false,
+    );
+    try {
+      await _plugin.show(
+        _kProgressNotifId,
+        'Téléchargement Watchtower…',
+        '$pct %',
+        NotificationDetails(android: details),
+      );
+    } catch (_) {}
+  }
+}
+
+@pragma('vm:entry-point')
+void _handleBackgroundAction(NotificationResponse response) {}
