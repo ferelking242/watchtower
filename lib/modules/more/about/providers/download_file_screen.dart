@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:collection/collection.dart';
@@ -13,8 +14,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
-    show skipAppUpdate;
+    show skipAppUpdate, setInstallReady, clearInstallReady;
+import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
+import 'package:watchtower/services/http/m_client.dart';
 
 // ── System DownloadManager task (Android-only) ────────────────────────────────
 // Delegates the APK download to Android's DownloadManager system service.
@@ -45,6 +48,19 @@ class _SysDlManager {
   void Function(File f)?       onDone;
   void Function(String e)?     onError;
   void Function(bool paused)?  onPauseChanged;
+
+  // ── Global (persistent) callbacks — survive DownloadFileScreen disposal ────
+  /// Fires when download completes even if the screen has been popped.
+  static void Function(File file, String version)? _onGlobalDone;
+  static void Function(String error)? _onGlobalError;
+
+  static void setGlobalCallbacks({
+    void Function(File file, String version)? onDone,
+    void Function(String error)? onError,
+  }) {
+    _onGlobalDone = onDone;
+    _onGlobalError = onError;
+  }
 
   _SysDlManager._({required this.version});
 
@@ -110,12 +126,14 @@ class _SysDlManager {
         completedFile = file;
         onPauseChanged?.call(false);
         onDone?.call(file);
+        _SysDlManager._onGlobalDone?.call(file, version);
       } else if (status == 16) {               // STATUS_FAILED
         _stop();
         final reason = (res['reason'] as int?) ?? 0;
         errorMsg = _friendlyError(reason);
         onPauseChanged?.call(false);
         onError?.call(errorMsg!);
+        _SysDlManager._onGlobalError?.call(errorMsg!);
       } else if (status == 4) {               // STATUS_PAUSED (no network)
         onPauseChanged?.call(true);
       } else {                                 // PENDING or RUNNING
@@ -627,7 +645,13 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
                   ? null
                   : () async {
                       if (!kIsWeb && Platform.isAndroid) {
+                        // Start download via DownloadManager then close
+                        // the screen immediately — download runs in background.
                         await _startAndroidDownload(upd);
+                        if (mounted) Navigator.pop(context);
+                      } else if (!kIsWeb && Platform.isIOS) {
+                        await _openTrollStoreUrl(upd);
+                        if (mounted) Navigator.pop(context);
                       } else {
                         launchUrl(Uri.parse(upd.$3),
                             mode: LaunchMode.externalApplication);
@@ -730,6 +754,19 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     final fileName = url.split('/').lastOrNull ?? 'Watchtower.apk';
     final task = _SysDlManager.start(version: version);
     _attachCallbacks(task);
+
+    // Persistent global callbacks — fire even after screen is popped.
+    _SysDlManager.setGlobalCallbacks(
+      onDone: (file, ver) {
+        setInstallReady(file);
+        WatchtowerNotificationService.instance.showDownloadComplete(
+          version: ver,
+          filePath: file.path,
+        );
+      },
+      onError: (_) => clearInstallReady(),
+    );
+
     unawaited(task.run(url, fileName));
   }
 
@@ -752,6 +789,59 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       return;
     }
     await ApkInstaller.installApk(file.path);
+  }
+
+  /// Opens TrollStore (via URL scheme) to install the IPA directly.
+  ///
+  /// Strategy:
+  ///   1. Look for a .ipa in the current release assets.
+  ///   2. If none found, fetch the dedicated `ios-latest` GitHub release.
+  ///   3. Open `apple-magnifier://install?url=<ipa-url>` for TrollStore.
+  ///   4. Fall back to the GitHub release page when TrollStore is not installed.
+  Future<void> _openTrollStoreUrl(
+    (String, String, String, List<dynamic>) upd,
+  ) async {
+    // 1. Check current release assets first (may contain IPA in future).
+    final assets = upd.$4.map((a) => a.toString()).toList();
+    var ipaUrl = assets.firstWhereOrNull(
+      (a) => a.toLowerCase().endsWith('.ipa'),
+    );
+
+    // 2. If not found, fetch ios-latest tag from GitHub API.
+    if (ipaUrl == null || ipaUrl.isEmpty) {
+      try {
+        final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
+        final res = await http.get(
+          Uri.parse(
+            'https://api.github.com/repos/ferelking242/watchtower/releases/tags/ios-latest',
+          ),
+          headers: {'Accept': 'application/vnd.github+json'},
+        ).timeout(const Duration(seconds: 10));
+        if (res.statusCode == 200) {
+          final json = jsonDecode(res.body);
+          if (json is Map) {
+            final iosAssets = (json['assets'] as List?) ?? [];
+            ipaUrl = iosAssets
+                .map((a) => (a['browser_download_url'] as String?) ?? '')
+                .firstWhereOrNull((u) => u.toLowerCase().endsWith('.ipa'));
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (ipaUrl == null || ipaUrl.isEmpty) {
+      // Nothing found — open GitHub release page
+      launchUrl(Uri.parse(upd.$3), mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    // 3. Open TrollStore URL scheme — TrollStore downloads + installs the IPA.
+    final encoded = Uri.encodeComponent(ipaUrl);
+    final trollUri = Uri.parse('apple-magnifier://install?url=$encoded');
+    if (!await launchUrl(trollUri, mode: LaunchMode.externalApplication)) {
+      // TrollStore not installed — open GitHub release page
+      launchUrl(Uri.parse(upd.$3), mode: LaunchMode.externalApplication);
+    }
   }
 
   /// Returns true if [file] looks like a valid APK:
