@@ -596,7 +596,8 @@ class Settings {
     dateFormat = json['dateFormat'];
     defaultReaderMode = ReaderMode
         .values[json['defaultReaderMode'] ?? ReaderMode.vertical.index];
-    displayType = DisplayType.values[json['displayType']];
+    displayType =
+        DisplayType.values[json['displayType'] ?? DisplayType.compactGrid.index];
     doubleTapAnimationSpeed = json['doubleTapAnimationSpeed'];
     downloadLocation = json['downloadLocation'];
     downloadOnlyOnWifi = json['downloadOnlyOnWifi'];
@@ -703,7 +704,7 @@ class Settings {
         : null;
     mangaHomeDisplayType =
         DisplayType.values[json['mangaHomeDisplayType'] ??
-            DisplayType.comfortableGrid.index];
+            DisplayType.compactGrid.index];
     appFontFamily = json['appFontFamily'];
     mangaGridSize = json['mangaGridSize'];
     animeGridSize = json['animeGridSize'];
