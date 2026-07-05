@@ -4,6 +4,8 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:go_router/go_router.dart';
+import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ class _WatchtowerSearchScreenState
   late final TabController _beforeTabs =
       TabController(length: 2, vsync: this);
   late final TabController _afterTabs =
-      TabController(length: 4, vsync: this);
+      TabController(length: 5, vsync: this);
 
   @override
   void dispose() {
@@ -415,11 +417,14 @@ class _ResultsState extends ConsumerWidget {
       children: [
         TabBar(
           controller: afterTabs,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(text: 'Tous'),
             Tab(text: 'Films'),
             Tab(text: 'Séries'),
             Tab(text: 'Anime'),
+            Tab(text: 'Watch'),
           ],
           indicatorColor: cs.primary,
           labelColor: cs.primary,
@@ -447,25 +452,6 @@ class _ResultsState extends ConsumerWidget {
               ),
             ),
             data: (all) {
-              if (all.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.search_off_rounded,
-                          size: 56,
-                          color: cs.onSurface.withValues(alpha: 0.28)),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Aucun résultat pour "$query"',
-                        style: TextStyle(
-                            color: cs.onSurface.withValues(alpha: 0.50)),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
               final films =
                   all.where((m) => m.format == 'MOVIE').toList();
               final series = all
@@ -475,13 +461,33 @@ class _ResultsState extends ConsumerWidget {
               final anime =
                   all.where((m) => m.type == 'ANIME').toList();
 
+              // Always return a TabBarView so Watch tab is always reachable
+              Widget anilistEmpty = Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.search_off_rounded,
+                        size: 56,
+                        color: cs.onSurface.withValues(alpha: 0.28)),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Aucun résultat AniList pour "$query"',
+                      style: TextStyle(
+                          color: cs.onSurface.withValues(alpha: 0.50)),
+                    ),
+                  ],
+                ),
+              );
+
               return TabBarView(
                 controller: afterTabs,
+                physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _SearchResultList(items: all),
-                  _SearchResultList(items: films),
-                  _SearchResultList(items: series),
-                  _SearchResultList(items: anime),
+                  all.isEmpty ? anilistEmpty : _SearchResultList(items: all),
+                  films.isEmpty ? anilistEmpty : _SearchResultList(items: films),
+                  series.isEmpty ? anilistEmpty : _SearchResultList(items: series),
+                  anime.isEmpty ? anilistEmpty : _SearchResultList(items: anime),
+                  _WatchSearchTab(query: query),
                 ],
               );
             },
@@ -491,6 +497,7 @@ class _ResultsState extends ConsumerWidget {
     );
   }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Recent chip widget
@@ -844,6 +851,112 @@ class _SearchResultTile extends StatelessWidget {
                 color: cs.primary, size: 20),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Watch tab — navigates to GlobalSearch for watch extensions (ItemType.anime)
+// Shows the same filter chips & source list as the manga global search.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WatchSearchTab extends StatelessWidget {
+  final String query;
+  const _WatchSearchTab({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.play_circle_outline_rounded,
+                  size: 40, color: cs.primary),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Rechercher dans Watch',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Cherche « $query » dans toutes tes extensions Watch installées, avec filtres par langue, source et plus.',
+              style: TextStyle(
+                fontSize: 13,
+                color: cs.onSurface.withValues(alpha: 0.55),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            FilledButton.icon(
+              onPressed: () => context.push(
+                '/globalSearch',
+                extra: (query, ItemType.anime),
+              ),
+              icon: const Icon(Icons.tune_rounded, size: 18),
+              label: const Text('Ouvrir la recherche Watch'),
+              style: FilledButton.styleFrom(
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (!isDark)
+              OutlinedButton.icon(
+                onPressed: () => context.push('/globalSearch'),
+                icon: const Icon(Icons.search_rounded, size: 18),
+                label: const Text('Recherche globale'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: () => context.push('/globalSearch'),
+                icon: Icon(Icons.search_rounded,
+                    size: 18,
+                    color: cs.onSurface.withValues(alpha: 0.65)),
+                label: Text('Recherche globale',
+                    style: TextStyle(
+                        color: cs.onSurface.withValues(alpha: 0.65))),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                      color: cs.outline.withValues(alpha: 0.35)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
