@@ -481,7 +481,6 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
       builder: (_) => _SourcePickerSheet(
         onSelected: (src) {
           setState(() => _customSource = src);
-          _navigateToSource(src);
         },
       ),
     );
@@ -1107,7 +1106,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   ) {
     switch (_mode) {
       case _DiscoverMode.music:
-        return const MusicDiscoveryScreen(initialRoute: 'home');
+        return const MusicDiscoveryScreen(initialRoute: 'search');
 
       case _DiscoverMode.custom:
         if (_customSource == null) {
@@ -1115,11 +1114,12 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             onPickSource: () => _pickCustomSource(context),
           );
         }
-        return _CustomSourcePlaceholder(
+        return _CustomSourceLauncher(
           source: _customSource!,
-          onNavigate: () => _navigateToSource(_customSource!),
+          onNavigate: _navigateToSource,
           onChangeTap: () => _pickCustomSource(context),
           cs: cs,
+          isDark: isDark,
         );
 
       default: // watch, manga, novel
@@ -1147,14 +1147,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               (_, i) {
                 if (i >= _items.length) {
                   return _isLoading
-                      ? Container(
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF2C2C2E)
-                                : cs.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        )
+                      ? _ShimmerBox(isDark: isDark, cs: cs)
                       : const SizedBox.shrink();
                 }
                 final item = _items[i];
@@ -1164,7 +1157,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                   onTap: () => _openItem(context, item),
                 );
               },
-              childCount: _items.length + (_isLoading ? _columnsCount : 0),
+              childCount: _items.isEmpty && _isLoading
+                  ? 20
+                  : _items.length + (_isLoading ? _columnsCount : 0),
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: _columnsCount,
@@ -1364,68 +1359,71 @@ class _DiscoveryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // "Discovery" — always, large, left
-          const Text(
-            'Discovery',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // Pills — scrollable between title and buttons
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              child: Row(
-                children: _DiscoverMode.values.map((m) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: _ModePill(
-                      icon: m.icon,
-                      label: m == _DiscoverMode.custom &&
-                              customSourceName != null
-                          ? customSourceName!
-                          : m.label,
-                      selected: currentMode == m,
-                      onTap: () => onModeChanged(m),
-                    ),
-                  );
-                }).toList(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Row 1: "Discovery" title + action buttons ──────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Discovery',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
               ),
+              // Search icon (when bar is collapsed)
+              if (searchCollapsed) ...[
+                _SmallHeaderBtn(
+                  icon: Icons.search_rounded,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: onSearchTap,
+                ),
+                const SizedBox(width: 6),
+              ],
+              // More button
+              _SmallHeaderBtn(
+                icon: Icons.more_horiz_rounded,
+                cs: cs,
+                isDark: isDark,
+                onTap: onMoreTap,
+              ),
+            ],
+          ),
+        ),
+        // ── Row 2: Mode pills (Watch / Manga / Novel / Music / Custom) ──────
+        SizedBox(
+          height: 38,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.fromLTRB(16, 0, 12, 4),
+            child: Row(
+              children: _DiscoverMode.values.map((m) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _ModePill(
+                    icon: m.icon,
+                    label: m == _DiscoverMode.custom &&
+                            customSourceName != null
+                        ? customSourceName!
+                        : m.label,
+                    selected: currentMode == m,
+                    onTap: () => onModeChanged(m),
+                  ),
+                );
+              }).toList(),
             ),
           ),
-
-          const SizedBox(width: 6),
-
-          // Search icon (when bar is collapsed)
-          if (searchCollapsed) ...[
-            _SmallHeaderBtn(
-              icon: Icons.search_rounded,
-              cs: cs,
-              isDark: isDark,
-              onTap: onSearchTap,
-            ),
-            const SizedBox(width: 6),
-          ],
-
-          // More button
-          _SmallHeaderBtn(
-            icon: Icons.more_horiz_rounded,
-            cs: cs,
-            isDark: isDark,
-            onTap: onMoreTap,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1672,23 +1670,42 @@ class _CustomEmptyState extends StatelessWidget {
   }
 }
 
-// ── Custom mode — source selected ─────────────────────────────────────────────
+// ── Custom mode — source selected: auto-launches source home ──────────────────
 
-class _CustomSourcePlaceholder extends StatelessWidget {
+class _CustomSourceLauncher extends StatefulWidget {
   final Source source;
-  final VoidCallback onNavigate;
+  final void Function(Source) onNavigate;
   final VoidCallback onChangeTap;
   final ColorScheme cs;
+  final bool isDark;
 
-  const _CustomSourcePlaceholder({
+  const _CustomSourceLauncher({
     required this.source,
     required this.onNavigate,
     required this.onChangeTap,
     required this.cs,
+    required this.isDark,
   });
 
   @override
+  State<_CustomSourceLauncher> createState() => _CustomSourceLauncherState();
+}
+
+class _CustomSourceLauncherState extends State<_CustomSourceLauncher> {
+  @override
+  void initState() {
+    super.initState();
+    // Auto-navigate to the source home page as soon as this widget appears
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onNavigate(widget.source);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    // Show a clean loading placeholder while the navigation animates in
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -1696,32 +1713,33 @@ class _CustomSourcePlaceholder extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 color: cs.primaryContainer.withValues(alpha: 0.30),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                    color: cs.primary.withValues(alpha: 0.20), width: 1),
+                    color: cs.primary.withValues(alpha: 0.22), width: 1.2),
               ),
-              child: source.iconUrl != null && source.iconUrl!.isNotEmpty
+              child: widget.source.iconUrl != null &&
+                      widget.source.iconUrl!.isNotEmpty
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(17),
+                      borderRadius: BorderRadius.circular(19),
                       child: Image.network(
-                        source.iconUrl!,
+                        widget.source.iconUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Icon(
                           Icons.extension_rounded,
-                          size: 34,
+                          size: 38,
                           color: cs.primary,
                         ),
                       ),
                     )
-                  : Icon(Icons.extension_rounded, size: 34, color: cs.primary),
+                  : Icon(Icons.extension_rounded, size: 38, color: cs.primary),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
             Text(
-              source.name ?? 'Extension',
+              widget.source.name ?? 'Extension',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
@@ -1729,10 +1747,11 @@ class _CustomSourcePlaceholder extends StatelessWidget {
                 letterSpacing: -0.3,
               ),
             ),
-            if (source.lang != null && source.lang!.isNotEmpty) ...[
+            if (widget.source.lang != null &&
+                widget.source.lang!.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
-                source.lang!.toUpperCase(),
+                widget.source.lang!.toUpperCase(),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -1742,20 +1761,23 @@ class _CustomSourcePlaceholder extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 28),
-            FilledButton.icon(
-              onPressed: onNavigate,
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: const Text('Ouvrir cette extension'),
-              style: FilledButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => widget.onNavigate(widget.source),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text('Ouvrir cette extension'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
               ),
             ),
             const SizedBox(height: 12),
             TextButton.icon(
-              onPressed: onChangeTap,
+              onPressed: widget.onChangeTap,
               icon: const Icon(Icons.swap_horiz_rounded, size: 16),
               label: const Text("Changer d'extension"),
             ),
@@ -2133,6 +2155,74 @@ class _FilterDropdown extends StatelessWidget {
                     ? cs.onSurface.withValues(alpha: 0.40)
                     : cs.onSurface.withValues(alpha: 0.18)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ── Shimmer loading box ────────────────────────────────────────────────────────
+
+class _ShimmerBox extends StatefulWidget {
+  final bool isDark;
+  final ColorScheme cs;
+  const _ShimmerBox({required this.isDark, required this.cs});
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: LinearGradient(
+            colors: widget.isDark
+                ? [
+                    const Color(0xFF2C2C2E),
+                    Color.lerp(
+                        const Color(0xFF2C2C2E),
+                        const Color(0xFF3C3C3E),
+                        _anim.value)!,
+                    const Color(0xFF2C2C2E),
+                  ]
+                : [
+                    widget.cs.surfaceContainerHigh,
+                    Color.lerp(
+                        widget.cs.surfaceContainerHigh,
+                        widget.cs.surfaceContainerHighest,
+                        _anim.value)!,
+                    widget.cs.surfaceContainerHigh,
+                  ],
+            stops: const [0.0, 0.5, 1.0],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
         ),
       ),
     );
