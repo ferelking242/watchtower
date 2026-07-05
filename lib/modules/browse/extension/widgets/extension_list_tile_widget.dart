@@ -312,9 +312,7 @@ class _ExtensionListTileWidgetState
     );
   }
 
-  Widget _buildTrailingButton(BuildContext context, String label) {
-    final isInstall = label == context.l10n.install;
-    final isUpdate = label == context.l10n.update;
+  Widget _buildTrailingButton(BuildContext context) {
     if (_isLoading) {
       return const SizedBox(
         height: 40,
@@ -328,46 +326,53 @@ class _ExtensionListTileWidgetState
         ),
       );
     }
-    return SizedBox(
-      width: 36,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
+    if (!_sourceNotEmpty) {
+      return IconButton(
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        onPressed: _handleSourceFetch,
+        icon: const Icon(Icons.download_outlined, size: 20),
+      );
+    }
+    // Installed — encircled more_vert → directly to extension settings
+    return GestureDetector(
+      onTap: () => context.push('/extension_detail', extra: widget.source),
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          // Row 1: Settings gear (installed) or Install button (not installed)
-          if (_sourceNotEmpty)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              splashRadius: 20,
-              tooltip: context.l10n.settings,
-              onPressed: () => context.push('/extension_detail', extra: widget.source),
-              icon: const Icon(Icons.settings_outlined, size: 20),
-            )
-          else if (isInstall)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              splashRadius: 20,
-              onPressed: _isLoading ? null : _handleSourceFetch,
-              icon: const Icon(Icons.download_outlined, size: 20),
-            )
-          else
-            const SizedBox(height: 36),
-          // Row 2: Update button (only when update available)
-          if (isUpdate)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              splashRadius: 20,
-              onPressed: _isLoading ? null : _handleSourceFetch,
-              icon: const Icon(Icons.system_update_alt_outlined, size: 20),
-            )
-          else
-            const SizedBox(height: 36),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+            ),
+            child: Icon(
+              Icons.more_vert,
+              size: 18,
+              color: _updateAvailable
+                  ? Colors.orange.shade400
+                  : Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          if (_updateAvailable)
+            Positioned(
+              top: 3,
+              right: 3,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.orange.shade400,
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 1,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -375,13 +380,6 @@ class _ExtensionListTileWidgetState
 
   @override
   Widget build(BuildContext context) {
-    final l10n = l10nLocalizations(context)!;
-    final buttonLabel = !_sourceNotEmpty
-        ? l10n.install
-        : _updateAvailable
-        ? l10n.update
-        : l10n.settings;
-
     final lang = widget.source.sourceCodeLanguage;
     final isJs = lang == SourceCodeLanguage.javascript;
     final isDart = lang == SourceCodeLanguage.dart;
@@ -523,7 +521,7 @@ class _ExtensionListTileWidgetState
             ),
         ],
       ),
-      trailing: _buildTrailingButton(context, buttonLabel),
+      trailing: _buildTrailingButton(context),
     );
 
     final errorBar = _lastError == null

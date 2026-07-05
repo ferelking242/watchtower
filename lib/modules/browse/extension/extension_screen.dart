@@ -7,6 +7,7 @@ import 'package:watchtower/modules/widgets/custom_sliver_grouped_list_view.dart'
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/extension/providers/extensions_provider.dart';
+import 'package:watchtower/modules/browse/extension/providers/extension_layout_provider.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -150,6 +151,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
       extensionsRepoStateProvider(widget.itemType),
     );
     final showNSFW = ref.watch(showNSFWStateProvider);
+    final layoutMode = ref.watch(extensionLayoutModeProvider);
 
     final l10n = l10nLocalizations(context)!;
 
@@ -230,10 +232,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                 installedEntries.isNotEmpty ||
                 notInstalledEntries.isNotEmpty;
 
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 800;
-                return Scrollbar(
+            return Scrollbar(
               interactive: true,
               controller: controller,
               thickness: 3,
@@ -242,11 +241,11 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                 controller: controller,
                 slivers: [
                   if (updateEntries.isNotEmpty)
-                    _buildUpdateSection(updateEntries, l10n, isWide: isWide),
+                    _buildUpdateSection(updateEntries, l10n, layoutMode: layoutMode),
                   if (installedEntries.isNotEmpty)
-                    _buildInstalledSection(installedEntries, l10n, isWide: isWide),
+                    _buildInstalledSection(installedEntries, l10n, layoutMode: layoutMode),
                   if (notInstalledEntries.isNotEmpty)
-                    ..._buildAvailableSection(notInstalledEntries, isWide: isWide),
+                    ..._buildAvailableSection(notInstalledEntries, layoutMode: layoutMode),
                   if (!hasAnyEntry)
                     SliverFillRemaining(
                       child: Center(
@@ -285,8 +284,6 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
                 ],
               ),
             );
-              },
-            );
           },
           error: (error, _) => Center(
             child: ElevatedButton(
@@ -302,23 +299,23 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
   Widget _buildSliverListOrGrid({
     required List<Source> items,
-    required bool isWide,
+    required int layoutMode,
   }) {
-    if (isWide) {
-      return SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 3.6,
-          crossAxisSpacing: 0,
-          mainAxisSpacing: 0,
-        ),
+    if (layoutMode == 0) {
+      return SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) => ref.watch(extensionListTileWidget(items[index])),
           childCount: items.length,
         ),
       );
     }
-    return SliverList(
+    return SliverGrid(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: layoutMode == 2 ? 3 : 2,
+        childAspectRatio: layoutMode == 2 ? 3.6 : 3.2,
+        crossAxisSpacing: 0,
+        mainAxisSpacing: 0,
+      ),
       delegate: SliverChildBuilderDelegate(
         (context, index) => ref.watch(extensionListTileWidget(items[index])),
         childCount: items.length,
@@ -327,7 +324,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
   }
 
   Widget _buildUpdateSection(List<Source> updateEntries, dynamic l10n,
-      {bool isWide = false}) {
+      {int layoutMode = 1}) {
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
@@ -376,13 +373,13 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
             ),
           ),
         ),
-        _buildSliverListOrGrid(items: updateEntries, isWide: isWide),
+        _buildSliverListOrGrid(items: updateEntries, layoutMode: layoutMode),
       ],
     );
   }
 
   Widget _buildInstalledSection(List<Source> installedEntries, dynamic l10n,
-      {bool isWide = false}) {
+      {int layoutMode = 1}) {
     final visible = installedEntries.take(_visibleInstalled).toList();
     final hasMore = visible.length < installedEntries.length;
     return SliverMainAxisGroup(
@@ -403,7 +400,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
             ),
           ),
         ),
-        _buildSliverListOrGrid(items: visible, isWide: isWide),
+        _buildSliverListOrGrid(items: visible, layoutMode: layoutMode),
         if (hasMore)
           SliverToBoxAdapter(
             child: Padding(
@@ -422,7 +419,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
   }
 
   List<Widget> _buildAvailableSection(List<Source> notInstalledEntries,
-      {bool isWide = false}) {
+      {int layoutMode = 1}) {
     // Group by language code (raw) for flag lookup, display name for label
     final Map<String, List<Source>> grouped = {};
     for (final src in notInstalledEntries) {
@@ -554,7 +551,7 @@ class _ExtensionScreenState extends ConsumerState<ExtensionScreen> {
 
       if (!isCollapsed) {
         slivers.add(
-          _buildSliverListOrGrid(items: items, isWide: isWide),
+          _buildSliverListOrGrid(items: items, layoutMode: layoutMode),
         );
       }
     }

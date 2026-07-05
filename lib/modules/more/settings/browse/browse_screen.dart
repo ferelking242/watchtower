@@ -17,6 +17,7 @@ import 'package:watchtower/models/update.dart';
 import 'package:watchtower/modules/more/settings/player/custom_button_screen.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
+import 'package:watchtower/modules/browse/extension/providers/extension_layout_provider.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -34,6 +35,7 @@ class BrowseSScreen extends ConsumerWidget {
       checkForExtensionsUpdateStateProvider,
     );
     final autoUpdateExtensions = ref.watch(autoUpdateExtensionsStateProvider);
+    final extensionLayout = ref.watch(extensionLayoutModeProvider);
     final l10n = l10nLocalizations(context);
     return Scaffold(
       appBar: AppBar(title: Text(l10n!.browse)),
@@ -53,6 +55,53 @@ class BrowseSScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 13,
                             color: context.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Affichage des extensions',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.secondaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<int>(
+                          segments: const [
+                            ButtonSegment(
+                              value: 0,
+                              icon: Icon(Icons.list_rounded, size: 18),
+                              label: Text('Liste'),
+                            ),
+                            ButtonSegment(
+                              value: 1,
+                              icon: Icon(Icons.grid_view_rounded, size: 18),
+                              label: Text('Grille'),
+                            ),
+                            ButtonSegment(
+                              value: 2,
+                              icon: Icon(Icons.apps_rounded, size: 18),
+                              label: Text('Étendu'),
+                            ),
+                          ],
+                          selected: {extensionLayout},
+                          onSelectionChanged: (Set<int> s) {
+                            ref
+                                .read(extensionLayoutModeProvider.notifier)
+                                .set(s.first);
+                          },
+                          style: SegmentedButton.styleFrom(
+                            selectedForegroundColor:
+                                Theme.of(context).colorScheme.onPrimary,
+                            selectedBackgroundColor:
+                                Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ],
