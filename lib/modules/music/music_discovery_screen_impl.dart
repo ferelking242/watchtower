@@ -30,7 +30,13 @@ class MusicDiscoveryScreen extends ConsumerStatefulWidget {
 }
 
 class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
+  // Each instance gets its own navigator key so that simultaneous
+  // MusicDiscoveryScreen widgets (Discover tab + Hub + Library + shell routes)
+  // don't share the module-level rootNavigatorKey → blank/dropped screens.
+  final _navKey = GlobalKey<NavigatorState>(debugLabel: 'spotube_music');
+
   late final SpotubeAppRouter _router;
+  late final RouterDelegate<Object?> _routerDelegate;
 
   bool _doneGettingStarted() {
     try {
@@ -54,24 +60,16 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
     }
   }
 
-  late final RouterDelegate<Object?> _routerDelegate;
-
   @override
   void initState() {
     super.initState();
     try {
       music_log.AppLogger.initialize(false);
     } catch (_) {}
-    _router = SpotubeAppRouter();
-    _routerDelegate = _router.delegate();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final routes = _initialRoutes;
-        if (routes.isNotEmpty) {
-          _router.navigate(routes.first);
-        }
-      }
-    });
+    _router = SpotubeAppRouter(navigatorKey: _navKey);
+    // Pass initialRoutes directly — postFrameCallback navigation fires one frame
+    // too late and leaves the Router blank on first build.
+    _routerDelegate = _router.delegate(initialRoutes: _initialRoutes);
   }
 
   @override
@@ -82,34 +80,21 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final parentDispatcher = Router.of(context).backButtonDispatcher;
 
     final Locale? musicLocale = ref.watch(
       userPreferencesProvider.select((p) => p.locale),
     );
 
-    // FIX music white screen: propagate scaffoldBackgroundColor + surface so
-    // every Spotube Scaffold/Material inherits the user's palette instead of
-    // defaulting to Flutter's opaque white.
-    return Theme(
-      data: Theme.of(context).copyWith(
-        scaffoldBackgroundColor: cs.surface,
-        canvasColor: cs.surface,
-      ),
-      child: ColoredBox(
-        color: cs.surface,
-        child: Builder(
-          builder: (locCtx) => Localizations.override(
-            context: locCtx,
-            locale: musicLocale,
-            child: Router(
-              routerDelegate: _routerDelegate,
-              backButtonDispatcher: parentDispatcher != null
-                  ? ChildBackButtonDispatcher(parentDispatcher)
-                  : RootBackButtonDispatcher(),
-            ),
-          ),
+    return Builder(
+      builder: (locCtx) => Localizations.override(
+        context: locCtx,
+        locale: musicLocale,
+        child: Router(
+          routerDelegate: _routerDelegate,
+          backButtonDispatcher: parentDispatcher != null
+              ? ChildBackButtonDispatcher(parentDispatcher)
+              : RootBackButtonDispatcher(),
         ),
       ),
     );

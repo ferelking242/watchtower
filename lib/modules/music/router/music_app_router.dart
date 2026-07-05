@@ -23,7 +23,11 @@ import 'package:watchtower/modules/music/collections/routes.gr.dart';
 ///       ├ SettingsRoute
 ///       └ … pushed-overlay routes (Album, Artist, Track, Playlist, …)
 class SpotubeAppRouter extends RootStackRouter {
-  SpotubeAppRouter() : super(navigatorKey: rootNavigatorKey);
+  /// Each [MusicDiscoveryScreen] instance must pass its own [navigatorKey]
+  /// so simultaneous embeddings (Discover + Hub + Library) don't fight over
+  /// the same GlobalKey and produce blank screens.
+  SpotubeAppRouter({GlobalKey<NavigatorState>? navigatorKey})
+      : super(navigatorKey: navigatorKey ?? rootNavigatorKey);
 
   @override
   List<AutoRoute> get routes => [
