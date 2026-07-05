@@ -115,37 +115,47 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   late final List<Map<String, dynamic>> _customLists =
       isLocal ? [] : getCustomLists(source: source);
 
-  late final List<_TabEntry> _tabs = _buildTabList();
+  // _tabs is built lazily on first access in build() so supportsLatest is available
+  List<_TabEntry>? _tabsCache;
+  List<_TabEntry> get _tabs => _tabsCache ??= _buildTabList();
 
   List<_TabEntry> _buildTabList() {
-    if (isLocal || _customLists.isEmpty) {
-      return [
-        const _TabEntry(kind: _TabKind.popular, name: 'Popular', icon: Icons.local_fire_department_rounded),
-        const _TabEntry(kind: _TabKind.latest, name: 'Latest', icon: Icons.update_rounded),
-      ];
+    final tabs = <_TabEntry>[];
+
+    // Accueil — only if the extension explicitly declares id='home' in getCustomLists()
+    if (!isLocal) {
+      final homeCl = _customLists.where((cl) => cl['id'] == 'home').firstOrNull;
+      if (homeCl != null) {
+        final icStr = homeCl['icon'] as String?;
+        final matIcon = icStr != null ? _kIconMap[icStr] : null;
+        tabs.add(_TabEntry(
+          kind: _TabKind.home,
+          name: homeCl['name'] as String? ?? 'Accueil',
+          icon: matIcon ?? Icons.home_rounded,
+        ));
+      }
     }
-    final homeEntries = <_TabEntry>[];
-    final popularEntries = <_TabEntry>[];
-    final latestEntries = <_TabEntry>[];
-    final customEntries = <_TabEntry>[];
+
+    // Popular — always present
+    tabs.add(const _TabEntry(kind: _TabKind.popular, name: 'Popular', icon: Icons.local_fire_department_rounded));
+
+    // Latest — always present if supportsLatest (built-in tab, not from custom lists)
+    if (!isLocal && supportsLatest) {
+      tabs.add(const _TabEntry(kind: _TabKind.latest, name: 'Latest', icon: Icons.update_rounded));
+    }
+
+    // True custom lists — skip special ids (popular/latest are now built-in tabs)
     for (final cl in _customLists) {
       final id = cl['id'] as String? ?? '';
+      if (id == 'home' || id == 'popular' || id == 'latest') continue;
       final name = cl['name'] as String? ?? id;
       final icStr = cl['icon'] as String?;
       final matIcon = icStr != null ? _kIconMap[icStr] : null;
       final emoji = (icStr != null && matIcon == null) ? icStr : null;
-      switch (id) {
-        case 'home':
-          homeEntries.add(_TabEntry(kind: _TabKind.home, name: name, icon: matIcon ?? Icons.home_rounded, emojiStr: emoji));
-        case 'popular':
-          popularEntries.add(_TabEntry(kind: _TabKind.popular, name: name, icon: matIcon ?? Icons.local_fire_department_rounded, emojiStr: emoji));
-        case 'latest':
-          latestEntries.add(_TabEntry(kind: _TabKind.latest, name: name, icon: matIcon ?? Icons.update_rounded, emojiStr: emoji));
-        default:
-          customEntries.add(_TabEntry(kind: _TabKind.custom, customId: id, name: name, icon: matIcon, emojiStr: emoji));
-      }
+      tabs.add(_TabEntry(kind: _TabKind.custom, customId: id, name: name, icon: matIcon, emojiStr: emoji));
     }
-    return [...homeEntries, ...popularEntries, ...latestEntries, ...customEntries];
+
+    return tabs;
   }
 
   _TabKind? get _currentTabKind => _selectedIndex < _tabs.length ? _tabs[_selectedIndex].kind : null;
@@ -160,10 +170,12 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     return null;
   }
 
+  // Compute initial index synchronously from _customLists (which is always available)
   late int _selectedIndex = () {
     if (widget.isLatest) {
-      final idx = _tabs.indexWhere((t) => t.kind == _TabKind.latest);
-      return idx >= 0 ? idx : 0;
+      // Latest is after home (if any) and popular
+      final hasHome = !isLocal && _customLists.any((cl) => cl['id'] == 'home');
+      return hasHome ? 2 : 1;
     }
     return 0;
   }();
