@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/core/config/app_config.dart';
 import 'dart:developer';
 import 'package:watchtower/eval/model/m_bridge.dart';
@@ -175,3 +176,17 @@ Future<(String, String, String, List<dynamic>)> _fetchAppUpdate() async {
     return _appUpdateCache ?? ('0.0.0', '', '', []);
   }
 }
+
+// ── Pending install file ──────────────────────────────────────────────────────
+/// Downloaded APK file path that is ready to install.
+/// Set by the background download callback; cleared after install is triggered.
+File? pendingInstallFile;
+
+void setInstallReady(File file) {
+  pendingInstallFile = file;
+}
+
+void clearInstallReady() {
+  pendingInstallFile = null;
+}
+
