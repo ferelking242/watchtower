@@ -140,13 +140,21 @@ class RouterCurrentLocationState extends _$RouterCurrentLocationState {
     final router = ref.read(routerProvider);
     router.routerDelegate.addListener(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final RouteMatchList matches =
-            router.routerDelegate.currentConfiguration;
-        final RouteMatch lastMatch = matches.last;
-        final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
-            ? lastMatch.matches
-            : matches;
-        state = matchList.uri.toString();
+        // go_router 17.x: ImperativeRouteMatch (created by context.push) does
+        // not implement _getsLastRouteFromMatches — throws UnimplementedError
+        // when the router tries to serialize route info after navigation.
+        try {
+          final RouteMatchList matches =
+              router.routerDelegate.currentConfiguration;
+          if (matches.isEmpty) return;
+          final RouteMatch lastMatch = matches.last;
+          final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
+              ? lastMatch.matches
+              : matches;
+          state = matchList.uri.toString();
+        } catch (_) {
+          // Silently swallow — state keeps its last known location value.
+        }
       });
     });
   }
