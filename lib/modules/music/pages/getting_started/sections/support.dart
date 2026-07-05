@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-    import 'package:auto_route/auto_route.dart';
+import 'package:auto_route/auto_route.dart';
+    import 'package:flutter/material.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
     import 'package:watchtower/modules/music/collections/routes.gr.dart';
     import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -25,7 +25,8 @@ import 'package:flutter/material.dart';
                     children: [
                       const Icon(Icons.music_note_rounded, color: Colors.pink),
                       const SizedBox(width: 8),
-                      Text(context.l10n.help_project_grow, style: const TextStyle(color: Colors.pink)),
+                      Text(context.l10n.help_project_grow,
+                          style: const TextStyle(color: Colors.pink)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -35,22 +36,50 @@ import 'package:flutter/material.dart';
             ),
             const SizedBox(height: 48),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 250),
-              child: FilledButton(
-                onPressed: () async {
-                  await KVStoreService.setDoneGettingStarted(true);
-                  if (context.mounted) {
-                    context.pushRoute(const SettingsMetadataProviderRoute());
-                  }
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(SpotubeIcons.extensions),
-                    const SizedBox(width: 8),
-                    Text(context.l10n.install_a_metadata_provider),
-                  ],
-                ),
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    onPressed: () async {
+                      await KVStoreService.setDoneGettingStarted(true);
+                      if (context.mounted) {
+                        // Replace the entire navigation stack with Home
+                        // so the GettingStarted route is gone and doesn't show grey
+                        context.router.replaceAll([
+                          RootAppRoute(children: [HomeRoute()]),
+                        ]);
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(SpotubeIcons.home),
+                        const SizedBox(width: 8),
+                        Text(context.l10n.get_started),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () async {
+                      await KVStoreService.setDoneGettingStarted(true);
+                      if (context.mounted) {
+                        context.router.replaceAll([
+                          RootAppRoute(children: [SettingsMetadataProviderRoute()]),
+                        ]);
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(SpotubeIcons.extensions),
+                        const SizedBox(width: 8),
+                        Text(context.l10n.install_a_metadata_provider),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
