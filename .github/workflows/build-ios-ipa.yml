@@ -116,23 +116,14 @@ jobs:
           set -euo pipefail
           APP="build/ios/iphoneos/Runner.app"
 
-          echo "=== Installing ldid for diagnostics ==="
-          brew install ldid 2>/dev/null || true
-
-          echo "=== All files in Runner.app (with type) ==="
-          find "$APP" -type f | while read f; do
-            magic=$(xxd -l 4 "$f" 2>/dev/null | awk "{print \$2\$3}" | head -1 || echo "err")
-            echo "$magic  $f"
-          done
-
-          echo "=== Test ldid -s on bundle ==="
-          ldid -s "$APP" 2>&1 || echo "ldid -s FAILED (see above for offending file)"
-
           echo "=== Removing _CodeSignature dirs ==="
           find "$APP" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
 
-          echo "=== Removing .metallib files (non-Mach-O, confuse old ldid) ==="
-          find "$APP" -name "*.metallib" | while read f; do
+          echo "=== Removing .metallib files (non-Mach-O, cause ldid errors) ==="
+          find "$APP" -name "*.metallib" -delete 2>/dev/null || true
+
+          echo "=== Removing .car files (BOMStore format, cause TrollStore ldid Unknown header magic / error 175) ==="
+          find "$APP" -name "*.car" | while read f; do
             echo "Removing: $f"
             rm -f "$f"
           done
@@ -140,8 +131,7 @@ jobs:
           echo "=== Removing .ldid.* residuals ==="
           find "$APP" -name ".ldid.*" -delete 2>/dev/null || true
 
-          echo "=== Final ldid -s test after cleanup ==="
-          ldid -s "$APP" 2>&1 && echo "ldid OK" || echo "STILL FAILING — check magic dump above"
+          echo "=== Bundle size after cleanup: $(du -sh "$APP" | cut -f1) ==="
 
       - name: Package IPA
         run: |
