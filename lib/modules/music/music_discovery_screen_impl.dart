@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
+import 'package:watchtower/modules/music/l10n/l10n.dart';
 import 'package:watchtower/modules/music/router/music_app_router.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart' as music_log;
@@ -94,6 +95,7 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
       builder: (locCtx) => Localizations.override(
         context: locCtx,
         locale: musicLocale,
+        delegates: const [AppLocalizations.delegate],
         child: Router(
           routerDelegate: _routerDelegate,
           backButtonDispatcher: parentDispatcher != null
