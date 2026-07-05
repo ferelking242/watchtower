@@ -24,7 +24,7 @@ import 'package:watchtower/modules/music/services/youtube_engine/newpipe_engine.
 import 'package:watchtower/modules/music/services/youtube_engine/youtube_explode_engine.dart';
 import 'package:watchtower/modules/music/services/youtube_engine/yt_dlp_engine.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlib;
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 part 'database.g.dart';
@@ -260,7 +260,7 @@ LazyDatabase _openConnection() {
     final cacheBase = (await getTemporaryDirectory()).path;
     // We can't access /tmp on Android, which sqlite3 would try by default.
     // Explicitly tell it about the correct temporary directory.
-    sqlite3.tempDirectory = cacheBase;
+    sqlib.sqlite3.tempDirectory = cacheBase;
 
     return NativeDatabase.createInBackground(file);
   });
