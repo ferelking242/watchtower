@@ -50,10 +50,6 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      # ── CocoaPods: two-layer cache ─────────────────────────────────────────
-      # Layer 1: spec repo (~/.cocoapods) — avoids full clone on cold cache.
-      # Layer 2: resolved Pods dir (ios/Pods) — keyed by Podfile; on hit,
-      #          pod install is near-instant (just a verification pass).
       - name: Cache CocoaPods spec repo
         uses: actions/cache@v4
         with:
@@ -86,18 +82,13 @@ jobs:
         run: |
           cd ios
           if [ "${{ steps.pods-cache.outputs.cache-hit }}" = "true" ]; then
-            # Pods directory restored from cache — fast verification pass only
             echo "Pods cache hit — running pod install (no repo-update)"
             pod install
           else
-            # Cold cache — full resolve + update spec repo
             echo "Pods cache miss — running pod install --repo-update"
             pod install --repo-update
           fi
 
-      # ── Patch Xcode ─────────────────────────────────────────────────────────
-      # CODE_SIGN_STYLE=Automatic sans DEVELOPMENT_TEAM fait échouer le build.
-      # On passe en Manual + identité vide → --no-codesign fonctionne.
       - name: Patch Xcode project for CI (manual signing, no team)
         run: |
           PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
@@ -110,40 +101,28 @@ jobs:
           echo "=== CODE_SIGN après patch ==="
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
 
-      # ── Build ────────────────────────────────────────────────────────────────
       - name: Build iOS (no codesign)
-          run: |
-            set -euo pipefail
+        run: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign 2>&1
+          APP="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP" ]; then
+            echo "ERROR: Runner.app not found at $APP"
+            find build -name "Runner.app" -type d 2>/dev/null | head -5 || true
+            exit 1
+          fi
+          echo "=== App size: $(du -sh $APP) ==="
+          ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0 frameworks"
+          codesign --force --sign - --deep "$APP" 2>/dev/null || true
+          codesign -dvvv "$APP" 2>&1 | head -8 || true
 
-            # Single flutter command — handles xcconfig, plugin registrant, xcodebuild,
-            # and writes Runner.app to build/ios/iphoneos/ automatically.
-            flutter build ios --release --no-codesign 2>&1
-
-            APP="build/ios/iphoneos/Runner.app"
-
-            if [ ! -d "$APP" ]; then
-              echo "ERROR: Runner.app not found at $APP"
-              find build -name "Runner.app" -type d 2>/dev/null | head -5 || true
-              exit 1
-            fi
-
-            echo "=== App size: $(du -sh $APP) ==="
-            echo "=== Frameworks signes ==="
-            ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0"
-
-            echo "=== Ad-hoc codesign (requis TrollStore) ==="
-            codesign --force --sign - --deep "$APP" 2>/dev/null || true
-            codesign -dvvv "$APP" 2>&1 | head -8 || true
-
-        # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
       - name: Cleanup ldid residual files
         run: |
           APP="build/ios/iphoneos/Runner.app"
-          COUNT=$(find "$APP" -name ".ldid.*" | wc -l)
-          find "$APP" -name ".ldid.*" -delete
+          COUNT=$(find "$APP" -name ".ldid.*" 2>/dev/null | wc -l)
+          find "$APP" -name ".ldid.*" -delete 2>/dev/null || true
           echo "Cleaned $COUNT .ldid.* files"
 
-      # ── Package IPA ─────────────────────────────────────────────────────────
       - name: Package IPA
         run: |
           mkdir -p Payload
@@ -152,10 +131,8 @@ jobs:
           rm -rf Payload
           IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
           echo "=== IPA: $IPA_SIZE ==="
-          echo "=== Frameworks dans IPA ==="
-          unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
-          echo "=== Vérif wakelock_plus ==="
-          unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent des Frameworks binaries) ✓"
+          unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l || echo "0"
+          unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static ✓"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
