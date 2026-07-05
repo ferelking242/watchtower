@@ -192,7 +192,11 @@ void main(List<String> args) async {
         isar = _mockIsar;
       } else {
         isar = await storage.initDB(null, inspector: false);
-        _ensureLocalSources();
+        // _ensureLocalSources() is intentionally deferred to _postLaunchInit().
+        // Running it here (before runApp) triggers Isar Rust FFI string_to_bytes
+        // malloc on the main thread while memory is tight on iPhone 7 (2 GB).
+        // iOS frees background-app RAM only after the foreground app becomes
+        // visible — deferring past runApp() gives the system time to do that.
       }
       // Start the background isolate AFTER the DB is open and isar is assigned.
       if (!kIsWeb) {
@@ -267,6 +271,9 @@ void _ensureLocalSources() {
 }
 
 Future<void> _postLaunchInit(StorageProvider storage) async {
+  // Deferred from main() — see comment there. Runs after runApp() so iOS has
+  // freed background-app memory before the first Isar Rust FFI string alloc.
+  if (!kIsWeb) _ensureLocalSources();
   await AppLogger.init();
   if (!kIsWeb) {
     unawaited(MDownloader.initializeIsolatePool(poolSize: 6));
