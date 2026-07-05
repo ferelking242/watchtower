@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
 
+# Cancel in-progress runs on new push — only the latest commit matters
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-ios:
     name: iOS (sideload IPA)
@@ -45,8 +50,24 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      - name: Remove stale Podfile.lock
-        run: rm -f ios/Podfile.lock
+      # ── CocoaPods: two-layer cache ─────────────────────────────────────────
+      # Layer 1: spec repo (~/.cocoapods) — avoids full clone on cold cache.
+      # Layer 2: resolved Pods dir (ios/Pods) — keyed by Podfile; on hit,
+      #          pod install is near-instant (just a verification pass).
+      - name: Cache CocoaPods spec repo
+        uses: actions/cache@v4
+        with:
+          path: ~/.cocoapods
+          key: cocoapods-repo-${{ runner.os }}-v1
+          restore-keys: cocoapods-repo-${{ runner.os }}-
+
+      - name: Cache ios/Pods
+        id: pods-cache
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile') }}
+          restore-keys: pods-${{ runner.os }}-
 
       - name: Flutter pub get
         run: flutter pub get
@@ -55,7 +76,17 @@ jobs:
         run: dart run flutter_launcher_icons:main
 
       - name: Install CocoaPods
-        run: cd ios && pod install --repo-update && cd ..
+        run: |
+          cd ios
+          if [ "${{ steps.pods-cache.outputs.cache-hit }}" = "true" ]; then
+            # Pods directory restored from cache — fast verification pass only
+            echo "Pods cache hit — running pod install (no repo-update)"
+            pod install
+          else
+            # Cold cache — full resolve + update spec repo
+            echo "Pods cache miss — running pod install --repo-update"
+            pod install --repo-update
+          fi
 
       # ── Patch Xcode ─────────────────────────────────────────────────────────
       # CODE_SIGN_STYLE=Automatic sans DEVELOPMENT_TEAM fait échouer le build.
@@ -73,23 +104,14 @@ jobs:
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
 
       # ── Build ────────────────────────────────────────────────────────────────
-      # flutter build ios --release --no-codesign échoue avec Xcode 16 (macos-15)
-      # même avec DEVELOPMENT_TEAM="" : flutter fait une vérification post-build
-      # et rejette le résultat si le team est absent.
-      # Solution : --config-only pour générer le glue Flutter/Xcode, puis
-      # xcodebuild direct avec CODE_SIGNING_ALLOWED=NO qui bypasse toute vérification.
-      # Bug cp -r corrigé : supprimer l'ancienne Runner.app avant la copie pour
-      # éviter que cp crée Runner.app/Runner.app/ (macOS cp -r comportement).
       - name: Build iOS (no codesign)
         run: |
           set -euo pipefail
 
           # Phase 1: générer le glue Flutter (xcconfig, GeneratedPluginRegistrant, etc.)
-          # sans invoquer xcodebuild et sans vérification de signing.
           flutter build ios --release --no-codesign --config-only 2>&1 | tail -20 || true
 
           # Phase 2: xcodebuild avec signing totalement désactivé.
-          # On tee vers un fichier pour voir la sortie ET capturer l'exit code.
           echo "=== xcodebuild start ==="
           set +e
           xcodebuild \
@@ -102,107 +124,19 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            ENABLE_BITCODE=NO \
-            -derivedDataPath build/ios/derived \
-            build 2>&1 | tee /tmp/xcode_build.log
-          XCODE_EXIT=${PIPESTATUS[0]}
+            build 2>&1 | tee /tmp/xbuild.log
+          XB_EXIT=${PIPESTATUS[0]}
           set -e
 
-          # Afficher les dernières lignes pour le débogage
-          echo "--- xcodebuild exit: $XCODE_EXIT ---"
-          grep -E "^(\*\*|error:|Build)" /tmp/xcode_build.log | tail -30 || true
-
-          if [ "$XCODE_EXIT" -ne 0 ]; then
-            echo "ERROR: xcodebuild failed (exit $XCODE_EXIT)" >&2
-            exit "$XCODE_EXIT"
+          if [ $XB_EXIT -ne 0 ]; then
+            echo "=== xcodebuild FAILED (exit $XB_EXIT) — last 60 lines ==="
+            tail -60 /tmp/xbuild.log
+            exit $XB_EXIT
           fi
+          echo "=== xcodebuild SUCCESS ==="
 
-          # Phase 3: copier l'app au chemin attendu par les étapes suivantes.
-          # IMPORTANT: supprimer l'ancienne Runner.app (créée par --config-only)
-          # avant cp -r pour éviter le piège macOS : cp -r src dest_existant
-          # place src DANS dest → build/ios/iphoneos/Runner.app/Runner.app.
-          APP_SRC="build/ios/derived/Build/Products/Release-iphoneos/Runner.app"
-          if [ ! -d "$APP_SRC" ]; then
-            echo "ERROR: Runner.app introuvable à $APP_SRC" >&2
-            ls -la build/ios/derived/Build/Products/ 2>/dev/null || echo "Derived products dir absent"
-            exit 1
-          fi
-          rm -rf build/ios/iphoneos/Runner.app
-          mkdir -p build/ios/iphoneos
-          cp -r "$APP_SRC" build/ios/iphoneos/Runner.app
-          echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
-          echo "=== Frameworks count: $(ls build/ios/iphoneos/Runner.app/Frameworks/ | wc -l) ==="
-      # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
-      # TrollStore sur iPhone 7 utilise un vieux ldid qui :
-      #   1. Ne comprend pas arm64e → thin FAT → arm64
-      #   2. Ne comprend pas les archives statiques (ar) → remove du framework
-      #   3. Choke sur fichiers non-Mach-O dans .framework → remove
-      - name: Prepare bundle for TrollStore ldid compatibility
-        run: |
           APP="build/ios/iphoneos/Runner.app"
-          THINNED=0; ALREADY=0; REMOVED=0; SKIPPED=0
-
-          for fw in "$APP/Frameworks"/*.framework; do
-            NAME=$(basename "$fw" .framework)
-            BIN="$fw/$NAME"
-            [ -f "$BIN" ] || { SKIPPED=$((SKIPPED+1)); continue; }
-
-            FILETYPE=$(file -b "$BIN")
-
-            if echo "$FILETYPE" | grep -q "ar archive"; then
-              # Archive statique — le code est déjà linké dans Runner.
-              # Supprimer tout le .framework pour éviter erreur 175 de ldid.
-              rm -rf "$fw"
-              echo "REMOVED framework dir (static archive): $NAME"
-              REMOVED=$((REMOVED+1))
-
-            elif echo "$FILETYPE" | grep -q "Mach-O.*universal"; then
-              # FAT binary — thin à arm64
-              if lipo -info "$BIN" 2>/dev/null | grep -q "arm64"; then
-                lipo "$BIN" -thin arm64 -output "${BIN}.thin" 2>/dev/null \
-                  && mv "${BIN}.thin" "$BIN" \
-                  && echo "THINNED: $NAME" \
-                  && THINNED=$((THINNED+1)) \
-                  || { echo "WARN: lipo failed $NAME"; SKIPPED=$((SKIPPED+1)); }
-              else
-                echo "WARN: $NAME fat sans slice arm64"
-                SKIPPED=$((SKIPPED+1))
-              fi
-
-            elif echo "$FILETYPE" | grep -q "Mach-O"; then
-              ALREADY=$((ALREADY+1))
-
-            else
-              echo "REMOVED unknown: $NAME ($FILETYPE)"
-              rm -f "$BIN"
-              REMOVED=$((REMOVED+1))
-            fi
-          done
-
-          echo "=== Résultat: $THINNED thinned | $ALREADY arm64 OK | $REMOVED removed | $SKIPPED skip ==="
-
-      # ── Signer (ldid uniquement — PAS codesign adhoc) ──────────────────────
-      # codesign --sign - (certificat null/adhoc) ecrase la signature ldid.
-      # iOS 15 refuse le mmap(PROT_EXEC) de App.framework → VM Fault memory shortage.
-      # ldid genere un faux certificat DER reconnu par le hook Dopamine/TrollStore.
-      - name: Sign for TrollStore (ldid only — no codesign)
-        run: |
-          APP="build/ios/iphoneos/Runner.app"
-          ENT="ios/Runner/Runner.entitlements"
-          brew install ldid 2>/dev/null || true
-
-          echo "=== ldid frameworks + App.framework (snapshot Dart AOT) ==="
-          for fw in "$APP/Frameworks"/*.framework; do
-            NAME=$(basename "$fw" .framework)
-            BIN="$fw/$NAME"
-            if [ -f "$BIN" ]; then
-              ldid -S "$BIN" 2>/dev/null && echo "ldid OK: $NAME" || echo "ldid SKIP: $NAME"
-            fi
-          done
-
-          echo "=== ldid Runner avec entitlements (platform-application + no-sandbox) ==="
-          ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK"
+          echo "=== App size: $(du -sh $APP) ==="
 
           echo "=== Vérification entitlements ==="
           ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
@@ -235,6 +169,7 @@ jobs:
           unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
           echo "=== Vérif wakelock_plus ==="
           unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent des Frameworks binaries) ✓"
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
