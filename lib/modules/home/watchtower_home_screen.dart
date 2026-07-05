@@ -100,7 +100,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   @override
     Widget build(BuildContext context) {
       final _topPad = MediaQuery.of(context).padding.top;
-      _headerH = _topPad + 56;
+      _headerH = _topPad + 56 + 36; // +36 for pills row
       _carouselH = _headerH + MediaQuery.sizeOf(context).height * 0.34;
       return Scaffold(
       body: ValueListenableBuilder<bool>(
