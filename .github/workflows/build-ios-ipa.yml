@@ -125,16 +125,43 @@ jobs:
           echo "=== Removing .metallib files (Metal shader — ldid Unknown header magic) ==="
           find "$APP" -name "*.metallib" -delete 2>/dev/null || true
 
-          echo "=== Removing .storyboardc dirs (contain .nib — ldid Unknown header magic) ==="
+          echo "=== Removing .storyboardc dirs ==="
           find "$APP" -name "*.storyboardc" -type d -exec rm -rf {} + 2>/dev/null || true
 
           echo "=== Removing orphan .nib files ==="
           find "$APP" -name "*.nib" -delete 2>/dev/null || true
 
+          echo "=== Removing icudtl.dat (ICU data binary — magic 9000da27 — ldid Unknown header magic) ==="
+          # Flutter on iOS uses system ICU (Foundation.framework); icudtl.dat is not loaded at runtime
+          find "$APP" -name "icudtl.dat" -delete 2>/dev/null || true
+
+          echo "=== Removing Impeller precompiled shaders (.frag — IPLR binary — ldid Unknown header magic) ==="
+          # Flutter falls back to JIT shader compilation at runtime; no functional impact
+          find "$APP" -name "*.frag" -delete 2>/dev/null || true
+
           echo "=== Removing .ldid.* residuals ==="
           find "$APP" -name ".ldid.*" -delete 2>/dev/null || true
 
           echo "=== Bundle size after cleanup: $(du -sh "$APP" | cut -f1) ==="
+
+          echo "=== Non-Mach-O binary audit (files at framework roots that ldid will touch) ==="
+          for fw in "$APP"/Frameworks/*.framework; do
+            fname=$(basename "$fw" .framework)
+            find "$fw" -maxdepth 1 -type f | while read f; do
+              bname=$(basename "$f")
+              magic=$(xxd -l 4 "$f" 2>/dev/null | awk '{print $2$3}' || od -A n -t x1 -N 4 "$f" 2>/dev/null | tr -d ' \n')
+              case "$magic" in
+                cafebabe|cefaedfe|cffaedfe|feedface|feedfacf|bebafeca)
+                  echo "  OK   Mach-O:  $fname/$bname";;
+                62706c69|3c3f786d|3c3f786d)
+                  echo "  OK   plist:   $fname/$bname";;
+                89504e47|ffd8ffe0|ffd8ffe1|ffd8ffdb)
+                  echo "  OK   image:   $fname/$bname";;
+                *)
+                  echo "  WARN unknown: $fname/$bname  magic=$magic";;
+              esac
+            done
+          done
 
       - name: Package IPA
         run: |
@@ -153,6 +180,7 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub Release
+        id: release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios-latest
@@ -162,3 +190,11 @@ jobs:
           body: IPA pour TrollStore (iPhone 7 / iOS 15+). Build auto depuis main.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify ntfy (build OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build iOS OK" \
+            -H "Priority: default" \
+            -d "IPA built & released — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
