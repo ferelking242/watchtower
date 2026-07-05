@@ -670,25 +670,29 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             });
 
             if (_catalogueItems.isEmpty) {
-              return SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 140,
-                  childAspectRatio: 0.65,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (_, __) {
-                    final base = Theme.of(ctx).colorScheme
-                        .surfaceContainerHighest.withValues(alpha: 0.6);
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: base,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    );
-                  },
-                  childCount: 12,
+              return SliverToBoxAdapter(
+                child: Skeletonizer(
+                  enabled: true,
+                  effect: ShimmerEffect(
+                    baseColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                    highlightColor: Theme.of(ctx).brightness == Brightness.dark
+                        ? Colors.white24
+                        : Colors.white.withValues(alpha: 0.85),
+                    duration: const Duration(milliseconds: 900),
+                  ),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 140,
+                      childAspectRatio: 0.65,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                    ),
+                    itemCount: 12,
+                    itemBuilder: (_, __) => _buildSkeletonCardItem(ctx),
+                  ),
                 ),
               );
             }
@@ -1031,15 +1035,62 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
+  /// Single skeleton card — matches the look of a compact-grid card:
+  /// image area fills the card, dark gradient + text stub overlaid at bottom.
+  /// This means ONE visual element per card (no separate name row below).
+  Widget _buildSkeletonCardItem(BuildContext ctx) {
+    final base = Theme.of(ctx).colorScheme.surfaceContainerHighest;
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // image area
+          Container(color: base),
+          // gradient + title stub — mirrors BottomTextWidget in non-comfortable mode
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    (isDark ? Colors.black : Colors.black54)
+                        .withValues(alpha: 0.65),
+                  ],
+                ),
+              ),
+              alignment: Alignment.bottomLeft,
+              padding: const EdgeInsets.fromLTRB(6, 0, 6, 7),
+              child: Container(
+                height: 9,
+                width: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: isDark ? 0.22 : 0.45),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSkeletonGrid() {
-    final base = Theme.of(context).colorScheme
-        .surfaceContainerHighest.withValues(alpha: 0.7);
     return Skeletonizer(
       enabled: true,
-      effect: ShimmerEffect(baseColor: base,
-          highlightColor:
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-          duration: const Duration(milliseconds: 1200)),
+      effect: ShimmerEffect(
+        baseColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        highlightColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white24
+            : Colors.white.withValues(alpha: 0.85),
+        duration: const Duration(milliseconds: 900),
+      ),
       child: GridView.builder(
         padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -1049,10 +1100,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           crossAxisSpacing: 8,
         ),
         itemCount: 12,
-        itemBuilder: (_, __) => Container(
-          decoration: BoxDecoration(color: base,
-              borderRadius: BorderRadius.circular(8)),
-        ),
+        itemBuilder: (_, __) => _buildSkeletonCardItem(context),
       ),
     );
   }
