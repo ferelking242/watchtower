@@ -344,7 +344,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
           Builder(
             builder: (actCtx) => ArrowPopupMenuButton<_HomeMenuAction>(
               padding: const EdgeInsets.all(4),
-              icon: Icon(Icons.more_horiz, color: actCtx.primaryColor),
+              icon: Icon(Icons.more_horiz, color: Theme.of(context).colorScheme.primary),
               onSelected: (action) => _handleHomeMenuAction(actCtx, action),
               itemBuilder: (menuCtx) => [
                 PopupMenuItem(
@@ -415,8 +415,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       const _WatchTab(Icons.local_fire_department_rounded, 'Popular', _kPopularIdx),
       if (supportsLatest)
         const _WatchTab(Icons.update_rounded,     'Latest',   _kLatestIdx),
-      if (filterList.isNotEmpty)
-        const _WatchTab(Icons.tune_rounded,       'Filter',   _kFilterIdx),
     ];
 
     return SizedBox(
@@ -966,7 +964,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   Widget _buildListView(BuildContext ctx) {
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n is ScrollUpdateNotification) _onScroll();
+        if (n is ScrollUpdateNotification || n is ScrollEndNotification) {
+          if (n.metrics.pixels >= n.metrics.maxScrollExtent - 300 &&
+              _hasNextPage && !_isLoadingMore) {
+            _loadMore();
+          }
+        }
         return false;
       },
       child: _getManga?.when(
@@ -1001,7 +1004,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   Widget _buildGrid(BuildContext ctx) {
     return GridView.builder(
-      controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 140,
