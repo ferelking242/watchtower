@@ -1863,8 +1863,8 @@ class _FloatingDockState extends State<_FloatingDock> {
       final backItem = items.first;
       final menuItem = items.last;
       final contentItems = items.sublist(1, items.length - 1);
-      // back(28) + sep(1+4) + content + sep(1+4) + menu(itemWidth) + pill pads
-      final rawW = 28.0 + 10 + contentItems.length * _itemWidth + 10 + _itemWidth + _pillHPad * 2 + 16;
+      // back(32) + sep(9) + content + sep(9) + menu(itemWidth) + pill pads(4+6)
+      final rawW = 32.0 + 9 + contentItems.length * _itemWidth + 9 + _itemWidth + 10.0;
       final pillWidth = rawW.clamp(80.0, screenWidth - 32.0);
 
       return AnimatedContainer(
@@ -2145,12 +2145,12 @@ class _UnifiedSubDockPill extends StatelessWidget {
               : Colors.black.withValues(alpha: 0.10),
         );
 
-    // Compact back — chevron only, 28px, no label, de-emphasised.
+    // Compact back — 32px slot, icon right-of-center so it's close to divider.
     final backBtn = GestureDetector(
       onTap: () => onTap(backItem.route),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 28,
+        width: 32,
         height: double.infinity,
         child: Center(
           child: Icon(
@@ -2178,9 +2178,8 @@ class _UnifiedSubDockPill extends StatelessWidget {
               itemCount: contentItems.length,
               itemExtent: itemWidth,
               padding: EdgeInsets.zero,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
+              // Clamping: no bounce overshoot before snap fires.
+              physics: const ClampingScrollPhysics(),
               itemBuilder: (context, index) {
                 final item = contentItems[index];
                 return _DockItemWidget(
@@ -2209,27 +2208,25 @@ class _UnifiedSubDockPill extends StatelessWidget {
 
     Widget pill = Container(
       decoration: decoration,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            backBtn,
-            divider(),
-            Expanded(child: contentWidget),
-            divider(),
-            SizedBox(
-              width: itemWidth,
-              child: _DockItemWidget(
-                item: menuItem,
-                active: isActive(menuItem.route),
-                ref: ref,
-                onTap: () => onTap(menuItem.route),
-              ),
+      // Tight left pad (4) so chevron hugs the edge; slightly more right pad (6).
+      padding: const EdgeInsets.only(left: 4, right: 6, top: 4, bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          backBtn,
+          divider(),
+          Expanded(child: contentWidget),
+          divider(),
+          SizedBox(
+            width: itemWidth,
+            child: _DockItemWidget(
+              item: menuItem,
+              active: isActive(menuItem.route),
+              ref: ref,
+              onTap: () => onTap(menuItem.route),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
 
@@ -2311,6 +2308,9 @@ class _ClassicDock extends StatelessWidget {
         }),
       ),
       child: NavigationBar(
+        // Default 500 ms makes the indicator slide diagonally when items change;
+        // 150 ms keeps it snappy without feeling instant.
+        animationDuration: const Duration(milliseconds: 150),
         selectedIndex: safeIdx,
         onDestinationSelected: onDestinationSelected,
         destinations: destinations,
