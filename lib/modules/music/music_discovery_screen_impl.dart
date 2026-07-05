@@ -67,9 +67,13 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
       music_log.AppLogger.initialize(false);
     } catch (_) {}
     _router = SpotubeAppRouter(navigatorKey: _navKey);
-    // Pass initialRoutes directly so the delegate has content from frame 1.
-    // Using addPostFrameCallback caused a blank first frame before navigation fired.
-    _routerDelegate = _router.delegate(initialRoutes: _initialRoutes);
+    // auto_route v9: initialRoutes was removed from delegate(). Use replaceAll post-frame instead.
+      _routerDelegate = _router.delegate();
+      if (widget.initialRoute != null || !_doneGettingStarted()) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _router.replaceAll(_initialRoutes);
+        });
+      }
   }
 
   @override
