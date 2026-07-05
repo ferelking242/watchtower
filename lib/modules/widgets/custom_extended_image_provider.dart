@@ -315,6 +315,9 @@ class CustomExtendedNetworkImageProvider
     // Check memory cache first
     final cachedData = _memoryCache.get(md5Key);
     if (cachedData != null) {
+      if (kDebugMode) {
+        debugPrint('[IMG] MEM-HIT ${_shortUrl(key.url)} (${cachedData.length} B)');
+      }
       return cachedData;
     }
 
@@ -330,20 +333,30 @@ class CustomExtendedNetworkImageProvider
         final DateTime lastModified = (cacheFile as dynamic).lastModifiedSync() as DateTime;
         if (now.difference(lastModified) > key.cacheMaxAge!) {
           (cacheFile as dynamic).deleteSync();
+          if (kDebugMode) debugPrint('[IMG] DISK-EXPIRED ${_shortUrl(key.url)}');
         } else {
+          final t0 = DateTime.now();
           data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
-          // Store in memory cache
           _memoryCache.put(md5Key, data!);
+          if (kDebugMode) {
+            final ms = DateTime.now().difference(t0).inMilliseconds;
+            debugPrint('[IMG] DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
+          }
         }
       } else {
+        final t0 = DateTime.now();
         data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
-        // Store in memory cache
         _memoryCache.put(md5Key, data!);
+        if (kDebugMode) {
+          final ms = DateTime.now().difference(t0).inMilliseconds;
+          debugPrint('[IMG] DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
+        }
       }
     }
 
     // load from network
     if (data == null) {
+      if (kDebugMode) debugPrint('[IMG] CACHE-MISS → network ${_shortUrl(key.url)}');
       data = await _loadNetwork(key, chunkEvents);
       if (data != null) {
         if (!kIsWeb) {
@@ -362,16 +375,36 @@ class CustomExtendedNetworkImageProvider
     return data;
   }
 
+  /// Returns a short display form of a URL for log readability.
+  String _shortUrl(String u) {
+    try {
+      final uri = Uri.parse(u);
+      final path = uri.path;
+      return '${uri.host}${path.length > 40 ? '…${path.substring(path.length - 37)}' : path}';
+    } catch (_) {
+      return u.length > 60 ? '${u.substring(0, 57)}…' : u;
+    }
+  }
+
   /// Get the image from network.
   Future<Uint8List?> _loadNetwork(
     CustomExtendedNetworkImageProvider key,
     StreamController<ImageChunkEvent>? chunkEvents,
   ) async {
+    final t0 = DateTime.now();
     try {
       final Uri resolved = Uri.base.resolve(key.url);
+      if (kDebugMode) debugPrint('[IMG] NET-START ${_shortUrl(key.url)}');
       final StreamedResponse? response = await _tryGetResponse(resolved);
 
       if (response == null || response.statusCode != io.HttpStatus.ok) {
+        final ms = DateTime.now().difference(t0).inMilliseconds;
+        if (kDebugMode) {
+          debugPrint(
+            '[IMG] NET-FAIL  ${_shortUrl(key.url)} '
+            'status=${response?.statusCode ?? "null"} ${ms}ms',
+          );
+        }
         return null;
       }
 
@@ -402,21 +435,25 @@ class CustomExtendedNetworkImageProvider
       }
 
       if (bytes.isEmpty) {
+        final ms = DateTime.now().difference(t0).inMilliseconds;
+        if (kDebugMode) debugPrint('[IMG] NET-EMPTY ${_shortUrl(key.url)} ${ms}ms');
         return Future<Uint8List>.error(
           StateError('NetworkImage is an empty file: $resolved'),
         );
       }
 
+      final ms = DateTime.now().difference(t0).inMilliseconds;
+      if (kDebugMode) {
+        debugPrint('[IMG] NET-OK    ${_shortUrl(key.url)} (${bytes.length} B, ${ms}ms)');
+      }
       return Uint8List.fromList(bytes);
     } on OperationCanceledError catch (_) {
-      if (kDebugMode) {
-        if (kDebugMode) print('User cancel request $url.');
-      }
+      final ms = DateTime.now().difference(t0).inMilliseconds;
+      if (kDebugMode) debugPrint('[IMG] NET-CANCEL ${_shortUrl(key.url)} ${ms}ms');
       return Future<Uint8List>.error(StateError('User cancel request $url.'));
     } catch (e) {
-      if (kDebugMode) {
-        if (kDebugMode) print(e);
-      }
+      final ms = DateTime.now().difference(t0).inMilliseconds;
+      if (kDebugMode) debugPrint('[IMG] NET-ERR   ${_shortUrl(key.url)} ${ms}ms — $e');
     } finally {
       await chunkEvents?.close();
     }
