@@ -1595,15 +1595,11 @@ class _FloatingDock extends StatefulWidget {
 
 class _FloatingDockState extends State<_FloatingDock> {
   final ScrollController _scrollController = ScrollController();
-  // Dedicated controllers for the detached Back/Menu pills so they are
-  // properly disposed (no leaks from creating ScrollController() inline).
-  final ScrollController _backPillCtrl = ScrollController();
-  final ScrollController _menuPillCtrl = ScrollController();
   bool _menuOpen = false;
 
-  static const double _itemWidth = 58.0;   // ↓ was 64 — slimmer dock items
-  static const double _dockHeight = 62.0;  // label-friendly height
-  static const double _dockBottomPad = 10.0; // ↓ was 14
+  static const double _itemWidth = 52.0;   // compact dock items
+  static const double _dockHeight = 56.0;  // reduced height — more native feel
+  static const double _dockBottomPad = 10.0;
   static const double _pillHPad = 6.0;
   static const int _maxInlineItems = 5;
 
@@ -1631,8 +1627,6 @@ class _FloatingDockState extends State<_FloatingDock> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _backPillCtrl.dispose();
-    _menuPillCtrl.dispose();
     super.dispose();
   }
 
@@ -1864,17 +1858,14 @@ class _FloatingDockState extends State<_FloatingDock> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     if (inSubDock) {
+      // ONE unified pill: [‹ | content items... | menu]
+      // Back is a compact 28px chevron — de-emphasised, not a full slot.
       final backItem = items.first;
       final menuItem = items.last;
       final contentItems = items.sublist(1, items.length - 1);
-      final contentNeedsScroll = contentItems.length > 4;
-      final contentWidth = (contentItems.length * _itemWidth + _pillHPad * 2)
-          .clamp(80.0, screenWidth - 32.0 - 2 * (_itemWidth + 10));
-
-      void onTap(String route) {
-        HapticFeedback.lightImpact();
-        widget.onDestinationSelected(route);
-      }
+      // back(28) + sep(1+4) + content + sep(1+4) + menu(itemWidth) + pill pads
+      final rawW = 28.0 + 10 + contentItems.length * _itemWidth + 10 + _itemWidth + _pillHPad * 2 + 16;
+      final pillWidth = rawW.clamp(80.0, screenWidth - 32.0);
 
       return AnimatedContainer(
         duration: Duration(milliseconds: dockAnimMs),
@@ -1888,61 +1879,24 @@ class _FloatingDockState extends State<_FloatingDock> {
                   bottom: _dockBottomPad + bottomPad * 0.5,
                   top: 4,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // ── Back — detached left pill ─────────────────────────
-                    SizedBox(
-                      width: _itemWidth + _pillHPad * 2,
-                      height: _dockHeight,
-                      child: _DockPill(
-                        items: [backItem],
-                        itemWidth: _itemWidth,
-                        scrollController: _backPillCtrl,
-                        isActive: _isActive,
-                        ref: widget.ref,
-                        needsScroll: false,
-                        isGlass: isGlass,
-                        onTap: onTap,
-                        onScrollEnd: _onScrollEnd,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // ── Content items — center pill ───────────────────────
-                    SizedBox(
-                      width: contentWidth,
-                      height: _dockHeight,
-                      child: _DockPill(
-                        items: contentItems,
-                        itemWidth: _itemWidth,
-                        scrollController: _scrollController,
-                        isActive: _isActive,
-                        ref: widget.ref,
-                        needsScroll: contentNeedsScroll,
-                        isGlass: isGlass,
-                        onTap: onTap,
-                        onScrollEnd: _onScrollEnd,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // ── Menu — detached right pill ────────────────────────
-                    SizedBox(
-                      width: _itemWidth + _pillHPad * 2,
-                      height: _dockHeight,
-                      child: _DockPill(
-                        items: [menuItem],
-                        itemWidth: _itemWidth,
-                        scrollController: _menuPillCtrl,
-                        isActive: _isActive,
-                        ref: widget.ref,
-                        needsScroll: false,
-                        isGlass: isGlass,
-                        onTap: onTap,
-                        onScrollEnd: _onScrollEnd,
-                      ),
-                    ),
-                  ],
+                child: SizedBox(
+                  width: pillWidth,
+                  height: _dockHeight,
+                  child: _UnifiedSubDockPill(
+                    backItem: backItem,
+                    contentItems: contentItems,
+                    menuItem: menuItem,
+                    itemWidth: _itemWidth,
+                    scrollController: _scrollController,
+                    isActive: _isActive,
+                    ref: widget.ref,
+                    isGlass: isGlass,
+                    onTap: (route) {
+                      HapticFeedback.lightImpact();
+                      widget.onDestinationSelected(route);
+                    },
+                    onScrollEnd: _onScrollEnd,
+                  ),
                 ),
               )
             : const SizedBox.shrink(),
@@ -2064,11 +2018,13 @@ class _DockPill extends StatelessWidget {
           );
 
     final decoration = BoxDecoration(
+      // Always use Material 3 theme tokens — no hardcoded hex colours so custom
+      // themes look clean. Glass mode overlays a transparent tint instead.
       color: isGlass
           ? (isDark
               ? Colors.white.withValues(alpha: 0.08)
               : Colors.black.withValues(alpha: 0.05))
-          : (isDark ? const Color(0xFF0E0E12) : cs.surfaceContainerHigh),
+          : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(26),
       border: Border.all(
         color: isDark
@@ -2098,6 +2054,182 @@ class _DockPill extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
         child: itemsWidget,
+      ),
+    );
+
+    if (isGlass) {
+      pill = ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: pill,
+        ),
+      );
+    }
+
+    return pill;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unified sub-dock pill: back chevron | content items | menu — ONE pill only.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _UnifiedSubDockPill extends StatelessWidget {
+  const _UnifiedSubDockPill({
+    required this.backItem,
+    required this.contentItems,
+    required this.menuItem,
+    required this.itemWidth,
+    required this.scrollController,
+    required this.isActive,
+    required this.ref,
+    required this.isGlass,
+    required this.onTap,
+    required this.onScrollEnd,
+  });
+
+  final _DockItemData backItem;
+  final List<_DockItemData> contentItems;
+  final _DockItemData menuItem;
+  final double itemWidth;
+  final ScrollController scrollController;
+  final bool Function(String) isActive;
+  final WidgetRef ref;
+  final bool isGlass;
+  final void Function(String) onTap;
+  final void Function(ScrollMetrics) onScrollEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+
+    final decoration = BoxDecoration(
+      // Always theme-aware — no hardcoded colours, custom themes stay clean.
+      color: isGlass
+          ? (isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05))
+          : cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(26),
+      border: Border.all(
+        color: isDark
+            ? Colors.white.withValues(alpha: isGlass ? 0.14 : 0.09)
+            : Colors.black.withValues(alpha: 0.08),
+        width: 1.0,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.16),
+          blurRadius: 28,
+          spreadRadius: -4,
+          offset: const Offset(0, 8),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
+          blurRadius: 6,
+          spreadRadius: 0,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+
+    // Thin vertical divider between zones
+    Widget divider() => Container(
+          width: 0.5,
+          height: 26,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.13)
+              : Colors.black.withValues(alpha: 0.10),
+        );
+
+    // Compact back — chevron only, 28px, no label, de-emphasised.
+    final backBtn = GestureDetector(
+      onTap: () => onTap(backItem.route),
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 28,
+        height: double.infinity,
+        child: Center(
+          child: Icon(
+            Icons.chevron_left_rounded,
+            size: 22,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.42)
+                : Colors.black.withValues(alpha: 0.36),
+          ),
+        ),
+      ),
+    );
+
+    // Content items — scrollable when > 4
+    final needsScroll = contentItems.length > 4;
+    final Widget contentWidget = needsScroll
+        ? NotificationListener<ScrollEndNotification>(
+            onNotification: (n) {
+              onScrollEnd(n.metrics);
+              return false;
+            },
+            child: ListView.builder(
+              controller: scrollController,
+              scrollDirection: Axis.horizontal,
+              itemCount: contentItems.length,
+              itemExtent: itemWidth,
+              padding: EdgeInsets.zero,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              itemBuilder: (context, index) {
+                final item = contentItems[index];
+                return _DockItemWidget(
+                  item: item,
+                  active: isActive(item.route),
+                  ref: ref,
+                  onTap: () => onTap(item.route),
+                );
+              },
+            ),
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: contentItems
+                .map((item) => SizedBox(
+                      width: itemWidth,
+                      child: _DockItemWidget(
+                        item: item,
+                        active: isActive(item.route),
+                        ref: ref,
+                        onTap: () => onTap(item.route),
+                      ),
+                    ))
+                .toList(),
+          );
+
+    Widget pill = Container(
+      decoration: decoration,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            backBtn,
+            divider(),
+            Expanded(child: contentWidget),
+            divider(),
+            SizedBox(
+              width: itemWidth,
+              child: _DockItemWidget(
+                item: menuItem,
+                active: isActive(menuItem.route),
+                ref: ref,
+                onTap: () => onTap(menuItem.route),
+              ),
+            ),
+          ],
+        ),
       ),
     );
 
