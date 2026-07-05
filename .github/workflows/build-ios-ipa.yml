@@ -112,52 +112,27 @@ jobs:
 
       # ── Build ────────────────────────────────────────────────────────────────
       - name: Build iOS (no codesign)
-        run: |
-          set -euo pipefail
+          run: |
+            set -euo pipefail
 
-          # Phase 1: générer le glue Flutter (xcconfig, GeneratedPluginRegistrant, etc.)
-          flutter build ios --release --no-codesign --config-only 2>&1 | tail -20 || true
+            flutter build ios --release --no-codesign 2>&1 | tail -30
 
-          # Phase 2: xcodebuild avec signing totalement désactivé.
-          echo "=== xcodebuild start ==="
-          set +e
-          mkdir -p build/ios/iphoneos
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination "generic/platform=iOS" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            CONFIGURATION_BUILD_DIR="$(pwd)/build/ios/iphoneos" \
-            build 2>&1 | tee /tmp/xbuild.log
-          XB_EXIT=${PIPESTATUS[0]}
-          set -e
+            APP="build/ios/iphoneos/Runner.app"
 
-          if [ $XB_EXIT -ne 0 ]; then
-            echo "=== xcodebuild FAILED (exit $XB_EXIT) — last 60 lines ==="
-            tail -60 /tmp/xbuild.log
-            exit $XB_EXIT
-          fi
-          echo "=== xcodebuild SUCCESS ==="
+            if [ ! -d "$APP" ]; then
+              echo "ERROR: Runner.app not found at $APP"
+              find build -name "Runner.app" -type d 2>/dev/null | head -5 || true
+              exit 1
+            fi
 
-          APP="build/ios/iphoneos/Runner.app"
-          echo "=== App size: $(du -sh $APP) ==="
+            echo "=== App size: $(du -sh $APP) ==="
+            echo "=== Frameworks signes ==="
+            ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0"
+            echo "=== Ad-hoc codesign (requis TrollStore) ==="
+            codesign --force --sign - --deep "$APP" 2>/dev/null || true
+            codesign -dvvv "$APP" 2>&1 | head -8 || true
 
-          echo "=== Vérification entitlements ==="
-          ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
-
-          echo "=== Frameworks signes ==="
-          ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0"
-
-          echo "=== Ad-hoc codesign (requis TrollStore) ==="
-          codesign --force --sign - --deep "$APP" 2>/dev/null || true
-          codesign -dvvv "$APP" 2>&1 | head -8 || true
-
-      # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
+        # ── Cleanup .ldid.* residus ─────────────────────────────────────────────
       - name: Cleanup ldid residual files
         run: |
           APP="build/ios/iphoneos/Runner.app"
