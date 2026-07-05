@@ -1,8 +1,8 @@
 import 'package:auto_route/auto_route.dart';
     import 'package:flutter/material.dart';
     import 'package:flutter_hooks/flutter_hooks.dart';
-    import 'package:go_router/go_router.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
+    import 'package:watchtower/modules/music/collections/routes.gr.dart';
     import 'package:watchtower/modules/music/collections/spotube_icons.dart';
     import 'package:watchtower/modules/music/models/database/database.dart';
     import 'package:watchtower/modules/music/modules/connect/connect_device.dart';
@@ -49,10 +49,14 @@ import 'package:auto_route/auto_route.dart';
                   actions: [
                     const ConnectDeviceButton(),
                     const SizedBox(width: 4),
-                    // Redirects to Watchtower's main settings screen
+                    // Opens the Music Hub's internal settings screen
+                    // (must stay inside the music module's own router,
+                    // otherwise popping it bubbles up to the outer app
+                    // and lands back on the discovery screen).
                     IconButton(
                       icon: const Icon(SpotubeIcons.settings, size: 20),
-                      onPressed: () => context.go('/settings'),
+                      onPressed: () =>
+                          context.navigateTo(const SettingsRoute()),
                     ),
                     const SizedBox(width: 6),
                   ],

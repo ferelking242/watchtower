@@ -74,7 +74,8 @@ class ErrorBox extends StatelessWidget {
                                     const Spacer(),
                                     IconButton(
                                       icon: const Icon(SpotubeIcons.close),
-                                      onPressed: () => context.maybePop(),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
                                     )
                                   ],
                                 ),

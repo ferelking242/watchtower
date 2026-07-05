@@ -101,7 +101,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         case 'it':
           return "Aggiorna-\nmenti";
         case 'tr':
-          return "GÃ¼ncel-\nlemeler";
+          return "Güncel-\nlemeler";
         default:
           return defaultLabel;
       }
@@ -451,7 +451,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                     }
                                     final destination = _cappedDest[idx];
                                     AppLogger.log(
-                                      'Nav â $destination',
+                                      'Nav -> $destination',
                                       logLevel: LogLevel.debug,
                                       tag: LogTag.ui,
                                     );
@@ -479,7 +479,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                   showPill: true,
                                   onDestinationSelected: (destination) {
                                     AppLogger.log(
-                                      'Nav â $destination',
+                                      'Nav -> $destination',
                                       logLevel: LogLevel.debug,
                                       tag: LogTag.ui,
                                     );
@@ -1191,7 +1191,7 @@ class _SidebarToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: collapsed ? 'DÃ©plier le menu' : 'Replier le menu',
+      message: collapsed ? 'Déplier le menu' : 'Replier le menu',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
