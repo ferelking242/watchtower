@@ -168,11 +168,13 @@ jobs:
           echo "=== Removing .metallib files (Metal shader) ==="
           find "$APP" -name "*.metallib" -delete 2>/dev/null || true
 
-          echo "=== Removing .storyboardc dirs (contain .nib) ==="
-          find "$APP" -name "*.storyboardc" -type d -exec rm -rf {} + 2>/dev/null || true
+          echo "=== Removing .storyboardc dirs INSIDE Frameworks only (NOT Main/LaunchScreen at app root) ==="
+          # Main.storyboardc and LaunchScreen.storyboardc are required by UIKit (UIMainStoryboardFile=Main).
+          # Only remove storyboardcs from framework bundles (e.g. flutter_inappwebview WebView.storyboardc).
+          find "$APP/Frameworks" -name "*.storyboardc" -type d -exec rm -rf {} + 2>/dev/null || true
 
-          echo "=== Removing orphan .nib files ==="
-          find "$APP" -name "*.nib" -delete 2>/dev/null || true
+          echo "=== Removing orphan .nib files inside Frameworks only ==="
+          find "$APP/Frameworks" -name "*.nib" -delete 2>/dev/null || true
 
           echo "=== Removing icudtl.dat (ICU data binary) ==="
           find "$APP" -name "icudtl.dat" -delete 2>/dev/null || true
