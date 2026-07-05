@@ -5,9 +5,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# Cancel in-progress runs on new push — only the latest commit matters
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ────────────────────────────────────────────────────────────
@@ -49,15 +50,19 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      # No restore-keys: exact key match or clean Gradle build to avoid stale task outputs.
-      # build-cache-N sub-path removed — it is already inside ~/.gradle/caches.
+      # Gradle cache keyed on gradle files + pubspec + all Dart sources.
+      # Including lib/** ensures any Dart change invalidates the cache,
+      # making it safe to enable Gradle build caching (caching=true below).
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-${{ runner.os }}-
 
       - name: Cache Android SDK extras (NDK, CMake)
         uses: actions/cache@v4
@@ -66,6 +71,20 @@ jobs:
             /usr/local/lib/android/sdk/ndk/27.0.12077973
             /usr/local/lib/android/sdk/cmake/3.22.1
           key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      # Cache p7zip binary — avoids ~40s apt-get install on every run
+      - name: Cache p7zip
+        id: p7zip-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/bin/7z
+            /usr/lib/p7zip
+          key: p7zip-${{ runner.os }}-v1
+
+      - name: Install p7zip (if not cached)
+        if: steps.p7zip-cache.outputs.cache-hit != 'true'
+        run: sudo apt-get install -y p7zip-full --quiet
 
       - name: Decode keystore from secret
         run: |
@@ -77,8 +96,9 @@ jobs:
 
       - name: Build APK — ${{ matrix.label }}
         env:
-          # gradle.caching=false: Gradle local build cache disabled — prevents stale Flutter task output replay.
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Dhttp.keepAlive=false"
+          # caching=true: safe because the Gradle Actions cache key above includes
+          # all Dart sources — any code change busts the cache → no stale task output.
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
         run: |
           flutter build apk \
             --profile \
@@ -87,7 +107,6 @@ jobs:
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
-          sudo apt-get install -y p7zip-full --quiet
           mkdir -p artifacts apk_raw
           TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-profile.apk"
           if [ ! -f "$TARGET_APK" ]; then
@@ -143,14 +162,16 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      # No restore-keys: exact key match or clean Gradle build to avoid stale task outputs.
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-${{ runner.os }}-
 
       - name: Cache Android SDK extras (NDK, CMake)
         uses: actions/cache@v4
@@ -159,6 +180,19 @@ jobs:
             /usr/local/lib/android/sdk/ndk/27.0.12077973
             /usr/local/lib/android/sdk/cmake/3.22.1
           key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      - name: Cache p7zip
+        id: p7zip-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/bin/7z
+            /usr/lib/p7zip
+          key: p7zip-${{ runner.os }}-v1
+
+      - name: Install p7zip (if not cached)
+        if: steps.p7zip-cache.outputs.cache-hit != 'true'
+        run: sudo apt-get install -y p7zip-full --quiet
 
       - name: Decode keystore from secret
         run: |
@@ -170,13 +204,11 @@ jobs:
 
       - name: Build Universal APK
         env:
-          # gradle.caching=false: Gradle local build cache disabled — prevents stale Flutter task output replay.
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Dhttp.keepAlive=false"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
         run: flutter build apk --profile
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
-          sudo apt-get install -y p7zip-full --quiet
           mkdir -p apk_raw
           TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
           echo "APK size: $(du -sh $TARGET_APK)"
