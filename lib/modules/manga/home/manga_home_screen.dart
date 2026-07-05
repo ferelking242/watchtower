@@ -1238,10 +1238,14 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 },
               ),
 
-            // Custom list sections ────────────────────────────────────────────
+            // Custom list sections (skip special-purpose tab ids) ───────────────
             ...List.generate(_customLists.length, (i) {
               final cl = _customLists[i];
               final listId = cl['id'] as String;
+              // home/popular/latest are rendered as dedicated tabs, not inline sections
+              if (listId == 'home' || listId == 'popular' || listId == 'latest') {
+                return const SizedBox.shrink();
+              }
               String listName = cl['name'] as String? ?? listId;
               if (listName.toLowerCase() == 'new titles') listName = 'Popular';
               return Column(
@@ -1424,7 +1428,12 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       } else if (_isLatestTab && !_isSearch && _query.isEmpty) {
         ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
       } else {
-        ref.invalidate(getPopularProvider(source: source, page: 1));
+        final customId = _activeCustomListId;
+        if (customId != null) {
+          ref.invalidate(getCustomListProvider(source: source, listId: customId, page: 1));
+        } else {
+          ref.invalidate(getPopularProvider(source: source, page: 1));
+        }
       }
     }
 
