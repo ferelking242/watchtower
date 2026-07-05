@@ -149,7 +149,7 @@ jobs:
           ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
 
           echo "=== Frameworks signes ==="
-          ls "$APP/Frameworks/" | wc -l
+          ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0"
 
           echo "=== Ad-hoc codesign (requis TrollStore) ==="
           codesign --force --sign - --deep "$APP" 2>/dev/null || true
