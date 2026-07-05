@@ -54,6 +54,8 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
     }
   }
 
+  late final RouterDelegate<Object?> _routerDelegate;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +63,7 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
       music_log.AppLogger.initialize(false);
     } catch (_) {}
     _router = SpotubeAppRouter();
+    _routerDelegate = _router.delegate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final routes = _initialRoutes;
@@ -96,7 +99,7 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
           context: locCtx,
           locale: musicLocale,
           child: Router(
-            routerDelegate: _router.delegate(),
+            routerDelegate: _routerDelegate,
             backButtonDispatcher: parentDispatcher != null
                 ? ChildBackButtonDispatcher(parentDispatcher)
                 : RootBackButtonDispatcher(),
