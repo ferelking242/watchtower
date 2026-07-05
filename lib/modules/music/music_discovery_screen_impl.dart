@@ -89,20 +89,26 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
       userPreferencesProvider.select((p) => p.locale),
     );
 
-    // Use surface color as background to prevent white flash while the router
-    // initialises. Do NOT override with Spotube's own Theme — Music mode must
-    // inherit the user's chosen Watchtower palette.
-    return ColoredBox(
-      color: cs.surface,
-      child: Builder(
-        builder: (locCtx) => Localizations.override(
-          context: locCtx,
-          locale: musicLocale,
-          child: Router(
-            routerDelegate: _routerDelegate,
-            backButtonDispatcher: parentDispatcher != null
-                ? ChildBackButtonDispatcher(parentDispatcher)
-                : RootBackButtonDispatcher(),
+    // FIX music white screen: propagate scaffoldBackgroundColor + surface so
+    // every Spotube Scaffold/Material inherits the user's palette instead of
+    // defaulting to Flutter's opaque white.
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: cs.surface,
+        canvasColor: cs.surface,
+      ),
+      child: ColoredBox(
+        color: cs.surface,
+        child: Builder(
+          builder: (locCtx) => Localizations.override(
+            context: locCtx,
+            locale: musicLocale,
+            child: Router(
+              routerDelegate: _routerDelegate,
+              backButtonDispatcher: parentDispatcher != null
+                  ? ChildBackButtonDispatcher(parentDispatcher)
+                  : RootBackButtonDispatcher(),
+            ),
           ),
         ),
       ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,11 +11,19 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
+import 'package:watchtower/modules/novel/home/novel_home_screen.dart';
+import 'package:watchtower/modules/watch/home/watch_home_screen.dart';
 
-// ── View mode ──────────────────────────────────────────────────────────────────
+// ── Display mode ───────────────────────────────────────────────────────────────
 
-enum _ViewMode { grid, list }
+enum _DiscoverDisplayMode {
+  compact,      // Compact Grid — default, multi-column covers
+  comfortable,  // Comfortable Grid — larger cards, info below
+  cinema,       // Cinéma — full cover card with dark text overlay
+  list,         // List view
+}
 
 // ── Discover modes ─────────────────────────────────────────────────────────────
 
@@ -198,12 +207,13 @@ class _WatchtowerDiscoverScreenState
   bool _showFab = false;
   bool _filterOpen = false;
 
-  // View options
-  _ViewMode _viewMode = _ViewMode.grid;
+  // View/display options
+  _DiscoverDisplayMode _displayMode = _DiscoverDisplayMode.compact;
   int _columnsCount = 2;
 
   // Custom mode
   Source? _customSource;
+  Widget? _customSourceWidget;
 
   @override
   void initState() {
@@ -480,181 +490,305 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
       isScrollControlled: true,
       builder: (_) => _SourcePickerSheet(
         onSelected: (src) {
-          setState(() => _customSource = src);
+          setState(() {
+            _customSource = src;
+            _customSourceWidget = null; // reset embedded widget for new source
+          });
         },
       ),
     );
   }
 
+  // FIX 3: embed the source home directly in the page instead of pushing a route
   void _navigateToSource(Source src) {
     final type = src.itemType;
+    final Widget screen;
     if (type == ItemType.anime) {
-      context.push('/watchHome', extra: (src, false));
+      screen = WatchHomeScreen(source: src, isLatest: false);
     } else if (type == ItemType.novel) {
-      context.push('/novelHome', extra: (src, false));
+      screen = NovelHomeScreen(source: src, isLatest: false);
     } else {
-      context.push('/mangaHome', extra: (src, false));
+      screen = MangaHomeScreen(source: src, isLatest: false);
     }
+    setState(() => _customSourceWidget = screen);
   }
 
   // ── More sheet ────────────────────────────────────────────────────────────────
+  // FIX 1: Full-height blur glass sheet — covers the dock, Cancel/Apply footer,
+  //         Sort By section + Display Mode section (like Library filter box).
 
   void _showMoreSheet(BuildContext ctx) {
     final cs = Theme.of(ctx).colorScheme;
     final isDark = Theme.of(ctx).brightness == Brightness.dark;
 
+    // Local copies — nothing applied until "Appliquer"
+    _DiscoverDisplayMode localDisplay = _displayMode;
+    int localColumns = _columnsCount;
+    _SortOption localSort = _sort;
+
     showModalBottomSheet(
       context: ctx,
-      backgroundColor: Colors.transparent,
+      useRootNavigator: true,           // rises above BottomNavigationBar
       isScrollControlled: true,
-      builder: (_) => StatefulBuilder(
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (sheetCtx) => StatefulBuilder(
         builder: (_, setLocal) {
-          return SafeArea(
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1E) : cs.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(child: _SheetHandle(cs: cs)),
+          final sheetBg = isDark
+              ? Colors.black.withValues(alpha: 0.82)
+              : Colors.white.withValues(alpha: 0.90);
 
-                  // Clear filters
-                  if (_hasActiveFilters) ...[
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading:
-                          Icon(Icons.delete_outline_rounded, color: cs.error),
-                      title: Text('Effacer les filtres',
-                          style: TextStyle(color: cs.error)),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _clearFilters();
-                      },
-                    ),
-                    Divider(height: 1, color: cs.outlineVariant),
-                    const SizedBox(height: 8),
-                  ],
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+              child: Container(
+                color: sheetBg,
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Handle ─────────────────────────────────────────────
+                      Center(child: _SheetHandle(cs: cs)),
+                      const SizedBox(height: 4),
 
-                  // Section: affichage
-                  Text(
-                    'AFFICHAGE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurface.withValues(alpha: 0.40),
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                      // ── Scrollable body ────────────────────────────────────
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ── Clear active filters ───────────────────────
+                              if (_hasActiveFilters) ...[
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(Icons.delete_outline_rounded, color: cs.error),
+                                  title: Text('Effacer les filtres', style: TextStyle(color: cs.error)),
+                                  onTap: () {
+                                    Navigator.pop(sheetCtx);
+                                    _clearFilters();
+                                  },
+                                ),
+                                Divider(height: 1, color: cs.outlineVariant),
+                                const SizedBox(height: 12),
+                              ],
 
-                  // Grid / List toggle
-                  Row(children: [
-                    Expanded(
-                      child: _ViewToggleBtn(
-                        icon: Icons.grid_view_rounded,
-                        label: 'Grille',
-                        selected: _viewMode == _ViewMode.grid,
-                        cs: cs,
-                        isDark: isDark,
-                        onTap: () {
-                          setState(() => _viewMode = _ViewMode.grid);
-                          setLocal(() {});
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _ViewToggleBtn(
-                        icon: Icons.view_list_rounded,
-                        label: 'Liste',
-                        selected: _viewMode == _ViewMode.list,
-                        cs: cs,
-                        isDark: isDark,
-                        onTap: () {
-                          setState(() => _viewMode = _ViewMode.list);
-                          setLocal(() {});
-                        },
-                      ),
-                    ),
-                  ]),
+                              // ── Sort By ────────────────────────────────────
+                              _SheetSectionLabel('SORT BY', cs),
+                              const SizedBox(height: 10),
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: _SortOption.values.map((opt) {
+                                    final isSel = localSort == opt;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: GestureDetector(
+                                        onTap: () => setLocal(() => localSort = opt),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 150),
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                          decoration: BoxDecoration(
+                                            color: isSel
+                                                ? cs.primaryContainer.withValues(alpha: 0.80)
+                                                : (isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isSel ? cs.primary : Colors.transparent,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(opt.icon, size: 14, color: isSel ? cs.primary : cs.onSurface.withValues(alpha: 0.65)),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                opt.label,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                                  color: isSel ? cs.primary : cs.onSurface,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
 
-                  // Columns (grid only)
-                  if (_viewMode == _ViewMode.grid) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Text(
-                          'Couvertures par ligne',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
+                              const SizedBox(height: 20),
+
+                              // ── Display Mode ───────────────────────────────
+                              _SheetSectionLabel('DISPLAY MODE', cs),
+                              const SizedBox(height: 10),
+                              GridView.count(
+                                crossAxisCount: 2,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: 2.8,
+                                children: [
+                                  _DisplayModeBtn(
+                                    icon: Icons.grid_view_rounded,
+                                    label: 'Compact Grid',
+                                    selected: localDisplay == _DiscoverDisplayMode.compact,
+                                    cs: cs, isDark: isDark,
+                                    onTap: () => setLocal(() {
+                                      localDisplay = _DiscoverDisplayMode.compact;
+                                      if (localColumns > 4) localColumns = 2;
+                                    }),
+                                  ),
+                                  _DisplayModeBtn(
+                                    icon: Icons.grid_on_rounded,
+                                    label: 'Comfortable Grid',
+                                    selected: localDisplay == _DiscoverDisplayMode.comfortable,
+                                    cs: cs, isDark: isDark,
+                                    onTap: () => setLocal(() {
+                                      localDisplay = _DiscoverDisplayMode.comfortable;
+                                      if (localColumns > 2) localColumns = 2;
+                                    }),
+                                  ),
+                                  _DisplayModeBtn(
+                                    icon: Icons.local_movies_rounded,
+                                    label: 'Cinéma',
+                                    selected: localDisplay == _DiscoverDisplayMode.cinema,
+                                    cs: cs, isDark: isDark,
+                                    onTap: () => setLocal(() {
+                                      localDisplay = _DiscoverDisplayMode.cinema;
+                                      if (localColumns > 2) localColumns = 2;
+                                    }),
+                                  ),
+                                  _DisplayModeBtn(
+                                    icon: Icons.view_list_rounded,
+                                    label: 'List',
+                                    selected: localDisplay == _DiscoverDisplayMode.list,
+                                    cs: cs, isDark: isDark,
+                                    onTap: () => setLocal(() => localDisplay = _DiscoverDisplayMode.list),
+                                  ),
+                                ],
+                              ),
+
+                              // ── Grid Size (hidden for list mode) ───────────
+                              if (localDisplay != _DiscoverDisplayMode.list) ...[
+                                const SizedBox(height: 20),
+                                _SheetSectionLabel('GRID SIZE', cs),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    for (final n in localDisplay == _DiscoverDisplayMode.compact
+                                        ? [1, 2, 3, 4]
+                                        : [1, 2])
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: GestureDetector(
+                                          onTap: () => setLocal(() => localColumns = n),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 150),
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: localColumns == n
+                                                  ? cs.primary
+                                                  : (isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                '$n',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: localColumns == n ? cs.onPrimary : cs.onSurface,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+
+                              // ── Custom source change ────────────────────────
+                              if (_mode == _DiscoverMode.custom && _customSource != null) ...[
+                                const SizedBox(height: 12),
+                                Divider(height: 1, color: cs.outlineVariant),
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(Icons.swap_horiz_rounded, color: cs.primary),
+                                  title: const Text("Changer d'extension"),
+                                  onTap: () {
+                                    Navigator.pop(sheetCtx);
+                                    _pickCustomSource(ctx);
+                                  },
+                                ),
+                              ],
+
+                              const SizedBox(height: 8),
+                            ],
                           ),
                         ),
-                        const Spacer(),
-                        for (int n in [1, 2, 3, 4])
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() => _columnsCount = n);
-                                setLocal(() {});
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: _columnsCount == n
-                                      ? cs.primary
-                                      : (isDark
-                                          ? const Color(0xFF2C2C2E)
-                                          : cs.surfaceContainerHigh),
-                                  borderRadius: BorderRadius.circular(10),
+                      ),
+
+                      // ── Footer: Annuler | Appliquer ─────────────────────────
+                      Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.5)),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(sheetCtx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  side: BorderSide(color: cs.outlineVariant),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    '$n',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: _columnsCount == n
-                                          ? cs.onPrimary
-                                          : cs.onSurface,
-                                    ),
-                                  ),
+                                child: Text(
+                                  'Annuler',
+                                  style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ],
-
-                  // Custom source change
-                  if (_mode == _DiscoverMode.custom &&
-                      _customSource != null) ...[
-                    const SizedBox(height: 8),
-                    Divider(height: 1, color: cs.outlineVariant),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading:
-                          Icon(Icons.swap_horiz_rounded, color: cs.primary),
-                      title: const Text("Changer d'extension"),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _pickCustomSource(ctx);
-                      },
-                    ),
-                  ],
-
-                  const SizedBox(height: 4),
-                ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () {
+                                  final sortChanged = localSort != _sort;
+                                  Navigator.pop(sheetCtx);
+                                  setState(() {
+                                    _displayMode = localDisplay;
+                                    _columnsCount = localDisplay == _DiscoverDisplayMode.compact
+                                        ? localColumns
+                                        : localColumns.clamp(1, 2);
+                                    _sort = localSort;
+                                  });
+                                  if (sortChanged) _fetchResults(reset: true);
+                                },
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                                child: const Text(
+                                  'Appliquer',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           );
@@ -1114,6 +1248,10 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             onPickSource: () => _pickCustomSource(context),
           );
         }
+        // FIX 3: show embedded source home — no more push navigation
+        if (_customSourceWidget != null) {
+          return _customSourceWidget!;
+        }
         return _CustomSourceLauncher(
           source: _customSource!,
           onNavigate: _navigateToSource,
@@ -1123,7 +1261,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         );
 
       default: // watch, manga, novel
-        if (_viewMode == _ViewMode.list) {
+        if (_displayMode == _DiscoverDisplayMode.list) {
           return _buildList(context, cs, isDark);
         }
         return _buildGrid(context, cs, isDark);
@@ -1136,6 +1274,14 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     if (_hasError && _items.isEmpty) {
       return _buildErrorState(cs);
     }
+
+    // FIX 2: support compact / comfortable / cinema display modes
+    final cols = _displayMode == _DiscoverDisplayMode.compact ? _columnsCount : _columnsCount.clamp(1, 2);
+    final aspectRatio = switch (_displayMode) {
+      _DiscoverDisplayMode.comfortable => 0.68,
+      _DiscoverDisplayMode.cinema      => 0.70,
+      _                                => 0.62,
+    };
 
     return CustomScrollView(
       controller: _scrollCtrl,
@@ -1151,19 +1297,22 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                       : const SizedBox.shrink();
                 }
                 final item = _items[i];
-                return _MediaCard(
-                  item: item,
-                  cs: cs,
-                  onTap: () => _openItem(context, item),
-                );
+                return switch (_displayMode) {
+                  _DiscoverDisplayMode.comfortable => _MediaCardComfortable(
+                      item: item, cs: cs, onTap: () => _openItem(context, item)),
+                  _DiscoverDisplayMode.cinema => _MediaCardCinema(
+                      item: item, cs: cs, onTap: () => _openItem(context, item)),
+                  _ => _MediaCard(
+                      item: item, cs: cs, onTap: () => _openItem(context, item)),
+                };
               },
               childCount: _items.isEmpty && _isLoading
                   ? 20
-                  : _items.length + (_isLoading ? _columnsCount : 0),
+                  : _items.length + (_isLoading ? cols : 0),
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: _columnsCount,
-              childAspectRatio: 0.62,
+              crossAxisCount: cols,
+              childAspectRatio: aspectRatio,
               crossAxisSpacing: 10,
               mainAxisSpacing: 12,
             ),
@@ -2023,18 +2172,23 @@ class _ModePill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 12,
-              color: selected
-                  ? cs.onPrimary
-                  : cs.onSurface.withValues(alpha: 0.55),
-            ),
+            // FIX 2: slightly larger icons in mode pills, responsive to screen
+            Builder(builder: (ctx) {
+              final w = MediaQuery.of(ctx).size.width;
+              final sz = w < 375 ? 13.0 : (w < 430 ? 15.0 : 16.0);
+              return Icon(
+                icon,
+                size: sz,
+                color: selected
+                    ? cs.onPrimary
+                    : cs.onSurface.withValues(alpha: 0.55),
+              );
+            }),
             const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 12.5,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected
                     ? cs.onPrimary
@@ -2574,6 +2728,252 @@ class _StringPickerSheet extends StatelessWidget {
                     onTap: () => Navigator.pop(context, item),
                   );
                 },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Comfortable Grid Card ─────────────────────────────────────────────────────
+// FIX 2: Comfortable Grid — larger card, info below image
+
+class _MediaCardComfortable extends StatelessWidget {
+  final _DiscoverItem item;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  const _MediaCardComfortable({
+    required this.item,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 5,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(13),
+              child: item.coverUrl != null
+                  ? ExtendedImage.network(
+                      item.coverUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      cache: true,
+                      loadStateChanged: (s) {
+                        if (s.extendedImageLoadState != LoadState.completed) {
+                          return Container(color: cs.surfaceContainerHigh);
+                        }
+                        return null;
+                      },
+                    )
+                  : Container(
+                      color: cs.surfaceContainerHigh,
+                      child: Icon(Icons.image_outlined,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Text(
+              item.displayTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+                height: 1.3,
+              ),
+            ),
+          ),
+          if (item.score != null)
+            Text(
+              '★ ${(item.score! / 10.0).toStringAsFixed(1)}',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Cinéma Grid Card ──────────────────────────────────────────────────────────
+// FIX 2: Cinéma — full-bleed cover with dark gradient text overlay
+
+class _MediaCardCinema extends StatelessWidget {
+  final _DiscoverItem item;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  const _MediaCardCinema({
+    required this.item,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(13),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Cover
+            if (item.coverUrl != null)
+              ExtendedImage.network(
+                item.coverUrl!,
+                fit: BoxFit.cover,
+                cache: true,
+                loadStateChanged: (s) {
+                  if (s.extendedImageLoadState != LoadState.completed) {
+                    return Container(color: cs.surfaceContainerHigh);
+                  }
+                  return null;
+                },
+              )
+            else
+              Container(
+                color: cs.surfaceContainerHigh,
+                child: Icon(Icons.image_outlined,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+              ),
+
+            // Dark gradient overlay — text on black
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(9, 22, 9, 9),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Color(0xF0000000), Color(0x00000000)],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item.displayTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        height: 1.3,
+                      ),
+                    ),
+                    if (item.score != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '★ ${(item.score! / 10.0).toStringAsFixed(1)}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xCCFFFFFF),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sheet section label ───────────────────────────────────────────────────────
+
+class _SheetSectionLabel extends StatelessWidget {
+  final String text;
+  final ColorScheme cs;
+  const _SheetSectionLabel(this.text, this.cs);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: cs.onSurface.withValues(alpha: 0.40),
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+// ── Display Mode Button ────────────────────────────────────────────────────────
+
+class _DisplayModeBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _DisplayModeBtn({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: 0.12)
+              : (isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? cs.primary : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 16,
+                color: selected
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.55)),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.70),
               ),
             ),
           ],
