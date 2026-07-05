@@ -85,6 +85,18 @@ const _kIconMap = <String, IconData>{
   'update':       Icons.update_rounded,
 };
 
+// ── Tab kind & entry ─────────────────────────────────────────────────────────
+enum _TabKind { home, popular, latest, custom }
+
+class _TabEntry {
+  final _TabKind kind;
+  final String? customId;
+  final String name;
+  final IconData? icon;
+  final String? emojiStr;
+  const _TabEntry({required this.kind, this.customId, required this.name, this.icon, this.emojiStr});
+}
+
 class TypeMangaSelector {
   final IconData? icon;      // Material icon (null if emoji)
   final String? emojiStr;    // emoji ou texte court
@@ -100,50 +112,66 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   int _page = 1;
   bool _hasNextPage = true;
 
-  late int _selectedIndex = widget.isLatest
-      ? 1
-      : widget.isSearch
-      ? 2
-      : 0;
+  late final List<Map<String, dynamic>> _customLists =
+      isLocal ? [] : getCustomLists(source: source);
+
+  late final List<_TabEntry> _tabs = _buildTabList();
+
+  List<_TabEntry> _buildTabList() {
+    if (isLocal || _customLists.isEmpty) {
+      return [
+        const _TabEntry(kind: _TabKind.popular, name: 'Popular', icon: Icons.local_fire_department_rounded),
+        const _TabEntry(kind: _TabKind.latest, name: 'Latest', icon: Icons.update_rounded),
+      ];
+    }
+    final homeEntries = <_TabEntry>[];
+    final popularEntries = <_TabEntry>[];
+    final latestEntries = <_TabEntry>[];
+    final customEntries = <_TabEntry>[];
+    for (final cl in _customLists) {
+      final id = cl['id'] as String? ?? '';
+      final name = cl['name'] as String? ?? id;
+      final icStr = cl['icon'] as String?;
+      final matIcon = icStr != null ? _kIconMap[icStr] : null;
+      final emoji = (icStr != null && matIcon == null) ? icStr : null;
+      switch (id) {
+        case 'home':
+          homeEntries.add(_TabEntry(kind: _TabKind.home, name: name, icon: matIcon ?? Icons.home_rounded, emojiStr: emoji));
+        case 'popular':
+          popularEntries.add(_TabEntry(kind: _TabKind.popular, name: name, icon: matIcon ?? Icons.local_fire_department_rounded, emojiStr: emoji));
+        case 'latest':
+          latestEntries.add(_TabEntry(kind: _TabKind.latest, name: name, icon: matIcon ?? Icons.update_rounded, emojiStr: emoji));
+        default:
+          customEntries.add(_TabEntry(kind: _TabKind.custom, customId: id, name: name, icon: matIcon, emojiStr: emoji));
+      }
+    }
+    return [...homeEntries, ...popularEntries, ...latestEntries, ...customEntries];
+  }
+
+  _TabKind? get _currentTabKind => _selectedIndex < _tabs.length ? _tabs[_selectedIndex].kind : null;
+  bool get _isHomeTab    => _currentTabKind == _TabKind.home;
+  bool get _isPopularTab => _currentTabKind == _TabKind.popular;
+  bool get _isLatestTab  => _currentTabKind == _TabKind.latest;
+
+  String? get _activeCustomListId {
+    if (_selectedIndex < _tabs.length && _tabs[_selectedIndex].kind == _TabKind.custom) {
+      return _tabs[_selectedIndex].customId;
+    }
+    return null;
+  }
+
+  late int _selectedIndex = () {
+    if (widget.isLatest) {
+      final idx = _tabs.indexWhere((t) => t.kind == _TabKind.latest);
+      return idx >= 0 ? idx : 0;
+    }
+    return 0;
+  }();
   String? _expandedChipName;
   late Source source = widget.source;
   late bool isLocal = source.name == "local" && source.lang == "";
   late List<dynamic> filters = isLocal ? [] : getFilterList(source: source);
   final List<MManga> _mangaList = [];
-
-  late final List<Map<String, dynamic>> _customLists =
-      isLocal ? [] : getCustomLists(source: source);
-
-  static const _kPopularIdx = 0;
-  static const _kLatestIdx = 1;
-  static const _kFilterIdx = 2;
-  static const _kCustomBase = 3;
-
-  String? get _activeCustomListId {
-    if (_selectedIndex >= _kCustomBase && !isLocal) {
-      final cIdx = _selectedIndex - _kCustomBase;
-      if (cIdx < _customLists.length) {
-        return _customLists[cIdx]['id'] as String?;
-      }
-    }
-    return null;
-  }
-
-  List<TypeMangaSelector> _types(BuildContext context) {
-    final l10n = l10nLocalizations(context)!;
-    return [
-      TypeMangaSelector(Icons.local_fire_department_rounded, 'Popular'),
-      TypeMangaSelector(Icons.update_rounded, l10n.latest),
-      TypeMangaSelector(Icons.tune_rounded, l10n.filter),
-      ..._customLists.map((cl) {
-        final name = cl['name'] as String? ?? cl['id'] as String;
-        final icStr = cl['icon'] as String?;
-        final matIcon = icStr != null ? _kIconMap[icStr] : null;
-        final emoji = (icStr != null && matIcon == null) ? icStr : null;
-        return TypeMangaSelector(matIcon, name, emojiStr: emoji);
-      }),
-    ];
-  }
 
   Future<MPages?> _loadMore() async {
     MPages? mangaRes;
@@ -153,19 +181,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
         _fullDataLength = _fullDataLength + 50;
       } else {
         final customId = _activeCustomListId;
-        if (_selectedIndex == _kPopularIdx && !_isSearch && _query.isEmpty) {
-          mangaRes = await ref.watch(
-            getPopularProvider(source: source, page: _page + 1).future,
-          );
-        } else if (_selectedIndex == _kLatestIdx &&
-            !_isSearch &&
-            _query.isEmpty) {
-          mangaRes = await ref.watch(
-            getLatestUpdatesProvider(source: source, page: _page + 1).future,
-          );
-        } else if (_selectedIndex == _kFilterIdx &&
-                (_isSearch && _query.isNotEmpty) ||
-            _isFiltering) {
+        if (_isFiltering || (_isSearch && _query.isNotEmpty)) {
           mangaRes = await ref.watch(
             searchProvider(
               source: source,
@@ -173,6 +189,14 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               page: _page + 1,
               filterList: filters,
             ).future,
+          );
+        } else if (_isPopularTab && !_isSearch && _query.isEmpty) {
+          mangaRes = await ref.watch(
+            getPopularProvider(source: source, page: _page + 1).future,
+          );
+        } else if (_isLatestTab && !_isSearch && _query.isEmpty) {
+          mangaRes = await ref.watch(
+            getLatestUpdatesProvider(source: source, page: _page + 1).future,
           );
         } else if (customId != null) {
           mangaRes = await ref.watch(
@@ -314,11 +338,10 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                                 _mangaList.clear();
                                 setState(() {
                                   if (submit.isNotEmpty) {
-                                    _selectedIndex = _kFilterIdx;
                                     _query = submit;
                                     _isFiltering = true;
                                   } else {
-                                    _selectedIndex = _kPopularIdx;
+                                    _selectedIndex = 0;
                                     _isFiltering = false;
                                   }
                                   _page = 1;
@@ -353,7 +376,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                         _isSearch = false;
                         _isFiltering = false;
                         _query = "";
-                        _selectedIndex = _kPopularIdx;
+                        _selectedIndex = 0;
                         _page = 1;
                       });
                     },
@@ -827,7 +850,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       _mangaList.clear();
       if (mounted) {
         setState(() {
-          _selectedIndex = _kFilterIdx;
           _isFiltering = true;
           _page = 1;
           _isLoading = false;
@@ -909,7 +931,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   }
 
   Widget _buildSkeletonGrid() {
-    if (_selectedIndex == _kPopularIdx && !isLocal) {
+    if (_isHomeTab && !isLocal) {
       return _buildSkeletonList();
     }
     return Skeletonizer(
@@ -1200,15 +1222,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             // Popular auto-scroll carousel ──────────────────────────────────
-              _buildSectionHeader(ctx, title: 'Popular New Title', onSeeAll: () {
-                Navigator.of(ctx).push(MaterialPageRoute(
-                  builder: (_) => _ExtensionSectionPage(
-                    source: source,
-                    title: 'Popular New Title',
-                    type: _SectionType.popular,
-                  ),
-                ));
-              }),
               Consumer(
                 builder: (c, ref, _) {
                   final pop = ref.watch(getPopularProvider(source: source, page: 1));
@@ -1302,9 +1315,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     // ── Grid / list view ───────────────────────────────────────────────────────
 
   Widget _buildGrid(BuildContext context) {
-    final displayType = (_selectedIndex == _kPopularIdx && _customLists.isNotEmpty)
-        ? DisplayType.list
-        : ref.watch(mangaHomeDisplayTypeStateProvider);
+    final displayType = ref.watch(mangaHomeDisplayTypeStateProvider);
     final isListMode =
         displayType == DisplayType.list || displayType == DisplayType.wideList;
     final isComfortableGrid = displayType == DisplayType.comfortableGrid ||
@@ -1407,19 +1418,11 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 
   Widget _buildError(BuildContext context, Object error) {
     void retry() {
-      if ((_selectedIndex == _kFilterIdx &&
-              (_isSearch && _query.isNotEmpty)) ||
-          _isFiltering) {
+      if (_isFiltering || (_isSearch && _query.isNotEmpty)) {
         ref.invalidate(searchProvider(
-            source: source,
-            query: _query,
-            page: 1,
-            filterList: filters));
-      } else if (_selectedIndex == _kLatestIdx &&
-          !_isSearch &&
-          _query.isEmpty) {
-        ref.invalidate(
-            getLatestUpdatesProvider(source: source, page: 1));
+            source: source, query: _query, page: 1, filterList: filters));
+      } else if (_isLatestTab && !_isSearch && _query.isEmpty) {
+        ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
       } else {
         ref.invalidate(getPopularProvider(source: source, page: 1));
       }
@@ -1509,7 +1512,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
   // ── Body ───────────────────────────────────────────────────────────────────
 
   Widget _buildBody(BuildContext context) {
-    if (_selectedIndex == _kPopularIdx && !isLocal) {
+    if (_isHomeTab && !isLocal) {
       return _buildSectionsView(context);
     }
 
@@ -1564,23 +1567,21 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     final l10n = context.l10n;
 
     final activeId = _activeCustomListId;
-    if ((_selectedIndex == _kFilterIdx &&
-            (_isSearch && _query.isNotEmpty)) ||
-        _isFiltering) {
+    if (_isFiltering || (_isSearch && _query.isNotEmpty)) {
       _getManga = ref.watch(searchProvider(
         source: source,
         query: _query,
         page: 1,
         filterList: filters,
       ));
-    } else if (_selectedIndex == _kLatestIdx &&
-        !_isSearch &&
-        _query.isEmpty) {
-      _getManga =
-          ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+    } else if (_isLatestTab && !_isSearch && _query.isEmpty) {
+      _getManga = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+      ref.invalidate(getPopularProvider(source: source, page: 1));
     } else if (activeId != null) {
       _getManga = ref.watch(
           getCustomListProvider(source: source, listId: activeId, page: 1));
+    } else if (_isHomeTab && !isLocal) {
+      _getManga = null;
     } else {
       _getManga = ref.watch(getPopularProvider(source: source, page: 1));
     }
@@ -1671,18 +1672,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                 Builder(
                   builder: (actCtx) =>
                       ArrowPopupMenuButton<_HomeMenuAction>(
-                    padding: const EdgeInsets.all(4),
-                      icon: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Theme.of(actCtx).colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.75),
-                        ),
-                        child: Icon(Icons.more_horiz,
-                            size: 18, color: Theme.of(actCtx).hintColor),
-                      ),
+                    padding: const EdgeInsets.all(8),
+                      icon: Icon(Icons.more_horiz, size: 24, color: actCtx.primaryColor),
                       onSelected: (action) =>
                         _handleHomeMenuAction(actCtx, action),
                     itemBuilder: (menuCtx) => [
@@ -1728,18 +1719,11 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(40),
               child: _TabPillsRow(
-                types: _types(context),
+                tabs: _tabs,
                 selectedIndex: _selectedIndex,
-                filterList: filterList,
-                supportsLatest: supportsLatest,
-                hasCustomLists: _customLists.isNotEmpty,
-                onSelect: (index) async {
-                  if (filters.isEmpty) filters = filterList;
-                  if (index == _kFilterIdx) {
-                    await _openFilterSheet(context);
-                  } else {
-                    _mangaList.clear();
-                    setState(() {
+                onSelect: (index) {
+                  _mangaList.clear();
+                  setState(() {
                       _selectedIndex = index;
                       _isFiltering = false;
                       _isSearch = false;
@@ -1748,7 +1732,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                       _page = 1;
                       _isLoading = false;
                     });
-                  }
                 },
               ),
             ),
@@ -1787,19 +1770,13 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 // ── Tab pills row ───────────────────────────────────────────────────────────
 
 class _TabPillsRow extends StatelessWidget {
-  final List<TypeMangaSelector> types;
+  final List<_TabEntry> tabs;
   final int selectedIndex;
-  final List<dynamic> filterList;
-  final bool supportsLatest;
-  final bool hasCustomLists;
   final void Function(int) onSelect;
 
   const _TabPillsRow({
-    required this.types,
+    required this.tabs,
     required this.selectedIndex,
-    required this.filterList,
-    required this.supportsLatest,
-    required this.hasCustomLists,
     required this.onSelect,
   });
 
@@ -1810,21 +1787,16 @@ class _TabPillsRow extends StatelessWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        itemCount: types.length,
+        itemCount: tabs.length,
         itemBuilder: (context, index) {
-          if (hasCustomLists && index == 2) {
-            return const SizedBox.shrink();
-          }
-          if (!supportsLatest && index == 1) {
-            return const SizedBox.shrink();
-          }
+          final tab = tabs[index];
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: MangasCardSelector(
-              icon: types[index].icon,
-              emojiStr: types[index].emojiStr,
+              icon: tab.icon,
+              emojiStr: tab.emojiStr,
               selected: selectedIndex == index,
-              text: types[index].title,
+              text: tab.name,
               onPressed: () => onSelect(index),
             ),
           );
