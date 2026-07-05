@@ -194,7 +194,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
       } else {
         final customId = _activeCustomListId;
         if (_isFiltering || (_isSearch && _query.isNotEmpty)) {
-          mangaRes = await ref.watch(
+          mangaRes = await ref.read(
             searchProvider(
               source: source,
               query: _query,
@@ -203,15 +203,15 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             ).future,
           );
         } else if (_isPopularTab && !_isSearch && _query.isEmpty) {
-          mangaRes = await ref.watch(
+          mangaRes = await ref.read(
             getPopularProvider(source: source, page: _page + 1).future,
           );
         } else if (_isLatestTab && !_isSearch && _query.isEmpty) {
-          mangaRes = await ref.watch(
+          mangaRes = await ref.read(
             getLatestUpdatesProvider(source: source, page: _page + 1).future,
           );
         } else if (customId != null) {
-          mangaRes = await ref.watch(
+          mangaRes = await ref.read(
             getCustomListProvider(
               source: source,
               listId: customId,
@@ -568,6 +568,45 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
 
     final cs = Theme.of(ctx).colorScheme;
     List<Widget> options = [];
+
+    if (expandedFilter is GroupFilter &&
+        expandedFilter.state.isNotEmpty &&
+        expandedFilter.state.every((e) => e is TriStateFilter)) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(22),
+            topRight: Radius.circular(22),
+            bottomLeft: Radius.circular(14),
+            bottomRight: Radius.circular(14),
+          ),
+          border: Border.all(
+            color: cs.onSurface.withValues(alpha: 0.12),
+            width: 0.8,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.4),
+          child: SingleChildScrollView(
+            child: TagChipsGroup(
+              title: expandedFilter.name,
+              tags: expandedFilter.state.cast<TriStateFilter>(),
+              onChanged: (newTags) {
+                setState(() {
+                  _updateFilterInList(
+                    expandedFilter,
+                    GroupFilter(expandedFilter.type, expandedFilter.name, newTags, expandedFilter.typeName),
+                  );
+                });
+              },
+            ),
+          ),
+        ),
+      );
+    }
 
     if (expandedFilter is SelectFilter) {
       options = expandedFilter.values.asMap().entries.map<Widget>((entry) {

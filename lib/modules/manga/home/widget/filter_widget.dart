@@ -69,18 +69,31 @@ class FilterWidget extends StatelessWidget {
             controlAffinity: ListTileControlAffinity.leading,
           );
         } else if (filterState is GroupFilter) {
-          widget = ExpansionTile(
-            title: Text(filterState.name, style: const TextStyle(fontSize: 13)),
-            children: [
-              FilterWidget(
-                filterList: filterState.state,
-                onChanged: (values) {
-                  filterState.state = values;
-                  onChanged(filterList);
-                },
-              ),
-            ],
-          );
+          final isTagGroup = filterState.state.isNotEmpty &&
+              filterState.state.every((e) => e is TriStateFilter);
+          if (isTagGroup) {
+            widget = TagChipsGroup(
+              title: filterState.name,
+              tags: filterState.state.cast<TriStateFilter>(),
+              onChanged: (newTags) {
+                filterState.state = newTags;
+                onChanged(filterList);
+              },
+            );
+          } else {
+            widget = ExpansionTile(
+              title: Text(filterState.name, style: const TextStyle(fontSize: 13)),
+              children: [
+                FilterWidget(
+                  filterList: filterState.state,
+                  onChanged: (values) {
+                    filterState.state = values;
+                    onChanged(filterList);
+                  },
+                ),
+              ],
+            );
+          }
         } else if (filterState is SortFilter) {
           final ascending = filterState.state.ascending;
           widget = ExpansionTile(
@@ -337,6 +350,158 @@ class _SelectFilterPickerSheetState extends State<_SelectFilterPickerSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Aidoku/MangaDex-style tag chip grid with 3-state include/exclude cycling.
+/// Tap once → include (green), tap again → exclude (red), tap again → clear.
+class TagChipsGroup extends StatelessWidget {
+  final String title;
+  final List<TriStateFilter> tags;
+  final Function(List<TriStateFilter>) onChanged;
+
+  const TagChipsGroup({
+    super.key,
+    required this.title,
+    required this.tags,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final includedCount = tags.where((t) => t.state == 1).length;
+    final excludedCount = tags.where((t) => t.state == 2).length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (includedCount + excludedCount > 0) ...[
+                  const SizedBox(width: 8),
+                  if (includedCount > 0)
+                    _CountBadge(count: includedCount, color: Colors.green),
+                  if (includedCount > 0 && excludedCount > 0)
+                    const SizedBox(width: 4),
+                  if (excludedCount > 0)
+                    _CountBadge(count: excludedCount, color: Colors.red),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: tags.map((tag) {
+                final state = tag.state;
+                final Color bg;
+                final Color fg;
+                final Color border;
+                switch (state) {
+                  case 1:
+                    bg = Colors.green.withValues(alpha: 0.18);
+                    fg = Colors.green.shade700;
+                    border = Colors.green;
+                  case 2:
+                    bg = Colors.red.withValues(alpha: 0.18);
+                    fg = Colors.red.shade700;
+                    border = Colors.red;
+                  default:
+                    bg = cs.surfaceContainerHighest.withValues(alpha: 0.6);
+                    fg = cs.onSurface;
+                    border = cs.onSurface.withValues(alpha: 0.18);
+                }
+                return GestureDetector(
+                  onTap: () {
+                    final next = (state + 1) % 3;
+                    final newTags = tags
+                        .map((t) => t == tag
+                            ? TriStateFilter(
+                                t.type, t.name, t.value, t.typeName,
+                                state: next,
+                              )
+                            : t)
+                        .toList();
+                    onChanged(newTags);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: border, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (state == 1)
+                          Icon(Icons.add_circle_rounded,
+                              size: 14, color: fg)
+                        else if (state == 2)
+                          Icon(Icons.remove_circle_rounded,
+                              size: 14, color: fg),
+                        if (state != 0) const SizedBox(width: 4),
+                        Text(
+                          tag.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: fg,
+                            fontWeight: state == 0
+                                ? FontWeight.w400
+                                : FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  final int count;
+  final Color color;
+  const _CountBadge({required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
     );
   }
 }
