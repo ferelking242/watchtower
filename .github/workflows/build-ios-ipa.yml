@@ -1,304 +1,295 @@
 name: Build iOS IPA
 
-  on:
-    workflow_dispatch:
-    push:
-      branches: [main]
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
 
-  concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-  jobs:
-    build-ios:
-      name: iOS (sideload IPA)
-      runs-on: macos-latest
-      permissions:
-        contents: write
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            lfs: true
+jobs:
+  build-ios:
+    name: iOS (sideload IPA)
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
 
-        - uses: subosito/flutter-action@v2
-          with:
-            flutter-version: '3.38.x'
-            channel: stable
-            cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: stable
+          cache: true
 
-        - name: Install Rust (rust_lib_watchtower FFI via cargokit)
-          uses: dtolnay/rust-toolchain@stable
-          with:
-            targets: aarch64-apple-ios,x86_64-apple-ios
+      - name: Install Rust (rust_lib_watchtower FFI via cargokit)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios
 
-        - name: Cache Rust
-          uses: actions/cache@v4
-          with:
-            path: |
-              ~/.cargo/registry
-              ~/.cargo/git
-              rust/target
-              rust_builder/target
-            key: cargo-ios-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-            restore-keys: cargo-ios-${{ runner.os }}-
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: cargo-ios-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-ios-${{ runner.os }}-
 
-        - name: Cache pub
-          uses: actions/cache@v4
-          with:
-            path: ~/.pub-cache
-            key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-            restore-keys: pub-${{ runner.os }}-
+      - name: Cache pub
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
 
-        - name: Cache CocoaPods spec repo
-          uses: actions/cache@v4
-          with:
-            path: ~/.cocoapods
-            key: cocoapods-repo-${{ runner.os }}-v1
-            restore-keys: cocoapods-repo-${{ runner.os }}-
+      - name: Cache CocoaPods spec repo
+        uses: actions/cache@v4
+        with:
+          path: ~/.cocoapods
+          key: cocoapods-repo-${{ runner.os }}-v1
+          restore-keys: cocoapods-repo-${{ runner.os }}-
 
-        - name: Cache ios/Pods
-          id: pods-cache
-          uses: actions/cache@v4
-          with:
-            path: ios/Pods
-            key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile') }}
-            restore-keys: pods-${{ runner.os }}-
+      - name: Cache ios/Pods
+        id: pods-cache
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile') }}
+          restore-keys: pods-${{ runner.os }}-
 
-        - name: Flutter pub get
-          run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-        - name: Fix flutter_new_pipe_extractor missing assets dir
-          run: |
-            find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
-              mkdir -p "$dir/assets"
-              echo "Created: $dir/assets"
-            done
+      - name: Fix flutter_new_pipe_extractor missing assets dir
+        run: |
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
+            mkdir -p "$dir/assets"
+            echo "Created: $dir/assets"
+          done
 
-        - name: Regenerate app icons (flutter_launcher_icons)
-          run: dart run flutter_launcher_icons:main
+      - name: Regenerate app icons (flutter_launcher_icons)
+        run: dart run flutter_launcher_icons:main
 
-        - name: Install CocoaPods
-          run: |
-            cd ios
-            if [ "${{ steps.pods-cache.outputs.cache-hit }}" = "true" ]; then
-              echo "Pods cache hit — pod install"
-              pod install
-            else
-              echo "Pods cache miss — pod install --repo-update"
-              pod install --repo-update
-            fi
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          if [ "${{ steps.pods-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "Pods cache hit — pod install"
+            pod install
+          else
+            echo "Pods cache miss — pod install --repo-update"
+            pod install --repo-update
+          fi
 
-        - name: Patch Xcode project for CI (manual signing, no team)
-          run: |
-            PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
-            sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
-            sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "[^"]*"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
-            sed -i '' 's/CODE_SIGN_IDENTITY = "[^"]*";/CODE_SIGN_IDENTITY = "";/g' "$PBXPROJ"
-            sed -i '' 's/DEVELOPMENT_TEAM = [A-Za-z0-9][A-Za-z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
-            sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = [^;]*;/PROVISIONING_PROFILE_SPECIFIER = "";/g' "$PBXPROJ"
-            sed -i '' 's/PROVISIONING_PROFILE = [^;]*;/PROVISIONING_PROFILE = "";/g' "$PBXPROJ"
-            grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
+      - name: Patch Xcode project for CI (manual signing, no team)
+        run: |
+          PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "[^"]*"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' "$PBXPROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "[^"]*";/CODE_SIGN_IDENTITY = "";/g' "$PBXPROJ"
+          sed -i '' 's/DEVELOPMENT_TEAM = [A-Za-z0-9][A-Za-z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ"
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = [^;]*;/PROVISIONING_PROFILE_SPECIFIER = "";/g' "$PBXPROJ"
+          sed -i '' 's/PROVISIONING_PROFILE = [^;]*;/PROVISIONING_PROFILE = "";/g' "$PBXPROJ"
+          grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
 
-        # ── Build ────────────────────────────────────────────────────────────────
-        # Phase 1: générer le glue Flutter (xcconfig, GeneratedPluginRegistrant, etc.)
-        # Phase 2: xcodebuild direct avec CODE_SIGNING_ALLOWED=NO — même méthode que le
-        # build vert (run 28726757721 / sha 5d3da36f) qui passait TrollStore correctement.
-        - name: Build iOS (no codesign)
-          run: |
-            set -euo pipefail
+      # ── Build ────────────────────────────────────────────────────────────────
+      # Méthode identique au build vert (run 28726757721 / sha 5d3da36f):
+      # Phase 1: config-only pour générer le glue Flutter
+      # Phase 2: xcodebuild direct avec CODE_SIGNING_ALLOWED=NO
+      - name: Build iOS (no codesign)
+        run: |
+          set -euo pipefail
 
-            # Phase 1: générer le glue Flutter sans invoquer xcodebuild
-            flutter build ios --release --no-codesign --config-only 2>&1 | tail -20 || true
+          flutter build ios --release --no-codesign --config-only 2>&1 | tail -20 || true
 
-            # Phase 2: xcodebuild avec signing totalement désactivé
-            echo "=== xcodebuild start ==="
-            set +e
-            xcodebuild \
-              -workspace ios/Runner.xcworkspace \
-              -scheme Runner \
-              -configuration Release \
-              -sdk iphoneos \
-              -destination "generic/platform=iOS" \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY="" \
-              DEVELOPMENT_TEAM="" \
-              PROVISIONING_PROFILE_SPECIFIER="" \
-              ENABLE_BITCODE=NO \
-              -derivedDataPath build/ios/derived \
-              build 2>&1 | tee /tmp/xcode_build.log
-            XCODE_EXIT=${PIPESTATUS[0]}
-            set -e
+          echo "=== xcodebuild start ==="
+          set +e
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ENABLE_BITCODE=NO \
+            -derivedDataPath build/ios/derived \
+            build 2>&1 | tee /tmp/xcode_build.log
+          XCODE_EXIT=${PIPESTATUS[0]}
+          set -e
 
-            echo "--- xcodebuild exit: $XCODE_EXIT ---"
-            grep -E "^(\*\*|error:|Build)" /tmp/xcode_build.log | tail -30 || true
+          echo "--- xcodebuild exit: $XCODE_EXIT ---"
+          grep -E "^(\*\*|error:|Build)" /tmp/xcode_build.log | tail -30 || true
 
-            if [ "$XCODE_EXIT" -ne 0 ]; then
-              echo "ERROR: xcodebuild failed (exit $XCODE_EXIT)" >&2
-              exit "$XCODE_EXIT"
-            fi
+          if [ "$XCODE_EXIT" -ne 0 ]; then
+            echo "ERROR: xcodebuild failed (exit $XCODE_EXIT)" >&2
+            exit "$XCODE_EXIT"
+          fi
 
-            # Phase 3: copier l'app au chemin attendu
-            APP_SRC="build/ios/derived/Build/Products/Release-iphoneos/Runner.app"
-            if [ ! -d "$APP_SRC" ]; then
-              echo "ERROR: Runner.app introuvable à $APP_SRC" >&2
-              ls -la build/ios/derived/Build/Products/ 2>/dev/null || echo "Derived products dir absent"
-              exit 1
-            fi
-            rm -rf build/ios/iphoneos/Runner.app
-            mkdir -p build/ios/iphoneos
-            cp -r "$APP_SRC" build/ios/iphoneos/Runner.app
-            echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
+          APP_SRC="build/ios/derived/Build/Products/Release-iphoneos/Runner.app"
+          if [ ! -d "$APP_SRC" ]; then
+            echo "ERROR: Runner.app introuvable à $APP_SRC" >&2
+            ls -la build/ios/derived/Build/Products/ 2>/dev/null || echo "Derived products dir absent"
+            exit 1
+          fi
+          rm -rf build/ios/iphoneos/Runner.app
+          mkdir -p build/ios/iphoneos
+          cp -r "$APP_SRC" build/ios/iphoneos/Runner.app
+          echo "=== Bundle size: $(du -sh build/ios/iphoneos/Runner.app/ | cut -f1) ==="
 
-        # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
-        # TrollStore's ldid traverse TOUT le bundle récursivement.
-        # Ordre: d'abord supprimer par extension (non-Mach-O connus),
-        # puis loop file -b sur les binaires de framework pour les cas restants.
-        - name: Prepare bundle for TrollStore ldid compatibility
-          run: |
-            set -euo pipefail
-            APP="build/ios/iphoneos/Runner.app"
+      # ── Prepare bundle for TrollStore ldid ──────────────────────────────────
+      # 1. Suppression par extension (non-Mach-O connus)
+      # 2. Loop file -b sur les binaires de chaque framework:
+      #    - ar archive (ex: wakelock_plus) → supprime le framework entier
+      #    - FAT binary → thin à arm64 avec lipo
+      #    - Mach-O arm64 → OK
+      #    - Autre → supprime le binaire
+      - name: Prepare bundle for TrollStore ldid compatibility
+        run: |
+          set -euo pipefail
+          APP="build/ios/iphoneos/Runner.app"
 
-            echo "=== Removing _CodeSignature dirs ==="
-            find "$APP" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
+          echo "=== Removing _CodeSignature dirs ==="
+          find "$APP" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
 
-            echo "=== Removing .car files (BOMStore) ==="
-            find "$APP" -name "*.car" -delete 2>/dev/null || true
+          echo "=== Removing .car files (BOMStore) ==="
+          find "$APP" -name "*.car" -delete 2>/dev/null || true
 
-            echo "=== Removing .metallib files (Metal shader) ==="
-            find "$APP" -name "*.metallib" -delete 2>/dev/null || true
+          echo "=== Removing .metallib files (Metal shader) ==="
+          find "$APP" -name "*.metallib" -delete 2>/dev/null || true
 
-            echo "=== Removing .storyboardc dirs (contain .nib) ==="
-            find "$APP" -name "*.storyboardc" -type d -exec rm -rf {} + 2>/dev/null || true
+          echo "=== Removing .storyboardc dirs (contain .nib) ==="
+          find "$APP" -name "*.storyboardc" -type d -exec rm -rf {} + 2>/dev/null || true
 
-            echo "=== Removing orphan .nib files ==="
-            find "$APP" -name "*.nib" -delete 2>/dev/null || true
+          echo "=== Removing orphan .nib files ==="
+          find "$APP" -name "*.nib" -delete 2>/dev/null || true
 
-            echo "=== Removing icudtl.dat (ICU data binary) ==="
-            find "$APP" -name "icudtl.dat" -delete 2>/dev/null || true
+          echo "=== Removing icudtl.dat (ICU data binary) ==="
+          find "$APP" -name "icudtl.dat" -delete 2>/dev/null || true
 
-            echo "=== Removing Impeller shaders (.frag — IPLR binary) ==="
-            find "$APP" -name "*.frag" -delete 2>/dev/null || true
+          echo "=== Removing Impeller shaders (.frag) ==="
+          find "$APP" -name "*.frag" -delete 2>/dev/null || true
 
-            # ── Framework binary audit + cleanup ──────────────────────────────
-            # C'est ce qui manquait vs le build vert: vérifier chaque framework
-            # avec file -b et agir en conséquence.
-            # wakelock_plus.framework/wakelock_plus est un ar archive (!<arch>)
-            # → ldid Unknown header magic → erreur 175. On supprime le framework entier.
-            echo "=== Framework binary check (file -b loop — GREEN build method) ==="
-            THINNED=0; REMOVED_FW=0; REMOVED_BIN=0; ALREADY=0; SKIPPED=0
+          echo "=== Framework binary check (file -b — méthode build vert) ==="
+          THINNED=0; REMOVED_FW=0; REMOVED_BIN=0; ALREADY=0; SKIPPED=0
 
-            for fw in "$APP/Frameworks"/*.framework; do
-              NAME=$(basename "$fw" .framework)
-              BIN="$fw/$NAME"
-              [ -f "$BIN" ] || { SKIPPED=$((SKIPPED+1)); continue; }
+          for fw in "$APP/Frameworks"/*.framework; do
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            [ -f "$BIN" ] || { SKIPPED=$((SKIPPED+1)); continue; }
 
-              FILETYPE=$(file -b "$BIN")
+            FILETYPE=$(file -b "$BIN")
 
-              if echo "$FILETYPE" | grep -q "ar archive"; then
-                # Archive statique — code déjà linké dans Runner, supprimer tout le framework
-                rm -rf "$fw"
-                echo "  REMOVED framework (ar archive): $NAME"
-                REMOVED_FW=$((REMOVED_FW+1))
+            if echo "$FILETYPE" | grep -q "ar archive"; then
+              rm -rf "$fw"
+              echo "  REMOVED framework (ar archive): $NAME"
+              REMOVED_FW=$((REMOVED_FW+1))
 
-              elif echo "$FILETYPE" | grep -q "Mach-O.*universal"; then
-                # FAT binary — thin à arm64
-                if lipo -info "$BIN" 2>/dev/null | grep -q "arm64"; then
-                  lipo "$BIN" -thin arm64 -output "${BIN}.thin" 2>/dev/null \
-                    && mv "${BIN}.thin" "$BIN" \
-                    && echo "  THINNED: $NAME (arm64)" \
-                    && THINNED=$((THINNED+1)) \
-                    || { echo "  WARN: lipo failed $NAME"; SKIPPED=$((SKIPPED+1)); }
-                else
-                  echo "  WARN: $NAME fat sans slice arm64"
-                  SKIPPED=$((SKIPPED+1))
-                fi
-
-              elif echo "$FILETYPE" | grep -q "Mach-O"; then
-                echo "  OK arm64: $NAME"
-                ALREADY=$((ALREADY+1))
-
+            elif echo "$FILETYPE" | grep -q "Mach-O.*universal"; then
+              if lipo -info "$BIN" 2>/dev/null | grep -q "arm64"; then
+                lipo "$BIN" -thin arm64 -output "${BIN}.thin" 2>/dev/null \
+                  && mv "${BIN}.thin" "$BIN" \
+                  && echo "  THINNED: $NAME (arm64)" \
+                  && THINNED=$((THINNED+1)) \
+                  || { echo "  WARN: lipo failed $NAME"; SKIPPED=$((SKIPPED+1)); }
               else
-                # Binaire inconnu non-Mach-O à la racine du framework
-                echo "  REMOVED unknown binary: $NAME ($FILETYPE)"
-                rm -f "$BIN"
-                REMOVED_BIN=$((REMOVED_BIN+1))
+                echo "  WARN: $NAME fat sans slice arm64"
+                SKIPPED=$((SKIPPED+1))
               fi
-            done
 
-            echo "=== Résultat frameworks: $THINNED thinned | $ALREADY arm64 OK | $REMOVED_FW fw removed | $REMOVED_BIN bin removed | $SKIPPED skip ==="
-            echo "=== Bundle size after cleanup: $(du -sh "$APP" | cut -f1) ==="
+            elif echo "$FILETYPE" | grep -q "Mach-O"; then
+              echo "  OK arm64: $NAME"
+              ALREADY=$((ALREADY+1))
 
-        # ── Signer (ldid + codesign adhoc) ──────────────────────────────────────
-        - name: Sign for TrollStore (ldid + codesign adhoc)
-          run: |
-            APP="build/ios/iphoneos/Runner.app"
-            ENT="ios/Runner/Runner.entitlements"
-            brew install ldid 2>/dev/null || true
+            else
+              echo "  REMOVED unknown binary: $NAME ($FILETYPE)"
+              rm -f "$BIN"
+              REMOVED_BIN=$((REMOVED_BIN+1))
+            fi
+          done
 
-            echo "=== ldid frameworks ==="
-            for fw in "$APP/Frameworks"/*.framework; do
-              NAME=$(basename "$fw" .framework)
-              BIN="$fw/$NAME"
-              if [ -f "$BIN" ]; then
-                ldid -S "$BIN" 2>/dev/null && echo "  ldid OK: $NAME" || echo "  ldid SKIP: $NAME"
-              fi
-            done
+          echo "=== Résultat: $THINNED thinned | $ALREADY OK | $REMOVED_FW fw removed | $REMOVED_BIN bin removed | $SKIPPED skip ==="
+          echo "=== Bundle size: $(du -sh "$APP" | cut -f1) ==="
 
-            echo "=== ldid Runner avec entitlements ==="
-            ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK"
+      # ── Signer (ldid + codesign adhoc) ──────────────────────────────────────
+      - name: Sign for TrollStore (ldid + codesign adhoc)
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          ENT="ios/Runner/Runner.entitlements"
+          brew install ldid 2>/dev/null || true
 
-            echo "=== Ad-hoc codesign (requis TrollStore) ==="
-            codesign --force --sign - --deep "$APP" 2>/dev/null || true
+          echo "=== ldid frameworks ==="
+          for fw in "$APP/Frameworks"/*.framework; do
+            NAME=$(basename "$fw" .framework)
+            BIN="$fw/$NAME"
+            if [ -f "$BIN" ]; then
+              ldid -S "$BIN" 2>/dev/null && echo "  ldid OK: $NAME" || echo "  ldid SKIP: $NAME"
+            fi
+          done
 
-            echo "=== Vérification entitlements ==="
-            ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
+          echo "=== ldid Runner avec entitlements ==="
+          ldid -S"$ENT" "$APP/Runner" && echo "ldid Runner OK"
 
-        - name: Cleanup ldid residual files
-          run: |
-            APP="build/ios/iphoneos/Runner.app"
-            COUNT=$(find "$APP" -name ".ldid.*" | wc -l)
-            find "$APP" -name ".ldid.*" -delete
-            echo "Cleaned $COUNT .ldid.* files"
+          echo "=== Ad-hoc codesign ==="
+          codesign --force --sign - --deep "$APP" 2>/dev/null || true
 
-        # ── Package IPA ─────────────────────────────────────────────────────────
-        - name: Package IPA
-          run: |
-            mkdir -p Payload
-            cp -r build/ios/iphoneos/Runner.app Payload/
-            zip -r9 Watchtower-iOS.ipa Payload/
-            rm -rf Payload
-            IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
-            echo "=== IPA: $IPA_SIZE ==="
-            echo "=== Frameworks dans IPA ==="
-            unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
-            echo "=== Vérif wakelock_plus (doit être absent — static lib) ==="
-            unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent) ✓"
+          echo "=== Vérification entitlements ==="
+          ldid -e "$APP/Runner" 2>/dev/null | head -20 || true
 
-        - name: Upload IPA artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: watchtower-ios-ipa
-            path: Watchtower-iOS.ipa
-            compression-level: 0
-            retention-days: 30
+      - name: Cleanup ldid residual files
+        run: |
+          APP="build/ios/iphoneos/Runner.app"
+          COUNT=$(find "$APP" -name ".ldid.*" | wc -l)
+          find "$APP" -name ".ldid.*" -delete
+          echo "Cleaned $COUNT .ldid.* files"
 
-        - name: Create GitHub Release
-          uses: softprops/action-gh-release@v2
-          with:
-            tag_name: ios-latest
-            name: "Watchtower iOS (TrollStore)"
-            prerelease: true
-            files: Watchtower-iOS.ipa
-            body: IPA pour TrollStore (iPhone 7 / iOS 15+). Build auto depuis main.
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ── Package IPA ─────────────────────────────────────────────────────────
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r9 Watchtower-iOS.ipa Payload/
+          rm -rf Payload
+          IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
+          echo "=== IPA: $IPA_SIZE ==="
+          echo "=== Frameworks dans IPA ==="
+          unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
+          echo "=== Vérif wakelock_plus (doit être absent — static lib) ==="
+          unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent) ✓"
 
-        - name: Notify ntfy (build OK)
-          if: success()
-          run: |
-            curl -s -X POST https://ntfy.sh/watchtower \
-              -H "Title: Build iOS OK" \
-              -H "Priority: default" \
-              -d "IPA built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
-  
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-ios-ipa
+          path: Watchtower-iOS.ipa
+          compression-level: 0
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-latest
+          name: "Watchtower iOS (TrollStore)"
+          prerelease: true
+          files: Watchtower-iOS.ipa
+          body: IPA pour TrollStore (iPhone 7 / iOS 15+). Build auto depuis main.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify ntfy (build OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build iOS OK" \
+            -H "Priority: default" \
+            -d "IPA built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
