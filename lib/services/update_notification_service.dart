@@ -133,7 +133,7 @@ const String _kActionInstall = 'action_install';
           await channel.invokeMethod('installApk', {'filePath': path});
         } catch (e) {
           AppLogger.log(
-            '_installPending error: \$e',
+            '_installPending error: $e',
             logLevel: LogLevel.warning,
             tag: LogTag.network,
           );
@@ -393,7 +393,7 @@ const String _kActionInstall = 'action_install';
           priority: Priority.high,
           ticker: 'Mise à jour prête',
           styleInformation: BigTextStyleInformation(
-            'Appuyez pour installer Watchtower \$version',
+            'Appuyez pour installer Watchtower $version',
             contentTitle: 'Prêt à installer',
           ),
           actions: [
@@ -412,13 +412,13 @@ const String _kActionInstall = 'action_install';
         );
         await _plugin.show(
           _kUpdateNotifId,
-          'Watchtower \$version prêt à installer',
+          'Watchtower $version prêt à installer',
           'Appuyez pour installer',
           const NotificationDetails(android: androidDetails, iOS: iosDetails),
         );
       } catch (e) {
         AppLogger.log(
-          'showDownloadComplete failed: \$e',
+          'showDownloadComplete failed: $e',
           logLevel: LogLevel.warning,
           tag: LogTag.network,
         );
@@ -446,8 +446,8 @@ const String _kActionInstall = 'action_install';
       try {
         await _plugin.show(
           _kProgressNotifId,
-          'Téléchargement Watchtower \$version…',
-          '\$pct %',
+          'Téléchargement Watchtower $version…',
+          '$pct %',
           NotificationDetails(android: details),
         );
       } catch (_) {}
