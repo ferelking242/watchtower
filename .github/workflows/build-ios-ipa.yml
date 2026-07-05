@@ -115,7 +115,9 @@ jobs:
           run: |
             set -euo pipefail
 
-            flutter build ios --release --no-codesign 2>&1 | tail -30
+            # Single flutter command — handles xcconfig, plugin registrant, xcodebuild,
+            # and writes Runner.app to build/ios/iphoneos/ automatically.
+            flutter build ios --release --no-codesign 2>&1
 
             APP="build/ios/iphoneos/Runner.app"
 
@@ -128,6 +130,7 @@ jobs:
             echo "=== App size: $(du -sh $APP) ==="
             echo "=== Frameworks signes ==="
             ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0"
+
             echo "=== Ad-hoc codesign (requis TrollStore) ==="
             codesign --force --sign - --deep "$APP" 2>/dev/null || true
             codesign -dvvv "$APP" 2>&1 | head -8 || true
