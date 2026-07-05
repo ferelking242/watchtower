@@ -32,6 +32,7 @@ import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/manga/home/widget/mangas_card_selector.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/gridview_widget.dart';
+import 'package:watchtower/modules/widgets/inline_filter_chips_mixin.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/global_style.dart';
@@ -104,7 +105,8 @@ class TypeMangaSelector {
   TypeMangaSelector(this.icon, this.title, {this.emojiStr});
 }
 
-class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
+class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
+    with InlineFilterChipsMixin<MangaHomeScreen> {
   bool _isLoading = false;
   final ScrollController _scrollController = ScrollController();
   final _scrollOffsetNotifier = ValueNotifier<double>(0.0);
@@ -179,7 +181,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
     }
     return 0;
   }();
-  String? _expandedChipName;
   late Source source = widget.source;
   late bool isLocal = source.name == "local" && source.lang == "";
   late List<dynamic> filters = isLocal ? [] : getFilterList(source: source);
@@ -415,8 +416,8 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   children: [
-                    _FilterIconBtn(
-                      activeCount: _countActiveFilters(
+                    FilterIconBtn(
+                      activeCount: countActiveFilters(
                           filters.isEmpty ? filterList : filters),
                       onTap: () => _openFilterSheet(context),
                     ),
@@ -454,14 +455,14 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
                       },
                     ),
                     if (filterList.isNotEmpty)
-                      ..._buildFilterChips(
+                      ...buildFilterChips(
                           context, filters.isEmpty ? filterList : filters),
                   ],
                 ),
               ),
             // Panneau d'expansion inline pour la bulle sélectionnée
-            if (!isLocal && _expandedChipName != null)
-              _buildChipExpansionPanel(
+            if (!isLocal && expandedChipName != null)
+              buildChipExpansionPanel(
                   context, filters.isEmpty ? filterList : filters),
             const SizedBox(height: 4),
             Expanded(
@@ -490,263 +491,6 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ── Filter chip helpers ─────────────────────────────────────────────────────
-
-  /// Count filters that differ from their default (unchecked / index 0).
-  int _countActiveFilters(List<dynamic> fl) {
-    int count = 0;
-    for (final f in fl) {
-      if (f is CheckBoxFilter && f.state) count++;
-      else if (f is TriStateFilter && f.state != 0) count++;
-      else if (f is SelectFilter && f.state != 0) count++;
-      else if (f is GroupFilter) {
-        for (final inner in f.state) {
-          if (inner is CheckBoxFilter && inner.state) count++;
-          else if (inner is TriStateFilter && inner.state != 0) count++;
-        }
-      }
-    }
-    return count;
-  }
-
-  /// Build one chip per visible filter group (SelectFilter, SortFilter, GroupFilter).
-  List<Widget> _buildFilterChips(BuildContext ctx, List<dynamic> fl) {
-    return fl.where((f) => f is SelectFilter || f is SortFilter || f is GroupFilter).map<Widget>((f) {
-      String label;
-      String filterName;
-      if (f is SortFilter) {
-        final val = f.values.isNotEmpty ? (f.values[f.state.index] as dynamic).name as String : f.name;
-        label = '${f.name}: $val';
-        filterName = f.name;
-      } else if (f is SelectFilter) {
-        label = f.name;
-        filterName = f.name;
-      } else if (f is GroupFilter) {
-        label = f.name;
-        filterName = f.name;
-      } else {
-        label = '';
-        filterName = '';
-      }
-      final isExpanded = _expandedChipName == filterName;
-      return _FilterChipBtn(
-        label: label,
-        isExpanded: isExpanded,
-        onTap: () => setState(() {
-          _expandedChipName = isExpanded ? null : filterName;
-        }),
-      );
-    }).toList();
-  }
-
-  // ── Inline chip expansion panel ────────────────────────────────────────────
-
-  void _updateFilterInList(dynamic expandedFilter, dynamic newFilter) {
-    if (filters.isEmpty) filters = List<dynamic>.from(filterList);
-    final idx = filters.indexWhere((f) {
-      if (f is SelectFilter && expandedFilter is SelectFilter) return f.name == expandedFilter.name;
-      if (f is GroupFilter && expandedFilter is GroupFilter) return f.name == expandedFilter.name;
-      if (f is SortFilter && expandedFilter is SortFilter) return f.name == expandedFilter.name;
-      return false;
-    });
-    if (idx != -1) filters[idx] = newFilter;
-  }
-
-  Widget _buildChipExpansionPanel(BuildContext ctx, List<dynamic> fl) {
-    if (_expandedChipName == null) return const SizedBox.shrink();
-    dynamic expandedFilter;
-    for (final f in fl) {
-      if (f is SelectFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
-      if (f is SortFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
-      if (f is GroupFilter && f.name == _expandedChipName) { expandedFilter = f; break; }
-    }
-    if (expandedFilter == null) return const SizedBox.shrink();
-
-    final cs = Theme.of(ctx).colorScheme;
-    List<Widget> options = [];
-
-    if (expandedFilter is GroupFilter &&
-        expandedFilter.state.isNotEmpty &&
-        expandedFilter.state.every((e) => e is TriStateFilter)) {
-      return Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).colorScheme.surface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(22),
-            topRight: Radius.circular(22),
-            bottomLeft: Radius.circular(14),
-            bottomRight: Radius.circular(14),
-          ),
-          border: Border.all(
-            color: cs.onSurface.withValues(alpha: 0.12),
-            width: 0.8,
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.4),
-          child: SingleChildScrollView(
-            child: TagChipsGroup(
-              title: expandedFilter.name,
-              tags: expandedFilter.state.cast<TriStateFilter>(),
-              onChanged: (newTags) {
-                setState(() {
-                  _updateFilterInList(
-                    expandedFilter,
-                    GroupFilter(expandedFilter.type, expandedFilter.name, newTags, expandedFilter.typeName),
-                  );
-                });
-              },
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (expandedFilter is SelectFilter) {
-      options = expandedFilter.values.asMap().entries.map<Widget>((entry) {
-        final idx = entry.key;
-        final opt = entry.value;
-        final optName = opt is SelectFilterOption ? opt.name : opt.toString();
-        final isSelected = expandedFilter.state == idx;
-        return InkWell(
-          onTap: () => setState(() {
-            _updateFilterInList(
-              expandedFilter,
-              SelectFilter(expandedFilter.type, expandedFilter.name, idx, expandedFilter.values, expandedFilter.typeName),
-            );
-            _expandedChipName = null;
-          }),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                Icon(
-                  isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                  size: 18,
-                  color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  optName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList();
-    } else if (expandedFilter is GroupFilter) {
-      options = expandedFilter.state.asMap().entries.map<Widget>((entry) {
-        final itemIdx = entry.key;
-        final item = entry.value;
-        if (item is CheckBoxFilter) {
-          return InkWell(
-            onTap: () => setState(() {
-              final newState = List<dynamic>.from(expandedFilter.state);
-              newState[itemIdx] = CheckBoxFilter(
-                item.type, item.name, item.value, item.typeName, state: !item.state,
-              );
-              _updateFilterInList(
-                expandedFilter,
-                GroupFilter(expandedFilter.type, expandedFilter.name, newState, expandedFilter.typeName),
-              );
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  Icon(
-                    item.state ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                    size: 18,
-                    color: item.state ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(item.name, style: TextStyle(fontSize: 14, color: cs.onSurface)),
-                ],
-              ),
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      }).toList();
-    } else if (expandedFilter is SortFilter) {
-      options = expandedFilter.values.asMap().entries.map<Widget>((entry) {
-        final idx = entry.key;
-        final val = entry.value;
-        final valName = (val as dynamic).name as String;
-        final isSelected = expandedFilter.state.index == idx;
-        return InkWell(
-          onTap: () => setState(() {
-            final newAscending = isSelected ? !expandedFilter.state.ascending : expandedFilter.state.ascending;
-            _updateFilterInList(
-              expandedFilter,
-              SortFilter(
-                expandedFilter.type,
-                expandedFilter.name,
-                SortState(idx, newAscending, expandedFilter.state.typeName),
-                expandedFilter.values,
-                expandedFilter.typeName,
-              ),
-            );
-            _expandedChipName = null;
-          }),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                Icon(
-                  isSelected
-                      ? (expandedFilter.state.ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded)
-                      : Icons.remove_rounded,
-                  size: 18,
-                  color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  valName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList();
-    }
-
-    if (options.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(22),
-          topRight: Radius.circular(22),
-          bottomLeft: Radius.circular(14),
-          bottomRight: Radius.circular(14),
-        ),
-        border: Border.all(
-          color: cs.onSurface.withValues(alpha: 0.12),
-          width: 0.8,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: options,
       ),
     );
   }
@@ -1861,118 +1605,6 @@ class _TabPillsRow extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-// ── Filter dropdown chip button ────────────────────────────────────────────
-
-class _FilterChipBtn extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final bool isExpanded;
-  const _FilterChipBtn({required this.label, required this.onTap, this.isExpanded = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.15),
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color:
-                      Theme.of(context).textTheme.bodyMedium?.color,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                isExpanded
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: Theme.of(context).hintColor,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Filter icon button (≡ with active badge) ─────────────────────────────
-
-class _FilterIconBtn extends StatelessWidget {
-  final int activeCount;
-  final VoidCallback onTap;
-  const _FilterIconBtn({required this.activeCount, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: cs.onSurface.withValues(alpha: 0.15),
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.tune_rounded, size: 16,
-                  color: Theme.of(context).hintColor),
-              if (activeCount > 0) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: cs.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '$activeCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }
