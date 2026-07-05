@@ -119,14 +119,17 @@ jobs:
           echo "=== Removing _CodeSignature dirs ==="
           find "$APP" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
 
-          echo "=== Removing .metallib files (non-Mach-O, cause ldid errors) ==="
+          echo "=== Removing .car files (BOMStore — ldid Unknown header magic) ==="
+          find "$APP" -name "*.car" -delete 2>/dev/null || true
+
+          echo "=== Removing .metallib files (Metal shader — ldid Unknown header magic) ==="
           find "$APP" -name "*.metallib" -delete 2>/dev/null || true
 
-          echo "=== Removing .car files (BOMStore format, cause TrollStore ldid Unknown header magic / error 175) ==="
-          find "$APP" -name "*.car" | while read f; do
-            echo "Removing: $f"
-            rm -f "$f"
-          done
+          echo "=== Removing .storyboardc dirs (contain .nib — ldid Unknown header magic) ==="
+          find "$APP" -name "*.storyboardc" -type d -exec rm -rf {} + 2>/dev/null || true
+
+          echo "=== Removing orphan .nib files ==="
+          find "$APP" -name "*.nib" -delete 2>/dev/null || true
 
           echo "=== Removing .ldid.* residuals ==="
           find "$APP" -name ".ldid.*" -delete 2>/dev/null || true
