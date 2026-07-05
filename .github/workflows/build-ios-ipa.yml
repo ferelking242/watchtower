@@ -110,14 +110,38 @@ jobs:
             exit 1
           fi
           echo "=== App size: $(du -sh $APP) ==="
-          ls "$APP/Frameworks/" 2>/dev/null | wc -l || echo "0 frameworks"
 
-          # Remove any _CodeSignature left by flutter/xcode — TrollStore signs everything
-          # itself during install. Pre-signing creates CodeResources files that make
-          # TrollStore ldid crash with "Unknown header magic".
+      - name: Prepare IPA bundle (TrollStore-compatible)
+        run: |
+          set -euo pipefail
+          APP="build/ios/iphoneos/Runner.app"
+
+          echo "=== Installing ldid for diagnostics ==="
+          brew install ldid 2>/dev/null || true
+
+          echo "=== All files in Runner.app (with type) ==="
+          find "$APP" -type f | while read f; do
+            magic=$(xxd -l 4 "$f" 2>/dev/null | awk "{print \$2\$3}" | head -1 || echo "err")
+            echo "$magic  $f"
+          done
+
+          echo "=== Test ldid -s on bundle ==="
+          ldid -s "$APP" 2>&1 || echo "ldid -s FAILED (see above for offending file)"
+
+          echo "=== Removing _CodeSignature dirs ==="
           find "$APP" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
-          echo "=== _CodeSignature dirs removed ==="
+
+          echo "=== Removing .metallib files (non-Mach-O, confuse old ldid) ==="
+          find "$APP" -name "*.metallib" | while read f; do
+            echo "Removing: $f"
+            rm -f "$f"
+          done
+
+          echo "=== Removing .ldid.* residuals ==="
           find "$APP" -name ".ldid.*" -delete 2>/dev/null || true
+
+          echo "=== Final ldid -s test after cleanup ==="
+          ldid -s "$APP" 2>&1 && echo "ldid OK" || echo "STILL FAILING — check magic dump above"
 
       - name: Package IPA
         run: |
@@ -125,10 +149,7 @@ jobs:
           cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r9 Watchtower-iOS.ipa Payload/
           rm -rf Payload
-          IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
-          echo "=== IPA: $IPA_SIZE ==="
-          unzip -l Watchtower-iOS.ipa | grep "_CodeSignature" | wc -l && echo "CodeSignature entries (should be 0)"
-          unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static ✓"
+          echo "=== IPA: $(du -sh Watchtower-iOS.ipa | cut -f1) ==="
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
