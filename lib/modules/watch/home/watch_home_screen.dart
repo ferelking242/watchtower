@@ -9,6 +9,7 @@ import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
+import 'package:watchtower/modules/widgets/inline_filter_chips_mixin.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_detail.dart';
@@ -46,7 +47,8 @@ class WatchHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<WatchHomeScreen> createState() => _WatchHomeScreenState();
 }
 
-class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
+class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
+    with InlineFilterChipsMixin<WatchHomeScreen> {
   late Source _source = widget.source;
   Source get source => _source;
   bool get isLocal => source.name == 'local' && source.lang == '';
@@ -342,17 +344,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           Builder(
             builder: (actCtx) => ArrowPopupMenuButton<_HomeMenuAction>(
               padding: const EdgeInsets.all(4),
-              icon: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Theme.of(actCtx).colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.75),
-                ),
-                child: Icon(Icons.more_horiz,
-                    size: 18, color: Theme.of(actCtx).hintColor),
-              ),
+              icon: Icon(Icons.more_horiz, color: actCtx.primaryColor),
               onSelected: (action) => _handleHomeMenuAction(actCtx, action),
               itemBuilder: (menuCtx) => [
                 PopupMenuItem(
@@ -1184,6 +1176,29 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 ],
               ),
             ),
+            if (filterList.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: SizedBox(
+                  height: 38,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    children: [
+                      FilterIconBtn(
+                        activeCount: countActiveFilters(
+                            filters.isEmpty ? filterList : filters),
+                        onTap: () => _openFilterSheet(ctx),
+                      ),
+                      ...buildFilterChips(
+                          ctx, filters.isEmpty ? filterList : filters),
+                    ],
+                  ),
+                ),
+              ),
+            if (filterList.isNotEmpty && expandedChipName != null)
+              buildChipExpansionPanel(
+                  ctx, filters.isEmpty ? filterList : filters),
             Expanded(child: _buildListView(ctx)),
           ],
         ),
