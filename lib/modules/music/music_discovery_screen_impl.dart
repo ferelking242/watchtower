@@ -79,16 +79,18 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final parentDispatcher = Router.of(context).backButtonDispatcher;
 
     final Locale? musicLocale = ref.watch(
       userPreferencesProvider.select((p) => p.locale),
     );
 
-    // Inherit the parent app's theme — do NOT override with Spotube's own
-    // accent color so Music mode follows the user's chosen app theme.
-    return Material(
-      color: Colors.transparent,
+    // Use surface color as background to prevent white flash while the router
+    // initialises. Do NOT override with Spotube's own Theme — Music mode must
+    // inherit the user's chosen Watchtower palette.
+    return ColoredBox(
+      color: cs.surface,
       child: Builder(
         builder: (locCtx) => Localizations.override(
           context: locCtx,
