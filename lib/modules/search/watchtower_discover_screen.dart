@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +11,10 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
+
+// ── View mode ──────────────────────────────────────────────────────────────────
+
+enum _ViewMode { grid, list }
 
 // ── Discover modes ─────────────────────────────────────────────────────────────
 
@@ -195,6 +198,10 @@ class _WatchtowerDiscoverScreenState
   bool _showFab = false;
   bool _filterOpen = false;
 
+  // View options
+  _ViewMode _viewMode = _ViewMode.grid;
+  int _columnsCount = 2;
+
   // Custom mode
   Source? _customSource;
 
@@ -222,7 +229,7 @@ class _WatchtowerDiscoverScreenState
       if (_hasNextPage && !_isLoading) _fetchResults();
     }
 
-    // Threshold-based UI updates only (avoids per-pixel rebuilds of whole tree)
+    // Threshold-based UI updates only
     final nowCollapsed = offset > 52;
     final nowFab = offset > 320;
     if (nowCollapsed != _searchCollapsed || nowFab != _showFab) {
@@ -234,6 +241,15 @@ class _WatchtowerDiscoverScreenState
   }
 
   // ── Mode management ───────────────────────────────────────────────────────────
+
+  _ContentType get _defaultTypeForMode {
+    switch (_mode) {
+      case _DiscoverMode.watch: return _ContentType.anime;
+      case _DiscoverMode.manga: return _ContentType.manga;
+      case _DiscoverMode.novel: return _ContentType.novel;
+      default: return _ContentType.anime;
+    }
+  }
 
   void _setMode(_DiscoverMode m) {
     if (_mode == m) return;
@@ -282,7 +298,14 @@ class _WatchtowerDiscoverScreenState
 
   // ── Filter helpers ────────────────────────────────────────────────────────────
 
+  bool get _typeIsChanged =>
+      (_mode == _DiscoverMode.watch ||
+          _mode == _DiscoverMode.manga ||
+          _mode == _DiscoverMode.novel) &&
+      _type != _defaultTypeForMode;
+
   bool get _hasActiveFilters =>
+      _typeIsChanged ||
       _genre != null ||
       _format != null ||
       _season != null ||
@@ -293,6 +316,7 @@ class _WatchtowerDiscoverScreenState
 
   int get _activeFilterCount {
     int count = 0;
+    if (_typeIsChanged) count++;
     if (_genre != null) count++;
     if (_format != null) count++;
     if (_season != null) count++;
@@ -305,6 +329,7 @@ class _WatchtowerDiscoverScreenState
 
   void _clearFilters() {
     setState(() {
+      _type = _defaultTypeForMode;
       _genre = null;
       _format = null;
       _season = null;
@@ -475,60 +500,166 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
   // ── More sheet ────────────────────────────────────────────────────────────────
 
-  void _showMoreSheet(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  void _showMoreSheet(BuildContext ctx) {
+    final cs = Theme.of(ctx).colorScheme;
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
     showModalBottomSheet(
-      context: context,
+      context: ctx,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _SheetHandle(cs: cs),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Options',
+      builder: (_) => StatefulBuilder(
+        builder: (_, setLocal) {
+          return SafeArea(
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : cs.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: _SheetHandle(cs: cs)),
+
+                  // Clear filters
+                  if (_hasActiveFilters) ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading:
+                          Icon(Icons.delete_outline_rounded, color: cs.error),
+                      title: Text('Effacer les filtres',
+                          style: TextStyle(color: cs.error)),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _clearFilters();
+                      },
+                    ),
+                    Divider(height: 1, color: cs.outlineVariant),
+                    const SizedBox(height: 8),
+                  ],
+
+                  // Section: affichage
+                  Text(
+                    'AFFICHAGE',
                     style: TextStyle(
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: cs.onSurface,
+                      color: cs.onSurface.withValues(alpha: 0.40),
+                      letterSpacing: 0.8,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+
+                  // Grid / List toggle
+                  Row(children: [
+                    Expanded(
+                      child: _ViewToggleBtn(
+                        icon: Icons.grid_view_rounded,
+                        label: 'Grille',
+                        selected: _viewMode == _ViewMode.grid,
+                        cs: cs,
+                        isDark: isDark,
+                        onTap: () {
+                          setState(() => _viewMode = _ViewMode.grid);
+                          setLocal(() {});
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ViewToggleBtn(
+                        icon: Icons.view_list_rounded,
+                        label: 'Liste',
+                        selected: _viewMode == _ViewMode.list,
+                        cs: cs,
+                        isDark: isDark,
+                        onTap: () {
+                          setState(() => _viewMode = _ViewMode.list);
+                          setLocal(() {});
+                        },
+                      ),
+                    ),
+                  ]),
+
+                  // Columns (grid only)
+                  if (_viewMode == _ViewMode.grid) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(
+                          'Couvertures par ligne',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const Spacer(),
+                        for (int n in [1, 2, 3, 4])
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() => _columnsCount = n);
+                                setLocal(() {});
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: _columnsCount == n
+                                      ? cs.primary
+                                      : (isDark
+                                          ? const Color(0xFF2C2C2E)
+                                          : cs.surfaceContainerHigh),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '$n',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: _columnsCount == n
+                                          ? cs.onPrimary
+                                          : cs.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+
+                  // Custom source change
+                  if (_mode == _DiscoverMode.custom &&
+                      _customSource != null) ...[
+                    const SizedBox(height: 8),
+                    Divider(height: 1, color: cs.outlineVariant),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading:
+                          Icon(Icons.swap_horiz_rounded, color: cs.primary),
+                      title: const Text("Changer d'extension"),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickCustomSource(ctx);
+                      },
+                    ),
+                  ],
+
+                  const SizedBox(height: 4),
+                ],
               ),
-              if (_hasActiveFilters)
-                ListTile(
-                  leading: Icon(Icons.delete_outline_rounded, color: cs.error),
-                  title: Text('Effacer les filtres',
-                      style: TextStyle(color: cs.error)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _clearFilters();
-                  },
-                ),
-              if (_mode == _DiscoverMode.custom && _customSource != null)
-                ListTile(
-                  leading: Icon(Icons.swap_horiz_rounded, color: cs.primary),
-                  title: const Text('Changer d\'extension'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickCustomSource(context);
-                  },
-                ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -539,11 +670,11 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenW = MediaQuery.of(context).size.width;
-    final crossAxis = (screenW / 155).floor().clamp(2, 5);
 
-    final showSearch = _mode != _DiscoverMode.music && _mode != _DiscoverMode.custom;
-    final showFilters = _mode != _DiscoverMode.music && _mode != _DiscoverMode.custom;
+    final showSearch =
+        _mode != _DiscoverMode.music && _mode != _DiscoverMode.custom;
+    final showFilters =
+        _mode != _DiscoverMode.music && _mode != _DiscoverMode.custom;
 
     return Scaffold(
       floatingActionButton: _showFab ? _buildFab(cs) : null,
@@ -552,21 +683,23 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── 1. Header ──────────────────────────────────────────────────
+            // ── 1. Header (Discovery title + pills + action buttons) ──────
             _DiscoveryHeader(
-              mode: _mode,
+              currentMode: _mode,
               customSourceName: _customSource?.name,
               cs: cs,
               isDark: isDark,
               searchCollapsed: _searchCollapsed && showSearch,
-              filterOpen: _filterOpen,
-              hasActiveFilters: _hasActiveFilters,
-              activeFilterCount: _activeFilterCount,
               onMoreTap: () => _showMoreSheet(context),
               onSearchTap: _expandSearch,
-              onFilterTap: showFilters
-                  ? () => setState(() => _filterOpen = !_filterOpen)
-                  : null,
+              onModeChanged: (m) {
+                if (m == _DiscoverMode.custom) {
+                  _setMode(m);
+                  if (_customSource == null) _pickCustomSource(context);
+                } else {
+                  _setMode(m);
+                }
+              },
             ),
 
             // ── 2. Search + filter icon row (collapses on scroll) ──────────
@@ -574,11 +707,11 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeInOut,
-                height: _searchCollapsed ? 0 : 56,
+                height: _searchCollapsed ? 0 : 50,
                 clipBehavior: Clip.hardEdge,
                 decoration: const BoxDecoration(),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
                   child: Row(
                     children: [
                       Expanded(
@@ -604,25 +737,19 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 ),
               ),
 
-            // ── 3. Mode pills ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: _buildModePills(context),
-            ),
-
-            // ── 4. Filter panel (animated slide-in) ───────────────────────
+            // ── 3. Filter panel (collapses together with search on scroll) ─
             if (showFilters)
               AnimatedSize(
-                duration: const Duration(milliseconds: 280),
+                duration: const Duration(milliseconds: 260),
                 curve: Curves.easeInOut,
-                child: _filterOpen
+                child: (_filterOpen && !_searchCollapsed)
                     ? _buildFilterPanel(context, cs, isDark)
                     : const SizedBox.shrink(),
               ),
 
-            // ── 5. Content ─────────────────────────────────────────────────
+            // ── 4. Content ─────────────────────────────────────────────────
             Expanded(
-              child: _buildContent(context, cs, isDark, crossAxis),
+              child: _buildContent(context, cs, isDark),
             ),
           ],
         ),
@@ -651,365 +778,323 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     );
   }
 
-  // ── Mode pills ────────────────────────────────────────────────────────────────
-
-  Widget _buildModePills(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _DiscoverMode.values.map((m) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _ModePill(
-              icon: m.icon,
-              label: m == _DiscoverMode.custom && _customSource != null
-                  ? (_customSource!.name ?? 'Custom')
-                  : m.label,
-              selected: _mode == m,
-              onTap: () {
-                if (m == _DiscoverMode.custom) {
-                  _setMode(m);
-                  if (_customSource == null) _pickCustomSource(context);
-                } else {
-                  _setMode(m);
-                }
-              },
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   // ── Filter panel (animated) ───────────────────────────────────────────────────
 
   Widget _buildFilterPanel(BuildContext context, ColorScheme cs, bool isDark) {
+    final bgColor =
+        isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh;
+    final borderColor =
+        isDark ? Colors.white.withValues(alpha: 0.08) : cs.outlineVariant;
+
+    // Helper to build one filter dropdown inline
+    Widget drop({
+      required IconData icon,
+      required String label,
+      required bool active,
+      bool enabled = true,
+      required VoidCallback onTap,
+    }) {
+      return _FilterDropdown(
+        icon: icon,
+        label: label,
+        active: active,
+        enabled: enabled,
+        isDark: isDark,
+        cs: cs,
+        onTap: onTap,
+      );
+    }
+
+    // Adult toggle styled identically to other filter chips
+    Widget adultChip() {
+      return GestureDetector(
+        onTap: () {
+          setState(() => _adult = !_adult);
+          _fetchResults(reset: true);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            color: _adult
+                ? cs.errorContainer.withValues(alpha: 0.22)
+                : bgColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _adult ? cs.error : borderColor,
+              width: _adult ? 1.5 : 0.8,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.eighteen_up_rating_rounded,
+                  size: 14,
+                  color: _adult ? cs.error : cs.onSurface.withValues(alpha: 0.65)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _adult ? 'Adulte activé' : 'Contenu adulte',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: _adult ? cs.error : cs.onSurface.withValues(alpha: 0.65),
+                    fontWeight:
+                        _adult ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ),
+              if (_adult)
+                Icon(Icons.check_rounded, size: 13, color: cs.error),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Panel header: label + active count + clear all
-          Row(
-            children: [
-              Icon(Icons.tune_rounded,
-                  size: 14, color: cs.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                'Filtres',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant,
-                  letterSpacing: 0.4,
+          // Panel header: label + clear
+          Row(children: [
+            Icon(Icons.tune_rounded, size: 13, color: cs.onSurfaceVariant),
+            const SizedBox(width: 5),
+            Text(
+              'Filtres',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
+                letterSpacing: 0.3,
+              ),
+            ),
+            if (_activeFilterCount > 0) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$_activeFilterCount',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onPrimary,
+                  ),
                 ),
               ),
-              if (_hasActiveFilters) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: cs.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$_activeFilterCount',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onPrimary,
-                    ),
-                  ),
-                ),
-              ],
-              const Spacer(),
-              if (_hasActiveFilters)
-                InkWell(
-                  onTap: _clearFilters,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.delete_outline_rounded,
-                            size: 15, color: cs.error),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Effacer',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.error,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
             ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // Filter dropdowns
-          _buildFilterRows(context, cs, isDark),
+            const Spacer(),
+            if (_hasActiveFilters)
+              InkWell(
+                onTap: _clearFilters,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.delete_outline_rounded,
+                          size: 13, color: cs.error),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Effacer',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ]),
 
           const SizedBox(height: 8),
 
-          // Adult toggle
-          _buildAdultToggle(cs, isDark),
-
-          const SizedBox(height: 10),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdultToggle(ColorScheme cs, bool isDark) {
-    return GestureDetector(
-      onTap: () {
-        setState(() => _adult = !_adult);
-        _fetchResults(reset: true);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: _adult
-              ? cs.errorContainer.withValues(alpha: 0.28)
-              : (isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _adult
-                ? cs.error.withValues(alpha: 0.55)
-                : (isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : cs.outlineVariant),
-            width: _adult ? 1.5 : 0.8,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.eighteen_up_rating_rounded,
-              size: 16,
-              color: _adult ? cs.error : cs.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
+          // ── Row 1 (3 cols): Type | Sort | Genre ───────────────────────────
+          Row(children: [
             Expanded(
-              child: Text(
-                'Contenu adulte uniquement',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _adult ? cs.error : cs.onSurface,
-                  fontWeight: _adult ? FontWeight.w600 : FontWeight.normal,
+              child: drop(
+                icon: Icons.category_outlined,
+                label: _type.label,
+                active: _typeIsChanged,
+                onTap: () => _showEnumPicker<_ContentType>(
+                  title: 'Type de contenu',
+                  items: _contentTypeItems,
+                  selected: _type,
+                  labelOf: (t) => t.label,
+                  onSelected: (t) {
+                    setState(() => _type = t);
+                    _fetchResults(reset: true);
+                  },
                 ),
               ),
             ),
-            Transform.scale(
-              scale: 0.82,
-              child: Switch(
-                value: _adult,
-                onChanged: (v) {
-                  setState(() => _adult = v);
-                  _fetchResults(reset: true);
-                },
-                activeColor: cs.error,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            const SizedBox(width: 6),
+            Expanded(
+              child: drop(
+                icon: _sort.icon,
+                label: _sort.label,
+                active: _sort != _SortOption.trending,
+                onTap: () => _showEnumPicker<_SortOption>(
+                  title: 'Trier par',
+                  items: _SortOption.values,
+                  selected: _sort,
+                  labelOf: (s) => s.label,
+                  iconOf: (s) => s.icon,
+                  onSelected: (s) {
+                    setState(() => _sort = s);
+                    _fetchResults(reset: true);
+                  },
+                ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterRows(BuildContext context, ColorScheme cs, bool isDark) {
-    return Column(
-      children: [
-        // Row 1: Content type + Sort
-        Row(children: [
-          Expanded(
-            child: _FilterDropdown(
-              icon: Icons.category_outlined,
-              label: _type.label,
-              active: false,
-              isDark: isDark,
-              cs: cs,
-              onTap: () => _showEnumPicker<_ContentType>(
-                title: 'Type de contenu',
-                items: _contentTypeItems,
-                selected: _type,
-                labelOf: (t) => t.label,
-                onSelected: (t) {
-                  setState(() => _type = t);
-                  _fetchResults(reset: true);
-                },
+            const SizedBox(width: 6),
+            Expanded(
+              child: drop(
+                icon: Icons.label_outline_rounded,
+                label: _genre ?? 'Genre',
+                active: _genre != null,
+                onTap: () => _showStringPicker(
+                  title: 'Genres',
+                  items: ['Tous genres', ..._kGenres],
+                  selected: _genre,
+                  onSelected: (v) {
+                    setState(() => _genre = v == 'Tous genres' ? null : v);
+                    _fetchResults(reset: true);
+                  },
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _FilterDropdown(
-              icon: _sort.icon,
-              label: _sort.label,
-              active: false,
-              isDark: isDark,
-              cs: cs,
-              onTap: () => _showEnumPicker<_SortOption>(
-                title: 'Trier par',
-                items: _SortOption.values,
-                selected: _sort,
-                labelOf: (s) => s.label,
-                iconOf: (s) => s.icon,
-                onSelected: (s) {
-                  setState(() => _sort = s);
-                  _fetchResults(reset: true);
-                },
+          ]),
+
+          const SizedBox(height: 6),
+
+          // ── Row 2 (2 cols): Format | Saison ───────────────────────────────
+          Row(children: [
+            Expanded(
+              child: drop(
+                icon: Icons.tv_outlined,
+                label: _format ?? 'Format',
+                active: _format != null,
+                onTap: () => _showStringPicker(
+                  title: 'Formats',
+                  items: ['Tous formats', ..._availableFormats],
+                  selected: _format,
+                  onSelected: (v) {
+                    setState(
+                        () => _format = v == 'Tous formats' ? null : v);
+                    _fetchResults(reset: true);
+                  },
+                ),
               ),
             ),
-          ),
-        ]),
-
-        const SizedBox(height: 8),
-
-        // Row 2: Genre + Format
-        Row(children: [
-          Expanded(
-            child: _FilterDropdown(
-              icon: Icons.label_outline_rounded,
-              label: _genre ?? 'Tous genres',
-              active: _genre != null,
-              isDark: isDark,
-              cs: cs,
-              onTap: () => _showStringPicker(
-                title: 'Genres',
-                items: ['Tous genres', ..._kGenres],
-                selected: _genre,
-                onSelected: (v) {
-                  setState(() => _genre = v == 'Tous genres' ? null : v);
-                  _fetchResults(reset: true);
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _FilterDropdown(
-              icon: Icons.tv_outlined,
-              label: _format ?? 'Tous formats',
-              active: _format != null,
-              isDark: isDark,
-              cs: cs,
-              onTap: () => _showStringPicker(
-                title: 'Formats',
-                items: ['Tous formats', ..._availableFormats],
-                selected: _format,
-                onSelected: (v) {
-                  setState(() => _format = v == 'Tous formats' ? null : v);
-                  _fetchResults(reset: true);
-                },
-              ),
-            ),
-          ),
-        ]),
-
-        const SizedBox(height: 8),
-
-        // Row 3: Season + Year (anime only)
-        Row(children: [
-          Expanded(
-            child: _FilterDropdown(
-              icon: Icons.eco_outlined,
-              label: _season != null
-                  ? _kSeasons.firstWhere((e) => e.value == _season).label
-                  : 'Toutes saisons',
-              active: _season != null,
-              enabled: _type.aniType == 'ANIME',
-              isDark: isDark,
-              cs: cs,
-              onTap: () => _showStringPicker(
-                title: 'Saison',
-                items: _kSeasons.map((e) => e.label).toList(),
-                selected: _season != null
+            const SizedBox(width: 6),
+            Expanded(
+              child: drop(
+                icon: Icons.eco_outlined,
+                label: _season != null
                     ? _kSeasons.firstWhere((e) => e.value == _season).label
-                    : null,
-                onSelected: (v) {
-                  final found = _kSeasons.firstWhere((e) => e.label == v);
-                  setState(() => _season = found.value);
-                  _fetchResults(reset: true);
-                },
+                    : 'Saison',
+                active: _season != null,
+                enabled: _type.aniType == 'ANIME',
+                onTap: () => _showStringPicker(
+                  title: 'Saison',
+                  items: _kSeasons.map((e) => e.label).toList(),
+                  selected: _season != null
+                      ? _kSeasons.firstWhere((e) => e.value == _season).label
+                      : null,
+                  onSelected: (v) {
+                    final found = _kSeasons.firstWhere((e) => e.label == v);
+                    setState(() => _season = found.value);
+                    _fetchResults(reset: true);
+                  },
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _FilterDropdown(
-              icon: Icons.calendar_today_outlined,
-              label: _timeless
-                  ? 'Intemporel'
-                  : (_seasonYear?.toString() ?? 'Année'),
-              active: !_timeless,
-              isDark: isDark,
-              cs: cs,
-              onTap: _showYearPicker,
-            ),
-          ),
-        ]),
+          ]),
 
-        const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
-        // Row 4: Status + Score
-        Row(children: [
-          Expanded(
-            child: _FilterDropdown(
-              icon: Icons.pending_outlined,
-              label: _status != null
-                  ? _kStatuses.firstWhere((e) => e.value == _status).label
-                  : 'Tous statuts',
-              active: _status != null,
-              isDark: isDark,
-              cs: cs,
-              onTap: () => _showStringPicker(
-                title: 'Statut',
-                items: _kStatuses.map((e) => e.label).toList(),
-                selected: _status != null
-                    ? _kStatuses.firstWhere((e) => e.value == _status).label
-                    : null,
-                onSelected: (v) {
-                  final found = _kStatuses.firstWhere((e) => e.label == v);
-                  setState(() => _status = found.value);
-                  _fetchResults(reset: true);
-                },
+          // ── Row 3 (1 col full): Année ─────────────────────────────────────
+          drop(
+            icon: Icons.calendar_today_outlined,
+            label:
+                _timeless ? 'Année' : (_seasonYear?.toString() ?? 'Année'),
+            active: !_timeless,
+            onTap: _showYearPicker,
+          ),
+
+          const SizedBox(height: 6),
+
+          // ── Row 4 (2 cols): Statut | Score ────────────────────────────────
+          Row(children: [
+            Expanded(
+              child: drop(
+                icon: Icons.pending_outlined,
+                label: _status != null
+                    ? _kStatuses
+                        .firstWhere((e) => e.value == _status)
+                        .label
+                    : 'Statut',
+                active: _status != null,
+                onTap: () => _showStringPicker(
+                  title: 'Statut',
+                  items: _kStatuses.map((e) => e.label).toList(),
+                  selected: _status != null
+                      ? _kStatuses
+                          .firstWhere((e) => e.value == _status)
+                          .label
+                      : null,
+                  onSelected: (v) {
+                    final found =
+                        _kStatuses.firstWhere((e) => e.label == v);
+                    setState(() => _status = found.value);
+                    _fetchResults(reset: true);
+                  },
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _FilterDropdown(
-              icon: Icons.star_outline_rounded,
-              label: _minScore != null ? '$_minScore+ ★' : 'Tous scores',
-              active: _minScore != null,
-              isDark: isDark,
-              cs: cs,
-              onTap: () => _showStringPicker(
-                title: 'Score minimum',
-                items: _kScoreOptions.map((e) => e.label).toList(),
-                selected: _minScore != null
-                    ? _kScoreOptions.firstWhere((e) => e.value == _minScore).label
-                    : null,
-                onSelected: (v) {
-                  final found = _kScoreOptions.firstWhere((e) => e.label == v);
-                  setState(() => _minScore = found.value);
-                  _fetchResults(reset: true);
-                },
+            const SizedBox(width: 6),
+            Expanded(
+              child: drop(
+                icon: Icons.star_outline_rounded,
+                label: _minScore != null ? '$_minScore+ ★' : 'Score min',
+                active: _minScore != null,
+                onTap: () => _showStringPicker(
+                  title: 'Score minimum',
+                  items: _kScoreOptions.map((e) => e.label).toList(),
+                  selected: _minScore != null
+                      ? _kScoreOptions
+                          .firstWhere((e) => e.value == _minScore)
+                          .label
+                      : null,
+                  onSelected: (v) {
+                    final found =
+                        _kScoreOptions.firstWhere((e) => e.label == v);
+                    setState(() => _minScore = found.value);
+                    _fetchResults(reset: true);
+                  },
+                ),
               ),
             ),
-          ),
-        ]),
-      ],
+          ]),
+
+          const SizedBox(height: 6),
+
+          // ── Row 5 (1 col full): Adult ─────────────────────────────────────
+          adultChip(),
+
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 
@@ -1019,7 +1104,6 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     BuildContext context,
     ColorScheme cs,
     bool isDark,
-    int crossAxis,
   ) {
     switch (_mode) {
       case _DiscoverMode.music:
@@ -1039,49 +1123,18 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         );
 
       default: // watch, manga, novel
-        return _buildGrid(context, cs, isDark, crossAxis);
+        if (_viewMode == _ViewMode.list) {
+          return _buildList(context, cs, isDark);
+        }
+        return _buildGrid(context, cs, isDark);
     }
   }
 
-  Widget _buildGrid(
-    BuildContext context,
-    ColorScheme cs,
-    bool isDark,
-    int crossAxis,
-  ) {
+  // ── Grid view ─────────────────────────────────────────────────────────────────
+
+  Widget _buildGrid(BuildContext context, ColorScheme cs, bool isDark) {
     if (_hasError && _items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.cloud_off_outlined, size: 48, color: cs.error),
-              const SizedBox(height: 12),
-              Text(
-                'Impossible de charger',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _errorMsg,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.tonalIcon(
-                onPressed: () => _fetchResults(reset: true),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Réessayer'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorState(cs);
     }
 
     return CustomScrollView(
@@ -1108,24 +1161,13 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 return _MediaCard(
                   item: item,
                   cs: cs,
-                  onTap: () {
-                    final media = AnilistMedia(
-                      id: item.id,
-                      type: item.type,
-                      format: item.format,
-                      titleRomaji: item.titleRomaji,
-                      titleEnglish: item.titleEnglish,
-                      coverExtraLarge: item.coverUrl,
-                      averageScore: item.score,
-                    );
-                    context.push('/anilistDetail', extra: media);
-                  },
+                  onTap: () => _openItem(context, item),
                 );
               },
-              childCount: _items.length + (_isLoading ? 4 : 0),
+              childCount: _items.length + (_isLoading ? _columnsCount : 0),
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxis,
+              crossAxisCount: _columnsCount,
               childAspectRatio: 0.62,
               crossAxisSpacing: 10,
               mainAxisSpacing: 12,
@@ -1134,6 +1176,90 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         ),
         const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
       ],
+    );
+  }
+
+  // ── List view ─────────────────────────────────────────────────────────────────
+
+  Widget _buildList(BuildContext context, ColorScheme cs, bool isDark) {
+    if (_hasError && _items.isEmpty) {
+      return _buildErrorState(cs);
+    }
+
+    return ListView.builder(
+      controller: _scrollCtrl,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+      itemCount: _items.length + (_isLoading ? 4 : 0),
+      itemBuilder: (_, i) {
+        if (i >= _items.length) {
+          return _isLoading
+              ? Container(
+                  height: 76,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                )
+              : const SizedBox.shrink();
+        }
+        return _MediaListTile(
+          item: _items[i],
+          cs: cs,
+          isDark: isDark,
+          onTap: () => _openItem(context, _items[i]),
+        );
+      },
+    );
+  }
+
+  void _openItem(BuildContext context, _DiscoverItem item) {
+    final media = AnilistMedia(
+      id: item.id,
+      type: item.type,
+      format: item.format,
+      titleRomaji: item.titleRomaji,
+      titleEnglish: item.titleEnglish,
+      coverExtraLarge: item.coverUrl,
+      averageScore: item.score,
+    );
+    context.push('/anilistDetail', extra: media);
+  }
+
+  Widget _buildErrorState(ColorScheme cs) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_outlined, size: 48, color: cs.error),
+            const SizedBox(height: 12),
+            Text(
+              'Impossible de charger',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _errorMsg,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: () => _fetchResults(reset: true),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1183,7 +1309,10 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
   Future<void> _showYearPicker() async {
     final now = DateTime.now().year;
-    final years = ['Intemporel', ...List.generate(15, (i) => (now - i).toString())];
+    final years = [
+      'Intemporel',
+      ...List.generate(15, (i) => (now - i).toString()),
+    ];
     final result = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1213,89 +1342,73 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 // ── Discovery Header ───────────────────────────────────────────────────────────
 
 class _DiscoveryHeader extends StatelessWidget {
-  final _DiscoverMode mode;
+  final _DiscoverMode currentMode;
   final String? customSourceName;
   final ColorScheme cs;
   final bool isDark;
   final bool searchCollapsed;
-  final bool filterOpen;
-  final bool hasActiveFilters;
-  final int activeFilterCount;
   final VoidCallback onMoreTap;
   final VoidCallback onSearchTap;
-  final VoidCallback? onFilterTap;
+  final void Function(_DiscoverMode) onModeChanged;
 
   const _DiscoveryHeader({
-    required this.mode,
+    required this.currentMode,
     required this.customSourceName,
     required this.cs,
     required this.isDark,
     required this.searchCollapsed,
-    required this.filterOpen,
-    required this.hasActiveFilters,
-    required this.activeFilterCount,
     required this.onMoreTap,
     required this.onSearchTap,
-    this.onFilterTap,
+    required this.onModeChanged,
   });
-
-  String get _sectionName {
-    if (mode == _DiscoverMode.custom && customSourceName != null) {
-      return customSourceName!;
-    }
-    return mode.label;
-  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 0),
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Icon badge
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  cs.primary.withValues(alpha: 0.22),
-                  cs.primary.withValues(alpha: 0.08),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: cs.primary.withValues(alpha: 0.20),
-                width: 1,
-              ),
+          // "Discovery" — always, large, left
+          const Text(
+            'Discovery',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
-            child: Icon(mode.icon, size: 20, color: cs.primary),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
-          // Section name
+          // Pills — scrollable between title and buttons
           Expanded(
-            child: Text(
-              _sectionName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: cs.onSurface,
-                letterSpacing: -0.5,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              child: Row(
+                children: _DiscoverMode.values.map((m) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _ModePill(
+                      icon: m.icon,
+                      label: m == _DiscoverMode.custom &&
+                              customSourceName != null
+                          ? customSourceName!
+                          : m.label,
+                      selected: currentMode == m,
+                      onTap: () => onModeChanged(m),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ),
 
           const SizedBox(width: 6),
 
-          // Collapsed: search icon + filter icon
+          // Search icon (when bar is collapsed)
           if (searchCollapsed) ...[
-            _HeaderIconBtn(
+            _SmallHeaderBtn(
               icon: Icons.search_rounded,
               cs: cs,
               isDark: isDark,
@@ -1303,19 +1416,9 @@ class _DiscoveryHeader extends StatelessWidget {
             ),
             const SizedBox(width: 6),
           ],
-          if (onFilterTap != null) ...[
-            _FilterHeaderBtn(
-              active: filterOpen || hasActiveFilters,
-              count: activeFilterCount,
-              cs: cs,
-              isDark: isDark,
-              onTap: onFilterTap!,
-            ),
-            const SizedBox(width: 6),
-          ],
 
-          // … more button
-          _HeaderIconBtn(
+          // More button
+          _SmallHeaderBtn(
             icon: Icons.more_horiz_rounded,
             cs: cs,
             isDark: isDark,
@@ -1327,15 +1430,15 @@ class _DiscoveryHeader extends StatelessWidget {
   }
 }
 
-// ── Header icon button (reusable) ─────────────────────────────────────────────
+// ── Small header button ────────────────────────────────────────────────────────
 
-class _HeaderIconBtn extends StatelessWidget {
+class _SmallHeaderBtn extends StatelessWidget {
   final IconData icon;
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback onTap;
 
-  const _HeaderIconBtn({
+  const _SmallHeaderBtn({
     required this.icon,
     required this.cs,
     required this.isDark,
@@ -1347,100 +1450,16 @@ class _HeaderIconBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 38,
-        height: 38,
+        width: 30,
+        height: 30,
         decoration: BoxDecoration(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.07)
-              : cs.onSurface.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.12)
-                : cs.outline.withValues(alpha: 0.18),
-            width: 1,
-          ),
+              ? Colors.white.withValues(alpha: 0.08)
+              : cs.onSurface.withValues(alpha: 0.07),
+          shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 18, color: cs.onSurface.withValues(alpha: 0.72)),
-      ),
-    );
-  }
-}
-
-// ── Filter header button (with badge) ────────────────────────────────────────
-
-class _FilterHeaderBtn extends StatelessWidget {
-  final bool active;
-  final int count;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  const _FilterHeaderBtn({
-    required this.active,
-    required this.count,
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: active
-                  ? cs.primary.withValues(alpha: 0.15)
-                  : (isDark
-                      ? Colors.white.withValues(alpha: 0.07)
-                      : cs.onSurface.withValues(alpha: 0.06)),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: active
-                    ? cs.primary.withValues(alpha: 0.50)
-                    : (isDark
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : cs.outline.withValues(alpha: 0.18)),
-                width: active ? 1.5 : 1,
-              ),
-            ),
-            child: Icon(
-              active ? Icons.filter_alt_rounded : Icons.filter_alt_outlined,
-              size: 18,
-              color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.72),
-            ),
-          ),
-          if (count > 0)
-            Positioned(
-              top: -4,
-              right: -4,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: cs.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    '$count',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: cs.onPrimary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+        child:
+            Icon(icon, size: 16, color: cs.onSurface.withValues(alpha: 0.65)),
       ),
     );
   }
@@ -1472,13 +1491,15 @@ class _FilterIconButton extends StatelessWidget {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 48,
-            height: 46,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: active
                   ? cs.primary.withValues(alpha: 0.14)
-                  : (isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh),
-              borderRadius: BorderRadius.circular(14),
+                  : (isDark
+                      ? const Color(0xFF1C1C1E)
+                      : cs.surfaceContainerHigh),
+              borderRadius: BorderRadius.circular(13),
               border: Border.all(
                 color: active
                     ? cs.primary.withValues(alpha: 0.55)
@@ -1490,17 +1511,17 @@ class _FilterIconButton extends StatelessWidget {
             ),
             child: Icon(
               active ? Icons.filter_alt_rounded : Icons.filter_alt_outlined,
-              size: 20,
+              size: 18,
               color: active ? cs.primary : cs.onSurfaceVariant,
             ),
           ),
           if (count > 0)
             Positioned(
-              top: -5,
-              right: -5,
+              top: -4,
+              right: -4,
               child: Container(
-                width: 17,
-                height: 17,
+                width: 16,
+                height: 16,
                 decoration: BoxDecoration(
                   color: cs.primary,
                   shape: BoxShape.circle,
@@ -1518,6 +1539,68 @@ class _FilterIconButton extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ── View toggle button (used in more sheet) ────────────────────────────────────
+
+class _ViewToggleBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _ViewToggleBtn({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 44,
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: 0.12)
+              : (isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? cs.primary : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 16,
+                color: selected
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.55)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1664,7 +1747,8 @@ class _CustomSourcePlaceholder extends StatelessWidget {
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
               label: const Text('Ouvrir cette extension'),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
               ),
@@ -1673,7 +1757,7 @@ class _CustomSourcePlaceholder extends StatelessWidget {
             TextButton.icon(
               onPressed: onChangeTap,
               icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-              label: const Text('Changer d\'extension'),
+              label: const Text("Changer d'extension"),
             ),
           ],
         ),
@@ -1863,8 +1947,7 @@ class _SourcePickerSheet extends StatelessWidget {
                               const SizedBox(width: 8),
                               Icon(Icons.chevron_right_rounded,
                                   size: 18,
-                                  color:
-                                      cs.onSurface.withValues(alpha: 0.35)),
+                                  color: cs.onSurface.withValues(alpha: 0.35)),
                             ],
                           ),
                         ),
@@ -1898,41 +1981,40 @@ class _ModePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          border: Border.all(
-            color: selected ? cs.primary : cs.outlineVariant,
-            width: selected ? 1.5 : 1,
-          ),
-          borderRadius: BorderRadius.circular(24),
           color: selected
-              ? cs.primary.withValues(alpha: 0.10)
-              : Colors.transparent,
+              ? cs.primary
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : cs.onSurface.withValues(alpha: 0.05)),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 14,
+              size: 12,
               color: selected
-                  ? cs.primary
-                  : cs.onSurface.withValues(alpha: 0.60),
+                  ? cs.onPrimary
+                  : cs.onSurface.withValues(alpha: 0.55),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.70),
+                    ? cs.onPrimary
+                    : cs.onSurface.withValues(alpha: 0.65),
               ),
             ),
           ],
@@ -1962,23 +2044,23 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 46,
+      height: 42,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13),
       ),
       child: TextField(
         controller: controller,
         focusNode: focusNode,
         onChanged: onChanged,
-        style: TextStyle(color: cs.onSurface, fontSize: 15),
+        style: TextStyle(color: cs.onSurface, fontSize: 14),
         decoration: InputDecoration(
           prefixIcon: Icon(Icons.search_rounded,
-              color: cs.onSurfaceVariant, size: 20),
-          hintText: 'Titre…',
-          hintStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 15),
+              color: cs.onSurfaceVariant, size: 18),
+          hintText: 'Rechercher…',
+          hintStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 13),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
@@ -2009,7 +2091,7 @@ class _FilterDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fgColor = enabled
-        ? (active ? cs.primary : cs.onSurface)
+        ? (active ? cs.primary : cs.onSurface.withValues(alpha: 0.65))
         : cs.onSurface.withValues(alpha: 0.3);
     final bgColor =
         isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh;
@@ -2021,8 +2103,9 @@ class _FilterDropdown extends StatelessWidget {
 
     return GestureDetector(
       onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           color: active ? cs.primaryContainer.withValues(alpha: 0.22) : bgColor,
           borderRadius: BorderRadius.circular(12),
@@ -2030,24 +2113,24 @@ class _FilterDropdown extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 14, color: fgColor),
-            const SizedBox(width: 6),
+            Icon(icon, size: 13, color: fgColor),
+            const SizedBox(width: 5),
             Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 11,
                   color: fgColor,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
             Icon(Icons.expand_more_rounded,
-                size: 14,
+                size: 13,
                 color: enabled
-                    ? cs.onSurface.withValues(alpha: 0.45)
+                    ? cs.onSurface.withValues(alpha: 0.40)
                     : cs.onSurface.withValues(alpha: 0.18)),
           ],
         ),
@@ -2056,7 +2139,7 @@ class _FilterDropdown extends StatelessWidget {
   }
 }
 
-// ── Media Card ─────────────────────────────────────────────────────────────────
+// ── Media Card (grid) ──────────────────────────────────────────────────────────
 
 class _MediaCard extends StatelessWidget {
   final _DiscoverItem item;
@@ -2132,6 +2215,129 @@ class _MediaCard extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Media List Tile (list view) ────────────────────────────────────────────────
+
+class _MediaListTile extends StatelessWidget {
+  final _DiscoverItem item;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _MediaListTile({
+    required this.item,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 80,
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.04)
+              : cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // Cover thumbnail
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.horizontal(left: Radius.circular(12)),
+              child: SizedBox(
+                width: 54,
+                height: 80,
+                child: item.coverUrl != null
+                    ? ExtendedImage.network(
+                        item.coverUrl!,
+                        fit: BoxFit.cover,
+                        cache: true,
+                        loadStateChanged: (s) {
+                          if (s.extendedImageLoadState == LoadState.loading ||
+                              s.extendedImageLoadState == LoadState.failed) {
+                            return Container(color: cs.surfaceContainerHigh);
+                          }
+                          return null;
+                        },
+                      )
+                    : Container(color: cs.surfaceContainerHigh),
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    item.displayTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      if (item.format != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: cs.secondaryContainer
+                                .withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            item.format!,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSecondaryContainer,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (item.score != null)
+                        Text(
+                          '★ ${(item.score! / 10.0).toStringAsFixed(1)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Icon(Icons.chevron_right_rounded,
+                  size: 18, color: cs.onSurface.withValues(alpha: 0.30)),
+            ),
+          ],
+        ),
       ),
     );
   }
