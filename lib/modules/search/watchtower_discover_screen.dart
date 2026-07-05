@@ -1692,97 +1692,99 @@ class _CustomSourceLauncher extends StatefulWidget {
 }
 
 class _CustomSourceLauncherState extends State<_CustomSourceLauncher> {
+  bool _didNavigate = false;
+
   @override
   void initState() {
     super.initState();
-    // Auto-navigate to the source home page as soon as this widget appears
+    // Auto-navigate once — on first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onNavigate(widget.source);
+      if (mounted && !_didNavigate) {
+        _didNavigate = true;
+        widget.onNavigate(widget.source);
+      }
     });
+  }
+
+  @override
+  void didUpdateWidget(_CustomSourceLauncher old) {
+    super.didUpdateWidget(old);
+    // Reset guard if the source changes so new source auto-navigates
+    if (old.source.id != widget.source.id) {
+      _didNavigate = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_didNavigate) {
+          _didNavigate = true;
+          widget.onNavigate(widget.source);
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
-    final isDark = widget.isDark;
-    // Show a clean loading placeholder while the navigation animates in
+    // Minimal clean splash while navigation animates in — no extra buttons
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: cs.primaryContainer.withValues(alpha: 0.30),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: cs.primary.withValues(alpha: 0.22), width: 1.2),
-              ),
-              child: widget.source.iconUrl != null &&
-                      widget.source.iconUrl!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(19),
-                      child: Image.network(
-                        widget.source.iconUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.extension_rounded,
-                          size: 38,
-                          color: cs.primary,
-                        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: cs.primaryContainer.withValues(alpha: 0.30),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: cs.primary.withValues(alpha: 0.22), width: 1.2),
+            ),
+            child: widget.source.iconUrl != null &&
+                    widget.source.iconUrl!.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(19),
+                    child: Image.network(
+                      widget.source.iconUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(
+                        Icons.extension_rounded,
+                        size: 38,
+                        color: cs.primary,
                       ),
-                    )
-                  : Icon(Icons.extension_rounded, size: 38, color: cs.primary),
+                    ),
+                  )
+                : Icon(Icons.extension_rounded, size: 38, color: cs.primary),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            widget.source.name ?? 'Extension',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+              letterSpacing: -0.3,
             ),
-            const SizedBox(height: 20),
+          ),
+          if (widget.source.lang != null &&
+              widget.source.lang!.isNotEmpty) ...[
+            const SizedBox(height: 4),
             Text(
-              widget.source.name ?? 'Extension',
+              widget.source.lang!.toUpperCase(),
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: cs.onSurface,
-                letterSpacing: -0.3,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
+                letterSpacing: 1.2,
               ),
-            ),
-            if (widget.source.lang != null &&
-                widget.source.lang!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                widget.source.lang!.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-            const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => widget.onNavigate(widget.source),
-                icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                label: const Text('Ouvrir cette extension'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: widget.onChangeTap,
-              icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-              label: const Text("Changer d'extension"),
             ),
           ],
-        ),
+          const SizedBox(height: 24),
+          // "Change extension" link — only action available; opening is automatic
+          TextButton.icon(
+            onPressed: widget.onChangeTap,
+            icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+            label: const Text("Changer d'extension"),
+          ),
+        ],
       ),
     );
   }
