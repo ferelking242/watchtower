@@ -1,4 +1,5 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/widgets.dart';
 import 'package:watchtower/modules/music/collections/routes.dart'
     show rootNavigatorKey;
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
