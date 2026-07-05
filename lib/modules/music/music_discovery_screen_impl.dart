@@ -67,16 +67,9 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
       music_log.AppLogger.initialize(false);
     } catch (_) {}
     _router = SpotubeAppRouter(navigatorKey: _navKey);
-    _routerDelegate = _router.delegate();
-    // Navigate to initial route after the Router widget is mounted.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final routes = _initialRoutes;
-        if (routes.isNotEmpty) {
-          _router.navigate(routes.first);
-        }
-      }
-    });
+    // Pass initialRoutes directly so the delegate has content from frame 1.
+    // Using addPostFrameCallback caused a blank first frame before navigation fired.
+    _routerDelegate = _router.delegate(initialRoutes: _initialRoutes);
   }
 
   @override

@@ -16,7 +16,7 @@ import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
-import 'package:watchtower/modules/music/music_discovery_screen_impl.dart';
+import 'package:watchtower/modules/music/music_discovery_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
