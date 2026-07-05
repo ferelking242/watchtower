@@ -446,7 +446,7 @@ const String _kActionInstall = 'action_install';
       try {
         await _plugin.show(
           _kProgressNotifId,
-          'Téléchargement Watchtower $version…',
+          'Téléchargement Watchtower…',
           '$pct %',
           NotificationDetails(android: details),
         );
