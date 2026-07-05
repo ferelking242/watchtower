@@ -70,8 +70,15 @@ jobs:
           restore-keys: pods-${{ runner.os }}-
 
       - name: Flutter pub get
-        run: flutter pub get
+          run: flutter pub get
 
+        - name: Fix flutter_new_pipe_extractor missing assets dir
+          run: |
+            find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
+              mkdir -p "$dir/assets"
+              echo "Created: $dir/assets"
+            done
+  
       - name: Regenerate app icons (flutter_launcher_icons)
         run: dart run flutter_launcher_icons:main
 
