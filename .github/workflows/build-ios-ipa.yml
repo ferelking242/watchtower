@@ -121,6 +121,7 @@ jobs:
           # Phase 2: xcodebuild avec signing totalement désactivé.
           echo "=== xcodebuild start ==="
           set +e
+          mkdir -p build/ios/iphoneos
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
@@ -131,6 +132,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
+            CONFIGURATION_BUILD_DIR="$(pwd)/build/ios/iphoneos" \
             build 2>&1 | tee /tmp/xbuild.log
           XB_EXIT=${PIPESTATUS[0]}
           set -e
