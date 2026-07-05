@@ -1,11 +1,14 @@
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
-    show pendingUpdateBanner, pendingUpdateData;
-import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
+    show pendingUpdateBanner, pendingUpdateData, pendingInstallFile, clearInstallReady;
+
+import 'package:watchtower/modules/more/about/providers/download_file_screen.dart'
+    show DownloadFileScreen, ApkInstaller;
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 
 // ── Route metadata ─────────────────────────────────────────────────────────────
@@ -245,7 +248,22 @@ class _WatchtowerMenuOverlayState
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // ── Animated update-available banner (top of menu) ──────────
-              if (updateVersion != null && updateData != null) ...[
+              // If the APK is already downloaded, show "Install" banner instead.
+              if (pendingInstallFile != null && updateVersion != null) ...[
+                _InstallBanner(
+                  version: updateVersion,
+                  cs: cs,
+                  onTap: () async {
+                    await _close();
+                    final file = pendingInstallFile;
+                    if (file != null) {
+                      clearInstallReady();
+                      await ApkInstaller.installApk(file.path);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+              ] else if (updateVersion != null && updateData != null) ...[
                 _UpdateBanner(
                   version: updateVersion,
                   cs: cs,
@@ -809,6 +827,98 @@ class _ReorderSheet extends ConsumerWidget {
             ),
             SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Animated install-ready banner ─────────────────────────────────────────────
+
+class _InstallBanner extends StatefulWidget {
+  final String version;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  const _InstallBanner({
+    required this.version,
+    required this.cs,
+    required this.onTap,
+  });
+
+  @override
+  State<_InstallBanner> createState() => _InstallBannerState();
+}
+
+class _InstallBannerState extends State<_InstallBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _glow = CurvedAnimation(parent: _pulse, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _glow,
+      builder: (context, _) => GestureDetector(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          widget.onTap();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF1A6B2A),
+                Colors.green.shade700,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.green.withValues(alpha: 0.30 + _glow.value * 0.42),
+                blurRadius: 14 + _glow.value * 10,
+                spreadRadius: _glow.value * 3,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.install_mobile_rounded,
+                  size: 15, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Installer v${widget.version}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 15, color: Colors.white70),
+            ],
+          ),
         ),
       ),
     );
