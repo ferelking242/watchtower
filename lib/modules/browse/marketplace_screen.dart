@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/main.dart';
@@ -3818,6 +3819,14 @@ class _ExtIcon extends StatelessWidget {
     final double size;
     const _ExtIcon({this.iconUrl, required this.type, required this.size});
 
+    bool get _isSvg {
+      final url = iconUrl ?? '';
+      return url.endsWith('.svg') ||
+          url.contains('simpleicons.org') ||
+          url.contains('/svg/') ||
+          url.contains('jsdelivr.net') && url.contains('/icons/');
+    }
+
     @override
     Widget build(BuildContext context) {
       final cs = Theme.of(context).colorScheme;
@@ -3828,13 +3837,22 @@ class _ExtIcon extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: iconUrl != null && iconUrl!.isNotEmpty
-              ? Image.network(
-                  iconUrl!, width: size, height: size, fit: BoxFit.cover,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : _SkeletonShimmer(width: size, height: size, radius: 12),
-                  errorBuilder: (_, __, ___) => _fallback(cs, color),
-                )
+              ? _isSvg
+                  ? SvgPicture.network(
+                      iconUrl!,
+                      width: size,
+                      height: size,
+                      fit: BoxFit.contain,
+                      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                      placeholderBuilder: (_) => _SkeletonShimmer(width: size, height: size, radius: 12),
+                    )
+                  : Image.network(
+                      iconUrl!, width: size, height: size, fit: BoxFit.cover,
+                      loadingBuilder: (_, child, progress) => progress == null
+                          ? child
+                          : _SkeletonShimmer(width: size, height: size, radius: 12),
+                      errorBuilder: (_, __, ___) => _fallback(cs, color),
+                    )
               : _fallback(cs, color),
         ),
       );
