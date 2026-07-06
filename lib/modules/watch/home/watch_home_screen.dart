@@ -59,6 +59,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   static const _kHomeIdx    = 0;
   static const _kPopularIdx = 1;
   static const _kLatestIdx  = 2;
+  // ignore: unused_field
   static const _kFilterIdx  = 3;
 
   // _selectedIdx: start on Home only when custom lists exist
@@ -95,6 +96,30 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   Timer? _suggestionTimer;
   List<String> _suggestions = [];
   bool _isListView = false;
+
+  // ── MovieBox dock state ──────────────────────────────────────────────────
+  int _mbBottomNavIdx = 0; // 0=Home 1=NovelHub 2=FightZone 3=Downloads 4=Me
+  int _mbSubTabIdx    = 0; // index into _kMbSubTabs list
+
+  // MovieBox sub-tabs (from appTab.json subTabs in the APK)
+  static const _kMbSubTabs = [
+    (label: '🤼\u202FFightZone', watchtowerIdx: 0),
+    (label: 'Live',              watchtowerIdx: 1),
+    (label: 'Trending',          watchtowerIdx: 1),
+    (label: 'Movie',             watchtowerIdx: 0),
+    (label: 'TV',                watchtowerIdx: 2),
+    (label: 'Anime',             watchtowerIdx: 1),
+    (label: 'ShortTV',           watchtowerIdx: 1),
+    (label: 'Kids',              watchtowerIdx: 1),
+    (label: 'Education',         watchtowerIdx: 1),
+    (label: 'Football',          watchtowerIdx: 1),
+    (label: 'Music',             watchtowerIdx: 1),
+    (label: 'Free Novels',       watchtowerIdx: 1),
+    (label: 'Western',           watchtowerIdx: 1),
+    (label: 'Asian',             watchtowerIdx: 1),
+    (label: 'Nollywood',         watchtowerIdx: 1),
+    (label: 'Game',              watchtowerIdx: 1),
+  ];
 
   @override
   void initState() {
@@ -393,81 +418,116 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
     if (_isSearching) return _buildSearchScreen(context);
 
+    // ── MovieBox dark background ─────────────────────────────────────────────
+    const mbBg = Color(0xFF101114);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: NestedScrollView(
-        controller: _scrollCtrl,
-        headerSliverBuilder: (ctx, innerBoxIsScrolled) =>
-            [_buildSliverAppBar(ctx, innerBoxIsScrolled)],
-        body: _buildBody(context),
-      ),
+      backgroundColor: mbBg,
+      extendBody: true,
+      bottomNavigationBar: _mbBottomNavIdx == 0
+          ? _buildMbBottomDock(context)
+          : null,
+      body: _mbBottomNavIdx == 0
+          ? NestedScrollView(
+              controller: _scrollCtrl,
+              headerSliverBuilder: (ctx, innerBoxIsScrolled) =>
+                  [_buildSliverAppBar(ctx, innerBoxIsScrolled)],
+              body: _buildBody(context),
+            )
+          : _buildMbStubPage(context, _mbBottomNavIdx),
     );
   }
 
   // ── Sliver app bar ───────────────────────────────────────────────────────
 
   Widget _buildSliverAppBar(BuildContext ctx, bool forceElevated) {
-    final sourceName = !isLocal ? (source.name ?? '') : 'Local';
+    // ── MovieBox exact AppBar: logo left + search bar center + icons right ──
+    const mbBg    = Color(0xFF101114);
+    // ignore: unused_local_variable
+    const white10 = Color(0x1AFFFFFF);
+    const white60 = Color(0x99FFFFFF);
+
     return SliverAppBar(
       pinned: true,
       floating: false,
       snap: false,
       forceElevated: forceElevated,
+      // Transparent so our flexibleSpace shows through
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       shadowColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       expandedHeight: 0,
+      // ── NO back button ────────────────────────────────────────────────────
       automaticallyImplyLeading: false,
-      leadingWidth: 90,
-      leading: GestureDetector(
-        onTap: () => context.pop(),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 4),
+      // ── Leading: MovieBox logo (30×full height) ───────────────────────────
+      leadingWidth: 46,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 12, top: 8, bottom: 8),
+        child: !isLocal && (source.iconUrl?.isNotEmpty ?? false)
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: Image.network(
+                  source.iconUrl!,
+                  width: 30, height: 30,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.movie_rounded, size: 26, color: Colors.white),
+                ))
+            : const Icon(Icons.movie_rounded, size: 26, color: Colors.white),
+      ),
+      // ── Title: MovieBox search bar (rounded, semi-transparent white) ──────
+      titleSpacing: 0,
+      title: GestureDetector(
+        onTap: () => setState(() => _isSearching = true),
+        child: Container(
+          height: 36,
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+          ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.chevron_left_rounded, size: 28, color: ctx.primaryColor),
-              Text('Browse',
-                  style: TextStyle(fontSize: 17, color: ctx.primaryColor,
-                      fontWeight: FontWeight.w400)),
+              const SizedBox(width: 10),
+              const Icon(Icons.search, size: 18, color: Color(0xFF999999)),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Search movies, TV shows…',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF999999),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // "Search" button (brand green — #07b84e)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: const Text(
+                  'Search',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF07b84e),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(5),
-              child: Image.network(source.iconUrl!, width: 20, height: 20,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink()),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Text(sourceName,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      ),
-      centerTitle: true,
+      // ── Actions: settings popup only ─────────────────────────────────────
       actions: [
-        IconButton(
-          splashRadius: 20,
-          onPressed: () => setState(() => _isSearching = true),
-          icon: Icon(Icons.search, color: ctx.primaryColor),
-        ),
         if (!isLocal)
           Builder(
             builder: (actCtx) => ArrowPopupMenuButton<_HomeMenuAction>(
               padding: const EdgeInsets.all(4),
-              icon: Icon(Icons.more_horiz, color: Theme.of(context).colorScheme.primary),
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 22),
               onSelected: (action) => _handleHomeMenuAction(actCtx, action),
               itemBuilder: (menuCtx) => [
                 PopupMenuItem(
@@ -475,8 +535,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                   child: Row(children: [
                     const Icon(Icons.open_in_browser_rounded, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Ouvrir dans le navigateur',
-                        style: TextStyle(fontSize: 14)),
+                    const Text('Ouvrir dans le navigateur', style: TextStyle(fontSize: 14)),
                   ]),
                 ),
                 PopupMenuItem(
@@ -484,8 +543,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                   child: Row(children: [
                     const Icon(Icons.bug_report_outlined, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Diagnostic',
-                        style: TextStyle(fontSize: 14)),
+                    const Text('Diagnostic', style: TextStyle(fontSize: 14)),
                   ]),
                 ),
                 PopupMenuItem(
@@ -493,8 +551,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                   child: Row(children: [
                     const Icon(Icons.settings_outlined, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Paramètres',
-                        style: TextStyle(fontSize: 14)),
+                    const Text('Paramètres', style: TextStyle(fontSize: 14)),
                   ]),
                 ),
               ],
@@ -502,103 +559,72 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
           ),
         const SizedBox(width: 4),
       ],
+      // ── Bottom: MovieBox MagicIndicator-style sub-tabs ────────────────────
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(40),
-        child: _buildTabBar(ctx),
+        preferredSize: const Size.fromHeight(44),
+        child: _buildMbSubDock(ctx),
       ),
-      flexibleSpace: LayoutBuilder(builder: (lbCtx, _) {
-        return Stack(fit: StackFit.expand, children: [
-          ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                color: Theme.of(lbCtx).scaffoldBackgroundColor.withValues(alpha: 0.92),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: Container(
-              height: 0.5,
-              color: Theme.of(lbCtx).dividerColor.withValues(alpha: 0.25),
-            ),
-          ),
-        ]);
-      }),
+      // ── flexibleSpace: solid dark background (no blur — MovieBox is dark) ─
+      flexibleSpace: Container(color: mbBg),
     );
   }
 
-  // ── Tab bar: [Accueil] · Popular · Latest · [Filter] ────────────────────
-  // Home tab appears only when getCustomLists() returns at least one section.
+  // ── MovieBox MagicIndicator-style scrollable sub-dock ────────────────────
+  // From fragment_home.xml: MagicIndicator height=32dp, marginTop=4dp, marginBottom=8dp
+  // Selected tab: white text + green underline. Unselected: white_60 text.
 
-  Widget _buildTabBar(BuildContext ctx) {
-    final tabs = <_WatchTab>[
-      if (_customLists.isNotEmpty)
-        const _WatchTab(Icons.home_rounded,         'Accueil',  _kHomeIdx),
-      const _WatchTab(Icons.local_fire_department_rounded, 'Popular', _kPopularIdx),
-      if (supportsLatest)
-        const _WatchTab(Icons.update_rounded,     'Latest',   _kLatestIdx),
-    ];
+  Widget _buildMbSubDock(BuildContext ctx) {
+    const white60 = Color(0x99FFFFFF);
+    const brandGreen = Color(0xFF07b84e);
 
     return SizedBox(
-      height: 40,
+      height: 44, // 32dp indicator + 4dp top + 8dp bottom
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        itemCount: tabs.length,
+        padding: const EdgeInsets.only(left: 12, top: 4, bottom: 0),
+        itemCount: _kMbSubTabs.length,
         itemBuilder: (_, i) {
-          final tab = tabs[i];
-          final isActive = _selectedIdx == tab.idx && !_isFiltering;
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedIdx = tab.idx;
-                  _isFiltering = false;
-                  _mangaList.clear();
-                  _page = 1;
-                  _hasNextPage = true;
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? ctx.primaryColor
-                      : ctx.primaryColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isActive
-                        ? ctx.primaryColor
-                        : ctx.primaryColor.withValues(alpha: 0.22),
-                    width: 0.8,
+          final tab  = _kMbSubTabs[i];
+          final active = _mbSubTabIdx == i;
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _mbSubTabIdx = i;
+                _selectedIdx = tab.watchtowerIdx;
+                _isFiltering = false;
+                _mangaList.clear();
+                _page = 1;
+                _hasNextPage = true;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 4),
+                  Text(
+                    tab.label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      color: active ? Colors.white : white60,
+                      height: 1.2,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (tab.icon != null) ...[
-                      Icon(tab.icon!, size: 13,
-                          color: isActive ? Colors.white
-                              : Theme.of(ctx).textTheme.bodyMedium?.color),
-                      const SizedBox(width: 5),
-                    ] else if (tab.emojiStr != null) ...[
-                      Text(tab.emojiStr!,
-                          style: const TextStyle(fontSize: 11, height: 1.0)),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(tab.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white
-                              : Theme.of(ctx).textTheme.bodyMedium?.color,
-                        )),
-                  ],
-                ),
+                  const SizedBox(height: 6),
+                  // Underline indicator (MagicIndicator style)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 3,
+                    width: active ? 20 : 0,
+                    decoration: BoxDecoration(
+                      color: brandGreen,
+                      borderRadius: BorderRadius.circular(1.5),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -608,9 +634,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   }
 
   // ── Body dispatcher ──────────────────────────────────────────────────────
+  // When sub-tab 0 (FightZone/Home) or 3 (Movie in home) is active → home view.
+  // Otherwise → list view (popular, latest, etc.)
 
   Widget _buildBody(BuildContext ctx) {
-    if (_selectedIdx == _kHomeIdx && !_isFiltering && !_isSearching) {
+    // Home-style tabs show the carousel+sections page
+    final isHomeSubTab = (_mbSubTabIdx == 0 || _mbSubTabIdx == 3);
+    if (isHomeSubTab && _customLists.isNotEmpty && !_isFiltering && !_isSearching) {
       return _buildHomeView(ctx);
     }
     return _buildListView(ctx);
@@ -1879,6 +1909,175 @@ class _HeroSlide extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── MovieBox Bottom Dock (from activity_main.xml + tab_bottom.xml) ────────
+  // Total height: 80dp. Icons: 24×24dp. Label: 10sp, marginBottom 8dp.
+  // Center tab (Fight Zone): big image 72×80dp, no label.
+  // Background: #1C1E21 (dark with slight arc shape illusion).
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildMbBottomDock(BuildContext ctx) {
+    const dockBg   = Color(0xFF1C1E21);
+    const activeC  = Colors.white;
+    const inactiveC = Color(0x99FFFFFF); // white_60
+    const brandG   = Color(0xFF07b84e);
+
+    // Tab definitions matching appTab.json bottomTabs
+    // Center tab (Fight Zone idx=2) uses a larger icon (72×80dp equivalent)
+    final items = <({IconData icon, String label, bool isCenter, bool hasBadge, String? badge})>[
+      (icon: Icons.home_rounded,       label: 'Home',     isCenter: false, hasBadge: false, badge: null),
+      (icon: Icons.menu_book_rounded,  label: 'NovelHub', isCenter: false, hasBadge: true,  badge: 'HOT'),
+      (icon: Icons.sports_mma_rounded, label: '',         isCenter: true,  hasBadge: false, badge: null),
+      (icon: Icons.download_rounded,   label: 'Downloads',isCenter: false, hasBadge: false, badge: null),
+      (icon: Icons.person_rounded,     label: 'Me',       isCenter: false, hasBadge: false, badge: null),
+    ];
+
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: dockBg,
+        // Subtle top border like MovieBox's arc
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 0.5)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: List.generate(items.length, (i) {
+            final item   = items[i];
+            final active = _mbBottomNavIdx == i;
+            final iconColor = active ? activeC : inactiveC;
+            final textColor = active ? activeC : inactiveC;
+
+            if (item.isCenter) {
+              // ── Center: Fight Zone — bigger icon (72dp equivalent), no label ──
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _mbBottomNavIdx = i),
+                  behavior: HitTestBehavior.opaque,
+                  child: SizedBox(
+                    height: 80,
+                    child: Center(
+                      child: Container(
+                        width: 56, height: 56,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF2ECC71), Color(0xFF07b84e)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF07b84e).withValues(alpha: 0.45),
+                              blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 4)),
+                          ],
+                        ),
+                        child: const Icon(Icons.sports_mma_rounded,
+                            size: 28, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _mbBottomNavIdx = i),
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox(
+                  height: 80,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(item.icon, size: 24, color: iconColor),
+                          // Badge (HOT etc)
+                          if (item.hasBadge && item.badge != null)
+                            Positioned(
+                              top: -4, right: -10,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF03930),
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: const Radius.circular(3),
+                                    topRight: const Radius.circular(3),
+                                    bottomRight: const Radius.circular(3),
+                                    bottomLeft: const Radius.circular(1),
+                                  ),
+                                ),
+                                child: Text(
+                                  item.badge!,
+                                  style: const TextStyle(
+                                    fontSize: 7, fontWeight: FontWeight.w700,
+                                    color: Colors.white, letterSpacing: 0.2),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: textColor,
+                          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  // ── Stub page for non-Home bottom tabs ────────────────────────────────────
+
+  Widget _buildMbStubPage(BuildContext ctx, int navIdx) {
+    const bgColor = Color(0xFF101114);
+    const labels  = ['Home', 'NovelHub', 'Fight Zone', 'Downloads', 'Me'];
+    final label   = navIdx < labels.length ? labels[navIdx] : '';
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: bgColor,
+        title: Text(label,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () => setState(() => _mbBottomNavIdx = 0),
+            icon: const Icon(Icons.close_rounded, color: Colors.white60),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _buildMbBottomDock(ctx),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.construction_rounded, size: 48, color: Color(0x3DFFFFFF)),
+            const SizedBox(height: 12),
+            Text(
+              '$label — bientôt disponible',
+              style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 14),
             ),
           ],
         ),
