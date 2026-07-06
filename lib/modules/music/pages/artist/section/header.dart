@@ -112,8 +112,10 @@ class ArtistPageHeader extends HookConsumerWidget {
       ),
     );
 
-    return LayoutBuilder(
-      builder: (context, constrains) {
+    return Skeletonizer(
+      enabled: artistQuery.isLoading,
+      child: LayoutBuilder(
+        builder: (context, constrains) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Card(
@@ -212,6 +214,7 @@ class ArtistPageHeader extends HookConsumerWidget {
           ),
         );
       },
+      ),
     );
   }
 }
