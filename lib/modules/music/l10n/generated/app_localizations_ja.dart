@@ -153,6 +153,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cancel_all => 'すべてキャンセル';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'アーティストを絞り込み...';
 
   @override

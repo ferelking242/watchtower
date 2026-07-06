@@ -153,6 +153,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get cancel_all => 'Alle abbrechen';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Künstler filtern...';
 
   @override

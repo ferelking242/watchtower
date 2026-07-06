@@ -153,6 +153,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get cancel_all => 'ยกเลิกทั้งหมด';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'กรองศิลปิน...';
 
   @override

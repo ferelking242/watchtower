@@ -153,6 +153,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get cancel_all => 'Batalkan Semua';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Urutkan artis...';
 
   @override

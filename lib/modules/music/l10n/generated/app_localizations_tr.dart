@@ -154,6 +154,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get cancel_all => 'Tümünü iptal et';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Sanatçıları filtreleyin...';
 
   @override

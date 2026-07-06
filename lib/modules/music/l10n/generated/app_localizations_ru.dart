@@ -153,6 +153,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancel_all => 'Отменить все';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Фильтровать по исполнителю...';
 
   @override

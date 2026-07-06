@@ -153,6 +153,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get cancel_all => '모두 취소';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => '아티스트 필터링';
 
   @override

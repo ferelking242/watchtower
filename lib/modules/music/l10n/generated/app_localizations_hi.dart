@@ -153,6 +153,9 @@ class AppLocalizationsHi extends AppLocalizations {
   String get cancel_all => 'सभी को रद्द करें';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'कलाकारों को फ़िल्टर करें...';
 
   @override

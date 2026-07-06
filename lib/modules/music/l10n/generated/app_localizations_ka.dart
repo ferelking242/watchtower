@@ -153,6 +153,9 @@ class AppLocalizationsKa extends AppLocalizations {
   String get cancel_all => 'ყველას გაუქმება';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'არტისტების ფილტრი...';
 
   @override

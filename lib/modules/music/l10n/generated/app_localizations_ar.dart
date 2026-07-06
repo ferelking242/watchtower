@@ -153,6 +153,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get cancel_all => 'إلغاء الكل';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'تصفية الفنانين...';
 
   @override

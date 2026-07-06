@@ -45,6 +45,7 @@
   "sort_tracks": "Sort Tracks",
   "currently_downloading": "Currently Downloading ({tracks_length})",
   "cancel_all": "Cancel All",
+  "refresh": "Refresh",
   "filter_artist": "Filter artists...",
   "followers": "{followers} Followers",
   "add_artist_to_blacklist": "Add artist to blacklist",

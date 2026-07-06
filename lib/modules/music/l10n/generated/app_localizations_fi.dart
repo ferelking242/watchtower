@@ -153,6 +153,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get cancel_all => 'Peru kaikki';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Suodata artistit...';
 
   @override

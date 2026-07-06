@@ -153,6 +153,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancel_all => '取消全部';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => '筛选艺人...';
 
   @override
@@ -1674,6 +1677,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get cancel_all => '取消全部';
+
+  @override
+  String get refresh => 'Refresh';
 
   @override
   String get filter_artist => '過濾藝人...';

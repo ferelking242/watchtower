@@ -153,6 +153,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get cancel_all => 'Zrušit vše';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Filtrovat umělce...';
 
   @override

@@ -153,6 +153,9 @@ class AppLocalizationsNe extends AppLocalizations {
   String get cancel_all => 'सब रद्द गर्नुहोस्';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'कलाकारहरूलाई फिल्टर गर्नुहोस्...';
 
   @override

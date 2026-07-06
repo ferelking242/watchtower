@@ -153,6 +153,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get cancel_all => 'Hủy tất cả';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Lọc nghệ sĩ...';
 
   @override

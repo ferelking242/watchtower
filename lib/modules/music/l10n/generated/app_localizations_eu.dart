@@ -153,6 +153,9 @@ class AppLocalizationsEu extends AppLocalizations {
   String get cancel_all => 'Ezeztatu dena';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Filtratu artistak...';
 
   @override

@@ -153,6 +153,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get cancel_all => 'Скасувати все';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Фільтрувати виконавців...';
 
   @override

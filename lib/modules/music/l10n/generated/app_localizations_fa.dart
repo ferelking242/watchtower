@@ -153,6 +153,9 @@ class AppLocalizationsFa extends AppLocalizations {
   String get cancel_all => 'لغو همه';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'فیلتر کردن هنرمند...';
 
   @override

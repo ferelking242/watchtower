@@ -154,6 +154,9 @@ class AppLocalizationsTl extends AppLocalizations {
   String get cancel_all => 'Kanselahin Lahat';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'I-filter ang mga artista...';
 
   @override

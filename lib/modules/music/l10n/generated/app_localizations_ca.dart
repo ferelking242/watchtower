@@ -153,6 +153,9 @@ class AppLocalizationsCa extends AppLocalizations {
   String get cancel_all => 'Cancel·lar todo';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'Filtrar artistes...';
 
   @override

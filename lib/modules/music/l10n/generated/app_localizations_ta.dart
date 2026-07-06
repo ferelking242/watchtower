@@ -153,6 +153,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get cancel_all => 'அனைத்தையும் ரத்து செய்';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filter_artist => 'கலைஞர்களை வடிகட்டுக...';
 
   @override
