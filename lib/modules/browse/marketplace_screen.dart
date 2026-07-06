@@ -56,6 +56,7 @@ class _ExtEntry {
   final String paywall;
   final bool supportsComments;
   final String upstream;
+  final String description;
 
   const _ExtEntry({
     required this.id,
@@ -75,6 +76,7 @@ class _ExtEntry {
     this.paywall = 'free',
     this.supportsComments = false,
     this.upstream = '',
+    this.description = '',
   });
 }
 
@@ -138,6 +140,7 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'paywall': e['paywall'] as String? ?? 'free',
         'supportsComments': e['supportsComments'] as bool? ?? false,
         'upstream': e['upstream'] as String? ?? '',
+        'description': e['description'] as String? ?? '',
       });
     }
   }
@@ -166,6 +169,7 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
           paywall: m['paywall'] as String? ?? 'free',
           supportsComments: m['supportsComments'] as bool? ?? false,
           upstream: m['upstream'] as String? ?? '',
+          description: m['description'] as String? ?? '',
         ))
     .toList();
 
@@ -2728,7 +2732,9 @@ class _PlayStoreCard extends StatelessWidget {
       final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
       final langCode = _MarketplaceScreenState._langCode(entry.lang);
       final slug = _slugify(entry.name);
-      final desc = _description(entry.contentType, entry.lang, entry.isNsfw);
+      final desc = entry.description.isNotEmpty
+          ? entry.description
+          : _description(entry.contentType, entry.lang, entry.isNsfw);
 
       return GestureDetector(
         onLongPress: (installed && onUninstall != null) ? onUninstall : null,
