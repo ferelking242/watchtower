@@ -14,7 +14,7 @@ class MetadataPluginRepositoriesNotifier
     final gitubSearch = globalDio.get(
       "https://api.github.com/search/repositories",
       queryParameters: {
-        "q": "topic:spotube-plugin",
+        "q": "user:ferelking242 topic:spotube-plugin",
         "sort": "stars",
         "order": "desc",
         "page": offset,
