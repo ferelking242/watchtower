@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
-import 'package:watchtower/modules/music/collections/routes.dart'
-    show rootNavigatorKey; // kept for _NavPill go_router usage
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
@@ -111,6 +109,10 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   String _query = '';
   String _selectedChip = 'all';
 
+  // Progress of the header collapse: 0 = fully expanded (search bar visible),
+  // 1 = fully collapsed (search bar hidden, replaced by a small icon).
+  double _collapseT = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -120,19 +122,52 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
     _focus.addListener(() {
       if (mounted) setState(() {});
     });
+    _scroll.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _scroll.removeListener(_onScroll);
     _ctrl.dispose();
     _focus.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
+  void _onScroll() {
+    final maxShrink = _headerHeight(context) - _collapsedHeaderHeight(context);
+    final t = maxShrink <= 0
+        ? 0.0
+        : (_scroll.offset / maxShrink).clamp(0.0, 1.0);
+    if ((t - _collapseT).abs() > 0.01) {
+      setState(() => _collapseT = t);
+    }
+  }
+
+  // Expand the header back and focus the search field — used by the
+  // collapsed-state search icon so the bar behaves like a real shortcut
+  // instead of a dead button.
+  void _expandAndFocusSearch() {
+    _scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+    Future.delayed(const Duration(milliseconds: 260), () {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
   double _headerHeight(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
     return topPad + 52 + 8 + 48 + 10 + 36 + 24;
+  }
+
+  // Height of the header once fully collapsed: just the title row, matching
+  // the collapsing-app-bar behavior used on the Manga Discovery screen.
+  double _collapsedHeaderHeight(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+    return topPad + 52 + 12;
   }
 
   @override
@@ -146,7 +181,8 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
           SliverPersistentHeader(
             pinned: true,
             delegate: _StickyHeaderDelegate(
-              height: _headerHeight(context),
+              minHeight: _collapsedHeaderHeight(context),
+              maxHeight: _headerHeight(context),
               child: _buildHeader(context),
             ),
           ),
@@ -167,10 +203,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
 
   Widget _buildHeader(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
-
-    // Chips depuis le provider, fallback statique
-    final chipsAsync = ref.watch(metadataPluginSearchChipsProvider);
-    final chips = chipsAsync.asData?.value ?? ['all', 'tracks', 'albums', 'artists', 'playlists'];
+    final t = _collapseT;
 
     return Container(
       color: _kBg,
@@ -179,22 +212,39 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Ligne avatar + titre
+          // Ligne avatar + titre — reste toujours visible ; un icône de
+          // recherche apparaît ici au fil du scroll, quand la barre de
+          // recherche complète disparaît (comme sur Manga Discovery).
           Row(
             children: [
-              _PluginAvatar(size: 36),
+              Opacity(
+                opacity: (1 - t * 1.4).clamp(0.0, 1.0),
+                child: _PluginAvatar(size: 36),
+              ),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Rechercher',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
+              Expanded(
+                child: Opacity(
+                  opacity: (1 - t * 1.4).clamp(0.0, 1.0),
+                  child: const Text(
+                    'Rechercher',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
+              if (t > 0.4)
+                IconButton(
+                  icon: const Icon(Icons.search_rounded,
+                      color: Colors.white, size: 22),
+                  onPressed: _expandAndFocusSearch,
+                  visualDensity: VisualDensity.compact,
+                ),
               IconButton(
                 icon: const Icon(Icons.camera_alt_outlined,
                     color: Colors.white, size: 24),
@@ -204,128 +254,265 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
             ],
           ),
 
-          const SizedBox(height: 10),
-
-          // Barre de recherche
-          GestureDetector(
-            onTap: () => _focus.requestFocus(),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              height: 46,
-              decoration: BoxDecoration(
-                color: _focus.hasFocus ? Colors.white : _kSearchFill,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 14),
-                  Icon(
-                    Icons.search_rounded,
-                    size: 20,
-                    color: _focus.hasFocus ? Colors.black87 : Colors.white70,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _ctrl,
-                      focusNode: _focus,
-                      textInputAction: TextInputAction.search,
-                      style: TextStyle(
-                        color: _focus.hasFocus ? Colors.black : Colors.white,
-                        fontSize: 15,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Que souhaitez-vous écouter ?',
-                        hintStyle: TextStyle(
-                          color: _focus.hasFocus
-                              ? Colors.black45
-                              : Colors.white54,
-                          fontSize: 15,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onSubmitted: (_) => _focus.unfocus(),
-                    ),
-                  ),
-                  if (_query.isNotEmpty)
+          // Barre de recherche + pills — s'estompent et se réduisent au scroll
+          // pour laisser place à la simple icône de recherche ci-dessus.
+          ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: (1 - t).clamp(0.0, 1.0),
+              child: Opacity(
+                opacity: (1 - t * 1.6).clamp(0.0, 1.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 10),
+                    // Barre de recherche
                     GestureDetector(
-                      onTap: () {
-                        _ctrl.clear();
-                        _focus.unfocus();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Icon(Icons.close_rounded,
-                            size: 18,
-                            color: _focus.hasFocus
-                                ? Colors.black54
-                                : Colors.white54),
+                      onTap: () => _focus.requestFocus(),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: _focus.hasFocus ? Colors.white : _kSearchFill,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 14),
+                            Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                              color: _focus.hasFocus
+                                  ? Colors.black87
+                                  : Colors.white70,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: _ctrl,
+                                focusNode: _focus,
+                                textInputAction: TextInputAction.search,
+                                style: TextStyle(
+                                  color: _focus.hasFocus
+                                      ? Colors.black
+                                      : Colors.white,
+                                  fontSize: 15,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Que souhaitez-vous écouter ?',
+                                  hintStyle: TextStyle(
+                                    color: _focus.hasFocus
+                                        ? Colors.black45
+                                        : Colors.white54,
+                                    fontSize: 15,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onSubmitted: (_) => _focus.unfocus(),
+                              ),
+                            ),
+                            if (_query.isNotEmpty)
+                              GestureDetector(
+                                onTap: () {
+                                  _ctrl.clear();
+                                  _focus.unfocus();
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10),
+                                  child: Icon(Icons.close_rounded,
+                                      size: 18,
+                                      color: _focus.hasFocus
+                                          ? Colors.black54
+                                          : Colors.white54),
+                                ),
+                              )
+                            else
+                              const SizedBox(width: 14),
+                          ],
+                        ),
                       ),
-                    )
-                  else
-                    const SizedBox(width: 14),
-                ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Pills de navigation (Découverte / Music search / Sources
+                    // custom) quand aucune recherche n'est active ; sinon un
+                    // simple bouton "Filtrer" qui ouvre le menu (bottom
+                    // sheet) contenant les types Tout/Titres/Albums/Artistes/
+                    // Playlists — au lieu de les afficher en pastilles ici.
+                    if (_query.isEmpty)
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _NavPill(
+                              label: 'Découverte',
+                              icon: Icons.compass_calibration_outlined,
+                              selected: false,
+                              onTap: () => context.go('/discover'),
+                            ),
+                            const SizedBox(width: 8),
+                            const _NavPill(
+                              label: 'Music search',
+                              icon: Icons.music_note_rounded,
+                              selected: true,
+                              onTap: null,
+                            ),
+                            const SizedBox(width: 8),
+                            _NavPill(
+                              label: 'Sources custom',
+                              icon: Icons.add_circle_outline_rounded,
+                              selected: false,
+                              onTap: () => context.push(
+                                '/globalSearch',
+                                extra: (null, ItemType.anime),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      _MusicFilterButton(
+                        label: _chipLabel(_selectedChip),
+                        isActive: _selectedChip != 'all',
+                        onTap: () => _openFilterSheet(context),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
-
-          const SizedBox(height: 10),
-
-          // Pills de navigation (Découverte / Music search / Sources custom)
-          // + chips de filtre quand une recherche est active
-          if (_query.isEmpty)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _NavPill(
-                    label: 'Découverte',
-                    icon: Icons.compass_calibration_outlined,
-                    selected: false,
-                    onTap: () => context.go('/discover'),
-                  ),
-                  const SizedBox(width: 8),
-                  const _NavPill(
-                    label: 'Music search',
-                    icon: Icons.music_note_rounded,
-                    selected: true,
-                    onTap: null,
-                  ),
-                  const SizedBox(width: 8),
-                  _NavPill(
-                    label: 'Sources custom',
-                    icon: Icons.add_circle_outline_rounded,
-                    selected: false,
-                    onTap: () => context.push(
-                      '/globalSearch',
-                      extra: (null, ItemType.anime),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            // Chips de filtre depuis le provider
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (int i = 0; i < chips.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    _FilterChip(
-                      label: _chipLabel(chips[i]),
-                      selected: _selectedChip == chips[i],
-                      onTap: () =>
-                          setState(() => _selectedChip = chips[i]),
-                    ),
-                  ],
-                ],
-              ),
-            ),
         ],
       ),
+    );
+  }
+
+  // ── Bottom sheet de filtres (type de résultat) ─────────────────────────────
+  // Réplique le comportement du bottom sheet de filtres de Manga Discovery :
+  // les pills Tout/Titres/Albums/Artistes/Playlists vivent ici au lieu
+  // d'encombrer l'en-tête.
+  Future<void> _openFilterSheet(BuildContext context) async {
+    final chipsAsync = ref.read(metadataPluginSearchChipsProvider);
+    final chips = chipsAsync.asData?.value ??
+        ['all', 'tracks', 'albums', 'artists', 'playlists'];
+    String tempSelected = _selectedChip;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            return SafeArea(
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF181818),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header : Annuler | Filtres | Appliquer
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                      child: Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(sheetCtx).pop(),
+                            child: const Text('Annuler',
+                                style: TextStyle(color: Colors.white70)),
+                          ),
+                          const Expanded(
+                            child: Text(
+                              'Filtres',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _selectedChip = tempSelected);
+                              Navigator.of(sheetCtx).pop();
+                            },
+                            child: Text('Appliquer',
+                                style: TextStyle(
+                                    color: _kGreen,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: Colors.white12),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Type de résultats',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    ...chips.map((chip) {
+                      final isSelected = tempSelected == chip;
+                      return InkWell(
+                        onTap: () =>
+                            setSheetState(() => tempSelected = chip),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected
+                                    ? Icons.check_circle_rounded
+                                    : Icons.circle_outlined,
+                                size: 18,
+                                color: isSelected
+                                    ? _kGreen
+                                    : Colors.white.withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _chipLabel(chip),
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.white70,
+                                  fontSize: 15,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1152,16 +1339,16 @@ class _NavPill extends StatelessWidget {
   }
 }
 
-// ─── Chip de filtre de recherche ──────────────────────────────────────────────
+// ─── Bouton "Filtrer" (ouvre le bottom sheet de filtres) ──────────────────────
 
-class _FilterChip extends StatelessWidget {
+class _MusicFilterButton extends StatelessWidget {
   final String label;
-  final bool selected;
+  final bool isActive;
   final VoidCallback onTap;
 
-  const _FilterChip({
+  const _MusicFilterButton({
     required this.label,
-    required this.selected,
+    required this.isActive,
     required this.onTap,
   });
 
@@ -1171,18 +1358,30 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : const Color(0xFF2A2A2A),
+          color: isActive ? _kGreen.withValues(alpha: 0.16) : _kSearchFill,
           borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.black : Colors.white70,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-            fontSize: 13,
+          border: Border.all(
+            color: isActive ? _kGreen : Colors.white12,
+            width: isActive ? 1.2 : 0.8,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.tune_rounded,
+                size: 16, color: isActive ? _kGreen : Colors.white70),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? _kGreen : Colors.white70,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1192,21 +1391,28 @@ class _FilterChip extends StatelessWidget {
 // ─── Sticky header delegate ───────────────────────────────────────────────────
 
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final double height;
+  final double minHeight;
+  final double maxHeight;
   final Widget child;
-  const _StickyHeaderDelegate({required this.height, required this.child});
+  const _StickyHeaderDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
 
   @override
-  double get minExtent => height;
+  double get minExtent => minHeight;
   @override
-  double get maxExtent => height;
+  double get maxExtent => maxHeight;
 
   @override
   Widget build(
           BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      child;
+      ClipRect(child: child);
 
   @override
   bool shouldRebuild(_StickyHeaderDelegate old) =>
-      old.height != height || old.child != child;
+      old.minHeight != minHeight ||
+      old.maxHeight != maxHeight ||
+      old.child != child;
 }

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/accounts.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/appearance.dart';
@@ -26,6 +27,7 @@ class SettingsPage extends HookConsumerWidget {
       bottom: false,
       child: Scaffold(
         appBar: AppBar(
+          leading: const MusicBackButton(),
           title: Text(context.l10n.settings),
         ),
         body: Scrollbar(

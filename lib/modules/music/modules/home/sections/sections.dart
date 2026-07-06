@@ -69,6 +69,45 @@ class HomePageBrowseSection extends HookConsumerWidget {
       );
     }
 
+    // Plugin is configured and the request succeeded, but there is simply
+    // nothing to show (e.g. a fresh/empty catalog). Without this branch the
+    // sliver renders zero items and — combined with the other home sections
+    // also being empty — the whole Music Hub screen appears as a blank/black
+    // page with no error ever logged. Always surface *something* instead.
+    if ((sections?.isEmpty ?? true)) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 12,
+              children: [
+                Icon(
+                  Icons.library_music_outlined,
+                  size: 56,
+                  color: colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+                Text(
+                  context.l10n.nothing_found,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    ref.invalidate(metadataPluginBrowseSectionsProvider);
+                  },
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(context.l10n.refresh),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return SliverInfiniteList(
       hasReachedMax: browseSections.asData?.value.hasMore == false,
       isLoading: !browseSections.isLoading && browseSections.isLoadingNextPage,
