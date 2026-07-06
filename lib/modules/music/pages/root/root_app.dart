@@ -42,6 +42,7 @@ class RootAppPage extends HookConsumerWidget {
       child: SafeArea(
         top: false,
         child: Scaffold(
+          backgroundColor: theme.colorScheme.surface,
           body: Stack(
             children: [
               Sidebar(
