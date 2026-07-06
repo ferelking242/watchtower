@@ -26,6 +26,7 @@ import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
@@ -714,32 +715,39 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
             }
 
             return SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionHeader(ctx,
-                    title: listName, accent: accent, icon: icon, onSeeAll: onSeeAllCb,
-                  ),
-                  Consumer(builder: (c, ref, _) {
-                    final data = ref.watch(getCustomListProvider(
-                      source: source, listId: listId, page: 1,
-                    ));
-                    return data.when(
-                      data: (d) {
-                        final items = d?.list ?? [];
-                        if (isRanked)    return _buildRankedRow(ctx, items);
-                        if (isSpotlight) return _buildSpotlightRow(ctx, items);
-                        return _buildCompactRow(ctx, items);
-                      },
-                      loading: () => isRanked
-                          ? _buildRankedRowSkeleton(ctx)
-                          : _buildCompactRowSkeleton(ctx),
-                      error: (_, __) => const SizedBox(height: 8),
-                    );
-                  }),
-                ],
-              ),
-            );
+                child: Consumer(builder: (c, ref, _) {
+                  final sData = ref.watch(getCustomListProvider(
+                    source: source, listId: listId, page: 1,
+                  ));
+                  return sData.when(
+                    data: (d) {
+                      final items = d?.list ?? [];
+                      if (items.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionHeader(ctx,
+                            title: listName, accent: accent, icon: icon, onSeeAll: onSeeAllCb,
+                          ),
+                          if (isRanked)         _buildRankedRow(ctx, items)
+                          else if (isSpotlight) _buildSpotlightRow(ctx, items)
+                          else                  _buildCompactRow(ctx, items),
+                        ],
+                      );
+                    },
+                    loading: () => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader(ctx,
+                          title: listName, accent: accent, icon: icon, onSeeAll: null,
+                        ),
+                        isRanked ? _buildRankedRowSkeleton(ctx) : _buildCompactRowSkeleton(ctx),
+                      ],
+                    ),
+                    error: (_, __) => const SizedBox.shrink(),
+                  );
+                }),
+              );
           }),
 
           // ── If no custom lists → show standard Latest row ────────────────
@@ -768,29 +776,44 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
               ),
             ),
 
-          // ── Catalogue header — centré avec ornements ─────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(child: _CatalogueOrnamentLine(color: ctx.primaryColor)),
-                  const SizedBox(width: 12),
-                  Icon(Icons.video_library_rounded, size: 15, color: ctx.primaryColor),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Catalogue',
-                    style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5,
-                      color: Theme.of(ctx).textTheme.bodyLarge?.color,
+          // ── Catalogue header — SVG lauriers, centré, typo pro ────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 32, 16, 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/icons/left-laurel.svg',
+                      width: 22, height: 38,
+                      colorFilter: ColorFilter.mode(
+                        Colors.white.withValues(alpha: 0.80),
+                        BlendMode.srcIn,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: _CatalogueOrnamentLine(color: ctx.primaryColor, flip: true)),
-                ],
+                    const SizedBox(width: 14),
+                    Text(
+                      'CATALOGUE',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 3.5,
+                        color: Theme.of(ctx).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    SvgPicture.asset(
+                      'assets/icons/right-laurel.svg',
+                      width: 22, height: 38,
+                      colorFilter: ColorFilter.mode(
+                        Colors.white.withValues(alpha: 0.80),
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
 
           // ── Catalogue grid (infinite scroll) ─────────────────────────────
           SliverPadding(
@@ -1103,9 +1126,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   Widget _buildSpotlightRow(BuildContext ctx, List<MManga> items) {
     if (items.isEmpty) return const SizedBox(height: 4);
-    final capped = items.take(10).toList();
+    final capped = items.take(20).toList();
     return SizedBox(
-      height: 210,
+      height: 196,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2050,8 +2073,8 @@ class _SpotlightCardState extends ConsumerState<_SpotlightCard>
         child: ScaleTransition(
           scale: _scale,
           child: SizedBox(
-            width: 248,
-            height: 185,
+            width: 116,
+            height: 172,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: Stack(
