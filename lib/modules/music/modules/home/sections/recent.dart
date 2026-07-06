@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/history/recent.dart';
+import 'package:watchtower/modules/music/models/database/database.dart';
 
 class HomeRecentlyPlayedSection extends HookConsumerWidget {
   const HomeRecentlyPlayedSection({super.key});
