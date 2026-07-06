@@ -285,10 +285,21 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
 
   Future<String> _getPluginDownloadUrl(Uri uri) async {
     AppLogger.log.i("Getting plugin download URL from: $uri");
-    final res = await globalDio.getUri(
-      uri,
-      options: Options(responseType: ResponseType.json),
-    );
+    final Response<dynamic> res;
+    try {
+      res = await globalDio.getUri(
+        uri,
+        options: Options(
+          responseType: ResponseType.json,
+          // Accept all status codes so we can provide a proper error message
+          // instead of letting Dio throw DioException [bad response] on 403/404.
+          validateStatus: (_) => true,
+        ),
+      );
+    } on DioException catch (e) {
+      AppLogger.log.e("DioException fetching releases: $e");
+      throw MetadataPluginException.failedToGetRelease();
+    }
 
     if (res.statusCode != 200) {
       throw MetadataPluginException.failedToGetRelease();
@@ -363,14 +374,40 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   }
 
   /// Downloads, extracts & caches the plugin from the given URL and returns the plugin config.
-  /// If only a text/html URL is provided, it will try to get the latest release from
-  /// the URL for supported websites (github.com, codeberg.org).
+  ///
+  /// Accepted URL formats:
+  ///  • Direct `.smplug` URL (raw.githubusercontent.com, CDN, etc.) → downloaded as-is.
+  ///  • GitHub / Codeberg repo HTML page → the latest release asset is resolved via API.
   Future<PluginConfiguration> downloadAndCachePlugin(String url) async {
-    final res = await globalDio.head(url);
-    final isSupportedWebsite =
-        (res.headers["Content-Type"]?.first)?.startsWith("text/html") == true &&
-            allowedDomainsRegex.hasMatch(url);
     String pluginDownloadUrl = url;
+
+    // Check whether the URL points to a supported VCS hosting page
+    // (GitHub / Codeberg) rather than a direct binary download.
+    // We detect this by doing a cheap HEAD request and inspecting Content-Type.
+    // If the HEAD itself fails (network error, DNS, etc.) we wrap into a proper
+    // MetadataPluginException so the UI never sees a raw DioException.
+    final bool isSupportedWebsite;
+    try {
+      final headRes = await globalDio.head(
+        url,
+        options: Options(
+          validateStatus: (_) => true,
+          followRedirects: true,
+        ),
+      );
+      // Dio normalises header names to lowercase.
+      final contentType =
+          headRes.headers.value(Headers.contentTypeHeader) ??
+          headRes.headers.value("content-type") ??
+          "";
+      isSupportedWebsite =
+          contentType.startsWith("text/html") &&
+          allowedDomainsRegex.hasMatch(url);
+    } on DioException catch (e) {
+      AppLogger.log.e("HEAD request failed for plugin URL: $e");
+      throw MetadataPluginException.pluginDownloadFailed();
+    }
+
     if (isSupportedWebsite) {
       if (url.contains("github.com")) {
         final uri = _getGithubReleasesUrl(url);
@@ -383,24 +420,31 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       }
     }
 
-    // Now let's download, extract and cache the plugin
+    // Download, extract and cache the plugin binary.
     final pluginDir = await _getPluginRootDir();
     await pluginDir.create(recursive: true);
 
-    final pluginRes = await globalDio.get(
-      pluginDownloadUrl,
-      options: Options(
-        responseType: ResponseType.bytes,
-        followRedirects: true,
-        receiveTimeout: const Duration(seconds: 30),
-      ),
-    );
+    final Response<dynamic> pluginRes;
+    try {
+      pluginRes = await globalDio.get(
+        pluginDownloadUrl,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+          receiveTimeout: const Duration(seconds: 60),
+          validateStatus: (_) => true,
+        ),
+      );
+    } on DioException catch (e) {
+      AppLogger.log.e("Download request failed for plugin: $e");
+      throw MetadataPluginException.pluginDownloadFailed();
+    }
 
     if ((pluginRes.statusCode ?? 500) > 299) {
       throw MetadataPluginException.pluginDownloadFailed();
     }
 
-    return await extractPluginArchive(pluginRes.data);
+    return await extractPluginArchive(pluginRes.data as List<int>);
   }
 
   bool validatePluginApiCompatibility(PluginConfiguration plugin) {
