@@ -418,9 +418,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // Otherwise → list view (popular, latest, etc.)
 
   Widget _buildBody(BuildContext ctx) {
-    // Home-style tabs → toujours montrer le home view (carousel + sections)
-    // même si customLists est vide — le carousel fallback sur popular
-    final isHomeSubTab = (_mbSubTabIdx == 0 || _mbSubTabIdx == 3);
+    // Tabs 0 (FightZone) et 1 (Movie) ont watchtowerIdx:0 → home view avec carousel
+    // Tabs 2 (TV Shows) et 3 (Popular) → list view
+    final isHomeSubTab = (_mbSubTabIdx == 0 || _mbSubTabIdx == 1);
     if (isHomeSubTab && !_isFiltering && !_isSearching) {
       return _buildHomeView(ctx);
     }
@@ -487,8 +487,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                 data: (d) {
                   final items = d?.list ?? [];
                   if (items.isEmpty) return _buildHeroSkeleton(c);
-                  return _WatchHeroCarousel(
-                      mangas: items.take(8).toList(), source: source, topPadding: _headerH);
+                  return RepaintBoundary(child: _WatchHeroCarousel(
+                      mangas: items.take(8).toList(), source: source, topPadding: _headerH));
                 },
                 loading: () => _buildHeroSkeleton(c),
                 error: (_, __) => _buildHeroSkeleton(c),
@@ -1343,17 +1343,15 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   Widget _buildHeroSkeleton(BuildContext ctx) {
     final base = Theme.of(ctx).colorScheme
-        .surfaceContainerHighest.withValues(alpha: 0.7);
+        .surfaceContainerHighest.withValues(alpha: 0.55);
     final size = MediaQuery.sizeOf(ctx);
     final cardH = (size.width > size.height) ? size.height * 0.70 : size.height * 0.34;
     final totalH = cardH + _headerH;
-    return Skeletonizer(
-      enabled: true,
-      effect: ShimmerEffect(
-          baseColor: base,
-          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-          duration: const Duration(milliseconds: 1400)),
-      child: Container(width: size.width, height: totalH, color: base),
+    // Placeholder statique — pas de shimmer (lourd + cause bâtons sur texte)
+    return Container(
+      width: size.width,
+      height: totalH,
+      decoration: BoxDecoration(color: base),
     );
   }
 
