@@ -26,8 +26,7 @@ class SearchPageTracksTab extends HookConsumerWidget {
         ref.watch(metadataPluginSearchTracksProvider(searchTerm));
     final searchTracksNotifier =
         ref.read(metadataPluginSearchTracksProvider(searchTerm).notifier);
-    final searchTracks =
-        searchTracksSnapshot.asData?.value.items ?? [FakeData.track];
+    final searchTracks = searchTracksSnapshot.asData?.value.items ?? [];
 
     final playlist = ref.watch(audioPlayerProvider);
     final playlistNotifier = ref.watch(audioPlayerProvider.notifier);
