@@ -13,7 +13,7 @@ final lightThemeProvider = Provider<ThemeData>((ref) {
   final blendLevel = ref.watch(blendLevelStateProvider).toInt();
   final fontFamily = ref.watch(appFontFamilyProvider);
 
-  return FlexThemeData.light(
+  final base = FlexThemeData.light(
     colors: colors,
     surfaceMode: FlexSurfaceMode.highScaffoldLevelSurface,
     blendLevel: blendLevel,
@@ -30,6 +30,10 @@ final lightThemeProvider = Provider<ThemeData>((ref) {
     useMaterial3: true,
     fontFamily: fontFamily,
   );
+  return base.copyWith(
+    textTheme: base.textTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+  );
 });
 
 /// Provides the dark theme for the app — cinematic deep dark palette.
@@ -42,7 +46,7 @@ final darkThemeProvider = Provider<ThemeData>((ref) {
   // Cinematic deep background: near-black with a faint blue-indigo tint
   const cinematicBg = Color(0xFF080A14);
 
-  return FlexThemeData.dark(
+  final baseDark = FlexThemeData.dark(
     colors: colors,
     surfaceMode: FlexSurfaceMode.highScaffoldLevelSurface,
     blendLevel: blendLevel,
@@ -59,5 +63,9 @@ final darkThemeProvider = Provider<ThemeData>((ref) {
     visualDensity: FlexColorScheme.comfortablePlatformDensity,
     useMaterial3: true,
     fontFamily: fontFamily,
+  );
+  return baseDark.copyWith(
+    textTheme: baseDark.textTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    primaryTextTheme: baseDark.primaryTextTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
   );
 });
