@@ -424,9 +424,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     return Scaffold(
       backgroundColor: mbBg,
       extendBody: true,
-      bottomNavigationBar: _mbBottomNavIdx == 0
-          ? _buildMbBottomDock(context)
-          : null,
+      bottomNavigationBar: _buildMbBottomDock(context),
       body: _mbBottomNavIdx == 0
           ? NestedScrollView(
               controller: _scrollCtrl,
@@ -434,7 +432,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                   [_buildSliverAppBar(ctx, innerBoxIsScrolled)],
               body: _buildBody(context),
             )
-          : _buildMbStubPage(context, _mbBottomNavIdx),
+          : _buildMbStubBody(context, _mbBottomNavIdx),
     );
   }
 
@@ -464,18 +462,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       // ── Leading: MovieBox logo (30×full height) ───────────────────────────
       leadingWidth: 46,
       leading: Padding(
-        padding: const EdgeInsets.only(left: 12, top: 8, bottom: 8),
-        child: !isLocal && (source.iconUrl?.isNotEmpty ?? false)
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(5),
-                child: Image.network(
-                  source.iconUrl!,
-                  width: 30, height: 30,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.movie_rounded, size: 26, color: Colors.white),
-                ))
-            : const Icon(Icons.movie_rounded, size: 26, color: Colors.white),
+        padding: const EdgeInsets.only(left: 12, top: 6, bottom: 6),
+        child: SvgPicture.asset('assets/icons/moviebox-logo.svg',
+            width: 30, height: 34),
       ),
       // ── Title: MovieBox search bar (rounded, semi-transparent white) ──────
       titleSpacing: 0,
@@ -574,57 +563,46 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // Selected tab: white text + green underline. Unselected: white_60 text.
 
   Widget _buildMbSubDock(BuildContext ctx) {
+    // MovieBox exact: active tab = GREEN FILLED PILL, inactive = plain text
     const white60 = Color(0x99FFFFFF);
     const brandGreen = Color(0xFF07b84e);
 
     return SizedBox(
-      height: 44, // 32dp indicator + 4dp top + 8dp bottom
+      height: 44,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(left: 12, top: 4, bottom: 0),
+        padding: const EdgeInsets.only(left: 10, top: 6, bottom: 6),
         itemCount: _kMbSubTabs.length,
         itemBuilder: (_, i) {
-          final tab  = _kMbSubTabs[i];
+          final tab    = _kMbSubTabs[i];
           final active = _mbSubTabIdx == i;
           return GestureDetector(
-            onTap: () {
-              setState(() {
-                _mbSubTabIdx = i;
-                _selectedIdx = tab.watchtowerIdx;
-                _isFiltering = false;
-                _mangaList.clear();
-                _page = 1;
-                _hasNextPage = true;
-              });
-            },
+            onTap: () => setState(() {
+              _mbSubTabIdx = i;
+              _selectedIdx = tab.watchtowerIdx;
+              _isFiltering = false;
+              _mangaList.clear();
+              _page = 1;
+              _hasNextPage = true;
+            }),
             child: Padding(
-              padding: const EdgeInsets.only(right: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 4),
-                  Text(
-                    tab.label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                      color: active ? Colors.white : white60,
-                      height: 1.2,
-                    ),
+              padding: const EdgeInsets.only(right: 6),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: active ? brandGreen : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  tab.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: active ? Colors.white : white60,
+                    height: 1.2,
                   ),
-                  const SizedBox(height: 6),
-                  // Underline indicator (MagicIndicator style)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    height: 3,
-                    width: active ? 20 : 0,
-                    decoration: BoxDecoration(
-                      color: brandGreen,
-                      borderRadius: BorderRadius.circular(1.5),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           );
@@ -918,36 +896,58 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     // ── Category chips strip ─────────────────────────────────────────────────
 
     Widget _buildCategoryChips(BuildContext ctx, List<Map<String, dynamic>> cats) {
+      // MovieBox exact: rectangular image-background tiles, dark overlay, text at bottom
       return SizedBox(
-        height: 42,
+        height: 68,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           itemCount: cats.length,
           itemBuilder: (_, i) {
             final cl = cats[i];
             final listId   = cl['id'] as String;
             final listName = cl['name'] as String? ?? listId;
-            final Color accent = _parseHexColor(cl['color'] as String?, ctx.primaryColor);
+            final imgUrl   = cl['imageUrl'] as String? ?? '';
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
+              child: GestureDetector(
                 onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
                   builder: (_) => _WatchSectionPage(
                     source: source, title: listName,
                     type: _SectionKind.custom, customListId: listId,
                   ),
                 )),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: accent.withValues(alpha: 0.35), width: 1),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: SizedBox(
+                    width: 115, height: 60,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (imgUrl.isNotEmpty)
+                          Image.network(imgUrl, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF1E2126)))
+                        else
+                          const ColoredBox(color: Color(0xFF1E2126)),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                              colors: [Colors.black.withValues(alpha: 0.25), Colors.black.withValues(alpha: 0.70)],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 7, left: 10, right: 4,
+                          child: Text(listName,
+                              style: const TextStyle(color: Colors.white, fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  shadows: [Shadow(color: Colors.black54, blurRadius: 6)]),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Text(listName,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accent)),
                 ),
               ),
             );
@@ -1036,51 +1036,27 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     IconData? icon,
     VoidCallback? onSeeAll,
   }) {
-    final accentColor = accent ?? ctx.primaryColor;
+    // MovieBox exact: plain white bold title left, grey "Tous >" right — NO colored bar, NO icon
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 22, 14, 10),
+      padding: const EdgeInsets.fromLTRB(14, 20, 14, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 3, height: 18,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (icon != null) ...[
-                Icon(icon, size: 15, color: accentColor),
-                const SizedBox(width: 5),
-              ],
-              Text(title,
-                  style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2,
-                  )),
-            ],
-          ),
+          Text(title,
+              style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white,
+              )),
           if (onSeeAll != null)
             GestureDetector(
               onTap: onSeeAll,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Voir tout',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                            color: accentColor)),
-                    Icon(Icons.chevron_right_rounded, size: 14, color: accentColor),
-                  ],
-                ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Tous',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
+                          color: Color(0x99FFFFFF))),
+                  Icon(Icons.chevron_right_rounded, size: 16, color: Color(0x99FFFFFF)),
+                ],
               ),
             ),
         ],
@@ -1627,158 +1603,96 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildMbBottomDock(BuildContext ctx) {
-    const dockBg   = Color(0xFF1C1E21);
-    const activeC  = Colors.white;
-    const inactiveC = Color(0x99FFFFFF); // white_60
-    const brandG   = Color(0xFF07b84e);
+    // MovieBox exact 4-tab dock: Accueil, TV courte, Téléchargement, Moi
+    // Active tab = green filled PILL container behind icon
+    const dockBg    = Color(0xFF1C1E21);
+    const brandG    = Color(0xFF07b84e);
+    const inactiveC = Color(0x80FFFFFF);
 
-    // Tab definitions matching appTab.json bottomTabs
-    // Center tab (Fight Zone idx=2) uses a larger icon (72×80dp equivalent)
-    final items = <({IconData icon, String label, bool isCenter, bool hasBadge, String? badge})>[
-      (icon: Icons.home_rounded,       label: 'Home',     isCenter: false, hasBadge: false, badge: null),
-      (icon: Icons.menu_book_rounded,  label: 'NovelHub', isCenter: false, hasBadge: true,  badge: 'HOT'),
-      (icon: Icons.sports_mma_rounded, label: '',         isCenter: true,  hasBadge: false, badge: null),
-      (icon: Icons.download_rounded,   label: 'Downloads',isCenter: false, hasBadge: false, badge: null),
-      (icon: Icons.person_rounded,     label: 'Me',       isCenter: false, hasBadge: false, badge: null),
+    final items = <({IconData icon, String label, int navIdx, int? badge})>[
+      (icon: Icons.home_rounded,     label: 'Accueil',        navIdx: 0, badge: null),
+      (icon: Icons.tv_rounded,       label: 'TV courte',      navIdx: 1, badge: null),
+      (icon: Icons.download_rounded, label: 'Téléchargement', navIdx: 3, badge: 38),
+      (icon: Icons.person_rounded,   label: 'Moi',            navIdx: 4, badge: null),
     ];
 
     return Container(
-      height: 80,
       decoration: BoxDecoration(
         color: dockBg,
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 0.5)),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.07), width: 0.5)),
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          children: List.generate(items.length, (i) {
-            final item    = items[i];
-            final active  = _mbBottomNavIdx == i;
-            final iconColor = active ? activeC : inactiveC;
-            final textColor = active ? activeC : inactiveC;
-
-            if (item.isCenter) {
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: items.map((item) {
+              final active = _mbBottomNavIdx == item.navIdx;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _mbBottomNavIdx = i),
+                  onTap: () => setState(() => _mbBottomNavIdx = item.navIdx),
                   behavior: HitTestBehavior.opaque,
-                  child: SizedBox(
-                    height: 80,
-                    child: Center(
-                      child: Container(
-                        width: 56, height: 56,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF2ECC71), Color(0xFF07b84e)],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF07b84e).withValues(alpha: 0.45),
-                              blurRadius: 14, spreadRadius: 0,
-                              offset: const Offset(0, 4)),
-                          ],
-                        ),
-                        child: const Icon(Icons.sports_mma_rounded,
-                            size: 28, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _mbBottomNavIdx = i),
-                behavior: HitTestBehavior.opaque,
-                child: SizedBox(
-                  height: 80,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          Icon(item.icon, size: 24, color: iconColor),
-                          if (item.hasBadge && item.badge != null)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: active ? brandG : Colors.transparent,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(item.icon, size: 22,
+                                color: active ? Colors.white : inactiveC),
+                          ),
+                          if (item.badge != null)
                             Positioned(
-                              top: -4, right: -10,
+                              top: -2, right: -2,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 3, vertical: 1),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF03930),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft:     Radius.circular(3),
-                                    topRight:    Radius.circular(3),
-                                    bottomRight: Radius.circular(3),
-                                    bottomLeft:  Radius.circular(1),
-                                  ),
+                                  color: brandG,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text(item.badge!,
-                                  style: const TextStyle(
-                                    fontSize: 7, fontWeight: FontWeight.w700,
-                                    color: Colors.white, letterSpacing: 0.2)),
+                                child: Text('${item.badge}',
+                                    style: const TextStyle(fontSize: 8,
+                                        fontWeight: FontWeight.w700, color: Colors.white)),
                               ),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(item.label,
-                        style: TextStyle(
-                          fontSize: 10, color: textColor,
-                          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                        )),
-                      const SizedBox(height: 8),
+                          style: TextStyle(fontSize: 10,
+                              color: active ? Colors.white : inactiveC,
+                              fontWeight: active ? FontWeight.w600 : FontWeight.w400)),
                     ],
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
   }
 
-  // ── Stub page for non-Home bottom tabs ────────────────────────────────────
-
-  Widget _buildMbStubPage(BuildContext ctx, int navIdx) {
-    const bgColor = Color(0xFF101114);
-    const labels  = ['Home', 'NovelHub', 'Fight Zone', 'Downloads', 'Me'];
-    final label   = navIdx < labels.length ? labels[navIdx] : '';
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: bgColor,
-        title: Text(label,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: () => setState(() => _mbBottomNavIdx = 0),
-            icon: const Icon(Icons.close_rounded, color: Colors.white60),
-          ),
+  // ── Stub body — no inner Scaffold (fixes Scaffold-in-Scaffold crash) ──────
+  Widget _buildMbStubBody(BuildContext ctx, int navIdx) {
+    const labels = ['Accueil', 'TV courte', '', 'Téléchargement', 'Moi'];
+    final label  = navIdx < labels.length ? labels[navIdx] : '';
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.construction_rounded, size: 48, color: Color(0x3DFFFFFF)),
+          const SizedBox(height: 12),
+          Text('$label — bientôt disponible',
+              style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 14)),
         ],
-      ),
-      bottomNavigationBar: _buildMbBottomDock(ctx),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.construction_rounded,
-                size: 48, color: Color(0x3DFFFFFF)),
-            const SizedBox(height: 12),
-            Text('$label — bientôt disponible',
-              style: const TextStyle(
-                  color: Color(0x99FFFFFF), fontSize: 14)),
-          ],
-        ),
       ),
     );
   }
@@ -1877,70 +1791,167 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
   @override
   void dispose() { _timer?.cancel(); _ctrl.dispose(); super.dispose(); }
 
+  // MovieBox hero: banner image height + 92dp content cards strip
+  static const double _kCardsH = 92.0;
+
   @override
   Widget build(BuildContext context) {
-    final heroH = _heroHeight(context);
+    final bannerH = _heroHeight(context);
+    final totalH  = bannerH + _kCardsH;
+
+    final curr = widget.mangas[_page];
+    final next = _page + 1 < widget.mangas.length
+        ? widget.mangas[_page + 1]
+        : (widget.mangas.length > 1 ? widget.mangas[0] : null);
 
     return SizedBox(
-      height: heroH,
-      child: Stack(
+      height: totalH,
+      child: Column(
         children: [
-          PageView.builder(
-            controller: _ctrl,
-            itemCount: widget.mangas.length,
-            onPageChanged: (p) {
-              setState(() => _page = p);
-              _prefetch(p + 1);
-            },
-            itemBuilder: (_, i) => _HeroSlide(
-              manga: widget.mangas[i],
-              detail: _detailCache[i],
-              source: widget.source,
-              height: heroH,
-            ),
-          ),
-          // Indicators row
-          Positioned(
-            bottom: 12, left: 14, right: 14,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // ── Banner image ────────────────────────────────────────────────
+          SizedBox(
+            height: bannerH,
+            child: Stack(
               children: [
-                // Slim animated dots
-                Row(
-                  children: List.generate(widget.mangas.length, (i) {
-                    final isActive = _page == i;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      margin: const EdgeInsets.only(right: 4),
-                      width: isActive ? 16 : 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    );
-                  }),
-                ),
-                // Counter pill
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(8),
+                PageView.builder(
+                  controller: _ctrl,
+                  itemCount: widget.mangas.length,
+                  onPageChanged: (p) {
+                    setState(() => _page = p);
+                    _prefetch(p + 1);
+                  },
+                  itemBuilder: (_, i) => _HeroSlide(
+                    manga: widget.mangas[i],
+                    detail: _detailCache[i],
+                    source: widget.source,
+                    height: bannerH,
                   ),
-                  child: Text(
-                    '${_page + 1} / ${widget.mangas.length}',
-                    style: const TextStyle(
-                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700,
-                    ),
+                ),
+                // Slim dot indicators — bottom of banner
+                Positioned(
+                  bottom: 10, left: 14,
+                  child: Row(
+                    children: List.generate(widget.mangas.length, (i) {
+                      final isActive = _page == i;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(right: 4),
+                        width: isActive ? 16 : 5,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    }),
                   ),
                 ),
               ],
             ),
           ),
+          // ── Content cards strip (2 cards) — MovieBox exact ──────────────
+          Container(
+            height: _kCardsH,
+            color: const Color(0xFF101114),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(child: _HeroContentCard(manga: curr, source: widget.source)),
+                const SizedBox(width: 8),
+                if (next != null)
+                  Expanded(child: _HeroContentCard(manga: next, source: widget.source)),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Hero content card (bottom strip under the banner) ─────────────────────────
+// MovieBox exact: thumbnail left | title+genre middle | green play circle right
+class _HeroContentCard extends ConsumerWidget {
+  final MManga manga;
+  final Source source;
+  const _HeroContentCard({required this.manga, required this.source});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final headers = ref.watch(headersProvider(
+        source: source.name!, lang: source.lang!, sourceId: source.id));
+    final imgUrl = toImgUrl(manga.imageUrl ?? '');
+    final ImageProvider<Object> thumb = imgUrl.isNotEmpty
+        ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
+        : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
+
+    return GestureDetector(
+      onTap: () {
+        if (manga.link != null) {
+          pushToMangaReaderDetail(
+            ref: ref, context: context, getManga: manga,
+            lang: source.lang!, source: source.name!,
+            itemType: source.itemType, sourceId: source.id,
+          );
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1C20),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            // Thumbnail
+            SizedBox(
+              width: 52,
+              child: imgUrl.isNotEmpty
+                  ? Image(image: thumb, fit: BoxFit.cover,
+                      height: double.infinity,
+                      errorBuilder: (_, __, ___) => const ColoredBox(
+                        color: Color(0xFF252830),
+                        child: Center(child: Icon(Icons.movie_outlined,
+                            size: 20, color: Colors.white24))))
+                  : const ColoredBox(color: Color(0xFF252830),
+                      child: Center(child: Icon(Icons.movie_outlined,
+                          size: 20, color: Colors.white24))),
+            ),
+            // Title + genre
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(manga.name ?? '',
+                        style: const TextStyle(color: Colors.white,
+                            fontSize: 11, fontWeight: FontWeight.w600, height: 1.3),
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 3),
+                    if ((manga.genre ?? []).isNotEmpty)
+                      Text(manga.genre!.first,
+                          style: const TextStyle(color: Color(0x80FFFFFF),
+                              fontSize: 9, fontWeight: FontWeight.w400)),
+                  ],
+                ),
+              ),
+            ),
+            // Green play circle
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Container(
+                width: 32, height: 32,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF07b84e), shape: BoxShape.circle),
+                child: const Icon(Icons.play_arrow_rounded, size: 20, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1965,9 +1976,7 @@ class _HeroSlide extends ConsumerWidget {
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
-    final title  = detail?.name  ?? manga.name  ?? '';
-    final genres = detail?.genre ?? manga.genre ?? [];
-
+    // MovieBox: banner image only — no title overlay (info is in the content cards strip)
     return GestureDetector(
       onTap: () {
         if (manga.link != null) {
@@ -1985,93 +1994,23 @@ class _HeroSlide extends ConsumerWidget {
           children: [
             imgUrl.isNotEmpty
                 ? Image(image: cover, fit: BoxFit.cover, alignment: Alignment.topCenter,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.play_circle_outline_rounded,
-                          size: 56, color: Colors.white24),
-                    ))
-                : Container(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.play_circle_outline_rounded,
-                        size: 56, color: Colors.white24)),
-            // Cinematic gradient
+                    errorBuilder: (_, __, ___) => const ColoredBox(
+                      color: Color(0xFF1A1C22),
+                      child: Center(child: Icon(Icons.play_circle_outline_rounded,
+                          size: 56, color: Colors.white24))))
+                : const ColoredBox(color: Color(0xFF1A1C22),
+                    child: Center(child: Icon(Icons.play_circle_outline_rounded,
+                        size: 56, color: Colors.white24))),
+            // Subtle vignette to blend into content cards below
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.08),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.6),
-                      Colors.black.withValues(alpha: 0.95),
-                    ],
-                    stops: const [0.0, 0.35, 0.68, 1.0],
+                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.12)],
+                    stops: const [0.6, 1.0],
                   ),
                 ),
-              ),
-            ),
-            // Info
-            Positioned(
-              bottom: 36, left: 16, right: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (genres.isNotEmpty) ...[
-                    Wrap(
-                      spacing: 5,
-                      children: genres.take(3).map((g) => Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(g.toUpperCase(),
-                            style: const TextStyle(color: Colors.white70,
-                                fontSize: 9, fontWeight: FontWeight.w700,
-                                letterSpacing: 0.7)),
-                      )).toList(),
-                    ),
-                    const SizedBox(height: 7),
-                  ],
-                  Text(title,
-                      style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w900,
-                        color: Colors.white, height: 1.15, letterSpacing: -0.4,
-                        shadows: [Shadow(color: Colors.black54,
-                            blurRadius: 12, offset: Offset(0, 2))],
-                      ),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 36,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        if (manga.link != null) {
-                          pushToMangaReaderDetail(
-                            ref: ref, context: context, getManga: manga,
-                            lang: source.lang!, source: source.name!,
-                            itemType: source.itemType, sourceId: source.id,
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.play_arrow_rounded,
-                          size: 17, color: Colors.white),
-                      label: const Text('Regarder',
-                          style: TextStyle(color: Colors.white,
-                              fontWeight: FontWeight.w700, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7)),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
@@ -2296,17 +2235,18 @@ class _SpotlightCardState extends ConsumerState<_SpotlightCard>
                       ),
                     ),
                   ),
-                  // Play button
+                  // "En français" language badge — MovieBox exact (top-left)
                   Positioned(
-                    top: 10, right: 10,
+                    top: 8, left: 8,
                     child: Container(
-                      width: 32, height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.48),
-                        shape: BoxShape.circle,
+                        color: const Color(0xFF1565C0).withValues(alpha: 0.90),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(Icons.play_arrow_rounded,
-                          size: 20, color: Colors.white),
+                      child: const Text('En français',
+                          style: TextStyle(color: Colors.white, fontSize: 8,
+                              fontWeight: FontWeight.w700, letterSpacing: 0.1)),
                     ),
                   ),
                   // Title at bottom
