@@ -349,12 +349,12 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           color: current == arch
-                              ? const Color(0xFF1DB954).withOpacity(0.12)
+                              ? const Color(0xFF1DB954).withValues(alpha: 0.12)
                               : const Color(0xFF242424),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: current == arch
-                                ? const Color(0xFF1DB954).withOpacity(0.4)
+                                ? const Color(0xFF1DB954).withValues(alpha: 0.4)
                                 : const Color(0xFF2A2A2A),
                           ),
                         ),
@@ -460,9 +460,9 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.teal.withOpacity(0.08),
+                    color: Colors.teal.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.teal.withOpacity(0.25)),
+                    border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
                   ),
                   child: const Text(
                     'Ce binaire est intégré à l\'application. Aucun téléchargement requis.\n'
@@ -700,7 +700,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                         style: TextStyle(
                           fontSize: 12,
                           color: isBundled
-                              ? Colors.teal.withOpacity(0.8)
+                              ? Colors.teal.withValues(alpha: 0.8)
                               : const Color(0xFF9E9E9E),
                         ),
                       ),
@@ -795,13 +795,13 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
                       color: isArchAuto
-                          ? cs.primaryContainer.withOpacity(0.6)
-                          : Colors.orange.withOpacity(0.15),
+                          ? cs.primaryContainer.withValues(alpha: 0.6)
+                          : Colors.orange.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isArchAuto
-                            ? cs.primary.withOpacity(0.4)
-                            : Colors.orange.withOpacity(0.5),
+                            ? cs.primary.withValues(alpha: 0.4)
+                            : Colors.orange.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -898,15 +898,15 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
     Widget build(BuildContext context) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 10, fontWeight: FontWeight.w700,
-          color: color.withOpacity(0.9),
+          color: color.withValues(alpha: 0.9),
         ),
       ),
     );
