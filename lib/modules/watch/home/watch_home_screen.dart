@@ -716,39 +716,32 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
             }
 
             return SliverToBoxAdapter(
-                child: Consumer(builder: (c, ref, _) {
-                  final sData = ref.watch(getCustomListProvider(
-                    source: source, listId: listId, page: 1,
-                  ));
-                  return sData.when(
-                    data: (d) {
-                      final items = d?.list ?? [];
-                      if (items.isEmpty) return const SizedBox.shrink();
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader(ctx,
-                            title: listName, accent: accent, icon: icon, onSeeAll: onSeeAllCb,
-                          ),
-                          if (isRanked)         _buildRankedRow(ctx, items)
-                          else if (isSpotlight) _buildSpotlightRow(ctx, items)
-                          else                  _buildCompactRow(ctx, items),
-                        ],
-                      );
-                    },
-                    loading: () => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader(ctx,
-                          title: listName, accent: accent, icon: icon, onSeeAll: null,
-                        ),
-                        isRanked ? _buildRankedRowSkeleton(ctx) : _buildCompactRowSkeleton(ctx),
-                      ],
-                    ),
-                    error: (_, __) => const SizedBox.shrink(),
-                  );
-                }),
-              );
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader(ctx,
+                    title: listName, accent: accent, icon: icon, onSeeAll: onSeeAllCb,
+                  ),
+                  Consumer(builder: (c, ref, _) {
+                    final sData = ref.watch(getCustomListProvider(
+                      source: source, listId: listId, page: 1,
+                    ));
+                    return sData.when(
+                      data: (d) {
+                        final items = d?.list ?? [];
+                        if (isRanked)         return _buildRankedRow(ctx, items);
+                        else if (isSpotlight) return _buildSpotlightRow(ctx, items);
+                        else                  return _buildCompactRow(ctx, items);
+                      },
+                      loading: () => isRanked
+                          ? _buildRankedRowSkeleton(ctx)
+                          : _buildCompactRowSkeleton(ctx),
+                      error: (_, __) => const SizedBox(height: 8),
+                    );
+                  }),
+                ],
+              ),
+            );
           }),
 
           // ── If no custom lists → show standard Latest row ────────────────
