@@ -62,7 +62,7 @@ class GeneralScreen extends ConsumerWidget {
                       'Désactivé',
                       style: TextStyle(
                         fontSize: 11,
-                        color: colorScheme.error.withOpacity(0.7),
+                        color: colorScheme.error.withValues(alpha: 0.7),
                       ),
                     ),
               initiallyExpanded: doHState.enabled,
