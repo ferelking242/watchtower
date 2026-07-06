@@ -274,6 +274,15 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
     super.dispose();
   }
 
+  @override
+  void onFilterChanged() {
+    // Called inside setState by InlineFilterChipsMixin: clear results so the
+    // next build() re-fetches with the updated filter selection.
+    _mangaList.clear();
+    _page = 1;
+    _hasNextPage = true;
+  }
+
   late final _textEditingController = TextEditingController(text: widget.query);
   late String _query = widget.query;
   late bool _isSearch = widget.isSearch;
