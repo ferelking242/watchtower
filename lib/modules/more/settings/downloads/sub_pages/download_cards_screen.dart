@@ -111,8 +111,8 @@ class _CardButtonsGrid extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             side: BorderSide(
               color: isEnabled
-                  ? scheme.primary.withOpacity(0.5)
-                  : scheme.outline.withOpacity(0.2),
+                  ? scheme.primary.withValues(alpha: 0.5)
+                  : scheme.outline.withValues(alpha: 0.2),
               width: isEnabled ? 1.5 : 1,
             ),
           ),
@@ -122,7 +122,7 @@ class _CardButtonsGrid extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 color: isEnabled
-                    ? scheme.primary.withOpacity(0.12)
+                    ? scheme.primary.withValues(alpha: 0.12)
                     : scheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -176,9 +176,9 @@ class _CardPreview extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withOpacity(0.5),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outline.withOpacity(0.2)),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +204,7 @@ class _CardPreview extends StatelessWidget {
                       height: 10,
                       width: 120,
                       decoration: BoxDecoration(
-                        color: scheme.onSurface.withOpacity(0.15),
+                        color: scheme.onSurface.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -213,7 +213,7 @@ class _CardPreview extends StatelessWidget {
                       height: 8,
                       width: 80,
                       decoration: BoxDecoration(
-                        color: scheme.onSurface.withOpacity(0.08),
+                        color: scheme.onSurface.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -244,10 +244,10 @@ class _CardPreview extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: scheme.primary.withOpacity(0.1),
+                      color: scheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                          color: scheme.primary.withOpacity(0.3)),
+                          color: scheme.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -312,14 +312,14 @@ class _SwipeActionTile extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: scheme.outline.withOpacity(0.2)),
+        side: BorderSide(color: scheme.outline.withValues(alpha: 0.2)),
       ),
       child: ListTile(
         leading: Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: scheme.secondaryContainer.withOpacity(0.5),
+            color: scheme.secondaryContainer.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: scheme.secondary, size: 20),
