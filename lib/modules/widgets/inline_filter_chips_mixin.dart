@@ -24,17 +24,22 @@ class FilterIconBtn extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.8),
+            color: activeCount > 0
+                ? cs.primary.withValues(alpha: 0.12)
+                : cs.surfaceContainerHighest.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: cs.onSurface.withValues(alpha: 0.15),
-              width: 0.8,
+              color: activeCount > 0
+                  ? cs.primary
+                  : cs.onSurface.withValues(alpha: 0.15),
+              width: activeCount > 0 ? 1.2 : 0.8,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.tune_rounded, size: 16, color: Theme.of(context).hintColor),
+              Icon(Icons.tune_rounded, size: 16,
+                  color: activeCount > 0 ? cs.primary : Theme.of(context).hintColor),
               if (activeCount > 0) ...[
                 const SizedBox(width: 4),
                 Container(
@@ -63,26 +68,46 @@ class FilterIconBtn extends StatelessWidget {
 
 /// A single filter pill (e.g. "Type: Films ▾"). Tapping toggles the inline
 /// expansion panel below the row.
+/// When [isActive] is true the pill shows primary color to signal an active filter.
 class FilterChipBtn extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool isExpanded;
-  const FilterChipBtn({super.key, required this.label, required this.onTap, this.isExpanded = false});
+  final bool isActive;
+  const FilterChipBtn({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.isExpanded = false,
+    this.isActive = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final Color bg = isActive
+        ? cs.primary.withValues(alpha: 0.13)
+        : Colors.transparent;
+    final Color borderColor = isActive
+        ? cs.primary
+        : cs.onSurface.withValues(alpha: 0.15);
+    final Color textColor = isActive
+        ? cs.primary
+        : Theme.of(context).textTheme.bodyMedium?.color ?? cs.onSurface;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.transparent,
+            color: bg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
-              width: 0.8,
+              color: borderColor,
+              width: isActive ? 1.2 : 0.8,
             ),
           ),
           child: Row(
@@ -92,15 +117,15 @@ class FilterChipBtn extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: textColor,
                 ),
               ),
               const SizedBox(width: 4),
               Icon(
                 isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                 size: 16,
-                color: Theme.of(context).hintColor,
+                color: isActive ? cs.primary : Theme.of(context).hintColor,
               ),
             ],
           ),
@@ -118,9 +143,51 @@ class FilterChipBtn extends StatelessWidget {
 mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
   String? expandedChipName;
 
+  // Tracks the order filters were activated (most recent first).
+  // Used to sort active pills to the front.
+  final List<String> _activeFilterOrder = [];
+
   List<dynamic> get filters;
   set filters(List<dynamic> value);
   List<dynamic> get filterList;
+
+  // ── Hook: called inside setState after a filter changes via inline panel ──
+  // Override in the host State to reset mangaList / page / etc.
+  // NOTE: this runs inside an existing setState call — do NOT call setState
+  // yourself inside the override; just mutate local state variables directly.
+  void onFilterChanged() {}
+
+  // ── Active filter detection ──────────────────────────────────────────────
+
+  bool isFilterActive(dynamic f) {
+    if (f is SelectFilter) return f.state != 0;
+    if (f is SortFilter) return f.state.index != 0;
+    if (f is GroupFilter) {
+      return f.state.any((e) =>
+          (e is TriStateFilter && e.state != 0) ||
+          (e is CheckBoxFilter && e.state));
+    }
+    return false;
+  }
+
+  String _filterName(dynamic f) {
+    if (f is SelectFilter) return f.name;
+    if (f is SortFilter) return f.name;
+    if (f is GroupFilter) return f.name;
+    return '';
+  }
+
+  void _trackFilterActivation(String name, bool active) {
+    if (active) {
+      if (!_activeFilterOrder.contains(name)) {
+        _activeFilterOrder.insert(0, name); // newly active → front
+      }
+    } else {
+      _activeFilterOrder.remove(name); // deactivated → back
+    }
+  }
+
+  // ── Count active filters ──────────────────────────────────────────────────
 
   /// Count filters that differ from their default (unchecked / index 0).
   int countActiveFilters(List<dynamic> fl) {
@@ -139,9 +206,31 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
     return count;
   }
 
+  // ── Build chips ───────────────────────────────────────────────────────────
+
   /// Build one chip per visible filter group (SelectFilter, SortFilter, GroupFilter).
+  /// Active filters (non-default) are moved to the front in activation order.
   List<Widget> buildFilterChips(BuildContext ctx, List<dynamic> fl) {
-    return fl.where((f) => f is SelectFilter || f is SortFilter || f is GroupFilter).map<Widget>((f) {
+    final visible = fl
+        .where((f) => f is SelectFilter || f is SortFilter || f is GroupFilter)
+        .toList();
+
+    // Sort: active (in _activeFilterOrder) first, then inactive in original order
+    final active = _activeFilterOrder
+        .map((name) {
+          try {
+            return visible.firstWhere((f) => _filterName(f) == name);
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<dynamic>()
+        .toList();
+    final inactiveNames = _activeFilterOrder.toSet();
+    final inactive = visible.where((f) => !inactiveNames.contains(_filterName(f))).toList();
+    final sorted = [...active, ...inactive];
+
+    return sorted.map<Widget>((f) {
       String label;
       String filterName;
       if (f is SortFilter) {
@@ -149,19 +238,31 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
         label = '${f.name}: $val';
         filterName = f.name;
       } else if (f is SelectFilter) {
-        label = f.name;
+        // Show current selection in the label when active
+        final selName = (f.state > 0 && f.state < f.values.length)
+            ? (f.values[f.state] is SelectFilterOption
+                ? (f.values[f.state] as SelectFilterOption).name
+                : f.values[f.state].toString())
+            : null;
+        label = selName != null && f.state != 0 ? '${f.name}: $selName' : f.name;
         filterName = f.name;
       } else if (f is GroupFilter) {
-        label = f.name;
+        final activeCount = f.state.where((e) =>
+            (e is TriStateFilter && e.state != 0) ||
+            (e is CheckBoxFilter && e.state)).length;
+        label = activeCount > 0 ? '${f.name} ($activeCount)' : f.name;
         filterName = f.name;
       } else {
         label = '';
         filterName = '';
       }
       final isExpanded = expandedChipName == filterName;
+      final active = isFilterActive(f);
       return FilterChipBtn(
+        key: ValueKey(filterName),
         label: label,
         isExpanded: isExpanded,
+        isActive: active,
         onTap: () => setState(() {
           expandedChipName = isExpanded ? null : filterName;
         }),
@@ -178,6 +279,8 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
       return false;
     });
     if (idx != -1) filters[idx] = newFilter;
+    // Track activation state
+    _trackFilterActivation(_filterName(newFilter), isFilterActive(newFilter));
   }
 
   Widget buildChipExpansionPanel(BuildContext ctx, List<dynamic> fl) {
@@ -220,10 +323,9 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
               tags: expandedFilter.state.cast<TriStateFilter>(),
               onChanged: (newTags) {
                 setState(() {
-                  updateFilterInList(
-                    expandedFilter,
-                    GroupFilter(expandedFilter.type, expandedFilter.name, newTags, expandedFilter.typeName),
-                  );
+                  final newFilter = GroupFilter(expandedFilter.type, expandedFilter.name, newTags, expandedFilter.typeName);
+                  updateFilterInList(expandedFilter, newFilter);
+                  onFilterChanged();
                 });
               },
             ),
@@ -240,11 +342,10 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
         final isSelected = expandedFilter.state == idx;
         return InkWell(
           onTap: () => setState(() {
-            updateFilterInList(
-              expandedFilter,
-              SelectFilter(expandedFilter.type, expandedFilter.name, idx, expandedFilter.values, expandedFilter.typeName),
-            );
+            final newFilter = SelectFilter(expandedFilter.type, expandedFilter.name, idx, expandedFilter.values, expandedFilter.typeName);
+            updateFilterInList(expandedFilter, newFilter);
             expandedChipName = null;
+            onFilterChanged();
           }),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -261,7 +362,7 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: cs.onSurface,
+                    color: isSelected ? cs.primary : cs.onSurface,
                   ),
                 ),
               ],
@@ -280,10 +381,9 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
               newState[itemIdx] = CheckBoxFilter(
                 item.type, item.name, item.value, item.typeName, state: !item.state,
               );
-              updateFilterInList(
-                expandedFilter,
-                GroupFilter(expandedFilter.type, expandedFilter.name, newState, expandedFilter.typeName),
-              );
+              final newFilter = GroupFilter(expandedFilter.type, expandedFilter.name, newState, expandedFilter.typeName);
+              updateFilterInList(expandedFilter, newFilter);
+              onFilterChanged();
             }),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -295,7 +395,7 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
                     color: item.state ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
                   ),
                   const SizedBox(width: 12),
-                  Text(item.name, style: TextStyle(fontSize: 14, color: cs.onSurface)),
+                  Text(item.name, style: TextStyle(fontSize: 14, color: item.state ? cs.primary : cs.onSurface)),
                 ],
               ),
             ),
@@ -312,17 +412,16 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
         return InkWell(
           onTap: () => setState(() {
             final newAscending = isSelected ? !expandedFilter.state.ascending : expandedFilter.state.ascending;
-            updateFilterInList(
-              expandedFilter,
-              SortFilter(
-                expandedFilter.type,
-                expandedFilter.name,
-                SortState(idx, newAscending, expandedFilter.state.typeName),
-                expandedFilter.values,
-                expandedFilter.typeName,
-              ),
+            final newFilter = SortFilter(
+              expandedFilter.type,
+              expandedFilter.name,
+              SortState(idx, newAscending, expandedFilter.state.typeName),
+              expandedFilter.values,
+              expandedFilter.typeName,
             );
+            updateFilterInList(expandedFilter, newFilter);
             expandedChipName = null;
+            onFilterChanged();
           }),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -341,7 +440,7 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: cs.onSurface,
+                    color: isSelected ? cs.primary : cs.onSurface,
                   ),
                 ),
               ],
@@ -356,7 +455,7 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(22),
           topRight: Radius.circular(22),
@@ -364,7 +463,7 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
           bottomRight: Radius.circular(14),
         ),
         border: Border.all(
-          color: cs.onSurface.withValues(alpha: 0.12),
+          color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.12),
           width: 0.8,
         ),
       ),
