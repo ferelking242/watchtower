@@ -28,6 +28,7 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/services/recommendation.dart';
+import 'package:watchtower/modules/watch/detail/language_display.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
@@ -990,7 +991,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       });
   }
 
-  List<String> _detectLanguages(List<Chapter> chapters) {
+  // Clé interne utilisée pour le filtrage (code ISO en minuscule si connu,
+  // sinon mot brut en majuscule pour compat avec les extensions historiques).
+  String? _langKey(Chapter ch) {
+    final code = extractLangCode(ch.scanlator);
+    if (code != null) return code.toLowerCase();
     final langRx = RegExp(
         r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA|'
         r'Japanese|Chinese|Korean|Spanish|Portuguese|Russian|Arabic|German|'
@@ -998,12 +1003,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         r'Swedish|Finnish|Norwegian|Danish|Czech|Slovak|Romanian|Hungarian|'
         r'Bulgarian|Croatian|Serbian|Ukrainian|Hebrew|Persian)\b',
         caseSensitive: false);
+    final m = langRx.firstMatch('${ch.scanlator ?? ''} ${ch.name ?? ''}');
+    return m?.group(0)?.toUpperCase();
+  }
+
+  List<String> _detectLanguages(List<Chapter> chapters) {
     final seen = <String>{};
     for (final ch in chapters) {
-      for (final m
-          in langRx.allMatches('${ch.scanlator ?? ''} ${ch.name ?? ''}')) {
-        seen.add(m.group(0)!.toUpperCase());
-      }
+      final key = _langKey(ch);
+      if (key != null) seen.add(key);
     }
     return seen.toList();
   }
@@ -1025,11 +1033,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     }
     final lang = _selectedLanguage;
     if (lang != null) {
-      final filtered = result
-          .where((ch) =>
-              (ch.scanlator ?? '').toUpperCase().contains(lang) ||
-              (ch.name ?? '').toUpperCase().contains(lang))
-          .toList();
+      final filtered = result.where((ch) => _langKey(ch) == lang).toList();
       if (filtered.isNotEmpty) result = filtered;
     }
     return result;
@@ -1126,6 +1130,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   label: _selectedLanguage ?? languages.first,
                   items: languages,
                   onSelect: (v) => setState(() => _selectedLanguage = v),
+                  displayLabel: (key) => localizedLanguageLabel(
+                      key, Localizations.localeOf(context).languageCode),
                 ),
               if (_player.loadedVideos.length > 1) ...[
                 const SizedBox(width: 8),
@@ -1201,9 +1207,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     required String label,
     required List<String> items,
     required void Function(String) onSelect,
+    String Function(String)? displayLabel,
   }) {
     return GestureDetector(
-      onTap: () => _showDropdownSheet(label, items, onSelect),
+      onTap: () => _showDropdownSheet(label, items, onSelect,
+          displayLabel: displayLabel),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
@@ -1215,7 +1223,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              label,
+              displayLabel?.call(label) ?? label,
               style: TextStyle(
                   color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
             ),
@@ -1336,7 +1344,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     }
 
     void _showDropdownSheet(
-        String label, List<String> items, void Function(String) onSelect) {
+        String label, List<String> items, void Function(String) onSelect,
+        {String Function(String)? displayLabel}) {
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
@@ -1356,7 +1365,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
                   child: Row(
                     children: [
-                      Text(label,
+                      Text(displayLabel?.call(label) ?? label,
                           style: TextStyle(
                               color: _textPrimary,
                               fontSize: 15,
@@ -1393,7 +1402,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           child: Row(
                             children: [
                               Text(
-                                item,
+                                displayLabel?.call(item) ?? item,
                                 style: TextStyle(
                                   color: isSel ? _accent : _textPrimary,
                                   fontSize: 15,
