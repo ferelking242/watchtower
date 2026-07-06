@@ -480,7 +480,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       Icon(
                         Icons.receipt_long_outlined,
                         size: 48,
-                        color: cs.onSurface.withOpacity(0.2),
+                        color: cs.onSurface.withValues(alpha: 0.2),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -488,7 +488,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                             ? 'Aucun log enregistré'
                             : 'Aucun résultat',
                         style: TextStyle(
-                          color: cs.onSurface.withOpacity(0.4),
+                          color: cs.onSurface.withValues(alpha: 0.4),
                           fontSize: 14,
                         ),
                       ),
@@ -529,7 +529,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               '${_filtered.length} ligne${_filtered.length != 1 ? 's' : ''}',
               style: TextStyle(
                 fontSize: 11,
-                color: cs.onSurface.withOpacity(0.5),
+                color: cs.onSurface.withValues(alpha: 0.5),
                 fontFamily: 'monospace',
               ),
             ),
@@ -538,7 +538,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 ' · filtre: "${_search.text}"',
                 style: TextStyle(
                   fontSize: 11,
-                  color: cs.primary.withOpacity(0.7),
+                  color: cs.primary.withValues(alpha: 0.7),
                   fontFamily: 'monospace',
                 ),
               ),
@@ -609,7 +609,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     width: 40, height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: cs.onSurface.withOpacity(0.2),
+                      color: cs.onSurface.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -626,7 +626,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text('Niveau', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withOpacity(0.55))),
+                Text('Niveau', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withValues(alpha: 0.55))),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -640,7 +640,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 ),
                 if (tags.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Text('Tags', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withOpacity(0.55))),
+                  Text('Tags', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withValues(alpha: 0.55))),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -727,7 +727,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       'Aucun tag détecté dans les logs',
                       style: TextStyle(
                           fontSize: 10,
-                          color: cs.onSurface.withOpacity(0.4)),
+                          color: cs.onSurface.withValues(alpha: 0.4)),
                     ),
                   )
                 : ListView.separated(
@@ -770,7 +770,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 hintText: 'Filtrer les logs…',
                 hintStyle: TextStyle(
                   fontSize: 12,
-                  color: cs.onSurface.withOpacity(0.4),
+                  color: cs.onSurface.withValues(alpha: 0.4),
                 ),
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
                 suffixIcon: _search.text.isNotEmpty
@@ -788,13 +788,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: cs.outline.withOpacity(0.2),
+                    color: cs.outline.withValues(alpha: 0.2),
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: cs.outline.withOpacity(0.2),
+                    color: cs.outline.withValues(alpha: 0.2),
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
@@ -943,16 +943,16 @@ class _LogLineWidget extends StatelessWidget {
     switch (line.type) {
       case _LineType.session:
         return isDark
-            ? Colors.blue.withOpacity(0.12)
-            : Colors.blue.withOpacity(0.06);
+            ? Colors.blue.withValues(alpha: 0.12)
+            : Colors.blue.withValues(alpha: 0.06);
       case _LineType.error:
         return isDark
-            ? Colors.red.withOpacity(0.1)
-            : Colors.red.withOpacity(0.04);
+            ? Colors.red.withValues(alpha: 0.1)
+            : Colors.red.withValues(alpha: 0.04);
       case _LineType.warning:
         return isDark
-            ? Colors.orange.withOpacity(0.08)
-            : Colors.orange.withOpacity(0.04);
+            ? Colors.orange.withValues(alpha: 0.08)
+            : Colors.orange.withValues(alpha: 0.04);
       default:
         return Colors.transparent;
     }
@@ -970,8 +970,8 @@ class _LogLineWidget extends StatelessWidget {
         return isDark ? Colors.grey.shade400 : Colors.grey.shade600;
       case _LineType.continuation:
         return isDark
-            ? Colors.white.withOpacity(0.5)
-            : Colors.black.withOpacity(0.45);
+            ? Colors.white.withValues(alpha: 0.5)
+            : Colors.black.withValues(alpha: 0.45);
       default:
         return isDark ? Colors.green.shade300 : Colors.green.shade800;
     }
@@ -1051,9 +1051,9 @@ class _LogLineWidget extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 2, right: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: tagColor.withOpacity(0.15),
+                  color: tagColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: tagColor.withOpacity(0.55), width: 0.7),
+                  border: Border.all(color: tagColor.withValues(alpha: 0.55), width: 0.7),
                 ),
                 child: Text(
                   line.tag!,
@@ -1069,9 +1069,9 @@ class _LogLineWidget extends StatelessWidget {
                   margin: const EdgeInsets.only(top: 2, right: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withOpacity(0.10),
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(3),
-                    border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.35), width: 0.7),
+                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.35), width: 0.7),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1197,9 +1197,9 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.4), width: 0.8),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 0.8),
       ),
       child: Text(
         label,
