@@ -99,7 +99,7 @@ class HomePageBrowseSection extends HookConsumerWidget {
                     ref.invalidate(metadataPluginBrowseSectionsProvider);
                   },
                   icon: const Icon(Icons.refresh_rounded),
-                  label: Text(context.l10n.refresh),
+                  label: Text(context.l10n.retry),
                 ),
               ],
             ),
