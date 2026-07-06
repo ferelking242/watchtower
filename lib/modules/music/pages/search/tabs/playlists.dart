@@ -21,8 +21,9 @@ class SearchPagePlaylistsTab extends HookConsumerWidget {
         ref.watch(metadataPluginSearchPlaylistsProvider(searchTerm));
     final searchPlaylistsNotifier =
         ref.read(metadataPluginSearchPlaylistsProvider(searchTerm).notifier);
-    final searchPlaylists = searchPlaylistsSnapshot.asData?.value.items ??
-        [FakeData.playlistSimple];
+    final searchPlaylists = searchPlaylistsSnapshot.isLoading
+        ? [FakeData.playlistSimple]
+        : (searchPlaylistsSnapshot.asData?.value.items ?? []);
 
     if (searchPlaylistsSnapshot.hasError) {
       return ErrorBox(
