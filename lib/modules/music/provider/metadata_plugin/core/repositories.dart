@@ -1,11 +1,10 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/paginated.dart';
-import 'package:watchtower/modules/music/services/dio/dio.dart';
 
 // ─── Simple in-memory cache ────────────────────────────────────────────────────
-// Prevents redundant GitHub API calls when the provider rebuilds within 5 min.
-// Uses a static map keyed by page offset so each page is cached independently.
+// Cache keyed by page offset so each page is cached independently.
+// TTL: 1 hour (no API calls → no rate-limit risk).
 class _PageCache {
   final SpotubePaginationResponseObject<MetadataPluginRepository> data;
   final DateTime fetchedAt;
@@ -13,7 +12,7 @@ class _PageCache {
   const _PageCache(this.data, this.fetchedAt);
 
   bool get isStale =>
-      DateTime.now().difference(fetchedAt).inMinutes >= 5;
+      DateTime.now().difference(fetchedAt).inHours >= 1;
 }
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
@@ -25,47 +24,47 @@ class MetadataPluginRepositoriesNotifier
   /// Static cache shared across all instances (survives hot-reload rebuilds).
   static final Map<int, _PageCache> _cache = {};
 
-  Map<String, bool> _hasMore = {};
+  // ── Hardcoded plugin repositories ─────────────────────────────────────────
+  // All Watchtower music plugins live in ferelking242/watchtower-extensions.
+  // Using a hardcoded list completely avoids GitHub API rate-limiting (60 req/h
+  // unauthenticated) with zero network calls for repository discovery.
+  static const _kKnownRepos = [
+    (
+      name: "watchtower-extensions",
+      owner: "ferelking242",
+      description:
+          "Official Watchtower music plugins: Spotify, Deezer, Apple Music, YouTube Music, FLAC, MusicBrainz.",
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      topics: <String>["spotube-plugin", "watchtower"],
+    ),
+  ];
 
   @override
   fetch(int offset, int limit) async {
-    // Return cached page if still fresh — avoids GitHub rate-limiting and
-    // eliminates the 300-600 ms API round-trip on every rebuild.
+    // Return cached page if still fresh.
     final cached = _cache[offset];
     if (cached != null && !cached.isStale) return cached.data;
 
-    // Only GitHub — Codeberg has no ferelking242 forks so we skip that call.
-    final response = await globalDio.get(
-      "https://api.github.com/search/repositories",
-      queryParameters: {
-        "q": "user:ferelking242 topic:spotube-plugin",
-        "sort": "updated",
-        "order": "desc",
-        "page": offset == 0 ? 1 : offset,
-        "per_page": limit,
-      },
-    );
-
-    final items = (response.data["items"] ?? []) as List;
-    _hasMore["github.com"] = items.length >= limit && items.isNotEmpty;
-
-    final repos = items.map((repo) {
-      return MetadataPluginRepository(
-        name: repo["name"] ?? "",
-        owner: repo["owner"]["login"] ?? "",
-        description: repo["description"] ?? "",
-        repoUrl: repo["html_url"] ?? "",
-        topics: (repo["topics"] as List?)?.cast<String>() ?? [],
-      );
-    }).toList();
-
-    final hasMore = _hasMore["github.com"] ?? false;
+    // Page 0 → return known repos; subsequent pages → empty (single page).
+    final repos = offset == 0
+        ? _kKnownRepos
+            .map(
+              (r) => MetadataPluginRepository(
+                name: r.name,
+                owner: r.owner,
+                description: r.description,
+                repoUrl: r.repoUrl,
+                topics: r.topics,
+              ),
+            )
+            .toList()
+        : <MetadataPluginRepository>[];
 
     final result = SpotubePaginationResponseObject(
       items: repos,
-      total: (response.data["total_count"] ?? 0) as int,
-      hasMore: hasMore,
-      nextOffset: hasMore ? offset + 1 : null,
+      total: _kKnownRepos.length,
+      hasMore: false,
+      nextOffset: null,
       limit: limit,
     );
 

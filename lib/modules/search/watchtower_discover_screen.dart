@@ -10,11 +10,16 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
-import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
+import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
-import 'package:watchtower/modules/novel/home/novel_home_screen.dart';
-import 'package:watchtower/modules/watch/home/watch_home_screen.dart';
+import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/services/get_filter_list.dart';
+import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/search.dart';
 
 // ── Display mode ───────────────────────────────────────────────────────────────
 
@@ -213,7 +218,6 @@ class _WatchtowerDiscoverScreenState
 
   // Custom mode
   Source? _customSource;
-  Widget? _customSourceWidget;
 
   @override
   void initState() {
@@ -492,25 +496,11 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         onSelected: (src) {
           setState(() {
             _customSource = src;
-            _customSourceWidget = null; // reset embedded widget for new source
+            // reset catalogue when source changes
           });
         },
       ),
     );
-  }
-
-  // FIX 3: embed the source home directly in the page instead of pushing a route
-  void _navigateToSource(Source src) {
-    final type = src.itemType;
-    final Widget screen;
-    if (type == ItemType.anime) {
-      screen = WatchHomeScreen(source: src, isLatest: false);
-    } else if (type == ItemType.novel) {
-      screen = NovelHomeScreen(source: src, isLatest: false);
-    } else {
-      screen = MangaHomeScreen(source: src, isLatest: false);
-    }
-    setState(() => _customSourceWidget = screen);
   }
 
   // ── More sheet ────────────────────────────────────────────────────────────────
@@ -827,8 +817,14 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               onSearchTap: _expandSearch,
               onModeChanged: (m) {
                 if (m == _DiscoverMode.custom) {
-                  _setMode(m);
-                  if (_customSource == null) _pickCustomSource(context);
+                  if (_mode == _DiscoverMode.custom) {
+                    // Already on Custom → always open picker (change extension)
+                    _pickCustomSource(context);
+                  } else {
+                    _setMode(m);
+                    // Open picker immediately if no source is selected yet
+                    if (_customSource == null) _pickCustomSource(context);
+                  }
                 } else {
                   _setMode(m);
                 }
@@ -1248,16 +1244,12 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             onPickSource: () => _pickCustomSource(context),
           );
         }
-        // FIX 3: show embedded source home — no more push navigation
-        if (_customSourceWidget != null) {
-          return _customSourceWidget!;
-        }
-        return _CustomSourceLauncher(
+        return _CustomCatalogueView(
+          key: ValueKey(_customSource!.id),
           source: _customSource!,
-          onNavigate: _navigateToSource,
-          onChangeTap: () => _pickCustomSource(context),
           cs: cs,
           isDark: isDark,
+          onChangeTap: () => _pickCustomSource(context),
         );
 
       default: // watch, manga, novel
@@ -1821,120 +1813,527 @@ class _CustomEmptyState extends StatelessWidget {
 
 // ── Custom mode — source selected: auto-launches source home ──────────────────
 
-class _CustomSourceLauncher extends StatefulWidget {
+// ── Custom mode — inline catalogue view ──────────────────────────────────────
+// Replaces the old _CustomSourceLauncher (which embedded the full source home).
+// Shows ONLY the source catalogue: search bar + filter chips + items grid.
+// Tapping an item navigates to its detail screen like any other source browse.
+
+class _CustomCatalogueView extends ConsumerStatefulWidget {
   final Source source;
-  final void Function(Source) onNavigate;
-  final VoidCallback onChangeTap;
   final ColorScheme cs;
   final bool isDark;
+  final VoidCallback onChangeTap;
 
-  const _CustomSourceLauncher({
+  const _CustomCatalogueView({
+    super.key,
     required this.source,
-    required this.onNavigate,
-    required this.onChangeTap,
     required this.cs,
     required this.isDark,
+    required this.onChangeTap,
   });
 
   @override
-  State<_CustomSourceLauncher> createState() => _CustomSourceLauncherState();
+  ConsumerState<_CustomCatalogueView> createState() =>
+      _CustomCatalogueViewState();
 }
 
-class _CustomSourceLauncherState extends State<_CustomSourceLauncher> {
-  bool _didNavigate = false;
+class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
+  final _scrollCtrl = ScrollController();
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  String _query = '';
+  bool _filterOpen = false;
+
+  // Pagination state
+  final List<MManga> _items = [];
+  int _page = 1;
+  bool _hasNext = true;
+  bool _loading = false;
+  bool _hasError = false;
+  String? _errorMsg;
+
+  // Extension filters
+  List<dynamic> _filterList = [];
+  List<dynamic> _activeFilters = [];
+  // Count of actively applied (modified) filters
+  int _activeFilterCount = 0;
+
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    // Auto-navigate once — on first build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_didNavigate) {
-        _didNavigate = true;
-        widget.onNavigate(widget.source);
-      }
-    });
+    _scrollCtrl.addListener(_onScroll);
+    _loadFilterList();
+    _loadPage(reset: true);
   }
 
   @override
-  void didUpdateWidget(_CustomSourceLauncher old) {
-    super.didUpdateWidget(old);
-    // Reset guard if the source changes so new source auto-navigates
-    if (old.source.id != widget.source.id) {
-      _didNavigate = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_didNavigate) {
-          _didNavigate = true;
-          widget.onNavigate(widget.source);
-        }
-      });
+  void dispose() {
+    _scrollCtrl.dispose();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  // ── Filter list ────────────────────────────────────────────────────────────
+
+  void _loadFilterList() {
+    try {
+      _filterList = getFilterList(source: widget.source);
+      _activeFilters = List.from(_filterList);
+    } catch (_) {
+      _filterList = [];
+      _activeFilters = [];
     }
   }
+
+  // ── Scroll / pagination ────────────────────────────────────────────────────
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 400) {
+      if (_hasNext && !_loading) _loadPage();
+    }
+  }
+
+  Future<void> _loadPage({bool reset = false}) async {
+    if (_loading) return;
+    if (reset) {
+      setState(() {
+        _items.clear();
+        _page = 1;
+        _hasNext = true;
+        _hasError = false;
+        _errorMsg = null;
+      });
+    }
+    setState(() => _loading = true);
+    try {
+      final MPages? result;
+      if (_query.isNotEmpty) {
+        result = await ref.read(
+          searchProvider(
+            source: widget.source,
+            query: _query,
+            page: _page,
+            filterList: _activeFilters,
+          ).future,
+        );
+      } else {
+        result = await ref.read(
+          getPopularProvider(
+            source: widget.source,
+            page: _page,
+          ).future,
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _items.addAll(result?.list ?? []);
+          _hasNext = result?.hasNextPage ?? false;
+          _page++;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _hasError = true;
+          _errorMsg = e.toString();
+        });
+      }
+    }
+  }
+
+  // ── Search ─────────────────────────────────────────────────────────────────
+
+  void _onSearchChanged(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      setState(() => _query = v.trim());
+      _loadPage(reset: true);
+    });
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    setState(() => _query = '');
+    _loadPage(reset: true);
+  }
+
+  // ── Filters sheet ──────────────────────────────────────────────────────────
+
+  void _showFilterSheet(BuildContext ctx) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    // Deep-copy the filter list so changes only apply on "Appliquer"
+    List<dynamic> localFilters = List.from(_activeFilters);
+
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (_, setLocal) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            maxChildSize: 0.95,
+            minChildSize: 0.4,
+            expand: false,
+            builder: (_, ctrl) => Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : cs.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Filtres',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 17,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setLocal(() {
+                              localFilters = List.from(_filterList);
+                            });
+                          },
+                          child: const Text('Réinitialiser'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                      child: FilterWidget(
+                        filterList: localFilters,
+                        onChanged: (updated) {
+                          setLocal(() => localFilters = updated);
+                        },
+                      ),
+                    ),
+                  ),
+                  // Footer
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                Navigator.pop(sheetCtx),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(14)),
+                            ),
+                            child: const Text('Annuler'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () {
+                              Navigator.pop(sheetCtx);
+                              setState(() {
+                                _activeFilters = localFilters;
+                                // Count modified filters (non-default)
+                                _activeFilterCount =
+                                    _countActiveFilters(localFilters);
+                              });
+                              _loadPage(reset: true);
+                            },
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(14)),
+                            ),
+                            child: const Text('Appliquer'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  int _countActiveFilters(List<dynamic> filters) {
+    int count = 0;
+    for (final f in filters) {
+      try {
+        if (f is CheckBoxFilter && f.state) count++;
+        if (f is TriStateFilter && f.state != 0) count++;
+        if (f is SelectFilter && f.state != 0) count++;
+      } catch (_) {}
+    }
+    return count;
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
-    // Minimal clean splash while navigation animates in — no extra buttons
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    final isDark = widget.isDark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Source name bar ────────────────────────────────────────────────
+        _buildSourceBar(cs),
+
+        // ── Search + filter row ────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  focusNode: _searchFocus,
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (v) {
+                    _debounce?.cancel();
+                    setState(() => _query = v.trim());
+                    _loadPage(reset: true);
+                  },
+                  style: TextStyle(fontSize: 14, color: cs.onSurface),
+                  decoration: InputDecoration(
+                    hintText:
+                        'Rechercher dans ${widget.source.name ?? 'l\'extension'}…',
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      size: 18,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    suffixIcon: _query.isNotEmpty
+                        ? GestureDetector(
+                            onTap: _clearSearch,
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    isDense: true,
+                    filled: true,
+                    fillColor: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : cs.surfaceContainerHigh,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: cs.primary.withValues(alpha: 0.4)),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Filter icon button (reuse existing widget from the file)
+              _FilterIconButton(
+                active: _filterOpen ||
+                    _activeFilterCount > 0 ||
+                    _filterList.isNotEmpty,
+                count: _activeFilterCount,
+                cs: cs,
+                isDark: isDark,
+                onTap: _filterList.isNotEmpty
+                    ? () => _showFilterSheet(context)
+                    : () {},
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 6),
+
+        // ── Grid content ───────────────────────────────────────────────────
+        Expanded(child: _buildGrid(cs, isDark)),
+      ],
+    );
+  }
+
+  Widget _buildSourceBar(ColorScheme cs) {
+    final src = widget.source;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+      child: Row(
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.30),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: cs.primary.withValues(alpha: 0.22), width: 1.2),
-            ),
-            child: widget.source.iconUrl != null &&
-                    widget.source.iconUrl!.isNotEmpty
+          // Icon
+          SizedBox(
+            width: 26,
+            height: 26,
+            child: src.iconUrl != null && src.iconUrl!.isNotEmpty
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(19),
+                    borderRadius: BorderRadius.circular(7),
                     child: Image.network(
-                      widget.source.iconUrl!,
+                      src.iconUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Icon(
                         Icons.extension_rounded,
-                        size: 38,
+                        size: 18,
                         color: cs.primary,
                       ),
                     ),
                   )
-                : Icon(Icons.extension_rounded, size: 38, color: cs.primary),
+                : Icon(Icons.extension_rounded, size: 18, color: cs.primary),
           ),
-          const SizedBox(height: 16),
-          Text(
-            widget.source.name ?? 'Extension',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-              letterSpacing: -0.3,
-            ),
-          ),
-          if (widget.source.lang != null &&
-              widget.source.lang!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              widget.source.lang!.toUpperCase(),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              src.name ?? 'Extension',
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurfaceVariant,
-                letterSpacing: 1.2,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
-          const SizedBox(height: 24),
-          // "Change extension" link — only action available; opening is automatic
+          ),
           TextButton.icon(
             onPressed: widget.onChangeTap,
-            icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-            label: const Text("Changer d'extension"),
+            icon: const Icon(Icons.swap_horiz_rounded, size: 14),
+            label: const Text(
+              'Changer',
+              style: TextStyle(fontSize: 12),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: cs.primary,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildGrid(ColorScheme cs, bool isDark) {
+    if (_hasError && _items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_outlined, size: 44, color: cs.error),
+              const SizedBox(height: 12),
+              Text(
+                'Erreur de chargement',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, color: cs.onSurface),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _errorMsg ?? '',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.tonalIcon(
+                onPressed: () => _loadPage(reset: true),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_items.isEmpty && _loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_items.isEmpty) {
+      return Center(
+        child: Text(
+          'Aucun résultat',
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      controller: _scrollCtrl,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.60,
+      ),
+      itemCount: _items.length + (_loading ? 3 : 0),
+      itemBuilder: (context, i) {
+        if (i >= _items.length) {
+          return Container(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF2C2C2E)
+                  : cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          );
+        }
+        return MangaImageCardWidget(
+          source: widget.source,
+          getMangaDetail: _items[i],
+          isComfortableGrid: false,
+          itemType: widget.source.itemType,
+        );
+      },
     );
   }
 }
