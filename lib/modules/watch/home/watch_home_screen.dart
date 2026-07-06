@@ -91,18 +91,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   List<String> _suggestions = [];
   bool _isListView = false;
 
-  // ── Extension sub-tab state ──────────────────────────────────────────────
-  int _mbSubTabIdx    = 0; // index into _kMbSubTabs list
+  // ── Sub-tab state (tabs provided by extension, not hardcoded) ──────────────
+  int _mbSubTabIdx    = 0; // index into tab list from extension
   final _headerOpacity = ValueNotifier<double>(0.15);
   double _headerH = 100.0;
-
-  // MovieBox sub-tabs — only distinct views (no duplicate Popular tabs)
-  static const _kMbSubTabs = [
-    (label: 'FightZone', watchtowerIdx: 0),
-    (label: 'Movie',     watchtowerIdx: 0),
-    (label: 'TV Shows',  watchtowerIdx: 2),
-    (label: 'Popular',   watchtowerIdx: 1),
-  ];
 
   @override
     void initState() {
@@ -398,10 +390,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // Otherwise → list view (popular, latest, etc.)
 
   Widget _buildBody(BuildContext ctx) {
-    // Tabs 0 (FightZone) et 1 (Movie) ont watchtowerIdx:0 → home view avec carousel
-    // Tabs 2 (TV Shows) et 3 (Popular) → list view
-    final isHomeSubTab = (_mbSubTabIdx == 0 || _mbSubTabIdx == 1);
-    if (isHomeSubTab && !_isFiltering && !_isSearching) {
+    // Sans subtabs hardcodés : home view tant que pas de filtre/recherche actif
+    if (!_isFiltering && !_isSearching) {
       return _buildHomeView(ctx);
     }
     return _buildListView(ctx);
@@ -482,18 +472,26 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
             }),
           ),
 
-          // ── Tab pills (FightZone / Movie / TV Shows / Popular) ───────────
-          SliverToBoxAdapter(
-            child: _WatchHomeTabPills(
-              selectedIdx: _mbSubTabIdx,
-              onChanged: (i) => setState(() {
-                _mbSubTabIdx = i;
-                _selectedIdx = _kMbSubTabs[i].watchtowerIdx;
-                _isFiltering = false;
-                _mangaList.clear(); _page = 1; _hasNextPage = true;
-              }),
-            ),
-          ),
+          // ── Tab pills — driven by extension (layout:'__tab__') ──────────
+          Builder(builder: (ctx) {
+            final dynTabs = _customLists
+                .where((cl) => cl['layout'] == '__tab__')
+                .map((cl) => cl['name'] as String? ?? '')
+                .where((s) => s.isNotEmpty)
+                .toList();
+            if (dynTabs.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+            return SliverToBoxAdapter(
+              child: _WatchHomeTabPills(
+                selectedIdx: _mbSubTabIdx,
+                tabs: dynTabs,
+                onChanged: (i) => setState(() {
+                  _mbSubTabIdx = i;
+                  _isFiltering = false;
+                  _mangaList.clear(); _page = 1; _hasNextPage = true;
+                }),
+              ),
+            );
+          }),
 
           // ── Catégories chips ─────────────────────────────────────────────
           if (categoryLists.isNotEmpty)
@@ -630,7 +628,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 3.5,
-                        color: Theme.of(ctx).textTheme.bodyLarge?.color,
+                        color: Theme.of(ctx).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -1384,13 +1382,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // ── Skeletons & error ────────────────────────────────────────────────────
 
 
-  /// Placeholder statique léger (aucun shimmer, aucune animation).
-  /// Remplace les Skeletonizer shimmers pendant le chargement des sections
-  /// pour éviter les bâtons sur le texte et réduire la charge CPU.
+  /// Shimmer animé — dimensions identiques à _SpotlightCard (116×172) + row 196
   Widget _buildSectionPlaceholder(BuildContext ctx) {
-    final base = Theme.of(ctx).colorScheme
-        .surfaceContainerHighest.withValues(alpha: 0.45);
-    // Mirror exact dimensions of _SpotlightCard (116×172) + row height 196
     return SizedBox(
       height: 196,
       child: ListView.builder(
@@ -1399,42 +1392,23 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
         itemCount: 5,
         itemBuilder: (_, __) => Padding(
           padding: const EdgeInsets.only(right: 10),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              width: 116,
-              height: 172,
-              color: base,
-            ),
-          ),
+          child: _ShimmerCard(width: 116, height: 172, radius: 14),
         ),
       ),
     );
   }
 
   Widget _buildHeroSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx).colorScheme
-        .surfaceContainerHighest.withValues(alpha: 0.50);
-    final size = MediaQuery.sizeOf(ctx);
+    final size  = MediaQuery.sizeOf(ctx);
     final cardH = (size.width > size.height) ? size.height * 0.70 : size.height * 0.34;
     final totalH = cardH + _headerH;
-    // Skeleton statique — même hauteur exacte que le carousel chargé
-    return Container(
-      width: size.width,
-      height: totalH,
-      decoration: BoxDecoration(
-        color: base,
-        // Gradient subtle du bas (fade vers le fond de la page)
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            base,
-            base.withValues(alpha: 0.30),
-          ],
-          stops: const [0.65, 1.0],
-        ),
+    // Shimmer arrondi en bas — identique au carousel chargé
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(28),
+        bottomRight: Radius.circular(28),
       ),
+      child: _ShimmerCard(width: size.width, height: totalH, radius: 0),
     );
   }
 
@@ -2035,22 +2009,86 @@ class _WatchSubTabRow extends StatelessWidget {
   }
 }
 
+// ── Shimmer card (loading placeholder with wave animation) ───────────────────
+
+class _ShimmerCard extends StatefulWidget {
+  final double width;
+  final double height;
+  final double radius;
+  const _ShimmerCard({required this.width, required this.height, this.radius = 14});
+  @override
+  State<_ShimmerCard> createState() => _ShimmerCardState();
+}
+
+class _ShimmerCardState extends State<_ShimmerCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1300))
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base      = isDark ? const Color(0xFF23232B) : const Color(0xFFE2E2E6);
+    final highlight = isDark ? const Color(0xFF32323E) : const Color(0xFFF4F4F7);
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final t = _ctrl.value; // 0→1
+        // Sweep: gradient moves from left-off to right-off
+        final begin = Alignment(-2.5 + t * 5.0, 0);
+        final end   = Alignment(-1.5 + t * 5.0, 0);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(widget.radius),
+          child: Container(
+            width: widget.width,
+            height: widget.height,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: begin, end: end,
+                colors: [base, highlight, base],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ── Home tab pill row (below carousel) ───────────────────────────────────────
 
 class _WatchHomeTabPills extends StatelessWidget {
   final int selectedIdx;
+  final List<String> tabs;
   final ValueChanged<int> onChanged;
-  static const _tabs = ['FightZone', 'Movie', 'TV Shows', 'Popular'];
-  const _WatchHomeTabPills({required this.selectedIdx, required this.onChanged});
+  const _WatchHomeTabPills({
+    required this.selectedIdx,
+    required this.tabs,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (tabs.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       height: 44,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(left: 16, top: 6, bottom: 6),
-        itemCount: _tabs.length,
+        itemCount: tabs.length,
         itemBuilder: (_, i) {
           final active = selectedIdx == i;
           return Padding(
@@ -2070,7 +2108,7 @@ class _WatchHomeTabPills extends StatelessWidget {
                         : Border.all(color: Colors.transparent, width: 1.5),
                   ),
                   child: Text(
-                    _tabs[i],
+                    tabs[i],
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: active ? FontWeight.w700 : FontWeight.w400,
@@ -2355,11 +2393,19 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
   int _page = 1;
   bool _hasNextPage = true;
   bool _isLoadingMore = false;
+  bool _isListView = false;
   final List<MManga> _items = [];
+  late List<dynamic> _filterList;
+  late List<dynamic> _filters;
   final ScrollController _scrollCtrl = ScrollController();
 
   @override
-  void initState() { super.initState(); }
+  void initState() {
+    super.initState();
+    _filterList = widget.source.isLocal ? [] : getFilterList(source: widget.source);
+    _filters = List.from(_filterList);
+    _scrollCtrl.addListener(_onScroll);
+  }
 
   @override
   void dispose() { _scrollCtrl.removeListener(_onScroll); _scrollCtrl.dispose(); super.dispose(); }
@@ -2411,6 +2457,131 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
     }
   }
 
+  Future<void> _openSettings(BuildContext ctx) async {
+    await showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: Colors.black54,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSS) {
+          final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetCtx).colorScheme.surface
+                      .withValues(alpha: isDark ? 0.82 : 0.92),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Handle bar
+                      Container(
+                        margin: const EdgeInsets.only(top: 10, bottom: 6),
+                        width: 36, height: 4,
+                        decoration: BoxDecoration(
+                          color: Theme.of(sheetCtx).colorScheme.onSurface.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      // Header row
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(sheetCtx);
+                                setState(() {
+                                  _filters = List.from(_filterList);
+                                  _items.clear(); _page = 1; _hasNextPage = true;
+                                });
+                              },
+                              child: Text('Réinitialiser',
+                                  style: TextStyle(color: Theme.of(sheetCtx).colorScheme.error, fontSize: 14)),
+                            ),
+                            Expanded(child: Text(widget.title,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                            TextButton(
+                              onPressed: () => Navigator.pop(sheetCtx),
+                              child: const Text('Fermer', style: TextStyle(fontSize: 14)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      // Display mode
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        child: Row(
+                          children: [
+                            Text('Affichage', style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w500,
+                                color: Theme.of(sheetCtx).colorScheme.onSurface)),
+                            const Spacer(),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(sheetCtx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _ViewToggleBtn(
+                                    icon: Icons.grid_view_rounded,
+                                    selected: !_isListView,
+                                    onTap: () { setSS(() {}); setState(() => _isListView = false); },
+                                  ),
+                                  _ViewToggleBtn(
+                                    icon: Icons.view_list_rounded,
+                                    selected: _isListView,
+                                    onTap: () { setSS(() {}); setState(() => _isListView = true); },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Extension filters (if any)
+                      if (_filterList.isNotEmpty) ...[
+                        const Divider(height: 1),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                            child: FilterWidget(
+                              filterList: _filters,
+                              onChanged: (applied) {
+                                setSS(() => _filters = applied);
+                                setState(() {
+                                  _filters = applied;
+                                  _items.clear(); _page = 1; _hasNextPage = true;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = _provider;
@@ -2424,21 +2595,89 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
       }
     });
 
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title),
-          backgroundColor: Colors.transparent, elevation: 0),
+      backgroundColor: cs.surface,
+      // Transparent AppBar with back ← + title + settings ⚙
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: GestureDetector(
+            onTap: () => Navigator.maybePop(context),
+            child: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: cs.onSurface),
+            ),
+          ),
+        ),
+        title: Text(widget.title,
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: cs.onSurface)),
+        centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: GestureDetector(
+              onTap: () => _openSettings(context),
+              child: Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.tune_rounded, size: 18, color: cs.onSurface),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: data.when(
         data: (_) {
-          if (_items.isEmpty) return const Center(child: CircularProgressIndicator());
+          if (_items.isEmpty) {
+            return GridView.builder(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 120),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+                mainAxisSpacing: 10, crossAxisSpacing: 10,
+              ),
+              itemCount: 12,
+              itemBuilder: (_, __) => _ShimmerCard(width: 116, height: 172, radius: 12),
+            );
+          }
+          if (_isListView) {
+            return ListView.builder(
+              controller: _scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 120),
+              itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+              itemBuilder: (ctx, i) {
+                if (i >= _items.length) {
+                  return const Center(child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(strokeWidth: 2)));
+                }
+                return MangaImageCardWidget(
+                  getMangaDetail: _items[i], source: widget.source,
+                  itemType: widget.source.itemType, isComfortableGrid: true,
+                );
+              },
+            );
+          }
           return GridView.builder(
             controller: _scrollCtrl,
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 120),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 140, childAspectRatio: 0.65,
-              mainAxisSpacing: 8, crossAxisSpacing: 8,
+              mainAxisSpacing: 10, crossAxisSpacing: 10,
             ),
             itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-            itemBuilder: (c, i) {
+            itemBuilder: (ctx, i) {
               if (i >= _items.length) {
                 return const Center(child: Padding(
                     padding: EdgeInsets.all(16),
@@ -2451,7 +2690,15 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
             },
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => GridView.builder(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 120),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+            mainAxisSpacing: 10, crossAxisSpacing: 10,
+          ),
+          itemCount: 12,
+          itemBuilder: (_, __) => _ShimmerCard(width: 116, height: 172, radius: 12),
+        ),
         error: (e, _) => Center(child: Text(e.toString())),
       ),
     );
