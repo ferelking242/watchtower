@@ -176,6 +176,8 @@ class GetIsolateService {
                         return await service.getPageList(url!);
                       case 'getHeaders':
                         return Future.value(service.getHeaders());
+                      case 'getSuggestions':
+                        return await service.getSuggestions(query!);
                       default:
                         throw Exception('Unknown service type: $serviceType');
                     }
@@ -255,6 +257,8 @@ class GetIsolateService {
         return MManga() as T;
       case 'getHeaders':
         return <String, String>{} as T;
+      case 'getSuggestions':
+        return <String>[] as T;
       default:
         throw Exception('Web: unsupported service type "$serviceType" for local/mock source');
     }
@@ -290,6 +294,8 @@ class GetIsolateService {
             return await service.getPageList(url!) as T;
           case 'getHeaders':
             return service.getHeaders() as T;
+          case 'getSuggestions':
+            return await service.getSuggestions(query!) as T;
           default:
             throw Exception('Unknown service type: $serviceType');
         }
