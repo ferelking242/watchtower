@@ -2099,9 +2099,16 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
     int count = 0;
     for (final f in filters) {
       try {
-        if (f is CheckBoxFilter && f.state) count++;
-        if (f is TriStateFilter && f.state != 0) count++;
-        if (f is SelectFilter && f.state != 0) count++;
+        if (f is CheckBoxFilter && f.state) {
+          count++;
+        } else if (f is TriStateFilter && f.state != 0) {
+          count++;
+        } else if (f is SelectFilter && f.state != 0) {
+          count++;
+        } else if (f is GroupFilter) {
+          // Recurse into grouped filters (e.g. tag-chips, genre groups)
+          count += _countActiveFilters(f.state as List<dynamic>);
+        }
       } catch (_) {}
     }
     return count;
