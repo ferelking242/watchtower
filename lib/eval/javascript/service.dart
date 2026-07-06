@@ -512,6 +512,16 @@ function extLog(level, msg) {
   }
 
   @override
+  Future<List<String>> getSuggestions(String query) async {
+    try {
+      final result = await _extensionCallAsync<List>('getSuggestions(' + jsonEncode(query) + ')');
+      return result.map((e) => e.toString()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
   List<Map<String, dynamic>> getCustomLists() {
     try {
       final result = _extensionCall<List>('getCustomLists()', []);
