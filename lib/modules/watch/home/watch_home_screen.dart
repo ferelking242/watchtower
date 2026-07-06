@@ -357,10 +357,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
           result = await ref.read(getPopularProvider(source: source, page: _cataloguePage).future);
         }
       if (mounted && result != null && result.list.isNotEmpty) {
+        final r = result!;
         setState(() {
           _cataloguePage++;
-          _catalogueHasNext = result.hasNextPage;
-          _catalogueItems.addAll(result.list);
+          _catalogueHasNext = r.hasNextPage;
+          _catalogueItems.addAll(r.list);
         });
       } else if (mounted) {
         setState(() => _catalogueHasNext = false);
