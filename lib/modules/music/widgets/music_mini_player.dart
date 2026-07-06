@@ -30,7 +30,7 @@ class MusicMiniPlayer extends HookConsumerWidget {
 
     // ── Custom music player (MusicPlayerProvider) ─────────────────────────
     if (customTrack != null) {
-      return _SpotubePlayerBar(
+      return _MusicPlayerBar(
         imageUrl: customTrack.imageUrl,
         imagePlaceholder: Assets.images.albumPlaceholder.path,
         title: customTrack.name,
@@ -52,7 +52,7 @@ class MusicMiniPlayer extends HookConsumerWidget {
     // ── Spotube audio player (AudioPlayerProvider) ─────────────────────────
     if (spotubeTrack == null) return const SizedBox.shrink();
 
-    return _SpotubePlayerBar(
+    return _MusicPlayerBar(
       imageUrl: spotubeTrack.album.images.isNotEmpty
           ? spotubeTrack.album.images.last.url
           : null,
@@ -75,7 +75,7 @@ class MusicMiniPlayer extends HookConsumerWidget {
 
 // ─── Shared mini-bar ─────────────────────────────────────────────────────────
 
-class _SpotubePlayerBar extends HookConsumerWidget {
+class _MusicPlayerBar extends HookConsumerWidget {
   final String? imageUrl;
   final String imagePlaceholder;
   final String title;
@@ -90,7 +90,7 @@ class _SpotubePlayerBar extends HookConsumerWidget {
   final VoidCallback onNext;
   final int? spotubeTrackDurationMs;
 
-  const _SpotubePlayerBar({
+  const _MusicPlayerBar({
     required this.imageUrl,
     required this.imagePlaceholder,
     required this.title,
