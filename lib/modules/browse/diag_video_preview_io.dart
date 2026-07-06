@@ -122,7 +122,7 @@ class _DiagVideoPreviewState extends State<DiagVideoPreview> {
                                       Container(
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.15),
+                                          color: Colors.white.withValues(alpha: 0.15),
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Icon(Icons.play_arrow_rounded,
