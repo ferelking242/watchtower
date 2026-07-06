@@ -28,6 +28,8 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/services/isolate_service.dart';
 
 // ── 3-dot menu actions ────────────────────────────────────────────────────────
 enum _HomeMenuAction { openBrowser, settings, diagnostic }
@@ -89,6 +91,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   final List<MManga> _mangaList = [];
 
   AsyncValue<MPages?>? _getManga;
+  Timer? _suggestionTimer;
+  List<String> _suggestions = [];
+  bool _isListView = false;
 
   @override
   void initState() {
@@ -98,10 +103,21 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   @override
   void dispose() {
+    _suggestionTimer?.cancel();
     _scrollCtrl.dispose();
     _searchCtrl.dispose();
     _homeScrollCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void onFilterChanged() {
+    // Called inside setState by InlineFilterChipsMixin: clears results so
+    // the next build() re-fetches with the updated filter selection.
+    _mangaList.clear();
+    _page = 1;
+    _hasNextPage = true;
+    _isFiltering = true;
   }
 
   bool get supportsLatest =>
@@ -133,20 +149,120 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       context: ctx,
       isScrollControlled: true,
       useSafeArea: true,
+      barrierColor: Colors.black54,
       backgroundColor: Colors.transparent,
-      builder: (_) => FilterWidget(
-        filterList: filters,
-        onChanged: (applied) {
-          if (mounted) {
-            setState(() {
-              filters = applied;
-              _isFiltering = true;
-              _selectedIdx = _kHomeIdx;
-              _mangaList.clear();
-              _page = 1;
-              _hasNextPage = true;
-            });
-          }
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetCtx).colorScheme.surface
+                      .withValues(alpha: isDark ? 0.82 : 0.90),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 4),
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(sheetCtx).colorScheme.onSurface.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(sheetCtx);
+                              if (mounted) setState(() {
+                                filters = List.from(filterList);
+                                _isFiltering = false;
+                                _mangaList.clear();
+                                _page = 1;
+                                _hasNextPage = true;
+                              });
+                            },
+                            child: Text('Réinitialiser',
+                                style: TextStyle(color: Theme.of(sheetCtx).colorScheme.error, fontSize: 14)),
+                          ),
+                          const Expanded(
+                            child: Text('Filtres',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(sheetCtx),
+                            child: const Text('Fermer', style: TextStyle(fontSize: 14)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Text('Vue', style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500,
+                              color: Theme.of(sheetCtx).colorScheme.onSurface)),
+                          const Spacer(),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(sheetCtx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _ViewToggleBtn(
+                                  icon: Icons.grid_view_rounded,
+                                  selected: !_isListView,
+                                  onTap: () { setSheetState((){}); if (mounted) setState(() => _isListView = false); },
+                                ),
+                                _ViewToggleBtn(
+                                  icon: Icons.view_list_rounded,
+                                  selected: _isListView,
+                                  onTap: () { setSheetState((){}); if (mounted) setState(() => _isListView = true); },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: FilterWidget(
+                          filterList: filters,
+                          onChanged: (applied) {
+                            setSheetState(() => filters = applied);
+                            if (mounted) setState(() {
+                              filters = applied;
+                              _isFiltering = true;
+                              _selectedIdx = _kHomeIdx;
+                              _mangaList.clear();
+                              _page = 1;
+                              _hasNextPage = true;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: MediaQuery.of(sheetCtx).viewPadding.bottom),
+                  ],
+                ),
+              ),
+            ),
+          );
         },
       ),
     );
@@ -713,21 +829,41 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // ── Section accent + icon helpers (index fallbacks kept for retro-compat) ──
 
   static const _kIconMap = <String, IconData>{
-    'fiber_new':    Icons.fiber_new_rounded,
-    'trending_up':  Icons.trending_up_rounded,
-    'animation':    Icons.animation_rounded,
-    'theaters':     Icons.theaters_rounded,
-    'star':         Icons.star_rounded,
-    'bolt':         Icons.bolt_rounded,
-    'movie':        Icons.movie_rounded,
-    'live_tv':      Icons.live_tv_rounded,
-    'history':      Icons.history_rounded,
-    'category':     Icons.category_rounded,
-    'new_releases': Icons.new_releases_rounded,
-    'local_movies': Icons.local_movies_rounded,
-    'tv':           Icons.tv_rounded,
-    'sports':       Icons.sports_rounded,
-    'music_note':   Icons.music_note_rounded,
+    'fiber_new':              Icons.fiber_new_rounded,
+    'trending_up':            Icons.trending_up_rounded,
+    'animation':              Icons.animation_rounded,
+    'theaters':               Icons.theaters_rounded,
+    'star':                   Icons.star_rounded,
+    'bolt':                   Icons.bolt_rounded,
+    'movie':                  Icons.movie_rounded,
+    'live_tv':                Icons.live_tv_rounded,
+    'history':                Icons.history_rounded,
+    'category':               Icons.category_rounded,
+    'new_releases':           Icons.new_releases_rounded,
+    'local_movies':           Icons.local_movies_rounded,
+    'tv':                     Icons.tv_rounded,
+    'sports':                 Icons.sports_rounded,
+    'music_note':             Icons.music_note_rounded,
+    // ── Extra icons used by extensions ─────────────────────────────────
+    'apps':                   Icons.apps_rounded,
+    'local_fire_department':  Icons.local_fire_department_rounded,
+    'dark_mode':              Icons.dark_mode_rounded,
+    'sentiment_very_satisfied': Icons.sentiment_very_satisfied_rounded,
+    'favorite':               Icons.favorite_rounded,
+    'language':               Icons.language_rounded,
+    'flag':                   Icons.flag_rounded,
+    'public':                 Icons.public_rounded,
+    'home':                   Icons.home_rounded,
+    'explore':                Icons.explore_rounded,
+    'whatshot':               Icons.whatshot_rounded,
+    'grade':                  Icons.grade_rounded,
+    'thumb_up':               Icons.thumb_up_rounded,
+    'auto_awesome':           Icons.auto_awesome_rounded,
+    'child_care':             Icons.child_care_rounded,
+    'comedy':                 Icons.sentiment_satisfied_rounded,
+    'romance':                Icons.favorite_border_rounded,
+    'horror':                 Icons.remove_red_eye_rounded,
+    'drama':                  Icons.theater_comedy_rounded,
   };
 
   /// Parse a CSS hex color string like "#FF0000" → Color.
@@ -991,6 +1127,28 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   }
 
   Widget _buildGrid(BuildContext ctx) {
+    if (_isListView) {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
+        itemCount: _mangaList.length + (_isLoadingMore ? 1 : 0),
+        itemBuilder: (c, i) {
+          if (i >= _mangaList.length) {
+            return const Center(
+              child: Padding(padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(strokeWidth: 2)));
+          }
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: MangaImageCardWidget(
+              getMangaDetail: _mangaList[i],
+              source: source,
+              itemType: source.itemType,
+              isComfortableGrid: true,
+            ),
+          );
+        },
+      );
+    }
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -1004,8 +1162,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
         if (i >= _mangaList.length) {
           return const Center(
             child: Padding(padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(strokeWidth: 2)),
-          );
+                child: CircularProgressIndicator(strokeWidth: 2)));
         }
         return MangaImageCardWidget(
           getMangaDetail: _mangaList[i],
@@ -1087,6 +1244,43 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     );
   }
 
+  // ── Search suggestions ──────────────────────────────────────────────────
+
+  void _onSearchQueryChanged(String v) {
+    setState(() {
+      _query = v;
+      _mangaList.clear();
+      _page = 1;
+      _hasNextPage = true;
+      if (v.isEmpty) _suggestions = [];
+    });
+    _suggestionTimer?.cancel();
+    if (v.trim().length >= 2) {
+      _suggestionTimer = Timer(const Duration(milliseconds: 450), () {
+        _fetchSuggestions(v);
+      });
+    }
+  }
+
+  Future<void> _fetchSuggestions(String query) async {
+    if (!mounted) return;
+    try {
+      final result = await getIsolateService.get<dynamic>(
+        query: query,
+        source: source,
+        serviceType: 'getSuggestions',
+        proxyServer: ref.read(androidProxyServerStateProvider),
+      );
+      if (!mounted || _query != query) return;
+      final suggestions = result is List
+          ? result.map((e) => e.toString()).take(8).toList()
+          : <String>[];
+      setState(() => _suggestions = suggestions);
+    } catch (_) {
+      // Extension does not support getSuggestions — silent no-op
+    }
+  }
+
   // ── Search screen ────────────────────────────────────────────────────────
 
   Widget _buildSearchScreen(BuildContext ctx) {
@@ -1124,14 +1318,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                                 border: InputBorder.none,
                                 isDense: true,
                               ),
-                              onChanged: (v) {
-                                setState(() {
-                                  _query = v;
-                                  _mangaList.clear();
-                                  _page = 1;
-                                  _hasNextPage = true;
-                                });
-                              },
+                              onChanged: _onSearchQueryChanged,
                             ),
                           ),
                           if (_searchCtrl.text.isNotEmpty)
@@ -1166,6 +1353,36 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                 ],
               ),
             ),
+            if (_suggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Theme.of(ctx).dividerColor.withValues(alpha: 0.3)),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _suggestions.map((s) => InkWell(
+                    onTap: () {
+                      _searchCtrl.text = s;
+                      setState(() { _query = s; _suggestions = []; _mangaList.clear(); _page = 1; _hasNextPage = true; });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search, size: 16, color: Theme.of(ctx).hintColor),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(s, style: const TextStyle(fontSize: 14))),
+                          Icon(Icons.north_west, size: 14, color: Theme.of(ctx).hintColor),
+                        ],
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ),
             if (filterList.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -1268,6 +1485,33 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
             ElevatedButton(onPressed: retry, child: const Text('Retry')),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Small grid/list toggle button (used in filter sheet) ────────────────────────
+
+class _ViewToggleBtn extends StatelessWidget {
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ViewToggleBtn({required this.icon, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Icon(icon, size: 18,
+            color: selected ? Colors.white : cs.onSurface.withValues(alpha: 0.55)),
       ),
     );
   }
