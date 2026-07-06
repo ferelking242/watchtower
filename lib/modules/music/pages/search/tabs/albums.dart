@@ -21,8 +21,9 @@ class SearchPageAlbumsTab extends HookConsumerWidget {
         ref.watch(metadataPluginSearchAlbumsProvider(searchTerm));
     final searchAlbumsNotifier =
         ref.read(metadataPluginSearchAlbumsProvider(searchTerm).notifier);
-    final searchAlbums =
-        searchAlbumsSnapshot.asData?.value.items ?? [FakeData.albumSimple];
+    final searchAlbums = searchAlbumsSnapshot.isLoading
+        ? [FakeData.albumSimple]
+        : (searchAlbumsSnapshot.asData?.value.items ?? []);
 
     if (searchAlbumsSnapshot.hasError) {
       return ErrorBox(
