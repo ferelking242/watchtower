@@ -119,11 +119,11 @@ class _RecommendationsScreenState
                       border: Border.all(
                         color: selected
                             ? opt.color
-                            : colorScheme.outline.withOpacity(0.25),
+                            : colorScheme.outline.withValues(alpha: 0.25),
                         width: selected ? 1.5 : 1,
                       ),
                       color: selected
-                          ? opt.color.withOpacity(0.08)
+                          ? opt.color.withValues(alpha: 0.08)
                           : colorScheme.surfaceContainerHighest.withOpacity(
                               0.4,
                             ),
@@ -133,7 +133,7 @@ class _RecommendationsScreenState
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: opt.color.withOpacity(0.15),
+                            color: opt.color.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(opt.icon, color: opt.color, size: 20),
@@ -314,9 +314,9 @@ class _WeightTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.25)),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,7 +350,7 @@ class _WeightTile extends StatelessWidget {
               max: 100,
               divisions: 20,
               activeColor: color,
-              inactiveColor: color.withOpacity(0.2),
+              inactiveColor: color.withValues(alpha: 0.2),
               onChanged: (v) => onChanged(v.round()),
               onChangeEnd: onChangeEnd,
             ),
