@@ -209,169 +209,110 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── PORTRAIT ───────────────────────────────────────────────────────────────
-  // Bannière plein-écran (60 % de la hauteur), déborde sous la status bar.
-  // Bouton retour (gauche) et engrenage (droite) toujours visibles en cercles
-  // transparents. Play pill + library circle en bas de l'image.
 
   Widget _buildPortrait(List<Chapter> chapters) {
-    final topPad  = MediaQuery.paddingOf(context).top;
-    final screenH = MediaQuery.sizeOf(context).height;
-    final bannerH = (screenH * 0.62).clamp(300.0, 520.0);
-
-    return Stack(
+    final topPad = MediaQuery.of(context).padding.top;
+    return Column(
       children: [
-        Column(
-          children: [
-            // ── Bannière plein-écran ──────────────────────────────────────
-            SizedBox(
-              height: bannerH,
-              child: _buildBanner(chapters),
-            ),
-            // ── Contenu scrollable ────────────────────────────────────────
-            Expanded(
-              child: NestedScrollView(
-                controller: _nestedScrollCtrl,
-                headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
-                  SliverToBoxAdapter(child: _buildMetadataBlock(chapters)),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _TabBarDelegate(
-                      TabBar(
-                        controller: _tabController,
-                        isScrollable: true,
-                        tabAlignment: TabAlignment.start,
-                        indicatorColor: _accent,
-                        indicatorWeight: 2.5,
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        indicator: _AnimatedTabIndicator(color: _accent),
-                        labelColor: _textPrimary,
-                        unselectedLabelColor: _grey,
-                        labelStyle: const TextStyle(
-                            fontSize: 13.5, fontWeight: FontWeight.w600),
-                        unselectedLabelStyle: const TextStyle(
-                            fontSize: 13.5, fontWeight: FontWeight.w400),
-                        dividerColor: Colors.transparent,
-                        tabs: const [
-                          Tab(text: 'Pour vous'),
-                          Tab(text: 'Commentaires'),
+        // ── Player — toujours fixé, ne scrolle jamais ─────────────────────────
+        SizedBox(
+          height: 230 + topPad,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildBanner(chapters),
+              Positioned(
+                top: topPad,
+                left: 0,
+                right: 0,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _player.controlsVisible,
+                  builder: (_, controlsVis, __) => AnimatedOpacity(
+                    opacity: controlsVis ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: IgnorePointer(
+                      ignoring: !controlsVis,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                          Expanded(
+                            child: ValueListenableBuilder<double>(
+                              valueListenable: _headerTitleOpacity,
+                              builder: (_, opacity, __) => Opacity(
+                                opacity: opacity,
+                                child: Text(
+                                  widget.manga.name ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                          _AideButton(
+                              onTap: () =>
+                                  _showOptionsSheet(context, chapters)),
+                          const SizedBox(width: 4),
                         ],
                       ),
-                      color: _bg,
                     ),
                   ),
-                ],
-                body: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildRecommendationsTab(),
-                    _buildCommentsTab(),
-                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-
-        // ── Bouton retour — toujours visible, cercle transparent ──────────
-        Positioned(
-          top: topPad + 6,
-          left: 8,
-          child: _circleIconButton(
-            Icons.arrow_back,
-            () => Navigator.of(context).pop(),
+            ],
           ),
         ),
-
-        // ── Engrenage (paramètres) — remplace les 3 points ───────────────
-        Positioned(
-          top: topPad + 6,
-          right: 8,
-          child: _circleIconButton(
-            Icons.settings_rounded,
-            () => _showOptionsSheet(context, chapters),
+        // ── Contenu scrollable ────────────────────────────────────────────────
+        Expanded(
+          child: NestedScrollView(
+            controller: _nestedScrollCtrl,
+            headerSliverBuilder: (ctx, innerBoxIsScrolled) => [
+              SliverToBoxAdapter(child: _buildMetadataBlock(chapters)),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _TabBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    indicatorColor: _accent,
+                    indicatorWeight: 2.5,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicator: _AnimatedTabIndicator(color: _accent),
+                    labelColor: _textPrimary,
+                    unselectedLabelColor: _grey,
+                    labelStyle: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w600),
+                    unselectedLabelStyle: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w400),
+                    dividerColor: Colors.transparent,
+                    tabs: const [
+                      Tab(text: 'Pour vous'),
+                      Tab(text: 'Commentaires'),
+                    ],
+                  ),
+                  color: _bg,
+                ),
+              ),
+            ],
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildRecommendationsTab(),
+                _buildCommentsTab(),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-
-  /// Bouton icône dans un cercle translucide (back / gear).
-  Widget _circleIconButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.40),
-          shape: BoxShape.circle,
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18), width: 0.8),
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
-      ),
-    );
-  }
-
-  /// Pill blanc "▶ Play" en bas de la bannière.
-  Widget _buildPlayPill(List<Chapter> chapters) {
-    if (chapters.isEmpty) return const SizedBox.shrink();
-    return GestureDetector(
-      onTap: () => _loadEpisodeInBanner(chapters.first),
-      child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
-                color: Colors.black38, blurRadius: 14, offset: Offset(0, 5))
-          ],
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.play_arrow_rounded,
-                color: Colors.black, size: 24),
-            SizedBox(width: 6),
-            Text(
-              'Play',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Cercle library (bookmark) en bas de la bannière.
-  Widget _buildLibraryCircle() {
-    final isFav = widget.manga.favorite ?? false;
-    return GestureDetector(
-      onTap: _toggleFavorite,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.42),
-          shape: BoxShape.circle,
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.25), width: 0.8),
-        ),
-        child: Icon(
-          isFav
-              ? Icons.bookmark_rounded
-              : Icons.bookmark_border_rounded,
-          color: isFav ? const Color(0xFFFFD54F) : Colors.white,
-          size: 22,
-        ),
-      ),
     );
   }
 
@@ -399,10 +340,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── BANNER ─────────────────────────────────────────────────────────────────
-  // Image plein-écran avec :
-  //  · Dégradé haut → lisibilité boutons back/gear
-  //  · Dégradé bas → lisibilité pill Play + badge library
-  //  · Pill Play + circle Library en bas-gauche (masqués quand player actif)
 
   Widget _buildBanner(List<Chapter> chapters) {
     return Stack(
@@ -423,7 +360,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             _player.loadedChapterId != null)
           const _LoadingBannerPulse(),
 
-        // Reel-mode button
+        // Reel-mode button — appears once the loaded video is detected as
+        // vertical/short-form content (e.g. MovieBox "TV courte").
         ValueListenableBuilder<bool>(
           valueListenable: _player.isPortraitFormat,
           builder: (_, isReel, __) {
@@ -462,49 +400,19 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           },
         ),
 
-        // Dégradé haut (lisibilité back/gear)
+        // Top shadow uniquement pour lisibilité des contrôles — bord bas net
         const IgnorePointer(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                stops: [0.0, 0.42],
-                colors: [Color(0xBB000000), Colors.transparent],
+                stops: [0.0, 0.40],
+                colors: [Color(0xAA000000), Colors.transparent],
               ),
             ),
           ),
         ),
-
-        // Dégradé bas (lisibilité play/library) — uniquement quand pas de vidéo
-        if (!_player.hasVideoUrl)
-          const IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  stops: [0.0, 0.45],
-                  colors: [Color(0xCC000000), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-
-        // Play pill + library circle en bas-gauche (masqués quand player actif)
-        if (!_player.hasVideoUrl)
-          Positioned(
-            bottom: 20,
-            left: 16,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildPlayPill(chapters),
-                const SizedBox(width: 12),
-                _buildLibraryCircle(),
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -977,17 +885,41 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── ACTION BUTTONS ─────────────────────────────────────────────────────────
-  // Seul le bouton library est affiché ici.
-  // Play → pill dans la bannière. Download → supprimé.
-  // Partager / Migrer / WebView → dans la feuille paramètres (engrenage).
 
   Widget _buildActionButtons(List<Chapter> chapters) {
     final isFav = widget.manga.favorite ?? false;
-    return _chip(
-      icon: isFav ? Icons.bookmark_rounded : Icons.bookmark_border_outlined,
-      label: isFav ? 'Dans la library' : 'Ajouter à la library',
-      onTap: _toggleFavorite,
-      active: isFav,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _chip(
+            icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
+            label: isFav ? 'Dans la library' : 'Ajouter à la library',
+            onTap: _toggleFavorite,
+            active: isFav,
+          ),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.drive_file_move_outlined,
+              label: 'Migrer',
+              onTap: () => context.pushNamed('migrate', extra: widget.manga)),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.share_outlined,
+              label: 'Partager',
+              onTap: () => _share(context)),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.download_outlined,
+              label: 'Télécharger',
+              onTap: () => _showDownloadSheet(context, chapters)),
+          const SizedBox(width: 8),
+          _chip(
+              icon: Icons.language_outlined,
+              label: 'WebView',
+              onTap: _openInBrowser),
+        ],
+      ),
     );
   }
 
@@ -2745,9 +2677,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 }
 
-// ─── AIDE BUTTON (conservé pour compatibilité interne) ──────────────────────
-// Note : le bouton visible dans la bannière utilise _circleIconButton() dans
-// _WatchDetailViewState. Cette classe n'est plus instanciée directement.
+// ─── AIDE BUTTON ────────────────────────────────────────────────────────────
 
 class _AideButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -2757,17 +2687,18 @@ class _AideButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.40),
-          shape: BoxShape.circle,
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18), width: 0.8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.help_outline_rounded, color: Colors.white, size: 18),
+            SizedBox(height: 1),
+            Text('Aide',
+                style: TextStyle(color: Colors.white, fontSize: 9.5)),
+          ],
         ),
-        child: const Icon(Icons.settings_rounded, color: Colors.white, size: 20),
       ),
     );
   }
