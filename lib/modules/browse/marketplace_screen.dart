@@ -431,6 +431,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (_busy[entry.id] == true) return;
     setState(() => _busy[entry.id] = true);
     try {
+      // Entrées music (ItemType.music) → plugin Spotube (.smplug) via metadata
+      // plugin provider, pas via fetchSourcesList (JS extensions).
+      if (entry.contentType == ItemType.music) {
+        final repoUrl = entry.upstream.isNotEmpty
+            ? entry.upstream
+            : entry.repoUrl;
+        final pluginsNotifier =
+            ref.read(metadataPluginsProvider.notifier);
+        final pluginConfig =
+            await pluginsNotifier.downloadAndCachePlugin(repoUrl);
+        await pluginsNotifier.addPlugin(pluginConfig);
+        if (mounted) {
+          _showToast(context, '${entry.name} installé',
+              icon: Icons.check_circle_rounded);
+        }
+        return;
+      }
+
       final proxyServer = ref.read(androidProxyServerStateProvider);
       final repo = Repo(
         jsonUrl: entry.repoUrl,
@@ -2115,9 +2133,6 @@ class _TypeTabState extends State<_TypeTab> {
       onRefresh: () => state._loadAll(bypassCache: true),
       child: CustomScrollView(
         slivers: [
-          // Plugins Musique section — affiché uniquement dans le tab Music
-          if (tab == _kTabMusic)
-            const SliverToBoxAdapter(child: _MusicPluginsSection()),
           if (entries.isEmpty && tab != _kTabMusic)
             SliverFillRemaining(
               child: Center(
