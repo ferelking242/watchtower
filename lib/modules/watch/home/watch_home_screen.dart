@@ -383,33 +383,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     const mbBg = Color(0xFF101114);
 
     final topPad = MediaQuery.paddingOf(context).top;
-    _headerH = topPad + 56 + 44;
+    // No header — carousel extends to top, _headerH = safe-area only
+    _headerH = topPad;
 
     return Scaffold(
       backgroundColor: mbBg,
       extendBody: true,
-      body: Stack(
-        children: [
-          _buildBody(context),
-          Positioned(
-            top: 0, left: 0, right: 0,
-            child: _WatchHomeHeader(
-              source: source,
-              headerOpacity: _headerOpacity,
-              mbSubTabIdx: _mbSubTabIdx,
-              onSubTabChanged: (i) => setState(() {
-                _mbSubTabIdx = i;
-                _selectedIdx = _kMbSubTabs[i].watchtowerIdx;
-                _isFiltering = false;
-                _mangaList.clear();
-                _page = 1;
-                _hasNextPage = true;
-              }),
-              onSearchTap: () => setState(() => _isSearching = true),
-            ),
-          ),
-        ],
-      ),
+      body: _buildBody(context),
     );
   }
 
@@ -1053,8 +1033,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // ── List view (Popular / Latest / Filter / Search tabs) ──────────────────
 
   Widget _buildListView(BuildContext ctx) {
+    final topSafe = MediaQuery.paddingOf(ctx).top;
     return Padding(
-      padding: EdgeInsets.only(top: _headerH),
+      padding: EdgeInsets.only(top: topSafe),
       child: NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n is ScrollUpdateNotification || n is ScrollEndNotification) {
@@ -1382,19 +1363,22 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   Widget _buildSectionPlaceholder(BuildContext ctx) {
     final base = Theme.of(ctx).colorScheme
         .surfaceContainerHighest.withValues(alpha: 0.45);
+    // Mirror exact dimensions of _SpotlightCard (116×172) + row height 196
     return SizedBox(
-      height: 142,
+      height: 196,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: 5,
         itemBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Container(
-            width: 116,
-            height: 128,
-            decoration: BoxDecoration(
-                color: base, borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.only(right: 10),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: 116,
+              height: 172,
+              color: base,
+            ),
           ),
         ),
       ),
@@ -1403,15 +1387,27 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   Widget _buildHeroSkeleton(BuildContext ctx) {
     final base = Theme.of(ctx).colorScheme
-        .surfaceContainerHighest.withValues(alpha: 0.55);
+        .surfaceContainerHighest.withValues(alpha: 0.50);
     final size = MediaQuery.sizeOf(ctx);
     final cardH = (size.width > size.height) ? size.height * 0.70 : size.height * 0.34;
     final totalH = cardH + _headerH;
-    // Placeholder statique — pas de shimmer (lourd + cause bâtons sur texte)
+    // Skeleton statique — même hauteur exacte que le carousel chargé
     return Container(
       width: size.width,
       height: totalH,
-      decoration: BoxDecoration(color: base),
+      decoration: BoxDecoration(
+        color: base,
+        // Gradient subtle du bas (fade vers le fond de la page)
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            base,
+            base.withValues(alpha: 0.30),
+          ],
+          stops: const [0.65, 1.0],
+        ),
+      ),
     );
   }
 

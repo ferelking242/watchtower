@@ -133,6 +133,23 @@ jobs:
           compression-level: 0
           retention-days: 30
 
+      - name: Notify ntfy (Android build OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android OK (${{ matrix.label }})" \
+            -H "Priority: default" \
+            -d "APK built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+      - name: Notify ntfy (Android build FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android FAIL (${{ matrix.label }})" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Android build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
   # ────────────────────────────────────────────────────────────
   # Android Universal (all supported ABIs in one APK)
   # ────────────────────────────────────────────────────────────
@@ -226,6 +243,23 @@ jobs:
           path: watchtower-android-universal.7z
           compression-level: 0
           retention-days: 30
+
+      - name: Notify ntfy (Android Universal OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Universal OK" \
+            -H "Priority: default" \
+            -d "Universal APK built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+      - name: Notify ntfy (Android Universal FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Universal FAIL" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Android Universal build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
 
   # ────────────────────────────────────────────────────────────
   # Linux x64
