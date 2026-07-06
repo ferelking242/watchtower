@@ -12,7 +12,6 @@ import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/widgets/inline_filter_chips_mixin.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
-import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/get_custom_lists.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -68,8 +67,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
-  // Home catalogue scroll controller (separate from the tab scroll)
-  final _homeScrollCtrl = ScrollController();
   final List<MManga> _catalogueItems = [];
   int _cataloguePage = 1;
   bool _catalogueHasNext = true;
@@ -96,30 +93,17 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // ── Extension sub-tab state ──────────────────────────────────────────────
   int _mbSubTabIdx    = 0; // index into _kMbSubTabs list
 
-  // MovieBox sub-tabs (from appTab.json subTabs in the APK)
+  // MovieBox sub-tabs — only distinct views (no duplicate Popular tabs)
   static const _kMbSubTabs = [
     (label: '🤼\u202FFightZone', watchtowerIdx: 0),
-    (label: 'Live',              watchtowerIdx: 1),
-    (label: 'Trending',          watchtowerIdx: 1),
     (label: 'Movie',             watchtowerIdx: 0),
-    (label: 'TV',                watchtowerIdx: 2),
-    (label: 'Anime',             watchtowerIdx: 1),
-    (label: 'ShortTV',           watchtowerIdx: 1),
-    (label: 'Kids',              watchtowerIdx: 1),
-    (label: 'Education',         watchtowerIdx: 1),
-    (label: 'Football',          watchtowerIdx: 1),
-    (label: 'Music',             watchtowerIdx: 1),
-    (label: 'Free Novels',       watchtowerIdx: 1),
-    (label: 'Western',           watchtowerIdx: 1),
-    (label: 'Asian',             watchtowerIdx: 1),
-    (label: 'Nollywood',         watchtowerIdx: 1),
-    (label: 'Game',              watchtowerIdx: 1),
+    (label: 'TV Shows',          watchtowerIdx: 2),
+    (label: 'Popular',           watchtowerIdx: 1),
   ];
 
   @override
   void initState() {
     super.initState();
-    _homeScrollCtrl.addListener(_onHomeScroll);
   }
 
   @override
@@ -127,7 +111,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     _suggestionTimer?.cancel();
     _scrollCtrl.dispose();
     _searchCtrl.dispose();
-    _homeScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -333,17 +316,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     }
   }
 
-  // ── Catalogue scroll (home view bottom) ──────────────────────────────────
-
-  void _onHomeScroll() {
-    if (!_homeScrollCtrl.hasClients) return;
-    final pos = _homeScrollCtrl.position;
-    if (pos.pixels >= pos.maxScrollExtent - 400 &&
-        _catalogueHasNext &&
-        !_catalogueLoading) {
-      _loadCatalogue();
-    }
-  }
+  // ── Catalogue infinite scroll (driven by NotificationListener in _buildHomeView) ──
 
   Future<void> _loadCatalogue() async {
       if (_catalogueLoading || !_catalogueHasNext) return;
@@ -429,10 +402,24 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       shadowColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
-      expandedHeight: 0,
-      // ── Back button (Watchtower native) ───────────────────────────────────
-      automaticallyImplyLeading: true,
+      expandedHeight: _computeCarouselExpandedHeight(ctx),
+      // ── Extension logo on the left ───────────────────────────────────────
+      automaticallyImplyLeading: false,
       iconTheme: const IconThemeData(color: Colors.white),
+      leading: Padding(
+        padding: const EdgeInsets.all(9),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: source.iconUrl != null && (source.iconUrl!).isNotEmpty
+              ? Image.network(
+                  source.iconUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.movie_outlined, color: Colors.white, size: 22),
+                )
+              : const Icon(Icons.movie_outlined, color: Colors.white, size: 22),
+        ),
+      ),
       // ── Title: search bar ────────────────────────────────────────────────
       titleSpacing: 0,
       title: GestureDetector(
@@ -484,8 +471,83 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
         preferredSize: const Size.fromHeight(44),
         child: _buildMbSubDock(ctx),
       ),
-      // ── flexibleSpace: solid dark background (no blur — MovieBox is dark) ─
-      flexibleSpace: Container(color: mbBg),
+      // ── flexibleSpace: carousel (home) or solid dark bg ─────────────────
+      flexibleSpace: _buildFlexibleSpaceCarousel(ctx),
+    );
+  }
+
+  /// Returns the expanded height of the SliverAppBar.
+  /// Home tab with lists → toolbar + carousel + tab dock.
+  /// Any other tab → 0 (collapsed only).
+  double _computeCarouselExpandedHeight(BuildContext ctx) {
+    final isHomeView = (_mbSubTabIdx == 0 || _mbSubTabIdx == 3) &&
+        _customLists.isNotEmpty && !_isFiltering && !_isSearching;
+    if (!isHomeView) return 0;
+    final size = MediaQuery.sizeOf(ctx);
+    final isLandscape = size.width > size.height;
+    final bannerH = isLandscape
+        ? (size.height * 0.72).clamp(240.0, 420.0)
+        : (size.width * (9.0 / 16.0) + 88.0).clamp(220.0, size.height * 0.52);
+    return kToolbarHeight + bannerH + 92.0 + 44.0;
+  }
+
+  /// Background for the SliverAppBar's flexible space.
+  /// Shows the hero carousel when on the home tab, otherwise a solid dark fill.
+  Widget _buildFlexibleSpaceCarousel(BuildContext ctx) {
+    const mbBg = Color(0xFF101114);
+    final isHomeView = (_mbSubTabIdx == 0 || _mbSubTabIdx == 3) &&
+        _customLists.isNotEmpty && !_isFiltering && !_isSearching;
+    if (!isHomeView) return Container(color: mbBg);
+
+    final carouselList =
+        _customLists.where((cl) => cl['id'] == 'carousel').firstOrNull;
+
+    final Widget carousel = Consumer(builder: (c, r, _) {
+      if (carouselList != null) {
+        final data = r.watch(
+            getCustomListProvider(source: source, listId: 'carousel', page: 1));
+        return data.when(
+          data: (d) {
+            final items = d?.list ?? [];
+            if (items.isEmpty) return _buildHeroSkeleton(ctx);
+            return _WatchHero(mangas: items, source: source);
+          },
+          loading: () => _buildHeroSkeleton(ctx),
+          error: (_, __) {
+            final pop = r.watch(getPopularProvider(source: source, page: 1));
+            return pop.when(
+              data: (d) {
+                final items = d?.list ?? [];
+                if (items.isEmpty) return _buildHeroSkeleton(ctx);
+                return _WatchHero(mangas: items.take(8).toList(), source: source);
+              },
+              loading: () => _buildHeroSkeleton(ctx),
+              error: (_, __) => _buildHeroSkeleton(ctx),
+            );
+          },
+        );
+      }
+      final pop = r.watch(getPopularProvider(source: source, page: 1));
+      return pop.when(
+        data: (d) {
+          final items = d?.list ?? [];
+          if (items.isEmpty) return _buildHeroSkeleton(ctx);
+          return _WatchHero(mangas: items.take(8).toList(), source: source);
+        },
+        loading: () => _buildHeroSkeleton(ctx),
+        error: (_, __) => _buildHeroSkeleton(ctx),
+      );
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Space for toolbar (search bar overlaid here via SliverAppBar title)
+        Container(height: kToolbarHeight + 8, color: mbBg),
+        Expanded(child: carousel),
+        // Space for tab dock (overlaid by SliverAppBar's `bottom:`)
+        Container(height: 44, color: mbBg),
+      ],
     );
   }
 
@@ -559,57 +621,26 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   Widget _buildHomeView(BuildContext ctx) {
       // Partition custom lists into their roles
-      final carouselList  = _customLists.where((cl) => cl['id'] == 'carousel').firstOrNull;
       final categoryLists = _customLists.where((cl) => cl['layout'] == 'category').toList();
       final catalogueList = _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+      // Cap to 8 sections to avoid flooding the JS isolate with simultaneous requests
       final regularLists  = _customLists.where((cl) =>
         cl['id'] != 'carousel' && cl['layout'] != 'category' && cl['id'] != 'catalogue'
-      ).toList();
+      ).take(8).toList();
 
-      return CustomScrollView(
-        controller: _homeScrollCtrl,
+      return NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification || n is ScrollEndNotification) {
+            if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400 &&
+                _catalogueHasNext && !_catalogueLoading) {
+              _loadCatalogue();
+            }
+          }
+          return false;
+        },
+        child: CustomScrollView(
         slivers: [
-          // ── Hero carousel (bannerList exact de l'API) ────────────────────
-          SliverToBoxAdapter(
-            child: Consumer(builder: (c, ref, _) {
-              if (carouselList != null) {
-                final carouselData = ref.watch(getCustomListProvider(
-                    source: source, listId: 'carousel', page: 1));
-                return carouselData.when(
-                  data: (d) {
-                    final items = d?.list ?? [];
-                    if (items.isEmpty) return const SizedBox(height: 8);
-                    return _WatchHero(mangas: items, source: source);
-                  },
-                  loading: () => _buildHeroSkeleton(ctx),
-                  error: (_, __) {
-                    // fallback to popular on error
-                    final pop = ref.watch(getPopularProvider(source: source, page: 1));
-                    return pop.when(
-                      data: (d) {
-                        final items = d?.list ?? [];
-                        if (items.isEmpty) return const SizedBox(height: 8);
-                        return _WatchHero(mangas: items.take(8).toList(), source: source);
-                      },
-                      loading: () => _buildHeroSkeleton(ctx),
-                      error: (_, __) => const SizedBox(height: 8),
-                    );
-                  },
-                );
-              }
-              // No carousel list — use popular
-              final pop = ref.watch(getPopularProvider(source: source, page: 1));
-              return pop.when(
-                data: (d) {
-                  final items = d?.list ?? [];
-                  if (items.isEmpty) return const SizedBox(height: 8);
-                  return _WatchHero(mangas: items.take(8).toList(), source: source);
-                },
-                loading: () => _buildHeroSkeleton(ctx),
-                error: (_, __) => const SizedBox(height: 8),
-              );
-            }),
-          ),
+          // ── Carousel is now in the SliverAppBar flexibleSpace ───────────
 
           // ── Catégories chips ─────────────────────────────────────────────
           if (categoryLists.isNotEmpty)
@@ -821,7 +852,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
-      );
+      ), // CustomScrollView
+      ); // NotificationListener
     }
 
     // ── Category chips strip ─────────────────────────────────────────────────
@@ -973,10 +1005,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title,
-              style: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white,
-              )),
+          // Skeleton.ignore: protect section title from any ancestor Skeletonizer
+          Skeleton.ignore(
+            child: Text(title,
+                style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white,
+                )),
+          ),
           if (onSeeAll != null)
             GestureDetector(
               onTap: onSeeAll,
@@ -1109,9 +1144,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                   decoration: BoxDecoration(color: base,
                       borderRadius: BorderRadius.circular(8)),
                 ),
-                const SizedBox(height: 5),
-                Container(width: 120, height: 10,
-                    color: base.withValues(alpha: 0.5)),
               ],
             ),
           ),
@@ -1580,7 +1612,6 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
   late final _ctrl = PageController();
   Timer? _timer;
   int _page = 0;
-  final Map<int, MManga> _detailCache = {};
 
   double _heroHeight(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -1595,9 +1626,6 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _prefetch(0); _prefetch(1);
-    });
     if (widget.mangas.length > 1) {
       _timer = Timer.periodic(const Duration(seconds: 5), (_) {
         if (!mounted || !_ctrl.hasClients) return;
@@ -1606,16 +1634,6 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
             duration: const Duration(milliseconds: 520), curve: Curves.easeInOut);
       });
     }
-  }
-
-  void _prefetch(int index) {
-    if (index < 0 || index >= widget.mangas.length) return;
-    final manga = widget.mangas[index];
-    if (manga.link == null || _detailCache.containsKey(index)) return;
-    ref
-        .read(getDetailProvider(url: manga.link!, source: widget.source).future)
-        .then((d) { if (mounted) setState(() => _detailCache[index] = d); })
-        .catchError((_) {});
   }
 
   @override
@@ -1648,11 +1666,9 @@ class _WatchHeroState extends ConsumerState<_WatchHero> {
                   itemCount: widget.mangas.length,
                   onPageChanged: (p) {
                     setState(() => _page = p);
-                    _prefetch(p + 1);
                   },
                   itemBuilder: (_, i) => _HeroSlide(
                     manga: widget.mangas[i],
-                    detail: _detailCache[i],
                     source: widget.source,
                     height: bannerH,
                   ),
