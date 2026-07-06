@@ -1,8 +1,6 @@
 import 'package:auto_route/auto_route.dart';
       import 'package:hooks_riverpod/hooks_riverpod.dart';
       import 'package:flutter/material.dart';
-      import 'package:go_router/go_router.dart';
-
       import 'package:watchtower/modules/music/collections/routes.gr.dart';
       import 'package:watchtower/modules/music/collections/spotube_icons.dart';
       import 'package:watchtower/modules/music/components/image/universal_image.dart';
