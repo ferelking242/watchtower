@@ -67,6 +67,7 @@ class WatchInlinePlayer {
   int? loadedChapterId;
   List<wt.Video> loadedVideos = [];
   String? selectedQuality;
+  bool _isDisposed = false; // guard against post-dispose async calls
 
   /// Notifier for portrait overlay controls visibility (back/aide buttons sync).
   final ValueNotifier<bool> controlsVisible = ValueNotifier(true);
@@ -85,6 +86,7 @@ class WatchInlinePlayer {
   }
 
   void dispose() {
+    _isDisposed = true;
     _player.dispose();
     _seekingNotifier.dispose();
     controlsVisible.dispose();
@@ -104,6 +106,7 @@ class WatchInlinePlayer {
       if (ua.isNotEmpty)      await plat.setProperty('user-agent', ua);
       if (referer.isNotEmpty) await plat.setProperty('referrer', referer);
     } catch (_) {}
+    if (_isDisposed) return;
     await _player.open(Media(targetVideo.url, httpHeaders: targetVideo.headers), play: true);
     // Restore position after the new stream is ready
     if (savedPos > Duration.zero) {
@@ -233,7 +236,7 @@ class WatchInlinePlayer {
             }
 
             // Set MPV props: 'referrer' (dedicated mpv property, more reliable than http-header-fields)
-            if (v.headers != null && v.headers!.isNotEmpty) {
+            if (!_isDisposed && v.headers != null && v.headers!.isNotEmpty) {
               try {
                 final _plat = _player.platform as dynamic;
                 if (_ua.isNotEmpty)      await _plat.setProperty('user-agent', _ua);
@@ -248,6 +251,12 @@ class WatchInlinePlayer {
                     logLevel: LogLevel.warning, tag: LogTag.watch);
               }
             }
+                      if (_isDisposed) {
+                        watchdog.cancel();
+                        durSub?.cancel();
+                        errSub?.cancel();
+                        return;
+                      }
                       await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
         final success = await completer.future;
         if (success) return;
