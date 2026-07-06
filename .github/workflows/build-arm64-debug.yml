@@ -262,3 +262,12 @@ jobs:
             build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify ntfy (build FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android FAIL" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Android build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true

@@ -170,3 +170,12 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Notify ntfy (build FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Web FAIL" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Web build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true

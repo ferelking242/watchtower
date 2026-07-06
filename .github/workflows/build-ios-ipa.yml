@@ -295,3 +295,12 @@ jobs:
             -H "Title: Build iOS OK" \
             -H "Priority: default" \
             -d "IPA built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+      - name: Notify ntfy (build FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build iOS FAIL" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "iOS build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
