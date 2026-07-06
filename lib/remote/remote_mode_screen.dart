@@ -285,7 +285,7 @@ import 'package:flutter/material.dart';
               const SizedBox(height: 4),
               Text(
                 'Vérifiez votre connexion internet et réessayez.',
-                style: TextStyle(fontSize: 12, color: fg.withOpacity(0.75)),
+                style: TextStyle(fontSize: 12, color: fg.withValues(alpha: 0.75)),
               ),
             ],
           ),
