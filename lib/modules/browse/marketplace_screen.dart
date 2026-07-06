@@ -2115,9 +2115,9 @@ class _TypeTabState extends State<_TypeTab> {
       onRefresh: () => state._loadAll(bypassCache: true),
       child: CustomScrollView(
         slivers: [
-          // Plugins Spotube section — affiché uniquement dans le tab Music
+          // Plugins Musique section — affiché uniquement dans le tab Music
           if (tab == _kTabMusic)
-            const SliverToBoxAdapter(child: _SpotubePluginsSection()),
+            const SliverToBoxAdapter(child: _MusicPluginsSection()),
           if (entries.isEmpty && tab != _kTabMusic)
             SliverFillRemaining(
               child: Center(
@@ -2951,17 +2951,17 @@ class _CardAction extends StatelessWidget {
     }
 
   
-// ─── Spotube Plugin Card (music marketplace) ───────────────────────────────────
+// ─── Music Plugin Card (music marketplace) ───────────────────────────────────
 
-class _SpotubePluginCard extends ConsumerStatefulWidget {
+class _MusicPluginCard extends ConsumerStatefulWidget {
   final MetadataPluginRepository pluginRepo;
-  const _SpotubePluginCard({required this.pluginRepo});
+  const _MusicPluginCard({required this.pluginRepo});
 
   @override
-  ConsumerState<_SpotubePluginCard> createState() => _SpotubePluginCardState();
+  ConsumerState<_MusicPluginCard> createState() => _MusicPluginCardState();
 }
 
-class _SpotubePluginCardState extends ConsumerState<_SpotubePluginCard> {
+class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
   bool _installing = false;
 
   MetadataPluginRepository get _repo => widget.pluginRepo;
@@ -3076,7 +3076,7 @@ class _SpotubePluginCardState extends ConsumerState<_SpotubePluginCard> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${_repo.owner} · Plugin Spotube',
+                        '${_repo.owner} · Plugin Musique',
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.65),
@@ -3298,10 +3298,10 @@ class _SpotubePluginCardState extends ConsumerState<_SpotubePluginCard> {
   }
 }
 
-// ─── Spotube Plugins Section (injecté dans le tab Music) ──────────────────────
+// ─── Music Plugins Section (injecté dans le tab Music) ──────────────────────
 
-class _SpotubePluginsSection extends ConsumerWidget {
-  const _SpotubePluginsSection();
+class _MusicPluginsSection extends ConsumerWidget {
+  const _MusicPluginsSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -3330,7 +3330,7 @@ class _SpotubePluginsSection extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Plugins Spotube',
+                  'Plugins Musique',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -3359,7 +3359,7 @@ class _SpotubePluginsSection extends ConsumerWidget {
             ),
           )
         else
-          ...repos.map((repo) => _SpotubePluginCard(pluginRepo: repo)),
+          ...repos.map((repo) => _MusicPluginCard(pluginRepo: repo)),
         const SizedBox(height: 8),
       ],
     );
