@@ -34,6 +34,14 @@ class SpotubeAudioPlayer extends AudioPlayerInterface
     await _mkPlayer.setAudioDevice(device);
   }
 
+  Future<void> playOrPause() async {
+    if (_mkPlayer.state.playing) {
+      await _mkPlayer.pause();
+    } else {
+      await _mkPlayer.play();
+    }
+  }
+
   Future<void> dispose() async {
     await _mkPlayer.dispose();
   }
