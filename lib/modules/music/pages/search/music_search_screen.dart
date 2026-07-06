@@ -106,6 +106,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   final _ctrl = TextEditingController();
   final _focus = FocusNode();
   final _scroll = ScrollController();
+  final _filterKey = GlobalKey();
   String _query = '';
   String _selectedChip = 'all';
 
@@ -173,7 +174,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: CustomScrollView(
         controller: _scroll,
         physics: const BouncingScrollPhysics(),
@@ -204,9 +205,10 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   Widget _buildHeader(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     final t = _collapseT;
+    final cs = Theme.of(context).colorScheme;
 
     return Container(
-      color: _kBg,
+      color: cs.surface,
       padding: EdgeInsets.only(top: top, left: 16, right: 16, bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,10 +227,10 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               Expanded(
                 child: Opacity(
                   opacity: (1 - t * 1.4).clamp(0.0, 1.0),
-                  child: const Text(
+                  child: Text(
                     'Rechercher',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: cs.onSurface,
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -240,14 +242,14 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               ),
               if (t > 0.4)
                 IconButton(
-                  icon: const Icon(Icons.search_rounded,
-                      color: Colors.white, size: 22),
+                  icon: Icon(Icons.search_rounded,
+                      color: cs.onSurface, size: 22),
                   onPressed: _expandAndFocusSearch,
                   visualDensity: VisualDensity.compact,
                 ),
               IconButton(
-                icon: const Icon(Icons.camera_alt_outlined,
-                    color: Colors.white, size: 24),
+                icon: Icon(Icons.camera_alt_outlined,
+                    color: cs.onSurface, size: 24),
                 onPressed: () {},
                 visualDensity: VisualDensity.compact,
               ),
@@ -274,7 +276,9 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                         duration: const Duration(milliseconds: 200),
                         height: 46,
                         decoration: BoxDecoration(
-                          color: _focus.hasFocus ? Colors.white : _kSearchFill,
+                          color: _focus.hasFocus
+                              ? cs.surfaceContainer
+                              : cs.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -284,8 +288,8 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                               Icons.search_rounded,
                               size: 20,
                               color: _focus.hasFocus
-                                  ? Colors.black87
-                                  : Colors.white70,
+                                  ? cs.onSurface
+                                  : cs.onSurfaceVariant,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -294,17 +298,14 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                                 focusNode: _focus,
                                 textInputAction: TextInputAction.search,
                                 style: TextStyle(
-                                  color: _focus.hasFocus
-                                      ? Colors.black
-                                      : Colors.white,
+                                  color: cs.onSurface,
                                   fontSize: 15,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: 'Que souhaitez-vous écouter ?',
                                   hintStyle: TextStyle(
-                                    color: _focus.hasFocus
-                                        ? Colors.black45
-                                        : Colors.white54,
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.6),
                                     fontSize: 15,
                                   ),
                                   border: InputBorder.none,
@@ -325,9 +326,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                                       horizontal: 10),
                                   child: Icon(Icons.close_rounded,
                                       size: 18,
-                                      color: _focus.hasFocus
-                                          ? Colors.black54
-                                          : Colors.white54),
+                                      color: cs.onSurfaceVariant),
                                 ),
                               )
                             else
@@ -339,47 +338,14 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
 
                     const SizedBox(height: 10),
 
-                    // Pills de navigation (Découverte / Music search / Sources
-                    // custom) quand aucune recherche n'est active ; sinon un
-                    // simple bouton "Filtrer" qui ouvre le menu (bottom
-                    // sheet) contenant les types Tout/Titres/Albums/Artistes/
-                    // Playlists — au lieu de les afficher en pastilles ici.
-                    if (_query.isEmpty)
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _NavPill(
-                              label: 'Découverte',
-                              icon: Icons.compass_calibration_outlined,
-                              selected: false,
-                              onTap: () => context.go('/discover'),
-                            ),
-                            const SizedBox(width: 8),
-                            const _NavPill(
-                              label: 'Music search',
-                              icon: Icons.music_note_rounded,
-                              selected: true,
-                              onTap: null,
-                            ),
-                            const SizedBox(width: 8),
-                            _NavPill(
-                              label: 'Sources custom',
-                              icon: Icons.add_circle_outline_rounded,
-                              selected: false,
-                              onTap: () => context.push(
-                                '/globalSearch',
-                                extra: (null, ItemType.anime),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
+                    // Bouton filtre — visible uniquement quand une recherche
+                    // est active. Ouvre un popup box positionné (pas de sheet).
+                    if (_query.isNotEmpty)
                       _MusicFilterButton(
+                        key: _filterKey,
                         label: _chipLabel(_selectedChip),
                         isActive: _selectedChip != 'all',
-                        onTap: () => _openFilterSheet(context),
+                        onTap: () => _openFilterPopup(context),
                       ),
                   ],
                 ),
@@ -391,129 +357,66 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
     );
   }
 
-  // ── Bottom sheet de filtres (type de résultat) ─────────────────────────────
-  // Réplique le comportement du bottom sheet de filtres de Manga Discovery :
-  // les pills Tout/Titres/Albums/Artistes/Playlists vivent ici au lieu
-  // d'encombrer l'en-tête.
-  Future<void> _openFilterSheet(BuildContext context) async {
-    final chipsAsync = ref.read(metadataPluginSearchChipsProvider);
-    final chips = chipsAsync.asData?.value ??
+  // ── Popup box de filtres — s'ouvre depuis le bouton, positionné en dessous ──
+  // Même UX que le Discovery/Watch : une box dropdown, pas un sheet en bas.
+  Future<void> _openFilterPopup(BuildContext context) async {
+    final chips = ref.read(metadataPluginSearchChipsProvider).asData?.value ??
         ['all', 'tracks', 'albums', 'artists', 'playlists'];
-    String tempSelected = _selectedChip;
+    final cs = Theme.of(context).colorScheme;
 
-    await showModalBottomSheet<void>(
+    final RenderBox? button =
+        _filterKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (button == null || overlay == null) return;
+
+    final Offset topLeft =
+        button.localToGlobal(Offset.zero, ancestor: overlay);
+    final position = RelativeRect.fromLTRB(
+      topLeft.dx,
+      topLeft.dy + button.size.height + 4,
+      overlay.size.width - topLeft.dx - button.size.width,
+      0,
+    );
+
+    final result = await showMenu<String>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetCtx) {
-        return StatefulBuilder(
-          builder: (sheetCtx, setSheetState) {
-            return SafeArea(
-              child: Container(
-                margin: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF181818),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header : Annuler | Filtres | Appliquer
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                      child: Row(
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(sheetCtx).pop(),
-                            child: const Text('Annuler',
-                                style: TextStyle(color: Colors.white70)),
-                          ),
-                          const Expanded(
-                            child: Text(
-                              'Filtres',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() => _selectedChip = tempSelected);
-                              Navigator.of(sheetCtx).pop();
-                            },
-                            child: Text('Appliquer',
-                                style: TextStyle(
-                                    color: _kGreen,
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: Colors.white12),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Type de résultats',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    ...chips.map((chip) {
-                      final isSelected = tempSelected == chip;
-                      return InkWell(
-                        onTap: () =>
-                            setSheetState(() => tempSelected = chip),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isSelected
-                                    ? Icons.check_circle_rounded
-                                    : Icons.circle_outlined,
-                                size: 18,
-                                color: isSelected
-                                    ? _kGreen
-                                    : Colors.white.withValues(alpha: 0.4),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                _chipLabel(chip),
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.white70,
-                                  fontSize: 15,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 12),
-                  ],
+      position: position,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      color: cs.surfaceContainerHigh,
+      elevation: 8,
+      items: chips.map((chip) {
+        final isSelected = _selectedChip == chip;
+        return PopupMenuItem<String>(
+          value: chip,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Icon(
+                isSelected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 18,
+                color: isSelected
+                    ? cs.primary
+                    : cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _chipLabel(chip),
+                style: TextStyle(
+                  color: isSelected ? cs.onSurface : cs.onSurfaceVariant,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 15,
                 ),
               ),
-            );
-          },
+            ],
+          ),
         );
-      },
+      }).toList(),
     );
+    if (result != null && mounted) setState(() => _selectedChip = result);
   }
 
   String _chipLabel(String chip) {
@@ -540,11 +443,11 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
 
     return SliverToBoxAdapter(
       child: browseAsync.when(
-        loading: () => const SizedBox(
+        loading: () => SizedBox(
           height: 180,
           child: Center(
             child: CircularProgressIndicator(
-              color: _kGreen,
+              color: Theme.of(context).colorScheme.primary,
               strokeWidth: 2,
             ),
           ),
@@ -560,12 +463,12 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 20, 16, 14),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
                 child: Text(
                   'Découvrez de nouveaux horizons',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -607,12 +510,12 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 24, 16, 14),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 14),
                 child: Text(
                   'Tout parcourir',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1347,6 +1250,7 @@ class _MusicFilterButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _MusicFilterButton({
+    super.key,
     required this.label,
     required this.isActive,
     required this.onTap,
@@ -1354,16 +1258,19 @@ class _MusicFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isActive ? _kGreen.withValues(alpha: 0.16) : _kSearchFill,
+          color: isActive
+              ? cs.primaryContainer.withValues(alpha: 0.5)
+              : cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isActive ? _kGreen : Colors.white12,
+            color: isActive ? cs.primary : cs.outlineVariant,
             width: isActive ? 1.2 : 0.8,
           ),
         ),
@@ -1371,12 +1278,13 @@ class _MusicFilterButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.tune_rounded,
-                size: 16, color: isActive ? _kGreen : Colors.white70),
+                size: 16,
+                color: isActive ? cs.primary : cs.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: isActive ? _kGreen : Colors.white70,
+                color: isActive ? cs.primary : cs.onSurfaceVariant,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 13,
               ),
