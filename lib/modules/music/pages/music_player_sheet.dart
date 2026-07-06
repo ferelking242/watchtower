@@ -143,81 +143,104 @@ class _PlayerView extends ConsumerWidget {
       musicLikedTracksProvider.select((s) => track != null && s.contains(track!.id)),
     );
 
-    return SingleChildScrollView(
-      physics: const NeverScrollableScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            // Album art — large square with shadow
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: MusicCachedImage(
-                url: track?.imageUrl ?? '',
-                width: MediaQuery.of(context).size.width - 48,
-                height: MediaQuery.of(context).size.width - 48,
-                placeholder: Icon(Icons.music_note_rounded,
-                    size: 80, color: cs.onSurface.withValues(alpha: 0.2)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxHeight;
+        final screenW = MediaQuery.of(context).size.width;
+        // Cap album art: never more than 42% of available height or screen width
+        final artSize = (screenW - 48).clamp(0.0, available * 0.42);
+
+        return SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: available),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 16),
+                    // Album art — adaptive, centered
+                    Center(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: MusicCachedImage(
+                          url: track?.imageUrl ?? '',
+                          width: artSize,
+                          height: artSize,
+                          placeholder: Icon(
+                            Icons.music_note_rounded,
+                            size: 60,
+                            color: cs.onSurface.withValues(alpha: 0.2),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Title + artist + heart
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                track?.name ?? '—',
+                                style: tt.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                track?.artistNames ?? '',
+                                style: tt.bodyMedium?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.65),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            liked
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: liked
+                                ? cs.primary
+                                : Colors.white.withValues(alpha: 0.6),
+                            size: 26,
+                          ),
+                          onPressed: track != null
+                              ? () => ref
+                                  .read(musicPlayerProvider.notifier)
+                                  .toggleLike(track!.id)
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // Progress slider
+                    _ProgressSlider(state: state),
+                    const SizedBox(height: 24),
+                    // Controls
+                    _ControlsRow(state: state),
+                    const SizedBox(height: 20),
+                    // Volume + extra
+                    _VolumeRow(),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 28),
-            // Title + artist + heart
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        track?.name ?? '—',
-                        style: tt.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        track?.artistNames ?? '',
-                        style: tt.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.65),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    liked
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color: liked ? cs.primary : Colors.white.withValues(alpha: 0.6),
-                    size: 26,
-                  ),
-                  onPressed: track != null
-                      ? () => ref
-                          .read(musicPlayerProvider.notifier)
-                          .toggleLike(track!.id)
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // Progress slider
-            _ProgressSlider(state: state),
-            const SizedBox(height: 28),
-            // Controls
-            _ControlsRow(state: state),
-            const SizedBox(height: 24),
-            // Volume + extra
-            _VolumeRow(),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

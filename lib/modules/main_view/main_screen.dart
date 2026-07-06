@@ -37,6 +37,7 @@ import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
+import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
@@ -510,15 +511,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         l10n: l10n,
                       ),
                     // Music mini-player — shown above the dock when a track is active
-                    if (!isReadingScreen)
+                    // Music mini-player — shown on ALL pages above the dock when
+                    // music is playing, except inside the music module itself
+                    // where the Spotube BottomPlayer/PlayerOverlay already shows.
+                    if (!isReadingScreen &&
+                        location != '/MusicLibrary')
                       Consumer(
                         builder: (ctx, r, _) {
-                          final hasTrack =
-                              r.watch(musicPlayerProvider.select((s) => s.activeTrack != null));
-                          if (!hasTrack) return const SizedBox.shrink();
-                          final bottomInset = MediaQuery.of(ctx).padding.bottom;
-                          // Floating dock height: 54px height + 10px bottom pad
-                          final dockHeight = dockStyle == 'classic' ? 50.0 : 72.0;
+                          // Check both the custom player and the Spotube player
+                          final hasCustomTrack = r.watch(
+                            musicPlayerProvider
+                                .select((s) => s.activeTrack != null),
+                          );
+                          final hasSpotubeTrack = r.watch(
+                            audioPlayerProvider
+                                .select((s) => s.activeTrack != null),
+                          );
+                          if (!hasCustomTrack && !hasSpotubeTrack) {
+                            return const SizedBox.shrink();
+                          }
+                          final bottomInset =
+                              MediaQuery.of(ctx).padding.bottom;
+                          // Floating dock height
+                          final dockHeight =
+                              dockStyle == 'classic' ? 50.0 : 72.0;
                           return Positioned(
                             bottom: dockHeight + bottomInset,
                             left: 0,

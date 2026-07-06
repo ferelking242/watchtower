@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
@@ -17,6 +16,7 @@ class ErrorBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 400),
       child: Padding(
@@ -35,14 +35,14 @@ class ErrorBox extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8.0),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
+                    color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     error.toString(),
                     style: TextStyle(
                       fontFamily: 'Ubuntu Mono',
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: cs.onSurface.withValues(alpha: 0.5),
                       fontSize: 14,
                     ),
                     maxLines: 6,
@@ -55,74 +55,14 @@ class ErrorBox extends StatelessWidget {
                   children: [
                     TextButton(
                       onPressed: () {
-                        showDialog(
+                        // Use useRootNavigator: false to avoid AutoRouter
+                        // null-check crash when the dialog is shown inside
+                        // the music module's nested navigator context.
+                        showDialog<void>(
                           context: context,
-                          builder: (context) {
-                            return ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: 480,
-                                maxHeight:
-                                    MediaQuery.of(context).size.height * 0.8,
-                              ),
-                              child: AlertDialog(
-                                contentPadding: const EdgeInsets.all(12),
-                                title: Row(
-                                  children: [
-                                    const Icon(SpotubeIcons.logs),
-                                    const SizedBox(width: 8),
-                                    Text(context.l10n.logs),
-                                    const Spacer(),
-                                    IconButton(
-                                      icon: const Icon(SpotubeIcons.close),
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
-                                    )
-                                  ],
-                                ),
-                                actions: [
-                                  HookBuilder(builder: (context) {
-                                    final copied = useState(false);
-
-                                    return TextButton(
-                                      onPressed: () {
-                                        Clipboard.setData(
-                                          ClipboardData(text: error.toString()),
-                                        );
-                                        copied.value = true;
-                                      },
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          copied.value
-                                              ? const Icon(SpotubeIcons.done)
-                                              : const Icon(SpotubeIcons.clipboard),
-                                          const SizedBox(width: 8),
-                                          Text(context.l10n.copy_to_clipboard),
-                                        ],
-                                      ),
-                                    );
-                                  })
-                                ],
-                                content: SingleChildScrollView(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8.0),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: SelectableText(
-                                      error.toString(),
-                                      style: TextStyle(
-                                        fontFamily: 'Ubuntu Mono',
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                          useRootNavigator: false,
+                          barrierDismissible: true,
+                          builder: (_) => _LogDialog(error: error),
                         );
                       },
                       child: Row(
@@ -150,6 +90,103 @@ class ErrorBox extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Log dialog extracted as a separate widget to avoid stale BuildContext
+/// captures across dialog boundaries.
+class _LogDialog extends HookWidget {
+  final Object error;
+  const _LogDialog({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final copied = useState(false);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 480,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Title row — uses its own fresh context, never the outer one
+              Row(
+                children: [
+                  const Icon(SpotubeIcons.logs),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.logs,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    // Navigator.of uses the dialog's own context — no AutoRouter crash
+                    onPressed: () => Navigator.of(context).pop(),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Log content
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      error.toString(),
+                      style: TextStyle(
+                        fontFamily: 'Ubuntu Mono',
+                        color: cs.onSurface.withValues(alpha: 0.5),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Copy button
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(
+                        ClipboardData(text: error.toString()));
+                    copied.value = true;
+                  },
+                  icon: Icon(
+                    copied.value
+                        ? Icons.check_rounded
+                        : Icons.copy_rounded,
+                    size: 16,
+                  ),
+                  label: Text(
+                    copied.value
+                        ? context.l10n.copy_to_clipboard
+                        : context.l10n.copy_to_clipboard,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
