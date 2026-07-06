@@ -17,6 +17,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
   final VoidCallback onFetchMore;
   final bool isLoadingNextPage;
   final bool hasNextPage;
+  final bool isLoading;
   final Widget? titleTrailing;
 
   HorizontalPlaybuttonCardView({
@@ -25,6 +26,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
     required this.hasNextPage,
     required this.onFetchMore,
     required this.isLoadingNextPage,
+    this.isLoading = false,
     this.titleTrailing,
     this.error,
     super.key,
@@ -78,13 +80,17 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                     dragDevices: PointerDeviceKind.values.toSet(),
                   ),
                   child: items.isEmpty
-                      ? ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: 5,
-                          itemBuilder: (context, index) {
-                            return AlbumCard(FakeData.albumSimple);
-                          },
-                        )
+                      ? isLoading
+                          ? Skeletonizer(
+                              enabled: true,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: 5,
+                                itemBuilder: (context, index) =>
+                                    AlbumCard(FakeData.albumSimple),
+                              ),
+                            )
+                          : const SizedBox.shrink()
                       : InfiniteList(
                           scrollController: scrollController,
                           scrollDirection: Axis.horizontal,
