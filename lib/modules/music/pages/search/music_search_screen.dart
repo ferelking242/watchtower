@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -1093,7 +1094,7 @@ class _NoPluginPlaceholder extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
               ),
             ),
-            onPressed: () => context.push('/marketplace'),
+            onPressed: () => GoRouter.of(rootNavigatorKey.currentContext!).push('/marketplace'),
             icon: const Icon(Icons.store_rounded),
             label: const Text('Marketplace'),
           ),
