@@ -2118,7 +2118,7 @@ class _TypeTabState extends State<_TypeTab> {
           // Plugins Spotube section — affiché uniquement dans le tab Music
           if (tab == _kTabMusic)
             const SliverToBoxAdapter(child: _SpotubePluginsSection()),
-          if (entries.isEmpty)
+          if (entries.isEmpty && tab != _kTabMusic)
             SliverFillRemaining(
               child: Center(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -2980,11 +2980,11 @@ class _SpotubePluginCardState extends ConsumerState<_SpotubePluginCard> {
     return name.replaceAll('-', ' ').trim();
   }
 
-  bool get _isOfficial => _repo.owner == 'KRTirtho';
+  bool get _isOfficial => _repo.owner == 'ferelking242';
 
   String _topicLabel(String topic) => switch (topic) {
-        'spotube-metadata-plugin' => 'Metadata',
-        'spotube-audio-source-plugin' => 'Audio Source',
+        'spotube-metadata-plugin' => 'Métadata',
+        'spotube-audio-source-plugin' => 'Source Audio',
         _ => topic,
       };
 
@@ -2997,6 +2997,14 @@ class _SpotubePluginCardState extends ConsumerState<_SpotubePluginCard> {
     final isInstalled = plugins.asData?.value.plugins
             .any((p) => p.repository == _repo.repoUrl) ??
         false;
+    final installedConfig = isInstalled
+        ? plugins.asData?.value.plugins
+            .where((p) => p.repository == _repo.repoUrl)
+            .firstOrNull
+        : null;
+    final needsLogin =
+        installedConfig?.abilities.contains(PluginAbilities.authentication) ??
+            false;
 
     final topics = _repo.topics
         .where((t) =>
@@ -3224,6 +3232,65 @@ class _SpotubePluginCardState extends ConsumerState<_SpotubePluginCard> {
                 ),
               ],
             ),
+            // ── Login button (plugins avec authentication) ───────────────
+            if (needsLogin) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.login_rounded, size: 16),
+                  label: const Text('Se connecter',
+                      style: TextStyle(fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => showModalBottomSheet(
+                    context: context,
+                    builder: (ctx) => SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_open_rounded,
+                                size: 40,
+                                color:
+                                    Theme.of(ctx).colorScheme.primary),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Connexion — $_displayName',
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Ce plugin nécessite une authentification.\n'
+                              'Ouvrez le Hub Musique → Paramètres → Sources, '
+                              'sélectionnez ce plugin comme source par défaut, '
+                              'puis appuyez sur « Se connecter ».',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Theme.of(ctx)
+                                      .colorScheme
+                                      .onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 20),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Compris'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -3293,35 +3360,7 @@ class _SpotubePluginsSection extends ConsumerWidget {
           )
         else
           ...repos.map((repo) => _SpotubePluginCard(pluginRepo: repo)),
-        // ── Divider before JS extensions ─────────────────────────────────
-        const Divider(height: 24, indent: 14, endIndent: 14),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5A623).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.code_rounded,
-                    size: 16, color: Color(0xFFF5A623)),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Extensions JS',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: cs.onSurface,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 8),
       ],
     );
   }
