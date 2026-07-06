@@ -507,7 +507,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: scheme.primary.withOpacity(0.15),
+                        color: scheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -613,7 +613,7 @@ class _NavTile extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.12),
+          color: iconColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: iconColor, size: 20),
@@ -641,7 +641,7 @@ class _BadgeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: scheme.primary.withOpacity(0.12),
+        color: scheme.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -768,7 +768,7 @@ class _BadgeChip extends StatelessWidget {
                 width: 38, height: 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: scheme.primaryContainer.withOpacity(0.25),
+                  color: scheme.primaryContainer.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Text(f.iconLabel, style: const TextStyle(fontSize: 18)),
