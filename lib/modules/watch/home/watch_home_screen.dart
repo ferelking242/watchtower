@@ -344,11 +344,17 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   }
 
   Future<void> _loadCatalogue() async {
-    if (_catalogueLoading || !_catalogueHasNext) return;
-    setState(() => _catalogueLoading = true);
-    try {
-      final result = await ref
-          .read(getPopularProvider(source: source, page: _cataloguePage).future);
+      if (_catalogueLoading || !_catalogueHasNext) return;
+      setState(() => _catalogueLoading = true);
+      try {
+        final hasCatList = _customLists.any((cl) => cl['id'] == 'catalogue');
+        MPages? result;
+        if (hasCatList) {
+          result = await ref.read(getCustomListProvider(
+            source: source, listId: 'catalogue', page: _cataloguePage).future);
+        } else {
+          result = await ref.read(getPopularProvider(source: source, page: _cataloguePage).future);
+        }
       if (mounted && result != null && result.list.isNotEmpty) {
         setState(() {
           _cataloguePage++;
@@ -611,222 +617,299 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // ── Home view ────────────────────────────────────────────────────────────
 
   Widget _buildHomeView(BuildContext ctx) {
-    return CustomScrollView(
-      controller: _homeScrollCtrl,
-      slivers: [
-        // ── Hero carousel (À l'affiche) ──────────────────────────────────
-        SliverToBoxAdapter(
-          child: Consumer(builder: (c, ref, _) {
-            final pop = ref.watch(getPopularProvider(source: source, page: 1));
-            return pop.when(
-              data: (d) {
-                final items = d?.list ?? [];
-                if (items.isEmpty) return const SizedBox(height: 8);
-                return _WatchHero(mangas: items.take(8).toList(), source: source);
-              },
-              loading: () => _buildHeroSkeleton(ctx),
-              error: (_, __) => const SizedBox(height: 8),
-            );
-          }),
-        ),
+      // Partition custom lists into their roles
+      final carouselList  = _customLists.where((cl) => cl['id'] == 'carousel').firstOrNull;
+      final categoryLists = _customLists.where((cl) => cl['layout'] == 'category').toList();
+      final catalogueList = _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+      final regularLists  = _customLists.where((cl) =>
+        cl['id'] != 'carousel' && cl['layout'] != 'category' && cl['id'] != 'catalogue'
+      ).toList();
 
-        // ── Custom sections ──────────────────────────────────────────────
-        ..._customLists.asMap().entries.map((entry) {
-          final sectionIdx = entry.key;
-          final cl = entry.value;
-          final listId = cl['id'] as String;
-          final listName = cl['name'] as String? ?? listId;
-
-          // ── Declarative fields — fallback to legacy index-based values ──
-          final String layout  = cl['layout'] as String? ?? '';
-          final Color accent   = _parseHexColor(cl['color'] as String?, _sectionAccent(sectionIdx));
-          final IconData icon  = _kIconMap[cl['icon'] as String?] ?? _sectionIcon(sectionIdx);
-          final dynamic seeAll = cl['seeAll'];
-
-          final bool isRanked    = layout == 'ranked'    || (layout.isEmpty && sectionIdx == 1);
-          final bool isSpotlight = layout == 'spotlight' || (layout.isEmpty && sectionIdx == 0);
-
-          VoidCallback? onSeeAllCb;
-          if (seeAll == false || (seeAll == null && isRanked)) {
-            onSeeAllCb = null;
-          } else if (seeAll == 'latest' || (seeAll == null && sectionIdx == 0)) {
-            onSeeAllCb = () => setState(() {
-                  _selectedIdx = _kLatestIdx;
-                  _mangaList.clear();
-                  _page = 1;
-                  _hasNextPage = true;
-                });
-          } else if (seeAll == 'popular') {
-            onSeeAllCb = () => setState(() {
-                  _selectedIdx = _kPopularIdx;
-                  _mangaList.clear();
-                  _page = 1;
-                  _hasNextPage = true;
-                });
-          } else {
-            onSeeAllCb = () => Navigator.of(ctx).push(MaterialPageRoute(
-                  builder: (_) => _WatchSectionPage(
-                    source: source,
-                    title: listName,
-                    type: _SectionKind.custom,
-                    customListId: listId,
-                  ),
-                ));
-          }
-
-          return SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(ctx,
-                  title: listName,
-                  accent: accent,
-                  icon: icon,
-                  onSeeAll: onSeeAllCb,
-                ),
-                Consumer(builder: (c, ref, _) {
-                  final data = ref.watch(getCustomListProvider(
-                    source: source, listId: listId, page: 1,
-                  ));
-                  return data.when(
-                    data: (d) {
-                      final items = d?.list ?? [];
-                      if (layout == 'carousel') return _buildSpotlightRow(ctx, items);
-                      if (layout == 'grid')     return _buildCompactRow(ctx, items);
-                      if (isRanked)             return _buildRankedRow(ctx, items);
-                      if (isSpotlight)          return _buildSpotlightRow(ctx, items);
-                      return _buildCompactRow(ctx, items);
-                    },
-                    loading: () => isRanked
-                        ? _buildRankedRowSkeleton(ctx)
-                        : _buildCompactRowSkeleton(ctx),
-                    error: (_, __) => const SizedBox(height: 8),
-                  );
-                }),
-              ],
-            ),
-          );
-        }),
-
-        // ── If no custom lists → show standard Latest row ────────────────
-        if (_customLists.isEmpty && supportsLatest)
+      return CustomScrollView(
+        controller: _homeScrollCtrl,
+        slivers: [
+          // ── Hero carousel (bannerList exact de l'API) ────────────────────
           SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(ctx,
-                  title: 'Derniers ajouts',
-                  accent: ctx.primaryColor,
-                  icon: Icons.update_rounded,
-                  onSeeAll: () => setState(() {
+            child: Consumer(builder: (c, ref, _) {
+              if (carouselList != null) {
+                final carouselData = ref.watch(getCustomListProvider(
+                    source: source, listId: 'carousel', page: 1));
+                return carouselData.when(
+                  data: (d) {
+                    final items = d?.list ?? [];
+                    if (items.isEmpty) return const SizedBox(height: 8);
+                    return _WatchHero(mangas: items, source: source);
+                  },
+                  loading: () => _buildHeroSkeleton(ctx),
+                  error: (_, __) {
+                    // fallback to popular on error
+                    final pop = ref.watch(getPopularProvider(source: source, page: 1));
+                    return pop.when(
+                      data: (d) {
+                        final items = d?.list ?? [];
+                        if (items.isEmpty) return const SizedBox(height: 8);
+                        return _WatchHero(mangas: items.take(8).toList(), source: source);
+                      },
+                      loading: () => _buildHeroSkeleton(ctx),
+                      error: (_, __) => const SizedBox(height: 8),
+                    );
+                  },
+                );
+              }
+              // No carousel list — use popular
+              final pop = ref.watch(getPopularProvider(source: source, page: 1));
+              return pop.when(
+                data: (d) {
+                  final items = d?.list ?? [];
+                  if (items.isEmpty) return const SizedBox(height: 8);
+                  return _WatchHero(mangas: items.take(8).toList(), source: source);
+                },
+                loading: () => _buildHeroSkeleton(ctx),
+                error: (_, __) => const SizedBox(height: 8),
+              );
+            }),
+          ),
+
+          // ── Catégories chips ─────────────────────────────────────────────
+          if (categoryLists.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _buildCategoryChips(ctx, categoryLists),
+            ),
+
+          // ── Sections dynamiques (operatingList) ──────────────────────────
+          ...regularLists.asMap().entries.map((entry) {
+            final sectionIdx = entry.key;
+            final cl = entry.value;
+            final listId = cl['id'] as String;
+            final listName = cl['name'] as String? ?? listId;
+
+            final String layout  = cl['layout'] as String? ?? '';
+            final Color accent   = _parseHexColor(cl['color'] as String?, _sectionAccent(sectionIdx));
+            final IconData icon  = _kIconMap[cl['icon'] as String?] ?? _sectionIcon(sectionIdx);
+            final dynamic seeAll = cl['seeAll'];
+
+            final bool isRanked    = layout == 'ranked';
+            final bool isSpotlight = layout == 'spotlight' || (!isRanked && layout.isNotEmpty);
+
+            VoidCallback? onSeeAllCb;
+            if (seeAll == false || (seeAll == null && isRanked)) {
+              onSeeAllCb = null;
+            } else if (seeAll == 'latest') {
+              onSeeAllCb = () => setState(() {
                     _selectedIdx = _kLatestIdx;
                     _mangaList.clear(); _page = 1; _hasNextPage = true;
-                  }),
-                ),
-                Consumer(builder: (c, ref, _) {
-                  final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-                  return latest.when(
-                    data: (d) => _buildCompactRow(ctx, d?.list ?? []),
-                    loading: () => _buildCompactRowSkeleton(ctx),
-                    error: (_, __) => const SizedBox(height: 8),
-                  );
-                }),
-              ],
-            ),
-          ),
-
-        // ── Catalogue header ─────────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: _buildSectionHeader(ctx,
-            title: 'Explorer le catalogue',
-            accent: const Color(0xFF607D8B),
-            icon: Icons.grid_view_rounded,
-          ),
-        ),
-
-        // ── Catalogue grid (infinite scroll) ─────────────────────────────
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-          sliver: Consumer(builder: (c, ref, _) {
-            final pop = ref.watch(getPopularProvider(source: source, page: 1));
-            pop.whenData((d) {
-              if (d != null && _catalogueItems.isEmpty && d.list.isNotEmpty) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _catalogueItems.isEmpty) {
-                    setState(() {
-                      _catalogueItems.addAll(d.list);
-                      _cataloguePage = 2;
-                      _catalogueHasNext = d.hasNextPage;
-                    });
-                  }
-                });
-              }
-            });
-
-            if (_catalogueItems.isEmpty) {
-              return SliverToBoxAdapter(
-                child: Skeletonizer(
-                  enabled: true,
-                  effect: ShimmerEffect(
-                    baseColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                    highlightColor: Theme.of(ctx).brightness == Brightness.dark
-                        ? Colors.white24
-                        : Colors.white.withValues(alpha: 0.85),
-                    duration: const Duration(milliseconds: 900),
-                  ),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 140,
-                      childAspectRatio: 0.65,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
+                  });
+            } else if (seeAll == 'popular') {
+              onSeeAllCb = () => setState(() {
+                    _selectedIdx = _kPopularIdx;
+                    _mangaList.clear(); _page = 1; _hasNextPage = true;
+                  });
+            } else {
+              onSeeAllCb = () => Navigator.of(ctx).push(MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source: source, title: listName,
+                      type: _SectionKind.custom, customListId: listId,
                     ),
-                    itemCount: 12,
-                    itemBuilder: (_, __) => _buildSkeletonCardItem(ctx),
-                  ),
-                ),
-              );
+                  ));
             }
 
-            return SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 140,
-                childAspectRatio: 0.65,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (c2, i) {
-                  if (i >= _catalogueItems.length) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+            return SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader(ctx,
+                    title: listName, accent: accent, icon: icon, onSeeAll: onSeeAllCb,
+                  ),
+                  Consumer(builder: (c, ref, _) {
+                    final data = ref.watch(getCustomListProvider(
+                      source: source, listId: listId, page: 1,
+                    ));
+                    return data.when(
+                      data: (d) {
+                        final items = d?.list ?? [];
+                        if (isRanked)    return _buildRankedRow(ctx, items);
+                        if (isSpotlight) return _buildSpotlightRow(ctx, items);
+                        return _buildCompactRow(ctx, items);
+                      },
+                      loading: () => isRanked
+                          ? _buildRankedRowSkeleton(ctx)
+                          : _buildCompactRowSkeleton(ctx),
+                      error: (_, __) => const SizedBox(height: 8),
                     );
-                  }
-                  return MangaImageCardWidget(
-                    getMangaDetail: _catalogueItems[i],
-                    source: source,
-                    itemType: source.itemType,
-                    isComfortableGrid: false,
-                  );
-                },
-                childCount: _catalogueItems.length + (_catalogueLoading ? 3 : 0),
+                  }),
+                ],
               ),
             );
           }),
+
+          // ── If no custom lists → show standard Latest row ────────────────
+          if (_customLists.isEmpty && supportsLatest)
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader(ctx,
+                    title: 'Derniers ajouts', accent: ctx.primaryColor,
+                    icon: Icons.update_rounded,
+                    onSeeAll: () => setState(() {
+                      _selectedIdx = _kLatestIdx;
+                      _mangaList.clear(); _page = 1; _hasNextPage = true;
+                    }),
+                  ),
+                  Consumer(builder: (c, ref, _) {
+                    final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+                    return latest.when(
+                      data: (d) => _buildCompactRow(ctx, d?.list ?? []),
+                      loading: () => _buildCompactRowSkeleton(ctx),
+                      error: (_, __) => const SizedBox(height: 8),
+                    );
+                  }),
+                ],
+              ),
+            ),
+
+          // ── Catalogue header — centré avec ornements ─────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
+              child: Row(
+                children: [
+                  Expanded(child: _CatalogueOrnamentLine(color: ctx.primaryColor)),
+                  const SizedBox(width: 12),
+                  Icon(Icons.video_library_rounded, size: 15, color: ctx.primaryColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Catalogue',
+                    style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5,
+                      color: Theme.of(ctx).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: _CatalogueOrnamentLine(color: ctx.primaryColor, flip: true)),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Catalogue grid (infinite scroll) ─────────────────────────────
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+            sliver: Consumer(builder: (c, ref, _) {
+              final hasCatList = catalogueList != null;
+              final initial = hasCatList
+                  ? ref.watch(getCustomListProvider(source: source, listId: 'catalogue', page: 1))
+                  : ref.watch(getPopularProvider(source: source, page: 1));
+              initial.whenData((d) {
+                if (d != null && _catalogueItems.isEmpty && d.list.isNotEmpty) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _catalogueItems.isEmpty) {
+                      setState(() {
+                        _catalogueItems.addAll(d.list);
+                        _cataloguePage = 2;
+                        _catalogueHasNext = d.hasNextPage;
+                      });
+                    }
+                  });
+                }
+              });
+
+              if (_catalogueItems.isEmpty) {
+                return SliverToBoxAdapter(
+                  child: Skeletonizer(
+                    enabled: true,
+                    effect: ShimmerEffect(
+                      baseColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                      highlightColor: Theme.of(ctx).brightness == Brightness.dark
+                          ? Colors.white24
+                          : Colors.white.withValues(alpha: 0.85),
+                      duration: const Duration(milliseconds: 900),
+                    ),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+                        mainAxisSpacing: 8, crossAxisSpacing: 8,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (_, __) => _buildSkeletonCardItem(ctx),
+                    ),
+                  ),
+                );
+              }
+
+              return SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+                  mainAxisSpacing: 8, crossAxisSpacing: 8,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (c2, i) {
+                    if (i >= _catalogueItems.length) {
+                      return const Center(
+                        child: Padding(padding: EdgeInsets.all(12),
+                            child: CircularProgressIndicator(strokeWidth: 2)));
+                    }
+                    return MangaImageCardWidget(
+                      getMangaDetail: _catalogueItems[i], source: source,
+                      itemType: source.itemType, isComfortableGrid: false,
+                    );
+                  },
+                  childCount: _catalogueItems.length + (_catalogueLoading ? 3 : 0),
+                ),
+              );
+            }),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
+      );
+    }
+
+    // ── Category chips strip ─────────────────────────────────────────────────
+
+    Widget _buildCategoryChips(BuildContext ctx, List<Map<String, dynamic>> cats) {
+      return SizedBox(
+        height: 42,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          itemCount: cats.length,
+          itemBuilder: (_, i) {
+            final cl = cats[i];
+            final listId   = cl['id'] as String;
+            final listName = cl['name'] as String? ?? listId;
+            final Color accent = _parseHexColor(cl['color'] as String?, ctx.primaryColor);
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
+                  builder: (_) => _WatchSectionPage(
+                    source: source, title: listName,
+                    type: _SectionKind.custom, customListId: listId,
+                  ),
+                )),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: accent.withValues(alpha: 0.35), width: 1),
+                  ),
+                  child: Text(listName,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accent)),
+                ),
+              ),
+            );
+          },
         ),
+      );
+    }
 
-        const SliverToBoxAdapter(child: SizedBox(height: 120)),
-      ],
-    );
-  }
-
-  // ── Section accent + icon helpers (index fallbacks kept for retro-compat) ──
+    // ── Section accent + icon helpers (index fallbacks kept for retro-compat) ──
 
   static const _kIconMap = <String, IconData>{
     'fiber_new':              Icons.fiber_new_rounded,
@@ -2273,3 +2356,59 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
     );
   }
 }
+
+  // ── Catalogue ornament line ───────────────────────────────────────────────────
+
+  class _CatalogueOrnamentLine extends StatelessWidget {
+    final Color color;
+    final bool flip;
+    const _CatalogueOrnamentLine({required this.color, this.flip = false});
+
+    @override
+    Widget build(BuildContext context) {
+      return CustomPaint(
+        painter: _OrnamentPainter(color: color, flip: flip),
+        child: const SizedBox(height: 20),
+      );
+    }
+  }
+
+  class _OrnamentPainter extends CustomPainter {
+    final Color color;
+    final bool flip;
+    const _OrnamentPainter({required this.color, required this.flip});
+
+    @override
+    void paint(Canvas canvas, Size size) {
+      final paint = Paint()
+        ..color = color.withValues(alpha: 0.55)
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+
+      final cx = size.width / 2;
+      final cy = size.height / 2;
+
+      // Main line
+      final lineStart = flip ? size.width : 0.0;
+      final lineEnd   = flip ? cx + 18 : cx - 18;
+      canvas.drawLine(Offset(lineStart, cy), Offset(lineEnd, cy), paint);
+
+      // Diamond ornament at the inner end
+      final dx = flip ? cx + 18 : cx - 18;
+      final path = Path()
+        ..moveTo(dx, cy - 5)
+        ..lineTo(dx + (flip ? -7 : 7), cy)
+        ..lineTo(dx, cy + 5)
+        ..lineTo(dx + (flip ? 7 : -7), cy)
+        ..close();
+      canvas.drawPath(path, paint..style = PaintingStyle.fill..color = color.withValues(alpha: 0.40));
+
+      // Small dot at outer tip
+      canvas.drawCircle(Offset(flip ? cx + 26 : cx - 26, cy), 2.0,
+          paint..style = PaintingStyle.fill..color = color.withValues(alpha: 0.65));
+    }
+
+    @override
+    bool shouldRepaint(_OrnamentPainter old) => old.color != color || old.flip != flip;
+  }
+  
