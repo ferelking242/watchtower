@@ -31,8 +31,8 @@ final lightThemeProvider = Provider<ThemeData>((ref) {
     fontFamily: fontFamily,
   );
   return base.copyWith(
-    textTheme: base.textTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
-    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    textTheme: base.textTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
   );
 });
 
@@ -65,7 +65,7 @@ final darkThemeProvider = Provider<ThemeData>((ref) {
     fontFamily: fontFamily,
   );
   return baseDark.copyWith(
-    textTheme: baseDark.textTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
-    primaryTextTheme: baseDark.primaryTextTheme.apply(fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    textTheme: baseDark.textTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    primaryTextTheme: baseDark.primaryTextTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
   );
 });

@@ -1122,6 +1122,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       : 'Saison 1',
                   items: seasons.isNotEmpty ? seasons : ['Saison 1'],
                   onSelect: (v) => setState(() => _selectedSeason = v),
+                  sheetTitle: 'Choisissez la saison',
                 ),
                 if (languages.isNotEmpty) const SizedBox(width: 8),
               ],
@@ -1132,6 +1133,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   onSelect: (v) => setState(() => _selectedLanguage = v),
                   displayLabel: (key) => localizedLanguageLabel(
                       key, Localizations.localeOf(context).languageCode),
+                  sheetTitle: 'Choisissez la langue',
                 ),
               if (_player.loadedVideos.length > 1) ...[
                 const SizedBox(width: 8),
@@ -1148,7 +1150,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _player.selectedQuality ?? 'Qualite',
+                          _player.selectedQuality ?? 'Résolution',
                           style: TextStyle(
                               color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
                         ),
@@ -1208,10 +1210,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     required List<String> items,
     required void Function(String) onSelect,
     String Function(String)? displayLabel,
+    String? sheetTitle,
   }) {
     return GestureDetector(
       onTap: () => _showDropdownSheet(label, items, onSelect,
-          displayLabel: displayLabel),
+          displayLabel: displayLabel, sheetTitle: sheetTitle),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
@@ -1256,7 +1259,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
                   child: Row(
                     children: [
-                      Text('Qualite',
+                      Text('Choisissez la résolution',
                           style: TextStyle(
                               color: _textPrimary,
                               fontSize: 15,
@@ -1345,7 +1348,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     void _showDropdownSheet(
         String label, List<String> items, void Function(String) onSelect,
-        {String Function(String)? displayLabel}) {
+        {String Function(String)? displayLabel, String? sheetTitle}) {
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
@@ -1365,7 +1368,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
                   child: Row(
                     children: [
-                      Text(displayLabel?.call(label) ?? label,
+                      Text(sheetTitle ?? displayLabel?.call(label) ?? label,
                           style: TextStyle(
                               color: _textPrimary,
                               fontSize: 15,
