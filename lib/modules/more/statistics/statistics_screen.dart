@@ -421,16 +421,16 @@ class _OverviewGrid extends StatelessWidget {
         return Container(
           decoration: BoxDecoration(
             color: isDark
-                ? cs.surfaceContainerHigh.withOpacity(0.7)
+                ? cs.surfaceContainerHigh.withValues(alpha: 0.7)
                 : cs.surfaceContainerLow,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: s.color.withOpacity(0.2),
+              color: s.color.withValues(alpha: 0.2),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: s.color.withOpacity(isDark ? 0.15 : 0.08),
+                color: s.color.withValues(alpha: isDark ? 0.15 : 0.08),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -443,7 +443,7 @@ class _OverviewGrid extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: s.color.withOpacity(0.12),
+                  color: s.color.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(s.icon, color: s.color, size: 18),
@@ -461,7 +461,7 @@ class _OverviewGrid extends StatelessWidget {
                 s.label,
                 style: TextStyle(
                   fontSize: 9.5,
-                  color: cs.onSurface.withOpacity(0.6),
+                  color: cs.onSurface.withValues(alpha: 0.6),
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
@@ -523,7 +523,7 @@ class _StatusBreakdownCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: cs.onSurface.withOpacity(0.8),
+                            color: cs.onSurface.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -532,7 +532,7 @@ class _StatusBreakdownCard extends StatelessWidget {
                       '${bar.$2}  (${(pct * 100).toStringAsFixed(1)}%)',
                       style: TextStyle(
                         fontSize: 11,
-                        color: cs.onSurface.withOpacity(0.5),
+                        color: cs.onSurface.withValues(alpha: 0.5),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -549,7 +549,7 @@ class _StatusBreakdownCard extends StatelessWidget {
                       return LinearProgressIndicator(
                         value: value,
                         minHeight: 7,
-                        backgroundColor: bar.$3.withOpacity(0.1),
+                        backgroundColor: bar.$3.withValues(alpha: 0.1),
                         valueColor: AlwaysStoppedAnimation(bar.$3),
                       );
                     },
@@ -650,7 +650,7 @@ class _ChaptersCard extends StatelessWidget {
                             painter: _ArcPainter(
                               progress: value,
                               color: cs.primary,
-                              background: cs.primary.withOpacity(0.12),
+                              background: cs.primary.withValues(alpha: 0.12),
                             ),
                           ),
                           Column(
@@ -668,7 +668,7 @@ class _ChaptersCard extends StatelessWidget {
                                 l10n.read_percentage,
                                 style: TextStyle(
                                   fontSize: 9,
-                                  color: cs.onSurface.withOpacity(0.5),
+                                  color: cs.onSurface.withValues(alpha: 0.5),
                                 ),
                               ),
                             ],
@@ -686,7 +686,7 @@ class _ChaptersCard extends StatelessWidget {
                       l10n.average_chapters_per_title(title),
                       style: TextStyle(
                         fontSize: 11,
-                        color: cs.onSurface.withOpacity(0.6),
+                        color: cs.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -789,7 +789,7 @@ class _TimeCard extends StatelessWidget {
             Container(
               width: 1,
               height: 50,
-              color: cs.outline.withOpacity(0.2),
+              color: cs.outline.withValues(alpha: 0.2),
             ),
             _MiniStat(
               formatDuration(avg),
@@ -844,7 +844,7 @@ class _TopGenresCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: cs.onSurface.withOpacity(0.8),
+                        color: cs.onSurface.withValues(alpha: 0.8),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -862,7 +862,7 @@ class _TopGenresCard extends StatelessWidget {
                           return LinearProgressIndicator(
                             value: val,
                             minHeight: 8,
-                            backgroundColor: color.withOpacity(0.1),
+                            backgroundColor: color.withValues(alpha: 0.1),
                             valueColor: AlwaysStoppedAnimation(color),
                           );
                         },
@@ -874,7 +874,7 @@ class _TopGenresCard extends StatelessWidget {
                     '${entry.value}',
                     style: TextStyle(
                       fontSize: 11,
-                      color: cs.onSurface.withOpacity(0.5),
+                      color: cs.onSurface.withValues(alpha: 0.5),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -914,7 +914,7 @@ class _DownloadsCard extends StatelessWidget {
             Container(
               width: 1,
               height: 50,
-              color: cs.outline.withOpacity(0.2),
+              color: cs.outline.withValues(alpha: 0.2),
             ),
             _MiniStat(
               '$downloadedChapters',
@@ -957,7 +957,7 @@ class _MiniStat extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 9.5,
-            color: cs.onSurface.withOpacity(0.55),
+            color: cs.onSurface.withValues(alpha: 0.55),
           ),
           textAlign: TextAlign.center,
         ),
@@ -977,13 +977,13 @@ class _GlassCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? cs.surfaceContainerHigh.withOpacity(0.72)
+            ? cs.surfaceContainerHigh.withValues(alpha: 0.72)
             : cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline.withOpacity(0.1), width: 0.8),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.1), width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.15 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
