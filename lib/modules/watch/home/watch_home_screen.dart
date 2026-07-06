@@ -433,10 +433,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       // Partition custom lists into their roles
       final categoryLists = _customLists.where((cl) => cl['layout'] == 'category').toList();
       final catalogueList = _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
-      // Cap to 8 sections to avoid flooding the JS isolate with simultaneous requests
+      // Sections dynamiques — le nombre est contrôlé par _prefMaxSections()
+      // dans l'extension (compact:12, standard:25, confort:42). Plus de cap app-side.
       final regularLists  = _customLists.where((cl) =>
         cl['id'] != 'carousel' && cl['layout'] != 'category' && cl['id'] != 'catalogue'
-      ).take(8).toList();
+      ).toList();
 
       return NotificationListener<ScrollNotification>(
         onNotification: (n) {
