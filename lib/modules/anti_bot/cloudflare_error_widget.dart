@@ -198,7 +198,7 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
                             borderRadius: BorderRadius.circular(14),
                           ),
                           side: BorderSide(
-                            color: cs.outline.withOpacity(0.5),
+                            color: cs.outline.withValues(alpha: 0.5),
                           ),
                         ),
                         onPressed: () => context.push('/advanced'),
@@ -219,13 +219,13 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.info_outline_rounded,
-                          size: 14, color: cs.onSurfaceVariant.withOpacity(0.6)),
+                          size: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                       const SizedBox(width: 4),
                       Text(
                         'Voir les détails',
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: cs.onSurfaceVariant.withOpacity(0.6),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                           decoration: TextDecoration.underline,
                         ),
                       ),
@@ -308,7 +308,7 @@ class _GuardBotPainter extends CustomPainter {
 
     // ── Shadow ────────────────────────────────────────────────────────────
     paint
-      ..color = Colors.black.withOpacity(0.18)
+      ..color = Colors.black.withValues(alpha: 0.18)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
     canvas.drawOval(
       Rect.fromCenter(
@@ -325,9 +325,9 @@ class _GuardBotPainter extends CustomPainter {
       center: const Alignment(-0.3, -0.4),
       radius: 0.9,
       colors: [
-        primary.withOpacity(0.9),
-        primary.withOpacity(0.4),
-        secondary.withOpacity(0.6),
+        primary.withValues(alpha: 0.9),
+        primary.withValues(alpha: 0.4),
+        secondary.withValues(alpha: 0.6),
       ],
     );
     final bodyRect = Rect.fromCenter(
@@ -344,7 +344,7 @@ class _GuardBotPainter extends CustomPainter {
 
     // ── Body highlight ─────────────────────────────────────────────────────
     paint
-      ..color = Colors.white.withOpacity(0.22)
+      ..color = Colors.white.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawRRect(
@@ -378,7 +378,7 @@ class _GuardBotPainter extends CustomPainter {
     final shieldGrad = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Colors.white.withOpacity(0.9), secondary.withOpacity(0.7)],
+      colors: [Colors.white.withValues(alpha: 0.9), secondary.withValues(alpha: 0.7)],
     );
     final shieldBounds = Rect.fromCenter(center: sc, width: 30, height: 40);
     paint
@@ -388,7 +388,7 @@ class _GuardBotPainter extends CustomPainter {
     paint.shader = null;
 
     // Orange lock icon inside shield
-    paint.color = error.withOpacity(0.85);
+    paint.color = error.withValues(alpha: 0.85);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(center: Offset(sc.dx, sc.dy + 4), width: 8, height: 6),
@@ -397,7 +397,7 @@ class _GuardBotPainter extends CustomPainter {
       paint,
     );
     paint
-      ..color = error.withOpacity(0.85)
+      ..color = error.withValues(alpha: 0.85)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawArc(
@@ -415,8 +415,8 @@ class _GuardBotPainter extends CustomPainter {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        surface.withOpacity(1.0),
-        primary.withOpacity(0.3),
+        surface.withValues(alpha: 1.0),
+        primary.withValues(alpha: 0.3),
       ],
     );
     final headRect = Rect.fromCenter(
@@ -433,7 +433,7 @@ class _GuardBotPainter extends CustomPainter {
 
     // Head outline
     paint
-      ..color = primary.withOpacity(0.4)
+      ..color = primary.withValues(alpha: 0.4)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawRRect(
@@ -445,8 +445,8 @@ class _GuardBotPainter extends CustomPainter {
     // ── Visor (eyes) ──────────────────────────────────────────────────────
     final visorGrad = LinearGradient(
       colors: [
-        primary.withOpacity(0.95),
-        secondary.withOpacity(0.8),
+        primary.withValues(alpha: 0.95),
+        secondary.withValues(alpha: 0.8),
       ],
     );
     final visorRect = Rect.fromCenter(
@@ -462,13 +462,13 @@ class _GuardBotPainter extends CustomPainter {
     paint.shader = null;
 
     // Eye glow
-    paint.color = Colors.white.withOpacity(0.85);
+    paint.color = Colors.white.withValues(alpha: 0.85);
     canvas.drawCircle(Offset(cx - 8, size.height * 0.27), 3, paint);
     canvas.drawCircle(Offset(cx + 8, size.height * 0.27), 3, paint);
 
     // ── Antenna ───────────────────────────────────────────────────────────
     paint
-      ..color = primary.withOpacity(0.7)
+      ..color = primary.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -482,11 +482,11 @@ class _GuardBotPainter extends CustomPainter {
       ..color = secondary;
     canvas.drawCircle(Offset(cx, size.height * 0.03), 5, paint);
     paint
-      ..color = Colors.white.withOpacity(0.7);
+      ..color = Colors.white.withValues(alpha: 0.7);
     canvas.drawCircle(Offset(cx, size.height * 0.03), 2.5, paint);
 
     // ── Neck ──────────────────────────────────────────────────────────────
-    paint.color = primary.withOpacity(0.5);
+    paint.color = primary.withValues(alpha: 0.5);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(
@@ -505,7 +505,7 @@ class _GuardBotPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final leftArmGrad = LinearGradient(
-      colors: [primary.withOpacity(0.7), secondary.withOpacity(0.5)],
+      colors: [primary.withValues(alpha: 0.7), secondary.withValues(alpha: 0.5)],
       begin: Alignment.topRight,
       end: Alignment.bottomLeft,
     );
@@ -521,7 +521,7 @@ class _GuardBotPainter extends CustomPainter {
     );
 
     final rightArmGrad = LinearGradient(
-      colors: [primary.withOpacity(0.7), secondary.withOpacity(0.5)],
+      colors: [primary.withValues(alpha: 0.7), secondary.withValues(alpha: 0.5)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -537,7 +537,7 @@ class _GuardBotPainter extends CustomPainter {
     );
 
     // ── Legs ──────────────────────────────────────────────────────────────
-    paint.color = primary.withOpacity(0.6);
+    paint.color = primary.withValues(alpha: 0.6);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(
@@ -562,7 +562,7 @@ class _GuardBotPainter extends CustomPainter {
     );
 
     // Feet
-    paint.color = secondary.withOpacity(0.7);
+    paint.color = secondary.withValues(alpha: 0.7);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(
@@ -616,14 +616,14 @@ class _GlowButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         gradient: LinearGradient(
-          colors: [color, color.withOpacity(0.7)],
+          colors: [color, color.withValues(alpha: 0.7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: onTap != null
             ? [
                 BoxShadow(
-                  color: color.withOpacity(0.4),
+                  color: color.withValues(alpha: 0.4),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
