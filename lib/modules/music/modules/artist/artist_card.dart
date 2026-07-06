@@ -51,7 +51,7 @@ class ArtistCard extends HookConsumerWidget {
                       artist.name.isNotEmpty
                           ? artist.name.trim()[0].toUpperCase()
                           : '?',
-                      style: const TextStyle(fontSize: 48, color: Colors.white),
+                      style: TextStyle(fontSize: 48, color: Theme.of(context).colorScheme.onPrimaryContainer),
                       maxLines: 1,
                     ),
                   ),
