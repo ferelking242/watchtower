@@ -1618,6 +1618,170 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       ),
     );
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── MovieBox Bottom Dock (from activity_main.xml + tab_bottom.xml) ────────
+  // Total height: 80dp. Icons: 24×24dp. Label: 10sp, marginBottom 8dp.
+  // Center tab (Fight Zone): big image 72×80dp, no label.
+  // Background: #1C1E21 (dark with slight arc shape illusion).
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildMbBottomDock(BuildContext ctx) {
+    const dockBg   = Color(0xFF1C1E21);
+    const activeC  = Colors.white;
+    const inactiveC = Color(0x99FFFFFF); // white_60
+    const brandG   = Color(0xFF07b84e);
+
+    // Tab definitions matching appTab.json bottomTabs
+    // Center tab (Fight Zone idx=2) uses a larger icon (72×80dp equivalent)
+    final items = <({IconData icon, String label, bool isCenter, bool hasBadge, String? badge})>[
+      (icon: Icons.home_rounded,       label: 'Home',     isCenter: false, hasBadge: false, badge: null),
+      (icon: Icons.menu_book_rounded,  label: 'NovelHub', isCenter: false, hasBadge: true,  badge: 'HOT'),
+      (icon: Icons.sports_mma_rounded, label: '',         isCenter: true,  hasBadge: false, badge: null),
+      (icon: Icons.download_rounded,   label: 'Downloads',isCenter: false, hasBadge: false, badge: null),
+      (icon: Icons.person_rounded,     label: 'Me',       isCenter: false, hasBadge: false, badge: null),
+    ];
+
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: dockBg,
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 0.5)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: List.generate(items.length, (i) {
+            final item    = items[i];
+            final active  = _mbBottomNavIdx == i;
+            final iconColor = active ? activeC : inactiveC;
+            final textColor = active ? activeC : inactiveC;
+
+            if (item.isCenter) {
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _mbBottomNavIdx = i),
+                  behavior: HitTestBehavior.opaque,
+                  child: SizedBox(
+                    height: 80,
+                    child: Center(
+                      child: Container(
+                        width: 56, height: 56,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF2ECC71), Color(0xFF07b84e)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF07b84e).withValues(alpha: 0.45),
+                              blurRadius: 14, spreadRadius: 0,
+                              offset: const Offset(0, 4)),
+                          ],
+                        ),
+                        child: const Icon(Icons.sports_mma_rounded,
+                            size: 28, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _mbBottomNavIdx = i),
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox(
+                  height: 80,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(item.icon, size: 24, color: iconColor),
+                          if (item.hasBadge && item.badge != null)
+                            Positioned(
+                              top: -4, right: -10,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 3, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF03930),
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft:     Radius.circular(3),
+                                    topRight:    Radius.circular(3),
+                                    bottomRight: Radius.circular(3),
+                                    bottomLeft:  Radius.circular(1),
+                                  ),
+                                ),
+                                child: Text(item.badge!,
+                                  style: const TextStyle(
+                                    fontSize: 7, fontWeight: FontWeight.w700,
+                                    color: Colors.white, letterSpacing: 0.2)),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(item.label,
+                        style: TextStyle(
+                          fontSize: 10, color: textColor,
+                          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                        )),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  // ── Stub page for non-Home bottom tabs ────────────────────────────────────
+
+  Widget _buildMbStubPage(BuildContext ctx, int navIdx) {
+    const bgColor = Color(0xFF101114);
+    const labels  = ['Home', 'NovelHub', 'Fight Zone', 'Downloads', 'Me'];
+    final label   = navIdx < labels.length ? labels[navIdx] : '';
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: bgColor,
+        title: Text(label,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w700)),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () => setState(() => _mbBottomNavIdx = 0),
+            icon: const Icon(Icons.close_rounded, color: Colors.white60),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _buildMbBottomDock(ctx),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.construction_rounded,
+                size: 48, color: Color(0x3DFFFFFF)),
+            const SizedBox(height: 12),
+            Text('$label — bientôt disponible',
+              style: const TextStyle(
+                  color: Color(0x99FFFFFF), fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Small grid/list toggle button (used in filter sheet) ────────────────────────
@@ -1916,174 +2080,6 @@ class _HeroSlide extends ConsumerWidget {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ── MovieBox Bottom Dock (from activity_main.xml + tab_bottom.xml) ────────
-  // Total height: 80dp. Icons: 24×24dp. Label: 10sp, marginBottom 8dp.
-  // Center tab (Fight Zone): big image 72×80dp, no label.
-  // Background: #1C1E21 (dark with slight arc shape illusion).
-  // ══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildMbBottomDock(BuildContext ctx) {
-    const dockBg   = Color(0xFF1C1E21);
-    const activeC  = Colors.white;
-    const inactiveC = Color(0x99FFFFFF); // white_60
-    const brandG   = Color(0xFF07b84e);
-
-    // Tab definitions matching appTab.json bottomTabs
-    // Center tab (Fight Zone idx=2) uses a larger icon (72×80dp equivalent)
-    final items = <({IconData icon, String label, bool isCenter, bool hasBadge, String? badge})>[
-      (icon: Icons.home_rounded,       label: 'Home',     isCenter: false, hasBadge: false, badge: null),
-      (icon: Icons.menu_book_rounded,  label: 'NovelHub', isCenter: false, hasBadge: true,  badge: 'HOT'),
-      (icon: Icons.sports_mma_rounded, label: '',         isCenter: true,  hasBadge: false, badge: null),
-      (icon: Icons.download_rounded,   label: 'Downloads',isCenter: false, hasBadge: false, badge: null),
-      (icon: Icons.person_rounded,     label: 'Me',       isCenter: false, hasBadge: false, badge: null),
-    ];
-
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: dockBg,
-        // Subtle top border like MovieBox's arc
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 0.5)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: List.generate(items.length, (i) {
-            final item   = items[i];
-            final active = _mbBottomNavIdx == i;
-            final iconColor = active ? activeC : inactiveC;
-            final textColor = active ? activeC : inactiveC;
-
-            if (item.isCenter) {
-              // ── Center: Fight Zone — bigger icon (72dp equivalent), no label ──
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _mbBottomNavIdx = i),
-                  behavior: HitTestBehavior.opaque,
-                  child: SizedBox(
-                    height: 80,
-                    child: Center(
-                      child: Container(
-                        width: 56, height: 56,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF2ECC71), Color(0xFF07b84e)],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF07b84e).withValues(alpha: 0.45),
-                              blurRadius: 14, spreadRadius: 0, offset: const Offset(0, 4)),
-                          ],
-                        ),
-                        child: const Icon(Icons.sports_mma_rounded,
-                            size: 28, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _mbBottomNavIdx = i),
-                behavior: HitTestBehavior.opaque,
-                child: SizedBox(
-                  height: 80,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(item.icon, size: 24, color: iconColor),
-                          // Badge (HOT etc)
-                          if (item.hasBadge && item.badge != null)
-                            Positioned(
-                              top: -4, right: -10,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF03930),
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(3),
-                                    topRight: const Radius.circular(3),
-                                    bottomRight: const Radius.circular(3),
-                                    bottomLeft: const Radius.circular(1),
-                                  ),
-                                ),
-                                child: Text(
-                                  item.badge!,
-                                  style: const TextStyle(
-                                    fontSize: 7, fontWeight: FontWeight.w700,
-                                    color: Colors.white, letterSpacing: 0.2),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: textColor,
-                          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  // ── Stub page for non-Home bottom tabs ────────────────────────────────────
-
-  Widget _buildMbStubPage(BuildContext ctx, int navIdx) {
-    const bgColor = Color(0xFF101114);
-    const labels  = ['Home', 'NovelHub', 'Fight Zone', 'Downloads', 'Me'];
-    final label   = navIdx < labels.length ? labels[navIdx] : '';
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: bgColor,
-        title: Text(label,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: () => setState(() => _mbBottomNavIdx = 0),
-            icon: const Icon(Icons.close_rounded, color: Colors.white60),
-          ),
-        ],
-      ),
-      bottomNavigationBar: _buildMbBottomDock(ctx),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.construction_rounded, size: 48, color: Color(0x3DFFFFFF)),
-            const SizedBox(height: 12),
-            Text(
-              '$label — bientôt disponible',
-              style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ── Ranked card (Top 15 Tendances) ───────────────────────────────────────────
