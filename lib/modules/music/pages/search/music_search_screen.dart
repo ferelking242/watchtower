@@ -26,9 +26,8 @@ final _activePluginLogoProvider = FutureProvider<File?>((ref) async {
 
 // ─── Constantes design ────────────────────────────────────────────────────────
 
-const _kBg = Color(0xFF121212);
-const _kSearchFill = Color(0xFF2A2A2A);
-const _kGreen = Color(0xFF1DB954);
+// _kBg and _kSearchFill removed — now use theme colors
+// _kGreen removed — now use cs.primary / Theme.of(context).colorScheme.primary
 
 // Palette de couleurs pour les cartes de section (cyclique)
 const _kSectionColors = [
@@ -555,11 +554,11 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
 
     return SliverToBoxAdapter(
       child: searchAsync.when(
-        loading: () => const Padding(
-          padding: EdgeInsets.only(top: 60),
+        loading: () => Padding(
+          padding: const EdgeInsets.only(top: 60),
           child: Center(
             child: CircularProgressIndicator(
-              color: _kGreen,
+              color: Theme.of(context).colorScheme.primary,
               strokeWidth: 2,
             ),
           ),
