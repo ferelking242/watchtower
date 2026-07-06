@@ -18,6 +18,8 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
   import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/services/get_video_list.dart';
@@ -72,6 +74,16 @@ class WatchInlinePlayer {
   /// Notifier for portrait overlay controls visibility (back/aide buttons sync).
   final ValueNotifier<bool> controlsVisible = ValueNotifier(true);
 
+  /// Set to true once the currently-loaded stream is detected as a
+  /// vertical/short-form ("reel") video — i.e. taller than it is wide.
+  /// Detected automatically from the real decoded video dimensions once
+  /// playback starts (no extension changes required). Sources such as
+  /// MovieBox "TV courte" never flag this in their URLs/JSON, so aspect
+  /// ratio is the only reliable signal available at runtime.
+  final ValueNotifier<bool> isPortraitFormat = ValueNotifier(false);
+  StreamSubscription<int?>? _widthSub;
+  StreamSubscription<int?>? _heightSub;
+
   /// Callbacks for episode navigation (set by the parent page in build()).
   VoidCallback? onPrevEpisode;
   VoidCallback? onNextEpisode;
@@ -87,9 +99,12 @@ class WatchInlinePlayer {
 
   void dispose() {
     _isDisposed = true;
+    _widthSub?.cancel();
+    _heightSub?.cancel();
     _player.dispose();
     _seekingNotifier.dispose();
     controlsVisible.dispose();
+    isPortraitFormat.dispose();
   }
 
   /// Callback fired when quality changes (so the page UI can rebuild).
@@ -194,6 +209,7 @@ class WatchInlinePlayer {
             logLevel: LogLevel.info,
             tag: LogTag.watch,
           );
+          _startPortraitDetection();
           completer.complete(true);
         });
 
@@ -288,6 +304,55 @@ class WatchInlinePlayer {
         stackTrace: st,
       );
     }
+  }
+
+  /// Watches the decoded video dimensions once and flips [isPortraitFormat]
+  /// on if the stream is a vertical/"reel" video (height clearly > width).
+  /// A 1.15 ratio margin avoids false positives on near-square content.
+  void _startPortraitDetection() {
+    _widthSub?.cancel();
+    _heightSub?.cancel();
+    isPortraitFormat.value = false;
+
+    void check() {
+      final w = _player.state.width;
+      final h = _player.state.height;
+      if (w == null || h == null || w <= 0 || h <= 0) return;
+      final portrait = h > w * 1.15;
+      if (isPortraitFormat.value != portrait) isPortraitFormat.value = portrait;
+    }
+
+    check();
+    _widthSub = _player.stream.width.listen((_) => check());
+    _heightSub = _player.stream.height.listen((_) => check());
+  }
+
+  /// Pushes the dedicated TikTok/reel-style fullscreen page for vertical
+  /// short-form content (e.g. MovieBox "TV courte" style videos). Reuses
+  /// the same [Player]/[VideoController] so playback continues seamlessly.
+  void launchReelPage({
+    required BuildContext context,
+    required List<Chapter> chapters,
+    required Chapter currentChapter,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _ReelPlayerPage(
+          player: _player,
+          controller: _controller,
+          title: title,
+          loadedVideos: loadedVideos,
+          selectedQuality: selectedQuality,
+          onSwitchQuality: switchQuality,
+          chapters: chapters,
+          currentChapter: currentChapter,
+          onEpisodeTap: (c) {
+            loadedChapterId = c.id;
+            onEpisodeTap?.call(c);
+          },
+        ),
+      ),
+    );
   }
 
   // Banner overlay for portrait inline view
@@ -4623,6 +4688,632 @@ class _BufferingDotsIndicatorState extends State<_BufferingDotsIndicator>
           }),
         );
       },
+    );
+  }
+}
+
+// ─── Reel player — TikTok/MovieBox "TV courte" style fullscreen page ─────────
+//
+// Full-bleed vertical (9:16) playback with a top bar (back + episode label),
+// a right-side action rail (download / bookmark / share), a bottom info
+// block (poster + title + synopsis), and a bottom control bar with an
+// episode-picker pill, speed, quality and language shortcuts — matching the
+// MovieBox reel player reference screenshot.
+class _ReelPlayerPage extends StatefulWidget {
+  final Player player;
+  final VideoController controller;
+  final String title;
+  final List<wt.Video> loadedVideos;
+  final String? selectedQuality;
+  final Future<void> Function(wt.Video)? onSwitchQuality;
+  final List<Chapter> chapters;
+  final Chapter currentChapter;
+  final void Function(Chapter)? onEpisodeTap;
+
+  const _ReelPlayerPage({
+    required this.player,
+    required this.controller,
+    required this.title,
+    required this.chapters,
+    required this.currentChapter,
+    this.loadedVideos = const [],
+    this.selectedQuality,
+    this.onSwitchQuality,
+    this.onEpisodeTap,
+  });
+
+  @override
+  State<_ReelPlayerPage> createState() => _ReelPlayerPageState();
+}
+
+class _ReelPlayerPageState extends State<_ReelPlayerPage> {
+  bool _showControls = true;
+  Timer? _hideTimer;
+  bool _bookmarked = false;
+  late Chapter _current;
+  late String? _quality;
+  double _speed = 1.0;
+
+  Player get _p => widget.player;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.currentChapter;
+    _quality = widget.selectedQuality;
+    _bookmarked = _current.isBookmarked ?? false;
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _resetHideTimer();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+    super.dispose();
+  }
+
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  void _onTap() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _resetHideTimer();
+    else _hideTimer?.cancel();
+  }
+
+  List<Chapter> get _sorted {
+    final list = [...widget.chapters];
+    list.sort((a, b) => (a.id ?? 0).compareTo(b.id ?? 0));
+    return list;
+  }
+
+  void _selectEpisode(Chapter c) {
+    setState(() => _current = c);
+    widget.onEpisodeTap?.call(c);
+  }
+
+  void _toggleBookmark() {
+    setState(() => _bookmarked = !_bookmarked);
+    _current.isBookmarked = _bookmarked;
+    try {
+      isar.writeTxnSync(() => isar.chapters.putSync(_current));
+    } catch (_) {}
+  }
+
+  void _share() {
+    final url = _current.url ?? '';
+    if (url.isNotEmpty) SharePlus.instance.share(ShareParams(text: url));
+  }
+
+  void _setSpeed(double v) {
+    setState(() => _speed = v);
+    _p.setRate(v);
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _setQuality(wt.Video v) async {
+    Navigator.of(context).pop();
+    setState(() => _quality = v.quality);
+    await widget.onSwitchQuality?.call(v);
+  }
+
+  void _openEpisodeSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _ReelEpisodeSheet(
+        episodes: _sorted,
+        current: _current,
+        onTap: (c) {
+          Navigator.of(context).pop();
+          _selectEpisode(c);
+        },
+      ),
+    );
+  }
+
+  void _openSpeedSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ReelPickerSheet(
+        title: 'Vitesse de lecture',
+        options: _kAllSpeeds.map((s) => '${s}x').toList(),
+        selected: '${_speed}x',
+        onSelect: (s) => _setSpeed(double.parse(s.replaceAll('x', ''))),
+      ),
+    );
+  }
+
+  void _openQualitySheet() {
+    if (widget.loadedVideos.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ReelPickerSheet(
+        title: 'Qualité',
+        options: widget.loadedVideos.map((v) => v.quality ?? '').toList(),
+        selected: _quality ?? '',
+        onSelect: (label) {
+          final v = widget.loadedVideos.firstWhere(
+            (v) => v.quality == label,
+            orElse: () => widget.loadedVideos.first,
+          );
+          _setQuality(v);
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+    final botPad = MediaQuery.of(context).padding.bottom;
+    return PopScope(
+      onPopInvokedWithResult: (_, __) {
+        SystemChrome.setPreferredOrientations([]);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _onTap,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── Video (vertical, cropped to fill like a real reel) ──────────
+              Video(
+                controller: widget.controller,
+                fit: BoxFit.cover,
+                controls: NoVideoControls,
+              ),
+
+              // ── Bottom gradient for legibility ───────────────────────────────
+              const Positioned(
+                left: 0, right: 0, bottom: 0, height: 260,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [Color(0xEE000000), Colors.transparent],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Center play/pause tap feedback ───────────────────────────────
+              IgnorePointer(
+                ignoring: !_showControls,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Center(
+                    child: StreamBuilder<bool>(
+                      stream: _p.stream.playing,
+                      initialData: _p.state.playing,
+                      builder: (_, snap) => GestureDetector(
+                        onTap: () { _p.playOrPause(); _resetHideTimer(); },
+                        child: Icon(
+                          (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 60,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Top bar: back + episode label ────────────────────────────────
+              AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_showControls,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: topPad + 4, left: 4, right: 12),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        Expanded(
+                          child: Text(
+                            _current.name ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              shadows: [Shadow(blurRadius: 6, color: Colors.black87)],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Right action rail: download / bookmark / share ───────────────
+              Positioned(
+                right: 8,
+                bottom: 120 + botPad,
+                child: Column(
+                  children: [
+                    _ReelActionButton(
+                      icon: Icons.file_download_outlined,
+                      label: 'Télécharger',
+                      onTap: () {},
+                    ),
+                    const SizedBox(height: 18),
+                    _ReelActionButton(
+                      icon: _bookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      iconColor: _bookmarked ? const Color(0xFFFFC107) : Colors.white,
+                      label: '',
+                      onTap: _toggleBookmark,
+                    ),
+                    const SizedBox(height: 18),
+                    _ReelActionButton(
+                      icon: Icons.reply_rounded,
+                      label: 'Partager',
+                      onTap: _share,
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Bottom info + controls bar ───────────────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: botPad + 6,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: !_showControls,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Poster + title + synopsis
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 90, 10),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if ((_current.thumbnailUrl ?? '').isNotEmpty)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.network(
+                                    _current.thumbnailUrl!,
+                                    width: 34, height: 46, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const SizedBox(width: 34, height: 46),
+                                  ),
+                                ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                                    ),
+                                    if ((_current.description ?? '').isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          '${_current.name ?? ''} | ${_current.description}',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Episode picker pill
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: GestureDetector(
+                            onTap: _openEpisodeSheet,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.layers_outlined, color: Colors.white, size: 14),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${_current.name ?? ''} / EP${_sorted.length.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white, size: 16),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Seek bar
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: StreamBuilder<Duration>(
+                            stream: _p.stream.position,
+                            initialData: _p.state.position,
+                            builder: (_, snap) {
+                              final pos = snap.data ?? Duration.zero;
+                              final dur = _p.state.duration;
+                              final progress = dur.inMilliseconds > 0
+                                  ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
+                                  : 0.0;
+                              return SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 2.2,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                                  activeTrackColor: Colors.white,
+                                  inactiveTrackColor: Colors.white24,
+                                  thumbColor: Colors.white,
+                                ),
+                                child: Slider(
+                                  value: progress,
+                                  onChanged: (v) {
+                                    if (dur.inMilliseconds > 0) {
+                                      _p.seek(Duration(milliseconds: (v * dur.inMilliseconds).round()));
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        // Speed / quality / language row
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              GestureDetector(
+                                onTap: _openSpeedSheet,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.speed_rounded, color: Colors.white70, size: 15),
+                                    const SizedBox(width: 4),
+                                    Text('${_speed}x', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: _openQualitySheet,
+                                child: Text(
+                                  _quality ?? 'Auto',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.subtitles_outlined, color: Colors.white70, size: 15),
+                                  SizedBox(width: 4),
+                                  Text('Langue', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReelActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  const _ReelActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: iconColor, size: 30, shadows: const [Shadow(blurRadius: 6, color: Colors.black54)]),
+            if (label.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, shadows: [Shadow(blurRadius: 4, color: Colors.black54)])),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Episode picker bottom sheet (reel mode) ──────────────────────────────────
+class _ReelEpisodeSheet extends StatelessWidget {
+  final List<Chapter> episodes;
+  final Chapter current;
+  final void Function(Chapter) onTap;
+
+  const _ReelEpisodeSheet({
+    required this.episodes,
+    required this.current,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+        decoration: const BoxDecoration(
+          color: Color(0xFF181818),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              width: 36, height: 4,
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('EP01 / EP${episodes.length.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Flexible(
+              child: GridView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.6,
+                ),
+                itemCount: episodes.length,
+                itemBuilder: (_, i) {
+                  final ep = episodes[i];
+                  final active = ep.id == current.id;
+                  return GestureDetector(
+                    onTap: () => onTap(ep),
+                    child: Container(
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: active ? const Color(0xFFFF5A36) : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${i + 1}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Generic picker sheet (speed / quality) for the reel player ──────────────
+class _ReelPickerSheet extends StatelessWidget {
+  final String title;
+  final List<String> options;
+  final String selected;
+  final void Function(String) onSelect;
+
+  const _ReelPickerSheet({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
+        decoration: const BoxDecoration(
+          color: Color(0xFF181818),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              width: 36, height: 4,
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: options.map((o) {
+                  final active = o == selected;
+                  return ListTile(
+                    onTap: () => onSelect(o),
+                    title: Text(o, style: TextStyle(color: active ? const Color(0xFFFF5A36) : Colors.white, fontWeight: active ? FontWeight.w700 : FontWeight.w400)),
+                    trailing: active ? const Icon(Icons.check, color: Color(0xFFFF5A36), size: 18) : null,
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

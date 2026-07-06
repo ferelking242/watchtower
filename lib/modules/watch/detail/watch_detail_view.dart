@@ -359,6 +359,46 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             _player.loadedChapterId != null)
           const _LoadingBannerPulse(),
 
+        // Reel-mode button — appears once the loaded video is detected as
+        // vertical/short-form content (e.g. MovieBox "TV courte").
+        ValueListenableBuilder<bool>(
+          valueListenable: _player.isPortraitFormat,
+          builder: (_, isReel, __) {
+            if (!isReel || !_player.hasVideoUrl) return const SizedBox.shrink();
+            final chapter = chapters.firstWhere(
+              (c) => c.id == _player.loadedChapterId,
+              orElse: () => chapters.first,
+            );
+            return Positioned(
+              right: 10,
+              bottom: 10,
+              child: GestureDetector(
+                onTap: () => _player.launchReelPage(
+                  context: context,
+                  chapters: chapters,
+                  currentChapter: chapter,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white24, width: 0.8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.smart_display_rounded, color: Colors.white, size: 14),
+                      SizedBox(width: 5),
+                      Text('Mode Reel', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
         // Top shadow uniquement pour lisibilité des contrôles — bord bas net
         const IgnorePointer(
           child: DecoratedBox(
