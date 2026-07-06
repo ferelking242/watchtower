@@ -673,12 +673,12 @@ class _TrackResultsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
           child: Text(
             'Titres',
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -686,6 +686,7 @@ class _TrackResultsSection extends ConsumerWidget {
         ),
         ...tracks.take(5).map((track) {
           final isActive = track.id == activeId;
+          final cs = Theme.of(context).colorScheme;
           final imageUrl = track.album.images.isEmpty
               ? ''
               : track.album.images.first.url;
@@ -705,8 +706,8 @@ class _TrackResultsSection extends ConsumerWidget {
                         url: imageUrl,
                         width: 46,
                         height: 46,
-                        placeholder: const Icon(Icons.music_note_rounded,
-                            color: Colors.white54),
+                        placeholder: Icon(Icons.music_note_rounded,
+                            color: cs.onSurfaceVariant),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -720,7 +721,7 @@ class _TrackResultsSection extends ConsumerWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
+                              color: isActive ? cs.primary : cs.onSurface,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
@@ -734,12 +735,12 @@ class _TrackResultsSection extends ConsumerWidget {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 3, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: Colors.white24,
+                                    color: cs.onSurface.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(3),
                                   ),
-                                  child: const Text('E',
+                                  child: Text('E',
                                       style: TextStyle(
-                                          color: Colors.white,
+                                          color: cs.onSurface,
                                           fontSize: 9,
                                           fontWeight: FontWeight.w800)),
                                 ),
@@ -748,8 +749,8 @@ class _TrackResultsSection extends ConsumerWidget {
                                   _artistNames(track.artists),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
+                                  style: TextStyle(
+                                    color: cs.onSurfaceVariant,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -762,15 +763,15 @@ class _TrackResultsSection extends ConsumerWidget {
                     // Durée
                     Text(
                       _fmtDuration(track.durationMs),
-                      style: const TextStyle(
-                        color: Colors.white38,
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                         fontSize: 12,
                       ),
                     ),
                     const SizedBox(width: 8),
                     // More
-                    const Icon(Icons.more_vert_rounded,
-                        color: Colors.white38),
+                    Icon(Icons.more_vert_rounded,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                   ],
                 ),
               ),
@@ -813,8 +814,8 @@ class _HorizontalSection<T> extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -830,6 +831,7 @@ class _HorizontalSection<T> extends StatelessWidget {
             itemBuilder: (_, i) {
               final item = items[i];
               final url = imageUrl(item);
+              final cs = Theme.of(context).colorScheme;
               return GestureDetector(
                 onTap: () => onTap(item),
                 child: SizedBox(
@@ -840,15 +842,15 @@ class _HorizontalSection<T> extends StatelessWidget {
                       circular
                           ? CircleAvatar(
                               radius: 65,
-                              backgroundColor: const Color(0xFF2A2A2A),
+                              backgroundColor: cs.surfaceContainerHigh,
                               child: ClipOval(
                                 child: MusicCachedImage(
                                   url: url,
                                   width: 130,
                                   height: 130,
-                                  placeholder: const Icon(
+                                  placeholder: Icon(
                                       Icons.person_rounded,
-                                      color: Colors.white54),
+                                      color: cs.onSurfaceVariant),
                                 ),
                               ),
                             )
@@ -858,8 +860,8 @@ class _HorizontalSection<T> extends StatelessWidget {
                                 url: url,
                                 width: 130,
                                 height: 130,
-                                placeholder: const Icon(Icons.album_rounded,
-                                    color: Colors.white54),
+                                placeholder: Icon(Icons.album_rounded,
+                                    color: cs.onSurfaceVariant),
                               ),
                             ),
                       const SizedBox(height: 8),
@@ -867,8 +869,8 @@ class _HorizontalSection<T> extends StatelessWidget {
                         label(item),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: cs.onSurface,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -878,8 +880,8 @@ class _HorizontalSection<T> extends StatelessWidget {
                         sublabel(item),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white54,
+                        style: TextStyle(
+                          color: cs.onSurfaceVariant,
                           fontSize: 11,
                         ),
                       ),
@@ -1062,13 +1064,13 @@ class _NoPluginPlaceholder extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.extension_rounded,
-              size: 56, color: Colors.white.withValues(alpha: 0.12)),
+              size: 56, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18)),
           const SizedBox(height: 16),
           Text(
             'Aucune extension music installée',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.45),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -1078,15 +1080,15 @@ class _NoPluginPlaceholder extends StatelessWidget {
             'Installe une extension depuis le\nMarketplace pour chercher "$query"',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.3),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
             ),
           ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white30),
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(color: Theme.of(context).colorScheme.outline),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
@@ -1115,13 +1117,13 @@ class _EmptyResults extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.search_off_rounded,
-              size: 56, color: Colors.white.withValues(alpha: 0.12)),
+              size: 56, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18)),
           const SizedBox(height: 16),
           Text(
             'Aucun résultat pour\n"$query"',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.45),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
@@ -1215,21 +1217,29 @@ class _NavPill extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? Theme.of(context).colorScheme.primary : const Color(0xFF2A2A2A),
+          color: selected
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
-          border: selected ? null : Border.all(color: Colors.white12),
+          border: selected
+              ? null
+              : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon,
                 size: 14,
-                color: selected ? Colors.black : Colors.white70),
+                color: selected
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.black : Colors.white70,
+                color: selected
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 13,
               ),
