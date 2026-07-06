@@ -46,4 +46,8 @@ abstract interface class ExtensionService {
 
   /// Fetches items for a custom browse tab identified by [id].
   Future<MPages> getCustomList(String id, int page);
+
+  /// Returns autocomplete suggestions for a partial search [query].
+  /// Default: empty list (extensions that don't implement it return []).
+  Future<List<String>> getSuggestions(String query) async => [];
 }
