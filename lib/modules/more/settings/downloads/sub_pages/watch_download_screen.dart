@@ -192,7 +192,7 @@ class _EngineCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
-          color: selected ? scheme.primary : scheme.outline.withOpacity(0.3),
+          color: selected ? scheme.primary : scheme.outline.withValues(alpha: 0.3),
           width: selected ? 2 : 1,
         ),
       ),
@@ -208,7 +208,7 @@ class _EngineCard extends StatelessWidget {
                 height: 38,
                 decoration: BoxDecoration(
                   color: selected
-                      ? scheme.primary.withOpacity(0.15)
+                      ? scheme.primary.withValues(alpha: 0.15)
                       : scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -241,7 +241,7 @@ class _EngineCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
-                              color: scheme.primary.withOpacity(0.12),
+                              color: scheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -312,7 +312,7 @@ class _ConnectionsTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           decoration: BoxDecoration(
-            color: scheme.primary.withOpacity(0.12),
+            color: scheme.primary.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
@@ -408,7 +408,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: scheme.outline.withOpacity(0.25)),
+          side: BorderSide(color: scheme.outline.withValues(alpha: 0.25)),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -422,7 +422,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: hasSelection
-                        ? scheme.primary.withOpacity(0.12)
+                        ? scheme.primary.withValues(alpha: 0.12)
                         : scheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -457,7 +457,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: hasSelection
                               ? scheme.onSurface
-                              : scheme.onSurface.withOpacity(0.5),
+                              : scheme.onSurface.withValues(alpha: 0.5),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -699,7 +699,7 @@ class _NumberPickerSimple extends StatelessWidget {
           width: 60,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           decoration: BoxDecoration(
-            color: scheme.primary.withOpacity(0.12),
+            color: scheme.primary.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           alignment: Alignment.center,
