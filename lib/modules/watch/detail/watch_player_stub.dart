@@ -32,6 +32,9 @@ class WatchInlinePlayer {
   // Controls visibility notifier — stub returns a constant false notifier
   final ValueNotifier<bool> controlsVisible = ValueNotifier(false);
 
+  // Portrait/reel format notifier — always false on web (no reel mode)
+  final ValueNotifier<bool> isPortraitFormat = ValueNotifier(false);
+
   // Callback fired when the active quality changes.
   // No-op setter on web — quality switching is not supported in the HTML5 stub.
   // ignore: avoid_setters_without_getters
@@ -45,6 +48,16 @@ class WatchInlinePlayer {
     _videoUrl = null;
     _viewType = null;
     controlsVisible.dispose();
+    isPortraitFormat.dispose();
+  }
+
+  /// No-op on web — reel mode is not supported in the HTML5 stub.
+  void launchReelPage({
+    required BuildContext context,
+    required List<Chapter> chapters,
+    required Chapter currentChapter,
+  }) {
+    // No reel page on web
   }
 
   /// No-op on web — quality switching is not supported in the HTML5 stub.
