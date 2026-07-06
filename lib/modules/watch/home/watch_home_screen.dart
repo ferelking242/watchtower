@@ -95,8 +95,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   int _mbSubTabIdx    = 0; // index into _kMbSubTabs list
   final _headerOpacity = ValueNotifier<double>(0.15);
   double _headerH = 100.0;
-    final _headerOpacity = ValueNotifier<double>(0.15);
-    double _headerH = 100.0;
 
   // MovieBox sub-tabs — only distinct views (no duplicate Popular tabs)
   static const _kMbSubTabs = [
