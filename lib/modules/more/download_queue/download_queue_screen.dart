@@ -1715,7 +1715,7 @@ class _CoverThumbnail extends StatelessWidget {
             : itemType == ItemType.novel
                 ? Icons.auto_stories_outlined
                 : Icons.menu_book_outlined,
-        color: scheme.onSurfaceVariant.withOpacity(0.4),
+        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
         size: 22,
       ),
     );
@@ -1784,7 +1784,7 @@ class _ProgressRow extends StatelessWidget {
               builder: (context, value, _) => LinearProgressIndicator(
                 value: value,
                 minHeight: 5,
-                backgroundColor: scheme.outlineVariant.withOpacity(0.3),
+                backgroundColor: scheme.outlineVariant.withValues(alpha: 0.3),
                 color: isPaused ? Colors.orange : scheme.primary,
               ),
             ),
@@ -1822,7 +1822,7 @@ class _EngineBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1845,7 +1845,7 @@ class _PausedBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.15),
+        color: Colors.orange.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: const Text(
@@ -1869,7 +1869,7 @@ class _FailedBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.15),
+        color: Colors.red.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1910,7 +1910,7 @@ class _IconBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18, color: color.withOpacity(0.8)),
+          child: Icon(icon, size: 18, color: color.withValues(alpha: 0.8)),
         ),
       ),
     );
