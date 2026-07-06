@@ -167,7 +167,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                             width: 36,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: cs.onSurface.withOpacity(0.18),
+                              color: cs.onSurface.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -181,7 +181,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
-                          color: cs.onSurface.withOpacity(0.45),
+                          color: cs.onSurface.withValues(alpha: 0.45),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -217,7 +217,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
-                          color: cs.onSurface.withOpacity(0.45),
+                          color: cs.onSurface.withValues(alpha: 0.45),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -249,7 +249,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
-                          color: cs.onSurface.withOpacity(0.45),
+                          color: cs.onSurface.withValues(alpha: 0.45),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -846,12 +846,12 @@ class _HistoryGrid extends ConsumerWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? cs.primary : cs.outline.withOpacity(0.3),
+            color: selected ? cs.primary : cs.outline.withValues(alpha: 0.3),
             width: selected ? 2 : 1,
           ),
           color: selected
-              ? cs.primary.withOpacity(0.08)
-              : cs.surfaceVariant.withOpacity(0.4),
+              ? cs.primary.withValues(alpha: 0.08)
+              : cs.surfaceVariant.withValues(alpha: 0.4),
         ),
         child: InkWell(
           onTap: onTap,
@@ -908,12 +908,12 @@ class _HistoryGrid extends ConsumerWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: selected ? cs.primary : cs.outline.withOpacity(0.3),
+            color: selected ? cs.primary : cs.outline.withValues(alpha: 0.3),
             width: selected ? 1.5 : 1,
           ),
           color: selected
-              ? cs.primary.withOpacity(0.12)
-              : cs.surfaceVariant.withOpacity(0.5),
+              ? cs.primary.withValues(alpha: 0.12)
+              : cs.surfaceVariant.withValues(alpha: 0.5),
         ),
         child: InkWell(
           onTap: onTap,
