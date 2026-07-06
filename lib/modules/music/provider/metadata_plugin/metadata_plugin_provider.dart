@@ -178,10 +178,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   }
 
   Future<void> _loadDefaultPlugins(MetadataPluginState pluginState) async {
-    const plugins = [
-      "spotube-plugin-musicbrainz-listenbrainz",
-      "spotube-plugin-youtube-audio",
-    ];
+    const plugins = <String>[]; // plugins now installed from marketplace only
 
     for (final plugin in plugins) {
       ByteData byteData;
