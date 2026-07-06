@@ -477,7 +477,7 @@ class _VideoListTileState extends State<_VideoListTile> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: widget.isM3u8
-                      ? Colors.purple.withOpacity(0.15)
+                      ? Colors.purple.withValues(alpha: 0.15)
                       : cs.tertiaryContainer,
                   borderRadius: BorderRadius.circular(6),
                 ),
