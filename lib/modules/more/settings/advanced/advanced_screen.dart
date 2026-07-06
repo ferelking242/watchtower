@@ -581,7 +581,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       onChanged: disabled ? null : onChanged,
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
-          return Theme.of(context).colorScheme.onSurface.withOpacity(0.3);
+          return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3);
         }
         if (states.contains(WidgetState.selected)) {
           return Colors.white;
@@ -590,7 +590,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
-          return Theme.of(context).colorScheme.onSurface.withOpacity(0.12);
+          return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12);
         }
         if (states.contains(WidgetState.selected)) {
           return activeColor;
@@ -1211,7 +1211,7 @@ class _LogAdvancedSection extends ConsumerWidget {
     final logsEnabled = ref.watch(logsStateProvider);
     final cs = Theme.of(context).colorScheme;
     final secondary = Theme.of(context).textTheme.bodySmall?.color ??
-        cs.onSurface.withOpacity(0.6);
+        cs.onSurface.withValues(alpha: 0.6);
     final selectedMode = LogMode.values[logMode.clamp(0, 3)];
 
     // ── Tag toggle helper ──────────────────────────────────────────────────
@@ -1240,14 +1240,14 @@ class _LogAdvancedSection extends ConsumerWidget {
         onChanged: logsEnabled ? (v) => onTagChanged(tagKey, v) : null,
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
-            return cs.onSurface.withOpacity(0.3);
+            return cs.onSurface.withValues(alpha: 0.3);
           }
           if (states.contains(WidgetState.selected)) return Colors.white;
           return null;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
-            return cs.onSurface.withOpacity(0.12);
+            return cs.onSurface.withValues(alpha: 0.12);
           }
           if (states.contains(WidgetState.selected)) return activeColor;
           return null;
@@ -1266,19 +1266,19 @@ class _LogAdvancedSection extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: cs.outline.withOpacity(0.25)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.25)),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
                   Icon(Icons.info_outline_rounded, size: 18,
-                      color: cs.onSurface.withOpacity(0.55)),
+                      color: cs.onSurface.withValues(alpha: 0.55)),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       "Activez les logs dans À propos > Développeur pour configurer ces options.",
                       style: TextStyle(fontSize: 12,
-                          color: cs.onSurface.withOpacity(0.7)),
+                          color: cs.onSurface.withValues(alpha: 0.7)),
                     ),
                   ),
                 ],
@@ -1329,14 +1329,14 @@ class _LogAdvancedSection extends ConsumerWidget {
                     selected: selected,
                     selectedColor: logsEnabled ? chipColor : secondary,
                     backgroundColor: logsEnabled
-                        ? chipColor.withOpacity(0.1)
+                        ? chipColor.withValues(alpha: 0.1)
                         : cs.surfaceContainerHighest,
                     side: BorderSide(
                       color: selected
                           ? Colors.transparent
                           : logsEnabled
-                              ? chipColor.withOpacity(0.4)
-                              : secondary.withOpacity(0.2),
+                              ? chipColor.withValues(alpha: 0.4)
+                              : secondary.withValues(alpha: 0.2),
                     ),
                     onSelected: logsEnabled ? (_) => onModeChanged(mode) : null,
                   );
@@ -1347,7 +1347,7 @@ class _LogAdvancedSection extends ConsumerWidget {
                 selectedMode.description,
                 style: TextStyle(
                   fontSize: 11,
-                  color: secondary.withOpacity(0.75),
+                  color: secondary.withValues(alpha: 0.75),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -1388,7 +1388,7 @@ class _LogAdvancedSection extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.1),
+                  color: cs.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
