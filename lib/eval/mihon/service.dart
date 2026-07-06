@@ -366,4 +366,6 @@ void hasError(Response response) {
       throw e.toString().replaceFirst('errorMessage: ', '');
     }
   }
+  @override
+  Future<List<String>> getSuggestions(String query) async => [];
 }
