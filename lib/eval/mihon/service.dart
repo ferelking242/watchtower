@@ -349,6 +349,9 @@ class MihonExtensionService implements ExtensionService {
     }
     return msg;
   }
+
+  @override
+  Future<List<String>> getSuggestions(String query) async => [];
 }
 
 void hasError(Response response) {
@@ -366,6 +369,4 @@ void hasError(Response response) {
       throw e.toString().replaceFirst('errorMessage: ', '');
     }
   }
-  @override
-  Future<List<String>> getSuggestions(String query) async => [];
 }
