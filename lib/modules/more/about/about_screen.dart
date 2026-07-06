@@ -92,8 +92,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                           end: Alignment.bottomRight,
                           colors: [
                             cs.primary,
-                            cs.tertiary.withOpacity(0.8),
-                            cs.secondary.withOpacity(0.6),
+                            cs.tertiary.withValues(alpha: 0.8),
+                            cs.secondary.withValues(alpha: 0.6),
                           ],
                         ),
                       ),
@@ -108,7 +108,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                               height: 160,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.06),
+                                color: Colors.white.withValues(alpha: 0.06),
                               ),
                             ),
                           ),
@@ -120,7 +120,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                               height: 100,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.04),
+                                color: Colors.white.withValues(alpha: 0.04),
                               ),
                             ),
                           ),
@@ -133,10 +133,10 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                   width: 64,
                                   height: 64,
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
+                                    color: Colors.white.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(18),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.white.withValues(alpha: 0.3),
                                       width: 1,
                                     ),
                                   ),
@@ -161,7 +161,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                 Text(
                                   'v${data.version} · Beta',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.78),
+                                    color: Colors.white.withValues(alpha: 0.78),
                                     fontSize: 11,
                                     fontWeight: FontWeight.w400,
                                   ),
@@ -224,7 +224,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
-                                    color: cs.primary.withOpacity(0.12),
+                                    color: cs.primary.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(Icons.system_update_alt_rounded,
@@ -241,7 +241,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                   'Rechercher la dernière version disponible',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: cs.onSurface.withOpacity(0.5),
+                                    color: cs.onSurface.withValues(alpha: 0.5),
                                   ),
                                 ),
                                 trailing: _isCheckingUpdate
@@ -254,7 +254,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                         ),
                                       )
                                     : Icon(Icons.chevron_right_rounded,
-                                        size: 16, color: cs.onSurface.withOpacity(0.3)),
+                                        size: 16, color: cs.onSurface.withValues(alpha: 0.3)),
                                 onTap: _isCheckingUpdate
                                     ? null
                                     : () async {
@@ -315,7 +315,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                 secondary: Icon(
                                   Icons.bug_report_outlined,
                                   size: 20,
-                                  color: cs.onSurface.withOpacity(0.5),
+                                  color: cs.onSurface.withValues(alpha: 0.5),
                                 ),
                                 value: enableLogs,
                                 onChanged: (value) {
@@ -405,13 +405,13 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                     'Affichage complet, coloré et filtrable',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: cs.onSurface.withOpacity(0.5),
+                                      color: cs.onSurface.withValues(alpha: 0.5),
                                     ),
                                   ),
                                   trailing: Icon(
                                     Icons.chevron_right_rounded,
                                     size: 16,
-                                    color: cs.onSurface.withOpacity(0.3),
+                                    color: cs.onSurface.withValues(alpha: 0.3),
                                   ),
                                   onTap: () => context.push('/logViewer'),
                                 ),
@@ -534,16 +534,16 @@ class _GlassCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? cs.surfaceContainerHigh.withOpacity(0.7)
+            ? cs.surfaceContainerHigh.withValues(alpha: 0.7)
             : cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: cs.outline.withOpacity(0.12),
+          color: cs.outline.withValues(alpha: 0.12),
           width: 0.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.18 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
             blurRadius: 12,
             offset: const Offset(0, 3),
           ),
@@ -607,7 +607,7 @@ class _BinaryStoreSheet extends StatelessWidget {
             ),
             Text(
               'Choisissez les moteurs à installer selon vos besoins.',
-              style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.55)),
+              style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.55)),
             ),
             const SizedBox(height: 16),
             _StoreEngineRow(
@@ -625,7 +625,7 @@ class _BinaryStoreSheet extends StatelessWidget {
                 "D'autres moteurs seront disponibles prochainement.",
                 style: TextStyle(
                   fontSize: 11,
-                  color: cs.onSurface.withOpacity(0.4),
+                  color: cs.onSurface.withValues(alpha: 0.4),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -666,9 +666,9 @@ class _StoreEngineRow extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
+            color: iconColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: iconColor.withOpacity(0.2)),
+            border: Border.all(color: iconColor.withValues(alpha: 0.2)),
           ),
           child: Icon(icon, size: 20, color: iconColor),
         ),
@@ -691,7 +691,7 @@ class _StoreEngineRow extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: badgeColor.withOpacity(0.12),
+                      color: badgeColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -708,7 +708,7 @@ class _StoreEngineRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 description,
-                style: TextStyle(fontSize: 11.5, color: cs.onSurface.withOpacity(0.55)),
+                style: TextStyle(fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.55)),
                 maxLines: 2,
               ),
             ],
@@ -719,7 +719,7 @@ class _StoreEngineRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: installed
-                ? Colors.green.withOpacity(0.12)
+                ? Colors.green.withValues(alpha: 0.12)
                 : cs.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -727,7 +727,7 @@ class _StoreEngineRow extends StatelessWidget {
             installed ? 'Installé' : 'Disponible',
             style: TextStyle(
               fontSize: 11,
-              color: installed ? Colors.green : cs.onSurface.withOpacity(0.5),
+              color: installed ? Colors.green : cs.onSurface.withValues(alpha: 0.5),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -754,22 +754,22 @@ class _Aria2Card extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? [
-                  cs.tertiaryContainer.withOpacity(0.25),
-                  cs.secondaryContainer.withOpacity(0.15),
+                  cs.tertiaryContainer.withValues(alpha: 0.25),
+                  cs.secondaryContainer.withValues(alpha: 0.15),
                 ]
               : [
-                  cs.tertiaryContainer.withOpacity(0.45),
-                  cs.secondaryContainer.withOpacity(0.3),
+                  cs.tertiaryContainer.withValues(alpha: 0.45),
+                  cs.secondaryContainer.withValues(alpha: 0.3),
                 ],
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: cs.tertiary.withOpacity(isDark ? 0.2 : 0.15),
+          color: cs.tertiary.withValues(alpha: isDark ? 0.2 : 0.15),
           width: 0.9,
         ),
         boxShadow: [
           BoxShadow(
-            color: cs.tertiary.withOpacity(0.08),
+            color: cs.tertiary.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
@@ -785,10 +785,10 @@ class _Aria2Card extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: cs.tertiary.withOpacity(0.12),
+                  color: cs.tertiary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: cs.tertiary.withOpacity(0.2),
+                    color: cs.tertiary.withValues(alpha: 0.2),
                     width: 0.8,
                   ),
                 ),
@@ -821,7 +821,7 @@ class _Aria2Card extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.15),
+                            color: Colors.blue.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -841,7 +841,7 @@ class _Aria2Card extends StatelessWidget {
                       'Moteur de téléchargement multi-connexion haute performance',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: cs.onSurface.withOpacity(0.55),
+                        color: cs.onSurface.withValues(alpha: 0.55),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -879,7 +879,7 @@ class _Aria2Card extends StatelessWidget {
                     style: TextStyle(fontSize: 12)),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  backgroundColor: cs.tertiary.withOpacity(0.18),
+                  backgroundColor: cs.tertiary.withValues(alpha: 0.18),
                   foregroundColor: cs.tertiary,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
@@ -892,7 +892,7 @@ class _Aria2Card extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   side: BorderSide(
-                    color: cs.tertiary.withOpacity(0.3),
+                    color: cs.tertiary.withValues(alpha: 0.3),
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -930,19 +930,19 @@ class _Aria2Feature extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: cs.tertiary.withOpacity(0.08),
+        color: cs.tertiary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: cs.tertiary.withOpacity(0.8)),
+          Icon(icon, size: 11, color: cs.tertiary.withValues(alpha: 0.8)),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               fontSize: 10,
-              color: cs.onSurface.withOpacity(0.7),
+              color: cs.onSurface.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -982,11 +982,11 @@ class _SocialButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: isDark
-                ? cs.surfaceContainerHigh.withOpacity(0.8)
+                ? cs.surfaceContainerHigh.withValues(alpha: 0.8)
                 : cs.surfaceContainerLow,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: cs.outline.withOpacity(0.12),
+              color: cs.outline.withValues(alpha: 0.12),
               width: 0.8,
             ),
           ),
@@ -995,7 +995,7 @@ class _SocialButton extends StatelessWidget {
             children: [
               IconTheme(
                 data: IconThemeData(
-                  color: cs.onSurface.withOpacity(0.75),
+                  color: cs.onSurface.withValues(alpha: 0.75),
                   size: 18,
                 ),
                 child: icon,
@@ -1006,7 +1006,7 @@ class _SocialButton extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 9.5,
                   fontWeight: FontWeight.w500,
-                  color: cs.onSurface.withOpacity(0.55),
+                  color: cs.onSurface.withValues(alpha: 0.55),
                 ),
               ),
             ],
