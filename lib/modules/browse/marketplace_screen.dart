@@ -4870,7 +4870,7 @@ class _PickerTile extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 120),
                     decoration: BoxDecoration(
-                      color: sel ? const Color(0xFF4F46E5).withOpacity(0.2) : const Color(0xFF27272A),
+                      color: sel ? const Color(0xFF4F46E5).withValues(alpha: 0.2) : const Color(0xFF27272A),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: sel ? const Color(0xFF4F46E5) : Colors.transparent),
                     ),
@@ -4980,7 +4980,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
               child: Row(children: [
                 Container(
                   width: 32, height: 32,
-                  decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: const Color(0xFF4F46E5).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
                   child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8)),
                 ),
                 const SizedBox(width: 10),
@@ -4991,7 +4991,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                     onPressed: _resetAll,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      backgroundColor: const Color(0xFFF87171).withOpacity(0.1),
+                      backgroundColor: const Color(0xFFF87171).withValues(alpha: 0.1),
                       foregroundColor: const Color(0xFFF87171),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
@@ -5085,7 +5085,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
         duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF4F46E5).withOpacity(0.15) : const Color(0xFF27272A),
+          color: active ? const Color(0xFF4F46E5).withValues(alpha: 0.15) : const Color(0xFF27272A),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: active ? const Color(0xFF4F46E5) : Colors.transparent),
         ),
@@ -5116,15 +5116,15 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
         duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: value ? const Color(0xFF4F46E5).withOpacity(0.08) : const Color(0xFF27272A),
+          color: value ? const Color(0xFF4F46E5).withValues(alpha: 0.08) : const Color(0xFF27272A),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: value ? const Color(0xFF4F46E5).withOpacity(0.4) : Colors.transparent),
+          border: Border.all(color: value ? const Color(0xFF4F46E5).withValues(alpha: 0.4) : Colors.transparent),
         ),
         child: Row(children: [
           Container(
             width: 30, height: 30,
             decoration: BoxDecoration(
-              color: value ? const Color(0xFF4F46E5).withOpacity(0.2) : cs.surfaceContainerHigh,
+              color: value ? const Color(0xFF4F46E5).withValues(alpha: 0.2) : cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 16, color: value ? const Color(0xFF818CF8) : cs.onSurfaceVariant),
@@ -5159,7 +5159,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
         child: Container(
           width: 16, height: 16, margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)]),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)]),
         ),
       ),
     );
