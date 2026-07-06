@@ -171,12 +171,12 @@ class _CookieCardState extends State<_CookieCard> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withOpacity(0.5),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: hasCookie
-              ? cs.primary.withOpacity(0.4)
-              : cs.outline.withOpacity(0.15),
+              ? cs.primary.withValues(alpha: 0.4)
+              : cs.outline.withValues(alpha: 0.15),
         ),
       ),
       child: Column(
@@ -194,7 +194,7 @@ class _CookieCardState extends State<_CookieCard> {
                     height: 36,
                     decoration: BoxDecoration(
                       color: hasCookie
-                          ? cs.primary.withOpacity(0.12)
+                          ? cs.primary.withValues(alpha: 0.12)
                           : cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -240,7 +240,7 @@ class _CookieCardState extends State<_CookieCard> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.12),
+                        color: cs.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -290,12 +290,12 @@ class _CookieCardState extends State<_CookieCard> {
                       hintText: 'cf_clearance=xxx; session=yyy; …',
                       hintStyle: TextStyle(
                         fontSize: 11,
-                        color: cs.onSurfaceVariant.withOpacity(0.5),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide:
-                            BorderSide(color: cs.outline.withOpacity(0.4)),
+                            BorderSide(color: cs.outline.withValues(alpha: 0.4)),
                       ),
                       contentPadding: const EdgeInsets.all(10),
                       suffixIcon: IconButton(
