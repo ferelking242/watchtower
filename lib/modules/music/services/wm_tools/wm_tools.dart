@@ -40,7 +40,7 @@ class WindowManagerTools with WidgetsBindingObserver {
 
     await windowManager.waitUntilReadyToShow(
       const WindowOptions(
-        title: "Spotube",
+        title: "Watchtower",
         backgroundColor: Colors.transparent,
         minimumSize: Size(300, 700),
         titleBarStyle: TitleBarStyle.hidden,
