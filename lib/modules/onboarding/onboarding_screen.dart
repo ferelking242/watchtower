@@ -335,7 +335,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         decoration: BoxDecoration(
                           color: active
                               ? Colors.white
-                              : Colors.white.withOpacity(0.28),
+                              : Colors.white.withValues(alpha: 0.28),
                           borderRadius: BorderRadius.circular(3),
                         ),
                       );
@@ -409,9 +409,9 @@ class _ShowcasePageState extends State<_ShowcasePage>
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.black,
-                  Colors.black.withOpacity(0),
-                  Colors.black.withOpacity(0),
-                  Colors.black.withOpacity(0.88),
+                  Colors.black.withValues(alpha: 0),
+                  Colors.black.withValues(alpha: 0),
+                  Colors.black.withValues(alpha: 0.88),
                   Colors.black,
                 ],
                 stops: const [0.0, 0.15, 0.52, 0.80, 1.0],
@@ -444,7 +444,7 @@ class _ShowcasePageState extends State<_ShowcasePage>
                   Text(
                     'Anime · Manga · Films · Series',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 0.5,
@@ -454,7 +454,7 @@ class _ShowcasePageState extends State<_ShowcasePage>
                   Text(
                     'Tout ce que tu regardes et lis,\nau meme endroit.',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.82),
+                      color: Colors.white.withValues(alpha: 0.82),
                       fontSize: 16,
                       height: 1.55,
                     ),
@@ -563,9 +563,9 @@ class _SloganPageState extends State<_SloganPage>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.72),
-                  Colors.black.withOpacity(0.54),
-                  Colors.black.withOpacity(0.72),
+                  Colors.black.withValues(alpha: 0.72),
+                  Colors.black.withValues(alpha: 0.54),
+                  Colors.black.withValues(alpha: 0.72),
                 ],
                 stops: const [0.0, 0.5, 1.0],
               ),
@@ -592,7 +592,7 @@ class _SloganPageState extends State<_SloganPage>
                 Text(
                   'Un seul endroit pour tout ce\nque tu aimes.',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.55),
+                    color: Colors.white.withValues(alpha: 0.55),
                     fontSize: 17,
                     fontWeight: FontWeight.w400,
                     height: 1.5,
@@ -623,7 +623,7 @@ class _SloganPageState extends State<_SloganPage>
       text,
       style: TextStyle(
         color: dim
-            ? Colors.white.withOpacity(0.28)
+            ? Colors.white.withValues(alpha: 0.28)
             : Colors.white,
         fontSize: dim ? 52 : 72,
         fontWeight: FontWeight.w900,
@@ -763,7 +763,7 @@ class _Card extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(11),
-        color: item.color.withOpacity(0.25),
+        color: item.color.withValues(alpha: 0.25),
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -781,9 +781,9 @@ class _Card extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        item.color.withOpacity(0.90),
-                        item.color.withOpacity(0.52),
-                        item.color.withOpacity(0.18),
+                        item.color.withValues(alpha: 0.90),
+                        item.color.withValues(alpha: 0.52),
+                        item.color.withValues(alpha: 0.18),
                       ],
                       stops: const [0.0, 0.52, 1.0],
                     ),
@@ -803,7 +803,7 @@ class _Card extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.72),
+                    Colors.black.withValues(alpha: 0.72),
                   ],
                   stops: const [0.35, 1.0],
                 ),
@@ -824,7 +824,7 @@ class _Card extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: item.color.withOpacity(0.35),
+                    color: item.color.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Text(
@@ -908,7 +908,7 @@ class _PermissionsPage extends StatelessWidget {
             Text(
               'Watchtower a besoin de quelques acces\npour fonctionner correctement.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.52),
+                color: Colors.white.withValues(alpha: 0.52),
                 fontSize: 15,
                 height: 1.5,
               ),
@@ -942,14 +942,14 @@ class _PermissionsPage extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Divider(color: Colors.white.withOpacity(0.12)),
+                    child: Divider(color: Colors.white.withValues(alpha: 0.12)),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
                       'OPTIONNEL',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.28),
+                        color: Colors.white.withValues(alpha: 0.28),
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.5,
@@ -957,7 +957,7 @@ class _PermissionsPage extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: Divider(color: Colors.white.withOpacity(0.12)),
+                    child: Divider(color: Colors.white.withValues(alpha: 0.12)),
                   ),
                 ],
               ),
@@ -1025,11 +1025,11 @@ class _PermRow extends StatelessWidget {
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(dimmed ? 0.04 : 0.08),
+            color: Colors.white.withValues(alpha: dimmed ? 0.04 : 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon,
-              color: Colors.white.withOpacity(dimmed ? 0.35 : 0.7), size: 22),
+              color: Colors.white.withValues(alpha: dimmed ? 0.35 : 0.7), size: 22),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1038,13 +1038,13 @@ class _PermRow extends StatelessWidget {
             children: [
               Text(title,
                   style: TextStyle(
-                      color: Colors.white.withOpacity(dimmed ? 0.5 : 1.0),
+                      color: Colors.white.withValues(alpha: dimmed ? 0.5 : 1.0),
                       fontSize: 15,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(subtitle,
                   style: TextStyle(
-                      color: Colors.white.withOpacity(dimmed ? 0.25 : 0.42),
+                      color: Colors.white.withValues(alpha: dimmed ? 0.25 : 0.42),
                       fontSize: 12,
                       height: 1.4)),
             ],
@@ -1056,7 +1056,7 @@ class _PermRow extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFF06D6A0).withOpacity(0.15),
+              color: const Color(0xFF06D6A0).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check_rounded,
@@ -1072,10 +1072,10 @@ class _PermRow extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
                 color:
-                    Colors.white.withOpacity(busy ? 0.04 : (dimmed ? 0.05 : 0.10)),
+                    Colors.white.withValues(alpha: busy ? 0.04 : (dimmed ? 0.05 : 0.10)),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: Colors.white.withOpacity(dimmed ? 0.08 : 0.15),
+                    color: Colors.white.withValues(alpha: dimmed ? 0.08 : 0.15),
                     width: 1),
               ),
               child: busy
@@ -1087,7 +1087,7 @@ class _PermRow extends StatelessWidget {
                     )
                   : Text('Autoriser',
                       style: TextStyle(
-                          color: Colors.white.withOpacity(dimmed ? 0.4 : 1.0),
+                          color: Colors.white.withValues(alpha: dimmed ? 0.4 : 1.0),
                           fontSize: 13,
                           fontWeight: FontWeight.w600)),
             ),
@@ -1168,7 +1168,7 @@ class _LanguagePageState extends State<_LanguagePage> {
                   : 'We detected your device language as $primary. '
                     'Fine-tune your preferences below.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.58),
+                color: Colors.white.withValues(alpha: 0.58),
                 fontSize: 15,
                 height: 1.5,
               ),
@@ -1217,7 +1217,7 @@ class _LanguagePageState extends State<_LanguagePage> {
                   ? 'Pour les anime et films avec traduction disponible.'
                   : 'For anime and movies with available translations.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.42),
+                color: Colors.white.withValues(alpha: 0.42),
                 fontSize: 13,
               ),
             ),
@@ -1273,9 +1273,9 @@ class _LangCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.07),
+        color: Colors.white.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10), width: 1),
       ),
       child: Row(
         children: [
@@ -1283,7 +1283,7 @@ class _LangCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: Colors.white70, size: 22),
@@ -1297,7 +1297,7 @@ class _LangCard extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.45),
+                    color: Colors.white.withValues(alpha: 0.45),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
@@ -1317,7 +1317,7 @@ class _LangCard extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.42),
+                      color: Colors.white.withValues(alpha: 0.42),
                       fontSize: 12,
                       height: 1.4,
                     ),
@@ -1352,20 +1352,20 @@ class _AudioPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: selected
-              ? Colors.white.withOpacity(0.15)
-              : Colors.white.withOpacity(0.05),
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected
-                ? Colors.white.withOpacity(0.55)
-                : Colors.white.withOpacity(0.10),
+                ? Colors.white.withValues(alpha: 0.55)
+                : Colors.white.withValues(alpha: 0.10),
             width: selected ? 1.2 : 0.8,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : Colors.white.withOpacity(0.45),
+            color: selected ? Colors.white : Colors.white.withValues(alpha: 0.45),
             fontSize: 13,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
           ),
