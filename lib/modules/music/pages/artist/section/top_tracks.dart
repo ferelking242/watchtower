@@ -145,22 +145,25 @@ class ArtistPageTopTracks extends HookConsumerWidget {
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 10)),
-        SliverList.builder(
-          itemCount: topTracks.length,
-          itemBuilder: (context, index) {
-            final track = topTracks.elementAt(index);
-            return TrackTile(
-              index: index,
-              playlist: playlist,
-              track: track,
-              onTap: () async {
-                playPlaylist(
-                  topTracks.toList(),
-                  currentTrack: track,
-                );
-              },
-            );
-          },
+        SliverSkeletonizer(
+          enabled: topTracksQuery.isLoading,
+          child: SliverList.builder(
+            itemCount: topTracks.length,
+            itemBuilder: (context, index) {
+              final track = topTracks.elementAt(index);
+              return TrackTile(
+                index: index,
+                playlist: playlist,
+                track: track,
+                onTap: () async {
+                  playPlaylist(
+                    topTracks.toList(),
+                    currentTrack: track,
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     );
