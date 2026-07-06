@@ -106,7 +106,7 @@ class _ExtensionListTileWidgetState
             12 + MediaQuery.of(sheetCtx).padding.bottom,
           ),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isDark
