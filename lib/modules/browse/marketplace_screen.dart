@@ -15,6 +15,9 @@ import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
+import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -2112,6 +2115,9 @@ class _TypeTabState extends State<_TypeTab> {
       onRefresh: () => state._loadAll(bypassCache: true),
       child: CustomScrollView(
         slivers: [
+          // Plugins Spotube section — affiché uniquement dans le tab Music
+          if (tab == _kTabMusic)
+            const SliverToBoxAdapter(child: _SpotubePluginsSection()),
           if (entries.isEmpty)
             SliverFillRemaining(
               child: Center(
@@ -2945,6 +2951,382 @@ class _CardAction extends StatelessWidget {
     }
 
   
+// ─── Spotube Plugin Card (music marketplace) ───────────────────────────────────
+
+class _SpotubePluginCard extends ConsumerStatefulWidget {
+  final MetadataPluginRepository pluginRepo;
+  const _SpotubePluginCard({required this.pluginRepo});
+
+  @override
+  ConsumerState<_SpotubePluginCard> createState() => _SpotubePluginCardState();
+}
+
+class _SpotubePluginCardState extends ConsumerState<_SpotubePluginCard> {
+  bool _installing = false;
+
+  MetadataPluginRepository get _repo => widget.pluginRepo;
+
+  String get _displayName {
+    final name = _repo.name;
+    if (name.startsWith('spotube-plugin-')) {
+      return name
+          .replaceFirst('spotube-plugin-', '')
+          .replaceAll('-', ' ')
+          .trim()
+          .split(' ')
+          .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+          .join(' ');
+    }
+    return name.replaceAll('-', ' ').trim();
+  }
+
+  bool get _isOfficial => _repo.owner == 'KRTirtho';
+
+  String _topicLabel(String topic) => switch (topic) {
+        'spotube-metadata-plugin' => 'Metadata',
+        'spotube-audio-source-plugin' => 'Audio Source',
+        _ => topic,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final plugins = ref.watch(metadataPluginsProvider);
+    final pluginsNotifier = ref.watch(metadataPluginsProvider.notifier);
+
+    final isInstalled = plugins.asData?.value.plugins
+            .any((p) => p.repository == _repo.repoUrl) ??
+        false;
+
+    final topics = _repo.topics
+        .where((t) =>
+            t == 'spotube-metadata-plugin' || t == 'spotube-audio-source-plugin')
+        .map(_topicLabel)
+        .toList();
+
+    return GestureDetector(
+      onLongPress: isInstalled
+          ? () async {
+              final plugin = plugins.asData?.value.plugins
+                  .where((p) => p.repository == _repo.repoUrl)
+                  .firstOrNull;
+              if (plugin != null) {
+                await pluginsNotifier.removePlugin(plugin);
+              }
+            }
+          : null,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isInstalled
+                ? cs.primary.withValues(alpha: 0.35)
+                : cs.outlineVariant.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header row ──────────────────────────────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Plugin icon
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0288D1).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF0288D1).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.extension_rounded,
+                    size: 26,
+                    color: Color(0xFF0288D1),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _displayName,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${_repo.owner} · Plugin Spotube',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // ── Action button ────────────────────────────────────────
+                if (_installing)
+                  Container(
+                    width: 36,
+                    height: 36,
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.2, color: cs.primary),
+                  )
+                else if (!isInstalled)
+                  GestureDetector(
+                    onTap: () async {
+                      setState(() => _installing = true);
+                      try {
+                        final pluginConfig = await pluginsNotifier
+                            .downloadAndCachePlugin(_repo.repoUrl);
+                        if (!context.mounted) return;
+                        if (_isOfficial) {
+                          await pluginsNotifier.addPlugin(pluginConfig);
+                        } else {
+                          final allowed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Installer ce plugin ?'),
+                              content: Text(
+                                'Plugin tiers de ${_repo.owner}.\n\n'
+                                'Il accèdera aux APIs déclarées dans son manifest.\n\n'
+                                'Long-press sur la carte pour désinstaller.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(ctx, false),
+                                  child: const Text('Annuler'),
+                                ),
+                                FilledButton(
+                                  onPressed: () =>
+                                      Navigator.pop(ctx, true),
+                                  child: const Text('Installer'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (allowed == true && context.mounted) {
+                            await pluginsNotifier.addPlugin(pluginConfig);
+                          }
+                        }
+                      } catch (_) {
+                        // ignore install errors silently
+                      } finally {
+                        if (mounted) setState(() => _installing = false);
+                      }
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.download_rounded,
+                          size: 20, color: cs.onSurfaceVariant),
+                    ),
+                  )
+                else
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.check_rounded,
+                        size: 20, color: cs.primary),
+                  ),
+              ],
+            ),
+            // ── Description ─────────────────────────────────────────────
+            if (_repo.description.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                _repo.description,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant,
+                  height: 1.45,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 10),
+            // ── Tags ────────────────────────────────────────────────────
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                if (_isOfficial)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Officiel',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onPrimaryContainer,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                          color: Colors.blue.shade400
+                              .withValues(alpha: 0.45)),
+                    ),
+                    child: Text(
+                      'Tiers',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue.shade400,
+                      ),
+                    ),
+                  ),
+                ...topics.map(
+                  (t) => _TagChip(label: t, cs: cs),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Spotube Plugins Section (injecté dans le tab Music) ──────────────────────
+
+class _SpotubePluginsSection extends ConsumerWidget {
+  const _SpotubePluginsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final snapshot = ref.watch(metadataPluginRepositoriesProvider);
+    final repos = snapshot.asData?.value.items ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Section header ───────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0288D1).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.extension_rounded,
+                    size: 16, color: Color(0xFF0288D1)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Plugins Spotube',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              if (snapshot.isLoading && repos.isEmpty)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+        ),
+        // ── Cards ────────────────────────────────────────────────────────
+        if (repos.isEmpty && !snapshot.isLoading)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Text(
+              'Aucun plugin trouvé',
+              style: TextStyle(
+                  fontSize: 13, color: cs.onSurfaceVariant),
+            ),
+          )
+        else
+          ...repos.map((repo) => _SpotubePluginCard(pluginRepo: repo)),
+        // ── Divider before JS extensions ─────────────────────────────────
+        const Divider(height: 24, indent: 14, endIndent: 14),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5A623).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.code_rounded,
+                    size: 16, color: Color(0xFFF5A623)),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Extensions JS',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ─── Banner card (featured) ────────────────────────────────────────────────────
 
 class _BannerCard extends StatelessWidget {
