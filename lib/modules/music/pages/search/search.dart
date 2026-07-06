@@ -68,6 +68,9 @@ class SearchPage extends HookConsumerWidget {
       KVStoreService.setRecentSearches(
         current.where((e) => e != term).toList(),
       );
+      // Force a rebuild of the suggestions widget
+      ref.read(searchTermStateProvider.notifier).state =
+          ref.read(searchTermStateProvider);
     }
 
     return PopScope(
@@ -238,8 +241,6 @@ class SearchPage extends HookConsumerWidget {
                         },
                         onDelete: (term) {
                           clearHistory(term);
-                          // rebuild
-                          ref.read(searchTermStateProvider);
                         },
                       ),
                     ],

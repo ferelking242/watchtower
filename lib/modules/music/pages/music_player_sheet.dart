@@ -148,7 +148,7 @@ class _PlayerView extends ConsumerWidget {
         final available = constraints.maxHeight;
         final screenW = MediaQuery.of(context).size.width;
         // Cap album art: never more than 42% of available height or screen width
-        final artSize = (screenW - 48).clamp(0.0, available * 0.42);
+        final artSize = (screenW - 48).clamp(0.0, available * 0.42).toDouble();
 
         return SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
