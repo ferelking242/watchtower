@@ -992,7 +992,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   List<String> _detectLanguages(List<Chapter> chapters) {
     final langRx = RegExp(
-        r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA)\b',
+        r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA|'
+        r'Japanese|Chinese|Korean|Spanish|Portuguese|Russian|Arabic|German|'
+        r'Italian|Polish|Turkish|Vietnamese|Thai|Indonesian|Hindi|Dutch|'
+        r'Swedish|Finnish|Norwegian|Danish|Czech|Slovak|Romanian|Hungarian|'
+        r'Bulgarian|Croatian|Serbian|Ukrainian|Hebrew|Persian)\b',
         caseSensitive: false);
     final seen = <String>{};
     for (final ch in chapters) {
