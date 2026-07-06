@@ -419,7 +419,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
         cl['id'] != 'carousel' && cl['layout'] != 'category' && cl['id'] != 'catalogue'
       ).toList();
 
-      return NotificationListener<ScrollNotification>(
+      return Stack(
+        children: [
+          NotificationListener<ScrollNotification>(
         onNotification: (n) {
           if (n is ScrollUpdateNotification || n is ScrollEndNotification) {
             if (n.metrics.pixels >= n.metrics.maxScrollExtent - 400 &&
@@ -502,15 +504,19 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
             if (seeAll == false || (seeAll == null && isRanked)) {
               onSeeAllCb = null;
             } else if (seeAll == 'latest') {
-              onSeeAllCb = () => setState(() {
-                    _selectedIdx = _kLatestIdx;
-                    _mangaList.clear(); _page = 1; _hasNextPage = true;
-                  });
+              onSeeAllCb = () => Navigator.of(ctx).push(MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source: source, title: 'Derniers ajouts',
+                      type: _SectionKind.latest,
+                    ),
+                  ));
             } else if (seeAll == 'popular') {
-              onSeeAllCb = () => setState(() {
-                    _selectedIdx = _kPopularIdx;
-                    _mangaList.clear(); _page = 1; _hasNextPage = true;
-                  });
+              onSeeAllCb = () => Navigator.of(ctx).push(MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source: source, title: 'Populaire',
+                      type: _SectionKind.popular,
+                    ),
+                  ));
             } else {
               onSeeAllCb = () => Navigator.of(ctx).push(MaterialPageRoute(
                     builder: (_) => _WatchSectionPage(
@@ -569,10 +575,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                         _buildSectionHeader(ctx,
                           title: 'Derniers ajouts', accent: ctx.primaryColor,
                           icon: Icons.update_rounded,
-                          onSeeAll: () => setState(() {
-                            _selectedIdx = _kLatestIdx;
-                            _mangaList.clear(); _page = 1; _hasNextPage = true;
-                          }),
+                          onSeeAll: () => Navigator.of(ctx).push(MaterialPageRoute(
+                            builder: (_) => _WatchSectionPage(
+                              source: source, title: 'Derniers ajouts',
+                              type: _SectionKind.latest,
+                            ),
+                          )),
                         ),
                         _buildCompactRow(ctx, items),
                       ],
@@ -687,7 +695,25 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ), // CustomScrollView
-      ); // NotificationListener
+      ), // NotificationListener
+          // ── Floating search button (top-right, over carousel) ─────────────
+          Positioned(
+            top: _headerH + 10,
+            right: 14,
+            child: GestureDetector(
+              onTap: () => setState(() => _isSearching = true),
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ); // Stack
     }
 
     // ── Category chips strip ─────────────────────────────────────────────────
