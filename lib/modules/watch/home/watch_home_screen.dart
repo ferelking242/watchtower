@@ -2402,7 +2402,7 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
   @override
   void initState() {
     super.initState();
-    _filterList = widget.source.isLocal ? [] : getFilterList(source: widget.source);
+    _filterList = (widget.source.isLocal ?? false) ? [] : getFilterList(source: widget.source);
     _filters = List.from(_filterList);
     _scrollCtrl.addListener(_onScroll);
   }
