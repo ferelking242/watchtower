@@ -350,7 +350,7 @@ class _CategoriesTabState extends ConsumerState<CategoriesTab>
                                 Text(
                                   descController.text,
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.8),
+                                    color: Colors.white.withValues(alpha: 0.8),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -359,7 +359,7 @@ class _CategoriesTabState extends ConsumerState<CategoriesTab>
                           const SizedBox(width: 8),
                           Icon(
                             Icons.edit_outlined,
-                            color: Colors.white.withOpacity(0.6),
+                            color: Colors.white.withValues(alpha: 0.6),
                             size: 14,
                           ),
                         ],
@@ -587,7 +587,7 @@ class _CategoriesTabState extends ConsumerState<CategoriesTab>
                             Text(
                               meta.description!,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.78),
+                                color: Colors.white.withValues(alpha: 0.78),
                                 fontSize: 11,
                               ),
                               maxLines: 1,
@@ -598,7 +598,7 @@ class _CategoriesTabState extends ConsumerState<CategoriesTab>
                     ),
                     Icon(
                       Icons.edit_outlined,
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       size: 16,
                     ),
                   ],
