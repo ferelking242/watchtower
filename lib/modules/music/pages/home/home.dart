@@ -28,6 +28,7 @@ import 'package:auto_route/auto_route.dart';
       return SafeArea(
         bottom: false,
         child: Scaffold(
+          backgroundColor: theme.colorScheme.surface,
           body: CustomScrollView(
             controller: controller,
             slivers: [
