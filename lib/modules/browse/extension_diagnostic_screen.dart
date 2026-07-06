@@ -965,7 +965,7 @@ class _ExtListItemState extends State<_ExtListItem>
     }
 
     final bg = widget.selected
-        ? cs.primaryContainer.withOpacity(0.35)
+        ? cs.primaryContainer.withValues(alpha: 0.35)
         : Colors.transparent;
 
     return Material(
@@ -983,7 +983,7 @@ class _ExtListItemState extends State<_ExtListItem>
                     animation: _pulse,
                     builder: (_, __) => Icon(badgeIcon,
                         size: 14,
-                        color: badgeColor.withOpacity(0.4 + 0.6 * _pulse.value)),
+                        color: badgeColor.withValues(alpha: 0.4 + 0.6 * _pulse.value)),
                   )
                 : Icon(badgeIcon, size: 14, color: badgeColor),
             const SizedBox(width: 8),
@@ -1258,9 +1258,9 @@ class _ProgressHeader extends StatelessWidget {
 
             // Stats badges
             if (started && done > 0) ...[
-              _StatBadge(label: '✅ $okCount', color: Colors.green.shade600, bg: Colors.green.withOpacity(0.1)),
+              _StatBadge(label: '✅ $okCount', color: Colors.green.shade600, bg: Colors.green.withValues(alpha: 0.1)),
               const SizedBox(width: 4),
-              _StatBadge(label: '❌ $failCount', color: cs.error, bg: cs.errorContainer.withOpacity(0.3)),
+              _StatBadge(label: '❌ $failCount', color: cs.error, bg: cs.errorContainer.withValues(alpha: 0.3)),
               const SizedBox(width: 4),
               _StatBadge(label: '⏱ $elapsedLabel', color: cs.onSurfaceVariant, bg: cs.surfaceContainerHighest),
             ],
@@ -1482,7 +1482,7 @@ class _ExtDetailView extends StatelessWidget {
                     if (src.isNsfw == true) ...[
                       const SizedBox(width: 4),
                       _TagBadge(label: 'NSFW', cs: cs,
-                          color: cs.errorContainer.withOpacity(0.6),
+                          color: cs.errorContainer.withValues(alpha: 0.6),
                           textColor: cs.onErrorContainer),
                     ],
                   ]),
@@ -1497,8 +1497,8 @@ class _ExtDetailView extends StatelessWidget {
                       horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: allOk
-                        ? Colors.green.withOpacity(0.12)
-                        : cs.errorContainer.withOpacity(0.4),
+                        ? Colors.green.withValues(alpha: 0.12)
+                        : cs.errorContainer.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -1671,11 +1671,11 @@ class _StepCard extends StatelessWidget {
 
     final ok = result!.ok;
     final bg = ok
-        ? Colors.green.withOpacity(0.08)
-        : cs.errorContainer.withOpacity(0.25);
+        ? Colors.green.withValues(alpha: 0.08)
+        : cs.errorContainer.withValues(alpha: 0.25);
     final border = ok
-        ? Colors.green.withOpacity(0.3)
-        : cs.error.withOpacity(0.4);
+        ? Colors.green.withValues(alpha: 0.3)
+        : cs.error.withValues(alpha: 0.4);
     final fg = ok ? Colors.green.shade700 : cs.error;
 
     return _cardShell(
@@ -1703,14 +1703,14 @@ class _StepCard extends StatelessWidget {
             if (result!.count != null)
               Text('${result!.count} résultats',
                   style: TextStyle(
-                      fontSize: 10.5, color: fg.withOpacity(0.85)))
+                      fontSize: 10.5, color: fg.withValues(alpha: 0.85)))
             else if (result!.error != null)
               Expanded(
                 child: Text(
                   result!.error!,
                   style: TextStyle(
                       fontSize: 9.5,
-                      color: fg.withOpacity(0.85),
+                      color: fg.withValues(alpha: 0.85),
                       fontFamily: 'monospace'),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -1720,7 +1720,7 @@ class _StepCard extends StatelessWidget {
             Text(_fmtMs(result!.ms),
                 style: TextStyle(
                     fontSize: 10,
-                    color: fg.withOpacity(0.7))),
+                    color: fg.withValues(alpha: 0.7))),
           ]),
         ],
       ),
@@ -1772,9 +1772,9 @@ class _ErrorRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: cs.errorContainer.withOpacity(0.2),
+        color: cs.errorContainer.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.error.withOpacity(0.3)),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2158,7 +2158,7 @@ class _MarkdownLine extends StatelessWidget {
           style: TextStyle(
               fontSize: 10.5,
               fontFamily: 'monospace',
-              color: cs.onSurfaceVariant.withOpacity(0.6)),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
         ),
       );
     }
