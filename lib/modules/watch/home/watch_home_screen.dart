@@ -28,12 +28,8 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/isolate_service.dart';
-
-// ── 3-dot menu actions ────────────────────────────────────────────────────────
-enum _HomeMenuAction { openBrowser, settings, diagnostic }
 
 // ── WatchHomeScreen ──────────────────────────────────────────────────────────
 
@@ -97,8 +93,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   List<String> _suggestions = [];
   bool _isListView = false;
 
-  // ── MovieBox dock state ──────────────────────────────────────────────────
-  int _mbBottomNavIdx = 0; // 0=Home 1=NovelHub 2=FightZone 3=Downloads 4=Me
+  // ── Extension sub-tab state ──────────────────────────────────────────────
   int _mbSubTabIdx    = 0; // index into _kMbSubTabs list
 
   // MovieBox sub-tabs (from appTab.json subTabs in the APK)
@@ -148,25 +143,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   bool get supportsLatest =>
       isLocal ? true : ref.watch(supportsLatestProvider(source: source));
-
-  // ── 3-dot menu ───────────────────────────────────────────────────────────
-
-  Future<void> _handleHomeMenuAction(BuildContext ctx, _HomeMenuAction action) async {
-    switch (action) {
-      case _HomeMenuAction.openBrowser:
-        final baseUrl = ref.read(sourceBaseUrlProvider(source: source));
-        ctx.push('/mangawebview', extra: {
-          'url': baseUrl,
-          'sourceId': source.id.toString(),
-          'title': '',
-        });
-      case _HomeMenuAction.settings:
-        final res = await ctx.push('/extension_detail', extra: source);
-        if (res != null && mounted) setState(() => _source = res as Source);
-      case _HomeMenuAction.diagnostic:
-        ctx.push('/extensionDiagnostic', extra: source.itemType);
-    }
-  }
 
   // ── Filter ──────────────────────────────────────────────────────────────
 
@@ -424,15 +400,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     return Scaffold(
       backgroundColor: mbBg,
       extendBody: true,
-      bottomNavigationBar: _buildMbBottomDock(context),
-      body: _mbBottomNavIdx == 0
-          ? NestedScrollView(
-              controller: _scrollCtrl,
-              headerSliverBuilder: (ctx, innerBoxIsScrolled) =>
-                  [_buildSliverAppBar(ctx, innerBoxIsScrolled)],
-              body: _buildBody(context),
-            )
-          : _buildMbStubBody(context, _mbBottomNavIdx),
+      body: NestedScrollView(
+        controller: _scrollCtrl,
+        headerSliverBuilder: (ctx, innerBoxIsScrolled) =>
+            [_buildSliverAppBar(ctx, innerBoxIsScrolled)],
+        body: _buildBody(context),
+      ),
     );
   }
 
@@ -457,16 +430,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       elevation: 0,
       scrolledUnderElevation: 0,
       expandedHeight: 0,
-      // ── NO back button ────────────────────────────────────────────────────
-      automaticallyImplyLeading: false,
-      // ── Leading: MovieBox logo (30×full height) ───────────────────────────
-      leadingWidth: 46,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 12, top: 6, bottom: 6),
-        child: SvgPicture.asset('assets/icons/moviebox-logo.svg',
-            width: 30, height: 34),
-      ),
-      // ── Title: MovieBox search bar (rounded, semi-transparent white) ──────
+      // ── Back button (Watchtower native) ───────────────────────────────────
+      automaticallyImplyLeading: true,
+      iconTheme: const IconThemeData(color: Colors.white),
+      // ── Title: search bar ────────────────────────────────────────────────
       titleSpacing: 0,
       title: GestureDetector(
         onTap: () => setState(() => _isSearching = true),
@@ -510,44 +477,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
           ),
         ),
       ),
-      // ── Actions: settings popup only ─────────────────────────────────────
-      actions: [
-        if (!isLocal)
-          Builder(
-            builder: (actCtx) => ArrowPopupMenuButton<_HomeMenuAction>(
-              padding: const EdgeInsets.all(4),
-              icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 22),
-              onSelected: (action) => _handleHomeMenuAction(actCtx, action),
-              itemBuilder: (menuCtx) => [
-                PopupMenuItem(
-                  value: _HomeMenuAction.openBrowser,
-                  child: Row(children: [
-                    const Icon(Icons.open_in_browser_rounded, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Ouvrir dans le navigateur', style: TextStyle(fontSize: 14)),
-                  ]),
-                ),
-                PopupMenuItem(
-                  value: _HomeMenuAction.diagnostic,
-                  child: Row(children: [
-                    const Icon(Icons.bug_report_outlined, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Diagnostic', style: TextStyle(fontSize: 14)),
-                  ]),
-                ),
-                PopupMenuItem(
-                  value: _HomeMenuAction.settings,
-                  child: Row(children: [
-                    const Icon(Icons.settings_outlined, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Paramètres', style: TextStyle(fontSize: 14)),
-                  ]),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(width: 4),
-      ],
+      // ── No actions (menu removed per design) ─────────────────────────────
+      actions: const [],
       // ── Bottom: MovieBox MagicIndicator-style sub-tabs ────────────────────
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(44),
@@ -1070,13 +1001,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     if (items.isEmpty) return const SizedBox(height: 4);
     final capped = items.take(15).toList();
     return SizedBox(
-      height: 210,
+      height: 196,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: capped.length,
         itemBuilder: (_, i) => _RankedCard(
-          manga: capped[i], source: source, rank: i + 1,
+          manga: capped[i], source: source,
         ),
       ),
     );
@@ -1595,107 +1526,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ── MovieBox Bottom Dock (from activity_main.xml + tab_bottom.xml) ────────
-  // Total height: 80dp. Icons: 24×24dp. Label: 10sp, marginBottom 8dp.
-  // Center tab (Fight Zone): big image 72×80dp, no label.
-  // Background: #1C1E21 (dark with slight arc shape illusion).
-  // ══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildMbBottomDock(BuildContext ctx) {
-    // MovieBox exact 4-tab dock: Accueil, TV courte, Téléchargement, Moi
-    // Active tab = green filled PILL container behind icon
-    const dockBg    = Color(0xFF1C1E21);
-    const brandG    = Color(0xFF07b84e);
-    const inactiveC = Color(0x80FFFFFF);
-
-    final items = <({IconData icon, String label, int navIdx, int? badge})>[
-      (icon: Icons.home_rounded,     label: 'Accueil',        navIdx: 0, badge: null),
-      (icon: Icons.tv_rounded,       label: 'TV courte',      navIdx: 1, badge: null),
-      (icon: Icons.download_rounded, label: 'Téléchargement', navIdx: 3, badge: 38),
-      (icon: Icons.person_rounded,   label: 'Moi',            navIdx: 4, badge: null),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: dockBg,
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.07), width: 0.5)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            children: items.map((item) {
-              final active = _mbBottomNavIdx == item.navIdx;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _mbBottomNavIdx = item.navIdx),
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: active ? brandG : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Icon(item.icon, size: 22,
-                                color: active ? Colors.white : inactiveC),
-                          ),
-                          if (item.badge != null)
-                            Positioned(
-                              top: -2, right: -2,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: brandG,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text('${item.badge}',
-                                    style: const TextStyle(fontSize: 8,
-                                        fontWeight: FontWeight.w700, color: Colors.white)),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(item.label,
-                          style: TextStyle(fontSize: 10,
-                              color: active ? Colors.white : inactiveC,
-                              fontWeight: active ? FontWeight.w600 : FontWeight.w400)),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Stub body — no inner Scaffold (fixes Scaffold-in-Scaffold crash) ──────
-  Widget _buildMbStubBody(BuildContext ctx, int navIdx) {
-    const labels = ['Accueil', 'TV courte', '', 'Téléchargement', 'Moi'];
-    final label  = navIdx < labels.length ? labels[navIdx] : '';
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.construction_rounded, size: 48, color: Color(0x3DFFFFFF)),
-          const SizedBox(height: 12),
-          Text('$label — bientôt disponible',
-              style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 14)),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Small grid/list toggle button (used in filter sheet) ────────────────────────
@@ -2027,8 +1857,7 @@ class _HeroSlide extends ConsumerWidget {
 class _RankedCard extends ConsumerStatefulWidget {
   final MManga manga;
   final Source source;
-  final int rank;
-  const _RankedCard({required this.manga, required this.source, required this.rank});
+  const _RankedCard({required this.manga, required this.source});
 
   @override
   ConsumerState<_RankedCard> createState() => _RankedCardState();
@@ -2055,94 +1884,71 @@ class _RankedCardState extends ConsumerState<_RankedCard>
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers)
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
-    final rank = widget.rank;
-    // Rank color: gold / silver / bronze / rest
-    final rankColor = rank == 1
-        ? const Color(0xFFFFD700)
-        : rank == 2
-            ? const Color(0xFFC0C0C0)
-            : rank == 3
-                ? const Color(0xFFCD7F32)
-                : Theme.of(context).textTheme.bodySmall?.color
-                    ?.withValues(alpha: 0.4) ?? Colors.grey.shade600;
-
-    return GestureDetector(
-      onTapDown: (_) => _pressCtrl.forward(),
-      onTapUp: (_) async {
-        await _pressCtrl.reverse();
-        if (widget.manga.link != null && mounted) {
-          pushToMangaReaderDetail(
-            ref: ref, context: context, getManga: widget.manga,
-            lang: widget.source.lang!, source: widget.source.name!,
-            itemType: widget.source.itemType, sourceId: widget.source.id,
-          );
-        }
-      },
-      onTapCancel: () => _pressCtrl.reverse(),
-      child: ScaleTransition(
-        scale: _scale,
-        child: Padding(
-          padding: const EdgeInsets.only(right: 4),
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTapDown: (_) => _pressCtrl.forward(),
+        onTapUp: (_) async {
+          await _pressCtrl.reverse();
+          if (widget.manga.link != null && mounted) {
+            pushToMangaReaderDetail(
+              ref: ref, context: context, getManga: widget.manga,
+              lang: widget.source.lang!, source: widget.source.name!,
+              itemType: widget.source.itemType, sourceId: widget.source.id,
+            );
+          }
+        },
+        onTapCancel: () => _pressCtrl.reverse(),
+        child: ScaleTransition(
+          scale: _scale,
           child: SizedBox(
-            width: 112,
-            child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Big rank number
-              SizedBox(
-                width: 36,
-                child: Text(
-                  '$rank',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: rank < 10 ? 46 : 38,
-                    fontWeight: FontWeight.w900,
-                    color: rankColor,
-                    height: 1.0,
-                    letterSpacing: -2,
-                    shadows: [
-                      Shadow(
-                        color: rankColor.withValues(alpha: 0.3),
-                        blurRadius: 8, offset: const Offset(1, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 3),
-              // Portrait card
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: imgUrl.isNotEmpty
-                            ? Image(image: cover, fit: BoxFit.cover,
-                                width: double.infinity,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: Theme.of(context).colorScheme
-                                      .surfaceContainerHighest,
-                                  child: const Icon(Icons.movie_outlined,
-                                      size: 28, color: Colors.white38),
-                                ))
-                            : Container(
-                                color: Theme.of(context).colorScheme
-                                    .surfaceContainerHighest,
-                                child: const Icon(Icons.movie_outlined,
-                                    size: 28, color: Colors.white38)),
+            width: 116,
+            height: 172,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  imgUrl.isNotEmpty
+                      ? Image(image: cover, fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: const Icon(Icons.play_circle_outline_rounded,
+                                size: 42, color: Colors.white24),
+                          ))
+                      : Container(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          child: const Icon(Icons.play_circle_outline_rounded,
+                              size: 42, color: Colors.white24)),
+                  // Gradient for title legibility
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.78),
+                          ],
+                          stops: const [0.42, 1.0],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(widget.manga.name ?? '',
+                  ),
+                  // Title at bottom
+                  Positioned(
+                    bottom: 9, left: 10, right: 10,
+                    child: Text(widget.manga.name ?? '',
                         style: const TextStyle(
-                            fontSize: 10, fontWeight: FontWeight.w600, height: 1.25),
+                          color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700,
+                          height: 1.3,
+                          shadows: [Shadow(color: Colors.black87, blurRadius: 8)],
+                        ),
                         maxLines: 2, overflow: TextOverflow.ellipsis),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
             ),
           ),
         ),
