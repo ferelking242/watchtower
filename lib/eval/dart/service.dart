@@ -32,6 +32,8 @@ class MProvider {
   Future<String> getHtmlContent(String name, String url) async => '';
   Future<String> cleanHtmlContent(String html) async => '';
   List<dynamic> getFilterList() => [];
+  @override
+  Future<List<String>> getSuggestions(String query) async => [];
   List<dynamic> getSourcePreferences() => [];
 }
 ''';
@@ -402,6 +404,9 @@ class DartExtensionService implements ExtensionService {
       return [];
     }
   }
+
+  @override
+  Future<List<String>> getSuggestions(String query) async => [];
 
   @override
   Future<MPages> getCustomList(String id, int page) async {
