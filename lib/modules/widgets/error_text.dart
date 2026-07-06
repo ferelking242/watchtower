@@ -67,7 +67,7 @@ class ErrorText extends StatelessWidget {
                       },
                 icon: Icon(
                   Icons.content_copy_rounded,
-                  color: cs.onSurfaceVariant.withOpacity(0.75),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.75),
                 ),
               ),
             ],
