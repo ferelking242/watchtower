@@ -447,7 +447,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                     final items = d?.list ?? [];
                     if (items.isEmpty) return _buildHeroSkeleton(c);
                     return RepaintBoundary(child: _WatchHeroCarousel(
-                        mangas: items, source: source, topPadding: _headerH));
+                        mangas: items, source: source, topPadding: _headerH,
+                        onSearchTap: () => setState(() => _isSearching = true)));
                   },
                   loading: () => _buildHeroSkeleton(c),
                   error: (_, __) {
@@ -457,7 +458,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                         final items = d?.list ?? [];
                         if (items.isEmpty) return _buildHeroSkeleton(c);
                         return RepaintBoundary(child: _WatchHeroCarousel(
-                            mangas: items.take(8).toList(), source: source, topPadding: _headerH));
+                            mangas: items.take(8).toList(), source: source, topPadding: _headerH,
+                        onSearchTap: () => setState(() => _isSearching = true)));
                       },
                       loading: () => _buildHeroSkeleton(c),
                       error: (_, __) => _buildHeroSkeleton(c),
@@ -471,12 +473,26 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                   final items = d?.list ?? [];
                   if (items.isEmpty) return _buildHeroSkeleton(c);
                   return RepaintBoundary(child: _WatchHeroCarousel(
-                      mangas: items.take(8).toList(), source: source, topPadding: _headerH));
+                      mangas: items.take(8).toList(), source: source, topPadding: _headerH,
+                        onSearchTap: () => setState(() => _isSearching = true)));
                 },
                 loading: () => _buildHeroSkeleton(c),
                 error: (_, __) => _buildHeroSkeleton(c),
               );
             }),
+          ),
+
+          // ── Tab pills (FightZone / Movie / TV Shows / Popular) ───────────
+          SliverToBoxAdapter(
+            child: _WatchHomeTabPills(
+              selectedIdx: _mbSubTabIdx,
+              onChanged: (i) => setState(() {
+                _mbSubTabIdx = i;
+                _selectedIdx = _kMbSubTabs[i].watchtowerIdx;
+                _isFiltering = false;
+                _mangaList.clear(); _page = 1; _hasNextPage = true;
+              }),
+            ),
           ),
 
           // ── Catégories chips ─────────────────────────────────────────────
@@ -696,22 +712,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
         ],
       ), // CustomScrollView
       ), // NotificationListener
-          // ── Floating search button (top-right, over carousel) ─────────────
-          Positioned(
-            top: _headerH + 10,
-            right: 14,
-            child: GestureDetector(
-              onTap: () => setState(() => _isSearching = true),
-              child: Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
-              ),
-            ),
-          ),
+
         ],
       ); // Stack
     }
@@ -2034,16 +2035,73 @@ class _WatchSubTabRow extends StatelessWidget {
   }
 }
 
+// ── Home tab pill row (below carousel) ───────────────────────────────────────
+
+class _WatchHomeTabPills extends StatelessWidget {
+  final int selectedIdx;
+  final ValueChanged<int> onChanged;
+  static const _tabs = ['FightZone', 'Movie', 'TV Shows', 'Popular'];
+  const _WatchHomeTabPills({required this.selectedIdx, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(left: 16, top: 6, bottom: 6),
+        itemCount: _tabs.length,
+        itemBuilder: (_, i) {
+          final active = selectedIdx == i;
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: GestureDetector(
+              onTap: () => onChanged(i),
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 180),
+                scale: active ? 1.06 : 1.0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: active
+                        ? Border.all(color: Colors.white, width: 1.5)
+                        : Border.all(color: Colors.transparent, width: 1.5),
+                  ),
+                  child: Text(
+                    _tabs[i],
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                      color: active
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.50),
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 // ── Cinematic hero carousel (accueil style, adapted for MManga) ───────────────
 
 class _WatchHeroCarousel extends ConsumerStatefulWidget {
   final List<MManga> mangas;
   final Source source;
   final double topPadding;
+  final VoidCallback? onSearchTap;
   const _WatchHeroCarousel({
     required this.mangas,
     required this.source,
     this.topPadding = 0,
+    this.onSearchTap,
   });
 
   @override
@@ -2100,13 +2158,20 @@ class _WatchHeroCarouselState extends ConsumerState<_WatchHeroCarousel> {
     final totalH = cardH + widget.topPadding;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
 
-    return SizedBox(
-      height: totalH,
-      child: PageView.builder(
-        controller: _ctrl,
-        itemCount: widget.mangas.length,
-        onPageChanged: (i) => setState(() => _page = i),
-        itemBuilder: (ctx, i) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(28),
+        bottomRight: Radius.circular(28),
+      ),
+      child: SizedBox(
+        height: totalH,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _ctrl,
+              itemCount: widget.mangas.length,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemBuilder: (ctx, i) {
           final manga   = widget.mangas[i];
           final headers = ref.watch(headersProvider(
               source: widget.source.name!,
@@ -2221,7 +2286,51 @@ class _WatchHeroCarouselState extends ConsumerState<_WatchHeroCarousel> {
               ],
             ),
           );
-        },
+              },
+            ),
+            // ── Back button (←) ──────────────────────────────────────────────
+            Positioned(
+              top: widget.topPadding + 10,
+              left: 14,
+              child: _CarouselIconButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onTap: () => Navigator.maybePop(context),
+              ),
+            ),
+            // ── Search button (🔍) — replaces ··· ──────────────────────────
+            Positioned(
+              top: widget.topPadding + 10,
+              right: 14,
+              child: _CarouselIconButton(
+                icon: Icons.search_rounded,
+                onTap: () => widget.onSearchTap?.call(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Carousel icon button (frosted circle) ─────────────────────────────────────
+
+class _CarouselIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _CarouselIconButton({required this.icon, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.40),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
       ),
     );
   }
