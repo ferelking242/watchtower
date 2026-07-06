@@ -98,10 +98,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   // MovieBox sub-tabs — only distinct views (no duplicate Popular tabs)
   static const _kMbSubTabs = [
-    (label: '🤼\u202FFightZone', watchtowerIdx: 0),
-    (label: 'Movie',             watchtowerIdx: 0),
-    (label: 'TV Shows',          watchtowerIdx: 2),
-    (label: 'Popular',           watchtowerIdx: 1),
+    (label: 'FightZone', watchtowerIdx: 0),
+    (label: 'Movie',     watchtowerIdx: 0),
+    (label: 'TV Shows',  watchtowerIdx: 2),
+    (label: 'Popular',   watchtowerIdx: 1),
   ];
 
   @override
@@ -711,20 +711,35 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     }
 
     // ── Category chips strip ─────────────────────────────────────────────────
+    // Style MovieBox : tuiles 120×68 avec l'affiche du premier item chargé
+    // via Consumer en fond, dégradé sombre + nom centré.
+    // Si aucune image n'est disponible → fallback couleur de la section.
 
     Widget _buildCategoryChips(BuildContext ctx, List<Map<String, dynamic>> cats) {
-      // MovieBox exact: rectangular image-background tiles, dark overlay, text at bottom
       return SizedBox(
-        height: 68,
+        height: 76,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
           itemCount: cats.length,
           itemBuilder: (_, i) {
-            final cl = cats[i];
-            final listId   = cl['id'] as String;
-            final listName = cl['name'] as String? ?? listId;
-            final imgUrl   = cl['imageUrl'] as String? ?? '';
+            final cl       = cats[i];
+            final listId   = cl['id']       as String;
+            final listName = cl['name']     as String? ?? listId;
+            final hexColor = cl['color']    as String? ?? '#1E2126';
+            final extImg   = cl['imageUrl'] as String? ?? '';
+
+            // Couleur de fallback parsée depuis l'extension
+            Color fallbackColor;
+            try {
+              final h = hexColor.replaceAll('#', '');
+              fallbackColor = h.length == 6
+                  ? Color(int.parse('FF$h', radix: 16))
+                  : const Color(0xFF1E2126);
+            } catch (_) {
+              fallbackColor = const Color(0xFF1E2126);
+            }
+
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: GestureDetector(
@@ -734,37 +749,81 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                     type: _SectionKind.custom, customListId: listId,
                   ),
                 )),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: SizedBox(
-                    width: 115, height: 60,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (imgUrl.isNotEmpty)
-                          Image.network(imgUrl, fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF1E2126)))
-                        else
-                          const ColoredBox(color: Color(0xFF1E2126)),
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                              colors: [Colors.black.withValues(alpha: 0.25), Colors.black.withValues(alpha: 0.70)],
+                // Consumer : charge le 1er item de la section pour son affiche
+                child: Consumer(
+                  builder: (c, ref, _) {
+                    String bgUrl = extImg;
+                    if (bgUrl.isEmpty) {
+                      final snap = ref.watch(
+                          getCustomListProvider(source: source, listId: listId, page: 1));
+                      bgUrl = snap.maybeWhen(
+                        data: (d) {
+                          final first = d?.list.firstOrNull;
+                          return first?.imageUrl ?? '';
+                        },
+                        orElse: () => '',
+                      );
+                    }
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(9),
+                      child: SizedBox(
+                        width: 120, height: 68,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // ── Fond : affiche ou couleur de la section ─────────
+                            if (bgUrl.isNotEmpty)
+                              Image.network(
+                                bgUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    ColoredBox(color: fallbackColor),
+                              )
+                            else
+                              ColoredBox(color: fallbackColor),
+
+                            // ── Dégradé sombre — lisibilité du label ────────────
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.30),
+                                    Colors.black.withValues(alpha: 0.72),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
+
+                            // ── Label centré ────────────────────────────────────
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                child: Text(
+                                  listName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.2,
+                                    shadows: [
+                                      Shadow(
+                                          color: Colors.black,
+                                          blurRadius: 10),
+                                    ],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        Positioned(
-                          bottom: 7, left: 10, right: 4,
-                          child: Text(listName,
-                              style: const TextStyle(color: Colors.white, fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  shadows: [Shadow(color: Colors.black54, blurRadius: 6)]),
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             );
@@ -1911,7 +1970,7 @@ class _WatchHomeHeader extends StatelessWidget {
 class _WatchSubTabRow extends StatelessWidget {
   final int selectedIdx;
   final ValueChanged<int> onChanged;
-  static const _tabs = ['🤼\u202FFightZone', 'Movie', 'TV Shows', 'Popular'];
+  static const _tabs = ['FightZone', 'Movie', 'TV Shows', 'Popular'];
   const _WatchSubTabRow({required this.selectedIdx, required this.onChanged});
 
   @override
