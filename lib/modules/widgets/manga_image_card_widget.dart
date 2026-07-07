@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -92,6 +93,21 @@ class MangaImageCardWidget extends ConsumerWidget {
                   cacheMaxAge: const Duration(days: 3650),
                 ),
           onTap: () {
+            // Reel-type links (e.g. RedGIFs) open in WatchReelFeedScreen.
+            final link = getMangaDetail!.link;
+            if (link != null && link.startsWith('{')) {
+              try {
+                final data = jsonDecode(link) as Map<String, dynamic>;
+                if (data['type'] == 'reel') {
+                  context.pushNamed('reelFeed', extra: {
+                    'source': source,
+                    'listId': (data['listId'] as String?) ?? 'trending',
+                    'startGifId': data['gifId'] as String?,
+                  });
+                  return;
+                }
+              } catch (_) {}
+            }
             pushToMangaReaderDetail(
               ref: ref,
               context: context,
