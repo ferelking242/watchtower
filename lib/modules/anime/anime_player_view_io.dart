@@ -110,16 +110,11 @@ class _AnimePlayerViewState extends riv.ConsumerState<AnimePlayerView> {
         _infoHashList = infoHashList;
         if (videos.isEmpty && !(episode.manga.value!.isLocalArchive ?? false)) {
           return Scaffold(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            appBar: AppBar(
-              title: const Text(''),
-              leading: BackButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              ),
+            backgroundColor: Colors.black,
+            body: _EmptyEpisodeView(
+              onRetry: () => ref.invalidate(getVideoListProvider(episode: episode)),
+              onBack: () => Navigator.pop(context),
             ),
-            body: const Center(child: Text("Video list is empty")),
           );
         }
 
@@ -1460,12 +1455,13 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           ),
           const SizedBox(height: 30),
           ...videoSubtitleLast.toSet().toList().map((sub) {
-            final title =
+            final rawTitle =
                 sub.title ??
                 sub.subtitle?.title ??
                 sub.subtitle?.language ??
                 sub.subtitle?.channels ??
                 "None";
+            final title = rawTitle == "None" ? "None" : _normTrackLabel(rawTitle);
 
             final selected =
                 (title ==
@@ -1586,14 +1582,15 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
       padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
       child: Column(
         children: videoAudio.toSet().toList().map((aud) {
-          final title =
+          final rawTitle =
               aud.title ??
               aud.audio?.title ??
               aud.audio?.language ??
               aud.audio?.channels ??
               "None";
+          final title = rawTitle == "None" ? "None" : _normTrackLabel(rawTitle);
           final selected =
-              (aud.audio == audio) || (audio.id == "no" && title == "None");
+              (aud.audio == audio) || (audio.id == "no" && rawTitle == "None");
           return GestureDetector(
             onTap: () {
               Navigator.pop(context);
@@ -2419,7 +2416,8 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
           child: textWidget('Désactivé', currentSub.id == 'no'),
         ));
         for (final track in tracks) {
-          final label = track.title ?? track.language ?? '';
+          final rawLabel = track.title ?? track.language ?? '';
+          final label = _normTrackLabel(rawLabel);
           items.add(PopupMenuItem<String>(
             value: track.id,
             onTap: () => _player.setSubtitleTrack(track),
@@ -2431,7 +2429,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
             for (final sub in video.subtitles ?? []) {
               if (sub.file == null || sub.file!.isEmpty) continue;
               final file = sub.file!;
-              final lbl = sub.label ?? file;
+              final lbl = _normTrackLabel(sub.label ?? file);
               items.add(PopupMenuItem<String>(
                 value: file,
                 onTap: () => _player.setSubtitleTrack(
@@ -2471,8 +2469,9 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
         final items = <PopupMenuEntry<String>>[];
         final currentAudio = _player.state.track.audio;
         for (final track in _player.state.tracks.audio) {
-          final label = track.title ?? track.language ?? track.channels ?? '';
-          if (label.isEmpty) continue;
+          final rawLabel = track.title ?? track.language ?? track.channels ?? '';
+          if (rawLabel.isEmpty) continue;
+          final label = _normTrackLabel(rawLabel);
           items.add(PopupMenuItem<String>(
             value: track.id,
             onTap: () => _player.setAudioTrack(track),
@@ -2485,7 +2484,7 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
             for (final audio in video.audios ?? []) {
               if (audio.file == null || audio.file!.isEmpty) continue;
               if (!seen.add(audio.file!)) continue;
-              final lbl = audio.label ?? audio.file!;
+              final lbl = _normTrackLabel(audio.label ?? audio.file!);
               items.add(PopupMenuItem<String>(
                 value: audio.file!,
                 onTap: () => _player.setAudioTrack(
@@ -3132,6 +3131,45 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
   Widget build(BuildContext context) {
     return Scaffold(body: _videoPlayer(context));
   }
+}
+
+/// Normalizes a raw subtitle/audio track label to a readable name with flag emoji.
+String _normTrackLabel(String raw) {
+  if (raw.isEmpty) return raw;
+  var s = raw.trim();
+  var lc = s.toLowerCase();
+  for (final sfx in [' dubbed', ' subbed', ' dub', ' sub', ' audio']) {
+    if (lc.endsWith(sfx)) {
+      s = s.substring(0, s.length - sfx.length).trim();
+      lc = s.toLowerCase();
+      break;
+    }
+  }
+  if (lc.isEmpty) return raw;
+  final flag = langFlagEmoji(lc);
+  if (flag.isNotEmpty && flag != '🌐') {
+    final name = completeLanguageName(lc);
+    return '$flag $name';
+  }
+  const nameToCode = {
+    'french': 'fr', 'english': 'en', 'japanese': 'ja', 'spanish': 'es',
+    'german': 'de', 'portuguese': 'pt', 'italian': 'it', 'korean': 'ko',
+    'chinese': 'zh', 'arabic': 'ar', 'russian': 'ru', 'turkish': 'tr',
+    'hindi': 'hi', 'indonesian': 'id', 'polish': 'pl', 'dutch': 'nl',
+    'vietnamese': 'vi', 'thai': 'th', 'greek': 'el', 'swedish': 'sv',
+    'danish': 'da', 'norwegian': 'no', 'finnish': 'fi', 'hebrew': 'he',
+    'czech': 'cs', 'hungarian': 'hu', 'romanian': 'ro', 'ukrainian': 'uk',
+    'tagalog': 'tl', 'malay': 'ms', 'tamil': 'ta', 'telugu': 'te',
+    'latin american spanish': 'es-419', 'brazilian portuguese': 'pt-br',
+    'brazilian': 'pt-br', 'castilian': 'es', 'catalan': 'ca',
+  };
+  final code = nameToCode[lc];
+  if (code != null && code.isNotEmpty) {
+    final f = langFlagEmoji(code);
+    final name = completeLanguageName(code);
+    return '$f $name';
+  }
+  return s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1)}' : raw;
 }
 
 Widget seekIndicatorTextWidget(Duration duration, Duration currentPosition) {
@@ -4100,6 +4138,101 @@ class _PanelTab extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _EmptyEpisodeView extends StatelessWidget {
+  final VoidCallback onRetry;
+  final VoidCallback onBack;
+  const _EmptyEpisodeView({required this.onRetry, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 20),
+                onPressed: onBack,
+              ),
+            ),
+          ),
+        ),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.movie_filter_outlined,
+                    color: Colors.white24,
+                    size: 52,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  '404',
+                  style: TextStyle(
+                    color: Colors.white12,
+                    fontSize: 72,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -4,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Épisode introuvable',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'La source n\'a retourné aucune vidéo pour cet épisode.',
+                  style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.5),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 36),
+                ElevatedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Réessayer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      side: const BorderSide(color: Colors.white24),
+                    ),
+                    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
