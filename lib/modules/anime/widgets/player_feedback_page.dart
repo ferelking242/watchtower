@@ -70,7 +70,7 @@ class _PlayerFeedbackPageState extends State<PlayerFeedbackPage> {
     final uri = Uri.parse(
       'https://github.com/ferelking242/watchtower/issues/new?labels=bug&title=${Uri.encodeComponent('[Player] $cat')}&body=$body',
     );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (!await launchUrl(uri, mode: LaunchMode.inAppWebView)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Impossible d\'ouvrir GitHub')),
