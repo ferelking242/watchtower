@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,32 @@ import 'blend_level_state_provider.dart';
 import 'flex_scheme_color_state_provider.dart';
 import 'pure_black_dark_mode_state_provider.dart';
 import 'app_font_family.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Platform-aware font fallback.
+//
+// Problem: fontFamilyFallback: ['Roboto', 'sans-serif', ...] works on Android
+// because 'sans-serif' maps to Noto Sans, which covers Arabic, Devanagari,
+// Thai, CJK, etc. On iOS, 'sans-serif' maps to Helvetica Neue / SF Pro, which
+// only covers Latin/Greek/Cyrillic. The other fonts in the list (Roboto,
+// Noto Color Emoji, Segoe UI Emoji) don't exist on iOS either. When Flutter
+// exhausts the fallback list on iOS without finding a glyph, it renders □
+// boxes instead of falling through to the OS font cascade.
+//
+// Fix: on iOS/macOS, pass an *empty* fallback list. This tells the platform
+// text engine to use its own internal font cascade, which covers all Unicode
+// scripts natively (GeezaPro for Arabic, Kohinoor Devanagari for Hindi, etc.).
+// On Android/Web/Desktop, keep 'sans-serif' → Noto Sans for full coverage.
+// ─────────────────────────────────────────────────────────────────────────────
+List<String> get _platformFontFallback {
+  if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+    // Empty list → let iOS/macOS native cascade handle all scripts.
+    return const [];
+  }
+  // Android: 'sans-serif' → Noto Sans → full Unicode coverage.
+  // Web/Desktop: best-effort cross-platform fonts.
+  return const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji'];
+}
 
 /// Provides the light theme for the app, recomputed only when
 /// flex scheme colors, blend level, or font family change.
@@ -30,9 +58,10 @@ final lightThemeProvider = Provider<ThemeData>((ref) {
     useMaterial3: true,
     fontFamily: fontFamily,
   );
+  final fallback = _platformFontFallback;
   return base.copyWith(
-    textTheme: base.textTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
-    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    textTheme: base.textTheme.apply(fontFamilyFallback: fallback),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: fallback),
   );
 });
 
@@ -64,8 +93,9 @@ final darkThemeProvider = Provider<ThemeData>((ref) {
     useMaterial3: true,
     fontFamily: fontFamily,
   );
+  final fallback = _platformFontFallback;
   return baseDark.copyWith(
-    textTheme: baseDark.textTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
-    primaryTextTheme: baseDark.primaryTextTheme.apply(fontFamilyFallback: const ['Roboto', 'sans-serif', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji']),
+    textTheme: baseDark.textTheme.apply(fontFamilyFallback: fallback),
+    primaryTextTheme: baseDark.primaryTextTheme.apply(fontFamilyFallback: fallback),
   );
 });
