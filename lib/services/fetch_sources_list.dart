@@ -408,11 +408,11 @@ Future<void> _updateSource(
     tag: LogTag.extension_,
   );
   final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
-  // Cache-bust : ajoute ?_=timestamp pour forcer un cache-miss sur raw.githubusercontent.com
-  // (même mécanique que _fetch() pour watch.json). Sans ça, l'ancien JS reste servi
-  // même après un push tant que le CDN edge n'expire pas (parfois plusieurs minutes).
+  // Cache-bust : ajoute ?_=<epoch_ms> pour forcer un cache-miss sur raw.githubusercontent.com.
+  // IMPORTANT: on utilise la concaténation (+) et non l'interpolation Dart ('\${...}')
+  // car \$ est un escape Dart qui produit le texte littéral '\${...}' — pas le timestamp.
   final _rawUrl = source.sourceCodeUrl!;
-  final _bustUrl = _rawUrl.contains('?') ? _rawUrl : '$_rawUrl?_=\${DateTime.now().millisecondsSinceEpoch}';
+  final _bustUrl = _rawUrl.contains('?') ? _rawUrl : _rawUrl + '?_=' + DateTime.now().millisecondsSinceEpoch.toString();
   final req = kIsWeb
       ? await _webProxyGet(_bustUrl)
       : await http.get(Uri.parse(_bustUrl));
