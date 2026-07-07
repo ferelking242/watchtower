@@ -1021,11 +1021,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final season = _selectedSeason;
     if (season != null) {
       final num = RegExp(r'\d+').firstMatch(season)?.group(0) ?? '';
+      // S0? matches both "S1" and "S01"; (?!\d) prevents "S1" matching "S10"
       final rx = RegExp(
           r'(?:Saison|Season|Partie|Part)\s*' +
               num +
-              r'|S' +
-              num.padLeft(2, '0'),
+              r'\b|S0?' + num + r'(?!\d)',
           caseSensitive: false);
       final filtered =
           result.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
@@ -1137,28 +1137,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 ),
               if (_player.loadedVideos.length > 1) ...[
                 const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _showQualityBottomSheet,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _faint, width: 0.8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _player.selectedQuality ?? 'Résolution',
-                          style: TextStyle(
-                              color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
-                      ],
-                    ),
-                  ),
+                _buildDropdownPill(
+                  label: _player.selectedQuality ?? _player.loadedVideos.first.quality,
+                  items: _player.loadedVideos.map((v) => v.quality).toList(),
+                  onSelect: (q) {
+                    final video = _player.loadedVideos.firstWhere(
+                      (v) => v.quality == q,
+                      orElse: () => _player.loadedVideos.first,
+                    );
+                    _player.switchQuality(video).then((_) {
+                      if (mounted) setState(() {});
+                    });
+                    setState(() {});
+                  },
+                  sheetTitle: 'Choisissez la résolution',
                 ),
               ],
               ], // close else spread
@@ -1237,114 +1229,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       ),
     );
   }
-
-  void _showQualityBottomSheet() {
-      if (_player.loadedVideos.isEmpty) return;
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        builder: (ctx) {
-          final screen  = MediaQuery.of(context).size.height;
-          final statusH = MediaQuery.of(context).padding.top;
-          final maxH    = screen - 230 - statusH;
-          return Container(
-            height: maxH,
-            decoration: BoxDecoration(color: _surface),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-                  child: Row(
-                    children: [
-                      Text('Choisissez la résolution',
-                          style: TextStyle(
-                              color: _textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(ctx),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                              color: _card, shape: BoxShape.circle),
-                          child: Icon(Icons.close, size: 16, color: _grey),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: _faint),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: [
-                      for (final v in _player.loadedVideos)
-                        GestureDetector(
-                          onTap: () {
-                            _player.switchQuality(v).then((_) {
-                              if (mounted) setState(() {});
-                            });
-                            setState(() {});
-                            Navigator.pop(ctx);
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              gradient: _player.selectedQuality == v.quality
-                                  ? LinearGradient(
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                      colors: [
-                                        _accent.withValues(alpha: 0.30),
-                                        _accent.withValues(alpha: 0.10),
-                                      ],
-                                    )
-                                  : null,
-                              color: _player.selectedQuality == v.quality
-                                  ? null
-                                  : _card,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _player.selectedQuality == v.quality
-                                    ? _accent.withValues(alpha: 0.55)
-                                    : Colors.transparent,
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Text(
-                              v.quality,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: _player.selectedQuality == v.quality
-                                    ? _accent
-                                    : _textPrimary,
-                                fontSize: 14,
-                                fontWeight:
-                                    _player.selectedQuality == v.quality
-                                        ? FontWeight.w600
-                                        : FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    }
 
     void _showDropdownSheet(
         String label, List<String> items, void Function(String) onSelect,
@@ -1627,11 +1511,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             List<Chapter> display;
             if (sheetSeason != null) {
               final num = RegExp(r'\d+').firstMatch(sheetSeason!)?.group(0) ?? '';
+              // S0? matches both "S1" and "S01"; (?!\d) prevents "S1" matching "S10"
               final rx = RegExp(
                 r'(?:Saison|Season|Partie|Part)\s*' +
                     num +
-                    r'|S' +
-                    num.padLeft(2, '0'),
+                    r'\b|S0?' + num + r'(?!\d)',
                 caseSensitive: false,
               );
               final filtered =
@@ -1639,6 +1523,23 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               display = filtered.isNotEmpty ? filtered : allChapters;
             } else {
               display = allChapters;
+            }
+            // Also filter by the currently-selected language to avoid showing
+            // duplicates when the extension returns multiple language variants.
+            if (_selectedLanguage != null) {
+              final langFiltered =
+                  display.where((ch) => _langKey(ch) == _selectedLanguage).toList();
+              if (langFiltered.isNotEmpty) display = langFiltered;
+            }
+            // Deduplicate by episode number within the current view so that
+            // remaining variants (no language selected) don't appear multiple times.
+            {
+              final seen = <int>{};
+              final deduped = <Chapter>[];
+              for (int i = 0; i < display.length; i++) {
+                if (seen.add(_epNum(display[i].name, i + 1))) deduped.add(display[i]);
+              }
+              display = deduped;
             }
 
             final bg = Theme.of(ctx).scaffoldBackgroundColor;
@@ -1798,12 +1699,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           controller: scrollCtrl,
                           padding:
                               const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 6,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            // 5 columns on narrow phones (≤ 390 pt, e.g. iPhone 7/SE),
+                            // 6 on wider devices — keeps cells readable.
+                            crossAxisCount: MediaQuery.of(sheetCtx).size.width <= 390 ? 5 : 6,
                             mainAxisSpacing: 8,
                             crossAxisSpacing: 8,
-                            childAspectRatio: 1.1,
+                            childAspectRatio: 1.05,
                           ),
                           itemCount: display.length,
                           itemBuilder: (_, i) {
