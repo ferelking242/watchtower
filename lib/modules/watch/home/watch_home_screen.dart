@@ -1946,8 +1946,9 @@ class _CompactCardState extends ConsumerState<_CompactCard>
 }
 
 // ── Reel intercept helper ─────────────────────────────────────────────────────
-// Detects type='reel' in a manga.link JSON string and pushes WatchReelFeedScreen.
+// Detects type='reel' in a manga.link JSON string and pushes WatchReelScreen.
 // Returns true if navigation was handled (caller should skip pushToMangaReaderDetail).
+// WatchReelScreen has 3 tabs: Explorer / Suivis / Pour toi — opens on Pour toi by default.
 
 bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
   final link = manga.link;
