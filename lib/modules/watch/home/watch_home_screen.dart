@@ -2291,6 +2291,7 @@ class _WatchHeroCarouselState extends ConsumerState<_WatchHeroCarousel> {
           return GestureDetector(
             onTap: () {
               if (manga.link != null) {
+                if (_tryOpenReel(ctx, manga, widget.source)) return;
                 pushToMangaReaderDetail(
                   ref: ref,
                   context: ctx,
