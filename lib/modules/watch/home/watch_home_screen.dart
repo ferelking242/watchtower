@@ -669,16 +669,42 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
               if (_catalogueItems.isEmpty) {
                 return SliverToBoxAdapter(
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 140, childAspectRatio: 0.65,
-                      mainAxisSpacing: 8, crossAxisSpacing: 8,
+                  child: Skeletonizer(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+                        mainAxisSpacing: 8, crossAxisSpacing: 8,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (_, __) => ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Container(color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+                            Positioned(
+                              bottom: 0, left: 0, right: 0,
+                              child: Container(
+                                height: 56,
+                                color: Colors.black45,
+                                alignment: Alignment.bottomLeft,
+                                padding: const EdgeInsets.fromLTRB(6, 0, 6, 7),
+                                child: Container(
+                                  height: 9, width: 72,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white30,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    itemCount: 12,
-                    itemBuilder: (_, __) => _buildSkeletonCardItem(ctx),
                   ),
                 );
               }
@@ -967,35 +993,25 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   }
 
   Widget _buildRankedRowSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx).colorScheme
-        .surfaceContainerHighest.withValues(alpha: 0.55);
-    return SizedBox(
-      height: 190,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        itemCount: 6,
-        itemBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: SizedBox(
-            width: 105,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(width: 36, height: 52,
-                    decoration: BoxDecoration(color: base.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(4))),
-                const SizedBox(width: 2),
-                Expanded(
-                  child: Container(
-                    height: 155,
-                    decoration: BoxDecoration(
-                        color: base, borderRadius: BorderRadius.circular(8)),
-                  ),
+    return Skeletonizer(
+      child: SizedBox(
+        height: 196,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          children: List.generate(6, (_) => Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: SizedBox(
+              width: 116, height: 172,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
                 ),
-              ],
+              ),
             ),
-          ),
+          )),
         ),
       ),
     );
@@ -1034,22 +1050,23 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   }
 
   Widget _buildCompactRowSkeleton(BuildContext ctx) {
-    final base = Theme.of(ctx).colorScheme
-        .surfaceContainerHighest.withValues(alpha: 0.55);
-    return SizedBox(
-      height: 142,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        itemCount: 6,
-        itemBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Container(
-            width: 116,
-            height: 128,
-            decoration: BoxDecoration(
-                color: base, borderRadius: BorderRadius.circular(8)),
-          ),
+    return Skeletonizer(
+      child: SizedBox(
+        height: 168,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          children: List.generate(6, (_) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Container(
+              width: 116, height: 150,
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          )),
         ),
       ),
     );
@@ -1150,63 +1167,74 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
     );
   }
 
-  /// Single skeleton card — matches the look of a compact-grid card:
-  /// image area fills the card, dark gradient + text stub overlaid at bottom.
-  /// This means ONE visual element per card (no separate name row below).
+  /// Single skeleton card — Skeletonizer handles shimmer + theme automatically.
   Widget _buildSkeletonCardItem(BuildContext ctx) {
-    final base = Theme.of(ctx).colorScheme.surfaceContainerHighest;
-    final isDark = Theme.of(ctx).brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // image area
-          Container(color: base),
-          // gradient + title stub — mirrors BottomTextWidget in non-comfortable mode
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: Container(
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    (isDark ? Colors.black : Colors.black54)
-                        .withValues(alpha: 0.65),
-                  ],
-                ),
-              ),
-              alignment: Alignment.bottomLeft,
-              padding: const EdgeInsets.fromLTRB(6, 0, 6, 7),
+    return Skeletonizer(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+            Positioned(
+              bottom: 0, left: 0, right: 0,
               child: Container(
-                height: 9,
-                width: 72,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: isDark ? 0.22 : 0.45),
-                  borderRadius: BorderRadius.circular(4),
+                height: 56,
+                color: Colors.black45,
+                alignment: Alignment.bottomLeft,
+                padding: const EdgeInsets.fromLTRB(6, 0, 6, 7),
+                child: Container(
+                  height: 9, width: 72,
+                  decoration: BoxDecoration(
+                    color: Colors.white30,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSkeletonGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 140,
-        childAspectRatio: 0.65,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
+    return Skeletonizer(
+      child: GridView.builder(
+        padding: const EdgeInsets.all(8),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 140,
+          childAspectRatio: 0.65,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+        ),
+        itemCount: 12,
+        itemBuilder: (_, __) => ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                child: Container(
+                  height: 56,
+                  color: Colors.black45,
+                  alignment: Alignment.bottomLeft,
+                  padding: const EdgeInsets.fromLTRB(6, 0, 6, 7),
+                  child: Container(
+                    height: 9, width: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white30,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      itemCount: 12,
-      itemBuilder: (_, __) => _buildSkeletonCardItem(context),
     );
   }
 
@@ -1381,34 +1409,111 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
 
   // ── Skeletons & error ────────────────────────────────────────────────────
 
-
-  /// Shimmer animé — dimensions identiques à _SpotlightCard (116×172) + row 196
+  /// Section placeholder — 5 portrait cards identiques aux _SpotlightCard (116×172)
   Widget _buildSectionPlaceholder(BuildContext ctx) {
-    return SizedBox(
-      height: 196,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: 5,
-        itemBuilder: (_, __) => Padding(
-          padding: const EdgeInsets.only(right: 10),
-          child: _ShimmerCard(width: 116, height: 172, radius: 14),
+    return Skeletonizer(
+      child: SizedBox(
+        height: 196,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          children: List.generate(5, (_) => Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: SizedBox(
+              width: 116,
+              height: 172,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+                    Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: Container(
+                        height: 56,
+                        color: Colors.black45,
+                        alignment: Alignment.bottomLeft,
+                        padding: const EdgeInsets.fromLTRB(6, 0, 6, 7),
+                        child: Container(
+                          height: 9, width: 72,
+                          decoration: BoxDecoration(
+                            color: Colors.white30,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )),
         ),
       ),
     );
   }
 
   Widget _buildHeroSkeleton(BuildContext ctx) {
-    final size  = MediaQuery.sizeOf(ctx);
-    final cardH = (size.width > size.height) ? size.height * 0.70 : size.height * 0.34;
+    final size   = MediaQuery.sizeOf(ctx);
+    final cardH  = (size.width > size.height) ? size.height * 0.70 : size.height * 0.34;
     final totalH = cardH + _headerH;
-    // Shimmer arrondi en bas — identique au carousel chargé
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(28),
-        bottomRight: Radius.circular(28),
+    return Skeletonizer(
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+        child: SizedBox(
+          width: size.width,
+          height: totalH,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Fake image area
+              Container(color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+              // Fake title + dots at bottom (mirrors real carousel)
+              Positioned(
+                bottom: 24, left: 0, right: 0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 16, width: size.width * 0.55,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 10, width: size.width * 0.35,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (i) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == 0 ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      )),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: _ShimmerCard(width: size.width, height: totalH, radius: 0),
     );
   }
 
@@ -2009,65 +2114,6 @@ class _WatchSubTabRow extends StatelessWidget {
   }
 }
 
-// ── Shimmer card (loading placeholder with wave animation) ───────────────────
-
-class _ShimmerCard extends StatefulWidget {
-  final double width;
-  final double height;
-  final double radius;
-  const _ShimmerCard({required this.width, required this.height, this.radius = 14});
-  @override
-  State<_ShimmerCard> createState() => _ShimmerCardState();
-}
-
-class _ShimmerCardState extends State<_ShimmerCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1300))
-      ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base      = isDark ? const Color(0xFF23232B) : const Color(0xFFE2E2E6);
-    final highlight = isDark ? const Color(0xFF32323E) : const Color(0xFFF4F4F7);
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        final t = _ctrl.value; // 0→1
-        // Sweep: gradient moves from left-off to right-off
-        final begin = Alignment(-2.5 + t * 5.0, 0);
-        final end   = Alignment(-1.5 + t * 5.0, 0);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(widget.radius),
-          child: Container(
-            width: widget.width,
-            height: widget.height,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: begin, end: end,
-                colors: [base, highlight, base],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 // ── Home tab pill row (below carousel) ───────────────────────────────────────
 
 class _WatchHomeTabPills extends StatelessWidget {
@@ -2641,14 +2687,21 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
       body: data.when(
         data: (_) {
           if (_items.isEmpty) {
-            return GridView.builder(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 120),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 140, childAspectRatio: 0.65,
-                mainAxisSpacing: 10, crossAxisSpacing: 10,
+            return Skeletonizer(
+              child: GridView.builder(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 120),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+                  mainAxisSpacing: 10, crossAxisSpacing: 10,
+                ),
+                itemCount: 12,
+                itemBuilder: (_, __) => ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  ),
+                ),
               ),
-              itemCount: 12,
-              itemBuilder: (_, __) => _ShimmerCard(width: 116, height: 172, radius: 12),
             );
           }
           if (_isListView) {
@@ -2690,14 +2743,21 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
             },
           );
         },
-        loading: () => GridView.builder(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 120),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 140, childAspectRatio: 0.65,
-            mainAxisSpacing: 10, crossAxisSpacing: 10,
+        loading: () => Skeletonizer(
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 120),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 140, childAspectRatio: 0.65,
+              mainAxisSpacing: 10, crossAxisSpacing: 10,
+            ),
+            itemCount: 12,
+            itemBuilder: (_, __) => ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+            ),
           ),
-          itemCount: 12,
-          itemBuilder: (_, __) => _ShimmerCard(width: 116, height: 172, radius: 12),
         ),
         error: (e, _) => Center(child: Text(e.toString())),
       ),
