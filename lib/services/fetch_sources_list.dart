@@ -408,9 +408,14 @@ Future<void> _updateSource(
     tag: LogTag.extension_,
   );
   final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
+  // Cache-bust : ajoute ?_=timestamp pour forcer un cache-miss sur raw.githubusercontent.com
+  // (même mécanique que _fetch() pour watch.json). Sans ça, l'ancien JS reste servi
+  // même après un push tant que le CDN edge n'expire pas (parfois plusieurs minutes).
+  final _rawUrl = source.sourceCodeUrl!;
+  final _bustUrl = _rawUrl.contains('?') ? _rawUrl : '$_rawUrl?_=\${DateTime.now().millisecondsSinceEpoch}';
   final req = kIsWeb
-      ? await _webProxyGet(source.sourceCodeUrl!)
-      : await http.get(Uri.parse(source.sourceCodeUrl!));
+      ? await _webProxyGet(_bustUrl)
+      : await http.get(Uri.parse(_bustUrl));
   AppLogger.log(
     'Source code downloaded | status=${req.statusCode} | size=${req.bodyBytes.length}B | "${source.name}"',
     logLevel: req.statusCode == 200 ? LogLevel.info : LogLevel.error,
