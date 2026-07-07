@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1645,6 +1646,7 @@ class _RankedCardState extends ConsumerState<_RankedCard>
         onTapUp: (_) async {
           await _pressCtrl.reverse();
           if (widget.manga.link != null && mounted) {
+            if (_tryOpenReel(context, widget.manga, widget.source)) return;
             pushToMangaReaderDetail(
               ref: ref, context: context, getManga: widget.manga,
               lang: widget.source.lang!, source: widget.source.name!,
@@ -1750,6 +1752,7 @@ class _SpotlightCardState extends ConsumerState<_SpotlightCard>
         onTapUp: (_) async {
           await _pressCtrl.reverse();
           if (widget.manga.link != null && mounted) {
+            if (_tryOpenReel(context, widget.manga, widget.source)) return;
             pushToMangaReaderDetail(
               ref: ref, context: context, getManga: widget.manga,
               lang: widget.source.lang!, source: widget.source.name!,
@@ -1869,6 +1872,7 @@ class _CompactCardState extends ConsumerState<_CompactCard>
         onTapUp: (_) async {
           await _pressCtrl.reverse();
           if (widget.manga.link != null && mounted) {
+            if (_tryOpenReel(context, widget.manga, widget.source)) return;
             pushToMangaReaderDetail(
               ref: ref, context: context, getManga: widget.manga,
               lang: widget.source.lang!, source: widget.source.name!,
@@ -1938,6 +1942,27 @@ class _CompactCardState extends ConsumerState<_CompactCard>
         ),
       ),
     );
+  }
+}
+
+// ── Reel intercept helper ─────────────────────────────────────────────────────
+// Detects type='reel' in a manga.link JSON string and pushes WatchReelFeedScreen.
+// Returns true if navigation was handled (caller should skip pushToMangaReaderDetail).
+
+bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
+  final link = manga.link;
+  if (link == null || !link.startsWith('{')) return false;
+  try {
+    final data = jsonDecode(link) as Map<String, dynamic>;
+    if (data['type'] != 'reel') return false;
+    context.pushNamed('reelFeed', extra: {
+      'source': source,
+      'listId': (data['listId'] as String?) ?? 'trending',
+      'startGifId': data['gifId'] as String?,
+    });
+    return true;
+  } catch (_) {
+    return false;
   }
 }
 
