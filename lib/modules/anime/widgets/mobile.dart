@@ -90,6 +90,8 @@ class _MobileControllerWidgetState
   final bottomButtonBarMargin = const EdgeInsets.only(left: 16.0, right: 8.0);
 
   Duration? _seekBarDeltaValueNotifier;
+  // Accumulated seconds shown in the top-center tap-seek overlay (neg = backward)
+  int _tapSeekDisplaySeconds = 0;
 
   final List<StreamSubscription> subscriptions = [];
   Offset? _tapPosition;
@@ -608,7 +610,7 @@ class _MobileControllerWidgetState
                   ),
                 ),
               ),
-              // // Volume Indicator — right edge.
+              // // Volume Indicator — portrait: top-center, landscape: LEFT (crossed).
               IgnorePointer(
                 child: ValueListenableBuilder(
                   valueListenable: _volumeIndicator,
@@ -616,20 +618,29 @@ class _MobileControllerWidgetState
                     curve: Curves.easeInOut,
                     opacity: value ? 1.0 : 0.0,
                     duration: controlsTransitionDuration,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 20),
-                        child: MediaIndicatorBuilder(
-                          value: _volumeValue,
-                          isVolumeIndicator: true,
+                    child: Builder(builder: (ctx) {
+                      final isLandscape =
+                          MediaQuery.of(ctx).orientation ==
+                          Orientation.landscape;
+                      return Align(
+                        alignment: isLandscape
+                            ? Alignment.centerLeft
+                            : Alignment.topCenter,
+                        child: Padding(
+                          padding: isLandscape
+                              ? const EdgeInsets.only(left: 20)
+                              : const EdgeInsets.only(top: 72),
+                          child: MediaIndicatorBuilder(
+                            value: _volumeValue,
+                            isVolumeIndicator: true,
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   ),
                 ),
               ),
-              // // Brightness Indicator — left edge.
+              // // Brightness Indicator — portrait: top-center, landscape: RIGHT (crossed).
               IgnorePointer(
                 child: ValueListenableBuilder(
                   valueListenable: _brightnessIndicator,
@@ -637,19 +648,69 @@ class _MobileControllerWidgetState
                     curve: Curves.easeInOut,
                     opacity: value ? 1.0 : 0.0,
                     duration: controlsTransitionDuration,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 20),
-                        child: MediaIndicatorBuilder(
-                          value: _brightnessValue,
-                          isVolumeIndicator: false,
+                    child: Builder(builder: (ctx) {
+                      final isLandscape =
+                          MediaQuery.of(ctx).orientation ==
+                          Orientation.landscape;
+                      return Align(
+                        alignment: isLandscape
+                            ? Alignment.centerRight
+                            : Alignment.topCenter,
+                        child: Padding(
+                          padding: isLandscape
+                              ? const EdgeInsets.only(right: 20)
+                              : const EdgeInsets.only(top: 72),
+                          child: MediaIndicatorBuilder(
+                            value: _brightnessValue,
+                            isVolumeIndicator: false,
+                          ),
                         ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+              // // Top-center tap-seek label overlay.
+              if (_mountSeekBackwardButton || _mountSeekForwardButton)
+                IgnorePointer(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 56),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 140),
+                        transitionBuilder: (child, anim) =>
+                            ScaleTransition(scale: anim, child: child),
+                        child: _tapSeekDisplaySeconds != 0
+                            ? Container(
+                                key: ValueKey(_tapSeekDisplaySeconds),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 22, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.65),
+                                  borderRadius: BorderRadius.circular(28),
+                                  border: Border.all(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.12),
+                                      width: 0.8),
+                                ),
+                                child: Text(
+                                  _tapSeekDisplaySeconds < 0
+                                      ? '${_tapSeekDisplaySeconds}s'
+                                      : '+${_tapSeekDisplaySeconds}s',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ),
                   ),
                 ),
-              ),
               // Seek Indicator.
               IgnorePointer(
                 child: AnimatedOpacity(
@@ -682,6 +743,7 @@ class _MobileControllerWidgetState
                                     setState(() {
                                       _hideSeekBackwardButton = false;
                                       _mountSeekBackwardButton = false;
+                                      _tapSeekDisplaySeconds = 0;
                                     });
                                     // Resume auto-hide timer after indicator dismisses.
                                     if (mounted && visible) {
@@ -705,6 +767,7 @@ class _MobileControllerWidgetState
                                               .state
                                               .position -
                                           value;
+                                      _tapSeekDisplaySeconds = -value.inSeconds;
                                     });
                                   },
                                   onSubmitted: (value) {
@@ -748,6 +811,7 @@ class _MobileControllerWidgetState
                                     setState(() {
                                       _hideSeekForwardButton = false;
                                       _mountSeekForwardButton = false;
+                                      _tapSeekDisplaySeconds = 0;
                                     });
                                     if (mounted && visible) {
                                       _timer?.cancel();
@@ -770,6 +834,7 @@ class _MobileControllerWidgetState
                                               .state
                                               .position +
                                           value;
+                                      _tapSeekDisplaySeconds = value.inSeconds;
                                     });
                                   },
                                   onSubmitted: (value) {
@@ -825,12 +890,14 @@ class _BackwardSeekIndicator extends StatefulWidget {
 }
 
 class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late Duration value = Duration(seconds: widget.skipDuration);
   Timer? timer;
-  late final AnimationController _ripple;
-  late final AnimationController _ring1;
-  late final AnimationController _ring2;
+  late final AnimationController _fade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    value: 1.0,
+  );
 
   @override
   void setState(VoidCallback fn) {
@@ -840,21 +907,12 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
   @override
   void initState() {
     super.initState();
-    _ripple = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    )..forward();
-    _ring1 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..repeat();
-    _ring2 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) _ring2.repeat();
-    });
+    widget.onChanged.call(value);
+    _scheduleSubmit();
+  }
+
+  void _scheduleSubmit() {
+    timer?.cancel();
     timer = Timer(const Duration(milliseconds: 900), () {
       widget.onSubmitted.call(value);
     });
@@ -862,98 +920,27 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
 
   @override
   void dispose() {
-    _ripple.dispose();
-    _ring1.dispose();
-    _ring2.dispose();
+    _fade.dispose();
     timer?.cancel();
     super.dispose();
   }
 
   void increment() {
+    _fade.forward(from: 0.6);
     timer?.cancel();
-    _ripple.forward(from: 0);
-    _ring1.forward(from: 0);
-    _ring2.forward(from: 0);
-    timer = Timer(const Duration(milliseconds: 900), () {
-      widget.onSubmitted.call(value);
-    });
-    widget.onChanged.call(value);
     setState(() {
       value += Duration(seconds: widget.skipDuration);
     });
+    widget.onChanged.call(value);
+    _scheduleSubmit();
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: increment,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Semi-oval tinted background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0x66000000), Color(0x00000000)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-            ),
-          ),
-          // Ripple rings
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _RippleRing(controller: _ring1, maxRadius: 55),
-                _RippleRing(controller: _ring2, maxRadius: 55),
-              ],
-            ),
-          ),
-          // Icon + label
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedBuilder(
-                  animation: _ripple,
-                  builder: (context, _) {
-                    final t = CurvedAnimation(
-                      parent: _ripple,
-                      curve: Curves.elasticOut,
-                    ).value;
-                    return Transform.scale(
-                      scale: 0.7 + 0.3 * t,
-                      child: const Icon(
-                        Icons.fast_rewind_rounded,
-                        size: 42,
-                        color: Colors.white,
-                        shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '-${value.inSeconds}s',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      behavior: HitTestBehavior.translucent,
+      child: Container(color: const Color(0x00000000)),
     );
   }
 }
@@ -974,12 +961,14 @@ class _ForwardSeekIndicator extends StatefulWidget {
 }
 
 class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late Duration value = Duration(seconds: widget.skipDuration);
   Timer? timer;
-  late final AnimationController _ripple;
-  late final AnimationController _ring1;
-  late final AnimationController _ring2;
+  late final AnimationController _fade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    value: 1.0,
+  );
 
   @override
   void setState(VoidCallback fn) {
@@ -989,21 +978,12 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
   @override
   void initState() {
     super.initState();
-    _ripple = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    )..forward();
-    _ring1 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..repeat();
-    _ring2 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) _ring2.repeat();
-    });
+    widget.onChanged.call(value);
+    _scheduleSubmit();
+  }
+
+  void _scheduleSubmit() {
+    timer?.cancel();
     timer = Timer(const Duration(milliseconds: 900), () {
       widget.onSubmitted.call(value);
     });
@@ -1011,131 +991,27 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
 
   @override
   void dispose() {
-    _ripple.dispose();
-    _ring1.dispose();
-    _ring2.dispose();
+    _fade.dispose();
     timer?.cancel();
     super.dispose();
   }
 
   void increment() {
+    _fade.forward(from: 0.6);
     timer?.cancel();
-    _ripple.forward(from: 0);
-    _ring1.forward(from: 0);
-    _ring2.forward(from: 0);
-    timer = Timer(const Duration(milliseconds: 900), () {
-      widget.onSubmitted.call(value);
-    });
-    widget.onChanged.call(value);
     setState(() {
       value += Duration(seconds: widget.skipDuration);
     });
+    widget.onChanged.call(value);
+    _scheduleSubmit();
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: increment,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0x00000000), Color(0x66000000)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-            ),
-          ),
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _RippleRing(controller: _ring1, maxRadius: 55),
-                _RippleRing(controller: _ring2, maxRadius: 55),
-              ],
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedBuilder(
-                  animation: _ripple,
-                  builder: (context, _) {
-                    final t = CurvedAnimation(
-                      parent: _ripple,
-                      curve: Curves.elasticOut,
-                    ).value;
-                    return Transform.scale(
-                      scale: 0.7 + 0.3 * t,
-                      child: const Icon(
-                        Icons.fast_forward_rounded,
-                        size: 42,
-                        color: Colors.white,
-                        shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '+${value.inSeconds}s',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Ripple ring widget ───────────────────────────────────────────────────────
-
-class _RippleRing extends StatelessWidget {
-  final AnimationController controller;
-  final double maxRadius;
-  const _RippleRing({required this.controller, required this.maxRadius});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (_, __) {
-        final t = CurvedAnimation(
-          parent: controller,
-          curve: Curves.easeOut,
-        ).value;
-        final radius = maxRadius * t;
-        final opacity = (1.0 - t).clamp(0.0, 1.0);
-        return SizedBox(
-          width: radius * 2,
-          height: radius * 2,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: opacity * 0.55),
-                width: 2.0,
-              ),
-            ),
-          ),
-        );
-      },
+      behavior: HitTestBehavior.translucent,
+      child: Container(color: const Color(0x00000000)),
     );
   }
 }
@@ -1172,13 +1048,13 @@ List<Widget> mobilePrimaryButtonBar(
       ),
     ),
     const Spacer(),
-    // ── Skip −15 s ─────────────────────────────────────────────────────────
-    _SkipSecondsButton(seconds: -15, player: controller.player),
-    const SizedBox(width: 4),
+    // ── Skip −15 s — landscape (fullscreen) only ───────────────────────────
+    if (isFullScreen) _SkipSecondsButton(seconds: -15, player: controller.player),
+    if (isFullScreen) const SizedBox(width: 4),
     CustomPlayOrPauseButton(controller: controller, isDesktop: false),
-    const SizedBox(width: 4),
-    // ── Skip +15 s ─────────────────────────────────────────────────────────
-    _SkipSecondsButton(seconds: 15, player: controller.player),
+    if (isFullScreen) const SizedBox(width: 4),
+    // ── Skip +15 s — landscape (fullscreen) only ───────────────────────────
+    if (isFullScreen) _SkipSecondsButton(seconds: 15, player: controller.player),
     const Spacer(),
     IconButton(
       onPressed: hasNextEpisode

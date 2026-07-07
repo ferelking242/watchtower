@@ -58,7 +58,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:window_manager/window_manager.dart' show windowManager;
 
 import 'widgets/search_subtitles.dart';
-import 'widgets/player_help_page.dart';
+import 'widgets/player_feedback_page.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/widgets/error_box.dart';
 
@@ -2552,9 +2552,12 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
         color: Colors.white,
         size: 26,
       ),
-      onPressed: () => showDialog(
-        context: context,
-        builder: (_) => const PlayerHelpPage(),
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const PlayerFeedbackPage(),
+          fullscreenDialog: true,
+        ),
       ),
     );
   }

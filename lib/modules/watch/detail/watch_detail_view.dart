@@ -1390,35 +1390,51 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 Divider(height: 1, color: _faint),
                 Expanded(
                   child: ListView(
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     children: items.map((item) {
                       final isSel =
                           item == _selectedLanguage || item == _selectedSeason;
-                      return InkWell(
+                      return GestureDetector(
                         onTap: () {
                           Navigator.pop(ctx);
                           onSelect(item);
                         },
-                        child: Padding(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 16),
-                          child: Row(
-                            children: [
-                              Text(
-                                displayLabel?.call(item) ?? item,
-                                style: TextStyle(
-                                  color: isSel ? _accent : _textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: isSel
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                              const Spacer(),
-                              if (isSel)
-                                Icon(Icons.check_rounded,
-                                    color: _accent, size: 18),
-                            ],
+                              horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: isSel
+                                ? LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      _accent.withValues(alpha: 0.30),
+                                      _accent.withValues(alpha: 0.10),
+                                    ],
+                                  )
+                                : null,
+                            color: isSel ? null : _card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSel
+                                  ? _accent.withValues(alpha: 0.55)
+                                  : Colors.transparent,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            displayLabel?.call(item) ?? item,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isSel ? _accent : _textPrimary,
+                              fontSize: 14,
+                              fontWeight: isSel
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
                           ),
                         ),
                       );
@@ -1674,19 +1690,59 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                                     ),
                                     builder: (_) => ListView(
                                       shrinkWrap: true,
-                                      children: seasons
-                                          .map(
-                                            (s) => ListTile(
-                                              title: Text(s,
-                                                  style: TextStyle(
-                                                      color: onSurface)),
-                                              selected: s == sheetSeason,
-                                              selectedColor: accent,
-                                              onTap: () =>
-                                                  Navigator.pop(sheetCtx, s),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      children: seasons.map((s) {
+                                        final isSel = s == sheetSeason;
+                                        return GestureDetector(
+                                          onTap: () =>
+                                              Navigator.pop(sheetCtx, s),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                                milliseconds: 150),
+                                            margin: const EdgeInsets.symmetric(
+                                                vertical: 4),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 14),
+                                            decoration: BoxDecoration(
+                                              gradient: isSel
+                                                  ? LinearGradient(
+                                                      begin:
+                                                          Alignment.centerLeft,
+                                                      end: Alignment.centerRight,
+                                                      colors: [
+                                                        accent.withValues(
+                                                            alpha: 0.30),
+                                                        accent.withValues(
+                                                            alpha: 0.10),
+                                                      ],
+                                                    )
+                                                  : null,
+                                              color: isSel ? null : card,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: isSel
+                                                    ? accent.withValues(
+                                                        alpha: 0.55)
+                                                    : Colors.transparent,
+                                                width: 0.8,
+                                              ),
                                             ),
-                                          )
-                                          .toList(),
+                                            child: Text(
+                                              s,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: isSel ? accent : onSurface,
+                                                fontSize: 14,
+                                                fontWeight: isSel
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w400,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
                                     ),
                                   );
                                   if (picked != null) {
