@@ -907,7 +907,6 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
   @override
   void initState() {
     super.initState();
-    widget.onChanged.call(value);
     _scheduleSubmit();
   }
 
@@ -978,7 +977,6 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
   @override
   void initState() {
     super.initState();
-    widget.onChanged.call(value);
     _scheduleSubmit();
   }
 
