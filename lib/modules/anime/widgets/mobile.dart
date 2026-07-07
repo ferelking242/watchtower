@@ -203,6 +203,7 @@ class _MobileControllerWidgetState
         _mountSeekBackwardButton = true;
         _hideSeekBackwardButton = false;
         _mountSeekForwardButton = false;
+        _tapSeekDisplaySeconds = -skipDuration;
       });
     }
   }
@@ -216,6 +217,7 @@ class _MobileControllerWidgetState
         _mountSeekForwardButton = true;
         _hideSeekForwardButton = false;
         _mountSeekBackwardButton = false;
+        _tapSeekDisplaySeconds = skipDuration;
       });
     }
   }
@@ -925,10 +927,9 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator>
   }
 
   void increment() {
-    _fade.forward(from: 0.6);
     timer?.cancel();
     setState(() {
-      value += Duration(seconds: widget.skipDuration);
+      value = Duration(milliseconds: value.inMilliseconds * 2);
     });
     widget.onChanged.call(value);
     _scheduleSubmit();
@@ -995,10 +996,9 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator>
   }
 
   void increment() {
-    _fade.forward(from: 0.6);
     timer?.cancel();
     setState(() {
-      value += Duration(seconds: widget.skipDuration);
+      value = Duration(milliseconds: value.inMilliseconds * 2);
     });
     widget.onChanged.call(value);
     _scheduleSubmit();
