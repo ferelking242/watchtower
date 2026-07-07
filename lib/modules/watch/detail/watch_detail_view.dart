@@ -1151,6 +1151,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     setState(() {});
                   },
                   sheetTitle: 'Choisissez la résolution',
+                  selectedValue: _player.selectedQuality,
                 ),
               ],
               ], // close else spread
@@ -1203,10 +1204,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     required void Function(String) onSelect,
     String Function(String)? displayLabel,
     String? sheetTitle,
+    String? selectedValue,
   }) {
     return GestureDetector(
       onTap: () => _showDropdownSheet(label, items, onSelect,
-          displayLabel: displayLabel, sheetTitle: sheetTitle),
+          displayLabel: displayLabel, sheetTitle: sheetTitle,
+          selectedValue: selectedValue),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
@@ -1232,7 +1235,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     void _showDropdownSheet(
         String label, List<String> items, void Function(String) onSelect,
-        {String Function(String)? displayLabel, String? sheetTitle}) {
+        {String Function(String)? displayLabel, String? sheetTitle,
+        String? selectedValue}) {
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
@@ -1276,8 +1280,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     children: items.map((item) {
-                      final isSel =
-                          item == _selectedLanguage || item == _selectedSeason;
+                      // Use explicit selectedValue when provided (e.g. quality);
+                      // fall back to comparing against language/season state.
+                      final isSel = selectedValue != null
+                          ? item == selectedValue
+                          : item == _selectedLanguage || item == _selectedSeason;
                       return GestureDetector(
                         onTap: () {
                           Navigator.pop(ctx);
@@ -1498,7 +1505,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     void _showAllEpisodesSheet(BuildContext ctx, List<Chapter> allChapters) {
     final seasons = _detectSeasons(allChapters);
-    String? sheetSeason = seasons.isNotEmpty ? seasons.first : null;
+    // Start on the currently-selected season so the sheet matches the active filter.
+    String? sheetSeason = (_selectedSeason != null && seasons.contains(_selectedSeason))
+        ? _selectedSeason
+        : (seasons.isNotEmpty ? seasons.first : null);
 
     showModalBottomSheet(
       context: ctx,
