@@ -70,7 +70,6 @@ dependencies:
   d4rt: ^0.2.2
   window_manager: ^0.5.1
   ffi: ^2.1.5
-  ffigen: ^20.1.1
   http_interceptor: ^2.0.0
   js_packer: ^0.0.6
   flutter_qjs:
@@ -228,6 +227,7 @@ dependencies:
   envied: ^1.0.0
 
 dev_dependencies:
+  ffigen: ^20.1.1
   flutter_test:
     sdk: flutter
   integration_test:

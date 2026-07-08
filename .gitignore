@@ -65,3 +65,6 @@ external_project/
 
 # Local planning / scratch files (pushed only inside docs/ if needed)
 SEANIME_INSPIRATION_PLAN.md
+
+# Internal dev notes
+.dev/
