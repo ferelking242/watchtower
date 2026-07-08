@@ -14,16 +14,16 @@ import 'package:flutter/widgets.dart';
 class $AssetsBrandingGen {
   const $AssetsBrandingGen();
 
-  /// File path: assets/branding/spotube-logo-light.png
+  /// File path: assets/app_icons/icon-red.png (Watchtower logo)
   AssetGenImage get spotubeLogoLight =>
-      const AssetGenImage('assets/branding/spotube-logo-light.png');
+      const AssetGenImage('assets/app_icons/icon-red.png');
 
-  /// File path: assets/branding/spotube-logo.ico
-  String get spotubeLogoIco => 'assets/branding/spotube-logo.ico';
+  /// File path: assets/app_icons/icon.png
+  String get spotubeLogoIco => 'assets/app_icons/icon.png';
 
-  /// File path: assets/branding/spotube-logo.png
+  /// File path: assets/app_icons/icon-red.png
   AssetGenImage get spotubeLogoPng =>
-      const AssetGenImage('assets/branding/spotube-logo.png');
+      const AssetGenImage('assets/app_icons/icon-red.png');
 
   /// List of all assets
   List<dynamic> get values =>

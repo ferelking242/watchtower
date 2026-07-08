@@ -22,10 +22,10 @@ class SystemTrayManager with TrayListener {
     if (enabled) {
       await trayManager.setIcon(
         kIsWindows
-            ? 'assets/branding/spotube-logo.ico'
+            ? 'assets/app_icons/icon.png'
             : kIsFlatpak
-                ? 'com.github.KRTirtho.Spotube'
-                : 'assets/branding/spotube-logo.png',
+                ? 'com.github.ferelking242.Watchtower'
+                : 'assets/app_icons/icon-red.png',
       );
       trayManager.addListener(this);
     } else {
