@@ -63,6 +63,11 @@ class WatchInlinePlayer {
   late final VideoController _controller;
   final ValueNotifier<bool> _seekingNotifier = ValueNotifier(false);
 
+  /// Shared fit notifier — drives the Video widget in both the auto-rotate
+  /// landscape view and the pushed fullscreen page. Defaults to BoxFit.fill
+  /// (no black bars). The controls overlay toggles this via _toggleFit().
+  final ValueNotifier<BoxFit> fitNotifier = ValueNotifier<BoxFit>(BoxFit.fill);
+
   String title = '';
   bool hasVideoUrl = false;
   bool loadFailed = false;
@@ -103,6 +108,7 @@ class WatchInlinePlayer {
     _heightSub?.cancel();
     _player.dispose();
     _seekingNotifier.dispose();
+    fitNotifier.dispose();
     controlsVisible.dispose();
     isPortraitFormat.dispose();
   }
@@ -146,6 +152,9 @@ class WatchInlinePlayer {
   }) async {
     loadFailed = false;
     hasVideoUrl = false;
+    // Kill any ongoing playback immediately so the old audio doesn't bleed
+    // into the next episode while the network request is in flight.
+    try { await _player.stop(); } catch (_) {}
     final epName = chapter.name ?? 'ep#${chapter.id}';
     final epUrl  = chapter.url  ?? '';
     AppLogger.log(
@@ -381,10 +390,13 @@ class WatchInlinePlayer {
     return Stack(
       children: [
         SizedBox.expand(
-          child: Video(
-            controller: _controller,
-            fit: BoxFit.contain,
-            controls: NoVideoControls,
+          child: ValueListenableBuilder<BoxFit>(
+            valueListenable: fitNotifier,
+            builder: (_, fit, __) => Video(
+              controller: _controller,
+              fit: fit,
+              controls: NoVideoControls,
+            ),
           ),
         ),
         Positioned.fill(
@@ -393,6 +405,7 @@ class WatchInlinePlayer {
             controller: _controller,
             title: title,
             showBackButton: false,
+            fitNotifier: fitNotifier,
             loadedVideos: loadedVideos,
             onSwitchQuality: switchQuality,
             selectedQuality: selectedQuality,
@@ -624,8 +637,11 @@ class _FullscreenControlsOverlayState
     Timer? _doubleTapResetTimer;
     bool _showLeftSkipHUD  = false;
     bool _showRightSkipHUD = false;
-    int _skipHudSeconds = 10;
+    int _skipHudSeconds = 15;
     Timer? _skipHudTimer;
+    // Debounce: accumulate delta, fire ONE seek per rapid-tap burst
+    Timer? _seekDebounceTimer;
+    int _accumulatedSeekDelta = 0;
 
     // ── Current quality (synced with loadedVideos) ────────────────────────────
     String? _currentQuality;
@@ -642,6 +658,7 @@ class _FullscreenControlsOverlayState
     bool _showBuffering = false;
     Timer? _bufDebounce;
     StreamSubscription<bool>? _bufferingSub;
+    StreamSubscription<bool>? _completedSub;
 
     // ── Horizontal swipe → seek ───────────────────────────────────────────────
     Duration _horizSeekStartPos = Duration.zero;
@@ -692,17 +709,34 @@ class _FullscreenControlsOverlayState
         setState(() => _bufferFrac = (buf.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0));
       }
     });
-    // Buffering dots — debounced 600ms so brief seeks don't trigger it
+    // Buffering dots — debounced 800ms to avoid spurious flickers.
+    // Only shown when actually mid-playback (position > 0 or playing),
+    // not during initial load (which has its own _LoadingBannerPulse).
     _bufferingSub = widget.player.stream.buffering.listen((buf) {
       if (!mounted) return;
       _bufDebounce?.cancel();
       if (buf) {
-        _bufDebounce = Timer(const Duration(milliseconds: 600), () {
-          if (mounted && widget.player.state.buffering) setState(() => _showBuffering = true);
+        _bufDebounce = Timer(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          final st = widget.player.state;
+          // Guard: only show if still buffering AND mid-stream
+          if (st.buffering && (st.playing || st.position > Duration.zero)) {
+            setState(() => _showBuffering = true);
+          }
         });
       } else {
-        setState(() => _showBuffering = false);
+        // Short delay before hiding so we don't flicker on brief rebuffers
+        _bufDebounce = Timer(const Duration(milliseconds: 120), () {
+          if (mounted) setState(() => _showBuffering = false);
+        });
       }
+    });
+    // Always clear buffering overlay at episode end — mpv sometimes never
+    // emits buffering=false at EOS, leaving the indicator stuck on screen.
+    _completedSub = widget.player.stream.completed.listen((done) {
+      if (!mounted || !done) return;
+      _bufDebounce?.cancel();
+      setState(() => _showBuffering = false);
     });
   }
 
@@ -812,11 +846,13 @@ class _FullscreenControlsOverlayState
     _hudTimer?.cancel();
     _doubleTapResetTimer?.cancel();
     _skipHudTimer?.cancel();
+    _seekDebounceTimer?.cancel();
     _nextEpTimer?.cancel();
     _saveProgressTimer?.cancel();
     _posSub?.cancel();
     _bufSub?.cancel();
     _bufferingSub?.cancel();
+    _completedSub?.cancel();
     _bufDebounce?.cancel();
     super.dispose();
   }
@@ -873,35 +909,48 @@ class _FullscreenControlsOverlayState
   }
 
   // ── Double-tap seek with escalating amounts ──────────────────────────────────
+  // Debounced: accumulates delta across rapid taps and fires ONE seek per
+  // burst, preventing multiple concurrent mpv buffer positions (RAM spike).
   void _handleDoubleTap({required bool isRight}) {
     if (_locked) return;
     _doubleTapResetTimer?.cancel();
 
-    // Reset count if side changed
+    // Reset count/accumulator if side changed
     if (_doubleTapRight != null && _doubleTapRight != isRight) {
       _doubleTapCount = 0;
+      _accumulatedSeekDelta = 0;
     }
     _doubleTapRight = isRight;
-    _doubleTapCount++;
+    // Cap at 5 to prevent absurdly large jumps (max 15×16 = 240 s per tap)
+    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 5);
 
-    final seconds = 15 * (1 << (_doubleTapCount - 1)); // 15, 30, 60, 120, 240...
-    _skipHudSeconds = seconds;
-    _seek(isRight ? seconds : -seconds);
+    final increment = _seekSeconds * (1 << (_doubleTapCount - 1).clamp(0, 4));
+    _accumulatedSeekDelta += isRight ? increment : -increment;
+    _skipHudSeconds = _accumulatedSeekDelta.abs();
 
-    // Show HUD
+    // Debounce: one real seek fires 350 ms after the last tap in a burst
+    _seekDebounceTimer?.cancel();
+    _seekDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _seek(_accumulatedSeekDelta);
+      _accumulatedSeekDelta = 0;
+    });
+
+    // Show HUD — stays visible until 800 ms after the last tap
     _skipHudTimer?.cancel();
     setState(() {
       _showLeftSkipHUD  = !isRight;
       _showRightSkipHUD = isRight;
     });
-    _skipHudTimer = Timer(const Duration(milliseconds: 700), () {
+    _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
       if (mounted) setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
     });
 
-    // Reset escalation counter after 800ms of inactivity
-    _doubleTapResetTimer = Timer(const Duration(milliseconds: 800), () {
+    // Reset escalation counter 1 s after last tap
+    _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
       _doubleTapCount = 0;
       _doubleTapRight = null;
+      _accumulatedSeekDelta = 0;
     });
   }
 
@@ -1228,13 +1277,13 @@ class _FullscreenControlsOverlayState
               ),
             ),
 
-          // Buffering indicator — debounced 600ms, hidden when seeking
+          // Buffering indicator — debounced, hidden while seek-dragging
           IgnorePointer(
             child: Center(
               child: AnimatedOpacity(
                 opacity: (_showBuffering && !_seekDragging && !_showSeekSwipeHUD) ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 250),
-                child: const _BufferingDotsIndicator(),
+                child: _BufferingDotsIndicator(bufferFrac: _bufferFrac),
               ),
             ),
           ),
@@ -3351,6 +3400,8 @@ class _TrackTile extends StatelessWidget {
     bool _showRightSkipHUD = false;
     int  _skipHudSeconds   = 15;
     Timer? _skipHudTimer;
+    Timer? _seekDebounceTimer;
+    int   _accumulatedSeekDelta = 0;
 
     @override
     void initState() {
@@ -3377,6 +3428,7 @@ class _TrackTile extends StatelessWidget {
       _hudTimer?.cancel();
       _doubleTapResetTimer?.cancel();
       _skipHudTimer?.cancel();
+      _seekDebounceTimer?.cancel();
       super.dispose();
     }
 
@@ -3407,19 +3459,29 @@ class _TrackTile extends StatelessWidget {
 
     void _handleDoubleTap({required bool isRight}) {
       _doubleTapResetTimer?.cancel();
-      if (_doubleTapRight != null && _doubleTapRight != isRight) _doubleTapCount = 0;
+      if (_doubleTapRight != null && _doubleTapRight != isRight) {
+        _doubleTapCount = 0;
+        _accumulatedSeekDelta = 0;
+      }
       _doubleTapRight = isRight;
-      _doubleTapCount++;
-      final seconds = 15 * (1 << (_doubleTapCount - 1));
-      _skipHudSeconds = seconds;
-      _seek(isRight ? seconds : -seconds);
+      _doubleTapCount = (_doubleTapCount + 1).clamp(1, 5);
+      final increment = 15 * (1 << (_doubleTapCount - 1).clamp(0, 4));
+      _accumulatedSeekDelta += isRight ? increment : -increment;
+      _skipHudSeconds = _accumulatedSeekDelta.abs();
+
+      // Debounce: one seek per tap burst, prevents mpv RAM spikes
+      _seekDebounceTimer?.cancel();
+      _seekDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+        if (mounted) { _seek(_accumulatedSeekDelta); _accumulatedSeekDelta = 0; }
+      });
+
       _skipHudTimer?.cancel();
       setState(() { _showLeftSkipHUD = !isRight; _showRightSkipHUD = isRight; });
-      _skipHudTimer = Timer(const Duration(milliseconds: 700), () {
+      _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
         if (mounted) setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
       });
-      _doubleTapResetTimer = Timer(const Duration(milliseconds: 800), () {
-        _doubleTapCount = 0; _doubleTapRight = null;
+      _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
+        _doubleTapCount = 0; _doubleTapRight = null; _accumulatedSeekDelta = 0;
       });
     }
 
@@ -4008,6 +4070,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
   Timer? _bufDebounce;
   StreamSubscription<Duration>? _durSub;
   StreamSubscription<bool>? _bufSub;
+  StreamSubscription<bool>? _completedSub;
 
   @override
   void initState() {
@@ -4029,13 +4092,22 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       if (_successShown) {
         _bufDebounce?.cancel();
         if (buf) {
-          _bufDebounce = Timer(const Duration(milliseconds: 600), () {
+          _bufDebounce = Timer(const Duration(milliseconds: 800), () {
             if (mounted) setState(() => _anim = 'loading');
           });
         } else {
-          setState(() => _anim = null);
+          // Short delay avoids flicker on very brief rebuffers
+          _bufDebounce = Timer(const Duration(milliseconds: 120), () {
+            if (mounted) setState(() => _anim = null);
+          });
         }
       }
+    });
+    // mpv sometimes never emits buffering=false at EOS; clear overlay ourselves
+    _completedSub = widget.player.stream.completed.listen((done) {
+      if (!mounted || !done) return;
+      _bufDebounce?.cancel();
+      setState(() => _anim = null);
     });
   }
 
@@ -4044,6 +4116,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
     _bufDebounce?.cancel();
     _durSub?.cancel();
     _bufSub?.cancel();
+    _completedSub?.cancel();
     super.dispose();
   }
 
@@ -4056,7 +4129,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
           valueListenable: widget.seekingNotifier,
           builder: (_, seeking, __) => seeking
               ? const SizedBox.shrink()
-              : const _BufferingDotsIndicator(),
+              : const _BufferingDotsIndicator(), // bufferFrac omitted → no % label in inline banner
         ),
       );
     }
@@ -4640,54 +4713,97 @@ class _GestureHintOverlay extends StatelessWidget {
 }
 
 // ─── 3-dots buffering indicator ───────────────────────────────────────────────
-class _BufferingDotsIndicator extends StatefulWidget {
-  const _BufferingDotsIndicator();
+// ─── Buffering overlay ─────────────────────────────────────────────────────────
+// Uses the same bouncing-dots animation as the initial-load indicator
+// (_ThreeDotsAnimation in watch_detail_view.dart).  Shows how much of the
+// stream is buffered (0–100 %) so the user can gauge when playback resumes.
+
+class _BufferingDotsIndicator extends StatelessWidget {
+  /// Fraction of total duration already buffered (0.0–1.0).
+  /// Pass –1 to omit the percentage label.
+  final double bufferFrac;
+  const _BufferingDotsIndicator({this.bufferFrac = -1});
 
   @override
-  State<_BufferingDotsIndicator> createState() => _BufferingDotsIndicatorState();
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _PlayerJumpingDots(),
+        if (bufferFrac >= 0) ...[
+          const SizedBox(height: 8),
+          Text(
+            '${(bufferFrac * 100).round()} %',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
-class _BufferingDotsIndicatorState extends State<_BufferingDotsIndicator>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
+/// Bouncing-dots animation (same visual as _ThreeDotsAnimation in the detail
+/// view, duplicated here to avoid a circular import).
+class _PlayerJumpingDots extends StatefulWidget {
+  const _PlayerJumpingDots();
+  @override
+  State<_PlayerJumpingDots> createState() => _PlayerJumpingDotsState();
+}
+
+class _PlayerJumpingDotsState extends State<_PlayerJumpingDots>
+    with TickerProviderStateMixin {
+  final List<AnimationController> _ctrls = [];
+  final List<Animation<double>> _anims = [];
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat();
+    for (int i = 0; i < 3; i++) {
+      final c = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 500),
+      );
+      _ctrls.add(c);
+      _anims.add(Tween<double>(begin: 0, end: -9).animate(
+        CurvedAnimation(parent: c, curve: Curves.easeInOut),
+      ));
+      Future.delayed(Duration(milliseconds: i * 140), () {
+        if (mounted) c.repeat(reverse: true);
+      });
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    for (final c in _ctrls) c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        final step = (_ctrl.value * 3).floor();
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (i) {
-            final active = i <= step;
-            return Container(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        return AnimatedBuilder(
+          animation: _anims[i],
+          builder: (_, __) => Transform.translate(
+            offset: Offset(0, _anims[i].value),
+            child: Container(
+              width: 7,
+              height: 7,
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 8,
-              height: 8,
               decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.85),
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: active ? 0.9 : 0.3),
               ),
-            );
-          }),
+            ),
+          ),
         );
-      },
+      }),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -94,8 +95,36 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     _headerTitleOpacity.value = (pixels / 80.0).clamp(0.0, 1.0);
   }
 
+  // Track last orientation so we only call SystemChrome when it changes
+  bool _lastWasLandscape = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    if (isLandscape != _lastWasLandscape) {
+      _lastWasLandscape = isLandscape;
+      if (isLandscape) {
+        // Hide system UI so there are no black bars from the nav bar or
+        // status bar eating into the fullscreen video area.
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: SystemUiOverlay.values,
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
+    // Restore system UI when leaving the page
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     _nestedScrollCtrl.removeListener(_onScroll);
     _nestedScrollCtrl.dispose();
     _headerTitleOpacity.dispose();
@@ -201,7 +230,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: isLandscape ? Colors.black : _bg,
+      // In landscape the body must extend behind the bottom navigation bar
+      // so the video fills edge-to-edge without a black gap at the bottom.
+      extendBody: isLandscape,
       body: isLandscape
           ? _buildLandscape(chapters)
           : _buildPortrait(chapters),
