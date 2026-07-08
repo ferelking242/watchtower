@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
@@ -463,8 +463,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                 ),
                               ),
                             ),
-                            child: const Text('Voir tout',
-                                style: TextStyle(color: Colors.white70)),
+                            child: Text(ctx.l10n.view_all,
+                                style: const TextStyle(color: Colors.white70)),
                           ),
                         ],
                       ),
@@ -520,8 +520,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                               ),
                             ),
                           ),
-                          child: const Text('Voir tout',
-                              style: TextStyle(color: Colors.white70)),
+                          child: Text(ctx.l10n.view_all,
+                              style: const TextStyle(color: Colors.white70)),
                         ),
                       ],
                     ),
@@ -902,10 +902,10 @@ class _HeroBannerSection extends ConsumerWidget {
 
   Widget _buildShimmerHero(BuildContext ctx) {
     final width = MediaQuery.of(ctx).size.width;
-    return Shimmer(
-      gradient: nfShimmerGradient,
+    return Skeletonizer(
+      enabled: true,
       child: Container(
-        color:  Colors.black,
+        color:  Colors.grey[900],
         width:  width,
         height: width + (width * .6),
       ),
@@ -973,8 +973,8 @@ class _NfContentRow extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
                   ),
-                  child: const Text('Voir tout',
-                      style: TextStyle(fontSize: 13)),
+                  child: Text(ctx.l10n.view_all,
+                      style: const TextStyle(fontSize: 13)),
                 ),
             ],
           ),
@@ -1006,12 +1006,12 @@ class _NfContentRow extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Shimmer(
-            gradient: nfShimmerGradient,
+          child: Skeletonizer(
+            enabled: true,
             child: Container(
               width:  140, height: 16,
               decoration: BoxDecoration(
-                color:        Colors.black,
+                color:        Colors.grey[900],
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -1030,8 +1030,8 @@ class _NfShimmerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 180.0,
-      child: Shimmer(
-        gradient: nfShimmerGradient,
+      child: Skeletonizer(
+        enabled: true,
         child: ListView(
           scrollDirection: Axis.horizontal,
           physics:         const NeverScrollableScrollPhysics(),
@@ -1043,7 +1043,7 @@ class _NfShimmerRow extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8.0),
-                color:        Colors.black,
+                color:        Colors.grey[900],
               ),
             ),
           ),
@@ -1059,8 +1059,8 @@ class _NfShimmerNewHot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    return Shimmer(
-      gradient: nfShimmerGradient,
+    return Skeletonizer(
+      enabled: true,
       child: Column(
         children: List.generate(
           2,
@@ -1095,11 +1095,11 @@ class _NfShimmerNewHot extends StatelessWidget {
 class _NfShimmerPosterTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Shimmer(
-      gradient: nfShimmerGradient,
+    return Skeletonizer(
+      enabled: true,
       child: Container(
         decoration: BoxDecoration(
-          color:        Colors.black,
+          color:        Colors.grey[900],
           borderRadius: BorderRadius.circular(8),
         ),
       ),

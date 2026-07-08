@@ -852,5 +852,9 @@
     }
   },
   "tts_settings": "TTS Settings",
-  "tts_default": "Default"
+  "tts_default": "Default",
+  "view_all": "View all",
+  "for_you": "For you",
+  "following_tab": "Following",
+  "explore_tab": "Explore"
 }

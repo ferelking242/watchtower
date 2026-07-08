@@ -1,5 +1,4 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -109,7 +108,7 @@ GoRouter router(Ref ref) {
   final destination = needsOnboarding ? '/onboarding' : mainLocation;
 
   return GoRouter(
-    observers: [BotToastNavigatorObserver()],
+    observers: [],
     initialLocation: destination,
     debugLogDiagnostics: kDebugMode,
     refreshListenable: router,

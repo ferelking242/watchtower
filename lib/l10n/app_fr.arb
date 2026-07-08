@@ -746,5 +746,9 @@
   "tts_next": "Paragraphe suivant",
   "tts_paragraph_progress": "Paragraphe {current} sur {total}",
   "tts_settings": "Paramètres TTS",
-  "tts_default": "Par défaut"
+  "tts_default": "Par défaut",
+  "view_all": "Voir tout",
+  "for_you": "Pour toi",
+  "following_tab": "Suivis",
+  "explore_tab": "Explorer"
 }

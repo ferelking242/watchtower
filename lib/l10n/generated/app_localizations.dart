@@ -4336,6 +4336,13 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Default'**
   String get tts_default;
+  String get view_all;
+
+  String get for_you;
+
+  String get following_tab;
+
+  String get explore_tab;
 }
 
 class _AppLocalizationsDelegate

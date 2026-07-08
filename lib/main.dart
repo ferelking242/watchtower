@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'utils/io_stub.dart';
 import 'package:app_links/app_links.dart';
 import 'package:archive/archive.dart';
-import 'package:bot_toast/bot_toast.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart'
     hide WebViewEnvironment, WebViewEnvironmentSettings;
 import 'package:flutter/foundation.dart';
@@ -419,7 +418,6 @@ class _MyAppState extends ConsumerState<MyApp>
           ...spotube_l10n.AppLocalizations.supportedLocales,
         }.toList(),
       builder: (context, child) {
-        child = BotToastInit()(context, child);
         if (!kIsWeb && !Platform.isLinux) {
           final isUnlocked = ref.watch(appUnlockedStateProvider);
           final lockEnabled = ref.watch(appLockEnabledStateProvider);

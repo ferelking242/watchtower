@@ -2368,4 +2368,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tts_default => 'Par défaut';
+  @override
+  String get view_all => 'Voir tout';
+
+  @override
+  String get for_you => 'Pour toi';
+
+  @override
+  String get following_tab => 'Suivis';
+
+  @override
+  String get explore_tab => 'Explorer';
 }

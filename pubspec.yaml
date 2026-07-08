@@ -33,7 +33,7 @@ dependencies:
     git:
       url: https://github.com/kodjodevf/flutter_inappwebview.git
       path: flutter_inappwebview
-      ref: master
+      ref: d4921f953ef75bdc21de6aed498a3badab696aa6
   draggable_menu: ^4.4.1
   isar_community: ^3.3.2
   isar_community_flutter_libs: ^3.3.2
@@ -43,9 +43,7 @@ dependencies:
   file_picker: ^11.0.2
   path_provider: ^2.1.5
   scrollable_positioned_list: ^0.3.8
-  bot_toast: ^4.1.3
   munchtoast: ^0.1.2
-  fluttertoast: ^8.2.12
   flutter_web_auth_2:
     git:
       url: https://github.com/ThexXTURBOXx/flutter_web_auth_2.git
@@ -57,14 +55,17 @@ dependencies:
     git:
       url: https://github.com/kodjodevf/media-kit.git
       path: media_kit
+      ref: f5796d287b642548e7e703bbc592f01dd7b1befe
   media_kit_video:
     git:
       url: https://github.com/kodjodevf/media-kit.git
       path: media_kit_video
+      ref: f5796d287b642548e7e703bbc592f01dd7b1befe
   media_kit_libs_video:
     git:
       url: https://github.com/kodjodevf/media-kit.git
       path: libs/universal/media_kit_libs_video
+      ref: f5796d287b642548e7e703bbc592f01dd7b1befe
   crypto: ^3.0.7
   cupertino_icons: ^1.0.9
   d4rt: ^0.2.2
@@ -91,7 +92,7 @@ dependencies:
     git:
       url: https://github.com/kodjodevf/desktop_webview_window.git
       path: packages/desktop_webview_window
-      ref: main
+      ref: 81653aaaa923da75d943513c67f693ccbabeba09
   volume_controller: ^3.4.4
   screen_brightness: ^2.1.1
   flutter_html: ^3.0.0
@@ -117,7 +118,6 @@ dependencies:
   flutter_tts: ^4.2.5
   flutter_local_notifications: ^18.0.1
   skeletonizer: ^2.1.0+1
-  shimmer: ^3.0.0
   speech_to_text: ^7.0.0
   flutter_svg: ^2.0.17
   lottie: ^3.1.0
@@ -270,7 +270,7 @@ dependency_overrides:
     git:
       url: https://github.com/kodjodevf/flutter_inappwebview.git
       path: flutter_inappwebview
-      ref: master
+      ref: d4921f953ef75bdc21de6aed498a3badab696aa6
   bonsoir_android:
     git:
       url: https://github.com/KRTirtho/Bonsoir.git

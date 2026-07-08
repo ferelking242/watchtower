@@ -17,7 +17,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:munchtoast/munchtoast.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -46,13 +46,18 @@ const _kFitNames = <BoxFit, String>{
 // ─── Native-style toast (used app-wide inside the player, replaces the old
 // custom purple toasts / SnackBars) ─────────────────────────────────────────
 void _playerToast(String message) {
-  Fluttertoast.showToast(
-    msg: message,
-    toastLength: Toast.LENGTH_SHORT,
-    gravity: ToastGravity.BOTTOM,
-    backgroundColor: const Color(0xE6212121),
-    textColor: Colors.white,
-    fontSize: 14,
+  final context = navigatorKey.currentState?.context;
+  if (context == null) return;
+  MunchToast.show(
+    context,
+    message: message,
+    type: MunchToastType.info,
+    position: MunchToastPosition.bottom,
+    duration: const Duration(seconds: 2),
+    textStyle: const TextStyle(fontSize: 14, color: Colors.white),
+    margin: const EdgeInsets.only(bottom: 8, right: 12, left: 12),
+    borderRadius: 12,
+    elevation: 4,
   );
 }
 

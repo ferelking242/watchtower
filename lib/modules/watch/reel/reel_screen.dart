@@ -14,6 +14,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/watch/reel/creator_profile_screen.dart';
 import 'package:isar_community/isar.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 
 // ── ReelScreen ─────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ const _kTabPourToi  = 2;
 
 // ── Niche filter list (mirrors redgifs.js _NICHES) ────────────────────────────
 const _kNiches = <({String id, String label})>[
-  (id: 'for_you',              label: 'Pour toi'),
+  (id: 'for_you',              label: 'For you'),
   (id: 'niche_just-boobs',     label: 'Just Boobs'),
   (id: 'niche_blowjobs',       label: 'Blowjobs'),
   (id: 'niche_thick-booty',    label: 'Thick Booty'),
@@ -228,10 +229,10 @@ class _ReelScreenState extends ConsumerState<ReelScreen>
               fontSize: 15, fontWeight: FontWeight.w500),
           splashFactory: NoSplash.splashFactory,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
-          tabs: const [
-            Tab(text: 'Explorer'),
-            Tab(text: 'Suivis'),
-            Tab(text: 'Pour toi'),
+          tabs: [
+            Tab(text: context.l10n.explore_tab),
+            Tab(text: context.l10n.following_tab),
+            Tab(text: context.l10n.for_you),
           ],
         ),
         actions: [

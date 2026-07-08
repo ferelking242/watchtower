@@ -2363,6 +2363,17 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get tts_default => 'Default';
+  @override
+  String get view_all => 'View all';
+
+  @override
+  String get for_you => 'For you';
+
+  @override
+  String get following_tab => 'Following';
+
+  @override
+  String get explore_tab => 'Explore';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).
