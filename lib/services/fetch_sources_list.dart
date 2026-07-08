@@ -325,7 +325,9 @@ Future<void> fetchSourcesList({
       if (autoUpdateExtensions) {
         toAutoUpdate.add(source);
       } else {
-        toVersionBump.add(existing..versionLast = source.version);
+        toVersionBump.add(existing
+        ..versionLast      = source.version
+        ..additionalParams = source.additionalParams ?? "");
       }
     }
 
@@ -358,7 +360,8 @@ Future<void> fetchSourcesList({
         ..lastUsed = false
         ..isObsolete = false
         ..isLocal = false
-        ..notes = s.notes
+        ..notes            = s.notes
+        ..additionalParams = s.additionalParams ?? ""
         ..repo = repo
         ..updatedAt = now).toList();
       await isar.writeTxn(() async => isar.sources.putAll(built));
