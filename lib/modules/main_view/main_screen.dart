@@ -534,7 +534,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               MediaQuery.of(ctx).padding.bottom;
                           // Floating dock height
                           final dockHeight =
-                              dockStyle == 'classic' ? 50.0 : 72.0;
+                              dockStyle == 'classic' ? 56.0 : 72.0;
                           return Positioned(
                             bottom: dockHeight + bottomInset,
                             left: 0,
@@ -864,6 +864,28 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         selectedIcon: Icon(Icons.extension_rounded),
         icon: Icon(Icons.extension_outlined),
         label: 'Plugins',
+      );
+    }
+    // ── Routes absents du destMap → dock classique n'affichait que 2 éléments ─
+    if (dest.contains('/discover')) {
+      destMap['/discover'] = NavigationDestination(
+        selectedIcon: const Icon(Icons.travel_explore),
+        icon: const Icon(Icons.travel_explore_outlined),
+        label: l10n.discover,
+      );
+    }
+    if (dest.contains('_enableLibrarySwitch')) {
+      destMap['_enableLibrarySwitch'] = NavigationDestination(
+        selectedIcon: const Icon(Icons.collections_bookmark),
+        icon: const Icon(Icons.collections_bookmark_outlined),
+        label: l10n.library,
+      );
+    }
+    if (dest.contains('_disableLibrarySwitch')) {
+      destMap['_disableLibrarySwitch'] = NavigationDestination(
+        selectedIcon: const Icon(Icons.arrow_back),
+        icon: const Icon(Icons.arrow_back),
+        label: l10n.go_back,
       );
     }
 
@@ -2296,7 +2318,7 @@ class _ClassicDock extends StatelessWidget {
         ),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        height: 64,
+        height: 56,
         shadowColor: Colors.transparent,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((states) {
