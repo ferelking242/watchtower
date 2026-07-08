@@ -100,21 +100,21 @@ jobs:
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING" "$PBXPROJ" | sort -u || true
 
       # ── Build ────────────────────────────────────────────────────────────────
-      # Méthode identique au build vert (run 28726757721 / sha 5d3da36f):
+      # Mode debug : pas de gen_snapshot AOT → ~2-4x plus rapide que release.
       # Phase 1: config-only pour générer le glue Flutter
       # Phase 2: xcodebuild direct avec CODE_SIGNING_ALLOWED=NO
-      - name: Build iOS (no codesign)
+      - name: Build iOS (debug, no codesign)
         run: |
           set -euo pipefail
 
-          flutter build ios --release --no-codesign --config-only 2>&1 | tail -20 || true
+          flutter build ios --debug --no-codesign --config-only 2>&1 | tail -20 || true
 
           echo "=== xcodebuild start ==="
           set +e
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
-            -configuration Release \
+            -configuration Debug \
             -sdk iphoneos \
             -destination "generic/platform=iOS" \
             CODE_SIGNING_ALLOWED=NO \
@@ -136,7 +136,7 @@ jobs:
             exit "$XCODE_EXIT"
           fi
 
-          APP_SRC="build/ios/derived/Build/Products/Release-iphoneos/Runner.app"
+          APP_SRC="build/ios/derived/Build/Products/Debug-iphoneos/Runner.app"
           if [ ! -d "$APP_SRC" ]; then
             echo "ERROR: Runner.app introuvable à $APP_SRC" >&2
             ls -la build/ios/derived/Build/Products/ 2>/dev/null || echo "Derived products dir absent"
@@ -260,20 +260,20 @@ jobs:
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r9 Watchtower-iOS.ipa Payload/
+          zip -r9 Watchtower-iOS-debug.ipa Payload/
           rm -rf Payload
-          IPA_SIZE=$(du -sh Watchtower-iOS.ipa | cut -f1)
+          IPA_SIZE=$(du -sh Watchtower-iOS-debug.ipa | cut -f1)
           echo "=== IPA: $IPA_SIZE ==="
           echo "=== Frameworks dans IPA ==="
-          unzip -l Watchtower-iOS.ipa | grep "Frameworks/.*.framework/$" | wc -l
+          unzip -l Watchtower-iOS-debug.ipa | grep "Frameworks/.*.framework/$" | wc -l
           echo "=== Vérif wakelock_plus (doit être absent — static lib) ==="
-          unzip -l Watchtower-iOS.ipa | grep wakelock || echo "wakelock_plus: static (absent) ✓"
+          unzip -l Watchtower-iOS-debug.ipa | grep wakelock || echo "wakelock_plus: static (absent) ✓"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: watchtower-ios-ipa
-          path: Watchtower-iOS.ipa
+          name: watchtower-ios-debug-ipa
+          path: Watchtower-iOS-debug.ipa
           compression-level: 0
           retention-days: 30
 
@@ -283,7 +283,7 @@ jobs:
           tag_name: ios-latest
           name: "Watchtower iOS (TrollStore)"
           prerelease: true
-          files: Watchtower-iOS.ipa
+          files: Watchtower-iOS-debug.ipa
           body: IPA pour TrollStore (iPhone 7 / iOS 15+). Build auto depuis main.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -294,7 +294,7 @@ jobs:
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build iOS OK" \
             -H "Priority: default" \
-            -d "IPA built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "IPA debug built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
 
       - name: Notify ntfy (build FAILED)
         if: failure()

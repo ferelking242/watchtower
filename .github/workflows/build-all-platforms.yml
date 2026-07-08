@@ -101,14 +101,14 @@ jobs:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
         run: |
           flutter build apk \
-            --profile \
+            --debug \
             --target-platform ${{ matrix.target }} \
             --split-per-abi
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
           mkdir -p artifacts apk_raw
-          TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-profile.apk"
+          TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-debug.apk"
           if [ ! -f "$TARGET_APK" ]; then
             echo "ERROR: $TARGET_APK not found. Available:"
             ls -lh build/app/outputs/flutter-apk/ || true
@@ -222,12 +222,12 @@ jobs:
       - name: Build Universal APK
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
-        run: flutter build apk --profile
+        run: flutter build apk --debug
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
           mkdir -p apk_raw
-          TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
+          TARGET_APK="build/app/outputs/flutter-apk/app-debug.apk"
           echo "APK size: $(du -sh $TARGET_APK)"
           unzip -q "$TARGET_APK" -d apk_raw/
           echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"

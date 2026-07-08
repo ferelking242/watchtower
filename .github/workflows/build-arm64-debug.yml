@@ -1,4 +1,4 @@
-name: Build Android ARMv8 Release
+name: Build Android ARMv8 Debug
 
 on:
   push:
@@ -7,12 +7,17 @@ on:
     branches: [ main, master, service-dart-fix ]
   workflow_dispatch:
 
+# Annule le build précédent dès qu'un nouveau push arrive — seul le dernier tourne.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build ARMv8 Release APK
+    name: Build ARMv8 Debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +25,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+          # 50 commits suffisent pour le changelog (le tag précédent est rarement plus loin)
+          fetch-depth: 50
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -72,10 +78,15 @@ jobs:
             /usr/local/lib/android/sdk/cmake/3.22.1
           key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
 
-      # NOTE: Flutter build intermediates (.dart_tool, build/flutter_build) are intentionally
-      # NOT cached. Caching them with restore-keys caused stale Dart kernel reuse when the
-      # exact key missed — leading to APKs that silently contained old code. Flutter's
-      # incremental compiler is fast enough without this cache (~30s on warm pub/Gradle).
+      # Cache .dart_tool — valide en mode debug (JIT incrémental).
+      # Clé exacte sur lib/**/*.dart + pubspec.lock, sans restore-keys → zéro risque de stale kernel.
+      - name: Cache Flutter build intermediates (debug only)
+        uses: actions/cache@v4
+        with:
+          path: |
+            .dart_tool
+            build/flutter_build
+          key: flutter-debug-${{ runner.os }}-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
 
       # Pre-install Rust Android target pour eviter le download live dans Gradle
       - name: Install Rust Android target
@@ -186,17 +197,14 @@ jobs:
         if: steps.icons-cache.outputs.cache-hit != 'true'
         run: dart run flutter_launcher_icons
 
-      - name: Build APK (ARMv8 release)
+      - name: Build APK (ARMv8 debug)
         env:
-          # NOTE: -Dorg.gradle.caching=false (not true) — local build cache is disabled.
-          # With caching=true, Gradle replays cached task outputs by input hash, which can
-          # skip Flutter's Dart kernel recompilation even when lib/ files changed.
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=false -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
         run: |
           for attempt in 1 2 3; do
             echo "--- Build attempt $attempt/3 ---"
             if flutter build apk \
-              --release \
+              --debug \
               --target-platform android-arm64 \
               --split-per-abi \
               --build-name=${{ steps.ver.outputs.name }} \
@@ -213,55 +221,47 @@ jobs:
             fi
           done
 
-      - name: Rename APK (for GitHub Release — raw APK stays installable)
+      - name: Rename APK
         run: |
-          SRC=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+          SRC=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.apk
           cp "$SRC" "$DST"
           echo "APK: $(du -sh $DST | cut -f1)"
 
       - name: FitGirl-style artifact — LZMA2 ultra compressed APK
         run: |
-          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.apk
           echo "APK size: $(du -sh $APK)"
-          # Compress the APK file directly (not the extracted contents).
-          # .so libs are STORED uncompressed in the APK → LZMA2 ultra compresses them 40-60%.
-          # Download: .zip(.7z(APK)) — unzip → .7z → extract → installable APK.
           7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
-            Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.7z \
+            Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.7z \
             "$APK"
           echo "=== Compressed artifact ==="
-          ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.7z
+          ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.7z
 
       - name: Upload raw APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-raw
-          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug-raw
+          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.apk
           compression-level: 0
           retention-days: 30
 
       - name: Upload 7z compressed artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-7z
-          path: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.7z
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug-7z
+          path: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.7z
           compression-level: 0
           retention-days: 30
 
-      - name: Create GitHub Release
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.ver.outputs.tag }}
-          name: "Watchtower ${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})"
-          body_path: ${{ steps.changelog.outputs.file }}
-          draft: false
-          prerelease: false
-          files: |
-            build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Notify ntfy (build OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Debug OK" \
+            -H "Priority: default" \
+            -H "Tags: white_check_mark" \
+            -d "APK debug arm64 — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
 
       - name: Notify ntfy (build FAILED)
         if: failure()
