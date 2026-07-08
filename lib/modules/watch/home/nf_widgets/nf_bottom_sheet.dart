@@ -13,6 +13,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart'
     show pushToMangaReaderDetail;
+import 'package:isar_community/isar.dart';
 import 'nf_bottom_sheet_button.dart';
 import 'nf_poster_image.dart';
 import 'nf_utils.dart';

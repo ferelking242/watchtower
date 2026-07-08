@@ -13,6 +13,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/watch/reel/creator_profile_screen.dart';
+import 'package:isar_community/isar.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 
 // ── ReelScreen ─────────────────────────────────────────────────────────────
