@@ -472,7 +472,9 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
   @override
   void dispose() {
     _fitNotifier.dispose();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // Restore to system-default (all orientations) rather than hard-locking
+    // portraitUp, which would prevent the calling screen from rotating freely.
+    SystemChrome.setPreferredOrientations([]);
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
