@@ -23,3 +23,6 @@ outputType = "console"
 
 [agent]
 expertMode = true
+
+[nix]
+channel = "stable-25_05"
