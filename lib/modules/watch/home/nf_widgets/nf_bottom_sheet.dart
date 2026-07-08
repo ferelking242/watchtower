@@ -51,14 +51,29 @@ class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
       TweenSequenceItem(tween: Tween(begin: 0.88, end: 1.0),  weight: 30),
     ]).animate(CurvedAnimation(parent: _bounceCtrl, curve: Curves.easeOut));
 
-    // Check if already favourited in Isar
-    final existing = isar.mangas
-        .filter()
-        .langEqualTo(widget.source.lang)
-        .nameEqualTo(widget.manga.name)
-        .sourceEqualTo(widget.source.name)
-        .findFirstSync();
+    // Check if already favourited — mirror pushToMangaReaderDetail disambiguation
+    final existing = _findExisting();
     if (existing?.favorite == true) _added = true;
+  }
+
+  /// Mirrors the sourceId-aware lookup used in pushToMangaReaderDetail so we
+  /// always target the correct record when the same title exists for multiple
+  /// sourceIds (e.g. different regions of the same extension).
+  Manga? _findExisting() {
+    final s = widget.source;
+    final m = widget.manga;
+    if (m.name == null || s.lang == null || s.name == null) return null;
+    final candidates = isar.mangas
+        .filter()
+        .langEqualTo(s.lang)
+        .nameEqualTo(m.name)
+        .sourceEqualTo(s.name)
+        .findAllSync();
+    if (candidates.isEmpty) return null;
+    return candidates.firstWhere(
+      (e) => e.sourceId == null ? true : e.sourceId == s.id,
+      orElse: () => candidates.first,
+    );
   }
 
   @override
@@ -74,25 +89,29 @@ class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
     final m = widget.manga;
     final s = widget.source;
 
-    final existing = isar.mangas
-        .filter()
-        .langEqualTo(s.lang)
-        .nameEqualTo(m.name)
-        .sourceEqualTo(s.name)
-        .findFirstSync();
+    // Guard against malformed extension data
+    final name = m.name?.trim();
+    final lang = s.lang;
+    final src  = s.name;
+    if (name == null || name.isEmpty || lang == null || src == null) {
+      _bounceCtrl.forward(from: 0);
+      return;
+    }
+
+    final existing = _findExisting();
 
     if (existing == null) {
       // Not in Isar yet — create and mark favourite
       final manga = Manga(
         imageUrl:    m.imageUrl,
-        name:        m.name!.trim(),
+        name:        name,
         genre:       m.genre?.map((e) => e.toString()).toList() ?? [],
         author:      m.author       ?? '',
         status:      m.status       ?? Status.unknown,
         description: m.description  ?? '',
         link:        m.link,
-        source:      s.name!,
-        lang:        s.lang!,
+        source:      src,
+        lang:        lang,
         lastUpdate:  0,
         itemType:    s.itemType,
         artist:      m.artist ?? '',
@@ -107,7 +126,7 @@ class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
       });
       setState(() => _added = true);
     } else {
-      // Toggle existing favourite flag
+      // Toggle existing favourite flag (sourceId-disambiguated record)
       final newVal = !(existing.favorite ?? false);
       isar.writeTxnSync(() {
         isar.mangas.putSync(
