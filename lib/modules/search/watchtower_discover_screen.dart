@@ -20,6 +20,8 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/search.dart';
+import 'package:watchtower/modules/main_view/widgets/namida_inner_drawer.dart';
+import 'package:watchtower/modules/search/widgets/discover_drawer.dart';
 
 // ── Display mode ───────────────────────────────────────────────────────────────
 
@@ -182,6 +184,7 @@ class WatchtowerDiscoverScreen extends ConsumerStatefulWidget {
 
 class _WatchtowerDiscoverScreenState
     extends ConsumerState<WatchtowerDiscoverScreen> {
+  final _drawerKey = GlobalKey<NamidaInnerDrawerState>();
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _debounce;
@@ -799,7 +802,15 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     final showFilters =
         _mode != _DiscoverMode.music && _mode != _DiscoverMode.custom;
 
-    return Scaffold(
+    return NamidaInnerDrawer(
+      key: _drawerKey,
+      borderRadius: 28.0,
+      maxPercentage: 0.78,
+      initiallySwipeable: true,
+      drawerChild: WatchtowerDiscoverDrawer(
+        onClose: () => _drawerKey.currentState?.close(),
+      ),
+      child: Scaffold(
       floatingActionButton: _showFab ? _buildFab(cs) : null,
       body: SafeArea(
         bottom: false,
@@ -813,6 +824,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               cs: cs,
               isDark: isDark,
               searchCollapsed: _searchCollapsed && showSearch,
+              onDrawerTap: () => _drawerKey.currentState?.toggle(),
               onMoreTap: () => _showMoreSheet(context),
               onSearchTap: _expandSearch,
               onModeChanged: (m) {
@@ -883,7 +895,8 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           ],
         ),
       ),
-    );
+    ), // Scaffold
+    ); // NamidaInnerDrawer
   }
 
   // ── FAB ───────────────────────────────────────────────────────────────────────
@@ -1483,6 +1496,7 @@ class _DiscoveryHeader extends StatelessWidget {
   final ColorScheme cs;
   final bool isDark;
   final bool searchCollapsed;
+  final VoidCallback onDrawerTap;
   final VoidCallback onMoreTap;
   final VoidCallback onSearchTap;
   final void Function(_DiscoverMode) onModeChanged;
@@ -1493,6 +1507,7 @@ class _DiscoveryHeader extends StatelessWidget {
     required this.cs,
     required this.isDark,
     required this.searchCollapsed,
+    required this.onDrawerTap,
     required this.onMoreTap,
     required this.onSearchTap,
     required this.onModeChanged,
@@ -1503,12 +1518,19 @@ class _DiscoveryHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Row 1: "Discovery" title + action buttons ──────────────────────
+        // ── Row 1: hamburger + "Discovery" title + action buttons ────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 4),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // ── Hamburger (3 lines, opens Namida-style drawer) ──────────
+              _HamburgerBtn(
+                cs: cs,
+                isDark: isDark,
+                onTap: onDrawerTap,
+              ),
+              const SizedBox(width: 10),
               const Expanded(
                 child: Text(
                   'Discovery',
@@ -1565,6 +1587,70 @@ class _DiscoveryHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Hamburger button (3 lines — opens Namida-style side drawer) ──────────────
+
+class _HamburgerBtn extends StatelessWidget {
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _HamburgerBtn({
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lineColor = isDark
+        ? Colors.white.withValues(alpha: 0.78)
+        : Colors.black.withValues(alpha: 0.70);
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top line — full width
+            Container(
+              width: 22,
+              height: 2,
+              decoration: BoxDecoration(
+                color: lineColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 4.5),
+            // Middle line — slightly shorter (gives the "hamburger" feel)
+            Container(
+              width: 16,
+              height: 2,
+              decoration: BoxDecoration(
+                color: lineColor.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 4.5),
+            // Bottom line — full width
+            Container(
+              width: 22,
+              height: 2,
+              decoration: BoxDecoration(
+                color: lineColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
