@@ -131,7 +131,13 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       context.push('/localSources', extra: widget.itemType);
       return;
     }
-    if (source.itemType == ItemType.anime) {
+    if (source.additionalParams?.contains('type=reel') ?? false) {
+      context.pushNamed('reel', extra: {
+        'source': source,
+        'listId': 'for_you',
+        'startGifId': null,
+      });
+    } else if (source.itemType == ItemType.anime) {
       context.push('/watchHome', extra: (source, false));
     } else if (source.itemType == ItemType.novel) {
       context.push('/novelHome', extra: (source, false));

@@ -57,6 +57,12 @@ class SourceListTile extends StatelessWidget {
           );
           if (isLocal) {
             context.push('/localSources', extra: itemType);
+          } else if (source.additionalParams?.contains('type=reel') ?? false) {
+            context.pushNamed('reel', extra: {
+              'source': source,
+              'listId': 'for_you',
+              'startGifId': null,
+            });
           } else if (source.itemType == ItemType.anime) {
             context.push('/watchHome', extra: (source, false));
           } else if (source.itemType == ItemType.novel) {
