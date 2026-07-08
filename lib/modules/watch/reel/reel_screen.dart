@@ -235,8 +235,11 @@ class _LiveBadge extends StatelessWidget {
   }
 }
 
+// ── Media type filter ─────────────────────────────────────────────────────────
+enum _MediaType { all, gif, image }
+
 // ══════════════════════════════════════════════════════════════════════════════
-// EXPLORER TAB — 2-col masonry grid + niche filter chips
+// EXPLORER TAB — 2-col masonry grid + niche filter chips + GIF/Image toggle
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _ExplorerTab extends ConsumerStatefulWidget {
@@ -248,7 +251,8 @@ class _ExplorerTab extends ConsumerStatefulWidget {
 
 class _ExplorerTabState extends ConsumerState<_ExplorerTab>
     with AutomaticKeepAliveClientMixin {
-  int  _selNiche = 0;
+  int        _selNiche  = 0;
+  _MediaType _mediaType = _MediaType.all;
   final List<MManga> _items = [];
   int  _page    = 1;
   bool _hasNext = true;
@@ -257,6 +261,15 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
   final _scroll = ScrollController();
 
   @override bool get wantKeepAlive => true;
+
+  // Resolved listId: type filter takes priority, niche chips apply when 'Tout'
+  String get _listId {
+    switch (_mediaType) {
+      case _MediaType.gif:   return 'explorer_gif';
+      case _MediaType.image: return 'explorer_image';
+      case _MediaType.all:   return _kNiches[_selNiche].id;
+    }
+  }
 
   @override
   void initState() {
@@ -278,7 +291,7 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
     try {
       final res = await ref.read(getCustomListProvider(
         source: widget.source,
-        listId: _kNiches[_selNiche].id,
+        listId: _listId,
         page: _page,
       ).future);
       if (res != null && mounted) {
@@ -297,9 +310,22 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
   }
 
   void _selectNiche(int idx) {
-    if (idx == _selNiche) return;
+    if (idx == _selNiche && _mediaType == _MediaType.all) return;
     setState(() {
-      _selNiche = idx;
+      _selNiche  = idx;
+      _mediaType = _MediaType.all;
+      _items.clear();
+      _page    = 1;
+      _hasNext = true;
+      _init    = true;
+    });
+    _load();
+  }
+
+  void _selectType(_MediaType t) {
+    if (t == _mediaType) return;
+    setState(() {
+      _mediaType = t;
       _items.clear();
       _page    = 1;
       _hasNext = true;
@@ -311,7 +337,6 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // Split into two columns for masonry
     final left  = <MManga>[];
     final right = <MManga>[];
     for (var i = 0; i < _items.length; i++) {
@@ -321,43 +346,65 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
     return CustomScrollView(
       controller: _scroll,
       slivers: [
-        // ── Niche filter chips ───────────────────────────────────────
+        // ── Type filter (Tout / GIF / Image) ────────────────────────
         SliverToBoxAdapter(
-          child: SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemCount: _kNiches.length,
-              itemBuilder: (ctx, i) {
-                final sel = i == _selNiche;
-                return GestureDetector(
-                  onTap: () => _selectNiche(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: sel ? Colors.black87 : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: sel ? Colors.black87 : Colors.grey.shade300,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _kNiches[i].label,
-                      style: TextStyle(
-                        color: sel ? Colors.white : Colors.black87,
-                        fontSize: 13, fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                );
-              },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: Row(
+              children: [
+                _TypePill(label: 'Tout',  active: _mediaType == _MediaType.all,
+                    onTap: () => _selectType(_MediaType.all)),
+                const SizedBox(width: 8),
+                _TypePill(label: 'GIF',   active: _mediaType == _MediaType.gif,
+                    onTap: () => _selectType(_MediaType.gif)),
+                const SizedBox(width: 8),
+                _TypePill(label: 'Image', active: _mediaType == _MediaType.image,
+                    onTap: () => _selectType(_MediaType.image)),
+              ],
             ),
           ),
         ),
+
+        // ── Niche chips — only visible when "Tout" is selected ───────
+        if (_mediaType == _MediaType.all)
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemCount: _kNiches.length,
+                itemBuilder: (ctx, i) {
+                  final sel = i == _selNiche;
+                  return GestureDetector(
+                    onTap: () => _selectNiche(i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: sel ? Colors.black87 : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: sel ? Colors.black87 : Colors.grey.shade300,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _kNiches[i].label,
+                        style: TextStyle(
+                          color: sel ? Colors.white : Colors.black87,
+                          fontSize: 13, fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          )
+        else
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
         if (_init)
           const SliverFillRemaining(
@@ -404,6 +451,40 @@ class _GridColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: items.map((m) => _ExplorerCard(manga: m)).toList(),
+    );
+  }
+}
+
+// ── Type filter pill ──────────────────────────────────────────────────────────
+
+class _TypePill extends StatelessWidget {
+  final String       label;
+  final bool         active;
+  final VoidCallback onTap;
+  const _TypePill({required this.label, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? Colors.black87 : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active ? Colors.black87 : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : Colors.black54,
+            fontSize: 13, fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -627,6 +708,8 @@ class _CreatorCard extends StatelessWidget {
     final img       = manga.imageUrl ?? '';
     final username  = manga.name ?? '';
 
+    final bannerUrl = (d?['bannerUrl'] as String?) ?? img;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -639,77 +722,112 @@ class _CreatorCard extends StatelessWidget {
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
-          // Avatar
-          Container(
-            width: 72, height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey.shade200,
-              border: Border.all(color: Colors.grey.shade300, width: 1.5),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: img.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: img,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
-                        const Icon(Icons.person, size: 36, color: Colors.grey),
-                  )
-                : const Icon(Icons.person, size: 36, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          // Username + verified
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+          // ── Banner — blurred profile image ───────────────────────────
+          SizedBox(
+            height: 58,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Flexible(
-                  child: Text('@$username',
-                    style: const TextStyle(fontSize: 13,
-                        fontWeight: FontWeight.w700, color: Colors.black87),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                if (verified) ...[
-                  const SizedBox(width: 3),
-                  const Icon(Icons.verified_rounded,
-                      size: 14, color: Color(0xFF1DA1F2)),
-                ],
+                bannerUrl.isNotEmpty
+                    ? ImageFiltered(
+                        imageFilter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                        child: CachedNetworkImage(
+                          imageUrl: bannerUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              Container(color: const Color(0xFF1A1A2E)),
+                        ),
+                      )
+                    : Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF1A1A2E), Color(0xFF2C2C54)],
+                          ),
+                        ),
+                      ),
+                Container(color: Colors.black.withValues(alpha: 0.20)),
               ],
             ),
           ),
-          const SizedBox(height: 3),
-          if (followers > 0)
-            Text('${_fmtCount(followers)} abonnés',
-                style: const TextStyle(fontSize: 11, color: Colors.black45)),
-          if (gifs > 0)
-            Text('$gifs GIFs',
-                style: const TextStyle(fontSize: 11, color: Colors.black38)),
-          const SizedBox(height: 10),
-          // Follow button
-          GestureDetector(
-            onTap: () {},
+          // ── Avatar — overlaps banner with white ring ─────────────────
+          Transform.translate(
+            offset: const Offset(0, -28),
             child: Container(
-              height: 30,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              width: 56, height: 56,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.black87, width: 1.2),
-                borderRadius: BorderRadius.circular(4),
+                shape: BoxShape.circle,
+                color: Colors.grey.shade200,
+                border: Border.all(color: Colors.white, width: 2.5),
               ),
-              alignment: Alignment.center,
-              child: const Text('Suivre',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                    color: Colors.black87)),
+              clipBehavior: Clip.antiAlias,
+              child: img.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: img,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) =>
+                          const Icon(Icons.person, size: 28, color: Colors.grey),
+                    )
+                  : const Icon(Icons.person, size: 28, color: Colors.grey),
             ),
           ),
-          const SizedBox(height: 14),
+          // ── Info — pulled up to compensate avatar translate ──────────
+          Transform.translate(
+            offset: const Offset(0, -20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text('@$username',
+                          style: const TextStyle(fontSize: 13,
+                              fontWeight: FontWeight.w700, color: Colors.black87),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      if (verified) ...[
+                        const SizedBox(width: 3),
+                        const Icon(Icons.verified_rounded,
+                            size: 14, color: Color(0xFF1DA1F2)),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 3),
+                if (followers > 0)
+                  Text('${_fmtCount(followers)} abonnés',
+                      style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                if (gifs > 0)
+                  Text('$gifs GIFs',
+                      style: const TextStyle(fontSize: 11, color: Colors.black38)),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () {},
+                  child: Container(
+                    height: 30,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black87, width: 1.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text('Suivre',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Colors.black87)),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
