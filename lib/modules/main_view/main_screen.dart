@@ -868,10 +868,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     // ── Routes absents du destMap → dock classique n'affichait que 2 éléments ─
     if (dest.contains('/discover')) {
-      destMap['/discover'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.travel_explore),
-        icon: const Icon(Icons.travel_explore_outlined),
-        label: l10n.discover,
+      destMap['/discover'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.travel_explore),
+        icon: Icon(Icons.travel_explore_outlined),
+        label: 'Discover',
       );
     }
     if (dest.contains('_enableLibrarySwitch')) {
@@ -886,6 +886,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         selectedIcon: const Icon(Icons.arrow_back),
         icon: const Icon(Icons.arrow_back),
         label: l10n.go_back,
+      );
+    }
+    if (dest.contains('/MusicLibraryPage')) {
+      destMap['/MusicLibraryPage'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.library_music),
+        icon: Icon(Icons.library_music_outlined),
+        label: 'Music Lib',
       );
     }
 
