@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/watch/reel/reel_screen.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -544,7 +543,7 @@ class _VideoThumb extends StatelessWidget {
       final colon = sub.indexOf(':');
       if (colon < 0) return '';
       final rest = sub.substring(colon + 1).trim();
-      final end = rest.indexWhere((c) => c == ',' || c == '}');
+      final end = rest.indexOf(RegExp(r'[,}]'));
       final numStr = end >= 0 ? rest.substring(0, end).trim() : rest.trim();
       final n = int.tryParse(numStr);
       if (n == null || n == 0) return '';
