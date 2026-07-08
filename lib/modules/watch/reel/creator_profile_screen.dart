@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -480,13 +481,6 @@ class _VideoThumb extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // Import reel link data
-        final link = manga.link ?? '';
-        Map<String, dynamic>? d;
-        try { d = Map<String, dynamic>.from(
-            const Object() as Map<String, dynamic>); }
-        catch (_) {}
-
         context.pushNamed('reel', extra: {
           'source':     source,
           'listId':     'creator_$creator',
@@ -533,9 +527,8 @@ class _VideoThumb extends StatelessWidget {
   String _gifId(String? link) {
     if (link == null) return '';
     try {
-      final d = Map<String, dynamic>.from(
-          (link.startsWith('{') ? {} : {}) as Map<String, dynamic>);
-      return d['gifId'] as String? ?? '';
+      final d = jsonDecode(link) as Map<String, dynamic>;
+      return (d['gifId'] as String?) ?? '';
     } catch (_) {
       return '';
     }
