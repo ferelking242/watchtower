@@ -120,7 +120,7 @@ jobs:
           unzip -q "$TARGET_APK" -d apk_raw/
           echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
           7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
-            "artifacts/app-${{ matrix.label }}-profile.7z" apk_raw/
+            "artifacts/app-${{ matrix.label }}-debug.7z" apk_raw/
           rm -rf apk_raw
           echo "=== Final artifact ==="
           ls -lh artifacts/

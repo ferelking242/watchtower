@@ -78,15 +78,13 @@ jobs:
             /usr/local/lib/android/sdk/cmake/3.22.1
           key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
 
-      # Cache .dart_tool — valide en mode debug (JIT incrémental).
-      # Clé exacte sur lib/**/*.dart + pubspec.lock, sans restore-keys → zéro risque de stale kernel.
+      # Cache .dart_tool/flutter_build uniquement (pas tout .dart_tool — évite les stale metadata).
+      # Clé exacte: OS + Flutter version + mode + sources Dart. Sans restore-keys → zéro stale kernel.
       - name: Cache Flutter build intermediates (debug only)
         uses: actions/cache@v4
         with:
-          path: |
-            .dart_tool
-            build/flutter_build
-          key: flutter-debug-${{ runner.os }}-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
+          path: .dart_tool/flutter_build
+          key: flutter-debug-${{ runner.os }}-3.38.x-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
 
       # Pre-install Rust Android target pour eviter le download live dans Gradle
       - name: Install Rust Android target
