@@ -10,7 +10,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 
-// ── WatchReelScreen ────────────────────────────────────────────────────────────
+// ── ReelScreen ─────────────────────────────────────────────────────────────
 // TikTok-style screen for extensions that return type='reel' links.
 // Three tabs:  Explorer  |  Suivis  |  Pour toi
 //
@@ -60,15 +60,15 @@ String _fmtCount(int n) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WatchReelScreen — main shell
+// ReelScreen — main shell
 // ─────────────────────────────────────────────────────────────────────────────
 
-class WatchReelScreen extends ConsumerStatefulWidget {
+class ReelScreen extends ConsumerStatefulWidget {
   final Source  source;
   final String  listId;      // initial list for Pour toi tab
   final String? startGifId;  // scroll-to target in Pour toi
 
-  const WatchReelScreen({
+  const ReelScreen({
     required this.source,
     required this.listId,
     this.startGifId,
@@ -76,10 +76,10 @@ class WatchReelScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<WatchReelScreen> createState() => _WatchReelScreenState();
+  ConsumerState<ReelScreen> createState() => _ReelScreenState();
 }
 
-class _WatchReelScreenState extends ConsumerState<WatchReelScreen>
+class _ReelScreenState extends ConsumerState<ReelScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
   bool _pourToiActive = true;
@@ -480,7 +480,7 @@ class _ExplorerCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Text('@$author',
+                          child: Text(author.isNotEmpty ? '@$author' : 'Anonyme',
                             style: const TextStyle(
                                 fontSize: 11, color: Colors.black54),
                             maxLines: 1,

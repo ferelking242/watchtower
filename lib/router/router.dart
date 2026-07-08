@@ -67,7 +67,7 @@ import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/novel/home/novel_home_screen.dart';
 import 'package:watchtower/modules/watch/home/watch_home_screen.dart';
-import 'package:watchtower/modules/watch/reel/watch_reel_screen.dart';
+import 'package:watchtower/modules/watch/reel/reel_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/modules/more/about/about_screen.dart';
 import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
@@ -228,8 +228,8 @@ class RouterNotifier extends ChangeNotifier {
       builder: (id) => WatchHomeScreen(source: id.$1!, isLatest: id.$2),
     ),
     _genericRoute<Map<String, dynamic>>(
-      name: "reelFeed",
-      builder: (data) => WatchReelScreen(
+      name: "reel",
+      builder: (data) => ReelScreen(
         source: data['source'] as Source,
         listId: data['listId'] as String,
         startGifId: data['startGifId'] as String?,

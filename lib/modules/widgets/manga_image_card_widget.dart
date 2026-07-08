@@ -93,13 +93,13 @@ class MangaImageCardWidget extends ConsumerWidget {
                   cacheMaxAge: const Duration(days: 3650),
                 ),
           onTap: () {
-            // Reel-type links (e.g. RedGIFs) open in WatchReelScreen (TikTok tabs).
+            // Reel-type links (e.g. RedGIFs) open in ReelScreen (TikTok tabs).
             final link = getMangaDetail!.link;
             if (link != null && link.startsWith('{')) {
               try {
                 final data = jsonDecode(link) as Map<String, dynamic>;
                 if (data['type'] == 'reel') {
-                  context.pushNamed('reelFeed', extra: {
+                  context.pushNamed('reel', extra: {
                     'source': source,
                     'listId': (data['listId'] as String?) ?? 'trending',
                     'startGifId': data['gifId'] as String?,

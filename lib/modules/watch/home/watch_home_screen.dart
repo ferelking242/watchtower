@@ -1946,9 +1946,9 @@ class _CompactCardState extends ConsumerState<_CompactCard>
 }
 
 // ── Reel intercept helper ─────────────────────────────────────────────────────
-// Detects type='reel' in a manga.link JSON string and pushes WatchReelScreen.
+// Detects type='reel' in manga.link and opens ReelScreen (TikTok tabs).
 // Returns true if navigation was handled (caller should skip pushToMangaReaderDetail).
-// WatchReelScreen has 3 tabs: Explorer / Suivis / Pour toi — opens on Pour toi by default.
+// ReelScreen tabs: Explorer / Suivis / Pour toi — opens on Pour toi by default.
 
 bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
   final link = manga.link;
@@ -1956,7 +1956,7 @@ bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
   try {
     final data = jsonDecode(link) as Map<String, dynamic>;
     if (data['type'] != 'reel') return false;
-    context.pushNamed('reelFeed', extra: {
+    context.pushNamed('reel', extra: {
       'source': source,
       'listId': (data['listId'] as String?) ?? 'trending',
       'startGifId': data['gifId'] as String?,
