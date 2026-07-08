@@ -158,7 +158,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       MPages? result;
       if (_isSearching && _query.isNotEmpty) {
         result = await ref.read(searchProvider(
-          source: source, query: _query, page: next).future);
+          source: source, query: _query, page: next,
+          filterList: const []).future);
       } else {
         result = await ref.read(
             getPopularProvider(source: source, page: next).future);
@@ -187,7 +188,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       if (!mounted) return;
       setState(() { _mangaList.clear(); _page = 1; _hasNextPage = true; });
       _getManga = ref.read(
-          searchProvider(source: source, query: q, page: 1));
+          searchProvider(source: source, query: q, page: 1,
+              filterList: const []));
     });
   }
 
@@ -613,7 +615,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       builder: (c, r, _) {
         if (_query.isEmpty) return const SizedBox.shrink();
         final snap = r.watch(
-            searchProvider(source: source, query: _query, page: 1));
+            searchProvider(source: source, query: _query, page: 1,
+                filterList: const []));
         return snap.when(
           data: (d) {
             final items = d?.list ?? [];
